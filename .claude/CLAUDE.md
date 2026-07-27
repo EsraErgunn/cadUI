@@ -1,0 +1,123 @@
+# starcad — Frontend
+
+Web tabanlı doğal gaz tesisat CAD editörü. Kullanıcı 2B'de duvar/oda çizer,
+üzerine gaz borusu + vana + cihaz ekler, 3B ve izometrik görür, PDF (malzeme
+dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestars2026/cadui
+
+## Teknoloji
+
+- React 19 + TypeScript + Vite
+- react-three-fiber + drei + three (TEK render dünyası, Three.js)
+- Zustand + immer (durum), zundo (geri al/yinele)
+- react-router-dom 7, graphlib, martinez-polygon-clipping
+- Test: Vitest. PDF: jspdf + svg2pdf.js
+- Ayrı 2B kanvas kütüphanesi (Konva/Fabric) YOK — 2B de Three.js ortografik kamerayla çizilir.
+  Buradaki <Canvas> = react-three-fiber bileşeni, ayrı bir kütüphane değil.
+
+## Değişmez kurallar (bunları ihlal eden kod üretme)
+
+1. `core/` içinde React YOK. Sadece saf fonksiyon + tip. Testler burada.
+2. `scene/` = <Canvas> İÇİ (R3F). `ui/` = <Canvas> DIŞI (DOM). Karıştırma.
+3. Koordinat dönüşümü SADECE `core/coords.ts`'te: plan (x,y) → three (x, -z), elevation → y.
+   Başka hiçbir dosyada bu dönüşümü tekrarlama.
+4. Store'da yalnızca saf veri durur (= kaydedilecek JSON). Three.js/mesh nesnesi
+   store'a KONMAZ; mesh'te sadece userData.id tutulur. Sahne, state'in türevidir.
+5. Zustand mutasyonları immer producer içinde yapılır (doğrudan atama + return karışık olmaz).
+6. Kalıcı id'ler proje bazlı **artan tamsayı** (`nextUniqueId`) ile üretilir — WebCAD
+   JSON formatıyla round-trip uyumu buna bağlı, `crypto.randomUUID()` KULLANILMAZ.
+   Bir kez üretilir, ASLA yeniden üretilmez. Dizi indeksi id yerine kullanılmaz;
+   React key olarak da id kullanılır, indeks değil. (bkz. knowledge/id-scheme.md)
+7. Araç (tool) çizim mantığı `DrawSurface.tsx`'e YAZILMAZ. DrawSurface sadece ham pointer
+   olayı yayınlar. Araç mantığı kendi hook'unda: `scene/useWallTool.ts`, `scene/usePipeTool.ts`.
+8. Birim: santimetre. Uzunluklar cm, açılar derece.
+
+## Veri modeli (core/model.ts — SÖZLEŞME, izinsiz değiştirme)
+
+- Duvar kendi koordinatını taşımaz. Ortak `Point` havuzunu `p1Id`/`p2Id` ile paylaşır.
+- Kapı/pencere (`Opening`) yalnız duvara bağlıdır, `wallId` + `offset` ile → duvar taşınınca birlikte gelir.
+- Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
+- Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
+- Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
+- Servis kutusu (`ServiceBox`) kökte TEK nesne (dizi değil) → "tek servis kutusu" kuralı yapı gereği.
+- Kolon (`Riser`) kat dışında, kökte. Kat kopyalanınca KLONLANMAZ; `toFloorId` uzatılır.
+
+## Dizin yapısı ve sahiplik
+
+- `src/app/` (A) — main, App, router. Giriş koruması SADECE router.tsx'te (RequireAuth).
+- `src/core/` — React yok. coords(D), snap/wall/room/floorClone(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
+- `src/store/` — cadStore+history(A), architecture/floorSlice(B), installationSlice(C), uiStore(D)
+- `src/scene/` — çekirdek: SceneRoot/Cameras/DrawSurface/Grid/layers(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
+- `src/ui/` — Toolbar/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
+- `src/pages/`, `src/api/` (A)
+
+Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
+
+## Ürün kuralları (gereksinimler)
+
+- Giriş yapmadan hiçbir sayfaya erişilemez (RequireAuth).
+- Hatalı giriş: hesabın var olup olmadığını ele vermeyen GENEL hata mesajı.
+- Borular duvarlara paralel (yatay/dikey), hat üzerinden başlar. Duvar+boru üst üste binmez.
+- Cihaza bağlanmamış boru ucu UYARIYLA gösterilir ama çalışmayı ENGELLEMEZ (severity: warning).
+- Bir kat mimarisi boş kata bağımsız kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
+- İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
+- Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
+- Renk: marka sarısı #FFC107 çizim alanına GİRMEZ (tuvalde sarı = gaz hattı). Seçim rengi mavi.
+- Kimin projeye erişebileceği (tek sahip mi, çoklu rol mü) KESİNLEŞMEDİ — bkz.
+  knowledge/access-control.md. Bu konuda varsayım kodlama.
+
+## Kalıcılık
+
+- Çizim JSON'u MinIO'da (S3 uyumlu nesne deposu) bir nesne olarak tutulur; SQL
+  tarafı (`ProjeCizimGecmisi` benzeri tablo) sadece `DataUrl`/nesne anahtarı
+  referansı tutar — JSON içeriği SQL'e KONMAZ. (NoSQL/belge-DB değil, nesne deposu.)
+- SQL satırı ile MinIO nesnesi arasında ortak transaction YOK: MinIO'ya yaz →
+  anahtarı al → SQL satırını ekle. SQL başarısızsa MinIO nesnesi temizlenir.
+- Frontend açısından değişmez: api JSON alır/gönderir; serialize.ts model↔JSON çevirir.
+
+## Yorum, İsimlendirme, CSS
+
+- Dosya başı açıklama yorumu yazılmaz — dosya/klasör adı zaten söylüyor. Yorum
+  sadece "neden" için: workaround, geometri kısıtı, birim dönüşümü gibi kodun
+  kendisinden anlaşılmayan bir şey varsa tek satır. TODO sahipsiz bırakılmaz: `// TODO(isim): ...`
+- İsimlendirme: değişken/fonksiyon `camelCase`, bileşen/tip `PascalCase`, sabit
+  `UPPER_SNAKE_CASE`. Boolean `is`/`has`/`should` ile başlar. Birim belirsizse adın
+  içine yazılır (`widthCm`, `angleDeg`). Kısaltma yok (CAD terimleri hariç: bom, dxf).
+  Dosya adı: bileşen `PascalCase.tsx`, geri kalan `camelCase.ts`.
+- CSS: `style={{...}}` (inline stil) yasak. Tailwind utility class (`className`) bu
+  kuralın dışında — proje zaten tailwindcss + class-variance-authority + tailwind-merge
+  kullanıyor. Tekrar eden varyantlar `cva()` ile tanımlanır. Tailwind'in karşılamadığı
+  özel CSS `src/styles/`'da ayrı dosyaya yazılır. İstisna: `scene/` içindeki R3F
+  propları (`position`, `material` vb.) CSS değildir, bu kuralın kapsamı dışında.
+- Kod hijyeni: magic number yok (isimli sabit), import sırası dış paket → iç modül
+  → relative, fonksiyon/dosya tek iş yapar (200+ satır component bölünür), erken
+  return kullanılır, barrel export (`index.ts` re-export) sadece gerçek public API
+  için. PR küçük ve tek konulu tutulur.
+
+## Çalışma şekli
+
+- main'e doğrudan push YOK. Dal: feat/… , fix/… → Merge Request. Commit mesajı:
+  `feat:`, `fix:`, `refactor:`, `test:` prefix'i.
+- `core/` fonksiyonlarına test ZORUNLU. Kabul testi: docs/sample-project.json yükle→serileştir→
+  bit bit aynı (float yuvarlanmaz). Bu test kırmızıyken özellik ekleme.
+- Yeni bir mimari/ürün kararı verildiğinde bu dosyayı ve docs/kararlar.md'yi güncelle.
+
+## Komutlar
+
+- `npm run dev` — geliştirme sunucusu
+- `npm run build` — tsc -b && vite build
+- `npm run lint` — eslint
+- `npx vitest` — testler
+
+## Bilgi tabanı ve güvenlik
+
+- Yeni oturumda ve bir modüle başlarken önce `.claude/knowledge/INDEX.md`'yi tara,
+  bugünkü işe dair `decision`/`gotcha`/`open-question` satırlarını aç ve oku. Bu,
+  en ucuz hata önlemidir. `open-question` işaretli konularda varsayım kodlama.
+- Yeni bir mimari karar veya tuzak ortaya çıkınca: knowledge/ altına dosyasını yaz,
+  INDEX.md'ye satır ekle, gerekiyorsa CLAUDE.md + ilgili SKILL'i güncelle.
+- Yıkıcı komut (DROP/DELETE/TRUNCATE, rm -rf, main'e force push) öncesi ONAY al.
+- Sır (API key, token) koda yazılmaz → .env; yeni env değişkeni eklenince .env.example güncelle.
+  `VITE_` prefix'li her şey tarayıcıda görünür olur — sadece public bilgi bu prefix'i alır.
+- Dış kaynaktan gelen veri (API response, form input) `zod` şemasından geçmeden
+  state'e/isteğe girmez. `dangerouslySetInnerHTML` kullanılmaz (XSS).
+- console.log/debugger commit öncesi kaldırılır. `any` tipi kullanılmaz.
