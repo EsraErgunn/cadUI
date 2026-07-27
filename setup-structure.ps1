@@ -2,7 +2,7 @@ $folders = @(
     ".github",
     "docs",
     "src/app",
-    "src/core/_tests_",
+    "src/core/__tests__",
     "src/store",
     "src/scene",
     "src/ui",
@@ -33,10 +33,10 @@ $files = @(
     "src/core/pdf.ts",
     "src/core/serialize.ts",
 
-    "src/core/_tests_/roundtrip.test.ts",
-    "src/core/_tests_/coords.test.ts",
-    "src/core/_tests_/room.test.ts",
-    "src/core/_tests_/validate.test.ts",
+    "src/core/__tests__/roundtrip.test.ts",
+    "src/core/__tests__/coords.test.ts",
+    "src/core/__tests__/room.test.ts",
+    "src/core/__tests__/validate.test.ts",
 
     "src/store/cadStore.ts",
     "src/store/history.ts",

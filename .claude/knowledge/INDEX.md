@@ -13,3 +13,4 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 | 2026-07 | gotcha | [floor-clone](./floor-clone.md) | Kat kopyalama: id remap zorunlu, kolon klonlanmaz |
 | 2026-07 | gotcha | [tool-logic](./tool-logic.md) | Araç mantığı DrawSurface'e yazılmaz → merge çakışması |
 | 2026-07 | convention | [coordinates](./coordinates.md) | Plan↔Three dönüşümü sadece coords.ts; sarı=gaz hattı |
+| 2026-07 | decision | [viewport](./viewport.md) | %100 = 1cm/1px; zoom/pan kamerada (store'da değil); kamera rotation −90° şart |

@@ -44,10 +44,10 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Dizin yapısı ve sahiplik
 
 - `src/app/` (A) — main, App, router. Giriş koruması SADECE router.tsx'te (RequireAuth).
-- `src/core/` — React yok. coords(D), snap/wall/room/floorClone(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
+- `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
 - `src/store/` — cadStore+history(A), architecture/floorSlice(B), installationSlice(C), uiStore(D)
-- `src/scene/` — çekirdek: SceneRoot/Cameras/DrawSurface/Grid/layers(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
-- `src/ui/` — Toolbar/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
+- `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
+- `src/ui/` — MenuBar/menu/Toolbar/tools/StatusBar/FloorLabel/AxisIndicator/controls/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
@@ -106,7 +106,7 @@ Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
 - `npm run dev` — geliştirme sunucusu
 - `npm run build` — tsc -b && vite build
 - `npm run lint` — eslint
-- `npx vitest` — testler
+- `npm test` — testler (izleme modu), `npm run test:run` — tek seferlik
 
 ## Bilgi tabanı ve güvenlik
 
