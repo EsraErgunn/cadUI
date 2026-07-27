@@ -79,8 +79,10 @@ export default defineConfig([
           format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
         },
         {
+          // PascalCase de serbest: bileşen tutan yerel değişken (const Icon = ICONS[id])
+          // JSX'te büyük harfle başlamak zorunda. CLAUDE.md: "bileşen PascalCase".
           selector: 'variable',
-          format: ['camelCase'],
+          format: ['camelCase', 'PascalCase'],
         },
         {
           selector: 'function',

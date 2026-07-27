@@ -1,3 +1,21 @@
+@import "tailwindcss";
+
+/* Kabuk (menü/palet/durum çubuğu) renkleri. Çizim alanının renkleri burada DEĞİL:
+   WebGL Tailwind kullanamaz, onlar scene/sceneTheme.ts'te.
+   Marka sarısı yalnızca kabukta kullanılır — tuvalde sarı = gaz hattı. */
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f4f6f9;
+  --color-edge: #e2e6ec;
+  --color-ink: #3e4a5a;
+  --color-ink-muted: #5a6675;
+  --color-ink-disabled: #a3adba;
+  --color-brand: #ffc107;
+  --color-selection: #2d7ff9;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
 html,
 body,
 #root {
@@ -7,5 +25,8 @@ body,
 }
 
 body {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  /* Space ile pan yaparken metin seçilmesin, orta tuş otomatik kaydırmayı tetiklemesin. */
+  overscroll-behavior: none;
 }

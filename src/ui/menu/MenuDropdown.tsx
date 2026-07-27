@@ -1,0 +1,42 @@
+import type { MenuDefinition } from './menuDefinitions'
+import { menuItemVariants } from '../controls/buttonVariants'
+
+
+type MenuDropdownProps = {
+  menu: MenuDefinition
+  onSelectItem: (itemId: string) => void
+}
+
+export function MenuDropdown({ menu, onSelectItem }: MenuDropdownProps) {
+  return (
+    <div
+      role="menu"
+      aria-label={menu.label}
+      className="absolute left-0 top-full z-20 mt-1 min-w-64 rounded-lg border border-edge bg-surface py-1 shadow-lg"
+    >
+      {menu.groups.map((group, groupIndex) => (
+        <div key={group.title ?? groupIndex}>
+          {groupIndex > 0 && <div className="my-1 h-px bg-edge" />}
+          {group.title !== undefined && (
+            <div className="px-3 py-1 text-xs font-semibold tracking-wide text-ink-disabled">
+              {group.title}
+            </div>
+          )}
+          {group.items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role={item.kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitem'}
+              aria-checked={item.kind === 'checkbox' ? false : undefined}
+              disabled={!item.isEnabled}
+              onClick={() => onSelectItem(item.id)}
+              className={menuItemVariants()}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
