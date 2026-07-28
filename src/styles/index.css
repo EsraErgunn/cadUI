@@ -12,6 +12,10 @@
   --color-ink-disabled: #a3adba;
   --color-brand: #ffc107;
   --color-selection: #2d7ff9;
+   --color-brand-yellow: #FFC107;
+  --color-brand-navy: #1B2A4A;
+  --color-surface-light: #F7F8FA;
+  --color-link-gold: #E0A012;
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
