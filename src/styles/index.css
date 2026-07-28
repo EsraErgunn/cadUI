@@ -30,3 +30,14 @@ body {
   /* Space ile pan yaparken metin seçilmesin, orta tuş otomatik kaydırmayı tetiklemesin. */
   overscroll-behavior: none;
 }
+
+/* Katmansız kural, Tailwind'in utilities katmanındaki cursor-grab/cursor-grabbing'i
+   ezer (bkz. scene/useViewportControls.ts) — katman dışı kural her zaman kazanır. */
+.cursor-normal {
+  cursor: url("/cursors/normal.svg"), auto;
+}
+
+.cursor-grab,
+.cursor-grabbing {
+  cursor: url("/cursors/grabbing.svg"), grabbing;
+}
