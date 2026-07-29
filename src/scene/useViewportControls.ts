@@ -9,7 +9,7 @@ import { ZOOM_WHEEL_FACTOR, panByPixels, zoomAtCursor } from '../core/viewport'
 const LEFT_BUTTON = 0
 const MIDDLE_BUTTON = 1
 
-const CURSOR_CLASSES = ['cursor-grab', 'cursor-grabbing'] as const
+const CURSOR_CLASSES = ['cursor-normal', 'cursor-grab', 'cursor-grabbing'] as const
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -40,8 +40,13 @@ export function useViewportControls(): void {
         domElement.classList.add('cursor-grabbing')
         return
       }
-      if (isSpaceHeld) domElement.classList.add('cursor-grab')
+      if (isSpaceHeld) {
+        domElement.classList.add('cursor-grab')
+        return
+      }
+      domElement.classList.add('cursor-normal')
     }
+    updateCursor()
 
     const stopPanning = () => {
       if (panPointerId === null) return
