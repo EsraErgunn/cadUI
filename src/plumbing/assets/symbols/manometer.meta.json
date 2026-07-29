@@ -1,0 +1,13 @@
+{
+  "id": "manometer",
+  "label": "Manometre",
+  "asset": "manometer.svg",
+  "viewBox": [0, 0, 60, 44],
+  "origin": [30, 34],
+  "flowDirection": "left-to-right",
+  "ports": [
+    { "id": "in", "type": "input", "position": [0, 34], "direction": [1, 0] },
+    { "id": "out", "type": "output", "position": [60, 34], "direction": [1, 0] }
+  ],
+  "bounds": { "min": [0, 0], "max": [60, 44] }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "branch",
+  "label": "Branşman",
+  "asset": "branch.svg",
+  "viewBox": [0, 0, 60, 44],
+  "origin": [30, 22],
+  "ports": [],
+  "bounds": { "min": [0, 0], "max": [60, 44] }
+}
