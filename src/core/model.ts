@@ -12,14 +12,33 @@ export const DEFAULT_FLOOR_NAME = 'Zemin Kat'
 export const DEFAULT_FLOOR_ID: Id = 1
 export const FIRST_FREE_ID: Id = 2
 
+/** Duvar köşeleri ortak bu havuzda durur; duvar kendi koordinatını taşımaz. */
+export type Point = {
+  id: Id
+  floorId: Id
+  x: number
+  y: number
+}
+
+/** İki Point'i birbirine bağlar; koordinat tekrarlamaz, p1Id/p2Id ile referans verir. */
+export type Wall = {
+  id: Id
+  floorId: Id
+  p1Id: Id
+  p2Id: Id
+  thickness: number
+  height: number
+}
+
 /**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
- * Ekran kabuğu issue'su yalnızca kat bağlamını ve id sayacını tanımlar;
- * Point/Wall/Opening/Room/Node/Pipe/Fitting/Equipment/Riser/ServiceBox
+ * Opening/Room/Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
  */
 export type ProjectData = {
   nextUniqueId: Id
   activeFloorId: Id
   floors: Floor[]
+  points: Point[]
+  walls: Wall[]
 }
