@@ -1,0 +1,13 @@
+{
+  "id": "regulator",
+  "label": "Regülatör",
+  "asset": "regulator.svg",
+  "viewBox": [0, 0, 60, 44],
+  "origin": [30, 30],
+  "flowDirection": "left-to-right",
+  "ports": [
+    { "id": "in", "type": "input", "position": [0, 30], "direction": [1, 0] },
+    { "id": "out", "type": "output", "position": [60, 30], "direction": [1, 0] }
+  ],
+  "bounds": { "min": [0, 0], "max": [60, 44] }
+}

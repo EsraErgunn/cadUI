@@ -1,0 +1,9 @@
+{
+  "id": "pipe",
+  "label": "Boru",
+  "asset": "pipe.svg",
+  "viewBox": [0, 0, 60, 24],
+  "origin": [30, 12],
+  "ports": [],
+  "bounds": { "min": [0, 0], "max": [60, 24] }
+}

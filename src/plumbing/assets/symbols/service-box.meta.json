@@ -1,0 +1,11 @@
+{
+  "id": "serviceBox",
+  "label": "Servis Kutusu",
+  "asset": "service-box.svg",
+  "viewBox": [0, 0, 60, 60],
+  "origin": [30, 30],
+  "ports": [
+    { "id": "out", "type": "output", "position": [60, 30], "direction": [1, 0] }
+  ],
+  "bounds": { "min": [0, 0], "max": [60, 60] }
+}

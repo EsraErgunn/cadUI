@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import leftPipe from "../assets/images/auth/leftpipe.png";
-import rightPipe from "../assets/images/auth/rightpipe.png";
 import panelBg from "../assets/images/auth/panel-bg.png";
+import rightPipe from "../assets/images/auth/rightpipe.png";
 
 /* ────────────────────────────────────────────────────────────
    SAĞ PANEL — arka plan + logo tek görselde

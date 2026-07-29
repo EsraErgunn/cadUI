@@ -1,0 +1,9 @@
+{
+  "id": "measurement",
+  "label": "Ölçüm",
+  "asset": "measurement.svg",
+  "viewBox": [0, 0, 60, 32],
+  "origin": [30, 16],
+  "ports": [],
+  "bounds": { "min": [0, 0], "max": [60, 32] }
+}
