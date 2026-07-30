@@ -110,8 +110,40 @@ export default defineConfig([
           zones: [
             {
               target: './src/core',
-              from: ['./src/scene', './src/ui', './src/store', './src/app', './src/pages'],
+              from: [
+                './src/scene',
+                './src/ui',
+                './src/store',
+                './src/app',
+                './src/pages',
+                './src/plumbing',
+              ],
               message: "core/ hiçbir üst katmana bağımlı olamaz (React yok kuralı).",
+            },
+            {
+              target: './src/plumbing/core',
+              from: [
+                './src/plumbing/scene',
+                './src/plumbing/ui',
+                './src/plumbing/store',
+                './src/scene',
+                './src/ui',
+                './src/store',
+                './src/app',
+                './src/pages',
+              ],
+              message:
+                'plumbing/core yalnız src/core\'a bağımlı olabilir (saf fonksiyon katmanı).',
+            },
+            {
+              target: './src/plumbing/scene',
+              from: ['./src/plumbing/ui', './src/ui'],
+              message: 'plumbing/scene (<Canvas> içi) ui katmanını içe aktaramaz.',
+            },
+            {
+              target: './src/plumbing/ui',
+              from: ['./src/plumbing/scene', './src/scene'],
+              message: 'plumbing/ui (DOM) scene katmanını içe aktaramaz.',
             },
             {
               target: './src/scene',
@@ -135,7 +167,7 @@ export default defineConfig([
   },
   {
     // CLAUDE.md: core/ içinde React yok — three.js/react-three-fiber de dahil.
-    files: ['src/core/**/*.{ts,tsx}'],
+    files: ['src/core/**/*.{ts,tsx}', 'src/plumbing/core/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -154,7 +186,7 @@ export default defineConfig([
   },
   {
     // CLAUDE.md: ui/ = <Canvas> DIŞI (DOM). Three.js/R3F sızmasın.
-    files: ['src/ui/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}', 'src/plumbing/ui/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',

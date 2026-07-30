@@ -3,11 +3,15 @@ import { immer } from 'zustand/middleware/immer'
 
 import { DEFAULT_TOOL_ID, type ToolId } from '../core/tools'
 import { DEFAULT_VIEW_ID, type ViewId } from '../core/views'
+import {
+  DEFAULT_INSTALLATION_TOOL_ID,
+  type InstallationToolId,
+} from '../plumbing/core/installationTools'
 
 type UiState = {
-  activeToolId: ToolId
+  activeToolId: ToolId | InstallationToolId
   activeViewId: ViewId
-  setActiveTool: (toolId: ToolId) => void
+  setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
 }
 
@@ -30,6 +34,10 @@ export const useUiStore = create<UiState>()(
     setActiveView: (viewId) =>
       set((draft) => {
         draft.activeViewId = viewId
+        // Görünüm değişince araç o görünümün varsayılanına döner; önceki paletin
+        // aracı yeni palette geçersiz kalmasın. isometric'te palet yok, dokunulmaz.
+        if (viewId === 'architecture') draft.activeToolId = DEFAULT_TOOL_ID
+        if (viewId === 'installation') draft.activeToolId = DEFAULT_INSTALLATION_TOOL_ID
       }),
   })),
 )
