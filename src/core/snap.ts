@@ -1,0 +1,155 @@
+import type { PlanPoint } from './coords'
+import { snapPointToGrid } from './grid'
+import type { Id, Point, Wall } from './model'
+import { getSegmentLength, getSnapPoints, projectPointOntoWall } from './wall'
+
+/** Yakalama yarıçapı ekran mesafesidir: uzaklaşınca cm karşılığı büyür, his sabit kalır. */
+export const SNAP_TOLERANCE_PX = 10
+
+export type SnapKind =
+  /** Var olan bir köşe noktası. */
+  | 'point'
+  /** Duvarın ucu/ortası veya iki duvarın kesişimi. */
+  | 'wallSnapPoint'
+  /** Duvarın gövdesi — eksene dik izdüşüm. */
+  | 'wallEdge'
+  | 'grid'
+  | 'none'
+
+export type SnapResult = {
+  point: PlanPoint
+  kind: SnapKind
+  /**
+   * Var olan bir köşeye yapışıldıysa o Point'in id'si. Aynı yerde ikinci bir
+   * Point üretilirse duvarlar kopuk görünür ve mahal çevrimi kapanmaz.
+   */
+  pointId?: Id
+  wallId?: Id
+}
+
+export type SnapContext = {
+  points: readonly Point[]
+  walls: readonly Wall[]
+  floorId: Id
+}
+
+export type SnapOptions = {
+  toleranceCm: number
+  gridStepCm: number
+  /** Kapalıyken hiçbir hedefe yakınlaşmayan imleç olduğu yerde kalır. */
+  isGridSnapEnabled: boolean
+}
+
+/** zoom = 1 cm başına px olduğundan, px eşiği zoom'a bölünerek cm'ye çevrilir. */
+export function getSnapToleranceCm(zoom: number): number {
+  return SNAP_TOLERANCE_PX / zoom
+}
+
+type Candidate = {
+  point: PlanPoint
+  distanceCm: number
+  pointId?: Id
+  wallId?: Id
+}
+
+function pickNearest(candidates: readonly Candidate[], toleranceCm: number): Candidate | undefined {
+  let best: Candidate | undefined
+  for (const candidate of candidates) {
+    if (candidate.distanceCm > toleranceCm) continue
+    if (!best || candidate.distanceCm < best.distanceCm) best = candidate
+  }
+  return best
+}
+
+function findNearestPoint(
+  target: PlanPoint,
+  points: readonly Point[],
+  toleranceCm: number,
+): Candidate | undefined {
+  return pickNearest(
+    points.map((point) => ({
+      point: { x: point.x, y: point.y },
+      distanceCm: getSegmentLength(target, point),
+      pointId: point.id,
+    })),
+    toleranceCm,
+  )
+}
+
+function findNearestWallSnapPoint(
+  target: PlanPoint,
+  context: SnapContext,
+  walls: readonly Wall[],
+  toleranceCm: number,
+): Candidate | undefined {
+  const candidates: Candidate[] = []
+  for (const wall of walls) {
+    for (const point of getSnapPoints(wall, context.points, walls)) {
+      candidates.push({ point, distanceCm: getSegmentLength(target, point), wallId: wall.id })
+    }
+  }
+  return pickNearest(candidates, toleranceCm)
+}
+
+function findNearestWallEdge(
+  target: PlanPoint,
+  context: SnapContext,
+  walls: readonly Wall[],
+  toleranceCm: number,
+): Candidate | undefined {
+  const candidates: Candidate[] = []
+  for (const wall of walls) {
+    const projection = projectPointOntoWall(wall, context.points, target)
+    if (!projection) continue
+    candidates.push({
+      point: projection.point,
+      distanceCm: projection.distanceCm,
+      wallId: wall.id,
+    })
+  }
+  return pickNearest(candidates, toleranceCm)
+}
+
+/**
+ * Öncelik sırası kabalıktan inceliğe gider: var olan köşe → duvarın anlamlı
+ * noktası → duvar gövdesi → ızgara. Köşe en üstte çünkü ondan dönen `pointId`
+ * aynı yerde ikinci bir nokta üretilmesini engelliyor.
+ */
+export function resolveSnap(
+  target: PlanPoint,
+  context: SnapContext,
+  options: SnapOptions,
+): SnapResult {
+  const floorPoints = context.points.filter((point) => point.floorId === context.floorId)
+  const floorWalls = context.walls.filter((wall) => wall.floorId === context.floorId)
+
+  const nearestPoint = findNearestPoint(target, floorPoints, options.toleranceCm)
+  if (nearestPoint) {
+    return { point: nearestPoint.point, kind: 'point', pointId: nearestPoint.pointId }
+  }
+
+  const nearestWallSnapPoint = findNearestWallSnapPoint(
+    target,
+    context,
+    floorWalls,
+    options.toleranceCm,
+  )
+  if (nearestWallSnapPoint) {
+    return {
+      point: nearestWallSnapPoint.point,
+      kind: 'wallSnapPoint',
+      wallId: nearestWallSnapPoint.wallId,
+    }
+  }
+
+  const nearestWallEdge = findNearestWallEdge(target, context, floorWalls, options.toleranceCm)
+  if (nearestWallEdge) {
+    return { point: nearestWallEdge.point, kind: 'wallEdge', wallId: nearestWallEdge.wallId }
+  }
+
+  if (options.isGridSnapEnabled) {
+    return { point: snapPointToGrid(target, options.gridStepCm), kind: 'grid' }
+  }
+
+  return { point: target, kind: 'none' }
+}
