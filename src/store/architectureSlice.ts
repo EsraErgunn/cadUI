@@ -30,10 +30,25 @@ export type AddWallInput = {
   height?: number
 }
 
+export type AddWallChainInput = {
+  /** Zincirin noktaları; ardışık her ikisi bir duvar olur. */
+  ends: readonly WallEnd[]
+  thickness?: number
+  height?: number
+}
+
+/** Üretilen id'ler: zinciri sürdüren çağıran, bir sonraki duvarı `p2Id`'den başlatır. */
+export type AddedWall = {
+  wallId: Id
+  p1Id: Id
+  p2Id: Id
+}
+
 export type ArchitectureSlice = {
   points: Point[]
   walls: Wall[]
-  addWall: (input: AddWallInput) => void
+  addWall: (input: AddWallInput) => AddedWall | undefined
+  addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
   deleteWall: (wallId: Id) => void
 }
@@ -52,6 +67,63 @@ function takeEndPointId(draft: CadState, end: WallEnd, floorId: Id): Id {
   return id
 }
 
+/**
+ * Tek duvarı yazar. Uçlar çözülemiyorsa (silinmiş id) veya duvar sıfır boyluysa
+ * hiç dokunmaz: önce doğrula sonra yaz — yoksa geçersiz durumda sahipsiz Point kalır.
+ */
+function appendWall(
+  draft: CadState,
+  start: WallEnd,
+  end: WallEnd,
+  options: { thickness?: number; height?: number },
+): AddedWall | undefined {
+  const startPosition = readEndPosition(draft, start)
+  const endPosition = readEndPosition(draft, end)
+  if (!startPosition || !endPosition) return undefined
+  if (getSegmentLength(startPosition, endPosition) < MIN_WALL_LENGTH_CM) return undefined
+
+  const floorId = draft.activeFloorId
+  const p1Id = takeEndPointId(draft, start, floorId)
+  const p2Id = takeEndPointId(draft, end, floorId)
+  const wallId = takeNextId(draft)
+
+  draft.walls.push({
+    id: wallId,
+    floorId,
+    p1Id,
+    p2Id,
+    thickness: options.thickness ?? DEFAULT_WALL_THICKNESS_CM,
+    height: options.height ?? DEFAULT_WALL_HEIGHT_CM,
+  })
+
+  return { wallId, p1Id, p2Id }
+}
+
+/**
+ * Zinciri tek geçişte yazar. Her segmentin sonu bir sonrakinin başlangıcı olarak
+ * `pointId` ile devredilir — aynı köşede ikinci bir Point üretilmesini bu engeller.
+ * Atlanan segment zinciri kesmez, çapa olduğu yerde kalır.
+ */
+function appendWallChain(draft: CadState, input: AddWallChainInput): boolean {
+  let anchor: WallEnd | undefined
+  let hasAdded = false
+
+  for (const end of input.ends) {
+    if (!anchor) {
+      anchor = end
+      continue
+    }
+
+    const added = appendWall(draft, anchor, end, input)
+    if (!added) continue
+
+    anchor = { pointId: added.p2Id }
+    hasAdded = true
+  }
+
+  return hasAdded
+}
+
 export const createArchitectureSlice: StateCreator<
   CadState,
   [['zustand/immer', never]],
@@ -61,25 +133,20 @@ export const createArchitectureSlice: StateCreator<
   points: [],
   walls: [],
 
-  addWall: (input) =>
+  // Üretilen id'ler dönüyor: duvar çizim aracı zinciri bu p2Id'den sürdürüyor.
+  addWall: (input) => {
+    let added: AddedWall | undefined
     set((draft) => {
-      const startPosition = readEndPosition(draft, input.start)
-      const endPosition = readEndPosition(draft, input.end)
-      // Uçlar çözülemiyorsa (silinmiş id) veya duvar sıfır boyluysa hiç dokunma:
-      // önce doğrula, sonra yaz — yoksa geçersiz durumda sahipsiz Point kalır.
-      if (!startPosition || !endPosition) return
-      if (getSegmentLength(startPosition, endPosition) < MIN_WALL_LENGTH_CM) return
+      added = appendWall(draft, input.start, input.end, input)
+      if (added) markDirty(draft)
+    })
+    return added
+  },
 
-      const floorId = draft.activeFloorId
-      draft.walls.push({
-        id: takeNextId(draft),
-        floorId,
-        p1Id: takeEndPointId(draft, input.start, floorId),
-        p2Id: takeEndPointId(draft, input.end, floorId),
-        thickness: input.thickness ?? DEFAULT_WALL_THICKNESS_CM,
-        height: input.height ?? DEFAULT_WALL_HEIGHT_CM,
-      })
-      markDirty(draft)
+  // Zincirin tamamı tek set() içinde: geri alma tek adımda tüm zinciri kaldırır.
+  addWallChain: (input) =>
+    set((draft) => {
+      if (appendWallChain(draft, input)) markDirty(draft)
     }),
 
   movePoint: (pointId, position) =>
