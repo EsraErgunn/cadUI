@@ -30,9 +30,26 @@ export type Wall = {
   height: number
 }
 
+export type OpeningType = 'door' | 'window'
+
+/**
+ * Duvar BÖLÜNMEZ (K9): açıklık, tek parça duvarın üstünde wallId + offsetCm ile
+ * duran bir "delik"tir. Duvar taşınınca kendiliğinden taşınır.
+ * floorId yok — duvardan türetilir; iki yerde tutulursa zamanla ayrışır.
+ * Yükseklik yok — 2B planda çizilmiyor, gerekince ayrı kararla eklenir.
+ */
+export type Opening = {
+  id: Id
+  wallId: Id
+  /** Açıklığın ORTASI, duvarın p1 ucundan (K10). Kenarı DEĞİL. */
+  offsetCm: number
+  widthCm: number
+  type: OpeningType
+}
+
 /**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
- * Opening/Room/Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
+ * Room/Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
  */
 export type ProjectData = {
@@ -41,4 +58,5 @@ export type ProjectData = {
   floors: Floor[]
   points: Point[]
   walls: Wall[]
+  openings: Opening[]
 }

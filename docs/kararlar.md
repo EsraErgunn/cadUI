@@ -145,6 +145,101 @@ fonksiyonlar B'nin kendi içindeki sınırdır.
 
 ---
 
+## 2026-07 · Açıklık yerleştirme uygulaması (issue: kapı/pencere aracı)
+
+### K13 — Geçersiz yerleştirme reddedilir, kaydırılmaz
+
+Çakışan ya da sığmayan bir yerleştirmede "en yakın geçerli yere kaydır"
+seçeneği elendi: kullanıcının bıraktığı yer ile açıklığın durduğu yer farklı
+olurdu ve bu sessiz bir kaymadır — "kapı 2.50 m'de" bilgisi yanlışlanır.
+Yerine: hayalet uyarı renginde çizilir, bırakma hiçbir şey yapmaz.
+
+Uç uca **değen** açıklıklar çakışma sayılmaz (`a.end <= b.start`); iki kapının
+yan yana durması meşru bir tasarım.
+
+Yazma anı da buna bağlı: sürükleme boyunca store'a hiç yazılmaz, yalnız
+pointer-up'ta tek `moveOpening` çağrılır → tek `markDirty`, tek Ctrl+Z.
+Reddedilen ekleme `nextUniqueId`'yi de harcamaz; harcasa kaydedilecek JSON
+değişir ve proje boşuna kirlenirdi.
+
+Not: `addOpening` bu depoda `takeNextId`/`markDirty`'nin İLK çağıranı, yani
+K6'daki "her zaman false döner" kaydı artık geçerli değil.
+
+Nerede: `core/opening.ts`, `store/architectureSlice.ts`, `scene/useOpeningTool.ts`.
+
+### K14 — Yay (arc) duvarlar ertelendi, tek dikişle
+
+Görev tanımı yay duvar istiyordu; `Wall`'a `isArc`/`arcControlPoint` eklenmedi.
+Gerekçe: `model.ts` dört kişilik sözleşme ve alan eklemek serialize + roundtrip +
+floorClone remap listesini de bağlar. Ayrıca önerilen `arcControlPoint?: Point`
+duvarın içine koordinat gömüyordu — "duvar kendi koordinatını taşımaz, Point
+havuzuna referans verir" kuralının ihlali.
+
+Yerine tek bir dikiş bırakıldı: offset ↔ konum dönüşümünün tamamı
+`core/wallPath.ts`'ten geçer (`getWallPathLengthCm`, `getWallFrameAtOffsetCm`).
+Yay kararı verilirse bu dosya değişir, açıklık kodu değişmez.
+
+Açık iş: aynı anda `getPlacementRange`'in uzunluk çağrısı da
+`getWallPathLengthCm`'e çevrilmeli — bugün düz duvarda kiriş = yol uzunluğu
+olduğu için fark görünmüyor. Bkz. knowledge/arc-walls.md.
+
+### K15 — Genişlik düzenlemesi araç seçenekleri şeridinde
+
+`PropertyPanel.tsx` başka bir issue'nun kapsamında ve boş; genişliğin
+düzenlenebilir olması ise bu issue'nun gereği. Şerit (`ui/OpeningToolOptions.tsx`)
+kapı/pencere aracı aktifken görünür, seçili açıklık varsa onu, yoksa sıradaki
+yerleştirmenin varsayılanını düzenler. Varsayılanlar tip başına ayrı tutulur.
+
+Girdi store'dan doğrudan beslenmiyor, yerel bir metin taslağı tutup blur/Enter'da
+işliyor: doğrudan beslenirse her tuş yeniden render edip rakamları eski değerin
+üstüne ekliyor (90 + "100" → 90100). Reddedilen genişlikte girdi store'daki
+değere geri döner — ekranda yalan bir sayı bırakmamak için.
+
+Seçim `store/architectureUiStore.ts`'te (yeni, ayrı store): kaydedilmez,
+geçmişe girmez. `uiStore.ts` D'nin araç/görünüm dosyası, `cadStore` ise seçimi
+kaydedip Ctrl+Z ile geri alırdı. Bu store aynı zamanda `scene/` ile `ui/`
+arasındaki köprü — eslint ikisinin birbirini import etmesini yasaklıyor.
+
+### K16 — Sığmayan açıklık otomatik silinir
+
+Duvar silinince ya da açıklık sığmayacak kadar kısalınca o açıklık kaldırılır
+(`pruneUnfittableOpenings` + `pruneOpeningsOnWalls`). Duvarsız açıklık modelde
+temsil edilemez; bırakılsa sahipsiz bir `wallId` referansı kalır ve kat
+kopyalamadaki remap assertion'ı sonradan patlar.
+
+Duvar silme/kısaltma fay A'nın action'ı. Gerçek duvar altyapısı geldiğinde
+bağlandı: `deleteWall` ve `movePoint` temizliği KENDİ `set()`'leri içinde
+çağırıyor, böylece silme/kısaltma + temizlik tek geri alma adımı oluyor.
+`pruneOpeningsOnWalls()` dışarıdan çağrılabilir bir action olarak duruyor.
+Silinecek bir şey yoksa `markDirty` çağrılmaz — yoksa duvar sürüklemesi her
+karede projeyi kirletirdi.
+
+### K17 — `takeNextId`/`markDirty` `store/projectMeta.ts`'e taşındı
+
+Veri slice'ları bu iki yardımcıyı **çalışma zamanında** çağırmak zorunda.
+`cadStore.ts`'ten alınca `cadStore → architectureSlice → cadStore` döngüsü
+oluştu ve `create()` slice'ı henüz tanımlanmamış buldu
+("createArchitectureSlice is not a function"). `floorSlice` bunu hiç yaşamadı
+çünkü `cadStore`'dan yalnız **tip** import ediyor (derlemede silinir).
+
+Kural: bir slice `cadStore`'dan yalnız `import type` yapar; paylaşılan çalışma
+zamanı yardımcıları `projectMeta.ts`'te durur. `cadStore` geriye dönük uyum için
+ikisini yeniden dışa aktarıyor.
+
+### K18 — Başlangıç verisi boş, `nextUniqueId` yine de türetilir
+
+Gerçek duvar çizimi gelince mock sahne seed'i kalktı; store `points/walls/openings`
+boş başlıyor ve hazır sahne yalnız TEST verisi
+(`store/__tests__/architectureFixture.ts`).
+
+Sayaç buna rağmen `deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA)` ile hesaplanıyor,
+`FIRST_FREE_ID` yazılmıyor. Bugün ikisi aynı sonucu veriyor; fark, başlangıç
+verisi bir gün boş olmadığında (örnek proje, şablon, açılan dosya) ortaya çıkar:
+sabit sayaç var olan bir id'yi ikinci kez üretir ve HATA VERMEZ. Bu daha önce
+mock sahnede yaşanmış bir hataydı, türetme onun kalıcı çözümü.
+
+---
+
 ## Terminoloji uyarısı: "Kolon" iki farklı şey
 
 - Mimari paletteki **"Kolon Ekle"** = yapısal kolon (kirişle birlikte taşıyıcı).
