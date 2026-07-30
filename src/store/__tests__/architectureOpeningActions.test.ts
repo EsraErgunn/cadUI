@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { MOCK_NEXT_FREE_ID, MOCK_OPENINGS } from '../architectureMock'
+import {
+  FIXTURE_NEXT_FREE_ID,
+  FIXTURE_OPENINGS,
+  resetArchitectureState,
+  WALL_ID,
+  WINDOW_ID,
+} from './architectureFixture'
 import { selectOpeningById } from '../architectureSlice'
-import { resetArchitectureState, WALL_ID, WINDOW_ID } from './architectureTestState'
 import { selectIsProjectDirty, useCadStore } from '../cadStore'
 
 beforeEach(resetArchitectureState)
@@ -27,7 +32,7 @@ describe('addOpening', () => {
       widthCm: 90,
       type: 'door',
     })
-    expect(state.nextUniqueId).toBe(MOCK_NEXT_FREE_ID + 1)
+    expect(state.nextUniqueId).toBe(FIXTURE_NEXT_FREE_ID + 1)
     expect(state.revision).toBe(1)
     expect(selectIsProjectDirty(state)).toBe(true)
   })
@@ -43,9 +48,9 @@ describe('addOpening', () => {
     const state = useCadStore.getState()
 
     expect(createdId).toBeUndefined()
-    expect(state.openings).toEqual(MOCK_OPENINGS)
+    expect(state.openings).toEqual(FIXTURE_OPENINGS)
     // Reddedilen yerleştirme id harcamaz ve projeyi kirletmez.
-    expect(state.nextUniqueId).toBe(MOCK_NEXT_FREE_ID)
+    expect(state.nextUniqueId).toBe(FIXTURE_NEXT_FREE_ID)
     expect(state.revision).toBe(0)
     expect(selectIsProjectDirty(state)).toBe(false)
   })
@@ -59,7 +64,7 @@ describe('addOpening', () => {
     })
 
     expect(createdId).toBeUndefined()
-    expect(useCadStore.getState().nextUniqueId).toBe(MOCK_NEXT_FREE_ID)
+    expect(useCadStore.getState().nextUniqueId).toBe(FIXTURE_NEXT_FREE_ID)
     expect(useCadStore.getState().revision).toBe(0)
   })
 
@@ -72,7 +77,7 @@ describe('addOpening', () => {
     })
 
     expect(createdId).toBeUndefined()
-    expect(useCadStore.getState().openings).toEqual(MOCK_OPENINGS)
+    expect(useCadStore.getState().openings).toEqual(FIXTURE_OPENINGS)
   })
 
   it('uç uca değen açıklığı kabul eder', () => {

@@ -6,6 +6,9 @@ import { getSegmentLength, getSnapPoints, projectPointOntoWall } from './wall'
 /** Yakalama yarıçapı ekran mesafesidir: uzaklaşınca cm karşılığı büyür, his sabit kalır. */
 export const SNAP_TOLERANCE_PX = 10
 
+/** Aynı koordinat sayılma eşiği; toleranstan farklı olarak kayan nokta payı kadardır. */
+const COINCIDENT_EPSILON_CM = 1e-6
+
 export type SnapKind =
   /** Var olan bir köşe noktası. */
   | 'point'
@@ -45,6 +48,15 @@ export function getSnapToleranceCm(zoom: number): number {
   return SNAP_TOLERANCE_PX / zoom
 }
 
+/**
+ * Var olan bir çizime mi yapışıldı? Izgara ve serbest imleç hayır — onlar boşluğa
+ * konumlandırmadır. Çizim araçları bunu "bağlandık, zinciri bitir" sinyali olarak
+ * kullanır, önizleme de yapışma işaretini buna göre gösterir.
+ */
+export function isSnapOnExistingGeometry(kind: SnapKind | null): boolean {
+  return kind === 'point' || kind === 'wallSnapPoint' || kind === 'wallEdge'
+}
+
 type Candidate = {
   point: PlanPoint
   distanceCm: number
@@ -74,6 +86,16 @@ function findNearestPoint(
     })),
     toleranceCm,
   )
+}
+
+/** Bu koordinatta zaten bir köşe var mı? Toleranstan bağımsız, çakışma kontrolü. */
+function findPointAt(position: PlanPoint, points: readonly Point[]): SnapResult | undefined {
+  const existing = points.find(
+    (point) =>
+      Math.abs(point.x - position.x) < COINCIDENT_EPSILON_CM &&
+      Math.abs(point.y - position.y) < COINCIDENT_EPSILON_CM,
+  )
+  return existing ? { point: { x: existing.x, y: existing.y }, kind: 'point', pointId: existing.id } : undefined
 }
 
 function findNearestWallSnapPoint(
@@ -148,8 +170,12 @@ export function resolveSnap(
   }
 
   if (options.isGridSnapEnabled) {
-    return { point: snapPointToGrid(target, options.gridStepCm), kind: 'grid' }
+    const gridPoint = snapPointToGrid(target, options.gridStepCm)
+    // Yuvarlama var olan bir köşenin üstüne düşebilir: tolerans dışında kalıp
+    // ızgara sayesinde aynı koordinata gelen tıklama, id dönmezse orada İKİNCİ
+    // bir Point üretir ve duvarlar sessizce kopuk kalır.
+    return findPointAt(gridPoint, floorPoints) ?? { point: gridPoint, kind: 'grid' }
   }
 
-  return { point: target, kind: 'none' }
+  return findPointAt(target, floorPoints) ?? { point: target, kind: 'none' }
 }

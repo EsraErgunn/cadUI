@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_OPENING_WIDTH_CM } from '../../core/opening'
 import { DEFAULT_TOOL_ID } from '../../core/tools'
 import {
-  MOCK_NEXT_FREE_ID,
-  MOCK_OPENINGS,
-  MOCK_POINTS,
-  MOCK_WALLS,
-} from '../../store/architectureMock'
+  FIXTURE_NEXT_FREE_ID,
+  FIXTURE_OPENINGS,
+  FIXTURE_POINTS,
+  FIXTURE_WALLS,
+} from '../../store/__tests__/architectureFixture'
 import { selectOpeningById } from '../../store/architectureSlice'
 import { useArchitectureUiStore } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
@@ -26,10 +26,10 @@ beforeEach(() => {
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
   })
   useCadStore.setState({
-    points: MOCK_POINTS,
-    walls: MOCK_WALLS,
-    openings: MOCK_OPENINGS,
-    nextUniqueId: MOCK_NEXT_FREE_ID,
+    points: FIXTURE_POINTS,
+    walls: FIXTURE_WALLS,
+    openings: FIXTURE_OPENINGS,
+    nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
     savedRevision: 0,
   })
@@ -81,7 +81,7 @@ describe('OpeningToolOptions', () => {
 
     expect(useArchitectureUiStore.getState().openingWidthCm.door).toBe(100)
     // Çizim verisi kirlenmedi: bu bir UI tercihi, kaydedilecek bir değişiklik değil.
-    expect(useCadStore.getState().openings).toEqual(MOCK_OPENINGS)
+    expect(useCadStore.getState().openings).toEqual(FIXTURE_OPENINGS)
     expect(useCadStore.getState().revision).toBe(0)
   })
 

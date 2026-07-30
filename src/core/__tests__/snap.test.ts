@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Point, Wall } from '../model'
 import {
   getSnapToleranceCm,
+  isSnapOnExistingGeometry,
   resolveSnap,
   SNAP_TOLERANCE_PX,
   type SnapContext,
@@ -36,6 +37,20 @@ describe('getSnapToleranceCm', () => {
   it('uzaklaşınca cm karşılığı büyür, yakınlaşınca küçülür', () => {
     expect(getSnapToleranceCm(0.5)).toBe(SNAP_TOLERANCE_PX * 2)
     expect(getSnapToleranceCm(2)).toBe(SNAP_TOLERANCE_PX / 2)
+  })
+})
+
+describe('isSnapOnExistingGeometry', () => {
+  it('var olan çizime yapışmayı bildirir', () => {
+    expect(isSnapOnExistingGeometry('point')).toBe(true)
+    expect(isSnapOnExistingGeometry('wallSnapPoint')).toBe(true)
+    expect(isSnapOnExistingGeometry('wallEdge')).toBe(true)
+  })
+
+  it('ızgara ve serbest imleci saymaz — boşluğa konumlandırma bağlanma değildir', () => {
+    expect(isSnapOnExistingGeometry('grid')).toBe(false)
+    expect(isSnapOnExistingGeometry('none')).toBe(false)
+    expect(isSnapOnExistingGeometry(null)).toBe(false)
   })
 })
 
@@ -77,6 +92,33 @@ describe('resolveSnap — öncelik sırası', () => {
 
     expect(result.pointId).toBe(2)
     expect(result.point).toEqual({ x: 400, y: 0 })
+  })
+})
+
+describe('resolveSnap — ızgara var olan köşenin üstüne düşerse', () => {
+  it('yeni nokta değil, o köşenin id\'sini döndürür', () => {
+    // (0,0) köşesine 20 cm uzak: tolerans (20) dışında değil ama emin olmak için
+    // toleransı küçültüyoruz; ızgara yuvarlaması yine de tam (0,0)'a getiriyor.
+    const tight: SnapOptions = { ...options, toleranceCm: 5 }
+    const result = resolveSnap({ x: 18, y: -14 }, context, tight)
+
+    expect(result.kind).toBe('point')
+    expect(result.pointId).toBe(1)
+    expect(result.point).toEqual({ x: 0, y: 0 })
+  })
+
+  it('köşe olmayan ızgara kesişiminde grid döner', () => {
+    const tight: SnapOptions = { ...options, toleranceCm: 5 }
+
+    expect(resolveSnap({ x: 640, y: 640 }, context, tight).kind).toBe('grid')
+  })
+
+  it('ızgara kapalıyken de çakışan köşeyi yakalar', () => {
+    const gridOff: SnapOptions = { ...options, isGridSnapEnabled: false, toleranceCm: 0 }
+    const result = resolveSnap({ x: 400, y: 0 }, context, gridOff)
+
+    expect(result.kind).toBe('point')
+    expect(result.pointId).toBe(2)
   })
 })
 

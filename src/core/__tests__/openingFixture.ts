@@ -1,7 +1,7 @@
 import type { Opening, Point, Wall } from '../model'
 
 /**
- * store/architectureMock.ts'teki mock sahnenin core kopyası — core, store'u
+ * store/__tests__/architectureFixture.ts'teki sahnenin core kopyası — core, store'u
  * import EDEMEZ (eslint katman kuralı). İki taraf ayrışırsa testler yanıltır,
  * bu yüzden id'ler ve ölçüler birebir aynı tutulur.
  */

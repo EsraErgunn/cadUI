@@ -13,7 +13,7 @@ export type ProjectMetaSlice = {
  * çağırmak zorunda. cadStore'dan alsalardı cadStore → slice → cadStore çalışma
  * zamanı döngüsü oluşur ve create() slice'ı henüz tanımlanmamış bulur
  * ("createArchitectureSlice is not a function"). floorSlice bunu yalnız tip
- * import ettiği için hiç yaşamadı.
+ * import ettiği için hiç yaşamadı. Kural: slice cadStore'dan SADECE `import type`.
  */
 
 /**

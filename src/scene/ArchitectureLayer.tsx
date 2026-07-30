@@ -1,17 +1,17 @@
 import { Opening, type OpeningTone } from './Opening'
+import { Walls } from './Wall'
+import { WallTool } from './WallTool'
 import { useOpeningTool } from './useOpeningTool'
 import { getOpeningOutline } from '../core/opening'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
 /**
- * Hook'lar <Canvas> içinde çalışmak zorunda; PlumbingLayer/ViewportControls ile
- * aynı desen. Sahne state'in TÜREVİ: mesh'te veri tutulmaz.
- *
- * TODO(fay-A): <Wall> buraya mount edilecek. Duvar gövdesini çizerken
- * selectOccupiedRanges(state, wallId) okuyup açıklığın olduğu yeri boş bırakmalı.
+ * Açıklıkları çizer ve kapı/pencere aracını çalıştırır. Hook'lar <Canvas> içinde
+ * çalışmak zorunda; PlumbingLayer/ViewportControls ile aynı desen.
+ * Sahne state'in TÜREVİ: mesh'te veri tutulmaz.
  */
-export function ArchitectureLayer() {
+function Openings() {
   const preview = useOpeningTool()
   // Yalnız KARARLI referanslara abone olunur. selectWallsOnFloor/
   // selectOpeningsOnWall her çağrıda yeni dizi üretir; buraya konsalardı
@@ -45,5 +45,17 @@ export function ArchitectureLayer() {
         />
       )}
     </>
+  )
+}
+
+/** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
+export function ArchitectureLayer() {
+  return (
+    <group name="architecture-root">
+      <Walls />
+      {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
+      <Openings />
+      <WallTool />
+    </group>
   )
 }

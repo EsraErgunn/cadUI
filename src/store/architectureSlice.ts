@@ -1,21 +1,30 @@
 import type { StateCreator } from 'zustand'
 
-import { MOCK_OPENINGS, MOCK_POINTS, MOCK_WALLS } from './architectureMock'
+import {
+  appendWall,
+  appendWallChain,
+  type AddedWall,
+  type AddWallChainInput,
+  type AddWallInput,
+} from './architectureWallOps'
 // cadStore ↔ architectureSlice karşılıklı import eder; bu taraf tip-only olduğu
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
-import type { Id, Opening, OpeningType, Point, ProjectData, Wall } from '../core/model'
+import type { PlanPoint } from '../core/coords'
+import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
 import {
-  getOccupiedRanges,
-  getOpeningsOnWall,
   isPlacementValid,
   MIN_OPENING_WIDTH_CM,
   pruneUnfittableOpenings,
   type OpeningPlacement,
-  type OpeningSpan,
 } from '../core/opening'
-import { getPlacementRange, getWallsAtPoint, type PlacementRange } from '../core/wall'
+import { getOrphanPointIds, getPlacementRange } from '../core/wall'
+
+// Selector'lar ve duvar yazma iç fonksiyonları ayrı dosyalarda (max-lines);
+// sözleşme yüzeyi tek yerden okunsun diye buradan yeniden dışa aktarılıyor.
+export * from './architectureSelectors'
+export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './architectureWallOps'
 
 /**
  * Store'un şekli = kaydedilecek JSON'un şekli (CLAUDE.md kural 4). Pick ile
@@ -31,14 +40,40 @@ export type AddOpeningInput = {
 }
 
 export type ArchitectureSlice = ArchitectureData & {
+  addWall: (input: AddWallInput) => AddedWall | undefined
+  addWallChain: (input: AddWallChainInput) => void
+  movePoint: (pointId: Id, position: PlanPoint) => void
+  deleteWall: (wallId: Id) => void
   /** Reddedilirse undefined döner ve HİÇBİR ŞEY değişmez — id bile harcanmaz. */
   addOpening: (input: AddOpeningInput) => Id | undefined
   /** Yalnız offsetCm günceller: duvar bölünmez, Point/Wall üretilmez (K9). */
   moveOpening: (openingId: Id, offsetCm: number) => boolean
   setOpeningWidth: (openingId: Id, widthCm: number) => boolean
   removeOpening: (openingId: Id) => void
-  /** Duvar silme/kısaltma sonrası fay A'nın çağıracağı temizlik (K16). */
+  /** Duvar silme/kısaltma sonrası temizlik (K16). */
   pruneOpeningsOnWalls: () => void
+}
+
+export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
+  points: [],
+  walls: [],
+  openings: [],
+}
+
+/**
+ * nextUniqueId veriden TÜRETİLİR, sabit yazılmaz: başlangıç verisi bir gün boş
+ * olmazsa (örnek proje, şablon) sabit sayaç var olan bir id'yi ikinci kez üretir
+ * ve HATA VERMEZ — id aramaları sessizce şaşar. Bkz. knowledge/id-scheme.md.
+ */
+export function deriveNextUniqueId(data: ArchitectureData): Id {
+  return (
+    Math.max(
+      FIRST_FREE_ID - 1,
+      ...data.points.map((point) => point.id),
+      ...data.walls.map((wall) => wall.id),
+      ...data.openings.map((opening) => opening.id),
+    ) + 1
+  )
 }
 
 /** Köşe payı burada hesaplanmaz; getPlacementRange'den geçirilir (K11). */
@@ -52,15 +87,71 @@ function isPlacementValidInState(state: ArchitectureData, placement: OpeningPlac
   return isPlacementValid(placement, range, state.openings)
 }
 
+/**
+ * Duvarı silinen veya sığmayacak kadar kısalan açıklığı düşürür (K16).
+ * Çağıranın set()'i içinde çalışır: silme + temizlik TEK geri alma adımı olsun.
+ * Değişiklik olmadıysa false döner — duvar sürüklemesi her karede projeyi
+ * kirletmesin.
+ */
+function pruneOpeningsInDraft(draft: ArchitectureData): boolean {
+  const kept = pruneUnfittableOpenings(draft.openings, draft.walls, draft.points)
+  if (kept.length === draft.openings.length) return false
+
+  draft.openings = kept
+  return true
+}
+
 export const createArchitectureSlice: StateCreator<
   CadState,
   [['zustand/immer', never]],
   [],
   ArchitectureSlice
 > = (set) => ({
-  points: MOCK_POINTS,
-  walls: MOCK_WALLS,
-  openings: MOCK_OPENINGS,
+  ...INITIAL_ARCHITECTURE_DATA,
+
+  // Üretilen id'ler dönüyor: duvar çizim aracı zinciri bu p2Id'den sürdürüyor.
+  addWall: (input) => {
+    let added: AddedWall | undefined
+    set((draft) => {
+      added = appendWall(draft, input.start, input.end, input)
+      if (added) markDirty(draft)
+    })
+    return added
+  },
+
+  // Zincirin tamamı tek set() içinde: geri alma tek adımda tüm zinciri kaldırır.
+  addWallChain: (input) =>
+    set((draft) => {
+      if (appendWallChain(draft, input)) markDirty(draft)
+    }),
+
+  movePoint: (pointId, position) =>
+    set((draft) => {
+      const point = draft.points.find((candidate) => candidate.id === pointId)
+      if (!point) return
+
+      // Tek Point güncellenir; ona bağlı tüm duvarlar referans üzerinden gelir.
+      point.x = position.x
+      point.y = position.y
+      // Köşeyi çekmek duvarı kısaltabilir; sığmayan açıklık aynı adımda düşer (K16).
+      pruneOpeningsInDraft(draft)
+      markDirty(draft)
+    }),
+
+  deleteWall: (wallId) =>
+    set((draft) => {
+      const index = draft.walls.findIndex((wall) => wall.id === wallId)
+      if (index === -1) return
+
+      draft.walls.splice(index, 1)
+
+      // Temizlik aynı set() içinde: silme + temizlik tek geri alma adımı olsun.
+      const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
+      draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
+      // Duvarsız açıklık temsil edilemez; sahipsiz wallId bırakılmaz (K16).
+      pruneOpeningsInDraft(draft)
+      markDirty(draft)
+    }),
 
   addOpening: (input) => {
     let createdId: Id | undefined
@@ -141,64 +232,6 @@ export const createArchitectureSlice: StateCreator<
 
   pruneOpeningsOnWalls: () =>
     set((draft) => {
-      const kept = pruneUnfittableOpenings(draft.openings, draft.walls, draft.points)
-      // Silinen yoksa markDirty ÇAĞRILMAZ: A'nın duvar sürüklemesi her karede
-      // revision'ı artırırsa "kaydedilmemiş değişiklik" uyarısı anlamsızlaşır.
-      if (kept.length === draft.openings.length) return
-
-      draft.openings = kept
-      markDirty(draft)
+      if (pruneOpeningsInDraft(draft)) markDirty(draft)
     }),
-
-  // TODO(fay-A): addWall/moveWall/removeWall/movePoint buraya gelecek ve
-  // store/architectureMock.ts silinecek. Duvarı silen veya kısaltan HER action
-  // işini bitirince pruneOpeningsOnWalls() çağırmalı (K16); duvarı açıklığın
-  // üstünden geçirmemek için selectOccupiedRanges(state, wallId) okumalı.
 })
-
-/**
- * ⚠️ Aşağıdaki selector'ların bir kısmı her çağrıda YENİ dizi/nesne üretir
- * (selectWallsOnFloor, selectWallsAtPoint, selectOpeningsOnWall,
- * selectOccupiedRanges, selectPlacementRange). `useCadStore((s) => selectX(s, id))`
- * biçiminde kullanılırsa Object.is her seferinde false döner ve bileşen sonsuz
- * yeniden render olur. Bunlar action/olay içinden `useCadStore.getState()` ile
- * çağrılan sorgu yardımcılarıdır; bileşenler kararlı `state.openings` /
- * `state.walls` referanslarına abone olup türetir.
- */
-export function selectWallById(state: ArchitectureSlice, wallId: Id): Wall | undefined {
-  return state.walls.find((wall) => wall.id === wallId)
-}
-
-export function selectPointById(state: ArchitectureSlice, pointId: Id): Point | undefined {
-  return state.points.find((point) => point.id === pointId)
-}
-
-export function selectWallsOnFloor(state: ArchitectureSlice, floorId: Id): Wall[] {
-  return state.walls.filter((wall) => wall.floorId === floorId)
-}
-
-export function selectWallsAtPoint(state: ArchitectureSlice, pointId: Id): Wall[] {
-  return getWallsAtPoint(pointId, state.walls)
-}
-
-export function selectPlacementRange(
-  state: ArchitectureSlice,
-  wallId: Id,
-): PlacementRange | undefined {
-  const wall = selectWallById(state, wallId)
-  if (!wall) return undefined
-  return getPlacementRange(wall, state.points, state.walls)
-}
-
-export function selectOpeningById(state: ArchitectureSlice, openingId: Id): Opening | undefined {
-  return state.openings.find((opening) => opening.id === openingId)
-}
-
-export function selectOpeningsOnWall(state: ArchitectureSlice, wallId: Id): Opening[] {
-  return getOpeningsOnWall(wallId, state.openings)
-}
-
-/** B→A sözleşmesinin store yüzü. Bkz. knowledge/snap-contract.md. */
-export function selectOccupiedRanges(state: ArchitectureSlice, wallId: Id): OpeningSpan[] {
-  return getOccupiedRanges(wallId, state.openings)
-}

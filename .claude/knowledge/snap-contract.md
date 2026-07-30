@@ -23,18 +23,28 @@ state almaz, argüman alır):
 - `getSnapPoints(wall, points, walls): PlanPoint[]`
 - `getPlacementRange(wall, points, walls): PlacementRange | undefined` (köşe payı dahil)
 
-Store yüzü (`store/architectureSlice.ts`), yukarıdakileri saran ince selector'lar:
+Store yüzü (`store/architectureSelectors.ts`, `architectureSlice.ts`'ten yeniden
+dışa aktarılır), yukarıdakileri saran ince selector'lar:
 - `selectWallById(state, wallId)`, `selectPointById(state, pointId)`
-- `selectWallsOnFloor(state, floorId)`, `selectWallsAtPoint(state, pointId)`
-- `selectPlacementRange(state, wallId)`
+- `selectPointsOnFloor(state, floorId)`, `selectWallsOnFloor(state, floorId)`
+- `selectWallsAtPoint(state, pointId)`
+- `selectWallSnapPoints(state, wallId)`
+- `selectWallPlacementRange(state, wallId)` — **dikkat:** adı `selectPlacementRange`
+  DEĞİL. İlk taslakta öyle yazılmıştı; gerçek sürüm `Wall` önekli.
 
 Açıklık tarafı → duvar altyapısına:
 - `getOccupiedRanges(wallId, openings): OpeningSpan[]` — `[startCm, endCm]`
   ikilileri, **startCm'e göre artan**. Duvar çizerken/kısaltırken açıklığın
   üstünden geçmemek için. Store yüzü: `selectOccupiedRanges(state, wallId)`.
 - `pruneUnfittableOpenings(openings, walls, points)` / store'da
-  `pruneOpeningsOnWalls()` — duvarı silen veya kısaltan HER action bunu
-  işini bitirince çağırır (K16).
+  `pruneOpeningsOnWalls()` (K16).
+
+**Temizlik ARTIK BAĞLI:** `deleteWall` ve `movePoint` kendi `set()`'leri içinde
+açıklık temizliğini çağırıyor — silme/kısaltma + temizlik TEK geri alma adımı.
+Duvarı silen veya kısaltan YENİ bir action eklenirse aynısını yapmalı; yoksa
+sahipsiz `wallId` kalır. Entegrasyon testi:
+`store/__tests__/architectureWallOpeningSync.test.ts` (mock değil, gerçek
+duvar action'larıyla).
 
 **Duvarı seçmek snap'in işi DEĞİL.** `resolveSnap` köşede `kind:'point'` dönüp
 `wallId` vermez ve px eşiği kalınlığı bilmez. "İmleç hangi duvarın üstünde"
@@ -43,8 +53,9 @@ sorusunu `core/wallPath.ts` → `findWallUnderPoint` (kalınlığa duyarlı) yan
 (`getSnapOffsetsCm` + `snapOffsetCm`).
 
 ⚠️ **Abonelik tuzağı:** `(state, id)` imzalı selector'ların bir kısmı her çağrıda
-YENİ dizi/nesne üretir (`selectWallsOnFloor`, `selectWallsAtPoint`,
-`selectOpeningsOnWall`, `selectOccupiedRanges`, `selectPlacementRange`).
+YENİ dizi/nesne üretir (`selectPointsOnFloor`, `selectWallsOnFloor`,
+`selectWallsAtPoint`, `selectWallSnapPoints`, `selectWallPlacementRange`,
+`selectOpeningsOnWall`, `selectOccupiedRanges`).
 `useCadStore((s) => selectX(s, id))` biçiminde kullanılırsa `Object.is` her
 seferinde false döner ve bileşen sonsuz render olur. Bunlar action/olay içinden
 `useCadStore.getState()` ile çağrılan **sorgu yardımcılarıdır**; bileşenler

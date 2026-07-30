@@ -207,9 +207,12 @@ Duvar silinince ya da açıklık sığmayacak kadar kısalınca o açıklık kal
 temsil edilemez; bırakılsa sahipsiz bir `wallId` referansı kalır ve kat
 kopyalamadaki remap assertion'ı sonradan patlar.
 
-Duvar silme/kısaltma fay A'nın action'ı: A işini bitirince
-`pruneOpeningsOnWalls()` çağırır. Silinecek bir şey yoksa `markDirty`
-çağrılmaz — yoksa duvar sürüklemesi her karede projeyi kirletirdi.
+Duvar silme/kısaltma fay A'nın action'ı. Gerçek duvar altyapısı geldiğinde
+bağlandı: `deleteWall` ve `movePoint` temizliği KENDİ `set()`'leri içinde
+çağırıyor, böylece silme/kısaltma + temizlik tek geri alma adımı oluyor.
+`pruneOpeningsOnWalls()` dışarıdan çağrılabilir bir action olarak duruyor.
+Silinecek bir şey yoksa `markDirty` çağrılmaz — yoksa duvar sürüklemesi her
+karede projeyi kirletirdi.
 
 ### K17 — `takeNextId`/`markDirty` `store/projectMeta.ts`'e taşındı
 
@@ -222,6 +225,18 @@ oluştu ve `create()` slice'ı henüz tanımlanmamış buldu
 Kural: bir slice `cadStore`'dan yalnız `import type` yapar; paylaşılan çalışma
 zamanı yardımcıları `projectMeta.ts`'te durur. `cadStore` geriye dönük uyum için
 ikisini yeniden dışa aktarıyor.
+
+### K18 — Başlangıç verisi boş, `nextUniqueId` yine de türetilir
+
+Gerçek duvar çizimi gelince mock sahne seed'i kalktı; store `points/walls/openings`
+boş başlıyor ve hazır sahne yalnız TEST verisi
+(`store/__tests__/architectureFixture.ts`).
+
+Sayaç buna rağmen `deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA)` ile hesaplanıyor,
+`FIRST_FREE_ID` yazılmıyor. Bugün ikisi aynı sonucu veriyor; fark, başlangıç
+verisi bir gün boş olmadığında (örnek proje, şablon, açılan dosya) ortaya çıkar:
+sabit sayaç var olan bir id'yi ikinci kez üretir ve HATA VERMEZ. Bu daha önce
+mock sahnede yaşanmış bir hataydı, türetme onun kalıcı çözümü.
 
 ---
 

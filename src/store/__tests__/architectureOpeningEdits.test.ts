@@ -1,17 +1,24 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { MOCK_NEXT_FREE_ID, MOCK_OPENINGS, MOCK_POINTS, MOCK_WALLS } from '../architectureMock'
 import {
   selectOccupiedRanges,
   selectOpeningById,
   selectOpeningsOnWall,
-  selectPlacementRange,
+  selectWallPlacementRange,
   selectPointById,
   selectWallById,
   selectWallsAtPoint,
   selectWallsOnFloor,
 } from '../architectureSlice'
-import { resetArchitectureState, WALL_ID, WINDOW_ID } from './architectureTestState'
+import {
+  FIXTURE_NEXT_FREE_ID,
+  FIXTURE_OPENINGS,
+  FIXTURE_POINTS,
+  FIXTURE_WALLS,
+  resetArchitectureState,
+  WALL_ID,
+  WINDOW_ID,
+} from './architectureFixture'
 import { useCadStore } from '../cadStore'
 
 beforeEach(resetArchitectureState)
@@ -58,7 +65,7 @@ describe('removeOpening', () => {
     expect(state.openings).toEqual([])
     expect(state.revision).toBe(1)
     // id bir kez üretilir, ASLA yeniden kullanılmaz (knowledge/id-scheme.md).
-    expect(state.nextUniqueId).toBe(MOCK_NEXT_FREE_ID)
+    expect(state.nextUniqueId).toBe(FIXTURE_NEXT_FREE_ID)
   })
 
   it('olmayan açıklıkta projeyi kirletmez', () => {
@@ -69,7 +76,7 @@ describe('removeOpening', () => {
 
 describe('pruneOpeningsOnWalls', () => {
   it('duvarı silinen açıklığı temizler', () => {
-    useCadStore.setState({ walls: MOCK_WALLS.filter((wall) => wall.id !== WALL_ID) })
+    useCadStore.setState({ walls: FIXTURE_WALLS.filter((wall) => wall.id !== WALL_ID) })
     useCadStore.getState().pruneOpeningsOnWalls()
 
     expect(useCadStore.getState().openings).toEqual([])
@@ -78,7 +85,7 @@ describe('pruneOpeningsOnWalls', () => {
 
   it('duvar kısalıp açıklık sığmayınca temizler', () => {
     useCadStore.setState({
-      points: MOCK_POINTS.map((point) => (point.id === 3 ? { ...point, x: 300 } : point)),
+      points: FIXTURE_POINTS.map((point) => (point.id === 3 ? { ...point, x: 300 } : point)),
     })
     useCadStore.getState().pruneOpeningsOnWalls()
 
@@ -88,7 +95,7 @@ describe('pruneOpeningsOnWalls', () => {
   it('silinecek bir şey yoksa projeyi kirletmez', () => {
     useCadStore.getState().pruneOpeningsOnWalls()
 
-    expect(useCadStore.getState().openings).toEqual(MOCK_OPENINGS)
+    expect(useCadStore.getState().openings).toEqual(FIXTURE_OPENINGS)
     // A'nın duvar sürüklemesi her karede revision'ı artırmasın.
     expect(useCadStore.getState().revision).toBe(0)
   })
@@ -114,15 +121,15 @@ describe('A↔B selectorları', () => {
   })
 
   it('köşe payı dahil yerleştirme aralığını verir', () => {
-    expect(selectPlacementRange(useCadStore.getState(), WALL_ID)).toEqual({
+    expect(selectWallPlacementRange(useCadStore.getState(), WALL_ID)).toEqual({
       minOffsetCm: 25,
       maxOffsetCm: 470,
     })
-    expect(selectPlacementRange(useCadStore.getState(), 404)).toBeUndefined()
+    expect(selectWallPlacementRange(useCadStore.getState(), 404)).toBeUndefined()
   })
 
   it('duvardaki açıklıkları verir', () => {
-    expect(selectOpeningsOnWall(useCadStore.getState(), WALL_ID)).toEqual(MOCK_OPENINGS)
+    expect(selectOpeningsOnWall(useCadStore.getState(), WALL_ID)).toEqual(FIXTURE_OPENINGS)
     expect(selectOpeningsOnWall(useCadStore.getState(), 9)).toEqual([])
   })
 
