@@ -163,8 +163,8 @@ export function getSnapPoints(
   return result
 }
 
-/** Uçta duvar yoksa pay yok; birden çok duvar birleşiyorsa en kalını esas alınır (K11). */
-function getCornerClearanceCm(wall: Wall, pointId: Id, walls: readonly Wall[]): number {
+/** Uçta duvar yoksa 0; birden çok duvar birleşiyorsa en kalını esas alınır. */
+export function getNeighbourThicknessCm(wall: Wall, pointId: Id, walls: readonly Wall[]): number {
   const neighbours = getWallsAtPoint(pointId, walls).filter((other) => other.id !== wall.id)
   if (neighbours.length === 0) return 0
   return Math.max(...neighbours.map((neighbour) => neighbour.thickness))
@@ -185,7 +185,7 @@ export function getPlacementRange(
 
   const lengthCm = getSegmentLength(ends.p1, ends.p2)
   return {
-    minOffsetCm: getCornerClearanceCm(wall, wall.p1Id, walls),
-    maxOffsetCm: lengthCm - getCornerClearanceCm(wall, wall.p2Id, walls),
+    minOffsetCm: getNeighbourThicknessCm(wall, wall.p1Id, walls),
+    maxOffsetCm: lengthCm - getNeighbourThicknessCm(wall, wall.p2Id, walls),
   }
 }
