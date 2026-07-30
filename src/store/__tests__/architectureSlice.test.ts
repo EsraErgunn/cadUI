@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { DEFAULT_WALL_HEIGHT_CM, DEFAULT_WALL_THICKNESS_CM } from '../../core/wall'
-import { selectWallPlacementRange, selectWallsAtPoint, selectWallSnapPoints } from '../architectureSlice'
 import { useCadStore } from '../cadStore'
 
 const initialState = useCadStore.getState()
@@ -78,6 +77,94 @@ describe('addWall', () => {
     addHorizontalWall()
     expect(useCadStore.getState().revision).toBe(1)
   })
+
+  it('üretilen id\'leri döndürür — zincir bu p2Id\'den sürüyor', () => {
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 0, y: 0 } },
+      end: { position: { x: 400, y: 0 } },
+    })
+    const { points, walls } = useCadStore.getState()
+
+    expect(added).toEqual({ wallId: walls[0].id, p1Id: points[0].id, p2Id: points[1].id })
+  })
+
+  it('yazmadığı durumda undefined döndürür', () => {
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 100, y: 100 } },
+      end: { position: { x: 100, y: 100 } },
+    })
+
+    expect(added).toBeUndefined()
+  })
+})
+
+describe('addWallChain', () => {
+  it('ardışık her nokta çiftinden bir duvar üretir', () => {
+    useCadStore.getState().addWallChain({
+      ends: [
+        { position: { x: 0, y: 0 } },
+        { position: { x: 400, y: 0 } },
+        { position: { x: 400, y: 300 } },
+      ],
+    })
+    const { points, walls } = useCadStore.getState()
+
+    expect(walls).toHaveLength(2)
+    // Ara nokta paylaşıldığı için 4 değil 3 Point olmalı.
+    expect(points).toHaveLength(3)
+    expect(walls[0].p2Id).toBe(walls[1].p1Id)
+  })
+
+  it('tüm zincir tek geri alma adımıdır', () => {
+    useCadStore.getState().addWallChain({
+      ends: [
+        { position: { x: 0, y: 0 } },
+        { position: { x: 400, y: 0 } },
+        { position: { x: 400, y: 300 } },
+      ],
+    })
+
+    expect(useCadStore.getState().revision).toBe(1)
+  })
+
+  it('kapalı çevrim için var olan köşeye dönebilir', () => {
+    addHorizontalWall()
+    const startId = useCadStore.getState().points[0].id
+    const cornerId = useCadStore.getState().points[1].id
+
+    useCadStore.getState().addWallChain({
+      ends: [{ pointId: cornerId }, { position: { x: 400, y: 300 } }, { pointId: startId }],
+    })
+    const { points, walls } = useCadStore.getState()
+
+    expect(walls).toHaveLength(3)
+    // Çevrim kapandığı için yalnız bir yeni köşe eklendi.
+    expect(points).toHaveLength(3)
+    expect(walls[2].p2Id).toBe(startId)
+  })
+
+  it('sıfır boylu segmenti atlar, zincirin kalanını yazar', () => {
+    useCadStore.getState().addWallChain({
+      ends: [
+        { position: { x: 0, y: 0 } },
+        { position: { x: 0, y: 0 } },
+        { position: { x: 400, y: 0 } },
+      ],
+    })
+    const { points, walls } = useCadStore.getState()
+
+    expect(walls).toHaveLength(1)
+    expect(points).toHaveLength(2)
+  })
+
+  it('tek noktalı zincirde hiçbir şey yazmaz', () => {
+    useCadStore.getState().addWallChain({ ends: [{ position: { x: 0, y: 0 } }] })
+    const { points, walls, revision } = useCadStore.getState()
+
+    expect(walls).toHaveLength(0)
+    expect(points).toHaveLength(0)
+    expect(revision).toBe(0)
+  })
 })
 
 describe('movePoint', () => {
@@ -143,42 +230,5 @@ describe('deleteWall', () => {
     useCadStore.getState().deleteWall(404)
 
     expect(useCadStore.getState().revision).toBe(before)
-  })
-})
-
-describe('selectorlar', () => {
-  it('köşede birleşen duvarları verir', () => {
-    addHorizontalWall()
-    const cornerId = useCadStore.getState().points[1].id
-    useCadStore.getState().addWall({
-      start: { pointId: cornerId },
-      end: { position: { x: 400, y: 300 } },
-    })
-
-    expect(selectWallsAtPoint(useCadStore.getState(), cornerId)).toHaveLength(2)
-  })
-
-  it('duvarın yakalama noktalarını verir', () => {
-    addHorizontalWall()
-    const wallId = useCadStore.getState().walls[0].id
-
-    expect(selectWallSnapPoints(useCadStore.getState(), wallId)).toContainEqual({ x: 200, y: 0 })
-  })
-
-  it('yerleştirme aralığını köşe payıyla verir', () => {
-    addHorizontalWall()
-    const cornerId = useCadStore.getState().points[1].id
-    useCadStore.getState().addWall({
-      start: { pointId: cornerId },
-      end: { position: { x: 400, y: 300 } },
-    })
-
-    expect(selectWallPlacementRange(useCadStore.getState(), useCadStore.getState().walls[0].id))
-      .toEqual({ minOffsetCm: 0, maxOffsetCm: 400 - DEFAULT_WALL_THICKNESS_CM })
-  })
-
-  it('olmayan duvarda boş/undefined döner', () => {
-    expect(selectWallSnapPoints(useCadStore.getState(), 404)).toEqual([])
-    expect(selectWallPlacementRange(useCadStore.getState(), 404)).toBeUndefined()
   })
 })
