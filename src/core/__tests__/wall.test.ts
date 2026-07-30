@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Point, Wall } from '../model'
 import {
+  getOrphanPointIds,
   getPlacementRange,
   getSegmentAngleDeg,
   getSegmentLength,
@@ -104,6 +105,21 @@ describe('getWallsAtPoint', () => {
 
   it('hiçbir duvarın kullanmadığı noktada boş döner', () => {
     expect(getWallsAtPoint(404, walls)).toEqual([])
+  })
+})
+
+describe('getOrphanPointIds', () => {
+  it('hiçbir duvarın kullanmadığı noktayı bildirir', () => {
+    const withOrphan = [...points, makePoint(4, 900, 900)]
+    expect(getOrphanPointIds(withOrphan, walls)).toEqual([4])
+  })
+
+  it('duvarların kullandığı noktalara dokunmaz', () => {
+    expect(getOrphanPointIds(points, walls)).toEqual([])
+  })
+
+  it('duvar kalmayınca tüm noktalar sahipsizdir', () => {
+    expect(getOrphanPointIds(points, [])).toEqual([1, 2, 3])
   })
 })
 

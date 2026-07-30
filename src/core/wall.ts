@@ -6,6 +6,12 @@ const EPSILON_CM = 1e-6
 
 const DEG_PER_RAD = 180 / Math.PI
 
+export const DEFAULT_WALL_THICKNESS_CM = 20
+export const DEFAULT_WALL_HEIGHT_CM = 280
+
+/** Bundan kısa duvar kazara çift tıklamayla oluşan sıfır boy segmenttir, kabul edilmez. */
+export const MIN_WALL_LENGTH_CM = 1
+
 export type WallEnds = { p1: PlanPoint; p2: PlanPoint }
 
 export type WallProjection = {
@@ -93,6 +99,16 @@ export function projectPointOntoWall(
 /** Bir köşede birleşen duvarlar. Köşe taşıma ve köşe payı hesabı bunu kullanır. */
 export function getWallsAtPoint(pointId: Id, walls: readonly Wall[]): Wall[] {
   return walls.filter((wall) => wall.p1Id === pointId || wall.p2Id === pointId)
+}
+
+/** Hiçbir duvarın kullanmadığı noktalar. Silme sonrası temizlenmezse JSON şişer. */
+export function getOrphanPointIds(points: readonly Point[], walls: readonly Wall[]): Id[] {
+  const usedIds = new Set<Id>()
+  for (const wall of walls) {
+    usedIds.add(wall.p1Id)
+    usedIds.add(wall.p2Id)
+  }
+  return points.filter((point) => !usedIds.has(point.id)).map((point) => point.id)
 }
 
 function getSegmentIntersection(
