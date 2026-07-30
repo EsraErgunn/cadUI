@@ -1,8 +1,22 @@
-import { getToolLabel } from '../core/tools'
-import { getViewLabel } from '../core/views'
+import { getToolLabel, type ToolId } from '../core/tools'
+import { getViewLabel, type ViewId } from '../core/views'
+import {
+  getInstallationToolLabel,
+  isInstallationToolId,
+  type InstallationToolId,
+} from '../plumbing/core/installationTools'
 import { useCadStore } from '../store/cadStore'
 import { selectActiveFloor } from '../store/floorSlice'
 import { useUiStore } from '../store/uiStore'
+
+function resolveToolLabel(viewId: ViewId, toolId: ToolId | InstallationToolId): string {
+  if (viewId === 'installation' && isInstallationToolId(toolId)) {
+    return getInstallationToolLabel(toolId)
+  }
+  // core/tools.ts sözleşme gereği union kabul edemez; görünüm mimariyken araç
+  // daima ToolId'dir (uiStore.setActiveView garanti eder), daraltma bu yüzden güvenli.
+  return getToolLabel(toolId as ToolId)
+}
 
 const PRODUCT_NAME = 'StarCad'
 
@@ -24,7 +38,7 @@ export function StatusBar() {
       aria-label="Durum çubuğu"
       className="flex shrink-0 items-center gap-6 border-t border-edge bg-surface px-3 py-1.5 text-xs text-ink-muted"
     >
-      <StatusField label="Aktif araç" value={getToolLabel(activeToolId)} />
+      <StatusField label="Aktif araç" value={resolveToolLabel(activeViewId, activeToolId)} />
       <StatusField label="Kat" value={activeFloor?.name ?? '—'} />
       <StatusField label="Görünüm" value={getViewLabel(activeViewId)} />
       <span className="ml-auto">{PRODUCT_NAME}</span>
