@@ -8,5 +8,6 @@ export const SCENE_COLORS = {
   gridMinor: '#eaeef4',
   gridMajor: '#cbd3e0',
   selection: '#2d7ff9',
-  wall: '#3d4450',
+  wallFill: '#6b7280',
+  wallOutline: '#1f2329',
 } as const
