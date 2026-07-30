@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 
+import { ArchitectureLayer } from './ArchitectureLayer'
 import { Cameras } from './Cameras'
 import { DrawSurface } from './DrawSurface'
 import { Grid } from './Grid'
@@ -24,6 +25,12 @@ export function SceneRoot() {
       <Cameras />
       <ViewportControls />
       <Grid />
+      {activeViewId === 'architecture' && (
+        <>
+          <DrawSurface />
+          <ArchitectureLayer />
+        </>
+      )}
       {activeViewId === 'installation' && (
         <>
           <DrawSurface />
