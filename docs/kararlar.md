@@ -95,6 +95,56 @@ onayıyla eklenecek.
 
 ---
 
+## 2026-07 · Duvar modeli ve açıklık (kapı/pencere) sözleşmesi
+
+### K9 — Duvar bölünmez; açıklık duvarın üzerinde bir "delik"tir
+
+Görev tanımındaki "kapı duvarı böler, silinince duvar birleşir" ifadesi
+uygulanmadı. Bölme yaklaşımında 10 m'lik bir duvar + tek kapı = iki ayrı Wall
+kaydı olur; kapı her taşındığında ikisinin de uzunluğu, silindiğinde birleştirme
+ve sahipsiz kalan Point'in temizliği gerekir. Referans sayısı artar, kat
+kopyalamadaki remap listesi büyür.
+
+Seçilen yol: duvar tek parça kalır, açıklık `wallId + offsetCm` ile onun üstünde
+durur. Taşıma = tek alan güncellemesi, silme = hiçbir şey. domain-model
+SKILL'indeki "Opening mutlak koordinat tutmaz" kuralıyla da birebir aynı.
+
+Nerede: `core/model.ts`, `core/opening.ts`.
+
+### K10 — `offsetCm` açıklığın ORTASINI ölçer
+
+Sol kenar da ölçülebilirdi; orta seçildi çünkü "duvarın tam ortasına yerleştir"
+gibi hizalamalar genişlikten bağımsız olur (`offset = uzunluk / 2`), ve sürükleme
+sırasında imleç zaten açıklığın ortasındadır.
+
+Sığma koşulu: `offset - width/2 >= minOffsetCm` ve `offset + width/2 <= maxOffsetCm`.
+
+İki taraf farklı varsayarsa açıklık yarım genişlik kayar ve hata sessizdir —
+bu yüzden knowledge/opening-placement.md'ye de gotcha olarak yazıldı.
+
+### K11 — Köşe payı = o uçta birleşen dik duvarın kalınlığı
+
+Önce "kenar boşluğu yok, serbest" denmişti; duvara kalınlık alanı eklenince bu
+karar değişti. Duvarlar orta çizgilerine göre çizildiği için köşedeki fiziksel
+çakışma kalınlığın yarısı kadardır (20 cm duvar → 10 cm). Tam kalınlık seçildi:
+10 cm gerçek çakışma + 10 cm güvenlik payı.
+
+Uç boştaysa pay yok. Birden çok duvar birleşiyorsa en kalını esas alınır.
+Sınırları `getPlacementRange(wallId)` döndürür.
+
+### K12 — Snap noktaları sabit aralıklı değil
+
+"Her 2 metrede bir bölüm noktası" fikri elendi: 11.65 m'lik duvarda son parça
+artık kalır. `getSnapPoints` yalnız uçları, orta noktayı ve kesişimleri döndürür;
+kalan her yer serbesttir. Hesap tek yerde yaşar — duvar çizimi ve açıklık
+yerleştirme aynı fonksiyonu tüketir, iki ayrı kopya tutulmaz.
+
+Karşılıklı fonksiyon sözleşmesi knowledge/snap-contract.md'de. Mimari (B) iki
+alt-faya bölündüğü için (duvar altyapısı · açıklık ve nesne etkileşimi) bu
+fonksiyonlar B'nin kendi içindeki sınırdır.
+
+---
+
 ## Terminoloji uyarısı: "Kolon" iki farklı şey
 
 - Mimari paletteki **"Kolon Ekle"** = yapısal kolon (kirişle birlikte taşıyıcı).

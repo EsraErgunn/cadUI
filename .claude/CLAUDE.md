@@ -34,7 +34,10 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Veri modeli (core/model.ts — SÖZLEŞME, izinsiz değiştirme)
 
 - Duvar kendi koordinatını taşımaz. Ortak `Point` havuzunu `p1Id`/`p2Id` ile paylaşır.
-- Kapı/pencere (`Opening`) yalnız duvara bağlıdır, `wallId` + `offset` ile → duvar taşınınca birlikte gelir.
+- Kapı/pencere (`Opening`) yalnız duvara bağlıdır, `wallId` + `offsetCm` ile → duvar taşınınca birlikte gelir.
+  Duvar BÖLÜNMEZ, açıklık tek parça duvarın üstünde bir deliktir. `offsetCm` açıklığın
+  ORTASINI ölçer (p1 ucundan). Köşe payı = o uçta birleşen dik duvarın kalınlığı.
+  (bkz. knowledge/opening-placement.md)
 - Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
 - Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
@@ -51,6 +54,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
+
+B (mimari) iki alt-faya bölündü: **duvar altyapısı** (wall/room/snap/floorClone,
+useWallTool/useRoomTool) ve **açıklık + nesne etkileşimi** (opening, seçim/taşıma,
+özellik paneli beslemesi). İkisinin sınırı knowledge/snap-contract.md'deki
+karşılıklı fonksiyonlardır — o sınırın dışında birbirinin dosyasına yazılmaz.
 
 ## Ürün kuralları (gereksinimler)
 
