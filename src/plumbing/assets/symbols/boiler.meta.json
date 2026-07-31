@@ -1,0 +1,11 @@
+{
+  "id": "boiler",
+  "label": "Kazan",
+  "asset": "boiler.svg",
+  "viewBox": [0, 0, 60, 60],
+  "origin": [30, 27],
+  "ports": [
+    { "id": "in", "type": "input", "position": [0, 27], "direction": [1, 0] }
+  ],
+  "bounds": { "min": [0, 0], "max": [60, 60] }
+}

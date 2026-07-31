@@ -2,10 +2,14 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import type { Id } from '../../core/model'
+import type { InstallationElementType } from '../core/symbolMetadata'
 
 type PlumbingUiState = {
   selectedElementId: Id | null
   setSelectedElement: (elementId: Id | null) => void
+  /** symbolLoader.ts'in doldurduğu asset hataları — sessiz catch yerine görünür durum. */
+  assetErrors: Partial<Record<InstallationElementType, string>>
+  setAssetError: (type: InstallationElementType, message: string) => void
 }
 
 /**
@@ -17,10 +21,16 @@ type PlumbingUiState = {
 export const usePlumbingUiStore = create<PlumbingUiState>()(
   immer((set) => ({
     selectedElementId: null,
+    assetErrors: {},
 
     setSelectedElement: (elementId) =>
       set((draft) => {
         draft.selectedElementId = elementId
+      }),
+
+    setAssetError: (type, message) =>
+      set((draft) => {
+        draft.assetErrors[type] = message
       }),
   })),
 )

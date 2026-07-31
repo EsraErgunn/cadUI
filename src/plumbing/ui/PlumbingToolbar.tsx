@@ -8,7 +8,7 @@ export function PlumbingToolbar() {
   const setActiveTool = useUiStore((state) => state.setActiveTool)
 
   return (
-    // Mimari paletle aynı iskelet: 16 araç → 8 satır × 2 sütun.
+    // Mimari paletle aynı iskelet: araçlar 2 sütuna otomatik sarar.
     <nav
       aria-label="Araç paleti"
       className="grid shrink-0 grid-cols-2 content-start gap-1 border-r border-edge bg-surface p-1.5"

@@ -1,0 +1,11 @@
+{
+  "id": "waterHeater",
+  "label": "Şofben",
+  "asset": "water-heater.svg",
+  "viewBox": [0, 0, 40, 50],
+  "origin": [20, 23],
+  "ports": [
+    { "id": "in", "type": "input", "position": [0, 23], "direction": [1, 0] }
+  ],
+  "bounds": { "min": [0, 0], "max": [40, 50] }
+}

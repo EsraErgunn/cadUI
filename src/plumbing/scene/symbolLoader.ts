@@ -1,0 +1,138 @@
+import { Color, MeshBasicMaterial, ShapeGeometry, type BufferGeometry, type Material } from 'three'
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
+
+import {
+  parseSymbolMetadata,
+  type InstallationElementType,
+  type SymbolMetadata,
+} from '../core/symbolMetadata'
+import { usePlumbingUiStore } from '../store/plumbingUiStore'
+
+export type SymbolShape = { geometry: BufferGeometry; material: Material }
+export type LoadedSymbol = { shapes: readonly SymbolShape[]; metadata: SymbolMetadata }
+
+/** SVGLoader'ın path.userData.style'ı — SVGLoader.js kaynağıyla birebir (fill/stroke, 'none' olabilir). */
+type SvgPathStyle = {
+  fill?: string
+  stroke?: string
+  strokeWidth?: number
+  strokeLineJoin?: string
+  strokeLineCap?: string
+  strokeMiterLimit?: number
+}
+
+// Semboller derleme zamanında gömülü (Vite `?raw`) — ağ isteği yok, bu yüzden yükleme
+// senkron ve önbellek düz bir Map; Promise/Suspense'e gerek kalmadı (docs/kararlar.md).
+const svgSources = import.meta.glob('../assets/symbols/*.svg', {
+  eager: true,
+  import: 'default',
+  query: '?raw',
+}) as Record<string, string>
+
+const symbolMetadataList: readonly SymbolMetadata[] = Object.values(
+  import.meta.glob('../assets/symbols/*.meta.json', {
+    eager: true,
+    import: 'default',
+  }) as Record<string, unknown>,
+).map(parseSymbolMetadata)
+
+const svgLoader = new SVGLoader()
+const materialCache = new Map<string, Material>()
+const symbolCache = new Map<InstallationElementType, LoadedSymbol>()
+
+function getSharedMaterial(colorHex: string): Material {
+  const cached = materialCache.get(colorHex)
+  if (cached) return cached
+  const material = new MeshBasicMaterial({ color: new Color(colorHex) })
+  materialCache.set(colorHex, material)
+  return material
+}
+
+function findSvgText(assetFileName: string): string {
+  const entry = Object.entries(svgSources).find(([path]) => path.endsWith(`/${assetFileName}`))
+  if (!entry) throw new Error(`"${assetFileName}" asset dosyası bulunamadı`)
+  return entry[1]
+}
+
+/**
+ * Ham SVG'yi origin'e göre öteler ve XY çizim düzlemini plan'ın XZ zemin düzlemine
+ * yatırır (rotateX). Bu tek işlem hem "SVG +Y aşağı / plan +Y yukarı" çevrimini HEM
+ * de "çizim düzlemi → zemin düzlemi" eşlemesini kapsar; ports.ts → svgLocalToPlanOffset
+ * ile denk düşer (bkz. src/plumbing/core/__tests__/symbolLoader.test.ts). scale burada
+ * YOK — o element.scale olarak SymbolInstance'ın kendi group'unda uygulanır.
+ */
+function bakeToLocalPlanSpace(geometry: BufferGeometry, origin: readonly [number, number]): void {
+  geometry.translate(-origin[0], -origin[1], 0)
+  geometry.rotateX(Math.PI / 2)
+}
+
+function buildShapes(svgText: string, origin: readonly [number, number]): SymbolShape[] {
+  const { paths } = svgLoader.parse(svgText)
+  const shapes: SymbolShape[] = []
+
+  for (const path of paths) {
+    const style = path.userData?.style as SvgPathStyle | undefined
+    if (!style) continue
+
+    if (style.fill && style.fill !== 'none') {
+      const material = getSharedMaterial(style.fill)
+      for (const shape of path.toShapes()) {
+        const geometry = new ShapeGeometry(shape)
+        bakeToLocalPlanSpace(geometry, origin)
+        shapes.push({ geometry, material })
+      }
+    }
+
+    if (style.stroke && style.stroke !== 'none') {
+      const material = getSharedMaterial(style.stroke)
+      const strokeStyle = SVGLoader.getStrokeStyle(
+        style.strokeWidth,
+        style.stroke,
+        style.strokeLineJoin,
+        style.strokeLineCap,
+        style.strokeMiterLimit,
+      )
+      for (const subPath of path.subPaths) {
+        const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), strokeStyle)
+        if (!geometry) continue
+        bakeToLocalPlanSpace(geometry, origin)
+        shapes.push({ geometry, material })
+      }
+    }
+  }
+
+  return shapes
+}
+
+/**
+ * Sahneye yerleşen bir sembolün geometrisini/malzemesini döndürür (yalnız
+ * InstallationElementType — toolbar-only semboller sahneye port'la yerleşmez).
+ * Sonuç sembol tipi başına ÖNBELLEKLENİR ve tüm instance'lar arasında PAYLAŞILIR;
+ * highlight gerektiğinde material klonlanır, bu fonksiyonun döndürdüğü paylaşılan
+ * material'e asla yazılmaz.
+ */
+export function getLoadedSymbol(type: InstallationElementType): LoadedSymbol {
+  const cached = symbolCache.get(type)
+  if (cached) return cached
+
+  // SYMBOL_PORT_COUNTS her InstallationElementType için bir meta.json ister ve bu
+  // symbolMetadata.test.ts ile doğrulanıyor — burada bulunamaması programlama hatasıdır,
+  // asset hatası değil; bu yüzden aşağıdaki try/catch'in DIŞINDA, sessizce yutulmadan atılır.
+  const metadata = symbolMetadataList.find((meta) => meta.id === type)
+  if (!metadata) {
+    throw new Error(`"${type}" için sembol metadata'sı bulunamadı`)
+  }
+
+  let shapes: SymbolShape[] = []
+  try {
+    shapes = buildShapes(findSvgText(metadata.asset), metadata.origin)
+  } catch (error) {
+    usePlumbingUiStore
+      .getState()
+      .setAssetError(type, error instanceof Error ? error.message : String(error))
+  }
+
+  const loaded: LoadedSymbol = { shapes, metadata }
+  symbolCache.set(type, loaded)
+  return loaded
+}
