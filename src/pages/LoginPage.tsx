@@ -2,28 +2,27 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import leftPipe from "../assets/images/auth/leftpipe.png";
-import rightPipe from "../assets/images/auth/rightpipe.png";
 import panelBg from "../assets/images/auth/panel-bg.png";
+import rightPipe from "../assets/images/auth/rightpipe.png";
 
-/* ────────────────────────────────────────────────────────────
+/* 
    SAĞ PANEL — arka plan + logo tek görselde
 
    x / width : görselin viewBox içindeki yatay konumu.
                Logo panelin ortasında değilse x'i kaydır
                (büyütürsen sağa, küçültürsen sola gider).
-   ──────────────────────────────────────────────────────────── */
+   */
 const PANEL = {
   x: 551,
   width: 650,
   opacity: 1,
 };
 
-/* ────────────────────────────────────────────────────────────
+/* 
    KAVİS
    C x1 y1, x2 y2, x y → son çift varış, ilk ikisi kontrol noktası
    Genlik için ikinci C'nin x değerlerini oynat.
-   Kavis değişirse aşağıdaki kolon yüzdesini de güncelle.
-   ──────────────────────────────────────────────────────────── */
+   Kavis değişirse aşağıdaki kolon yüzdesini de güncelle. */
 const CURVE = `M 700 0
   C 600 70, 562 155, 588 258
   C 615 372, 700 412, 682 512

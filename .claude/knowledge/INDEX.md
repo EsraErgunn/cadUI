@@ -14,3 +14,6 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 | 2026-07 | gotcha | [tool-logic](./tool-logic.md) | Araç mantığı DrawSurface'e yazılmaz → merge çakışması |
 | 2026-07 | convention | [coordinates](./coordinates.md) | Plan↔Three dönüşümü sadece coords.ts; sarı=gaz hattı |
 | 2026-07 | decision | [viewport](./viewport.md) | %100 = 1cm/1px; zoom/pan kamerada (store'da değil); kamera rotation −90° şart |
+| 2026-07 | decision | [admin-list-state](./admin-list-state.md) | Yönetici listelerinde durum URL query param'da, sayfalama sunucuda; yetki düz izin listesiyle (rol modeli yok) |
+| 2026-07 | gotcha | [turkish-collation](./turkish-collation.md) | `'İ'.toLowerCase()` birleşen nokta üretir → arama sessizce eşleşmez; normalizeTr kullan |
+| 2026-07 | decision | [theming](./theming.md) | Açık varsayılan + koyu tema: token değerleri `.dark` altında değişir, class tabanlı (`@custom-variant`); admin'de sarı yok, birincil indigo, aksan cyan |
