@@ -95,6 +95,53 @@ onayıyla eklenecek.
 
 ---
 
+<<<<<<< HEAD
+## 2026-07 · Yönetici paneli — Gaz Dağıtım Firmaları listesi
+
+### K9 — Liste durumunun tek sahibi URL
+
+Arama/filtre/sıralama/sayfa `useSearchParams` ile URL query param'da tutulur;
+bileşende kopya state yok. Bağlantı paylaşılabilir olur, geri tuşu bedavaya
+doğru çalışır, iki bileşen aynı filtre için farklı değer gösteremez. Varsayılan
+değerler URL'e yazılmaz.
+
+Bunun bir sonucu: üst bardaki "Bölge" ile sayfa içindeki filtre panelindeki
+bölge **aynı `region` anahtarını** yazar/okur. İki ayrı parametre olsaydı
+kullanıcıya iki bölge alanı görünür ve çelişebilirlerdi.
+
+Nerede: `ui/admin/adminUrlParams.ts`, `ui/admin/useFirmListParams.ts`.
+
+### K10 — Sayfalama sunucu taraflı, istemci dilim yapmaz
+
+Arama, filtre, sıralama ve sayfa hepsi API parametresi olarak gider; 30'luk
+sayfa sunucudan gelir. 114 kaydı çekip `slice` etmek bugün çalışır ama kayıt
+sayısı büyüdüğünde sessizce yavaşlar — sözleşme baştan doğru kuruldu.
+`totalCount` filtre uygulandıktan SONRAKİ toplamdır: başlıktaki "(114)" ve
+sayfa sayısı ondan hesaplanır. Filtre/sıra değişince `page` sıfırlanır.
+
+### K11 — Yetki: düz izin listesi, rol modeli yok
+
+`usePermission('firm.create')` → `GET /api/me/permissions` (düz `string[]`).
+knowledge/access-control.md hâlâ açık soru olduğu için rol/sahiplik yapısı
+BİLEREK modellenmedi; arayüz yalnız "şu izin var mı" diye sorar. Sabit `true`
+da yazılmadı — gerçek bir arama, endpoint gelince tek dosya değişir. Liste
+gelmeden `false` döner: butonun bir an görünüp kaybolması yanlış beklenti yaratır.
+
+### K12 — Admin kabuğu route ebeveyni
+
+`ui/admin/AdminLayout.tsx` (sol menü + üst bar) `<Outlet/>` ile sayfayı sarar,
+sayfanın içine gömülmez — böylece sayfa değişince kabuk yeniden kurulmaz ve
+sonraki yönetici ekranları onu kopyalamak zorunda kalmaz. Sol menünün tek
+kaynağı `ui/admin/adminNavItems.ts`.
+
+### K13 — Marka sarısı admin arayüzünde serbest
+
+#FFC107 kısıtı **çizim alanına** özgüdür (tuvalde sarı = gaz hattı). Admin
+panelinde birincil buton ve aktif sayfa numarası marka sarısıdır; üzerindeki
+metin `brand-navy`, okunurluk için. Aktif menü maddesi ve bağlantılar seçim
+mavisidir. Yeni token tanımlanmadı, `styles/index.css`'teki mevcut token'lar
+kullanıldı.
+=======
 ## 2026-07 · Duvar modeli ve açıklık (kapı/pencere) sözleşmesi
 
 ### K9 — Duvar bölünmez; açıklık duvarın üzerinde bir "delik"tir
@@ -237,6 +284,7 @@ Sayaç buna rağmen `deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA)` ile hesaplan
 verisi bir gün boş olmadığında (örnek proje, şablon, açılan dosya) ortaya çıkar:
 sabit sayaç var olan bir id'yi ikinci kez üretir ve HATA VERMEZ. Bu daha önce
 mock sahnede yaşanmış bir hataydı, türetme onun kalıcı çözümü.
+>>>>>>> main
 
 ---
 

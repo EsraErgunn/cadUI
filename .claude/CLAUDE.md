@@ -56,6 +56,10 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
 - `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
 - `src/ui/` — MenuBar/menu/Toolbar/tools/StatusBar/FloorLabel/AxisIndicator/controls/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
+- `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
+  liste parçaları. Kabuk sayfaya GÖMÜLMEZ, route ebeveynidir. Liste durumu (arama/filtre/
+  sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Yetki `usePermission` ile
+  soyutlanır — rol modeli varsayılmaz. (bkz. knowledge/admin-list-state.md)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
