@@ -1,96 +1,157 @@
 import { union, type Geometry, type Ring } from 'martinez-polygon-clipping'
 
 import { normalizeZero, type PlanPoint } from './coords'
-import type { Point, Wall } from './model'
-import {
-  getNeighbourThicknessCm,
-  getSegmentAngleDeg,
-  getSegmentLength,
-  getWallEnds,
-  MIN_WALL_LENGTH_CM,
-} from './wall'
+import type { Id, Point, Wall } from './model'
+import { getSegmentLength, getWallEnds, getWallsAtPoint, MIN_WALL_LENGTH_CM } from './wall'
 
-const RAD_PER_DEG = Math.PI / 180
+const EPSILON_CM = 1e-6
 
-/** Çizilecek dikdörtgen: köşe birleşimleri için uzatılmış hali. */
-export type WallRenderGeometry = {
-  center: PlanPoint
-  lengthCm: number
-  angleDeg: number
+/**
+ * Gönye ucunun yarı kalınlığa oranı. Açı daraldıkça kesişim uçup gider; bu oranı
+ * aşan uç kısaltılır (pah). 4 ≈ 29°'den dar açılarda kesme devreye girer —
+ * SVG/canvas'ın varsayılan miterlimit'iyle aynı eşik.
+ */
+const MITER_LIMIT_RATIO = 4
+
+type Vector = { x: number; y: number }
+
+type Neighbour = {
+  /** Ortak köşeden UZAKLAŞAN birim yön. */
+  direction: Vector
+  halfThicknessCm: number
+}
+
+function perpendicular(vector: Vector): Vector {
+  return { x: -vector.y, y: vector.x }
+}
+
+function getUnitDirection(from: PlanPoint, to: PlanPoint): Vector | undefined {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const lengthCm = Math.hypot(dx, dy)
+  if (lengthCm < EPSILON_CM) return undefined
+  return { x: dx / lengthCm, y: dy / lengthCm }
+}
+
+function intersectLines(
+  pointA: PlanPoint,
+  directionA: Vector,
+  pointB: PlanPoint,
+  directionB: Vector,
+): PlanPoint | undefined {
+  const denominator = directionA.x * directionB.y - directionA.y * directionB.x
+  // Paralel (düz devam eden veya üst üste) kenarların kesişimi yoktur.
+  if (Math.abs(denominator) < EPSILON_CM) return undefined
+
+  const ratio =
+    ((pointB.x - pointA.x) * directionB.y - (pointB.y - pointA.y) * directionB.x) / denominator
+  return { x: pointA.x + directionA.x * ratio, y: pointA.y + directionA.y * ratio }
+}
+
+/** Gönye ancak TEK komşuda tanımlı: üç duvarın birleştiği köşede tek bir kesişim yoktur. */
+function getSingleNeighbour(
+  wall: Wall,
+  pointId: Id,
+  joint: PlanPoint,
+  points: readonly Point[],
+  walls: readonly Wall[],
+): Neighbour | undefined {
+  const neighbours = getWallsAtPoint(pointId, walls).filter(
+    (candidate) => candidate.id !== wall.id && candidate.floorId === wall.floorId,
+  )
+  if (neighbours.length !== 1) return undefined
+
+  const neighbour = neighbours[0]
+  const ends = getWallEnds(neighbour, points)
+  if (!ends) return undefined
+
+  const away = neighbour.p1Id === pointId ? ends.p2 : ends.p1
+  const direction = getUnitDirection(joint, away)
+  if (!direction) return undefined
+
+  return { direction, halfThicknessCm: neighbour.thickness / 2 }
 }
 
 /**
- * Duvar, orta çizgisi boyunca uzanan bir dikdörtgen olarak çizilir. Uçlar tam
- * köşe noktasında bitseydi dik birleşimin DIŞ köşesinde kalınlığın yarısı kadar
- * kare bir çentik kalırdı. Birleşen uç, komşunun yarı kalınlığı kadar uzatılarak
- * kapatılır: dik açıda tam oturur, diğer açılarda taşan kısım aynı renkte olduğu
- * için görünmez.
+ * Uçtaki bir kenar köşesi. Komşu varsa iki duvarın kenar çizgilerinin kesişimi
+ * (gönye) alınır — dikdörtgen uçları uzatmak yalnız dik açıda doğru sonuç verir,
+ * dar açıda testere dişi bırakır.
+ *
+ * `localSide`, ucun kendi uzaklaşma yönüne göre hangi kenarda olduğudur. Komşuda
+ * karşılık gelen kenar TERSİDİR: iki yön de ortak köşeden uzaklaştığı için
+ * sınırı takip ederken el değiştirir.
  */
-export function getWallRenderGeometry(
-  wall: Wall,
-  points: readonly Point[],
-  walls: readonly Wall[],
-): WallRenderGeometry | undefined {
-  const ends = getWallEnds(wall, points)
-  if (!ends) return undefined
+function getEndCorner(
+  joint: PlanPoint,
+  awayDirection: Vector,
+  halfThicknessCm: number,
+  localSide: 1 | -1,
+  neighbour: Neighbour | undefined,
+): PlanPoint {
+  const normal = perpendicular(awayDirection)
+  const squareCorner = {
+    x: joint.x + normal.x * localSide * halfThicknessCm,
+    y: joint.y + normal.y * localSide * halfThicknessCm,
+  }
+  if (!neighbour) return squareCorner
 
-  const lengthCm = getSegmentLength(ends.p1, ends.p2)
-  if (lengthCm < MIN_WALL_LENGTH_CM) return undefined
+  const neighbourNormal = perpendicular(neighbour.direction)
+  const neighbourEdgePoint = {
+    x: joint.x + neighbourNormal.x * -localSide * neighbour.halfThicknessCm,
+    y: joint.y + neighbourNormal.y * -localSide * neighbour.halfThicknessCm,
+  }
 
-  const startExtensionCm = getNeighbourThicknessCm(wall, wall.p1Id, walls) / 2
-  const endExtensionCm = getNeighbourThicknessCm(wall, wall.p2Id, walls) / 2
+  const corner = intersectLines(
+    squareCorner,
+    awayDirection,
+    neighbourEdgePoint,
+    neighbour.direction,
+  )
+  if (!corner) return squareCorner
 
-  // Uzatma iki uçta farklıysa orta nokta da aradaki farkın yarısı kadar kayar.
-  const directionX = (ends.p2.x - ends.p1.x) / lengthCm
-  const directionY = (ends.p2.y - ends.p1.y) / lengthCm
-  const shiftCm = (endExtensionCm - startExtensionCm) / 2
+  const limitCm = MITER_LIMIT_RATIO * Math.max(halfThicknessCm, neighbour.halfThicknessCm)
+  const distanceCm = Math.hypot(corner.x - joint.x, corner.y - joint.y)
+  if (distanceCm <= limitCm) return corner
 
+  // Sınırı aşan sivri uç yönü korunarak kısaltılır: iki kenar köşesi birlikte
+  // çekilince aralarında pah kalır, boşluk açılmaz.
+  const scale = limitCm / distanceCm
   return {
-    center: {
-      x: normalizeZero((ends.p1.x + ends.p2.x) / 2 + directionX * shiftCm),
-      y: normalizeZero((ends.p1.y + ends.p2.y) / 2 + directionY * shiftCm),
-    },
-    lengthCm: lengthCm + startExtensionCm + endExtensionCm,
-    angleDeg: getSegmentAngleDeg(ends.p1, ends.p2),
+    x: joint.x + (corner.x - joint.x) * scale,
+    y: joint.y + (corner.y - joint.y) * scale,
   }
 }
 
-/** Duvarın çizilen dikdörtgeninin dört köşesi (saat yönünün tersine). */
+/**
+ * Duvarın çizilen dörtgeni, saat yönünün tersine:
+ * p1-sol, p1-sağ, p2-sağ, p2-sol. Dik olmayan birleşimlerde köşeler gönyelenir.
+ */
 export function getWallPolygon(
   wall: Wall,
   points: readonly Point[],
   walls: readonly Wall[],
 ): PlanPoint[] | undefined {
-  const geometry = getWallRenderGeometry(wall, points, walls)
-  if (!geometry) return undefined
+  const ends = getWallEnds(wall, points)
+  if (!ends) return undefined
+  if (getSegmentLength(ends.p1, ends.p2) < MIN_WALL_LENGTH_CM) return undefined
 
-  const angleRad = geometry.angleDeg * RAD_PER_DEG
-  const alongX = Math.cos(angleRad)
-  const alongY = Math.sin(angleRad)
-  const halfLengthCm = geometry.lengthCm / 2
-  const halfThicknessCm = wall.thickness / 2
+  const forward = getUnitDirection(ends.p1, ends.p2)
+  if (!forward) return undefined
+  const backward = { x: -forward.x, y: -forward.y }
 
-  // Dike bakan vektör: yönün 90° döndürülmüşü.
-  const acrossX = -alongY
-  const acrossY = alongX
+  const halfCm = wall.thickness / 2
+  const startNeighbour = getSingleNeighbour(wall, wall.p1Id, ends.p1, points, walls)
+  const endNeighbour = getSingleNeighbour(wall, wall.p2Id, ends.p2, points, walls)
 
-  return [
-    [1, 1],
-    [-1, 1],
-    [-1, -1],
-    [1, -1],
-  ].map(([alongSign, acrossSign]) => ({
-    x: normalizeZero(
-      geometry.center.x +
-        alongX * halfLengthCm * alongSign +
-        acrossX * halfThicknessCm * acrossSign,
-    ),
-    y: normalizeZero(
-      geometry.center.y +
-        alongY * halfLengthCm * alongSign +
-        acrossY * halfThicknessCm * acrossSign,
-    ),
-  }))
+  // p2 ucunda uzaklaşma yönü ters döndüğü için "sol" orada localSide = -1 olur.
+  const corners = [
+    getEndCorner(ends.p1, forward, halfCm, 1, startNeighbour),
+    getEndCorner(ends.p1, forward, halfCm, -1, startNeighbour),
+    getEndCorner(ends.p2, backward, halfCm, 1, endNeighbour),
+    getEndCorner(ends.p2, backward, halfCm, -1, endNeighbour),
+  ]
+
+  return corners.map((corner) => ({ x: normalizeZero(corner.x), y: normalizeZero(corner.y) }))
 }
 
 function toClosedRing(polygon: readonly PlanPoint[]): Ring {
