@@ -1,0 +1,9 @@
+{
+  "id": "insulation",
+  "label": "İzolasyon",
+  "asset": "insulation.svg",
+  "viewBox": [0, 0, 40, 30],
+  "origin": [20, 15],
+  "ports": [],
+  "bounds": { "min": [0, 0], "max": [40, 30] }
+}

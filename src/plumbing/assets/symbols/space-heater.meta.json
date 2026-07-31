@@ -1,0 +1,11 @@
+{
+  "id": "spaceHeater",
+  "label": "Soba",
+  "asset": "space-heater.svg",
+  "viewBox": [0, 0, 50, 50],
+  "origin": [25, 25],
+  "ports": [
+    { "id": "in", "type": "input", "position": [0, 25], "direction": [1, 0] }
+  ],
+  "bounds": { "min": [0, 0], "max": [50, 50] }
+}

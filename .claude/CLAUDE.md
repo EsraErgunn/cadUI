@@ -34,7 +34,14 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Veri modeli (core/model.ts — SÖZLEŞME, izinsiz değiştirme)
 
 - Duvar kendi koordinatını taşımaz. Ortak `Point` havuzunu `p1Id`/`p2Id` ile paylaşır.
-- Kapı/pencere (`Opening`) yalnız duvara bağlıdır, `wallId` + `offset` ile → duvar taşınınca birlikte gelir.
+- Kapı/pencere (`Opening`) yalnız duvara bağlıdır, `wallId` + `offsetCm` ile → duvar taşınınca birlikte gelir.
+  Duvar BÖLÜNMEZ, açıklık tek parça duvarın üstünde bir deliktir. `offsetCm` açıklığın
+  ORTASINI ölçer (p1 ucundan). Köşe payı = o uçta birleşen dik duvarın kalınlığı.
+  Geçersiz (sığmayan/çakışan) yerleştirme REDDEDİLİR, kaydırılmaz. Duvarı silinen veya
+  sığmayacak kadar kısalan açıklık otomatik silinir. Açıklık `floorId` ve yükseklik
+  TAŞIMAZ. (bkz. knowledge/opening-placement.md)
+- Yay (arc) duvar kararı YOK — `Wall`'a yay alanı eklemeden varsayım kodlama.
+  offset ↔ konum dönüşümü sadece `core/wallPath.ts`'te. (bkz. knowledge/arc-walls.md)
 - Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
 - Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
@@ -45,7 +52,8 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 
 - `src/app/` (A) — main, App, router. Giriş koruması SADECE router.tsx'te (RequireAuth).
 - `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
-- `src/store/` — cadStore+history(A), architecture/floorSlice(B), installationSlice(C), uiStore(D)
+- `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
+  Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
 - `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
 - `src/ui/` — MenuBar/menu/Toolbar/tools/StatusBar/FloorLabel/AxisIndicator/controls/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
 - `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
@@ -55,6 +63,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
+
+B (mimari) iki alt-faya bölündü: **duvar altyapısı** (wall/room/snap/floorClone,
+useWallTool/useRoomTool) ve **açıklık + nesne etkileşimi** (opening, seçim/taşıma,
+özellik paneli beslemesi). İkisinin sınırı knowledge/snap-contract.md'deki
+karşılıklı fonksiyonlardır — o sınırın dışında birbirinin dosyasına yazılmaz.
 
 ## Ürün kuralları (gereksinimler)
 

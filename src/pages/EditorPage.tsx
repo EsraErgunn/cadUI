@@ -3,6 +3,7 @@ import { SceneRoot } from '../scene/SceneRoot'
 import { AxisIndicator } from '../ui/AxisIndicator'
 import { FloorLabel } from '../ui/FloorLabel'
 import { MenuBar } from '../ui/MenuBar'
+import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { StatusBar } from '../ui/StatusBar'
 import { Toolbar } from '../ui/Toolbar'
 
@@ -23,6 +24,7 @@ export function EditorPage() {
         <main className="relative min-w-0 flex-1">
           <SceneRoot />
           <FloorLabel />
+          <OpeningToolOptions />
           <AxisIndicator />
         </main>
 

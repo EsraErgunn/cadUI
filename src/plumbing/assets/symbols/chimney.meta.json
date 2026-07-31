@@ -1,0 +1,9 @@
+{
+  "id": "chimney",
+  "label": "Baca",
+  "asset": "chimney.svg",
+  "viewBox": [0, 0, 40, 60],
+  "origin": [20, 32],
+  "ports": [],
+  "bounds": { "min": [0, 0], "max": [40, 60] }
+}
