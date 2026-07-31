@@ -19,7 +19,12 @@ export type InstallationToolDefinition = {
   description?: string
 }
 
-/** Tesisat paletindeki 16 araç, plan Bölüm 10'daki sırayla. */
+/**
+ * Tesisat paletindeki araçlar, plan Bölüm 10'daki sırayla + doküman (tesisat_tasarimi_
+ * elemanlari_ve_cizim_kurallari.md § 15) gereği eklenen 5 yakıcı cihaz türü (Soba, Şofben,
+ * Kombi, Kazan, Diğer). Ortak davranış hepsinde aynı: tek gaz girişi, cihaz üzerinde vana yok
+ * (bkz. docs/kararlar.md).
+ */
 export const INSTALLATION_TOOLS = [
   { id: 'selection', label: 'Seçim Aracı', behavior: 'selection' },
   { id: 'regulator', label: 'Regülatör Ekle', behavior: 'placement', elementType: 'regulator' },
@@ -36,6 +41,11 @@ export const INSTALLATION_TOOLS = [
   { id: 'solenoidValve', label: 'Selenoid Vana Ekle', behavior: 'placement', elementType: 'solenoidValve' },
   { id: 'ventilationDuct', label: 'Havalandırma Kanalı Ekle', behavior: 'placement', elementType: 'ventilationDuct' },
   { id: 'stove', label: 'Ocak Ekle', behavior: 'placement', elementType: 'stove' },
+  { id: 'spaceHeater', label: 'Soba Ekle', behavior: 'placement', elementType: 'spaceHeater' },
+  { id: 'waterHeater', label: 'Şofben Ekle', behavior: 'placement', elementType: 'waterHeater' },
+  { id: 'combiBoiler', label: 'Kombi Ekle', behavior: 'placement', elementType: 'combiBoiler' },
+  { id: 'boiler', label: 'Kazan Ekle', behavior: 'placement', elementType: 'boiler' },
+  { id: 'otherAppliance', label: 'Diğer Yakıcı Cihaz Ekle', behavior: 'placement', elementType: 'otherAppliance' },
   { id: 'measurement', label: 'Ölçüm', behavior: 'measurement' },
 ] as const satisfies readonly InstallationToolDefinition[]
 

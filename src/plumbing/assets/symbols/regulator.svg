@@ -1,9 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 44">
-  <g fill="none" stroke="#1e293b" stroke-width="2">
-    <line x1="0" y1="30" x2="19" y2="30" />
-    <circle cx="30" cy="30" r="11" />
-    <line x1="30" y1="19" x2="30" y2="10" />
-    <rect x="24" y="4" width="12" height="6" />
-    <line x1="41" y1="30" x2="60" y2="30" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 68">
+  <g
+    fill="none"
+    stroke="#1e293b"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <!-- Sol giriş borusu -->
+    <line x1="0" y1="50" x2="2" y2="50" />
+
+    <!-- Sola kaydırılmış giriş vanası -->
+    <polygon points="2,43 2,57 9,50" />
+    <polygon points="16,43 16,57 9,50" />
+
+    <!-- Sol vana ile regülatör arasındaki boru -->
+    <line x1="16" y1="50" x2="27" y2="50" />
+
+    <!-- Boş regülatör gövdesi -->
+    <circle cx="38" cy="50" r="11" />
+
+    <!-- Regülatör ile sağ vana arasındaki boru -->
+    <line x1="49" y1="50" x2="60" y2="50" />
+
+    <!-- Sağa kaydırılmış çıkış vanası -->
+    <polygon points="60,43 60,57 67,50" />
+    <polygon points="74,43 74,57 67,50" />
+
+    <!-- Sağ çıkış borusu -->
+    <line x1="74" y1="50" x2="76" y2="50" />
+
+    <!-- Sol manometre -->
+    <circle cx="22" cy="12" r="7" />
+    <line x1="22" y1="19" x2="22" y2="23" />
+
+    <!-- Sol manometre vanası -->
+    <polygon points="17,23 27,23 22,30" />
+    <polygon points="17,37 27,37 22,30" />
+
+    <!-- Sol manometrenin ana boruya bağlantısı -->
+    <line x1="22" y1="37" x2="22" y2="50" />
+
+    <!-- Sağ manometre -->
+    <circle cx="54" cy="12" r="7" />
+    <line x1="54" y1="19" x2="54" y2="23" />
+
+    <!-- Sağ manometre vanası -->
+    <polygon points="49,23 59,23 54,30" />
+    <polygon points="49,37 59,37 54,30" />
+
+    <!-- Sağ manometrenin ana boruya bağlantısı -->
+    <line x1="54" y1="37" x2="54" y2="50" />
   </g>
 </svg>
