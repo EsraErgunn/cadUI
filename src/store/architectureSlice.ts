@@ -3,6 +3,7 @@ import type { StateCreator } from 'zustand'
 import {
   appendWall,
   appendWallChain,
+  mergePointInto,
   type AddedWall,
   type AddWallChainInput,
   type AddWallInput,
@@ -43,6 +44,8 @@ export type ArchitectureSlice = ArchitectureData & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
+  /** Köşeyi başka bir köşeye kaynatır (sürüklerken üstüne bırakma). */
+  mergePoint: (sourceId: Id, targetId: Id) => void
   deleteWall: (wallId: Id) => void
   /** Reddedilirse undefined döner ve HİÇBİR ŞEY değişmez — id bile harcanmaz. */
   addOpening: (input: AddOpeningInput) => Id | undefined
@@ -134,6 +137,18 @@ export const createArchitectureSlice: StateCreator<
       point.x = position.x
       point.y = position.y
       // Köşeyi çekmek duvarı kısaltabilir; sığmayan açıklık aynı adımda düşer (K16).
+      pruneOpeningsInDraft(draft)
+      markDirty(draft)
+    }),
+
+  mergePoint: (sourceId, targetId) =>
+    set((draft) => {
+      if (!mergePointInto(draft, sourceId, targetId)) return
+
+      // Kaynatma duvar düşürebilir; sahipsiz kalan köşe ve açıklık aynı adımda
+      // temizlenir — tek geri alma adımı.
+      const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
+      draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
       pruneOpeningsInDraft(draft)
       markDirty(draft)
     }),

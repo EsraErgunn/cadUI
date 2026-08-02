@@ -1,6 +1,8 @@
 import { Opening, type OpeningTone } from './Opening'
+import { PointHandles } from './PointHandle'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
+import { useArchitecturePoints } from './useArchitecturePoints'
 import { useOpeningTool } from './useOpeningTool'
 import { getOpeningOutline } from '../core/opening'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -16,7 +18,8 @@ function Openings() {
   // Yalnız KARARLI referanslara abone olunur. selectWallsOnFloor/
   // selectOpeningsOnWall her çağrıda yeni dizi üretir; buraya konsalardı
   // Object.is her store değişiminde false döner ve sonsuz render olurdu.
-  const points = useCadStore((state) => state.points)
+  // Köşe sürüklenirken açıklık da duvarla birlikte gelsin diye ortak havuzdan okunur.
+  const points = useArchitecturePoints()
   const walls = useCadStore((state) => state.walls)
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -56,6 +59,8 @@ export function ArchitectureLayer() {
       {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
       <Openings />
       <WallTool />
+      {/* Tutamaklar en üstte: altındaki her şeyin üzerinde görünmeli. */}
+      <PointHandles />
     </group>
   )
 }

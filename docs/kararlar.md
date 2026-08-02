@@ -95,7 +95,7 @@ onayıyla eklenecek.
 
 ---
 
-<<<<<<< HEAD
+
 ## 2026-07 · Yönetici paneli — Gaz Dağıtım Firmaları listesi
 
 ### K9 — Liste durumunun tek sahibi URL
@@ -141,7 +141,7 @@ panelinde birincil buton ve aktif sayfa numarası marka sarısıdır; üzerindek
 metin `brand-navy`, okunurluk için. Aktif menü maddesi ve bağlantılar seçim
 mavisidir. Yeni token tanımlanmadı, `styles/index.css`'teki mevcut token'lar
 kullanıldı.
-=======
+
 ## 2026-07 · Duvar modeli ve açıklık (kapı/pencere) sözleşmesi
 
 ### K9 — Duvar bölünmez; açıklık duvarın üzerinde bir "delik"tir
@@ -284,7 +284,7 @@ Sayaç buna rağmen `deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA)` ile hesaplan
 verisi bir gün boş olmadığında (örnek proje, şablon, açılan dosya) ortaya çıkar:
 sabit sayaç var olan bir id'yi ikinci kez üretir ve HATA VERMEZ. Bu daha önce
 mock sahnede yaşanmış bir hataydı, türetme onun kalıcı çözümü.
->>>>>>> main
+
 
 ---
 
@@ -413,3 +413,40 @@ eklenecek — şimdilik tek tip. Bu, `PLUMBING_COLORS.gasLine` (`#FFC107`, sahne
 `pipe.svg` sahneye hiç yüklenmiyor (yalnız `TOOLBAR_ONLY_SYMBOL_IDS`, `getLoadedSymbol`
 sadece `InstallationElementType` yükler) — bu yalnız toolbar/katalog önizleme ikonu,
 gerçek boru render rengi kararını değiştirmez. Nerede: `src/plumbing/assets/symbols/pipe.svg`.
+
+---
+
+## 2026-08 · Duvar konturu: poligon kütüphanesi değişimi
+
+### K22 — `martinez-polygon-clipping` yerine `polygon-clipping`
+
+Duvar konturu, duvar dörtgenlerinin birleşiminden (union) çıkıyor. Köşe sürükleme
+geldiğinde uygulama üç ayrı geometride DONDU; üçünde de sebep martinez'in sonsuz
+döngüye girmesiydi:
+
+1. Gönye uzantısı duvarın boyunu aşınca dörtgen papyona dönüyor (duvar kısaltılınca).
+2. Gönye hesabının kayan nokta gürültüsü (`442.40999999999997`) "neredeyse çakışık"
+   kenar üretiyor.
+3. Tek köşede beş duvar birleşince beş dikdörtgen aynı noktada üst üste biniyor.
+
+İlk ikisi girdi tarafında düzeltildi (gönye duvarın yarı boyuyla da sınırlı;
+halkalar birleştirmeden önce 10⁻⁴ cm'e yuvarlanıyor). Üçüncüsü düzeltilemedi:
+girdi geçerliydi, kütüphane takılıyordu.
+
+Ölçüm — 300 rastgele 5 duvarlı yelpaze, aynı test:
+
+| Kütüphane | Sonuç |
+|---|---|
+| martinez | **Kilitleniyor** (sonsuz döngü) |
+| polygon-clipping | 275 başarılı, 25 hata fırlattı, 78 ms, **kilitlenme yok** |
+
+Belirleyici fark başarı oranı değil, **başarısızlığın türü**: polygon-clipping
+hata fırlatıyor, yani `try/catch` yakalayabiliyor ve kontur birleşmemiş halkalarla
+çiziliyor (köşelerde iç çizgi görünür ama uygulama ayakta). Sonsuz döngüyü hiçbir
+şey yakalayamaz — senkron kodu kesmenin yolu yok.
+
+martinez tamamen kaldırıldı; iki poligon kütüphanesi taşımamak için `room.ts`'in
+mahal alanı hesabı da polygon-clipping kullanacak.
+
+Nerede: `core/wallShape.ts`. Regresyon testleri: `core/__tests__/wallShapeUnion.test.ts`
+(üç kilitlenme vakası da orada; yuvarlama kaldırılırsa 2. test kilitlenir).

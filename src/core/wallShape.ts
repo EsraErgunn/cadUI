@@ -1,4 +1,4 @@
-import { union, type Geometry, type Ring } from 'martinez-polygon-clipping'
+import { union, type MultiPolygon, type Polygon, type Ring } from 'polygon-clipping'
 
 import { normalizeZero, type PlanPoint } from './coords'
 import type { Id, Point, Wall } from './model'
@@ -12,6 +12,17 @@ const EPSILON_CM = 1e-6
  * SVG/canvas'ın varsayılan miterlimit'iyle aynı eşik.
  */
 const MITER_LIMIT_RATIO = 4
+
+/** Bunun altındaki alan çizimde görünmez; union'a verilirse takılmaya yol açabilir. */
+const MIN_RING_AREA_CM2 = 1e-3
+
+/**
+ * Union'a verilmeden önce köşeler bu hassasiyete yuvarlanır (10⁻⁴ cm = 1 mikron).
+ * Gönye hesabı 442.41 yerine 442.40999999999997 gibi değerler üretiyor; kayan
+ * nokta gürültüsü poligon birleştirmede "neredeyse çakışık" kenar üretir ve
+ * kütüphaneyi zorlar. Çizim birimi cm olduğu için bu hassasiyet fazlasıyla yeterli.
+ */
+const RING_DECIMALS = 4
 
 type Vector = { x: number; y: number }
 
@@ -87,6 +98,7 @@ function getEndCorner(
   halfThicknessCm: number,
   localSide: 1 | -1,
   neighbour: Neighbour | undefined,
+  maxMiterCm: number,
 ): PlanPoint {
   const normal = perpendicular(awayDirection)
   const squareCorner = {
@@ -109,7 +121,10 @@ function getEndCorner(
   )
   if (!corner) return squareCorner
 
-  const limitCm = MITER_LIMIT_RATIO * Math.max(halfThicknessCm, neighbour.halfThicknessCm)
+  const limitCm = Math.min(
+    MITER_LIMIT_RATIO * Math.max(halfThicknessCm, neighbour.halfThicknessCm),
+    maxMiterCm,
+  )
   const distanceCm = Math.hypot(corner.x - joint.x, corner.y - joint.y)
   if (distanceCm <= limitCm) return corner
 
@@ -133,7 +148,9 @@ export function getWallPolygon(
 ): PlanPoint[] | undefined {
   const ends = getWallEnds(wall, points)
   if (!ends) return undefined
-  if (getSegmentLength(ends.p1, ends.p2) < MIN_WALL_LENGTH_CM) return undefined
+
+  const lengthCm = getSegmentLength(ends.p1, ends.p2)
+  if (lengthCm < MIN_WALL_LENGTH_CM) return undefined
 
   const forward = getUnitDirection(ends.p1, ends.p2)
   if (!forward) return undefined
@@ -143,26 +160,64 @@ export function getWallPolygon(
   const startNeighbour = getSingleNeighbour(wall, wall.p1Id, ends.p1, points, walls)
   const endNeighbour = getSingleNeighbour(wall, wall.p2Id, ends.p2, points, walls)
 
+  /*
+   * Gönye duvarın kendi boyuyla da sınırlı: bir uç ortayı geçerse iki ucun
+   * köşeleri birbirini aşar ve dörtgen papyona döner. Kendiyle kesişen halka
+   * martinez union'ı KİLİTLİYOR — köşe sürüklenirken duvar kısaldığında uygulama
+   * donuyordu. Kalınlık sınırı tek başına yetmez; kısa duvarda uzantı boydan büyük olur.
+   */
+  const maxMiterCm = lengthCm / 2
+
   // p2 ucunda uzaklaşma yönü ters döndüğü için "sol" orada localSide = -1 olur.
   const corners = [
-    getEndCorner(ends.p1, forward, halfCm, 1, startNeighbour),
-    getEndCorner(ends.p1, forward, halfCm, -1, startNeighbour),
-    getEndCorner(ends.p2, backward, halfCm, 1, endNeighbour),
-    getEndCorner(ends.p2, backward, halfCm, -1, endNeighbour),
+    getEndCorner(ends.p1, forward, halfCm, 1, startNeighbour, maxMiterCm),
+    getEndCorner(ends.p1, forward, halfCm, -1, startNeighbour, maxMiterCm),
+    getEndCorner(ends.p2, backward, halfCm, 1, endNeighbour, maxMiterCm),
+    getEndCorner(ends.p2, backward, halfCm, -1, endNeighbour, maxMiterCm),
   ]
 
   return corners.map((corner) => ({ x: normalizeZero(corner.x), y: normalizeZero(corner.y) }))
 }
 
+function roundForUnion(value: number): number {
+  const factor = 10 ** RING_DECIMALS
+  return Math.round(value * factor) / factor
+}
+
 function toClosedRing(polygon: readonly PlanPoint[]): Ring {
-  const ring: Ring = polygon.map((point) => [point.x, point.y])
-  // martinez kapalı halka bekler: ilk nokta sonda tekrarlanır.
-  ring.push([polygon[0].x, polygon[0].y])
+  const ring: Ring = polygon.map((point) => [roundForUnion(point.x), roundForUnion(point.y)])
+  // Kütüphane kapalı halka bekler: ilk nokta sonda tekrarlanır.
+  ring.push([ring[0][0], ring[0][1]])
   return ring
 }
 
-function isMultiPolygon(geometry: Geometry): boolean {
-  return Array.isArray(geometry[0]?.[0]?.[0])
+function toPlanPoints(ring: Ring): PlanPoint[] {
+  return ring.map(([x, y]) => ({ x, y }))
+}
+
+/**
+ * Zor geometride (kenarları tam değen, çok dar açılı) kütüphane hata fırlatabilir.
+ * Köşe sürüklenirken duvarlar sürekli böyle anlardan geçtiği için başarısızlık
+ * istisna değil BEKLENEN durumdur: yakalanır, çağıran birleşmemiş halkalarla devam eder.
+ */
+function mergeRings(rings: readonly Ring[]): MultiPolygon | undefined {
+  const [first, ...rest] = rings.map((ring) => [ring] as Polygon)
+  try {
+    return union(first, ...rest)
+  } catch {
+    return undefined
+  }
+}
+
+/** İşaretli alan (ayakkabı bağı). Sıfıra yakınsa halka çökmüştür. */
+function getRingArea(ring: Ring): number {
+  let sum = 0
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const [x1, y1] = ring[index]
+    const [x2, y2] = ring[index + 1]
+    sum += x1 * y2 - x2 * y1
+  }
+  return Math.abs(sum) / 2
 }
 
 /**
@@ -175,16 +230,21 @@ export function getWallOutlines(walls: readonly Wall[], points: readonly Point[]
   const rings: Ring[] = []
   for (const wall of walls) {
     const polygon = getWallPolygon(wall, points, walls)
-    if (polygon) rings.push(toClosedRing(polygon))
+    if (!polygon) continue
+
+    const ring = toClosedRing(polygon)
+    // Çökmüş halka birleştirmeyi bozabiliyor; çizime katkısı da yok.
+    if (getRingArea(ring) < MIN_RING_AREA_CM2) continue
+
+    rings.push(ring)
   }
   if (rings.length === 0) return []
 
-  let merged: Geometry = [rings[0]]
-  for (let index = 1; index < rings.length; index += 1) {
-    // Ayrık duvarlarda union null dönebilir; o durumda birikeni koru.
-    merged = union(merged, [rings[index]]) ?? merged
-  }
+  const merged = mergeRings(rings)
+  // Birleştirme başarısızsa duvarlar tek tek çizilir: köşelerde iç çizgi görünür
+  // ama çizim eksilmez ve uygulama ayakta kalır.
+  if (!merged) return rings.map(toPlanPoints)
 
-  const polygons = isMultiPolygon(merged) ? (merged as Ring[][]) : [merged as Ring[]]
-  return polygons.flatMap((polygon) => polygon.map((ring) => ring.map(([x, y]) => ({ x, y }))))
+  // Her poligon bir dış halka + varsa iç boşlukları; hepsi ayrı ayrı çizilir.
+  return merged.flatMap((polygon) => polygon.map(toPlanPoints))
 }
