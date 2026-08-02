@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 
 import { RENDER_ORDER, WALL_ELEVATION_CM, WALL_OUTLINE_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
+import { useArchitecturePoints } from './useArchitecturePoints'
 import { planToThree, type PlanPoint } from '../core/coords'
 import type { Point, Wall as WallData } from '../core/model'
 import { getWallOutlines, getWallPolygon } from '../core/wallShape'
@@ -87,7 +88,8 @@ function WallOutlines({ points, walls }: WallOutlinesProps) {
  *  seçici döndürseydi her store değişiminde yeni referans çıkar ve gereksiz render olurdu. */
 export function Walls() {
   const walls = useCadStore((state) => state.walls)
-  const points = useCadStore((state) => state.points)
+  // Sürüklenen köşe geçici konumuyla gelir; duvar imlecin arkasında kalmasın.
+  const points = useArchitecturePoints()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)

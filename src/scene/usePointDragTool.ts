@@ -1,0 +1,118 @@
+import { useThree } from '@react-three/fiber'
+import { useEffect } from 'react'
+import { OrthographicCamera } from 'three'
+
+import { readCameraViewport } from './cameraViewport'
+import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import type { PlanPoint } from '../core/coords'
+import { pickGridLevel } from '../core/grid'
+import type { Id } from '../core/model'
+import { getSnapToleranceCm, resolveSnap } from '../core/snap'
+import { SELECTION_TOOL_ID } from '../core/tools'
+import { useArchitectureUiStore } from '../store/architectureUiStore'
+import { useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
+
+const PRIMARY_BUTTON = 0
+
+type DragState = {
+  pointId: Id
+  /** Bırakılırsa kaynatılacak hedef köşe; boşlukta bırakılırsa undefined. */
+  mergeTargetId: Id | undefined
+}
+
+/**
+ * Köşe sürükleme. Araç mantığı DrawSurface'e YAZILMAZ (CLAUDE.md kural 7).
+ *
+ * Sürükleme boyunca cadStore'a yazılmaz, geçici konum architectureUiStore'da
+ * durur: movePoint sığmayan açıklıkları siliyor (K16) ve duvar bir an kısaldığında
+ * açıklık geri gelmemek üzere düşerdi. Tek yazma bırakma anında olur → tek markDirty.
+ */
+export function usePointDragTool(): void {
+  const isActive = useUiStore((state) => state.activeToolId === SELECTION_TOOL_ID)
+  const camera = useThree((state) => state.camera)
+
+  useEffect(() => {
+    if (!isActive || !(camera instanceof OrthographicCamera)) return undefined
+
+    let drag: DragState | undefined
+
+    const snapAt = (planPoint: PlanPoint, event: DrawSurfacePointerEvent, excludedId?: Id) => {
+      const { zoom } = readCameraViewport(camera)
+      const cad = useCadStore.getState()
+      return resolveSnap(
+        planPoint,
+        {
+          // Sürüklenen köşe kendi kendine yapışmasın: hariç tutulunca ona bağlı
+          // duvarlar da çözülemez olur, yani taşınan duvarlar hedef sayılmaz.
+          points: cad.points.filter((point) => point.id !== excludedId),
+          walls: cad.walls,
+          floorId: cad.activeFloorId,
+        },
+        {
+          toleranceCm: getSnapToleranceCm(zoom),
+          gridStepCm: pickGridLevel(zoom).minorCm,
+          isGridSnapEnabled: !event.ctrlKey,
+        },
+      )
+    }
+
+    const endDrag = () => {
+      drag = undefined
+      useArchitectureUiStore.getState().setDraggingPoint(null)
+    }
+
+    const unsubscribe = subscribeDrawSurface({
+      onPointerDown: (event) => {
+        if (event.button !== PRIMARY_BUTTON) return
+
+        // Tutulan köşeyi bulmak snap'in kendisidir: yalnız 'point' sayılır,
+        // duvar gövdesine basmak köşe tutmaz.
+        const grab = snapAt(event.planPoint, event)
+        if (grab.kind !== 'point' || grab.pointId === undefined) return
+
+        drag = { pointId: grab.pointId, mergeTargetId: undefined }
+        useArchitectureUiStore.getState().setDraggingPoint({
+          pointId: grab.pointId,
+          position: grab.point,
+        })
+      },
+
+      onPointerMove: (event) => {
+        if (!drag) return
+
+        const snap = snapAt(event.planPoint, event, drag.pointId)
+        drag.mergeTargetId = snap.kind === 'point' ? snap.pointId : undefined
+        useArchitectureUiStore
+          .getState()
+          .setDraggingPoint({ pointId: drag.pointId, position: snap.point })
+      },
+
+      onPointerUp: (event) => {
+        if (!drag || event.button !== PRIMARY_BUTTON) return
+
+        const { pointId, mergeTargetId } = drag
+        const position = useArchitectureUiStore.getState().draggingPoint?.position
+        endDrag()
+        if (!position) return
+
+        // Var olan bir köşenin üstüne bırakmak KAYNATIR. Yalnız koordinat
+        // eşitlenseydi iki nokta üst üste gelir ama bağlanmazdı.
+        if (mergeTargetId !== undefined) {
+          useCadStore.getState().mergePoint(pointId, mergeTargetId)
+          return
+        }
+
+        useCadStore.getState().movePoint(pointId, position)
+      },
+
+      // Esc sürüklemeyi iptal eder: nokta eski yerinde kalır çünkü store'a hiç yazılmadı.
+      onCancel: endDrag,
+    })
+
+    return () => {
+      unsubscribe()
+      endDrag()
+    }
+  }, [camera, isActive])
+}

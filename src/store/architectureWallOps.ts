@@ -84,6 +84,51 @@ export function appendWall(
   return { wallId, p1Id, p2Id }
 }
 
+/** İki ucu aynı noktaya düşen veya aynı çifti ikinci kez bağlayan duvarları eler. */
+function dropDegenerateWalls(draft: Pick<CadState, 'walls'>): void {
+  const seenPairs = new Set<string>()
+
+  draft.walls = draft.walls.filter((wall) => {
+    if (wall.p1Id === wall.p2Id) return false
+
+    // Yön önemsiz: A→B ile B→A aynı duvardır.
+    const [low, high] = wall.p1Id < wall.p2Id ? [wall.p1Id, wall.p2Id] : [wall.p2Id, wall.p1Id]
+    const pairKey = `${low}-${high}`
+    if (seenPairs.has(pairKey)) return false
+
+    seenPairs.add(pairKey)
+    return true
+  })
+}
+
+/**
+ * Bir köşeyi başka bir köşeye kaynatır: kaynak noktaya bağlı tüm duvarlar hedefe
+ * yönlendirilir, kaynak nokta kalkar.
+ *
+ * Kaynatmadan yalnız koordinat eşitlenseydi (movePoint) iki nokta üst üste gelir
+ * ama BAĞLANMAZDI: duvarlar bitişik görünür, mahal çevrimi kapanmaz ve hata
+ * ekranda görünmez. Aynı yerde iki Point üretmeme kuralının sürükleme karşılığı.
+ *
+ * Kaynatma sonrası hem sıfır boy duvar (iki ucu da hedefe düşen) hem yinelenen
+ * duvar (hedefle zaten komşu olan) oluşabilir; ikisi de burada elenir.
+ */
+export function mergePointInto(draft: CadState, sourceId: Id, targetId: Id): boolean {
+  if (sourceId === targetId) return false
+
+  const source = draft.points.find((point) => point.id === sourceId)
+  const target = draft.points.find((point) => point.id === targetId)
+  if (!source || !target) return false
+
+  for (const wall of draft.walls) {
+    if (wall.p1Id === sourceId) wall.p1Id = targetId
+    if (wall.p2Id === sourceId) wall.p2Id = targetId
+  }
+
+  dropDegenerateWalls(draft)
+  draft.points = draft.points.filter((point) => point.id !== sourceId)
+  return true
+}
+
 /**
  * Zinciri tek geçişte yazar. Her segmentin sonu bir sonrakinin başlangıcı olarak
  * `pointId` ile devredilir — aynı köşede ikinci bir Point üretilmesini bu engeller.
