@@ -27,6 +27,56 @@ const horizontal = makeWall(10, 1, 2, 20)
 const vertical = makeWall(11, 2, 3, 30)
 const walls = [horizontal, vertical]
 
+/**
+ * Kısa duvar, iki ucu da gönyeli. Gönye boyla sınırlanmazsa uçların köşeleri
+ * birbirini aşar, dörtgen papyona döner ve union KİLİTLENİR — köşe sürüklenip
+ * duvar kısaldığında uygulamanın donmasının sebebi buydu.
+ */
+const shortWallPoints = [
+  makePoint(1, -300, 0),
+  makePoint(2, 0, 0),
+  makePoint(3, 2, 0),
+  makePoint(4, 2, 300),
+]
+const beforeShort = makeWall(10, 1, 2, 20)
+const shortWall = makeWall(11, 2, 3, 20)
+const afterShort = makeWall(12, 3, 4, 20)
+const shortWalls = [beforeShort, shortWall, afterShort]
+
+describe('getWallPolygon — kısa duvar (donma vakası)', () => {
+  it('gönye duvarın yarı boyunu aşmaz', () => {
+    const polygon = getWallPolygon(shortWall, shortWallPoints, shortWalls) ?? []
+    const halfLengthCm = 1
+
+    // p1 ucu (0,0), p2 ucu (2,0). Hiçbir köşe kendi ucundan yarı boydan uzak olamaz.
+    const p1Corners = polygon.slice(0, 2)
+    const p2Corners = polygon.slice(2)
+    for (const corner of p1Corners) {
+      expect(Math.abs(corner.x - 0)).toBeLessThanOrEqual(halfLengthCm + 1e-6)
+    }
+    for (const corner of p2Corners) {
+      expect(Math.abs(corner.x - 2)).toBeLessThanOrEqual(halfLengthCm + 1e-6)
+    }
+  })
+
+  it('köşeler birbirini aşmaz — dörtgen papyona dönmez', () => {
+    const polygon = getWallPolygon(shortWall, shortWallPoints, shortWalls) ?? []
+    const [p1Left, p1Right, p2Right, p2Left] = polygon
+
+    // p1 tarafındaki köşeler p2 tarafındakilerin solunda kalmalı.
+    expect(p1Left.x).toBeLessThanOrEqual(p2Left.x + 1e-6)
+    expect(p1Right.x).toBeLessThanOrEqual(p2Right.x + 1e-6)
+  })
+
+  it('kısa duvarlı sahnede kontur hesabı TAKILMADAN biter', () => {
+    const startedAt = Date.now()
+    const rings = getWallOutlines(shortWalls, shortWallPoints)
+
+    expect(rings.length).toBeGreaterThan(0)
+    expect(Date.now() - startedAt).toBeLessThan(1000)
+  })
+})
+
 describe('getWallPolygon — komşusuz uç', () => {
   it('düz kesilmiş dikdörtgen verir', () => {
     // Sıra: p1-sol, p1-sağ, p2-sağ, p2-sol.

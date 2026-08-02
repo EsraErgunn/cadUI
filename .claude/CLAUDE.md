@@ -9,7 +9,7 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - React 19 + TypeScript + Vite
 - react-three-fiber + drei + three (TEK render dünyası, Three.js)
 - Zustand + immer (durum), zundo (geri al/yinele)
-- react-router-dom 7, graphlib, martinez-polygon-clipping
+- react-router-dom 7, graphlib, polygon-clipping (martinez DEĞİL — bkz. kararlar K22)
 - Test: Vitest. PDF: jspdf + svg2pdf.js
 - Ayrı 2B kanvas kütüphanesi (Konva/Fabric) YOK — 2B de Three.js ortografik kamerayla çizilir.
   Buradaki <Canvas> = react-three-fiber bileşeni, ayrı bir kütüphane değil.

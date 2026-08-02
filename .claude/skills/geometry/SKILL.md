@@ -14,6 +14,9 @@ description: core/ içindeki saf geometri fonksiyonlarıyla (snap, wall, room, p
   tolerans bırak — yoksa düğümde birleşen komşu borular "çakışık" sayılır.
 - Performans: n² kesişim kontrolü ~1000 segmentte kilitler. Önce rbush ile aday
   daralt (spatialIndex.ts), sonra kesin kesişim testi. rbush yavaşlayınca eklenir.
-- Mahal (room.ts): duvar grafiğinde kapalı çevrim bul → martinez ile alan (m²).
+- Mahal (room.ts): duvar grafiğinde kapalı çevrim bul → polygon-clipping ile alan (m²).
+- Poligon birleştirme ÖNCESİ köşeleri yuvarla (10⁻⁴ cm). Kayan nokta gürültüsü
+  "neredeyse çakışık" kenar üretir ve kütüphaneyi zorlar. Birleştirme try/catch
+  içinde çağrılır: zor geometride patlaması BEKLENEN durumdur (bkz. K22).
 - Test edilebilirlik ZORUNLU: "iki duvar kesişiyor mu" hatası gözle görünmez,
   izometrikte patlar. Fonksiyon saf olduğu için ekransız test edilir.
