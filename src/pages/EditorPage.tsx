@@ -1,5 +1,5 @@
 import { useCloseEditor } from './useCloseEditor'
-import { useHistoryShortcuts } from './useHistoryShortcuts'
+import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
@@ -15,13 +15,14 @@ export function EditorPage() {
   const closeEditor = useCloseEditor()
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
-  useHistoryShortcuts()
+  const handleSave = () => void save()
+  useEditorShortcuts({ onSave: handleSave })
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <MenuBar
         onCloseEditor={closeEditor}
-        onSave={() => void save()}
+        onSave={handleSave}
         onExport={exportProject}
         isSaving={isSaving}
       />

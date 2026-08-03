@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   redoProject,
+  selectIsProjectDirty,
   undoProject,
   useCadStore,
   useCanRedo,
@@ -32,6 +33,7 @@ type MenuBarProps = {
 export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
+  const isDirty = useCadStore(selectIsProjectDirty)
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
   const barRef = useRef<HTMLElement>(null)
@@ -123,14 +125,20 @@ export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarPr
       <ShortcutButtons />
       <div className="flex-1" />
 
+      {/* Kirliyken de basılabilir kalır: kullanıcı istediği an sürüm alabilmeli. */}
       <button
         type="button"
         onClick={onSave}
         disabled={isSaving}
+        aria-label={isDirty ? 'Kaydet (kaydedilmemiş değişiklik var)' : 'Kaydet'}
+        title="Kaydet (Ctrl+S)"
         className={chromeButtonVariants()}
       >
         <Save size={16} strokeWidth={1.8} aria-hidden />
         {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
+        {/* Uyarı göstergesi (KK-16). Marka sarısı kabukta serbest — yasak olan
+            tuvale girmesi. Renk tek başına anlam taşımasın diye aria-label da var. */}
+        {isDirty && <span aria-hidden className="size-2 rounded-full bg-brand" />}
       </button>
 
       <span className="mx-1 h-5 w-px bg-edge" />

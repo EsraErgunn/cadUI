@@ -131,6 +131,22 @@ describe('MenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Yinele' })).toBeDisabled()
   })
 
+  it('kaydedilmemiş değişiklik varken Kaydet düğmesinde uyarı gösterilir (KK-16)', () => {
+    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    renderMenuBar()
+
+    // Gösterge yalnız renk değil: renk körü kullanıcı için ad da değişiyor.
+    expect(screen.getByRole('button', { name: 'Kaydet (kaydedilmemiş değişiklik var)' }))
+      .toBeInTheDocument()
+  })
+
+  it('değişiklik yokken uyarı gösterilmez', () => {
+    useCadStore.getState().markSaved()
+    renderMenuBar()
+
+    expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
+  })
+
   it('Katlar başlığında kat adedi rozeti gösterilir (issue 2.4)', () => {
     renderMenuBar()
     expect(screen.getByRole('button', { name: /^Katlar/ })).toHaveTextContent('Katlar1')
