@@ -29,14 +29,29 @@ koşuyor). Karar geometriyle verilir, sırayla değil.
 **Yeni bir araç Seçim Aracı'na eklenirse** aynı soruyu sorması gerekir: bu basış
 zaten başka birinin mi? Yoksa iki yazımlı geri alma geri gelir.
 
-**Hover aynı sırayı izler.** `resolveArchitectureHover` de köşeyi duvardan önce
-verir — vurgu kullanıcıya "basarsam neyi tutarım"ı gösteriyor, jest önceliğinden
-farklı cevap verirse yanıltır. Sürükleme sırasında hover dondurulur:
+**Sıra TEK yerde: `core/architectureHover.ts` → `resolveArchitectureTarget`.**
+Köşe → açıklık → duvar, yani ekranda üstte durandan alta
+(HANDLE_ELEVATION_CM > RENDER_ORDER.opening > wall). Hem vurgu hem duvar jesti
+bunu okur; ayrı hesaplasalardı vurgu "şunu tutarsın" der, basış başkasını tutardı.
+
+Duvar en ALTTAKİ nesne: `useWallSelectionTool` hedef 'wall' değilse jesti hiç
+başlatmaz. Yeni bir tüketici eklenirse aynı fonksiyonu okumalı — kendi
+`findWallUnderPoint`/`resolveSnap` çağrısını yazmamalı.
+
+Sürükleme sırasında hover dondurulur (köşe ve duvar sürüklemesi için ayrı ayrı):
 `usePointDragTool` sürüklenen köşeyi snap'ten hariç tuttuğu için hover başka bir
 köşeye atlar ve taşınmayan köşe yanmış görünür.
 
+**Seçim karşılıklı dışlamalı, ama iki alanda:** `selectedWallId` ve
+`selectedOpeningId`. Çelişmemelerinin sebebi her iki tarafın da kendi jesti
+sahiplenmediğinde ötekini bırakması — duvara basınca `useOpeningTool` açıklık
+seçimini, açıklığa/köşeye basınca `useWallSelectionTool` duvar seçimini temizler.
+Yeni bir seçilebilir nesne eklenirse bu el sıkışmayı bozmadan ekleyin ya da
+TODO(fay-B2)'deki birleşik seçime geçin.
+
 **Dosya:** scene/useOpeningTool.ts, scene/usePointDragTool.ts,
-scene/useArchitectureHover.ts, scene/drawSurfaceEvents.ts (yayın),
-core/snap.ts (`findCornerPointIdAt` — ortak koşul),
+scene/useWallSelectionTool.ts, scene/useArchitectureHover.ts,
+scene/drawSurfaceEvents.ts (yayın),
+core/snap.ts (`findCornerPointIdAt` — ortak köşe koşulu),
 core/openingTool.ts (`isCornerHandleAtPoint`),
-core/architectureHover.ts (`resolveArchitectureHover`).
+core/architectureHover.ts (`resolveArchitectureTarget` — ortak öncelik sırası).

@@ -50,6 +50,13 @@ export type ArchitectureSlice = ArchitectureData & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
+  /**
+   * Duvarı KATI olarak öteler: iki köşesi birlikte kayar, boyu ve açısı korunur.
+   * O köşeleri paylaşan komşu duvarlar esneyerek bağlı kalır — duvar kendi
+   * koordinatını taşımadığı için bu modelin doğrudan sonucu, kopma olmaz.
+   * Açıklıklar duvara offset'le bağlı olduğundan kendiliğinden gelir (K9).
+   */
+  moveWall: (wallId: Id, dxCm: number, dyCm: number) => void
   /** Köşeyi başka bir köşeye kaynatır (sürüklerken üstüne bırakma). */
   mergePoint: (sourceId: Id, targetId: Id) => void
   deleteWall: (wallId: Id) => void
@@ -148,6 +155,26 @@ export const createArchitectureSlice: StateCreator<
       point.x = position.x
       point.y = position.y
       // Köşeyi çekmek duvarı kısaltabilir; sığmayan açıklık aynı adımda düşer (K16).
+      pruneOpeningsInDraft(draft)
+      markDirty(draft)
+    }),
+
+  moveWall: (wallId, dxCm, dyCm) =>
+    set((draft) => {
+      const wall = draft.walls.find((candidate) => candidate.id === wallId)
+      if (!wall) return
+      if (dxCm === 0 && dyCm === 0) return
+
+      // Set: sıfır boylu duvarda p1Id === p2Id olabilir, öteleme iki kez uygulanmasın.
+      const movingIds = new Set([wall.p1Id, wall.p2Id])
+      for (const point of draft.points) {
+        if (!movingIds.has(point.id)) continue
+        point.x += dxCm
+        point.y += dyCm
+      }
+
+      // Ötelenen duvarın boyu sabit, açıklıkları güvende. Ama köşeleri paylaşan
+      // KOMŞU duvarlar kısalabilir; oradaki sığmayan açıklık aynı adımda düşer (K16).
       pruneOpeningsInDraft(draft)
       markDirty(draft)
     }),

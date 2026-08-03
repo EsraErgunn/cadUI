@@ -3,6 +3,7 @@ import { SCENE_COLORS } from './sceneTheme'
 import { useArchitectureHover } from './useArchitectureHover'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { usePointDragTool } from './usePointDragTool'
+import { useWallSelectionTool } from './useWallSelectionTool'
 import { planToThree } from '../core/coords'
 import { getJointRadiusCm } from '../core/wallShape'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -58,6 +59,7 @@ function CornerHover() {
  */
 export function PointHandles() {
   usePointDragTool()
+  useWallSelectionTool()
   useArchitectureHover()
 
   return <CornerHover />
