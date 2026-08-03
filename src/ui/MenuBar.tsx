@@ -6,13 +6,20 @@ import { chromeButtonVariants } from './controls/buttonVariants'
 import { MenuDropdown } from './menu/MenuDropdown'
 import { ShortcutButtons } from './menu/ShortcutButtons'
 import { ViewSwitcher } from './menu/ViewSwitcher'
-import { CLOSE_EDITOR_ITEM_ID, EDITOR_MENUS, FLOOR_MENU_ID } from './menu/menuDefinitions'
+import {
+  CLOSE_EDITOR_ITEM_ID,
+  EDITOR_MENUS,
+  FLOOR_MENU_ID,
+  SAVE_ITEM_ID,
+} from './menu/menuDefinitions'
 
 type MenuBarProps = {
   onCloseEditor: () => void
+  onSave: () => void
+  isSaving: boolean
 }
 
-export function MenuBar({ onCloseEditor }: MenuBarProps) {
+export function MenuBar({ onCloseEditor, onSave, isSaving }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
   const barRef = useRef<HTMLElement>(null)
@@ -40,8 +47,9 @@ export function MenuBar({ onCloseEditor }: MenuBarProps) {
 
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
-    // Bu issue'da tek aktif madde; diğerleri disabled olduğu için buraya gelmez.
+    // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
+    if (itemId === SAVE_ITEM_ID) onSave()
   }
 
   return (
@@ -90,9 +98,14 @@ export function MenuBar({ onCloseEditor }: MenuBarProps) {
       <ShortcutButtons />
       <div className="flex-1" />
 
-      <button type="button" disabled className={chromeButtonVariants()}>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={isSaving}
+        className={chromeButtonVariants()}
+      >
         <Save size={16} strokeWidth={1.8} aria-hidden />
-        Kaydet
+        {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
       </button>
 
       <span className="mx-1 h-5 w-px bg-edge" />
