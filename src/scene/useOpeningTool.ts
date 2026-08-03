@@ -191,11 +191,21 @@ export function useOpeningTool(): OpeningPreview | undefined {
         const dragged = useCadStore
           .getState()
           .openings.find((opening) => opening.id === openingId)
+        // Önizleme imlecin altındaki duvarı çözüyor; bırakma o duvara yapılır.
+        // Karşılaştırma wallId'yi de kapsamalı, yoksa başka duvara aynı offset'le
+        // geçmek "değişiklik yok" sayılıp sessizce yutulurdu.
+        const isSamePlace =
+          currentPreview?.wallId === dragged?.wallId &&
+          currentPreview?.offsetCm === dragged?.offsetCm
+
         // Sürükleme boyunca store'a hiç yazılmadı: tek yazım = tek markDirty =
         // tek Ctrl+Z (history.ts bağlanınca). Geçersizse taşıma REDDEDİLİR (K13).
         // Yer değişmediyse (sürükleme değil, sadece seçmek için tıklama) hiç yazılmaz.
-        if (currentPreview?.isValid && currentPreview.offsetCm !== dragged?.offsetCm) {
-          useCadStore.getState().moveOpening(openingId, currentPreview.offsetCm)
+        if (currentPreview?.isValid && !isSamePlace) {
+          useCadStore.getState().moveOpening(openingId, {
+            wallId: currentPreview.wallId,
+            offsetCm: currentPreview.offsetCm,
+          })
         }
         updatePreview(undefined)
         return
