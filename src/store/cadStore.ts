@@ -1,4 +1,5 @@
-import { create } from 'zustand'
+import { temporal } from 'zundo'
+import { create, useStore } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import {
@@ -8,62 +9,77 @@ import {
   type ArchitectureSlice,
 } from './architectureSlice'
 import { createFloorSlice, type FloorSlice } from './floorSlice'
+import {
+  areProjectStatesEqual,
+  HISTORY_LIMIT,
+  partializeProjectState,
+  type TrackedProjectState,
+} from './history'
 import type { ProjectMetaSlice } from './projectMeta'
-
-import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
-
-export type CadState = ProjectMetaSlice & FloorSlice & ArchitectureSlice & PlumbingSlice
-
 import type { ProjectData } from '../core/model'
+import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
 
 export type CadState = ProjectMetaSlice &
   FloorSlice &
-  ArchitectureSlice & {
+  ArchitectureSlice &
+  PlumbingSlice & {
     /** Depodan gelen çizimi state'e yükler. Şema doğrulaması api/serialize'ın işi. */
     loadProject: (data: ProjectData) => void
   }
-
 
 // takeNextId/markDirty projectMeta.ts'te: slice'lar onları çalışma zamanında
 // import ediyor, buradan alsalardı cadStore ↔ slice döngüsü oluşurdu (K17).
 export { markDirty, takeNextId } from './projectMeta'
 
+// temporal EN DIŞTA: immer'ı sarmalı ki geçmişe düşen anlık görüntüler
+// producer bittikten SONRAKİ dondurulmuş state olsun, draft değil.
 export const useCadStore = create<CadState>()(
-  immer((...args) => {
-    const [set] = args
-    return {
-      // Sayaç başlangıç verisinden TÜRETİLİR, sabit yazılmaz: veri bir gün boş
-      // olmazsa sabit sayaç var olan bir id'yi ikinci kez üretir ve hata vermez.
-      nextUniqueId: deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA),
-      revision: 0,
-      savedRevision: 0,
+  temporal(
+    immer((...args) => {
+      const [set] = args
+      return {
+        // Sayaç başlangıç verisinden TÜRETİLİR, sabit yazılmaz: veri bir gün boş
+        // olmazsa sabit sayaç var olan bir id'yi ikinci kez üretir ve hata vermez.
+        nextUniqueId: deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA),
+        revision: 0,
+        savedRevision: 0,
 
-      markSaved: () =>
-        set((draft) => {
-          draft.savedRevision = draft.revision
-        }),
+        markSaved: () =>
+          set((draft) => {
+            draft.savedRevision = draft.revision
+          }),
 
-      // Yükleme "değişiklik" değildir: revision/savedRevision eşitlenir, yoksa
-      // proje açılır açılmaz kirli görünür ve kullanıcı boşuna uyarılır.
-      // nextUniqueId dosyadan gelir, veriden yeniden TÜRETİLMEZ — sayaç geriye
-      // düşerse silinmiş bir id ikinci kez üretilir (knowledge/id-scheme.md).
-      loadProject: (data) =>
-        set((draft) => {
-          draft.nextUniqueId = data.nextUniqueId
-          draft.floors = data.floors
-          draft.activeFloorId = data.activeFloorId
-          draft.points = data.points
-          draft.walls = data.walls
-          draft.openings = data.openings
-          draft.revision = 0
-          draft.savedRevision = 0
-        }),
+        // Yükleme "değişiklik" değildir: revision/savedRevision eşitlenir, yoksa
+        // proje açılır açılmaz kirli görünür ve kullanıcı boşuna uyarılır.
+        // nextUniqueId dosyadan gelir, veriden yeniden TÜRETİLMEZ — sayaç geriye
+        // düşerse silinmiş bir id ikinci kez üretilir (knowledge/id-scheme.md).
+        loadProject: (data) => {
+          set((draft) => {
+            draft.nextUniqueId = data.nextUniqueId
+            draft.floors = data.floors
+            draft.activeFloorId = data.activeFloorId
+            draft.points = data.points
+            draft.walls = data.walls
+            draft.openings = data.openings
+            draft.revision = 0
+            draft.savedRevision = 0
+          })
+          // Geçmiş SIFIRLANIR: yükleme bir düzenleme değil, yeni bir başlangıç.
+          // Temizlenmezse Ctrl+Z kullanıcıyı önceki projenin çizimine götürür.
+          useCadStore.temporal.getState().clear()
+        },
 
-      ...createFloorSlice(...args),
-      ...createArchitectureSlice(...args),
-      ...createPlumbingSlice(...args),
-    }
-  }),
+        ...createFloorSlice(...args),
+        ...createArchitectureSlice(...args),
+        ...createPlumbingSlice(...args),
+      }
+    }),
+    {
+      limit: HISTORY_LIMIT,
+      partialize: partializeProjectState,
+      equality: areProjectStatesEqual,
+    },
+  ),
 )
 
 /**
@@ -72,6 +88,32 @@ export const useCadStore = create<CadState>()(
  */
 export function selectIsProjectDirty(state: CadState): boolean {
   return state.revision !== state.savedRevision
+}
+
+/** Geri al / yinele. Menü ve klavye kısayolu aynı fonksiyonu çağırır. */
+export function undoProject(): void {
+  useCadStore.temporal.getState().undo()
+}
+
+export function redoProject(): void {
+  useCadStore.temporal.getState().redo()
+}
+
+type TemporalState = {
+  pastStates: TrackedProjectState[]
+  futureStates: TrackedProjectState[]
+}
+
+/**
+ * Menü maddelerinin aktifliği için. Sayının kendisine değil boş olup olmadığına
+ * abone olunuyor: her adımda yeniden render etmenin anlamı yok.
+ */
+export function useCanUndo(): boolean {
+  return useStore(useCadStore.temporal, (state) => (state as TemporalState).pastStates.length > 0)
+}
+
+export function useCanRedo(): boolean {
+  return useStore(useCadStore.temporal, (state) => (state as TemporalState).futureStates.length > 0)
 }
 
 /**

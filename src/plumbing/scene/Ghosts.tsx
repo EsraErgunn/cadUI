@@ -5,8 +5,9 @@ import { SymbolInstance } from './SymbolInstance'
 import { ARCHITECTURE_GHOST_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
+import type { Point, Wall as WallData } from '../../core/model'
 import { getOpeningOutline, getOpeningSymbolPoints } from '../../core/opening'
-import { getWallOutlines } from '../../core/wallShape'
+import { getWallCapsule } from '../../core/wallShape'
 import { RENDER_ORDER } from '../../scene/layers'
 import { useCadStore } from '../../store/cadStore'
 
@@ -19,9 +20,6 @@ import { useCadStore } from '../../store/cadStore'
  * Gerekçeler: .claude/knowledge/ghost-layers.md
  */
 
-// Mimari görünümdeki duvar konturundan (1.4) kalın: hayalet soluk renkte olduğu
-// için aynı kalınlıkta ızgaranın içinde kayboluyor.
-const GHOST_WALL_LINE_WIDTH = 2
 /** Açıklık duvardan ince: duvar kütlesi baskın kalsın, delik onun üstünde okunsun. */
 const GHOST_OPENING_LINE_WIDTH = 1.4
 
@@ -45,6 +43,34 @@ function GhostLine({ points, lineWidth }: GhostLineProps) {
   )
 }
 
+/**
+ * Hayalet duvar = soluk renkli kapsül. scene/Wall.tsx ile AYNI geometri: mimari
+ * görünümde union yok, duvarlar üst üste çizilir ve kavşak kendiliğinden dolar (K23).
+ */
+function GhostWall({ wall, points }: { wall: WallData; points: readonly Point[] }) {
+  const capsule = getWallCapsule(wall, points)
+  if (!capsule) return null
+
+  return (
+    <Line
+      points={[
+        planToThree(capsule.p1, ARCHITECTURE_GHOST_ELEVATION_CM),
+        planToThree(capsule.p2, ARCHITECTURE_GHOST_ELEVATION_CM),
+      ]}
+      color={PLUMBING_COLORS.architectureGhost}
+      // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
+      worldUnits
+      lineWidth={wall.thickness}
+      alphaToCoverage
+      frustumCulled={false}
+      renderOrder={RENDER_ORDER.architectureGhost}
+      depthWrite={false}
+      raycast={() => null}
+      toneMapped={false}
+    />
+  )
+}
+
 function toGhostPoints(corners: readonly PlanPoint[]): ThreePosition[] {
   return corners.map((corner) => planToThree(corner, ARCHITECTURE_GHOST_ELEVATION_CM))
 }
@@ -54,26 +80,16 @@ function toGhostRing(corners: readonly PlanPoint[]): ThreePosition[] {
   return toGhostPoints([...corners, corners[0]])
 }
 
-/**
- * Tesisat görünümündeki mimari: aktif kattaki duvar birleşiminin dış konturu +
- * kapı/pencere delikleri. Tek tek duvar çerçevesi çizilseydi köşelerde iç çizgiler
- * görünürdü (scene/Wall.tsx ile aynı gerekçe).
- */
+/** Tesisat görünümündeki mimari: aktif kattaki duvarlar + kapı/pencere delikleri. */
 export function ArchitectureGhost() {
   const walls = useCadStore((state) => state.walls)
   const points = useCadStore((state) => state.points)
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
 
-  // Birleşim her karede değil, yalnız duvar/nokta/kat değiştiğinde hesaplanır.
   const floorWalls = useMemo(
     () => walls.filter((wall) => wall.floorId === activeFloorId),
     [activeFloorId, walls],
-  )
-
-  const wallRings = useMemo(
-    () => getWallOutlines(floorWalls, points).map(toGhostPoints),
-    [floorWalls, points],
   )
 
   // Açıklık floorId taşımaz (K9): kat, bağlı olduğu duvardan türetilir.
@@ -101,9 +117,8 @@ export function ArchitectureGhost() {
 
   return (
     <group name="architecture-ghost">
-      {wallRings.map((ring, index) => (
-        // Halkalar birleşim sonucundan türüyor, kalıcı bir id'leri yok.
-        <GhostLine key={index} points={ring} lineWidth={GHOST_WALL_LINE_WIDTH} />
+      {floorWalls.map((wall) => (
+        <GhostWall key={wall.id} wall={wall} points={points} />
       ))}
 
       {/* Duvarın ÜSTÜNE çiziliyor (sıra önemli): delik duvar konturunun altında kalmasın. */}
