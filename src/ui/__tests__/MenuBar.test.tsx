@@ -6,13 +6,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
 
-function renderMenuBar(onCloseEditor = vi.fn()) {
+function renderMenuBar(onCloseEditor = vi.fn(), onSave = vi.fn()) {
   render(
     <MemoryRouter>
-      <MenuBar onCloseEditor={onCloseEditor} />
+      <MenuBar onCloseEditor={onCloseEditor} onSave={onSave} isSaving={false} />
     </MemoryRouter>,
   )
-  return onCloseEditor
+  return { onCloseEditor, onSave }
 }
 
 describe('MenuBar', () => {
@@ -42,15 +42,27 @@ describe('MenuBar', () => {
     },
   )
 
-  it('Kapat dışındaki tüm maddeler pasiftir (KK-9)', async () => {
+  it('yalnız Kaydet ve Kapat aktiftir (KK-9)', async () => {
     const user = userEvent.setup()
     renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: /^Dosya/ }))
 
     expect(screen.getByRole('menuitem', { name: 'Kapat' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Gönder' })).toBeDisabled()
+  })
+
+  it('Dosya > Kaydet ve Kaydet düğmesi aynı akışı tetikler', async () => {
+    const user = userEvent.setup()
+    const { onSave } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: 'Kaydet' }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Kaydet' }))
+    expect(onSave).toHaveBeenCalledTimes(2)
   })
 
   it('menü dışına tıklanınca kapanır (KK-9)', async () => {
@@ -66,7 +78,7 @@ describe('MenuBar', () => {
 
   it('Dosya > Kapat ve ← Projeler aynı akışı tetikler (KK-10)', async () => {
     const user = userEvent.setup()
-    const onCloseEditor = renderMenuBar()
+    const { onCloseEditor } = renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: 'Projeler' }))
     expect(onCloseEditor).toHaveBeenCalledTimes(1)
