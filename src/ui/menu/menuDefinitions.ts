@@ -32,6 +32,8 @@ const DISABLED_CHECKBOX: Pick<MenuItemDefinition, 'kind' | 'isEnabled'> = {
 export const CLOSE_EDITOR_ITEM_ID = 'close'
 export const SAVE_ITEM_ID = 'save'
 export const EXPORT_ITEM_ID = 'export'
+export const UNDO_ITEM_ID = 'undo'
+export const REDO_ITEM_ID = 'redo'
 
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -64,8 +66,10 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
     groups: [
       {
         items: [
-          { id: 'undo', label: 'Geri Al', ...DISABLED },
-          { id: 'redo', label: 'Yinele', ...DISABLED },
+          // Aktiflik çalışma zamanında: geçmiş boşken MenuBar bunları
+          // unavailableItemIds ile pasifleştirir.
+          { id: UNDO_ITEM_ID, label: 'Geri Al', kind: 'command', isEnabled: true },
+          { id: REDO_ITEM_ID, label: 'Yinele', kind: 'command', isEnabled: true },
           { id: 'saveHistory', label: 'Kayıt Geçmişi', ...DISABLED },
         ],
       },

@@ -1,7 +1,13 @@
 import { ArrowLeft, Save } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { useCadStore } from '../store/cadStore'
+import {
+  redoProject,
+  undoProject,
+  useCadStore,
+  useCanRedo,
+  useCanUndo,
+} from '../store/cadStore'
 import { chromeButtonVariants } from './controls/buttonVariants'
 import { MenuDropdown } from './menu/MenuDropdown'
 import { ShortcutButtons } from './menu/ShortcutButtons'
@@ -11,7 +17,9 @@ import {
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   FLOOR_MENU_ID,
+  REDO_ITEM_ID,
   SAVE_ITEM_ID,
+  UNDO_ITEM_ID,
 } from './menu/menuDefinitions'
 
 type MenuBarProps = {
@@ -24,7 +32,15 @@ type MenuBarProps = {
 export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
+  const canUndo = useCanUndo()
+  const canRedo = useCanRedo()
   const barRef = useRef<HTMLElement>(null)
+
+  // Yapılamayacak komutlar pasif görünür ama menüden KALKMAZ: kullanıcı
+  // "Geri Al diye bir şey var mı" diye aramasın.
+  const unavailableItemIds = new Set<string>()
+  if (!canUndo) unavailableItemIds.add(UNDO_ITEM_ID)
+  if (!canRedo) unavailableItemIds.add(REDO_ITEM_ID)
 
   useEffect(() => {
     if (openMenuId === null) return undefined
@@ -53,6 +69,8 @@ export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarPr
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === EXPORT_ITEM_ID) onExport()
+    if (itemId === UNDO_ITEM_ID) undoProject()
+    if (itemId === REDO_ITEM_ID) redoProject()
   }
 
   return (
@@ -91,7 +109,11 @@ export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarPr
               )}
             </button>
             {openMenuId === menu.id && (
-              <MenuDropdown menu={menu} onSelectItem={handleSelectItem} />
+              <MenuDropdown
+                menu={menu}
+                onSelectItem={handleSelectItem}
+                unavailableItemIds={unavailableItemIds}
+              />
             )}
           </div>
         ))}

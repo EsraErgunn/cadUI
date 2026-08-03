@@ -1,4 +1,5 @@
 import { useCloseEditor } from './useCloseEditor'
+import { useHistoryShortcuts } from './useHistoryShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
@@ -14,6 +15,7 @@ export function EditorPage() {
   const closeEditor = useCloseEditor()
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
+  useHistoryShortcuts()
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
