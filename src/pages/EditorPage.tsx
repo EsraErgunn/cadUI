@@ -1,4 +1,5 @@
 import { useCloseEditor } from './useCloseEditor'
+import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
 import { AxisIndicator } from '../ui/AxisIndicator'
@@ -12,12 +13,14 @@ import { Toolbar } from '../ui/Toolbar'
 export function EditorPage() {
   const closeEditor = useCloseEditor()
   const { isSaving, error, save } = useProjectPersistence()
+  const exportProject = useProjectExport()
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <MenuBar
         onCloseEditor={closeEditor}
         onSave={() => void save()}
+        onExport={exportProject}
         isSaving={isSaving}
       />
 

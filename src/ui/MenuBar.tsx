@@ -9,6 +9,7 @@ import { ViewSwitcher } from './menu/ViewSwitcher'
 import {
   CLOSE_EDITOR_ITEM_ID,
   EDITOR_MENUS,
+  EXPORT_ITEM_ID,
   FLOOR_MENU_ID,
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
@@ -16,10 +17,11 @@ import {
 type MenuBarProps = {
   onCloseEditor: () => void
   onSave: () => void
+  onExport: () => void
   isSaving: boolean
 }
 
-export function MenuBar({ onCloseEditor, onSave, isSaving }: MenuBarProps) {
+export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
   const barRef = useRef<HTMLElement>(null)
@@ -50,6 +52,7 @@ export function MenuBar({ onCloseEditor, onSave, isSaving }: MenuBarProps) {
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
     if (itemId === SAVE_ITEM_ID) onSave()
+    if (itemId === EXPORT_ITEM_ID) onExport()
   }
 
   return (
