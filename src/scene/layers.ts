@@ -9,6 +9,12 @@ export const RENDER_ORDER = {
   room: 10,
   wall: 20,
   opening: 30,
+  /**
+   * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
+   * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı
+   * (oda dolgusu geldiğinde) tamamen kaybolurdu.
+   */
+  installationGhost: 35,
   pipe: 40,
   insulation: 45,
   fitting: 50,

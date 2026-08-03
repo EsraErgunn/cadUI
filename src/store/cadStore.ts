@@ -9,8 +9,9 @@ import {
 } from './architectureSlice'
 import { createFloorSlice, type FloorSlice } from './floorSlice'
 import type { ProjectMetaSlice } from './projectMeta'
+import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
 
-export type CadState = ProjectMetaSlice & FloorSlice & ArchitectureSlice
+export type CadState = ProjectMetaSlice & FloorSlice & ArchitectureSlice & PlumbingSlice
 
 // takeNextId/markDirty projectMeta.ts'te: slice'lar onları çalışma zamanında
 // import ediyor, buradan alsalardı cadStore ↔ slice döngüsü oluşurdu (K17).
@@ -33,6 +34,7 @@ export const useCadStore = create<CadState>()(
 
       ...createFloorSlice(...args),
       ...createArchitectureSlice(...args),
+      ...createPlumbingSlice(...args),
     }
   }),
 )

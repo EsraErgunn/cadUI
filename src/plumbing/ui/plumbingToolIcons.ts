@@ -1,36 +1,31 @@
 import {
   Box,
   Disc3,
-  Droplets,
   Factory,
-  Flame,
-  FlameKindling,
   FunnelPlus,
   Gauge,
   GitBranch,
-  Heater,
   Layers,
   MousePointer2,
   Route,
   Ruler,
   SlidersHorizontal,
   SquareActivity,
-  Thermometer,
   Timer,
   ToggleRight,
   Wind,
+  Heater,
+  Droplets,
+  Thermometer,
+  Flame,
+  FlameKindling,
   type LucideIcon,
 } from 'lucide-react'
 
 import { StoveIcon } from './StoveIcon'
 import type { InstallationToolId } from '../core/installationTools'
 
-/**
- * Record olduğu için her aracın ikonu ZORUNLU — eksik ikon derlemede yakalanır
- * (mimari paletle aynı desen). Kurulu lucide sürümünde `Filter` yok (yeni adı
- * Funnel); filterKit için en yakın var olan ikon FunnelPlus seçildi.
- * `stove` istisna: lucide'da "4 gözlü ocak" karşılığı yok, StoveIcon.tsx özel çizildi.
- */
+
 export const INSTALLATION_TOOL_ICONS: Record<InstallationToolId, LucideIcon> = {
   selection: MousePointer2,
   regulator: SlidersHorizontal,

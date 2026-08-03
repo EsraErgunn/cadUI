@@ -19,4 +19,9 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 | 2026-07 | open-question | [arc-walls](./arc-walls.md) | Yay duvar kararı YOK — varsayma. Dikiş core/wallPath.ts; getPlacementRange'in uzunluk çağrısı da çevrilmeli |
 | 2026-07 | decision | [admin-list-state](./admin-list-state.md) | Yönetici listelerinde durum URL query param'da, sayfalama sunucuda; yetki düz izin listesiyle (rol modeli yok) |
 | 2026-07 | gotcha | [turkish-collation](./turkish-collation.md) | `'İ'.toLowerCase()` birleşen nokta üretir → arama sessizce eşleşmez; normalizeTr kullan |
+| 2026-08 | decision | [plumbing-placement](./plumbing-placement.md) | Yerleştirme pointerUP'ta (tıklama + sürükle-bırak tek yol); araç aktif kalır; snap ince ızgara adımı |
+| 2026-08 | decision | [ghost-layers](./ghost-layers.md) | Her görünüm karşı katmanı soluk gösterir; iki hayalet de SceneRoot'ta ve aktif katı kendi okur; tesisat rengi korunur, mimari boyanır |
+| 2026-08 | open-question | [linear-symbols](./linear-symbols.md) | Baca/havalandırma kanalı uzayan eleman olacak (Aşama 5.1); genişlik, kat kapsamı ve cihaz-baca bağlantısı KARARSIZ |
+| 2026-08 | gotcha | [symbol-backface](./symbol-backface.md) | Bake sonrası sembol ön yüzü −Y'ye bakar; material DoubleSide olmazsa TÜM semboller sessizce kırpılır |
+| 2026-08 | gotcha | [plumbing-history](./plumbing-history.md) | Tesisat geri alması cadStore dışında zundo aynası; yeni action `record()` çağırmazsa Ctrl+Z adımı SESSİZCE atlar |
 | 2026-07 | decision | [theming](./theming.md) | Açık varsayılan + koyu tema: token değerleri `.dark` altında değişir, class tabanlı (`@custom-variant`); admin'de sarı yok, birincil indigo, aksan cyan |

@@ -6,6 +6,7 @@ import { DrawSurface } from './DrawSurface'
 import { Grid } from './Grid'
 import { SCENE_COLORS } from './sceneTheme'
 import { useViewportControls } from './useViewportControls'
+import { ArchitectureGhost, InstallationGhost } from '../plumbing/scene/Ghosts'
 import { PlumbingLayer } from '../plumbing/scene/PlumbingLayer'
 import { useUiStore } from '../store/uiStore'
 
@@ -25,15 +26,20 @@ export function SceneRoot() {
       <Cameras />
       <ViewportControls />
       <Grid />
+      {/* Her görünüm KARŞI katmanı soluk gösterir. İkisi de burada, görünüm
+          anahtarının yanında: hayalet çizen katmanın parçası değil, görünümün
+          bağlamı — ve ikisi de aktif katı kendi okuyor. */}
       {activeViewId === 'architecture' && (
         <>
           <DrawSurface />
           <ArchitectureLayer />
+          <InstallationGhost />
         </>
       )}
       {activeViewId === 'installation' && (
         <>
           <DrawSurface />
+          <ArchitectureGhost />
           <PlumbingLayer />
         </>
       )}
