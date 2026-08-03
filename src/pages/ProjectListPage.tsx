@@ -13,11 +13,12 @@ import {
 } from '../api/projects'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
+import { FilterChips } from '../ui/admin/FilterChips'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
-import { PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
+import { ADMIN_HOME_PATH, PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import { ProjectFilterBar } from '../ui/admin/projects/ProjectFilterBar'
 import { StatusTabs } from '../ui/admin/projects/StatusTabs'
@@ -26,6 +27,7 @@ import {
   PROJECT_TABLE_CAPTION,
   PROJECT_TABLE_MIN_WIDTH_CLASS,
 } from '../ui/admin/projects/projectColumns'
+import { buildProjectFilterChips } from '../ui/admin/projects/projectFilterChips'
 import { useProjectActions } from '../ui/admin/projects/useProjectActions'
 import { useProjectListParams } from '../ui/admin/projects/useProjectListParams'
 
@@ -125,9 +127,7 @@ export function ProjectListPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={[
-            // "Anasayfa" bağlantısız: gerçek anasayfa ekranı gelince `to` eklenecek
-            // (sol menüdeki maddesi de aynı sebeple devre dışı, bkz. adminNavItems.ts).
-            { label: 'Anasayfa' },
+            { label: 'Anasayfa', to: ADMIN_HOME_PATH },
             { label: 'Projeler' },
             { label: statusTitle },
           ]}
@@ -164,6 +164,15 @@ export function ProjectListPage() {
         districts={districts ?? []}
         projectFirms={projectFirms ?? []}
         onApply={applyFilters}
+      />
+
+      <FilterChips
+        filters={buildProjectFilterChips({
+          filters: appliedFilters,
+          districts: districts ?? [],
+          projectFirms: projectFirms ?? [],
+          onApply: applyFilters,
+        })}
       />
 
       <div id={PANEL_ID} role="tabpanel" aria-label="Proje listesi">

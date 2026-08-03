@@ -11,7 +11,10 @@ import {
 
 import { PROJECT_LIST_PATH } from '../../pages/useCloseEditor'
 
-export const GAS_DISTRIBUTION_FIRMS_PATH = '/admin/gas-distribution-firms'
+/** Yönetici kabuğunun kökü; Anasayfa bu yolun index route'u (router.tsx). */
+export const ADMIN_HOME_PATH = '/admin'
+
+export const GAS_DISTRIBUTION_FIRMS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-firms`
 export const GAS_FIRM_CREATE_PATH = `${GAS_DISTRIBUTION_FIRMS_PATH}/new`
 
 /** Firma güncelleme ekranının yolu. ekran kendi issue'sunda gelecek. */
@@ -45,9 +48,9 @@ export interface AdminNavItem {
  *  path'i null olan maddeler kendi issue'larında route alacak.
  */
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  // Gerçek anasayfa ekranı gelince açılacak: madde proje listesine bakıyordu,
-  // "Projeler" de aynı yola gidince iki madde tek ekranı gösterir olmuştu.
-  { key: 'home', label: 'Anasayfa', icon: House, path: null },
+  // Geçici karşılama ekranı (AdminHomePage). Kendi yolu var; "Projeler" maddesiyle
+  // aynı ekranı göstermesin diye proje listesine DEĞİL, /admin'e bakar.
+  { key: 'home', label: 'Anasayfa', icon: House, path: ADMIN_HOME_PATH },
   {
     key: 'gasDistributionFirms',
     label: 'Gaz Dağıtım Firmaları',

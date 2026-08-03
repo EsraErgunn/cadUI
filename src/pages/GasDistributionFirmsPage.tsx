@@ -3,21 +3,21 @@ import { useState } from 'react'
 
 import { getGasDistributionFirms } from '../api/adminFirms'
 import { DataTable } from '../ui/admin/DataTable'
+import { FilterChips } from '../ui/admin/FilterChips'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
-import { FirmFilterChips } from '../ui/admin/firms/FirmFilterChips'
+import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { FirmFilterPanel } from '../ui/admin/firms/FirmFilterPanel'
 import { FirmTableToolbar } from '../ui/admin/firms/FirmTableToolbar'
 import { FIRM_COLUMNS, FIRM_TABLE_CAPTION } from '../ui/admin/firms/firmColumns'
+import { buildFirmFilterChips } from '../ui/admin/firms/firmFilterChips'
 import { useFirmListParams } from '../ui/admin/useFirmListParams'
 
 const PAGE_TITLE = 'Gaz Dağıtım Firmaları'
 
 const BREADCRUMB = [
-  // "Anasayfa" bağlantısız: gerçek anasayfa ekranı gelince `to` eklenecek
-  // (sol menüdeki maddesi de aynı sebeple devre dışı, bkz. adminNavItems.ts).
-  { label: 'Anasayfa' },
+  { label: 'Anasayfa', to: ADMIN_HOME_PATH },
   { label: 'Firmalar' },
   { label: PAGE_TITLE },
 ]
@@ -64,13 +64,15 @@ export function GasDistributionFirmsPage() {
         />
       )}
 
-      <FirmFilterChips
-        nameQuery={query.nameQuery}
-        groupName={query.groupName}
-        region={query.region}
-        onRemoveNameQuery={() => setNameQuery('')}
-        onRemoveGroupName={() => setGroupName(null)}
-        onRemoveRegion={() => setRegion(null)}
+      <FilterChips
+        filters={buildFirmFilterChips({
+          nameQuery: query.nameQuery,
+          groupName: query.groupName,
+          region: query.region,
+          onRemoveNameQuery: () => setNameQuery(''),
+          onRemoveGroupName: () => setGroupName(null),
+          onRemoveRegion: () => setRegion(null),
+        })}
       />
 
       {isPending && <QueryLoading message="Firmalar yükleniyor…" />}
