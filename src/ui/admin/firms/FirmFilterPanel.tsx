@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 
 import { getFirmGroups, getRegions } from '../../../api/adminFirms'
+import { FilterSelect, type FilterSelectOption } from '../FilterSelect'
 import { ALL_REGIONS_LABEL } from '../adminUrlParams'
-import { ADMIN_FOCUS_RING, adminFieldVariants } from '../adminVariants'
+import { ADMIN_FOCUS_RING } from '../adminVariants'
 
 const OPTION_STALE_MS = 5 * 60 * 1000
 const ANY_GROUP_LABEL = 'Tümü'
@@ -16,36 +17,9 @@ interface FirmFilterPanelProps {
   onClose: () => void
 }
 
-interface FilterSelectProps {
-  id: string
-  label: string
-  emptyLabel: string
-  value: string | null
-  options: string[]
-  onChange: (value: string | null) => void
-}
-
-function FilterSelect({ id, label, emptyLabel, value, options, onChange }: FilterSelectProps) {
-  return (
-    <div className="flex min-w-56 flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-ink-muted">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value ?? ''}
-        onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
-        className={adminFieldVariants({ className: 'pr-8' })}
-      >
-        <option value="">{emptyLabel}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
+/** Firma listesinde grup ve bölge adı hem değer hem etiket olarak kullanılır. */
+function toNameOptions(names: string[] | undefined): FilterSelectOption[] {
+  return (names ?? []).map((name) => ({ value: name, label: name }))
 }
 
 export function FirmFilterPanel({
@@ -76,7 +50,7 @@ export function FirmFilterPanel({
         label="Grup Firması"
         emptyLabel={ANY_GROUP_LABEL}
         value={groupName}
-        options={groups ?? []}
+        options={toNameOptions(groups)}
         onChange={onGroupNameChange}
       />
       <FilterSelect
@@ -84,7 +58,7 @@ export function FirmFilterPanel({
         label="Bölge"
         emptyLabel={ALL_REGIONS_LABEL}
         value={region}
-        options={regions ?? []}
+        options={toNameOptions(regions)}
         onChange={onRegionChange}
       />
 

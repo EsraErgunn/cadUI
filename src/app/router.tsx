@@ -8,6 +8,7 @@ import { ProjectListPage } from '../pages/ProjectListPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
 import { AdminLayout } from '../ui/admin/AdminLayout'
+import { PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
 
 export function AppRouter() {
   return (
@@ -15,7 +16,15 @@ export function AppRouter() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
+        {/* Proje listesi yönetici kabuğunun altında ama yolu /projects kalıyor:
+            editörden çıkış (useCloseEditor) ve sol menü bu yola bağlı. Yol
+            taşınırsa iki ayrı yerde kırılma olurdu. */}
+        <Route element={<AdminLayout />}>
+          <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
+          {/* Statik parça dinamik olandan önce eşleşir (React Router sıralaması),
+              yoksa /projects/new editörü "new" kimliğiyle açmaya çalışırdı. */}
+          <Route path={PROJECT_CREATE_PATH} element={<AdminTodoPage title="Yeni Proje" />} />
+        </Route>
         <Route path="/projects/:projectId" element={<EditorPage />} />
 
         {/* Yönetici ekranları ortak kabuğu paylaşır; giriş sonrası buraya otomatik

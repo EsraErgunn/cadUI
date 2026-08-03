@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
 import { MOCK_FIRM_GROUPS, MOCK_REGIONS, queryMockFirms } from './adminFirmsMock'
+import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
+
+// Sıralama yönü artık ortak liste sözleşmesinde; firma ekranının mevcut import
+// yolları kırılmasın diye buradan da dışa aktarılıyor.
+export { SORT_DIRECTIONS, type SortDirection } from './listQuery'
 
 /**
  * API SÖZLEŞMESİ - Gaz dağıtım firmaları listesi.
@@ -29,9 +34,6 @@ export const GAS_FIRM_PAGE_SIZE = 30
 export const GAS_FIRM_SORT_KEYS = ['dfirmNo', 'groupName', 'name'] as const
 export type GasFirmSortKey = (typeof GAS_FIRM_SORT_KEYS)[number]
 
-export const SORT_DIRECTIONS = ['asc', 'desc'] as const
-export type SortDirection = (typeof SORT_DIRECTIONS)[number]
-
 const gasDistributionFirmSchema = z.object({
   id: z.number().int().positive(),
   dfirmNo: z.number().int().positive(),
@@ -40,17 +42,12 @@ const gasDistributionFirmSchema = z.object({
   region: z.string(),
 })
 
-const gasDistributionFirmPageSchema = z.object({
-  items: z.array(gasDistributionFirmSchema),
-  totalCount: z.number().int().nonnegative(),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
-})
+const gasDistributionFirmPageSchema = pagedResultSchema(gasDistributionFirmSchema)
 
 const nameListSchema = z.array(z.string())
 
 export type GasDistributionFirm = z.infer<typeof gasDistributionFirmSchema>
-export type GasDistributionFirmPage = z.infer<typeof gasDistributionFirmPageSchema>
+export type GasDistributionFirmPage = PagedResult<GasDistributionFirm>
 
 export interface GasDistributionFirmQuery {
   nameQuery: string

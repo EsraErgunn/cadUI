@@ -12,6 +12,6 @@ export const PROJECT_LIST_PATH = '/projects'
  */
 export function useCloseEditor(): () => void {
   const navigate = useNavigate()
-  // TODO(ahmet): kaydedilmemiş değişiklik uyarısı "kaydet ve çık" issue'sunda eklenecek.
+  //  kaydedilmemiş değişiklik uyarısı "kaydet ve çık" issue'sunda eklenecek.
   return () => navigate(PROJECT_LIST_PATH)
 }
