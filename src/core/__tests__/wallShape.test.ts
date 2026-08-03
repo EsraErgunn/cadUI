@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { PlanPoint } from '../coords'
 import type { Point, Wall } from '../model'
-import { getWallOutlines, getWallPolygon } from '../wallShape'
+import { getWallCapsule } from '../wallShape'
 
 const FLOOR_ID = 1
 
@@ -14,219 +14,114 @@ function makeWall(id: number, p1Id: number, p2Id: number, thickness: number): Wa
   return { id, floorId: FLOOR_ID, p1Id, p2Id, thickness, height: 280 }
 }
 
-function round(polygon: readonly PlanPoint[]): PlanPoint[] {
-  return polygon.map((corner) => ({
-    x: Math.round(corner.x * 100) / 100,
-    y: Math.round(corner.y * 100) / 100,
-  }))
+/** Noktanın kapsüle uzaklığı: eksene (doğru PARÇASINA) uzaklık − yarıçap. */
+function getDistanceToCapsule(target: PlanPoint, capsule: NonNullable<ReturnType<typeof getWallCapsule>>) {
+  const { p1, p2, radiusCm } = capsule
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const lengthSq = dx * dx + dy * dy
+  const ratio = Math.min(1, Math.max(0, ((target.x - p1.x) * dx + (target.y - p1.y) * dy) / lengthSq))
+  const closest = { x: p1.x + dx * ratio, y: p1.y + dy * ratio }
+
+  return Math.hypot(target.x - closest.x, target.y - closest.y) - radiusCm
 }
 
-// L köşesi: yatay duvar (400 cm, kalınlık 20) + dikey duvar (300 cm, kalınlık 30).
+// Yatay duvar, 400 cm, kalınlık 20.
 const points = [makePoint(1, 0, 0), makePoint(2, 400, 0), makePoint(3, 400, 300)]
 const horizontal = makeWall(10, 1, 2, 20)
-const vertical = makeWall(11, 2, 3, 30)
-const walls = [horizontal, vertical]
 
-/**
- * Kısa duvar, iki ucu da gönyeli. Gönye boyla sınırlanmazsa uçların köşeleri
- * birbirini aşar, dörtgen papyona döner ve union KİLİTLENİR — köşe sürüklenip
- * duvar kısaldığında uygulamanın donmasının sebebi buydu.
- */
-const shortWallPoints = [
-  makePoint(1, -300, 0),
-  makePoint(2, 0, 0),
-  makePoint(3, 2, 0),
-  makePoint(4, 2, 300),
-]
-const beforeShort = makeWall(10, 1, 2, 20)
-const shortWall = makeWall(11, 2, 3, 20)
-const afterShort = makeWall(12, 3, 4, 20)
-const shortWalls = [beforeShort, shortWall, afterShort]
-
-describe('getWallPolygon — kısa duvar (donma vakası)', () => {
-  it('gönye duvarın yarı boyunu aşmaz', () => {
-    const polygon = getWallPolygon(shortWall, shortWallPoints, shortWalls) ?? []
-    const halfLengthCm = 1
-
-    // p1 ucu (0,0), p2 ucu (2,0). Hiçbir köşe kendi ucundan yarı boydan uzak olamaz.
-    const p1Corners = polygon.slice(0, 2)
-    const p2Corners = polygon.slice(2)
-    for (const corner of p1Corners) {
-      expect(Math.abs(corner.x - 0)).toBeLessThanOrEqual(halfLengthCm + 1e-6)
-    }
-    for (const corner of p2Corners) {
-      expect(Math.abs(corner.x - 2)).toBeLessThanOrEqual(halfLengthCm + 1e-6)
-    }
-  })
-
-  it('köşeler birbirini aşmaz — dörtgen papyona dönmez', () => {
-    const polygon = getWallPolygon(shortWall, shortWallPoints, shortWalls) ?? []
-    const [p1Left, p1Right, p2Right, p2Left] = polygon
-
-    // p1 tarafındaki köşeler p2 tarafındakilerin solunda kalmalı.
-    expect(p1Left.x).toBeLessThanOrEqual(p2Left.x + 1e-6)
-    expect(p1Right.x).toBeLessThanOrEqual(p2Right.x + 1e-6)
-  })
-
-  it('kısa duvarlı sahnede kontur hesabı TAKILMADAN biter', () => {
-    const startedAt = Date.now()
-    const rings = getWallOutlines(shortWalls, shortWallPoints)
-
-    expect(rings.length).toBeGreaterThan(0)
-    expect(Date.now() - startedAt).toBeLessThan(1000)
-  })
-})
-
-describe('getWallPolygon — komşusuz uç', () => {
-  it('düz kesilmiş dikdörtgen verir', () => {
-    // Sıra: p1-sol, p1-sağ, p2-sağ, p2-sol.
-    expect(getWallPolygon(horizontal, points, [horizontal])).toEqual([
-      { x: 0, y: 10 },
-      { x: 0, y: -10 },
-      { x: 400, y: -10 },
-      { x: 400, y: 10 },
-    ])
+describe('getWallCapsule', () => {
+  it('ekseni duvarın uçlarıdır, yarıçapı kalınlığın yarısıdır', () => {
+    expect(getWallCapsule(horizontal, points)).toEqual({
+      p1: { x: 0, y: 0 },
+      p2: { x: 400, y: 0 },
+      radiusCm: 10,
+    })
   })
 
   it('ucu eksik duvarda undefined döner', () => {
-    expect(getWallPolygon(makeWall(99, 1, 404, 20), points, walls)).toBeUndefined()
+    expect(getWallCapsule(makeWall(99, 1, 404, 20), points)).toBeUndefined()
   })
 
   it('sıfır boylu duvarda undefined döner', () => {
     const samePlace = [makePoint(1, 0, 0), makePoint(2, 0, 0)]
-    expect(getWallPolygon(makeWall(10, 1, 2, 20), samePlace, [])).toBeUndefined()
+    expect(getWallCapsule(makeWall(10, 1, 2, 20), samePlace)).toBeUndefined()
   })
 })
 
-describe('getWallPolygon — dik birleşim', () => {
-  it('köşeyi iki duvarın kenar çizgilerinin kesişimine taşır', () => {
-    // Dikey duvar 30 kalın → kenarları x = 385 ve x = 415.
-    // Yatay duvarın p2 köşeleri bu kenarlara oturur, 400'de kesilmez.
-    expect(getWallPolygon(horizontal, points, walls)).toEqual([
-      { x: 0, y: 10 },
-      { x: 0, y: -10 },
-      { x: 415, y: -10 },
-      { x: 385, y: 10 },
-    ])
-  })
-
-  it('komşu duvarın köşeleri aynı noktalarda buluşur', () => {
-    // Yatay duvar 20 kalın → kenarları y = -10 ve y = 10.
-    expect(getWallPolygon(vertical, points, walls)).toEqual([
-      { x: 385, y: 10 },
-      { x: 415, y: -10 },
-      { x: 415, y: 300 },
-      { x: 385, y: 300 },
-    ])
-  })
-})
-
-describe('getWallPolygon — dar açı (asıl sorun)', () => {
-  // 30°'lik dar köşe: (0,0)'dan doğuya ve 30° yukarı iki duvar.
-  const acutePoints = [
-    makePoint(1, 0, 0),
-    makePoint(2, 400, 0),
-    makePoint(3, 400 * Math.cos(Math.PI / 6), 400 * Math.sin(Math.PI / 6)),
-  ]
-  const east = makeWall(10, 1, 2, 20)
-  const upward = makeWall(11, 1, 3, 20)
-  const acuteWalls = [east, upward]
-
-  it('dar köşede iki duvarın kenarları AYNI noktada buluşur', () => {
-    const eastPolygon = round(getWallPolygon(east, acutePoints, acuteWalls) ?? [])
-    const upwardPolygon = round(getWallPolygon(upward, acutePoints, acuteWalls) ?? [])
-
-    // Ortak köşe (0,0): iki duvarın p1 köşeleri çakışmalı, yoksa testere dişi kalır.
-    expect(eastPolygon[0]).toEqual(upwardPolygon[1])
-    expect(eastPolygon[1]).toEqual(upwardPolygon[0])
-  })
-
-  it('gönye ucu köşeden dışarı taşar ama sınırı aşmaz', () => {
-    const [, outerCorner] = getWallPolygon(east, acutePoints, acuteWalls) ?? []
-    const distanceCm = Math.hypot(outerCorner.x, outerCorner.y)
-
-    // Dik açıda 10 cm olurdu; dar açıda uzuyor ama 4 × yarı kalınlık = 40 ile sınırlı.
-    expect(distanceCm).toBeGreaterThan(10)
-    expect(distanceCm).toBeLessThanOrEqual(40)
-  })
-
-  it('çok dar açıda uç kısaltılır (pah)', () => {
-    // 5°: gönye ~229 cm olurdu, sınır 40 cm.
-    const sharpPoints = [
+/**
+ * Gönyeli dörtgende kalınlık dar açıda köşeye doğru büyüyordu; asıl şikâyet buydu.
+ * Kapsülde kalınlık tanım gereği sabit: eksene dik uzaklık her yerde aynı.
+ */
+describe('getWallCapsule — kalınlık her yerde sabit', () => {
+  it('komşu açısı ne olursa olsun kalınlık değişmez', () => {
+    // 5°'lik çok dar köşe — gönye kurgusunda uç ~229 cm uzuyordu.
+    const acutePoints = [
       makePoint(1, 0, 0),
       makePoint(2, 400, 0),
       makePoint(3, 400 * Math.cos(Math.PI / 36), 400 * Math.sin(Math.PI / 36)),
     ]
-    const sharpWalls = [east, makeWall(11, 1, 3, 20)]
-    const [, outerCorner] = getWallPolygon(east, sharpPoints, sharpWalls) ?? []
+    const east = makeWall(10, 1, 2, 20)
+    const sharp = makeWall(11, 1, 3, 20)
 
-    expect(Math.hypot(outerCorner.x, outerCorner.y)).toBeCloseTo(40)
+    expect(getWallCapsule(east, acutePoints)?.radiusCm).toBe(10)
+    expect(getWallCapsule(sharp, acutePoints)?.radiusCm).toBe(10)
+  })
+
+  it('şekil komşulara bakmaz — duvar tek başınayken de aynıdır', () => {
+    // Gönyeli kurguda bu iki çağrı FARKLI dörtgen döndürüyordu.
+    const alone = getWallCapsule(horizontal, points)
+    const withNeighbour = getWallCapsule(horizontal, [...points, makePoint(4, 400, -300)])
+
+    expect(alone).toEqual(withNeighbour)
   })
 })
 
-describe('getWallPolygon — gönye uygulanmayan durumlar', () => {
-  it('üç duvarın birleştiği köşede gönye yapmaz', () => {
-    // Tek bir kesişim tanımlı değil; uç düz kesilir.
-    const tPoints = [...points, makePoint(4, 400, -300)]
-    const third = makeWall(12, 2, 4, 20)
-    const polygon = getWallPolygon(horizontal, points.concat(tPoints.slice(3)), [
-      ...walls,
-      third,
-    ])
+/**
+ * Asıl kazanç: yuvarlak uç, duvarın UÇ NOKTASINDA merkezli olduğu için o köşede
+ * birleşen her duvar aynı diski doldurur. Kavşak kaç duvarlı olursa olsun
+ * kapanır — gönyeli kurguda 3+ duvarda uç düz kesiliyor ve çentik kalıyordu.
+ */
+describe('getWallCapsule — kavşak boşluk bırakmaz', () => {
+  const joint = { x: 0, y: 0 }
+  // Tek köşede birleşen beş duvar (donma vakalarından biriydi).
+  const fanPoints = [makePoint(1, joint.x, joint.y)]
+  const fanWalls: Wall[] = []
+  for (let index = 0; index < 5; index += 1) {
+    const angleRad = (index * 2 * Math.PI) / 5
+    fanPoints.push(makePoint(index + 2, Math.cos(angleRad) * 300, Math.sin(angleRad) * 300))
+    fanWalls.push(makeWall(index + 10, 1, index + 2, 20))
+  }
 
-    expect(polygon?.[2]).toEqual({ x: 400, y: -10 })
-    expect(polygon?.[3]).toEqual({ x: 400, y: 10 })
+  it('kavşaktaki her duvar aynı diski kaplar', () => {
+    // Ortak köşenin r yarıçaplı komşuluğundaki HER nokta her duvarın içinde.
+    const radiusCm = 10
+    for (const wall of fanWalls) {
+      const capsule = getWallCapsule(wall, fanPoints)
+      expect(capsule).toBeDefined()
+
+      for (let index = 0; index < 16; index += 1) {
+        const angleRad = (index * 2 * Math.PI) / 16
+        const probe = {
+          x: joint.x + Math.cos(angleRad) * radiusCm,
+          y: joint.y + Math.sin(angleRad) * radiusCm,
+        }
+        expect(getDistanceToCapsule(probe, capsule!)).toBeLessThanOrEqual(1e-9)
+      }
+    }
   })
 
-  it('düz devam eden komşuda (paralel kenarlar) uç düz kalır', () => {
-    const straightPoints = [makePoint(1, 0, 0), makePoint(2, 400, 0), makePoint(3, 800, 0)]
-    const first = makeWall(10, 1, 2, 20)
-    const second = makeWall(11, 2, 3, 20)
-    const polygon = getWallPolygon(first, straightPoints, [first, second])
+  it('duvarlar arası açı daraldıkça da boşluk açılmaz', () => {
+    // İki duvar 1° arayla: gönyede kesişim uçup gidiyordu, kapsülde disk aynı.
+    const tightPoints = [
+      makePoint(1, 0, 0),
+      makePoint(2, 300, 0),
+      makePoint(3, 300 * Math.cos(Math.PI / 180), 300 * Math.sin(Math.PI / 180)),
+    ]
+    const first = getWallCapsule(makeWall(10, 1, 2, 20), tightPoints)!
+    const second = getWallCapsule(makeWall(11, 1, 3, 20), tightPoints)!
 
-    expect(polygon?.[2]).toEqual({ x: 400, y: -10 })
-    expect(polygon?.[3]).toEqual({ x: 400, y: 10 })
-  })
-
-  it('başka kattaki komşuyu hesaba katmaz', () => {
-    const otherFloorWall = { id: 11, floorId: 2, p1Id: 2, p2Id: 3, thickness: 30, height: 280 }
-    const polygon = getWallPolygon(horizontal, points, [horizontal, otherFloorWall])
-
-    expect(polygon?.[2]).toEqual({ x: 400, y: -10 })
-  })
-})
-
-describe('getWallOutlines', () => {
-  it('duvar yoksa boş döner', () => {
-    expect(getWallOutlines([], points)).toEqual([])
-  })
-
-  it('tek duvarın konturu kapalı bir dikdörtgendir', () => {
-    const [ring] = getWallOutlines([horizontal], points)
-
-    expect(ring).toHaveLength(5)
-    expect(ring[0]).toEqual(ring[ring.length - 1])
-  })
-
-  it('köşede birleşen duvarları TEK konturda birleştirir', () => {
-    expect(getWallOutlines(walls, points)).toHaveLength(1)
-  })
-
-  it('kontur duvarların dış sınırını kapsar', () => {
-    const [ring] = getWallOutlines(walls, points)
-    const xs = ring.map((corner) => corner.x)
-    const ys = ring.map((corner) => corner.y)
-
-    expect(Math.min(...xs)).toBeCloseTo(0)
-    expect(Math.max(...xs)).toBeCloseTo(415)
-    expect(Math.min(...ys)).toBeCloseTo(-10)
-    expect(Math.max(...ys)).toBeCloseTo(300)
-  })
-
-  it('ayrık duvarlar için ayrı konturlar döner', () => {
-    const farPoints = [...points, makePoint(4, 2000, 0), makePoint(5, 2400, 0)]
-    const far = makeWall(12, 4, 5, 20)
-
-    expect(getWallOutlines([horizontal, far], farPoints)).toHaveLength(2)
+    expect(getDistanceToCapsule({ x: 0, y: 9.9 }, first)).toBeLessThanOrEqual(0)
+    expect(getDistanceToCapsule({ x: 0, y: -9.9 }, second)).toBeLessThanOrEqual(0)
   })
 })

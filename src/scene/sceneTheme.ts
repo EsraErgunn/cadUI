@@ -8,8 +8,8 @@ export const SCENE_COLORS = {
   gridMinor: '#eaeef4',
   gridMajor: '#cbd3e0',
   selection: '#2d7ff9',
+  /** Duvarın TEK rengi — kontur yok, düz dolgu (K23). */
   wallFill: '#6b7280',
-  wallOutline: '#1f2329',
   /** Henüz store'a yazılmamış zincir. */
   preview: '#8a94a3',
   /** İmleç bir hedefe yapıştığında görünen işaret. Sarı değil: tuvalde sarı = gaz hattı. */
