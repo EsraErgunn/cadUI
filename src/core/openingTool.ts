@@ -6,6 +6,7 @@ import {
   getOpeningsOnWall,
   isPlacementValid,
 } from './opening'
+import { resolveSnap } from './snap'
 import { getPlacementRange } from './wall'
 import { findWallUnderPoint, getSnapOffsetsCm, snapOffsetCm } from './wallPath'
 
@@ -114,6 +115,22 @@ export function findOpeningUnderPoint(
   context: OpeningToolContext,
 ): Opening | undefined {
   return findOpeningGrab(target, context)?.opening
+}
+
+/**
+ * Köşe tutamağı açıklıktan önce gelir. Seçim aracında aynı basışı
+ * usePointDragTool da köşe sürüklemesi sayıyor; ikisi birden başlarsa tek
+ * bırakma iki ayrı store yazımı (iki Ctrl+Z) üretir. Koşul oradakiyle bilerek
+ * AYNI: resolveSnap → kind 'point'.
+ */
+export function isCornerHandleAtPoint(target: PlanPoint, context: OpeningToolContext): boolean {
+  const snap = resolveSnap(
+    target,
+    { points: context.points, walls: context.walls, floorId: context.floorId },
+    // Izgara kapalı: sorulan tek şey "toleransta bir köşe var mı", gridStepCm okunmuyor.
+    { toleranceCm: context.toleranceCm, gridStepCm: 0, isGridSnapEnabled: false },
+  )
+  return snap.kind === 'point'
 }
 
 type ResolvedWallOffset = {

@@ -8,11 +8,13 @@ import type { Id } from '../core/model'
 import { getOpeningTypeForTool } from '../core/opening'
 import {
   findOpeningGrab,
+  isCornerHandleAtPoint,
   resolveOpeningPreview,
   type OpeningPreview,
   type OpeningToolContext,
 } from '../core/openingTool'
 import { getSnapToleranceCm } from '../core/snap'
+import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -91,11 +93,15 @@ export function useOpeningTool(): OpeningPreview | undefined {
       const toolId = useUiStore.getState().activeToolId
       const activeType = getOpeningTypeForTool(toolId)
       const isEraserActive = toolId === ERASER_TOOL_ID
+      const isSelectionActive = toolId === SELECTION_TOOL_ID
       // Aynı yayına A'nın useWallTool'u da abone: sahibi olmadığımız jestten çık.
-      if (!activeType && !isEraserActive) return
+      if (!activeType && !isEraserActive && !isSelectionActive) return
+
+      const context = readContext()
+      if (isSelectionActive && isCornerHandleAtPoint(event.planPoint, context)) return
 
       isPointerDownSeen = true
-      const grab = findOpeningGrab(event.planPoint, readContext())
+      const grab = findOpeningGrab(event.planPoint, context)
 
       if (isEraserActive) {
         if (!grab) return
@@ -106,8 +112,8 @@ export function useOpeningTool(): OpeningPreview | undefined {
       }
 
       // Var olan açıklığa basmak onu TAŞIR, üstüne yeni açıklık koymaz: oraya
-      // yerleştirme zaten çakışma diye reddedilirdi. Böylece taşıma, kapsam dışı
-      // olan genel seçim aracı olmadan da çalışır.
+      // yerleştirme zaten çakışma diye reddedilirdi. Seçim aracında da aynı jest
+      // geçerli — kullanıcı kapıyı kaydırmak için önce Kapı Ekle'ye geçmek zorunda kalmasın.
       if (grab) {
         gesture = {
           kind: 'dragging',
@@ -115,6 +121,23 @@ export function useOpeningTool(): OpeningPreview | undefined {
           grabDeltaCm: grab.grabDeltaCm,
         }
         useArchitectureUiStore.getState().setSelectedOpening(grab.opening.id)
+        // Önizleme daha basış anında açıklığın KENDİ yerine sabitlenir: yoksa
+        // hareketsiz bir tıklama, hâlâ ref'te duran eski hayaletin offset'ini yazardı.
+        updatePreview(
+          resolveOpeningPreview(event.planPoint, context, {
+            type: grab.opening.type,
+            widthCm: grab.opening.widthCm,
+            movingOpeningId: grab.opening.id,
+            grabDeltaCm: grab.grabDeltaCm,
+          }),
+        )
+        return
+      }
+
+      // Seçim aracında boşluğa basmak seçimi bırakır; yerleştirme yapılmaz.
+      if (isSelectionActive) {
+        useArchitectureUiStore.getState().setSelectedOpening(null)
+        isPointerDownSeen = false
         return
       }
 
@@ -163,9 +186,15 @@ export function useOpeningTool(): OpeningPreview | undefined {
       if (gesture.kind === 'dragging') {
         const { openingId } = gesture
         gesture = { kind: 'idle' }
+        isPointerDownSeen = false
+
+        const dragged = useCadStore
+          .getState()
+          .openings.find((opening) => opening.id === openingId)
         // Sürükleme boyunca store'a hiç yazılmadı: tek yazım = tek markDirty =
         // tek Ctrl+Z (history.ts bağlanınca). Geçersizse taşıma REDDEDİLİR (K13).
-        if (currentPreview?.isValid) {
+        // Yer değişmediyse (sürükleme değil, sadece seçmek için tıklama) hiç yazılmaz.
+        if (currentPreview?.isValid && currentPreview.offsetCm !== dragged?.offsetCm) {
           useCadStore.getState().moveOpening(openingId, currentPreview.offsetCm)
         }
         updatePreview(undefined)
