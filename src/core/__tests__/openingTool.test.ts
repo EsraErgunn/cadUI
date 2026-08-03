@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   findOpeningGrab,
   findOpeningUnderPoint,
+  isCornerHandleAtPoint,
   resolveOpeningPreview,
   type OpeningToolContext,
 } from '../openingTool'
@@ -153,5 +154,26 @@ describe('findOpeningGrab', () => {
 
   it('açıklık yoksa undefined döner', () => {
     expect(findOpeningGrab({ x: 100, y: 0 }, context)).toBeUndefined()
+  })
+})
+
+describe('isCornerHandleAtPoint', () => {
+  it('köşe noktasının toleransında true döner', () => {
+    // Seçim aracında burada açıklık sürüklemesi BAŞLAMAMALI: usePointDragTool
+    // aynı basışı köşe sürüklemesi sayıyor, ikisi birden tek bırakmada iki
+    // ayrı store yazımı (iki Ctrl+Z) üretirdi.
+    expect(isCornerHandleAtPoint({ x: 3, y: 0 }, context)).toBe(true)
+  })
+
+  it('köşeden toleranstan uzakta false döner', () => {
+    expect(isCornerHandleAtPoint({ x: 100, y: 0 }, context)).toBe(false)
+  })
+
+  it('açıklığın üstünde false döner — sürükleme açıklığa kalır', () => {
+    expect(isCornerHandleAtPoint({ x: 250, y: 0 }, context)).toBe(false)
+  })
+
+  it('başka kattaki köşeyi saymaz', () => {
+    expect(isCornerHandleAtPoint({ x: 3, y: 0 }, { ...context, floorId: 2 })).toBe(false)
   })
 })
