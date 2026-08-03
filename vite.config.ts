@@ -11,6 +11,11 @@ export default defineConfig({
     tailwindcss(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  css: {
+    // Boş nesne = "config dosyası arama, eklenti yok".
+    // Üst klasördeki postcss.config.js'in bulunmasını engeller.
+    postcss: {},
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
