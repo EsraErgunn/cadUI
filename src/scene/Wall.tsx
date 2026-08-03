@@ -1,86 +1,82 @@
 import { Line } from '@react-three/drei'
-import { useMemo } from 'react'
 
-import { RENDER_ORDER, WALL_ELEVATION_CM, WALL_OUTLINE_ELEVATION_CM } from './layers'
+import { RENDER_ORDER, WALL_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { useArchitecturePoints } from './useArchitecturePoints'
-import { planToThree, type PlanPoint } from '../core/coords'
+import { planToThree } from '../core/coords'
 import type { Point, Wall as WallData } from '../core/model'
-import { getWallOutlines, getWallPolygon } from '../core/wallShape'
+import { getWallCapsule } from '../core/wallShape'
+import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
-const OUTLINE_WIDTH = 1.4
+/**
+ * İmleç üstündeyken duvar bu kadar kalınlaşır (cm). Kasten küçük: amaç "buradasın"
+ * demek, seçili göstermek değil. Renk değişimiyle birlikte okunuyor.
+ */
+const HOVER_THICKNESS_BOOST_CM = 2
 
-/** Dört köşeden iki üçgen: (0,1,2) ve (0,2,3). */
-function toFillPositions(polygon: readonly PlanPoint[]): Float32Array {
-  const order = [0, 1, 2, 0, 2, 3]
-  const positions = new Float32Array(order.length * 3)
+/** Seçili duvar hover'dan daha belirgin: renk zaten mavi, kalınlık da bir tık fazla. */
+const SELECTED_THICKNESS_BOOST_CM = 3
 
-  order.forEach((cornerIndex, slot) => {
-    positions.set(planToThree(polygon[cornerIndex], WALL_ELEVATION_CM), slot * 3)
-  })
+export type WallTone = 'normal' | 'hovered' | 'selected'
 
-  return positions
+const TONE_COLORS: Record<WallTone, string> = {
+  normal: SCENE_COLORS.wallFill,
+  hovered: SCENE_COLORS.wallHover,
+  selected: SCENE_COLORS.selection,
+}
+
+const TONE_BOOSTS_CM: Record<WallTone, number> = {
+  normal: 0,
+  hovered: HOVER_THICKNESS_BOOST_CM,
+  selected: SELECTED_THICKNESS_BOOST_CM,
 }
 
 type WallProps = {
   wall: WallData
   points: readonly Point[]
-  walls: readonly WallData[]
+  tone: WallTone
 }
 
-export function Wall({ wall, points, walls }: WallProps) {
-  // Gönyeli köşelerden sonra duvar artık döndürülmüş bir dikdörtgen değil;
-  // dört köşesi ayrı hesaplanan bir dörtgen. Hesap core/wallShape.ts'te.
-  const polygon = getWallPolygon(wall, points, walls)
-  if (!polygon) return null
+/**
+ * Duvar = yuvarlak uçlu tek bir kalın çizgi (kapsül). Konturu YOKTUR, düz renktir.
+ *
+ * `worldUnits` LineMaterial'ın kapsül shader'ını açar: parça, ışının doğru
+ * parçasına uzaklığı yarıçapı aşınca atılır. Yani eğri analitiktir — hiçbir
+ * zoom'da köşelenmez, üçgenlenmiş geometri yoktur.
+ *
+ * Duvarlar birbirinin üstüne çizilir ve birleşim hesabı YAPILMAZ: hepsi aynı
+ * opak renkte olduğu için çakışma görünmez, kavşak kendiliğinden dolar (K23).
+ */
+export function Wall({ wall, points, tone }: WallProps) {
+  const capsule = getWallCapsule(wall, points)
+  if (!capsule) return null
 
   return (
-    <mesh
+    <Line
+      points={[
+        planToThree(capsule.p1, WALL_ELEVATION_CM),
+        planToThree(capsule.p2, WALL_ELEVATION_CM),
+      ]}
+      color={TONE_COLORS[tone]}
+      // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
+      worldUnits
+      lineWidth={wall.thickness + TONE_BOOSTS_CM[tone]}
+      /*
+       * Kenar yumuşatma örtme (coverage) maskesiyle yapılır, harmanlamayla değil.
+       * Duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz: maske
+       * hangi örneği seçerse seçsin yazılan renk aynı. Kapatılırsa shader sert
+       * `discard` eder ve eğri uçlar tırtıklanır.
+       */
+      alphaToCoverage
+      // Kapsül geometrinin sınırlarını taştığı için kırpma kapalı.
       frustumCulled={false}
       renderOrder={RENDER_ORDER.wall}
+      depthWrite={false}
+      toneMapped={false}
       // Sahne state'in türevi: mesh'te veri değil yalnız id taşınır.
       userData={{ id: wall.id }}
-    >
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[toFillPositions(polygon), 3]} />
-      </bufferGeometry>
-      <meshBasicMaterial color={SCENE_COLORS.wallFill} depthWrite={false} toneMapped={false} />
-    </mesh>
-  )
-}
-
-type WallOutlinesProps = {
-  points: readonly Point[]
-  walls: readonly WallData[]
-}
-
-/** Duvarların birleşiminin dış konturu — tek tek çerçeve çizilseydi köşelerde iç çizgiler görünürdü. */
-function WallOutlines({ points, walls }: WallOutlinesProps) {
-  // Union her karede değil, yalnız duvar/nokta değiştiğinde hesaplanır.
-  const rings = useMemo(
-    () =>
-      getWallOutlines(walls, points).map((ring) =>
-        ring.map((point) => planToThree(point, WALL_OUTLINE_ELEVATION_CM)),
-      ),
-    [walls, points],
-  )
-
-  return (
-    <>
-      {rings.map((ring, index) => (
-        // Halkalar birleşim sonucundan türüyor, kalıcı bir id'leri yok.
-        <Line
-          key={index}
-          points={ring}
-          color={SCENE_COLORS.wallOutline}
-          lineWidth={OUTLINE_WIDTH}
-          renderOrder={RENDER_ORDER.wall}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      ))}
-    </>
+    />
   )
 }
 
@@ -91,15 +87,23 @@ export function Walls() {
   // Sürüklenen köşe geçici konumuyla gelir; duvar imlecin arkasında kalmasın.
   const points = useArchitecturePoints()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const hover = useArchitectureUiStore((state) => state.hover)
+  const selectedWallId = useArchitectureUiStore((state) => state.selectedWallId)
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
+  const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
+
+  // Seçim vurgudan baskın: seçili duvarın üstündeyken mavi kalır, açılmaz.
+  const toneOf = (wallId: WallData['id']): WallTone => {
+    if (wallId === selectedWallId) return 'selected'
+    return wallId === hoveredWallId ? 'hovered' : 'normal'
+  }
 
   return (
     <group name="walls">
       {floorWalls.map((wall) => (
-        <Wall key={wall.id} wall={wall} points={points} walls={floorWalls} />
+        <Wall key={wall.id} wall={wall} points={points} tone={toneOf(wall.id)} />
       ))}
-      <WallOutlines points={points} walls={floorWalls} />
     </group>
   )
 }

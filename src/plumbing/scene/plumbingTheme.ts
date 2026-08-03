@@ -3,8 +3,12 @@
  * src/scene/sceneTheme.ts → SCENE_COLORS.selection kullanılır.
  */
 export const PLUMBING_COLORS = {
-  /** Soluk mimari referans — seçilemez, salt görsel bağlam. */
-  architectureGhost: '#c4cad4',
+  /**
+   * Soluk mimari referans — seçilemez, salt görsel bağlam. Izgaradan (gridMajor
+   * #cbd3e0) belirgin şekilde KOYU olmalı: yakın tonda kaldığında duvarlar
+   * ızgara çizgisi sanılıyor.
+   */
+  architectureGhost: '#94a3b8',
   // Tuvalde sarı = gaz hattı: marka sarısının çizim alanındaki TEK meşru kullanımı.
   gasLine: '#FFC107',
   /** Sembol yüklenemediğinde çizilen yer tutucu — seçim mavisiyle karışmayan uyarı rengi. */

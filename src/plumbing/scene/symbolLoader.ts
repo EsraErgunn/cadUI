@@ -1,4 +1,11 @@
-import { Color, MeshBasicMaterial, ShapeGeometry, type BufferGeometry, type Material } from 'three'
+import {
+  Color,
+  DoubleSide,
+  MeshBasicMaterial,
+  ShapeGeometry,
+  type BufferGeometry,
+  type Material,
+} from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 
 import {
@@ -7,6 +14,9 @@ import {
   type SymbolMetadata,
 } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
+
+/** Soluk ama okunur: bu değerin altında koyu konturlu semboller ızgaraya karışıyor. */
+const GHOST_OPACITY = 0.35
 
 export type SymbolShape = { geometry: BufferGeometry; material: Material }
 export type LoadedSymbol = { shapes: readonly SymbolShape[]; metadata: SymbolMetadata }
@@ -38,14 +48,39 @@ const symbolMetadataList: readonly SymbolMetadata[] = Object.values(
 
 const svgLoader = new SVGLoader()
 const materialCache = new Map<string, Material>()
+const ghostMaterialCache = new Map<Material, Material>()
 const symbolCache = new Map<InstallationElementType, LoadedSymbol>()
 
+/**
+ * side: DoubleSide ŞART. bakeToLocalPlanSpace'in rotateX'i geometrinin ön yüzünü
+ * −Y'ye çeviriyor; tepeden bakan ortografik kamera arka yüzü görür ve varsayılan
+ * FrontSide ile sembolün TAMAMI kırpılır (sessizce görünmez olur, hata vermez).
+ */
 function getSharedMaterial(colorHex: string): Material {
   const cached = materialCache.get(colorHex)
   if (cached) return cached
-  const material = new MeshBasicMaterial({ color: new Color(colorHex) })
+  const material = new MeshBasicMaterial({ color: new Color(colorHex), side: DoubleSide })
   materialCache.set(colorHex, material)
   return material
+}
+
+/**
+ * Sembolün mimari görünümdeki soluk izi için saydam klon. Rengi KORUNUR, griye
+ * boyanmaz — tuvalde sarı = gaz hattı, boyansaydı bu bilgi kaybolurdu.
+ * Anahtar kaynak material olduğu için önbellek RENK başına tek klon tutar.
+ * Klonlar uygulama ömrü boyunca yaşar ve dispose EDİLMEZ (paylaşılan material'lerle
+ * aynı ömür); önizlemedeki klon ise mount başına üretilip unmount'ta dispose edilir.
+ */
+export function getGhostMaterial(source: Material): Material {
+  const cached = ghostMaterialCache.get(source)
+  if (cached) return cached
+
+  const ghost = source.clone()
+  ghost.transparent = true
+  ghost.opacity = GHOST_OPACITY
+  ghost.depthWrite = false
+  ghostMaterialCache.set(source, ghost)
+  return ghost
 }
 
 function findSvgText(assetFileName: string): string {

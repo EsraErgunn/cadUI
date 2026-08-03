@@ -1,11 +1,27 @@
 import { INSTALLATION_TOOL_ICONS } from './plumbingToolIcons'
 import { useUiStore } from '../../store/uiStore'
 import { ToolButton } from '../../ui/Toolbar'
-import { INSTALLATION_TOOLS } from '../core/installationTools'
+import { INSTALLATION_TOOLS, type InstallationToolId } from '../core/installationTools'
 
 export function PlumbingToolbar() {
   const activeToolId = useUiStore((state) => state.activeToolId)
   const setActiveTool = useUiStore((state) => state.setActiveTool)
+
+  /**
+   * Sürükle-bırak yerleştirmenin başlangıcı: araç tıklama BİTİNCE değil, basılınca
+   * etkinleşir. Kullanıcı butondan tuvale sürüklerken pointermove/up olayları
+   * tuvale ulaşır ve gerisini usePlacementTool halleder.
+   */
+  const handlePointerDown = (event: React.PointerEvent, toolId: InstallationToolId) => {
+    setActiveTool(toolId)
+
+    // Dokunmatikte örtük pointer capture olayları butonda tutar; bırakılmazsa
+    // parmak tuvale gittiğinde sürükleme hiç görünmez.
+    const { target } = event
+    if (target instanceof Element && target.hasPointerCapture(event.pointerId)) {
+      target.releasePointerCapture(event.pointerId)
+    }
+  }
 
   return (
     // Mimari paletle aynı iskelet: araçlar 2 sütuna otomatik sarar.
@@ -14,14 +30,15 @@ export function PlumbingToolbar() {
       className="grid shrink-0 grid-cols-2 content-start gap-1 border-r border-edge bg-surface p-1.5"
     >
       {INSTALLATION_TOOLS.map((tool) => (
-        <ToolButton
-          key={tool.id}
-          toolId={tool.id}
-          label={tool.label}
-          icon={INSTALLATION_TOOL_ICONS[tool.id]}
-          isActive={tool.id === activeToolId}
-          onSelect={setActiveTool}
-        />
+        <div key={tool.id} onPointerDown={(event) => handlePointerDown(event, tool.id)}>
+          <ToolButton
+            toolId={tool.id}
+            label={tool.label}
+            icon={INSTALLATION_TOOL_ICONS[tool.id]}
+            isActive={tool.id === activeToolId}
+            onSelect={setActiveTool}
+          />
+        </div>
       ))}
     </nav>
   )

@@ -5,9 +5,18 @@ import { menuItemVariants } from '../controls/buttonVariants'
 type MenuDropdownProps = {
   menu: MenuDefinition
   onSelectItem: (itemId: string) => void
+  /**
+   * Çalışma zamanında pasifleşen maddeler (ör. geçmiş boşken "Geri Al").
+   * Tanımdaki isEnabled "bu komut var mı" der, bu küme "şu an yapılabilir mi".
+   */
+  unavailableItemIds?: ReadonlySet<string>
 }
 
-export function MenuDropdown({ menu, onSelectItem }: MenuDropdownProps) {
+export function MenuDropdown({
+  menu,
+  onSelectItem,
+  unavailableItemIds,
+}: MenuDropdownProps) {
   return (
     <div
       role="menu"
@@ -28,7 +37,7 @@ export function MenuDropdown({ menu, onSelectItem }: MenuDropdownProps) {
               type="button"
               role={item.kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitem'}
               aria-checked={item.kind === 'checkbox' ? false : undefined}
-              disabled={!item.isEnabled}
+              disabled={!item.isEnabled || unavailableItemIds?.has(item.id) === true}
               onClick={() => onSelectItem(item.id)}
               className={menuItemVariants()}
             >

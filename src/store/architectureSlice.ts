@@ -40,17 +40,35 @@ export type AddOpeningInput = {
   type: OpeningType
 }
 
+/** Taşımanın hedefi: açıklık duvarlar arasında gezebildiği için wallId de taşınır. */
+export type OpeningTarget = {
+  wallId: Id
+  offsetCm: number
+}
+
 export type ArchitectureSlice = ArchitectureData & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
+  /**
+   * Duvarı KATI olarak öteler: iki köşesi birlikte kayar, boyu ve açısı korunur.
+   * O köşeleri paylaşan komşu duvarlar esneyerek bağlı kalır — duvar kendi
+   * koordinatını taşımadığı için bu modelin doğrudan sonucu, kopma olmaz.
+   * Açıklıklar duvara offset'le bağlı olduğundan kendiliğinden gelir (K9).
+   */
+  moveWall: (wallId: Id, dxCm: number, dyCm: number) => void
   /** Köşeyi başka bir köşeye kaynatır (sürüklerken üstüne bırakma). */
   mergePoint: (sourceId: Id, targetId: Id) => void
   deleteWall: (wallId: Id) => void
   /** Reddedilirse undefined döner ve HİÇBİR ŞEY değişmez — id bile harcanmaz. */
   addOpening: (input: AddOpeningInput) => Id | undefined
-  /** Yalnız offsetCm günceller: duvar bölünmez, Point/Wall üretilmez (K9). */
-  moveOpening: (openingId: Id, offsetCm: number) => boolean
+  /**
+   * Açıklığı hedef duvar + offset'e taşır. Duvar bölünmez, Point/Wall
+   * üretilmez (K9) — açıklık başka duvara geçse bile tek kaydın iki alanı
+   * güncellenir. Hedef duvar zorunlu: yalnız offset alan bir imza, başka duvara
+   * bırakılan açıklığın offset'ini sessizce ESKİ duvara yazıyordu.
+   */
+  moveOpening: (openingId: Id, target: OpeningTarget) => boolean
   setOpeningWidth: (openingId: Id, widthCm: number) => boolean
   removeOpening: (openingId: Id) => void
   /** Duvar silme/kısaltma sonrası temizlik (K16). */
@@ -141,6 +159,26 @@ export const createArchitectureSlice: StateCreator<
       markDirty(draft)
     }),
 
+  moveWall: (wallId, dxCm, dyCm) =>
+    set((draft) => {
+      const wall = draft.walls.find((candidate) => candidate.id === wallId)
+      if (!wall) return
+      if (dxCm === 0 && dyCm === 0) return
+
+      // Set: sıfır boylu duvarda p1Id === p2Id olabilir, öteleme iki kez uygulanmasın.
+      const movingIds = new Set([wall.p1Id, wall.p2Id])
+      for (const point of draft.points) {
+        if (!movingIds.has(point.id)) continue
+        point.x += dxCm
+        point.y += dyCm
+      }
+
+      // Ötelenen duvarın boyu sabit, açıklıkları güvende. Ama köşeleri paylaşan
+      // KOMŞU duvarlar kısalabilir; oradaki sığmayan açıklık aynı adımda düşer (K16).
+      pruneOpeningsInDraft(draft)
+      markDirty(draft)
+    }),
+
   mergePoint: (sourceId, targetId) =>
     set((draft) => {
       if (!mergePointInto(draft, sourceId, targetId)) return
@@ -185,23 +223,26 @@ export const createArchitectureSlice: StateCreator<
     return createdId
   },
 
-  moveOpening: (openingId, offsetCm) => {
+  moveOpening: (openingId, target) => {
     let isMoved = false
 
     set((draft) => {
       const opening = draft.openings.find((candidate) => candidate.id === openingId)
       if (!opening) return
 
+      // Doğrulama HEDEF duvara göre: köşe payı, uzunluk ve çakışma komşuları
+      // orada aranır. Kaynak duvardaki durumun taşımaya etkisi yok.
       const isValid = isPlacementValidInState(draft, {
-        wallId: opening.wallId,
-        offsetCm,
+        wallId: target.wallId,
+        offsetCm: target.offsetCm,
         widthCm: opening.widthCm,
         ignoreOpeningId: openingId,
       })
       // Geçersiz taşıma REDDEDİLİR, en yakın geçerli yere kaydırılmaz (K13).
       if (!isValid) return
 
-      opening.offsetCm = offsetCm
+      opening.wallId = target.wallId
+      opening.offsetCm = target.offsetCm
       markDirty(draft)
       isMoved = true
     })

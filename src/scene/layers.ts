@@ -9,6 +9,12 @@ export const RENDER_ORDER = {
   room: 10,
   wall: 20,
   opening: 30,
+  /**
+   * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
+   * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı
+   * (oda dolgusu geldiğinde) tamamen kaybolurdu.
+   */
+  installationGhost: 35,
   pipe: 40,
   insulation: 45,
   fitting: 50,
@@ -27,8 +33,6 @@ export const GRID_ELEVATION_CM = -1
 /** Mimari katmanın elevation'ları (cm). Tepe kamerada görüntüyü değiştirmez, z-fighting'i keser. */
 export const ROOM_ELEVATION_CM = -0.2
 export const WALL_ELEVATION_CM = 0
-/** Kontur dolgunun bir tık üstünde durur ki çizgi dolgunun altında kalmasın. */
-export const WALL_OUTLINE_ELEVATION_CM = 0.05
 export const OPENING_ELEVATION_CM = 0.1
 export const WALL_PREVIEW_ELEVATION_CM = 0.2
 export const HANDLE_ELEVATION_CM = 0.3

@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { OrthographicCamera } from 'three'
 
 import { readCameraViewport, readViewportSize, writeCameraViewport } from './cameraViewport'
+import { isTypingTarget } from '../core/domEvents'
 import { ZOOM_WHEEL_FACTOR, panByPixels, zoomAtCursor } from '../core/viewport'
 
 
@@ -10,11 +11,6 @@ const LEFT_BUTTON = 0
 const MIDDLE_BUTTON = 1
 
 const CURSOR_CLASSES = ['cursor-normal', 'cursor-grab', 'cursor-grabbing'] as const
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
 
 /**
  * Zoom (tekerlek, imleç merkezli) ve pan (orta tuş veya Space + sol tuş) — issue 2.2.

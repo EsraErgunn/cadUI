@@ -4,15 +4,18 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { isTypingTarget } from '../core/domEvents'
 import type { Id } from '../core/model'
 import { getOpeningTypeForTool } from '../core/opening'
 import {
   findOpeningGrab,
+  isCornerHandleAtPoint,
   resolveOpeningPreview,
   type OpeningPreview,
   type OpeningToolContext,
 } from '../core/openingTool'
 import { getSnapToleranceCm } from '../core/snap'
+import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -27,11 +30,6 @@ type OpeningGesture =
   | { kind: 'hovering' }
   /** Var olan açıklık sürükleniyor; store'a YALNIZ pointerup'ta yazılır. */
   | { kind: 'dragging'; openingId: Id; grabDeltaCm: number }
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
 
 function isSamePreview(
   current: OpeningPreview | undefined,
@@ -91,11 +89,15 @@ export function useOpeningTool(): OpeningPreview | undefined {
       const toolId = useUiStore.getState().activeToolId
       const activeType = getOpeningTypeForTool(toolId)
       const isEraserActive = toolId === ERASER_TOOL_ID
+      const isSelectionActive = toolId === SELECTION_TOOL_ID
       // Aynı yayına A'nın useWallTool'u da abone: sahibi olmadığımız jestten çık.
-      if (!activeType && !isEraserActive) return
+      if (!activeType && !isEraserActive && !isSelectionActive) return
+
+      const context = readContext()
+      if (isSelectionActive && isCornerHandleAtPoint(event.planPoint, context)) return
 
       isPointerDownSeen = true
-      const grab = findOpeningGrab(event.planPoint, readContext())
+      const grab = findOpeningGrab(event.planPoint, context)
 
       if (isEraserActive) {
         if (!grab) return
@@ -106,8 +108,8 @@ export function useOpeningTool(): OpeningPreview | undefined {
       }
 
       // Var olan açıklığa basmak onu TAŞIR, üstüne yeni açıklık koymaz: oraya
-      // yerleştirme zaten çakışma diye reddedilirdi. Böylece taşıma, kapsam dışı
-      // olan genel seçim aracı olmadan da çalışır.
+      // yerleştirme zaten çakışma diye reddedilirdi. Seçim aracında da aynı jest
+      // geçerli — kullanıcı kapıyı kaydırmak için önce Kapı Ekle'ye geçmek zorunda kalmasın.
       if (grab) {
         gesture = {
           kind: 'dragging',
@@ -115,6 +117,23 @@ export function useOpeningTool(): OpeningPreview | undefined {
           grabDeltaCm: grab.grabDeltaCm,
         }
         useArchitectureUiStore.getState().setSelectedOpening(grab.opening.id)
+        // Önizleme daha basış anında açıklığın KENDİ yerine sabitlenir: yoksa
+        // hareketsiz bir tıklama, hâlâ ref'te duran eski hayaletin offset'ini yazardı.
+        updatePreview(
+          resolveOpeningPreview(event.planPoint, context, {
+            type: grab.opening.type,
+            widthCm: grab.opening.widthCm,
+            movingOpeningId: grab.opening.id,
+            grabDeltaCm: grab.grabDeltaCm,
+          }),
+        )
+        return
+      }
+
+      // Seçim aracında boşluğa basmak seçimi bırakır; yerleştirme yapılmaz.
+      if (isSelectionActive) {
+        useArchitectureUiStore.getState().setSelectedOpening(null)
+        isPointerDownSeen = false
         return
       }
 
@@ -163,10 +182,26 @@ export function useOpeningTool(): OpeningPreview | undefined {
       if (gesture.kind === 'dragging') {
         const { openingId } = gesture
         gesture = { kind: 'idle' }
+        isPointerDownSeen = false
+
+        const dragged = useCadStore
+          .getState()
+          .openings.find((opening) => opening.id === openingId)
+        // Önizleme imlecin altındaki duvarı çözüyor; bırakma o duvara yapılır.
+        // Karşılaştırma wallId'yi de kapsamalı, yoksa başka duvara aynı offset'le
+        // geçmek "değişiklik yok" sayılıp sessizce yutulurdu.
+        const isSamePlace =
+          currentPreview?.wallId === dragged?.wallId &&
+          currentPreview?.offsetCm === dragged?.offsetCm
+
         // Sürükleme boyunca store'a hiç yazılmadı: tek yazım = tek markDirty =
         // tek Ctrl+Z (history.ts bağlanınca). Geçersizse taşıma REDDEDİLİR (K13).
-        if (currentPreview?.isValid) {
-          useCadStore.getState().moveOpening(openingId, currentPreview.offsetCm)
+        // Yer değişmediyse (sürükleme değil, sadece seçmek için tıklama) hiç yazılmaz.
+        if (currentPreview?.isValid && !isSamePlace) {
+          useCadStore.getState().moveOpening(openingId, {
+            wallId: currentPreview.wallId,
+            offsetCm: currentPreview.offsetCm,
+          })
         }
         updatePreview(undefined)
         return
@@ -199,8 +234,6 @@ export function useOpeningTool(): OpeningPreview | undefined {
 
     // Delete taşıması drawSurfaceEvents'te yok (onCancel yalnız Esc). O dosya
     // D'ye ait ve klavye genel bir mesele, bu yüzden dinleyici burada duruyor.
-    // TODO(fay-D): isTypingTarget üçüncü kez kopyalandı (DrawSurface,
-    // useViewportControls, burada) — ortak bir yardımcıya çıkarılmalı.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
       if (event.key !== 'Delete' && event.key !== 'Backspace') return

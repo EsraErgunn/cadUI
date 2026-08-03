@@ -133,6 +133,25 @@ function findNearestWallEdge(
 }
 
 /**
+ * Toleransta var olan bir köşe var mı? Seçim aracındaki hook'ların TAMAMI
+ * (köşe sürükleme, açıklık, hover) bu TEK koşulu paylaşır. Her biri kendi
+ * `resolveSnap` çağrısını yazarsa koşullar zamanla ayrışır ve tek basış iki
+ * jest başlatır — bkz. knowledge/gesture-bus-precedence.md.
+ *
+ * Izgara bilerek hesaba katılmaz: sorulan şey "nereye yapışırım" değil,
+ * "toleransta bir köşe var mı". `resolveSnap`'in köşe dalıyla aynı sonucu
+ * verir çünkü orada da ilk bakılan şey budur.
+ */
+export function findCornerPointIdAt(
+  target: PlanPoint,
+  context: SnapContext,
+  toleranceCm: number,
+): Id | undefined {
+  const floorPoints = context.points.filter((point) => point.floorId === context.floorId)
+  return findNearestPoint(target, floorPoints, toleranceCm)?.pointId
+}
+
+/**
  * Öncelik sırası kabalıktan inceliğe gider: var olan köşe → duvarın anlamlı
  * noktası → duvar gövdesi → ızgara. Köşe en üstte çünkü ondan dönen `pointId`
  * aynı yerde ikinci bir nokta üretilmesini engelliyor.

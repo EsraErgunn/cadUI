@@ -1,14 +1,23 @@
 import { Line } from '@react-three/drei'
 
-import { OPENING_ELEVATION_CM, OPENING_PREVIEW_ELEVATION_CM } from './architectureLayers'
+import {
+  OPENING_ELEVATION_CM,
+  OPENING_PREVIEW_ELEVATION_CM,
+  OPENING_SYMBOL_LIFT_CM,
+} from './architectureLayers'
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
-import { planToThree, type PlanPoint, type ThreePosition } from '../core/coords'
+import { planToThree, type PlanPoint } from '../core/coords'
 import type { OpeningType } from '../core/model'
+import { getOpeningSymbol, type OpeningSymbolRole } from '../core/openingSymbol'
 
-const OUTLINE_WIDTH = 1.6
-const SYMBOL_WIDTH = 1.2
+/** SVG sembolündeki 1.5 / 1 / 1 kalınlık oranı; birim ekran px'i (drei <Line>). */
+const STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
+  jamb: 1.8,
+  face: 1.2,
+  detail: 1,
+}
 
 export type OpeningTone = 'normal' | 'selected' | 'previewValid' | 'previewInvalid'
 
@@ -30,55 +39,17 @@ function isPreviewTone(tone: OpeningTone): boolean {
   return tone === 'previewValid' || tone === 'previewInvalid'
 }
 
-function getMidpoint(a: PlanPoint, b: PlanPoint): PlanPoint {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-}
-
 /** İki üçgen: 4 köşeden (0,1,2) ve (0,2,3). */
-function toFillPositions(outline: readonly PlanPoint[], elevationCm: number): Float32Array {
+function toFillPositions(corners: readonly PlanPoint[], elevationCm: number): Float32Array {
   const order = [0, 1, 2, 0, 2, 3]
   const positions = new Float32Array(order.length * 3)
 
   order.forEach((cornerIndex, slot) => {
-    const [x, y, z] = planToThree(outline[cornerIndex], elevationCm)
+    const [x, y, z] = planToThree(corners[cornerIndex], elevationCm)
     positions.set([x, y, z], slot * 3)
   })
 
   return positions
-}
-
-/**
- * Kapı kanadı / pencere kayıdı. Simge geometrisi köşelerden TÜRETİLİR: duvarın
- * kalınlık yönü c0→c3, eksen yönü c0→c1. Böylece açıklık çapraz duvarda da
- * duvarın eksenini takip eder ve burada açı dönüşümü yapılmaz.
- */
-function getSymbolPoints(
-  outline: readonly PlanPoint[],
-  type: OpeningType,
-  elevationCm: number,
-): ThreePosition[] {
-  const [c0, c1, c2, c3] = outline
-
-  if (type === 'window') {
-    // Kanat çizgisi: iki jamb ortasını birleştirir.
-    return [
-      planToThree(getMidpoint(c0, c3), elevationCm),
-      planToThree(getMidpoint(c1, c2), elevationCm),
-    ]
-  }
-
-  // Kapı: başlangıç jamb'ından açıklık genişliği kadar dışa açılan düz kanat.
-  // Tam yay simgesi ayrı bir simge işi, bu issue'nun kapsamı dışında.
-  const hinge = getMidpoint(c0, c3)
-  const widthCm = Math.hypot(c1.x - c0.x, c1.y - c0.y)
-  const thicknessCm = Math.hypot(c3.x - c0.x, c3.y - c0.y)
-
-  if (thicknessCm === 0) return []
-
-  const leafX = hinge.x + ((c3.x - c0.x) / thicknessCm) * widthCm
-  const leafY = hinge.y + ((c3.y - c0.y) / thicknessCm) * widthCm
-
-  return [planToThree(hinge, elevationCm), planToThree({ x: leafX, y: leafY }, elevationCm)]
 }
 
 export function Opening({ outline, type, tone }: OpeningProps) {
@@ -86,12 +57,8 @@ export function Opening({ outline, type, tone }: OpeningProps) {
   const elevationCm = isPreview ? OPENING_PREVIEW_ELEVATION_CM : OPENING_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.opening
   const strokeColor = STROKE_COLORS[tone]
-
-  // Halkayı elle kapatıyoruz: drei <Line>'ın bu sürümünde `closed` propu yok.
-  const outlinePoints = [...outline, outline[0]].map((corner) =>
-    planToThree(corner, elevationCm),
-  )
-  const symbolPoints = getSymbolPoints(outline, type, elevationCm)
+  const symbolElevationCm = elevationCm + OPENING_SYMBOL_LIFT_CM
+  const symbol = getOpeningSymbol(outline, type)
 
   return (
     <>
@@ -111,28 +78,32 @@ export function Opening({ outline, type, tone }: OpeningProps) {
         />
       </mesh>
 
-      {/* Kalın çizgi: three'nin düz Line'ında linewidth çalışmaz, drei <Line> gerekir. */}
-      <Line
-        points={outlinePoints}
-        color={strokeColor}
-        lineWidth={OUTLINE_WIDTH}
-        frustumCulled={false}
-        renderOrder={renderOrder}
-        depthWrite={false}
-        toneMapped={false}
-      />
+      {/* Kapı kanadı: SVG'de fill="currentColor", yani çizgiyle AYNI renk. */}
+      {symbol.panel && (
+        <mesh frustumCulled={false} renderOrder={renderOrder}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              args={[toFillPositions(symbol.panel, symbolElevationCm), 3]}
+            />
+          </bufferGeometry>
+          <meshBasicMaterial color={strokeColor} depthWrite={false} toneMapped={false} />
+        </mesh>
+      )}
 
-      {symbolPoints.length > 0 && (
+      {/* Kalın çizgi: three'nin düz Line'ında linewidth çalışmaz, drei <Line> gerekir. */}
+      {symbol.strokes.map((stroke) => (
         <Line
-          points={symbolPoints}
+          key={stroke.name}
+          points={stroke.points.map((corner) => planToThree(corner, symbolElevationCm))}
           color={strokeColor}
-          lineWidth={SYMBOL_WIDTH}
+          lineWidth={STROKE_WIDTHS[stroke.role]}
           frustumCulled={false}
           renderOrder={renderOrder}
           depthWrite={false}
           toneMapped={false}
         />
-      )}
+      ))}
     </>
   )
 }
