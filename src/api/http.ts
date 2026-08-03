@@ -1,10 +1,14 @@
 import type { z } from 'zod'
 
+import { getAuthSession, setAuthSession } from './authToken'
+
 /**
  * API kökü. VITE_ önekli her şey tarayıcıda görünür (CLAUDE.md güvenlik) —
  * burada yalnız public bir adres var, sır yok.
  */
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
+const UNAUTHORIZED = 401
 
 export class ApiError extends Error {
   readonly status: number
@@ -66,20 +70,41 @@ async function readErrorMessage(response: Response): Promise<string> {
   return `Sunucu ${response.status} döndü.`
 }
 
+/**
+ * API fail-closed: [AllowAnonymous] olmayan HER uç token ister. Başlık burada,
+ * tek yerde ekleniyor — her çağıranın hatırlaması gereken bir şey olsaydı biri
+ * unutur ve o uç sessizce 401 dönerdi.
+ */
+function buildHeaders(request: JsonRequest): HeadersInit | undefined {
+  const headers: Record<string, string> = {}
+
+  if (request.rawJsonBody !== undefined) headers['Content-Type'] = 'application/json'
+
+  const session = getAuthSession()
+  if (session) headers.Authorization = `Bearer ${session.token}`
+
+  return Object.keys(headers).length > 0 ? headers : undefined
+}
+
 async function send(request: JsonRequest): Promise<Response> {
   let response: Response
   try {
     response = await fetch(buildUrl(request.path), {
       method: request.method,
       signal: request.signal,
-      headers:
-        request.rawJsonBody === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: buildHeaders(request),
       body: request.rawJsonBody,
     })
   } catch (cause) {
     // AbortError çağıranın kendi iptali — sarılmaz, olduğu gibi geçer.
     if (isAbort(cause)) throw cause
     throw new NetworkError('Sunucuya ulaşılamadı.', { cause })
+  }
+
+  if (response.status === UNAUTHORIZED) {
+    // Token süresi dolmuş ya da iptal edilmiş: elde tutmanın anlamı yok, atılır.
+    // RequireAuth oturumun gidişini görüp girişe yönlendirir.
+    setAuthSession(undefined)
   }
 
   if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response))
