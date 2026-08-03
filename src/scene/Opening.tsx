@@ -10,7 +10,10 @@ import { RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { planToThree, type PlanPoint } from '../core/coords'
 import type { OpeningType } from '../core/model'
+import { getOpeningSymbolPoints } from '../core/opening'
+
 import { getOpeningSymbol, type OpeningSymbolRole } from '../core/openingSymbol'
+
 
 /** SVG sembolündeki 1.5 / 1 / 1 kalınlık oranı; birim ekran px'i (drei <Line>). */
 const STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
@@ -57,8 +60,19 @@ export function Opening({ outline, type, tone }: OpeningProps) {
   const elevationCm = isPreview ? OPENING_PREVIEW_ELEVATION_CM : OPENING_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.opening
   const strokeColor = STROKE_COLORS[tone]
+<<<<<<< src/scene/Opening.tsx
+
+  // Halkayı elle kapatıyoruz: drei <Line>'ın bu sürümünde `closed` propu yok.
+  const outlinePoints = [...outline, outline[0]].map((corner) =>
+    planToThree(corner, elevationCm),
+  )
+  const symbolPoints = getOpeningSymbolPoints(outline, type).map((point) =>
+    planToThree(point, elevationCm),
+  )
+=======
   const symbolElevationCm = elevationCm + OPENING_SYMBOL_LIFT_CM
   const symbol = getOpeningSymbol(outline, type)
+>>>>>>> src/scene/Opening.tsx
 
   return (
     <>

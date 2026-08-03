@@ -61,3 +61,13 @@ export function getInstallationToolLabel(toolId: InstallationToolId): string {
   const tool = INSTALLATION_TOOLS.find((candidate) => candidate.id === toolId)
   return tool?.label ?? ''
 }
+
+// Geniş tip: aktif araç mimari palete de ait olabilir (uiStore tek alan tutuyor).
+const toolDefinitions: readonly InstallationToolDefinition[] = INSTALLATION_TOOLS
+
+/** Araç yerleştirme aracıysa hangi sembolü koyduğu, değilse null. */
+export function getPlacementElementType(toolId: string): InstallationElementType | null {
+  const tool = toolDefinitions.find((candidate) => candidate.id === toolId)
+  if (!tool || tool.behavior !== 'placement') return null
+  return tool.elementType ?? null
+}
