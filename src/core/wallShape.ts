@@ -1,6 +1,6 @@
 import type { PlanPoint } from './coords'
-import type { Point, Wall } from './model'
-import { getSegmentLength, getWallEnds, MIN_WALL_LENGTH_CM } from './wall'
+import type { Id, Point, Wall } from './model'
+import { getSegmentLength, getWallEnds, getWallsAtPoint, MIN_WALL_LENGTH_CM } from './wall'
 
 /**
  * Duvarın çizilen şekli: eksen doğru parçası + yarıçap (kapsül). Uçlar YUVARLAK
@@ -25,4 +25,16 @@ export function getWallCapsule(wall: Wall, points: readonly Point[]): WallCapsul
   if (getSegmentLength(ends.p1, ends.p2) < MIN_WALL_LENGTH_CM) return undefined
 
   return { p1: ends.p1, p2: ends.p2, radiusCm: wall.thickness / 2 }
+}
+
+/**
+ * Köşede birleşen duvarların orada doldurduğu diskin yarıçapı = en kalın
+ * duvarın yarısı. Köşe vurgusu bu ölçüyü kullanır ki geometriyle örtüşsün.
+ * Duvarı kalmamış köşede undefined.
+ */
+export function getJointRadiusCm(pointId: Id, walls: readonly Wall[]): number | undefined {
+  const atPoint = getWallsAtPoint(pointId, walls)
+  if (atPoint.length === 0) return undefined
+
+  return Math.max(...atPoint.map((wall) => wall.thickness)) / 2
 }

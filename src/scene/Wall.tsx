@@ -6,11 +6,19 @@ import { useArchitecturePoints } from './useArchitecturePoints'
 import { planToThree } from '../core/coords'
 import type { Point, Wall as WallData } from '../core/model'
 import { getWallCapsule } from '../core/wallShape'
+import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
+
+/**
+ * İmleç üstündeyken duvar bu kadar kalınlaşır (cm). Kasten küçük: amaç "buradasın"
+ * demek, seçili göstermek değil. Renk değişimiyle birlikte okunuyor.
+ */
+const HOVER_THICKNESS_BOOST_CM = 2
 
 type WallProps = {
   wall: WallData
   points: readonly Point[]
+  isHovered: boolean
 }
 
 /**
@@ -23,7 +31,7 @@ type WallProps = {
  * Duvarlar birbirinin üstüne çizilir ve birleşim hesabı YAPILMAZ: hepsi aynı
  * opak renkte olduğu için çakışma görünmez, kavşak kendiliğinden dolar (K23).
  */
-export function Wall({ wall, points }: WallProps) {
+export function Wall({ wall, points, isHovered }: WallProps) {
   const capsule = getWallCapsule(wall, points)
   if (!capsule) return null
 
@@ -33,10 +41,10 @@ export function Wall({ wall, points }: WallProps) {
         planToThree(capsule.p1, WALL_ELEVATION_CM),
         planToThree(capsule.p2, WALL_ELEVATION_CM),
       ]}
-      color={SCENE_COLORS.wallFill}
+      color={isHovered ? SCENE_COLORS.wallHover : SCENE_COLORS.wallFill}
       // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
       worldUnits
-      lineWidth={wall.thickness}
+      lineWidth={wall.thickness + (isHovered ? HOVER_THICKNESS_BOOST_CM : 0)}
       /*
        * Kenar yumuşatma örtme (coverage) maskesiyle yapılır, harmanlamayla değil.
        * Duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz: maske
@@ -62,13 +70,20 @@ export function Walls() {
   // Sürüklenen köşe geçici konumuyla gelir; duvar imlecin arkasında kalmasın.
   const points = useArchitecturePoints()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const hover = useArchitectureUiStore((state) => state.hover)
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
+  const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
 
   return (
     <group name="walls">
       {floorWalls.map((wall) => (
-        <Wall key={wall.id} wall={wall} points={points} />
+        <Wall
+          key={wall.id}
+          wall={wall}
+          points={points}
+          isHovered={wall.id === hoveredWallId}
+        />
       ))}
     </group>
   )
