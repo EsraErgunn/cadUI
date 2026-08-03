@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
+import type { ArchitectureHover } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
 import type { Id, OpeningType } from '../core/model'
 import { DEFAULT_OPENING_WIDTH_CM } from '../core/opening'
@@ -18,6 +19,8 @@ type PointDrag = {
 type ArchitectureUiState = {
   selectedOpeningId: Id | null
   draggingPoint: PointDrag | null
+  /** İmlecin altındaki nesne. Yalnız vurgu için; hiçbir şeyi seçmez. */
+  hover: ArchitectureHover | null
   /**
    * Bir SONRAKİ yerleştirmenin genişliği, tip başına ayrı tutulur: kapıyı 100'e
    * çeken kullanıcı pencereye geçince 120'yi geri bulur.
@@ -27,6 +30,7 @@ type ArchitectureUiState = {
   setSelectedOpening: (openingId: Id | null) => void
   setOpeningWidthCm: (type: OpeningType, widthCm: number) => void
   setDraggingPoint: (drag: PointDrag | null) => void
+  setHover: (hover: ArchitectureHover | null) => void
 }
 
 /**
@@ -45,6 +49,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
   immer((set) => ({
     selectedOpeningId: null,
     draggingPoint: null,
+    hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
 
     setSelectedOpening: (openingId) =>
@@ -60,6 +65,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingPoint: (drag) =>
       set((draft) => {
         draft.draggingPoint = drag
+      }),
+
+    setHover: (hover) =>
+      set((draft) => {
+        draft.hover = hover
       }),
   })),
 )

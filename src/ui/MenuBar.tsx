@@ -1,21 +1,46 @@
 import { ArrowLeft, Save } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { useCadStore } from '../store/cadStore'
+import {
+  redoProject,
+  undoProject,
+  useCadStore,
+  useCanRedo,
+  useCanUndo,
+} from '../store/cadStore'
 import { chromeButtonVariants } from './controls/buttonVariants'
 import { MenuDropdown } from './menu/MenuDropdown'
 import { ShortcutButtons } from './menu/ShortcutButtons'
 import { ViewSwitcher } from './menu/ViewSwitcher'
-import { CLOSE_EDITOR_ITEM_ID, EDITOR_MENUS, FLOOR_MENU_ID } from './menu/menuDefinitions'
+import {
+  CLOSE_EDITOR_ITEM_ID,
+  EDITOR_MENUS,
+  EXPORT_ITEM_ID,
+  FLOOR_MENU_ID,
+  REDO_ITEM_ID,
+  SAVE_ITEM_ID,
+  UNDO_ITEM_ID,
+} from './menu/menuDefinitions'
 
 type MenuBarProps = {
   onCloseEditor: () => void
+  onSave: () => void
+  onExport: () => void
+  isSaving: boolean
 }
 
-export function MenuBar({ onCloseEditor }: MenuBarProps) {
+export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
+  const canUndo = useCanUndo()
+  const canRedo = useCanRedo()
   const barRef = useRef<HTMLElement>(null)
+
+  // Yapılamayacak komutlar pasif görünür ama menüden KALKMAZ: kullanıcı
+  // "Geri Al diye bir şey var mı" diye aramasın.
+  const unavailableItemIds = new Set<string>()
+  if (!canUndo) unavailableItemIds.add(UNDO_ITEM_ID)
+  if (!canRedo) unavailableItemIds.add(REDO_ITEM_ID)
 
   useEffect(() => {
     if (openMenuId === null) return undefined
@@ -40,8 +65,12 @@ export function MenuBar({ onCloseEditor }: MenuBarProps) {
 
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
-    // Bu issue'da tek aktif madde; diğerleri disabled olduğu için buraya gelmez.
+    // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
+    if (itemId === SAVE_ITEM_ID) onSave()
+    if (itemId === EXPORT_ITEM_ID) onExport()
+    if (itemId === UNDO_ITEM_ID) undoProject()
+    if (itemId === REDO_ITEM_ID) redoProject()
   }
 
   return (
@@ -80,7 +109,11 @@ export function MenuBar({ onCloseEditor }: MenuBarProps) {
               )}
             </button>
             {openMenuId === menu.id && (
-              <MenuDropdown menu={menu} onSelectItem={handleSelectItem} />
+              <MenuDropdown
+                menu={menu}
+                onSelectItem={handleSelectItem}
+                unavailableItemIds={unavailableItemIds}
+              />
             )}
           </div>
         ))}
@@ -90,9 +123,14 @@ export function MenuBar({ onCloseEditor }: MenuBarProps) {
       <ShortcutButtons />
       <div className="flex-1" />
 
-      <button type="button" disabled className={chromeButtonVariants()}>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={isSaving}
+        className={chromeButtonVariants()}
+      >
         <Save size={16} strokeWidth={1.8} aria-hidden />
-        Kaydet
+        {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
       </button>
 
       <span className="mx-1 h-5 w-px bg-edge" />

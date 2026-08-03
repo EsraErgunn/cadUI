@@ -9,14 +9,10 @@ import {
   type DrawSurfacePointerEventKey,
 } from './drawSurfaceEvents'
 import type { PlanPoint } from '../core/coords'
+import { isTypingTarget } from '../core/domEvents'
 import { screenToWorld } from '../core/viewport'
 
 const MIDDLE_BUTTON = 1
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
 
 export function DrawSurface() {
   const camera = useThree((state) => state.camera)

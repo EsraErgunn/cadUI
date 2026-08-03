@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useLoginForm } from "./useLoginForm";
 import leftPipe from "../assets/images/auth/leftpipe.png";
 import panelBg from "../assets/images/auth/panel-bg.png";
 import rightPipe from "../assets/images/auth/rightpipe.png";
@@ -31,10 +32,11 @@ const CURVE = `M 700 0
 const PANEL_SHAPE = `${CURVE} L 1180 720 L 1180 0 Z`;
 
 export function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  // Form durumu ve giriş isteği ayrı dosyada: burası düzen, orası akış.
+  const { username, setUsername, password, setPassword, error, isSubmitting, handleSubmit } =
+    useLoginForm();
 
   return (
     <div className="flex h-screen items-center justify-center overflow-hidden bg-[#DDE3EC] p-6">
@@ -118,21 +120,24 @@ export function LoginPage() {
             <span className="text-[#1B2A4A]">CAD</span>
           </p>
 
+          <form onSubmit={handleSubmit} className="contents">
           <div className="mt-7 space-y-[14px]">
-            {/* e-posta */}
+            {/* kullanıcı adı — API e-posta değil, username istiyor (AuthController) */}
             <div className="relative">
               <svg
                 className="absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400"
                 fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"
               >
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <path d="M3 7l9 6 9-6" />
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
               </svg>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Kullanıcı Adı"
+                aria-label="Kullanıcı adı"
                 className="h-[50px] w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4
                            text-[14px] text-[#1B2A4A] outline-none transition focus:border-[#FFC107]"
               />
@@ -149,9 +154,11 @@ export function LoginPage() {
               </svg>
               <input
                 type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="Şifre"
+                aria-label="Şifre"
                 className="h-[50px] w-full rounded-xl border border-gray-200 bg-white pl-11 pr-11
                            text-[14px] text-[#1B2A4A] outline-none transition focus:border-[#FFC107]"
               />
@@ -185,17 +192,26 @@ export function LoginPage() {
             </span>
           </div>
 
+          {error && (
+            <p role="alert" className="mt-4 shrink-0 text-[13px] text-danger">
+              {error}
+            </p>
+          )}
+
           {/* giriş butonu */}
           <button
-            type="button"
+            type="submit"
+            disabled={isSubmitting}
             className="mt-6 flex h-[50px] shrink-0 items-center rounded-xl bg-[#FFC107]
-                       text-[15px] font-semibold text-[#1B2A4A] transition hover:brightness-95"
+                       text-[15px] font-semibold text-[#1B2A4A] transition hover:brightness-95
+                       disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="flex-1">Sign In</span>
+            <span className="flex-1">{isSubmitting ? "Giriş yapılıyor…" : "Sign In"}</span>
             <svg className="mr-5 h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
+          </form>
 
           <p className="mt-6 whitespace-nowrap text-center text-[13px] text-gray-500">
             Don't have an account?{" "}

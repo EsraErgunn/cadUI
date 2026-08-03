@@ -1,4 +1,7 @@
 import { useCloseEditor } from './useCloseEditor'
+import { useHistoryShortcuts } from './useHistoryShortcuts'
+import { useProjectExport } from './useProjectExport'
+import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
 import { AxisIndicator } from '../ui/AxisIndicator'
 import { FloorLabel } from '../ui/FloorLabel'
@@ -10,10 +13,27 @@ import { Toolbar } from '../ui/Toolbar'
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
+  const { isSaving, error, save } = useProjectPersistence()
+  const exportProject = useProjectExport()
+  useHistoryShortcuts()
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <MenuBar onCloseEditor={closeEditor} />
+      <MenuBar
+        onCloseEditor={closeEditor}
+        onSave={() => void save()}
+        onExport={exportProject}
+        isSaving={isSaving}
+      />
+
+      {error && (
+        <p
+          role="alert"
+          className="shrink-0 border-b border-edge bg-surface-sunken px-3 py-1.5 text-sm text-danger"
+        >
+          {error}
+        </p>
+      )}
 
       {/* min-h-0 / min-w-0 şart: flex çocukları varsayılan olarak içeriğinden
           küçülmeyi reddeder; olmazsa canvas taşar ve durum çubuğunu ekran dışına

@@ -6,6 +6,7 @@ import {
   getOpeningsOnWall,
   isPlacementValid,
 } from './opening'
+import { findCornerPointIdAt } from './snap'
 import { getPlacementRange } from './wall'
 import { findWallUnderPoint, getSnapOffsetsCm, snapOffsetCm } from './wallPath'
 
@@ -114,6 +115,23 @@ export function findOpeningUnderPoint(
   context: OpeningToolContext,
 ): Opening | undefined {
   return findOpeningGrab(target, context)?.opening
+}
+
+/**
+ * Köşe tutamağı açıklıktan önce gelir. Seçim aracında aynı basışı
+ * usePointDragTool da köşe sürüklemesi sayıyor; ikisi birden başlarsa tek
+ * bırakma iki ayrı store yazımı (iki Ctrl+Z) üretir. Koşul oradakiyle bilerek
+ * AYNI: resolveSnap → kind 'point'.
+ */
+export function isCornerHandleAtPoint(target: PlanPoint, context: OpeningToolContext): boolean {
+  // Koşul artık snap.ts'te TEK yerde: hover da aynı fonksiyonu çağırıyor.
+  return (
+    findCornerPointIdAt(
+      target,
+      { points: context.points, walls: context.walls, floorId: context.floorId },
+      context.toleranceCm,
+    ) !== undefined
+  )
 }
 
 type ResolvedWallOffset = {

@@ -451,66 +451,62 @@ mahal alanı hesabı da polygon-clipping kullanacak.
 Nerede: `core/wallShape.ts`. Regresyon testleri: `core/__tests__/wallShapeUnion.test.ts`
 (üç kilitlenme vakası da orada; yuvarlama kaldırılırsa 2. test kilitlenir).
 
-## 2026-08 · Aşama 3: Eleman yerleştirme
+---
 
-**Yerleştirme pointer UP'ta.** Palet butonuna tıklayıp tuvale tıklama ile palet
-butonundan tuvale sürükle-bırak, tek kod yoluna indi: her iki jeste de tuvale bir
-`pointerup` düşüyor. `pointerdown`'da yerleştirilseydi tıklama yolu için ayrıca
-"bu jest zaten yerleştirdi" bayrağı gerekirdi. `@dnd-kit` kullanılmadı — DOM
-droppable'ı `<Canvas>` içine dünya koordinatı taşımıyor, önizleme yine sahnede
-çizilecekti. Ayrıntı: `knowledge/plumbing-placement.md`.
+## 2026-08 · Duvar şekli: gönyeli dörtgen → yuvarlak uçlu kapsül
 
-**Tesisat geri alma cadStore dışında aynalanıyor.** `cadStore` zundo ile
-sarılmadı (global geçmiş `store/history.ts` ile A'nın işi, hâlâ boş).
-`plumbing/store/plumbingHistory.ts` yalnız `installationElements`'i tutan bir
-ayna store'u zundo `temporal` ile sarıyor; slice her değişimden sonra aynayı
-besliyor, geri yazma yalnız undo/redo ile oluyor. Ayna cadStore'u import etmiyor
-(cadStore → plumbingSlice → plumbingHistory döngüsü olurdu, K17).
-**Tuzak:** yeni bir tesisat action'ı `record()` çağırmayı unutursa hata vermez,
-Ctrl+Z o adımı sessizce atlar. Ayrıntı: `knowledge/plumbing-history.md`.
+### K23 — Duvar = eksen + yarıçap; kontur ve union kaldırıldı
 
-**Mimari hayalet kontur olarak çiziliyor.** `ArchitectureGhost` aktif kattaki
-duvar birleşiminin dış konturunu soluk renkle çiziyor (dolgu değil), her çizgi
-`raycast={() => null}` — tesisat görünümünde mimari salt görsel bağlam.
-Tek tek duvar çerçevesi çizilseydi köşelerde iç çizgiler görünürdü
-(`scene/Wall.tsx` ile aynı gerekçe).
+Gönyeli dörtgen iki şikâyet üretiyordu ve ikisi de yamayla kapanmıyordu:
 
-**Sembol material'i çift yüzlü.** Yerleştirme ilk denemede "çalışmıyor" göründü:
-store'a yazıyordu ama ekranda hiçbir şey çıkmıyordu. Sebep `bakeToLocalPlanSpace`
-içindeki `rotateX(+90°)` — geometrinin ön yüzünü −Y'ye çeviriyor, tepe kamerası
-ise +Y'den bakıyor, yani varsayılan `FrontSide` ile her sembol arka yüzünden
-görülüp kırpılıyor (önizleme dahil). `getSharedMaterial` artık `side: DoubleSide`
-üretiyor; regresyon testi `plumbing/scene/__tests__/symbolLoader.test.ts`.
-Ayrıntı: `knowledge/symbol-backface.md`.
+1. **Dar açıda köşe uzuyor, kalınlık değişiyor.** Gönye kesişimi köşeye doğru
+   kaçıyor; miter limit + pah bunu sınırlıyor ama düzeltmiyordu.
+2. **3+ duvarın birleştiği kavşakta kopukluk.** `getSingleNeighbour` komşu sayısı
+   1 değilse gönye yapamıyor, uç düz kesiliyor, çentik kalıyordu.
 
-**Hayalete kapı/pencere dahil.** `ArchitectureGhost` duvar konturunun yanında
-açıklık dörtgenlerini de çiziyor (`core/opening.ts` → `getOpeningOutline`).
-Kapı kanadı / pencere kayıdı simgesi çizilmiyor: o geometri `scene/Opening.tsx`
-içinde private ve kopyalanmaması için `core`'a taşınması gerekir — ayrı iş.
+Duvar artık `getWallCapsule(wall, points) → { p1, p2, radiusCm }`. Yuvarlak uç
+duvarın **uç noktasında merkezli**; o köşede birleşen her duvar aynı `r` yarıçaplı
+diski doldurduğu için kavşakta boşluk kalması **geometrik olarak imkânsız** —
+kaç duvar, hangi açı olursa olsun. Kalınlık da tanım gereği sabit.
 
-**Kapı/pencere simgesi core'a çıkarıldı.** Hayalette kapı ile pencerenin ayırt
-edilebilmesi için kanat/kayıt çizgisi de gerekti. Geometri `scene/Opening.tsx`
-içinde private idi; kopyalamak yerine `core/opening.ts` → `getOpeningSymbolPoints`
-olarak çıkarıldı (davranış birebir aynı, dönüş `ThreePosition[]` yerine
-`PlanPoint[]` — elevation'ı her çizen kendi katmanına göre veriyor). Mimari
-görünüm ve hayalet artık AYNI fonksiyonu okuyor; kopyalansaydı hayalet zamanla
-plandan sessizce sapardı. Testi: `core/__tests__/openingSymbol.test.ts`.
-Plan Bölüm 4.3'teki kapalı listeye iki satır eklendi.
+`getWallCapsule` komşulara bakmadığı için imzası `walls` **almaz**; gönye,
+miter limit, pah, kendiyle kesişen halka koruması ve union hesabının tamamı
+silindi (~230 satır → ~25).
 
-**Baca ve havalandırma kanalı uzayan eleman olacak (Aşama 5.1).** İkisi de damga
-değil güzergâh; boru aracıyla birlikte hat davranışına geçecekler
-(`InstallationLineKind` genişler). Aşama 3'teki nokta yerleştirme GEÇİCİ.
-Genişlik, kat kapsamı ve cihaz-baca bağlantısı KARARSIZ — varsayarak kodlanmayacak.
-Bkz. `CLAUDE_INSTALLATION_PLAN.md` Aşama 5.1 ve `knowledge/linear-symbols.md`.
+### Union neden gitti
 
-**Hayalet iki yönlü oldu ve SceneRoot'a taşındı.** Tesisat görünümünde mimari,
-mimari görünümünde tesisat soluk çiziliyor. İkisi de artık `PlumbingLayer` içinde
-değil `SceneRoot`'ta mount ediliyor: hayalet, çizen katmanın parçası değil
-görünümün bağlamı — `PlumbingLayer` içinde kalsaydı simetriği `ArchitectureLayer`'a
-yazılmak zorunda kalırdı. Her hayalet aktif katı KENDİ okuyor, mount eden kat
-bilgisi geçirmiyor; kat geçişi geldiğinde ek iş çıkmayacak.
-Yöntemleri bilerek farklı: tesisat hayaleti **rengini korur**, yalnız saydamlaşır
-(tuvalde sarı = gaz hattı, griye boyansa bilgi kaybolurdu) ve mimarinin ÜSTÜNDE
-çizilir (`installationGhost: 35`) — altına konsaydı oda dolgusu gelince görünmez
-olurdu. Mimari hayalet tek soluk renge boyanmaya devam ediyor ve tesisatın
-altındadır (`architectureGhost: 5`). Ayrıntı: `knowledge/ghost-layers.md`.
+Kontura ihtiyacın tek sebebi köşelerde komşunun içinden geçen iç çizgilerdi.
+Referans tasarımda duvar **kontursuz düz renk**; öyle olunca çakışma zaten
+görünmüyor. Duvarlar üst üste çizilir, birleşim hesaplanmaz.
+
+Bu, K22'nin bütün sorun sınıfını ortadan kaldırdı: kilitlenme de exception da
+artık mümkün değil. `wallShapeUnion.test.ts`'teki üç kilitlenme regresyon vakası
+**konusuz kaldığı için** silindi — kaybolmadılar, korudukları kod yok.
+`polygon-clipping` bağımlılığı duruyor: `core/room.ts` mahal alanı için kullanacak.
+
+### Nasıl çiziliyor: `<Line worldUnits>`
+
+Duvar başına tek `<Line worldUnits lineWidth={wall.thickness}>`. `worldUnits`,
+LineMaterial'ın kapsül shader'ını açıyor: parça, ışının doğru parçasına uzaklığı
+yarıçapı aşınca atılıyor. Eğri **analitik** — hiçbir zoom'da köşelenmiyor,
+üçgenlenmiş geometri yok, yeni geometri kodu yazılmadı.
+
+Elle kapsül mesh'i (gövde + yelpaze uçlar) alternatifi vardı; ileride duvara
+tarama deseni/gölge gerekirse ona geçilir.
+
+### ⚠️ `CAMERA_HEIGHT_CM` düşürülmemeli
+
+`worldUnits` shader'ı ışının gözden çıktığını varsayar (perspektif). Kameramız
+ortografik, ışınlar paralel. Hata kamera yüksekliğinin görünür yarı genişliğe
+oranıyla ters orantılı: `CAMERA_HEIGHT_CM = 100_000` iken en düşük zoomda bile
+~%0,6 (20 cm duvarda 0,01 px). Küçültülürse duvarlar ekran kenarlarına doğru
+incelmeye başlar. `scene/Cameras.tsx`'te uyarı var.
+
+### Kabul edilen sonuçlar
+
+- Serbest uçlar yarıçap kadar uzuyor (ölçü etiketi ekseni ölçer, çizilen sınırı değil).
+- Dış köşeler yuvarlak, iç köşeler keskin kalıyor.
+- Yalnız plan görünümü; 3B/izometrik ayrı extrude geometri yolundan gidecek.
+- Açıklıklar etkilenmedi — duvarı kesmiyor, üstüne boyanıyor.
+
+Nerede: `core/wallShape.ts`, `scene/Wall.tsx`. Ayrıntı: `knowledge/capsule-walls.md`.

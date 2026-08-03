@@ -3,16 +3,22 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
+import { useCadStore } from '../../store/cadStore'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
 
-function renderMenuBar(onCloseEditor = vi.fn()) {
+function renderMenuBar(onCloseEditor = vi.fn(), onSave = vi.fn(), onExport = vi.fn()) {
   render(
     <MemoryRouter>
-      <MenuBar onCloseEditor={onCloseEditor} />
+      <MenuBar
+        onCloseEditor={onCloseEditor}
+        onSave={onSave}
+        onExport={onExport}
+        isSaving={false}
+      />
     </MemoryRouter>,
   )
-  return onCloseEditor
+  return { onCloseEditor, onSave, onExport }
 }
 
 describe('MenuBar', () => {
@@ -42,15 +48,38 @@ describe('MenuBar', () => {
     },
   )
 
-  it('Kapat dışındaki tüm maddeler pasiftir (KK-9)', async () => {
+  it('yalnız Kaydet, Dışa Aktar ve Kapat aktiftir (KK-9)', async () => {
     const user = userEvent.setup()
     renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: /^Dosya/ }))
 
     expect(screen.getByRole('menuitem', { name: 'Kapat' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Gönder' })).toBeDisabled()
+  })
+
+  it('Dosya > Dışa Aktar dışa aktarmayı tetikler', async () => {
+    const user = userEvent.setup()
+    const { onExport } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' }))
+
+    expect(onExport).toHaveBeenCalledTimes(1)
+  })
+
+  it('Dosya > Kaydet ve Kaydet düğmesi aynı akışı tetikler', async () => {
+    const user = userEvent.setup()
+    const { onSave } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: 'Kaydet' }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Kaydet' }))
+    expect(onSave).toHaveBeenCalledTimes(2)
   })
 
   it('menü dışına tıklanınca kapanır (KK-9)', async () => {
@@ -66,7 +95,7 @@ describe('MenuBar', () => {
 
   it('Dosya > Kapat ve ← Projeler aynı akışı tetikler (KK-10)', async () => {
     const user = userEvent.setup()
-    const onCloseEditor = renderMenuBar()
+    const { onCloseEditor } = renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: 'Projeler' }))
     expect(onCloseEditor).toHaveBeenCalledTimes(1)
@@ -74,6 +103,32 @@ describe('MenuBar', () => {
     await user.click(screen.getByRole('button', { name: /^Dosya/ }))
     await user.click(screen.getByRole('menuitem', { name: 'Kapat' }))
     expect(onCloseEditor).toHaveBeenCalledTimes(2)
+  })
+
+  it('geçmiş boşken Geri Al ve Yinele pasiftir', async () => {
+    // Madde menüden KALKMAZ, yalnız pasifleşir: kullanıcı komutu aramasın.
+    const user = userEvent.setup()
+    useCadStore.temporal.getState().clear()
+    renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Düzenle/ }))
+
+    expect(screen.getByRole('menuitem', { name: 'Geri Al' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Yinele' })).toBeDisabled()
+  })
+
+  it('geri alınacak adım varken Geri Al aktifleşir', async () => {
+    const user = userEvent.setup()
+    useCadStore.temporal.getState().clear()
+    // İzlenen bir alanı değiştirmek yeter: MenuBar'ın işi adımı KİMİN ürettiğini
+    // bilmek değil, geçmişin dolu olduğunu yansıtmak.
+    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Düzenle/ }))
+
+    expect(screen.getByRole('menuitem', { name: 'Geri Al' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'Yinele' })).toBeDisabled()
   })
 
   it('Katlar başlığında kat adedi rozeti gösterilir (issue 2.4)', () => {
