@@ -450,3 +450,63 @@ mahal alanı hesabı da polygon-clipping kullanacak.
 
 Nerede: `core/wallShape.ts`. Regresyon testleri: `core/__tests__/wallShapeUnion.test.ts`
 (üç kilitlenme vakası da orada; yuvarlama kaldırılırsa 2. test kilitlenir).
+
+---
+
+## 2026-08 · Duvar şekli: gönyeli dörtgen → yuvarlak uçlu kapsül
+
+### K23 — Duvar = eksen + yarıçap; kontur ve union kaldırıldı
+
+Gönyeli dörtgen iki şikâyet üretiyordu ve ikisi de yamayla kapanmıyordu:
+
+1. **Dar açıda köşe uzuyor, kalınlık değişiyor.** Gönye kesişimi köşeye doğru
+   kaçıyor; miter limit + pah bunu sınırlıyor ama düzeltmiyordu.
+2. **3+ duvarın birleştiği kavşakta kopukluk.** `getSingleNeighbour` komşu sayısı
+   1 değilse gönye yapamıyor, uç düz kesiliyor, çentik kalıyordu.
+
+Duvar artık `getWallCapsule(wall, points) → { p1, p2, radiusCm }`. Yuvarlak uç
+duvarın **uç noktasında merkezli**; o köşede birleşen her duvar aynı `r` yarıçaplı
+diski doldurduğu için kavşakta boşluk kalması **geometrik olarak imkânsız** —
+kaç duvar, hangi açı olursa olsun. Kalınlık da tanım gereği sabit.
+
+`getWallCapsule` komşulara bakmadığı için imzası `walls` **almaz**; gönye,
+miter limit, pah, kendiyle kesişen halka koruması ve union hesabının tamamı
+silindi (~230 satır → ~25).
+
+### Union neden gitti
+
+Kontura ihtiyacın tek sebebi köşelerde komşunun içinden geçen iç çizgilerdi.
+Referans tasarımda duvar **kontursuz düz renk**; öyle olunca çakışma zaten
+görünmüyor. Duvarlar üst üste çizilir, birleşim hesaplanmaz.
+
+Bu, K22'nin bütün sorun sınıfını ortadan kaldırdı: kilitlenme de exception da
+artık mümkün değil. `wallShapeUnion.test.ts`'teki üç kilitlenme regresyon vakası
+**konusuz kaldığı için** silindi — kaybolmadılar, korudukları kod yok.
+`polygon-clipping` bağımlılığı duruyor: `core/room.ts` mahal alanı için kullanacak.
+
+### Nasıl çiziliyor: `<Line worldUnits>`
+
+Duvar başına tek `<Line worldUnits lineWidth={wall.thickness}>`. `worldUnits`,
+LineMaterial'ın kapsül shader'ını açıyor: parça, ışının doğru parçasına uzaklığı
+yarıçapı aşınca atılıyor. Eğri **analitik** — hiçbir zoom'da köşelenmiyor,
+üçgenlenmiş geometri yok, yeni geometri kodu yazılmadı.
+
+Elle kapsül mesh'i (gövde + yelpaze uçlar) alternatifi vardı; ileride duvara
+tarama deseni/gölge gerekirse ona geçilir.
+
+### ⚠️ `CAMERA_HEIGHT_CM` düşürülmemeli
+
+`worldUnits` shader'ı ışının gözden çıktığını varsayar (perspektif). Kameramız
+ortografik, ışınlar paralel. Hata kamera yüksekliğinin görünür yarı genişliğe
+oranıyla ters orantılı: `CAMERA_HEIGHT_CM = 100_000` iken en düşük zoomda bile
+~%0,6 (20 cm duvarda 0,01 px). Küçültülürse duvarlar ekran kenarlarına doğru
+incelmeye başlar. `scene/Cameras.tsx`'te uyarı var.
+
+### Kabul edilen sonuçlar
+
+- Serbest uçlar yarıçap kadar uzuyor (ölçü etiketi ekseni ölçer, çizilen sınırı değil).
+- Dış köşeler yuvarlak, iç köşeler keskin kalıyor.
+- Yalnız plan görünümü; 3B/izometrik ayrı extrude geometri yolundan gidecek.
+- Açıklıklar etkilenmedi — duvarı kesmiyor, üstüne boyanıyor.
+
+Nerede: `core/wallShape.ts`, `scene/Wall.tsx`. Ayrıntı: `knowledge/capsule-walls.md`.
