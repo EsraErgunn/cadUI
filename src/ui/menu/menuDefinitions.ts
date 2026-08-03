@@ -30,6 +30,7 @@ const DISABLED_CHECKBOX: Pick<MenuItemDefinition, 'kind' | 'isEnabled'> = {
 }
 
 export const CLOSE_EDITOR_ITEM_ID = 'close'
+export const SAVE_ITEM_ID = 'save'
 
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -39,7 +40,7 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
       {
         items: [
           { id: 'open', label: 'Aç', ...DISABLED },
-          { id: 'save', label: 'Kaydet', ...DISABLED },
+          { id: SAVE_ITEM_ID, label: 'Kaydet', kind: 'command', isEnabled: true },
           { id: 'saveAs', label: 'Farklı Kaydet', ...DISABLED },
           { id: 'clearProject', label: 'Projeyi Temizle', ...DISABLED },
           { id: 'import', label: 'İçe Aktar', ...DISABLED },
