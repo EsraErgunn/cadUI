@@ -19,4 +19,5 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 | 2026-07 | open-question | [arc-walls](./arc-walls.md) | Yay duvar kararı YOK — varsayma. Dikiş core/wallPath.ts; getPlacementRange'in uzunluk çağrısı da çevrilmeli |
 | 2026-07 | decision | [admin-list-state](./admin-list-state.md) | Yönetici listelerinde durum URL query param'da, sayfalama sunucuda; yetki düz izin listesiyle (rol modeli yok) |
 | 2026-07 | gotcha | [turkish-collation](./turkish-collation.md) | `'İ'.toLowerCase()` birleşen nokta üretir → arama sessizce eşleşmez; normalizeTr kullan |
+| 2026-08 | gotcha | [gesture-bus-precedence](./gesture-bus-precedence.md) | Tek pointerdown'ı tüm hook'lar görür; Seçim Aracı'nda köşe tutamağı açıklıktan önce gelir, yoksa tek harekete iki Ctrl+Z |
 | 2026-07 | decision | [theming](./theming.md) | Açık varsayılan + koyu tema: token değerleri `.dark` altında değişir, class tabanlı (`@custom-variant`); admin'de sarı yok, birincil indigo, aksan cyan |
