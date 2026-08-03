@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { isTypingTarget } from '../core/domEvents'
 import type { Id } from '../core/model'
 import { getOpeningTypeForTool } from '../core/opening'
 import {
@@ -29,11 +30,6 @@ type OpeningGesture =
   | { kind: 'hovering' }
   /** Var olan açıklık sürükleniyor; store'a YALNIZ pointerup'ta yazılır. */
   | { kind: 'dragging'; openingId: Id; grabDeltaCm: number }
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
 
 function isSamePreview(
   current: OpeningPreview | undefined,
@@ -238,8 +234,6 @@ export function useOpeningTool(): OpeningPreview | undefined {
 
     // Delete taşıması drawSurfaceEvents'te yok (onCancel yalnız Esc). O dosya
     // D'ye ait ve klavye genel bir mesele, bu yüzden dinleyici burada duruyor.
-    // TODO(fay-D): isTypingTarget üçüncü kez kopyalandı (DrawSurface,
-    // useViewportControls, burada) — ortak bir yardımcıya çıkarılmalı.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
