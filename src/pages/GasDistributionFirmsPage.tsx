@@ -1,47 +1,26 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { CircleAlert, LoaderCircle } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 
-import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { getGasDistributionFirms } from '../api/adminFirms'
-import { ADMIN_FOCUS_RING, adminButtonVariants } from '../ui/admin/adminVariants'
-import { FirmFilterChips } from '../ui/admin/firms/FirmFilterChips'
+import { DataTable } from '../ui/admin/DataTable'
+import { FilterChips } from '../ui/admin/FilterChips'
+import { PageHeader } from '../ui/admin/PageHeader'
+import { Pagination } from '../ui/admin/Pagination'
+import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
+import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { FirmFilterPanel } from '../ui/admin/firms/FirmFilterPanel'
-import { FirmPagination } from '../ui/admin/firms/FirmPagination'
-import { FirmTable } from '../ui/admin/firms/FirmTable'
 import { FirmTableToolbar } from '../ui/admin/firms/FirmTableToolbar'
+import { FIRM_COLUMNS, FIRM_TABLE_CAPTION } from '../ui/admin/firms/firmColumns'
+import { buildFirmFilterChips } from '../ui/admin/firms/firmFilterChips'
 import { useFirmListParams } from '../ui/admin/useFirmListParams'
 
 const PAGE_TITLE = 'Gaz Dağıtım Firmaları'
 
-function PageHeader({ totalCountLabel }: { totalCountLabel: string }) {
-  return (
-    <div>
-      <nav aria-label="Konum" className="text-xs text-ink-muted">
-        <ol className="flex items-center gap-1.5">
-          <li>
-            <Link
-              to={PROJECT_LIST_PATH}
-              className={`rounded text-selection hover:underline ${ADMIN_FOCUS_RING}`}
-            >
-              Anasayfa
-            </Link>
-          </li>
-          <li aria-hidden>/</li>
-          <li>Firmalar</li>
-          <li aria-hidden>/</li>
-          <li aria-current="page">{PAGE_TITLE}</li>
-        </ol>
-      </nav>
-
-      <h1 className="mt-2 text-2xl font-semibold text-ink">
-        {PAGE_TITLE} <span className="text-ink-muted">({totalCountLabel})</span>
-      </h1>
-      <p className="mt-1 text-sm text-ink-muted">Sisteme kayıtlı tüm gaz dağıtım firmaları</p>
-    </div>
-  )
-}
+const BREADCRUMB = [
+  { label: 'Anasayfa', to: ADMIN_HOME_PATH },
+  { label: 'Firmalar' },
+  { label: PAGE_TITLE },
+]
 
 export function GasDistributionFirmsPage() {
   const { query, setNameQuery, setGroupName, setRegion, toggleSort, setPage } = useFirmListParams()
@@ -62,7 +41,12 @@ export function GasDistributionFirmsPage() {
   return (
     <div className="mx-auto flex max-w-320 flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeader totalCountLabel={data === undefined ? '…' : String(data.totalCount)} />
+        <PageHeader
+          breadcrumb={BREADCRUMB}
+          title={PAGE_TITLE}
+          countLabel={data === undefined ? '…' : String(data.totalCount)}
+          description="Sisteme kayıtlı tüm gaz dağıtım firmaları"
+        />
         <FirmTableToolbar
           nameQuery={query.nameQuery}
           onApplyNameQuery={setNameQuery}
@@ -80,43 +64,30 @@ export function GasDistributionFirmsPage() {
         />
       )}
 
-      <FirmFilterChips
-        nameQuery={query.nameQuery}
-        groupName={query.groupName}
-        region={query.region}
-        onRemoveNameQuery={() => setNameQuery('')}
-        onRemoveGroupName={() => setGroupName(null)}
-        onRemoveRegion={() => setRegion(null)}
+      <FilterChips
+        filters={buildFirmFilterChips({
+          nameQuery: query.nameQuery,
+          groupName: query.groupName,
+          region: query.region,
+          onRemoveNameQuery: () => setNameQuery(''),
+          onRemoveGroupName: () => setGroupName(null),
+          onRemoveRegion: () => setRegion(null),
+        })}
       />
 
-      {isPending && (
-        <p className="flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-12 text-sm text-ink-muted">
-          <LoaderCircle aria-hidden className="size-4 animate-spin" />
-          Firmalar yükleniyor…
-        </p>
-      )}
+      {isPending && <QueryLoading message="Firmalar yükleniyor…" />}
 
       {isError && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-edge bg-surface px-4 py-6 text-sm text-ink"
-        >
-          <CircleAlert aria-hidden className="size-5 text-danger" />
-          <span>Firma listesi yüklenemedi.</span>
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className={adminButtonVariants({ tone: 'secondary' })}
-          >
-            Tekrar dene
-          </button>
-        </div>
+        <QueryError message="Firma listesi yüklenemedi." onRetry={() => void refetch()} />
       )}
 
       {data !== undefined && !isError && (
-        <div className={isPlaceholderData ? 'flex flex-col gap-4 opacity-60' : 'flex flex-col gap-4'}>
-          <FirmTable
-            firms={data.items}
+        <StaleContent isStale={isPlaceholderData}>
+          <DataTable
+            rows={data.items}
+            columns={FIRM_COLUMNS}
+            rowKey={(firm) => firm.id}
+            caption={FIRM_TABLE_CAPTION}
             sortKey={query.sortKey}
             sortDir={query.sortDir}
             onToggleSort={toggleSort}
@@ -127,14 +98,14 @@ export function GasDistributionFirmsPage() {
             }
           />
           {data.totalCount > 0 && (
-            <FirmPagination
+            <Pagination
               page={data.page}
               pageSize={data.pageSize}
               totalCount={data.totalCount}
               onPageChange={setPage}
             />
           )}
-        </div>
+        </StaleContent>
       )}
     </div>
   )

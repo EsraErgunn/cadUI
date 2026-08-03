@@ -1,7 +1,12 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { ADMIN_PARAM_KEYS, type AdminParamField } from './adminUrlParams'
+import {
+  ADMIN_PARAM_KEYS,
+  FIRST_PAGE,
+  parsePage,
+  useAdminParamWriter,
+} from './adminUrlParams'
 import {
   GAS_FIRM_PAGE_SIZE,
   GAS_FIRM_SORT_KEYS,
@@ -12,9 +17,6 @@ import {
 
 const DEFAULT_SORT_KEY: GasFirmSortKey = 'dfirmNo'
 const DEFAULT_SORT_DIR: SortDirection = 'asc'
-const FIRST_PAGE = 1
-
-type ParamPatch = Partial<Record<AdminParamField, string | null>>
 
 function parseSortKey(raw: string | null): GasFirmSortKey {
   return GAS_FIRM_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_SORT_KEY
@@ -22,11 +24,6 @@ function parseSortKey(raw: string | null): GasFirmSortKey {
 
 function parseSortDir(raw: string | null): SortDirection {
   return raw === 'desc' ? 'desc' : DEFAULT_SORT_DIR
-}
-
-function parsePage(raw: string | null): number {
-  const parsed = Number(raw)
-  return Number.isInteger(parsed) && parsed >= FIRST_PAGE ? parsed : FIRST_PAGE
 }
 
 export interface FirmListControls {
@@ -44,7 +41,8 @@ export interface FirmListControls {
  * Varsayılan değerler URL'e yazılmaz, adres temiz kalır.
  */
 export function useFirmListParams(): FirmListControls {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const updateParams = useAdminParamWriter()
 
   const query = useMemo<GasDistributionFirmQuery>(
     () => ({
@@ -57,26 +55,6 @@ export function useFirmListParams(): FirmListControls {
       pageSize: GAS_FIRM_PAGE_SIZE,
     }),
     [searchParams],
-  )
-
-  const updateParams = useCallback(
-    (patch: ParamPatch, shouldResetPage: boolean) => {
-      setSearchParams((current) => {
-        const draft = new URLSearchParams(current)
-        const entries = Object.entries(patch) as [AdminParamField, string | null | undefined][]
-        for (const [field, value] of entries) {
-          const key = ADMIN_PARAM_KEYS[field]
-          if (value === undefined || value === null || value === '') {
-            draft.delete(key)
-            continue
-          }
-          draft.set(key, value)
-        }
-        if (shouldResetPage) draft.delete(ADMIN_PARAM_KEYS.page)
-        return draft
-      })
-    },
-    [setSearchParams],
   )
 
   const toggleSort = useCallback(

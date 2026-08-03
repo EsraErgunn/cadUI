@@ -1,10 +1,14 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { pageButtonVariants } from '../adminVariants'
+import { pageButtonVariants } from './adminVariants'
 
 const MAX_VISIBLE_PAGES = 7
 /** Aktif sayfanın iki yanında kaç komşu numara gösterilsin. */
 const NEIGHBOR_COUNT = 1
+
+/** Özet metnindeki ayrılma hâlli ad. Türkçe ek uyumu ("kayıttan" ama "projeden")
+    koda gömülemeyeceği için çekimli hâli çağıran verir. */
+const DEFAULT_ITEM_LABEL_ABLATIVE = 'kayıttan'
 
 interface PageSlot {
   key: string
@@ -35,14 +39,21 @@ function buildPageSlots(currentPage: number, pageCount: number): PageSlot[] {
   return slots
 }
 
-interface FirmPaginationProps {
+interface PaginationProps {
   page: number
   pageSize: number
   totalCount: number
   onPageChange: (page: number) => void
+  itemLabelAblative?: string
 }
 
-export function FirmPagination({ page, pageSize, totalCount, onPageChange }: FirmPaginationProps) {
+export function Pagination({
+  page,
+  pageSize,
+  totalCount,
+  onPageChange,
+  itemLabelAblative = DEFAULT_ITEM_LABEL_ABLATIVE,
+}: PaginationProps) {
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const firstShown = (page - 1) * pageSize + 1
   const lastShown = Math.min(page * pageSize, totalCount)
@@ -50,7 +61,7 @@ export function FirmPagination({ page, pageSize, totalCount, onPageChange }: Fir
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-ink-muted" aria-live="polite">
-        {totalCount} kayıttan {firstShown}-{lastShown} arası gösteriliyor
+        {totalCount} {itemLabelAblative} {firstShown}-{lastShown} arası gösteriliyor
       </p>
 
       <nav aria-label="Sayfalama" className="flex items-center gap-1">

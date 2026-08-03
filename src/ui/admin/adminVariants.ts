@@ -4,6 +4,9 @@ import { cva } from 'class-variance-authority'
 export const ADMIN_FOCUS_RING =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
+/** Tablo hücresi ve konum izi içindeki bağlantılar. Seçim mavisi + hover'da altı çizili. */
+export const ADMIN_CELL_LINK = `rounded text-selection hover:underline ${ADMIN_FOCUS_RING}`
+
 /** Sol menü maddeleri. Sidebar zemini ana içerikle aynı olduğu için madde
     vurgusu renk farkıyla değil, bir tık yukarıdaki yüzey + aksan çizgisiyle verilir. */
 export const adminNavItemVariants = cva(
@@ -26,16 +29,25 @@ export const adminNavItemVariants = cva(
  * arayüzüne girmez, o yalnız çizim editörünün kabuğunda kullanılır.
  */
 export const adminButtonVariants = cva(
-  `inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm
-   font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${ADMIN_FOCUS_RING}`,
+  `inline-flex shrink-0 items-center justify-center gap-2 rounded-lg font-semibold
+   transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${ADMIN_FOCUS_RING}`,
   {
     variants: {
       tone: {
         primary: 'bg-admin-primary text-admin-primary-ink hover:brightness-110',
         secondary: 'border border-edge bg-surface text-ink-muted hover:bg-surface-sunken',
+        // Yıkıcı eylem bilerek dolgusuz: satırdaki en dikkat çeken düğme "Gönder"
+        // olmalı, yanlışlıkla tıklanması pahalı olan "Sil" değil.
+        danger: 'border border-danger bg-surface text-danger-ink hover:bg-danger/10',
+        success: 'bg-success text-success-ink hover:brightness-110',
+      },
+      size: {
+        md: 'h-10 px-4 text-sm',
+        /** Tablo satırı içindeki eylemler; satır yüksekliğini büyütmemeli. */
+        sm: 'h-8 px-3 text-xs',
       },
     },
-    defaultVariants: { tone: 'secondary' },
+    defaultVariants: { tone: 'secondary', size: 'md' },
   },
 )
 
@@ -64,6 +76,42 @@ export const pageButtonVariants = cva(
       tone: {
         plain: 'border-edge bg-surface text-ink-muted hover:bg-surface-sunken',
         active: 'border-admin-primary bg-admin-primary font-semibold text-admin-primary-ink',
+      },
+    },
+    defaultVariants: { tone: 'plain' },
+  },
+)
+
+/**
+ * Sayı rozeti (durum sekmelerinin yanındaki adet). `filterChipVariants` buna
+ * uymaz: o chip'in sağında kapatma düğmesi olduğu için boşlukları asimetrik.
+ */
+export const adminBadgeVariants = cva(
+  'inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums',
+  {
+    variants: {
+      tone: {
+        plain: 'bg-surface-sunken text-ink-muted',
+        active: 'bg-admin-primary text-admin-primary-ink',
+      },
+    },
+    defaultVariants: { tone: 'plain' },
+  },
+)
+
+/**
+ * Durum sekmesi. Aktif sekmenin METNİ birincil renge boyanmaz: #3E5CE0 koyu
+ * temada yüzeye göre ~2.9:1 kalıyor. Birincil renk alt çizgi ve rozetle verilir,
+ * metin iki temada da okunur `ink` tonunda durur.
+ */
+export const adminTabVariants = cva(
+  `-mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t border-b-2 px-4 py-2.5
+   text-sm transition-colors ${ADMIN_FOCUS_RING}`,
+  {
+    variants: {
+      tone: {
+        plain: 'border-transparent text-ink-muted hover:text-ink',
+        active: 'border-admin-primary font-semibold text-ink',
       },
     },
     defaultVariants: { tone: 'plain' },

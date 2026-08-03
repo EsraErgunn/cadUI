@@ -19,6 +19,15 @@
   --color-brand: #ffc107;
   --color-selection: #2d7ff9;
   --color-danger: #e5564a;
+  /* Tehlike METNİ için ayrı token (accent/accent-ink ile aynı gerekçe): #e5564a
+     beyaz zeminde 3.6:1 kalıyor, buton yazısına yetmiyor. Dolgu/ikon `danger`,
+     yazı `danger-ink`. */
+  --color-danger-ink: #b3251a;
+  /* Olumlu durum: evrak ikonu ve "Gönder" eylemi. `success` hem dolgu (buton
+     zemini) hem de yüzey üstündeki ikon rengi olarak kullanılır; `success-ink`
+     o dolgunun üstüne gelen metindir (admin-primary/admin-primary-ink deseni). */
+  --color-success: #157347;
+  --color-success-ink: #ffffff;
    --color-brand-yellow: #FFC107;
   --color-brand-navy: #1B2A4A;
   --color-surface-light: #F7F8FA;
@@ -61,7 +70,12 @@
   --color-ink-disabled: #6b7688;
   --color-selection: #6fa8ff;
   --color-danger: #f4796d;
+  --color-danger-ink: #f4796d;
   --color-accent-ink: #2BC8D4;
+  /* Koyu zeminde #157347 neredeyse yüzeye gömülüyor (kontrast ~1.3:1), yeşil
+     açılıyor; açılan yeşilin üstünde beyaz metin okunmadığı için ink koyulaşır. */
+  --color-success: #22a06b;
+  --color-success-ink: #0b1f16;
 }
 
 html,
