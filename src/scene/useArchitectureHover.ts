@@ -4,7 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface } from './drawSurfaceEvents'
-import { isSameHover, resolveArchitectureHover } from '../core/architectureHover'
+import { isSameTarget, resolveArchitectureTarget } from '../core/architectureHover'
 import { getSnapToleranceCm } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -37,21 +37,22 @@ export function useArchitectureHover(): void {
     const unsubscribe = subscribeDrawSurface({
       onPointerMove: (event) => {
         const ui = useArchitectureUiStore.getState()
-        if (ui.draggingPoint) {
+        if (ui.draggingPoint || ui.draggingWall) {
           if (ui.hover) clearHover()
           return
         }
 
         const cad = useCadStore.getState()
-        const next = resolveArchitectureHover(event.planPoint, {
+        const next = resolveArchitectureTarget(event.planPoint, {
           points: cad.points,
           walls: cad.walls,
+          openings: cad.openings,
           floorId: cad.activeFloorId,
           toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
         })
 
         // Aynı nesneyse yazma: her fare hareketinde set() tüm aboneleri render eder.
-        if (isSameHover(ui.hover ?? undefined, next)) return
+        if (isSameTarget(ui.hover ?? undefined, next)) return
         ui.setHover(next ?? null)
       },
 

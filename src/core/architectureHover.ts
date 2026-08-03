@@ -1,39 +1,47 @@
 import type { PlanPoint } from './coords'
-import type { Id, Point, Wall } from './model'
+import type { Id, Opening, Point, Wall } from './model'
+import { findOpeningUnderPoint } from './openingTool'
 import { findCornerPointIdAt } from './snap'
 import { findWallUnderPoint } from './wallPath'
 
-/** İmlecin altındaki nesne. Aynı anda yalnız BİRİ vurgulanır. */
-export type ArchitectureHover = { kind: 'point'; pointId: Id } | { kind: 'wall'; wallId: Id }
+/** İmlecin altındaki nesne. Aynı anda yalnız BİRİ hedeftir. */
+export type ArchitectureTarget =
+  | { kind: 'point'; pointId: Id }
+  | { kind: 'opening'; openingId: Id }
+  | { kind: 'wall'; wallId: Id }
 
-export type ArchitectureHoverContext = {
+export type ArchitectureTargetContext = {
   points: readonly Point[]
   walls: readonly Wall[]
+  openings: readonly Opening[]
   floorId: Id
   toleranceCm: number
 }
 
 /**
- * Vurgu sırası ekranda ÜSTTE duranın: köşe duvarı yener. Aynı sıra jest
- * önceliğiyle birebir aynı olmalı — hover kullanıcıya "basarsam neyi tutarım"ı
- * gösteriyor, farklı cevap verirse yanıltır (knowledge/gesture-bus-precedence.md).
+ * "İmlecin altında ne var" sorusunun TEK cevabı. Hem vurgu (hover) hem jest
+ * sahipliği bunu okur — ikisi ayrı hesaplarsa vurgu "şunu tutarsın" der, basış
+ * başka şeyi tutar (knowledge/gesture-bus-precedence.md).
  *
- * Köşe koşulu `findCornerPointIdAt` ile paylaşılıyor; burada ikinci bir kopya
- * yazılmaz.
+ * Sıra ekranda üstte durandan alta: köşe → açıklık → duvar. Köşe tutamağı en
+ * üstte (HANDLE_ELEVATION_CM), açıklık duvarın üstüne boyanıyor
+ * (RENDER_ORDER.opening > wall), duvar en altta.
  *
- * Açıklıklar duvarı BASTIRMAZ: kapı/pencerenin üstündeyken de altındaki duvar
- * vurgulanır. Açıklığa öncelik istenirse buraya findOpeningUnderPoint eklenir.
+ * Köşe koşulu `findCornerPointIdAt` ile paylaşılıyor; burada ikinci kopya yazılmaz.
  */
-export function resolveArchitectureHover(
+export function resolveArchitectureTarget(
   target: PlanPoint,
-  context: ArchitectureHoverContext,
-): ArchitectureHover | undefined {
+  context: ArchitectureTargetContext,
+): ArchitectureTarget | undefined {
   const pointId = findCornerPointIdAt(
     target,
     { points: context.points, walls: context.walls, floorId: context.floorId },
     context.toleranceCm,
   )
   if (pointId !== undefined) return { kind: 'point', pointId }
+
+  const opening = findOpeningUnderPoint(target, context)
+  if (opening) return { kind: 'opening', openingId: opening.id }
 
   // findWallUnderPoint kat filtresinden geçmiş dizi bekler (resolveSnap'in aksine).
   const floorPoints = context.points.filter((point) => point.floorId === context.floorId)
@@ -44,12 +52,13 @@ export function resolveArchitectureHover(
 }
 
 /** Aynı nesne mi? Store'a her karede yeni nesne yazılmasın diye karşılaştırılır. */
-export function isSameHover(
-  a: ArchitectureHover | undefined,
-  b: ArchitectureHover | undefined,
+export function isSameTarget(
+  a: ArchitectureTarget | undefined,
+  b: ArchitectureTarget | undefined,
 ): boolean {
   if (!a || !b) return a === b
   if (a.kind === 'point' && b.kind === 'point') return a.pointId === b.pointId
+  if (a.kind === 'opening' && b.kind === 'opening') return a.openingId === b.openingId
   if (a.kind === 'wall' && b.kind === 'wall') return a.wallId === b.wallId
   return false
 }

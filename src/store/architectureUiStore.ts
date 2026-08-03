@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
-import type { ArchitectureHover } from '../core/architectureHover'
+import type { ArchitectureTarget } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
 import type { Id, OpeningType } from '../core/model'
 import { DEFAULT_OPENING_WIDTH_CM } from '../core/opening'
@@ -16,11 +16,26 @@ type PointDrag = {
   position: PlanPoint
 }
 
+/**
+ * Taşınan duvarın GEÇİCİ ötelemesi. Duvar kendi koordinatını taşımadığı için
+ * konum değil ÖTELEME tutulur; çizim tarafı bunu duvarın iki köşesine uygular.
+ * draggingPoint ile aynı gerekçeyle store'a bırakma anında yazılır: komşu duvar
+ * kısaldıkça sığmayan açıklık her karede silinir ve geri gelmezdi (K16).
+ */
+type WallDrag = {
+  wallId: Id
+  dxCm: number
+  dyCm: number
+}
+
 type ArchitectureUiState = {
   selectedOpeningId: Id | null
+  /** Seçili duvar. Açıklık seçimiyle karşılıklı dışlamalı — ikisi aynı jestte temizlenir. */
+  selectedWallId: Id | null
   draggingPoint: PointDrag | null
+  draggingWall: WallDrag | null
   /** İmlecin altındaki nesne. Yalnız vurgu için; hiçbir şeyi seçmez. */
-  hover: ArchitectureHover | null
+  hover: ArchitectureTarget | null
   /**
    * Bir SONRAKİ yerleştirmenin genişliği, tip başına ayrı tutulur: kapıyı 100'e
    * çeken kullanıcı pencereye geçince 120'yi geri bulur.
@@ -28,9 +43,11 @@ type ArchitectureUiState = {
    */
   openingWidthCm: Record<OpeningType, number>
   setSelectedOpening: (openingId: Id | null) => void
+  setSelectedWall: (wallId: Id | null) => void
   setOpeningWidthCm: (type: OpeningType, widthCm: number) => void
   setDraggingPoint: (drag: PointDrag | null) => void
-  setHover: (hover: ArchitectureHover | null) => void
+  setDraggingWall: (drag: WallDrag | null) => void
+  setHover: (hover: ArchitectureTarget | null) => void
 }
 
 /**
@@ -48,13 +65,20 @@ type ArchitectureUiState = {
 export const useArchitectureUiStore = create<ArchitectureUiState>()(
   immer((set) => ({
     selectedOpeningId: null,
+    selectedWallId: null,
     draggingPoint: null,
+    draggingWall: null,
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
 
     setSelectedOpening: (openingId) =>
       set((draft) => {
         draft.selectedOpeningId = openingId
+      }),
+
+    setSelectedWall: (wallId) =>
+      set((draft) => {
+        draft.selectedWallId = wallId
       }),
 
     setOpeningWidthCm: (type, widthCm) =>
@@ -65,6 +89,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingPoint: (drag) =>
       set((draft) => {
         draft.draggingPoint = drag
+      }),
+
+    setDraggingWall: (drag) =>
+      set((draft) => {
+        draft.draggingWall = drag
       }),
 
     setHover: (hover) =>

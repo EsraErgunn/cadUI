@@ -15,10 +15,27 @@ import { useCadStore } from '../store/cadStore'
  */
 const HOVER_THICKNESS_BOOST_CM = 2
 
+/** Seçili duvar hover'dan daha belirgin: renk zaten mavi, kalınlık da bir tık fazla. */
+const SELECTED_THICKNESS_BOOST_CM = 3
+
+export type WallTone = 'normal' | 'hovered' | 'selected'
+
+const TONE_COLORS: Record<WallTone, string> = {
+  normal: SCENE_COLORS.wallFill,
+  hovered: SCENE_COLORS.wallHover,
+  selected: SCENE_COLORS.selection,
+}
+
+const TONE_BOOSTS_CM: Record<WallTone, number> = {
+  normal: 0,
+  hovered: HOVER_THICKNESS_BOOST_CM,
+  selected: SELECTED_THICKNESS_BOOST_CM,
+}
+
 type WallProps = {
   wall: WallData
   points: readonly Point[]
-  isHovered: boolean
+  tone: WallTone
 }
 
 /**
@@ -31,7 +48,7 @@ type WallProps = {
  * Duvarlar birbirinin üstüne çizilir ve birleşim hesabı YAPILMAZ: hepsi aynı
  * opak renkte olduğu için çakışma görünmez, kavşak kendiliğinden dolar (K23).
  */
-export function Wall({ wall, points, isHovered }: WallProps) {
+export function Wall({ wall, points, tone }: WallProps) {
   const capsule = getWallCapsule(wall, points)
   if (!capsule) return null
 
@@ -41,10 +58,10 @@ export function Wall({ wall, points, isHovered }: WallProps) {
         planToThree(capsule.p1, WALL_ELEVATION_CM),
         planToThree(capsule.p2, WALL_ELEVATION_CM),
       ]}
-      color={isHovered ? SCENE_COLORS.wallHover : SCENE_COLORS.wallFill}
+      color={TONE_COLORS[tone]}
       // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
       worldUnits
-      lineWidth={wall.thickness + (isHovered ? HOVER_THICKNESS_BOOST_CM : 0)}
+      lineWidth={wall.thickness + TONE_BOOSTS_CM[tone]}
       /*
        * Kenar yumuşatma örtme (coverage) maskesiyle yapılır, harmanlamayla değil.
        * Duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz: maske
@@ -71,19 +88,21 @@ export function Walls() {
   const points = useArchitecturePoints()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)
+  const selectedWallId = useArchitectureUiStore((state) => state.selectedWallId)
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
   const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
 
+  // Seçim vurgudan baskın: seçili duvarın üstündeyken mavi kalır, açılmaz.
+  const toneOf = (wallId: WallData['id']): WallTone => {
+    if (wallId === selectedWallId) return 'selected'
+    return wallId === hoveredWallId ? 'hovered' : 'normal'
+  }
+
   return (
     <group name="walls">
       {floorWalls.map((wall) => (
-        <Wall
-          key={wall.id}
-          wall={wall}
-          points={points}
-          isHovered={wall.id === hoveredWallId}
-        />
+        <Wall key={wall.id} wall={wall} points={points} tone={toneOf(wall.id)} />
       ))}
     </group>
   )

@@ -120,11 +120,13 @@ export function findOpeningUnderPoint(
 /**
  * Köşe tutamağı açıklıktan önce gelir. Seçim aracında aynı basışı
  * usePointDragTool da köşe sürüklemesi sayıyor; ikisi birden başlarsa tek
- * bırakma iki ayrı store yazımı (iki Ctrl+Z) üretir. Koşul oradakiyle bilerek
- * AYNI: resolveSnap → kind 'point'.
+ * bırakma iki ayrı store yazımı (iki Ctrl+Z) üretir.
+ *
+ * Koşulun kendisi `core/snap.ts` → `findCornerPointIdAt`'te TEK yerde durur;
+ * köşe sürükleme ve hover da aynı fonksiyonu çağırır. Burada ince bir sarmalayıcı
+ * kalmasının sebebi çağıranın `OpeningToolContext` taşıması.
  */
 export function isCornerHandleAtPoint(target: PlanPoint, context: OpeningToolContext): boolean {
-  // Koşul artık snap.ts'te TEK yerde: hover da aynı fonksiyonu çağırıyor.
   return (
     findCornerPointIdAt(
       target,

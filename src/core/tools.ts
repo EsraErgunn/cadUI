@@ -45,6 +45,7 @@ export const WALL_TOOL_ID: ToolId = 'drawWall'
 export const ROOM_TOOL_ID: ToolId = 'drawRoom'
 export const DOOR_TOOL_ID: ToolId = 'door'
 export const WINDOW_TOOL_ID: ToolId = 'window'
+export const ERASER_TOOL_ID: ToolId = 'eraser'
 
 export function getToolLabel(toolId: ToolId): string {
   const tool = ARCHITECTURE_TOOLS.find((candidate) => candidate.id === toolId)
