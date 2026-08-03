@@ -6,13 +6,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
 
-function renderMenuBar(onCloseEditor = vi.fn(), onSave = vi.fn()) {
+function renderMenuBar(onCloseEditor = vi.fn(), onSave = vi.fn(), onExport = vi.fn()) {
   render(
     <MemoryRouter>
-      <MenuBar onCloseEditor={onCloseEditor} onSave={onSave} isSaving={false} />
+      <MenuBar
+        onCloseEditor={onCloseEditor}
+        onSave={onSave}
+        onExport={onExport}
+        isSaving={false}
+      />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave }
+  return { onCloseEditor, onSave, onExport }
 }
 
 describe('MenuBar', () => {
@@ -42,7 +47,7 @@ describe('MenuBar', () => {
     },
   )
 
-  it('yalnız Kaydet ve Kapat aktiftir (KK-9)', async () => {
+  it('yalnız Kaydet, Dışa Aktar ve Kapat aktiftir (KK-9)', async () => {
     const user = userEvent.setup()
     renderMenuBar()
 
@@ -50,7 +55,18 @@ describe('MenuBar', () => {
 
     expect(screen.getByRole('menuitem', { name: 'Kapat' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Gönder' })).toBeDisabled()
+  })
+
+  it('Dosya > Dışa Aktar dışa aktarmayı tetikler', async () => {
+    const user = userEvent.setup()
+    const { onExport } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' }))
+
+    expect(onExport).toHaveBeenCalledTimes(1)
   })
 
   it('Dosya > Kaydet ve Kaydet düğmesi aynı akışı tetikler', async () => {
