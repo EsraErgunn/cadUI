@@ -28,7 +28,12 @@ interface DataTableProps<TRow, TSort extends string = string> {
   onToggleSort?: (key: TSort) => void
   /** Sütun sayısı arttıkça yatay kaydırmanın başlayacağı eşik değişir. */
   minWidthClassName?: string
+  /** Satıra duruma göre eklenen sınıf (ör. yeni kaydın vurgusu). */
+  rowClassName?: (row: TRow) => string | undefined
 }
+
+const ROW_BASE_CLASS =
+  'border-b border-edge last:border-0 transition-colors hover:bg-surface-sunken'
 
 const DEFAULT_MIN_WIDTH_CLASS = 'min-w-160'
 
@@ -53,6 +58,7 @@ export function DataTable<TRow, TSort extends string = string>({
   sortDir = 'asc',
   onToggleSort,
   minWidthClassName = DEFAULT_MIN_WIDTH_CLASS,
+  rowClassName,
 }: DataTableProps<TRow, TSort>) {
   return (
     <div className="overflow-x-auto rounded-xl border border-edge bg-surface">
@@ -103,25 +109,30 @@ export function DataTable<TRow, TSort extends string = string>({
               </td>
             </tr>
           ) : (
-            rows.map((row, rowIndex) => (
-              <tr
-                key={rowKey(row)}
-                className="border-b border-edge last:border-0 hover:bg-surface-sunken"
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={
-                      column.cellClassName === undefined
-                        ? 'px-4 py-3'
-                        : `px-4 py-3 ${column.cellClassName}`
-                    }
-                  >
-                    {column.cell(row, rowIndex)}
-                  </td>
-                ))}
-              </tr>
-            ))
+            rows.map((row, rowIndex) => {
+              const extraClass = rowClassName?.(row)
+              return (
+                <tr
+                  key={rowKey(row)}
+                  className={
+                    extraClass === undefined ? ROW_BASE_CLASS : `${ROW_BASE_CLASS} ${extraClass}`
+                  }
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={
+                        column.cellClassName === undefined
+                          ? 'px-4 py-3'
+                          : `px-4 py-3 ${column.cellClassName}`
+                      }
+                    >
+                      {column.cell(row, rowIndex)}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })
           )}
         </tbody>
       </table>

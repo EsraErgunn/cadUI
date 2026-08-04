@@ -19,7 +19,8 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
-import { adminButtonVariants } from '../ui/admin/adminVariants'
+import { ADMIN_ROW_HIGHLIGHT, adminButtonVariants } from '../ui/admin/adminVariants'
+import { CreatedProjectNotice } from '../ui/admin/projects/CreatedProjectNotice'
 import { ProjectFilterBar } from '../ui/admin/projects/ProjectFilterBar'
 import { StatusTabs } from '../ui/admin/projects/StatusTabs'
 import {
@@ -28,6 +29,7 @@ import {
   PROJECT_TABLE_MIN_WIDTH_CLASS,
 } from '../ui/admin/projects/projectColumns'
 import { buildProjectFilterChips } from '../ui/admin/projects/projectFilterChips'
+import { useCreatedProjectNotice } from '../ui/admin/projects/useCreatedProjectNotice'
 import { useProjectActions } from '../ui/admin/projects/useProjectActions'
 import { useProjectListParams } from '../ui/admin/projects/useProjectListParams'
 
@@ -84,7 +86,9 @@ export function ProjectListPage() {
 
   const { data: projectFirms } = useQuery({
     queryKey: ['projectFirms'],
-    queryFn: ({ signal }) => getProjectFirms(signal),
+    // Filtre kutusu bölgeden bağımsız TÜM firmaları listeler; bölge kısıtı yalnız
+    // yeni proje formunda geçerli.
+    queryFn: ({ signal }) => getProjectFirms(null, signal),
     staleTime: LOOKUP_STALE_MS,
   })
 
@@ -95,6 +99,10 @@ export function ProjectListPage() {
 
   const actions = useProjectActions({ onChanged: refreshLists })
   const { pendingProjectId, requestDelete, submit } = actions
+
+  // Yeni proje ekranından dönüşteki bildirim; şeridi ve yeni satırın vurgusunu
+  // aynı kaynak besliyor.
+  const createdNotice = useCreatedProjectNotice()
 
   const columns = useMemo(
     () =>
@@ -141,6 +149,8 @@ export function ProjectListPage() {
           Yeni Proje
         </Link>
       </div>
+
+      <CreatedProjectNotice notice={createdNotice} />
 
       {actions.notice !== null && (
         <NoticeBar
@@ -194,6 +204,11 @@ export function ProjectListPage() {
               sortDir={query.sortDir}
               onToggleSort={toggleSort}
               emptyMessage={hasActiveFilters ? EMPTY_WITH_FILTERS : EMPTY_WITHOUT_FILTERS}
+              // Yeni kayıt varsayılan sıralamada (updatedAt/desc) zaten 1. satır;
+              // vurgu onu bulmak için değil, şeritteki numarayla eşleştirmek için.
+              rowClassName={(project) =>
+                project.pId === createdNotice?.highlightedPId ? ADMIN_ROW_HIGHLIGHT : undefined
+              }
             />
             {data.totalCount > 0 && (
               <Pagination

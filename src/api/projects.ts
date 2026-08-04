@@ -3,11 +3,16 @@ import { z } from 'zod'
 import { fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import {
+  createMockProject,
   deleteMockProject,
   queryMockDistricts,
+  queryMockFirmEngineers,
+  queryMockGasFirmsForProjectFirm,
+  queryMockHeatingTypes,
   queryMockProjectFirms,
   queryMockProjects,
   queryMockProjectStatusCounts,
+  queryMockProjectTypes,
   submitMockProject,
 } from './projectsMock'
 import type { Id, ProjectData } from '../core/model'
@@ -90,6 +95,19 @@ export type HeatingType = (typeof HEATING_TYPES)[number]
 export const HEATING_TYPE_LABELS: Record<HeatingType, string> = {
   bireysel: 'Bireysel',
   merkezi: 'Merkezi',
+}
+
+/**
+ * Bina kullanımı PARAMETRİK DEĞİL: proje/ısınma tipinin aksine Ayarlar'dan
+ * beslenmiyor, iki değeri sözleşmede sabit (proje detayındaki "Müstakil" alanı
+ * bu ikiliye karşılık geliyor).
+ */
+export const BUILDING_USAGE_TYPES = ['coklu', 'mustakil'] as const
+export type BuildingUsageType = (typeof BUILDING_USAGE_TYPES)[number]
+
+export const BUILDING_USAGE_TYPE_LABELS: Record<BuildingUsageType, string> = {
+  coklu: 'Çoklu',
+  mustakil: 'Müstakil',
 }
 
 export const PROJECT_SORT_KEYS = ['updatedAt', 'createdAt', 'name'] as const
@@ -269,9 +287,202 @@ export async function getDistricts(signal?: AbortSignal): Promise<Lookup[]> {
   return lookupListSchema.parse(await queryMockDistricts(signal))
 }
 
-/** gerçek `GET /api/admin/project-firms`. */
-export async function getProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockProjectFirms(signal))
+/**
+ * gerçek `GET /api/admin/project-firms`.
+ *
+ * `region` opsiyonel: liste ekranının filtre kutusu TÜM firmaları ister, yeni
+ * proje formu ise üst bardaki bölge seçimiyle sınırlı olanları. İki ayrı fonksiyon
+ * açmak aynı ucu iki yerden tarif etmek olurdu.
+ */
+export async function getProjectFirms(
+  region?: string | null,
+  signal?: AbortSignal,
+): Promise<Lookup[]> {
+  return lookupListSchema.parse(await queryMockProjectFirms(region ?? null, signal))
+}
+
+/**
+ * API SÖZLEŞMESİ - Yeni proje formu.
+ *
+ * POST /api/admin/projects
+ *   Gövde = CreateProjectPayload. P_ID SUNUCUDA üretilir, istemci göndermez.
+ *   Proje "taslak" durumunda oluşur.
+ *   201 → { id, pId, status }
+ *
+ * GET /api/admin/project-types   → ParametricOption[]  (Ayarlar'dan beslenir)
+ * GET /api/admin/heating-types   → ParametricOption[]  (Ayarlar'dan beslenir)
+ *
+ * GET /api/admin/firm-engineers?projectFirmId=
+ *   projectFirmId YOKSA sunucu token'daki firmadan türetir — proje firması
+ *   kullanıcısı kendi firma kimliğini taşımıyor (bkz. getFirmEngineers).
+ *   200 → RawFirmEngineer[]
+ *
+ * GET /api/admin/gas-distribution-firms/for-project-firm?projectFirmId=&region=
+ *   Seçili proje firmasının ÇALIŞTIĞI GD firmaları (bir proje firması birden
+ *   fazla GD firmasıyla çalışabilir), bölgeyle ayrıca sınırlanır.
+ *   200 → Lookup[]
+ *
+ * TODO(api): uçların yolları ve alan adları backend'le doğrulanacak.
+ */
+
+/** Ayarlar'dan beslenen seçenek: kod sözleşme, etiket kullanıcıya gösterilen ad. */
+export interface ParametricOption<TCode extends string = string> {
+  code: TCode
+  label: string
+}
+
+export type ProjectTypeOption = ParametricOption<ProjectTypeCode>
+export type HeatingTypeOption = ParametricOption<HeatingType>
+
+/** Yetkili mühendis seçim kutusunun kaynağı. */
+export interface FirmEngineer {
+  id: number
+  fullName: string
+}
+
+/**
+ * Formun sunucuya gönderdiği gövde. Firma alanları OPSİYONEL: proje firması
+ * kullanıcısında bu iki alan hiç gönderilmez, sunucu token'dan türetir. İstemcinin
+ * gönderdiği firma kimliğine güvenmek başka firmanın adına proje açmaya yol açardı
+ * (bkz. knowledge/access-control.md).
+ */
+export interface CreateProjectPayload {
+  name: string
+  projectFirmId?: number
+  gasDistributionFirmId?: number
+  /** yyyy-aa-gg; saat dilimi kaymasın diye ISO damgası değil, düz tarih. */
+  startDate: string
+  endDate: string
+  engineerUserId: number
+  connectionObject: string | null
+  address: string
+  apartmentCount: number
+  workplaceCount: number
+  areaSquareMeters: number
+  /** Ada/Pafta/Parsel — serbest metin (tapu bilgisi). */
+  parcelInfo: string | null
+  projectType: ProjectTypeCode
+  /** Yapı ruhsatına bağlı proje mi. */
+  isPermitProject: boolean
+  heatingType: HeatingType
+  buildingUsageType: BuildingUsageType
+  capacityCubicMeterPerHour: number
+  serviceBoxPressureMbar: number
+  coverNote: string | null
+}
+
+export interface CreatedProject {
+  id: number
+  /** Sunucunun ürettiği proje numarası; istemci üretmez. */
+  pId: string
+  status: ProjectStatus
+}
+
+const rawParametricOptionSchema = z.object({
+  code: z.string(),
+  label: z.string(),
+})
+
+/** Sunucu adı iki parça + aktiflik bayrağıyla gönderiyor; ekran tek ad bekliyor. */
+const rawFirmEngineerSchema = z.object({
+  id: z.number().int().positive(),
+  firstName: z.string(),
+  lastName: z.string(),
+  isActive: z.boolean(),
+})
+
+const createdProjectSchema = z.object({
+  id: z.number().int().positive(),
+  pId: z.string(),
+  status: z.enum(PROJECT_STATUSES),
+})
+
+export type RawParametricOption = z.infer<typeof rawParametricOptionSchema>
+export type RawFirmEngineer = z.infer<typeof rawFirmEngineerSchema>
+
+export function mapFirmEngineer(raw: RawFirmEngineer): FirmEngineer {
+  return { id: raw.id, fullName: `${raw.firstName} ${raw.lastName}`.trim() }
+}
+
+/**
+ * Isınma tipi sunucuda parametrik ama `heatingType` alanı dar birleşimle kilitli
+ * (liste ekranının şeması bu enum'a bağlı). Tanınmayan kod gelirse form KIRILMAZ:
+ * seçenek süzülür ve bir kez uyarı düşer — kullanıcıya seçtiremeyeceğimiz bir
+ * değeri göstermek, sonradan doğrulamada patlamaktan iyidir.
+ */
+export function mapHeatingTypeOptions(raw: RawParametricOption[]): HeatingTypeOption[] {
+  const known: HeatingTypeOption[] = []
+  const unknownCodes: string[] = []
+
+  for (const option of raw) {
+    const code = HEATING_TYPES.find((candidate) => candidate === option.code)
+    if (code === undefined) {
+      unknownCodes.push(option.code)
+      continue
+    }
+    known.push({ code, label: option.label })
+  }
+
+  if (unknownCodes.length > 0) {
+    // Sessizce kaybolan seçenek, hata ayıklanamayan bir "listede yok" şikâyetine
+    // dönüşür; sözleşme sapması görünür kalmalı. no-console kuralı unutulmuş
+    // hata ayıklama çıktısı içindir, bilinçli sözleşme uyarısı için değil.
+    // eslint-disable-next-line no-console
+    console.warn(`Bilinmeyen ısınma tipi kodu sunucudan geldi: ${unknownCodes.join(', ')}`)
+  }
+
+  return known
+}
+
+/** gerçek `GET /api/admin/project-types`. Kod listesi parametrik: süzülmez. */
+export async function getProjectTypes(signal?: AbortSignal): Promise<ProjectTypeOption[]> {
+  const raw = z.array(rawParametricOptionSchema).parse(await queryMockProjectTypes(signal))
+  return raw.map((option) => ({ code: option.code, label: option.label }))
+}
+
+/** gerçek `GET /api/admin/heating-types`. */
+export async function getHeatingTypes(signal?: AbortSignal): Promise<HeatingTypeOption[]> {
+  const raw = z.array(rawParametricOptionSchema).parse(await queryMockHeatingTypes(signal))
+  return mapHeatingTypeOptions(raw)
+}
+
+/**
+ * gerçek `GET /api/admin/firm-engineers`.
+ *
+ * `projectFirmId` opsiyonel: admin firmayı seçerek sorar, proje firması kullanıcısı
+ * kendi firma kimliğini taşımadığı için kimliksiz sorar ve sunucu token'dan türetir.
+ * TODO(api): kimliksiz çağrının uçta desteklendiği doğrulanacak.
+ */
+export async function getFirmEngineers(
+  projectFirmId?: number,
+  signal?: AbortSignal,
+): Promise<FirmEngineer[]> {
+  const raw = z
+    .array(rawFirmEngineerSchema)
+    .parse(await queryMockFirmEngineers(projectFirmId, signal))
+
+  // Pasif kullanıcıyı sunucunun süzmesi beklenir; ikinci süzgeç ucuz ve
+  // yetkisini kaybetmiş bir mühendisin yeni projeye atanmasını engeller.
+  return raw.filter((engineer) => engineer.isActive).map(mapFirmEngineer)
+}
+
+export interface GasFirmsForProjectFirmQuery {
+  projectFirmId: number
+  /** Üst bardaki kapsam seçimi; "Hepsi" ise null. */
+  region: string | null
+}
+
+/** gerçek `GET /api/admin/gas-distribution-firms/for-project-firm`. */
+export async function getGasFirmsForProjectFirm(
+  query: GasFirmsForProjectFirmQuery,
+  signal?: AbortSignal,
+): Promise<Lookup[]> {
+  return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(query, signal))
+}
+
+/** gerçek `POST /api/admin/projects`. */
+export async function createProject(payload: CreateProjectPayload): Promise<CreatedProject> {
+  return createdProjectSchema.parse(await createMockProject(payload))
 }
 
 /**
