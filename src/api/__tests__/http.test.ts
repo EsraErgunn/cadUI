@@ -78,6 +78,62 @@ describe('requestJson', () => {
     ).rejects.toThrow('Proje bulunamadı.')
   })
 
+  it('ProblemDetails gövdesinde detail alanını kullanır', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        {
+          type: 'https://tools.ietf.org/html/rfc9110#section-15.5.1',
+          title: 'Bad Request',
+          status: 400,
+          detail: 'Proje firması bu bölgede tanımlı değil.',
+        },
+        400,
+      ),
+    )
+
+    await expect(requestJson({ method: 'GET', path: '/api/projects' }, okSchema)).rejects.toThrow(
+      'Proje firması bu bölgede tanımlı değil.',
+    )
+  })
+
+  it('model doğrulama hatasında alan mesajını çıkarır', async () => {
+    // `title` burada İngilizce ve genel; kullanıcıya alan bazlı mesaj gitmeli.
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        {
+          title: 'One or more validation errors occurred.',
+          status: 400,
+          errors: { Name: ['Proje adı zorunludur.'] },
+        },
+        400,
+      ),
+    )
+
+    await expect(requestJson({ method: 'POST', path: '/api/projects' }, okSchema)).rejects.toThrow(
+      'Proje adı zorunludur.',
+    )
+  })
+
+  it('yalnız title varsa ona düşer', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ title: 'Not Found', status: 404 }, 404))
+
+    await expect(requestJson({ method: 'GET', path: '/api/projects/9' }, okSchema)).rejects.toThrow(
+      'Not Found',
+    )
+  })
+
+  it('düz message alanı ProblemDetails alanlarının önünde gelir', async () => {
+    // Gerçek API girişte düz `{ message }` döndürüyor (doğrulandı); bu dal
+    // ProblemDetails eklenirken kaybolmamalı.
+    fetchMock.mockResolvedValue(
+      jsonResponse({ message: 'Kullanıcı adı veya şifre hatalı.', title: 'Unauthorized' }, 401),
+    )
+
+    await expect(requestJson({ method: 'POST', path: '/api/auth/login' }, okSchema)).rejects.toThrow(
+      'Kullanıcı adı veya şifre hatalı.',
+    )
+  })
+
   it('gövde JSON değilse genel mesaja düşer', async () => {
     fetchMock.mockResolvedValue(new Response('<html>502</html>', { status: 502 }))
 

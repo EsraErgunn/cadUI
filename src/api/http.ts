@@ -54,20 +54,59 @@ function isAbort(cause: unknown): boolean {
   return cause instanceof DOMException && cause.name === 'AbortError'
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
-  // Hata gövdesi { message } geliyor (BaseApiController.FromResult). 500 veya
-  // vekil hatalarında HTML de gelebilir; o zaman genel mesaja düşülür.
-  try {
-    const body: unknown = await response.json()
-    if (body && typeof body === 'object' && 'message' in body) {
-      const { message } = body as { message: unknown }
-      if (typeof message === 'string' && message.length > 0) return message
-    }
-  } catch {
-    // gövde JSON değil
+function readText(source: Record<string, unknown>, key: string): string | null {
+  const value = source[key]
+  return typeof value === 'string' && value.trim() !== '' ? value : null
+}
+
+/**
+ * ASP.NET model doğrulaması ProblemDetails'in `errors` alanını alan→mesajlar
+ * sözlüğü olarak doldurur; `detail` boş kalır. İlk mesaj alınır: alan başına tek
+ * satır göstermek, hata kutusuna sözlük dökmekten okunur.
+ */
+function readValidationMessage(body: Record<string, unknown>): string | null {
+  const errors = body.errors
+  if (!errors || typeof errors !== 'object') return null
+
+  for (const messages of Object.values(errors)) {
+    if (!Array.isArray(messages)) continue
+    const first = messages.find((item) => typeof item === 'string' && item.trim() !== '')
+    if (typeof first === 'string') return first
   }
 
-  return `Sunucu ${response.status} döndü.`
+  return null
+}
+
+/**
+ * Hata gövdesi iki biçimde gelebiliyor:
+ *
+ * - Uygulamanın kendi hataları düz `{ message }` (BaseApiController.FromResult) —
+ *   `POST /api/auth/login` geçersiz girişte bunu döndürüyor, doğrulandı.
+ * - Çerçevenin ürettiği hatalar (model doğrulama, yetki, işlenmeyen istisna)
+ *   ProblemDetails: `{ type, title, status, detail, errors }`.
+ *
+ * Sıra bilinçli: `message` en özel olan, `detail` ondan sonra, `title` genellikle
+ * "One or more validation errors occurred." gibi İNGİLİZCE ve genel — o yüzden
+ * alan bazlı mesajın arkasına düşüyor. 500 veya vekil hatalarında HTML de
+ * gelebilir; hiçbiri tutmazsa genel Türkçe mesaja inilir.
+ */
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json()
+    if (!body || typeof body !== 'object') return `Sunucu ${response.status} döndü.`
+
+    const record = body as Record<string, unknown>
+    return (
+      readText(record, 'message') ??
+      readText(record, 'detail') ??
+      readValidationMessage(record) ??
+      readText(record, 'title') ??
+      `Sunucu ${response.status} döndü.`
+    )
+  } catch {
+    // gövde JSON değil
+    return `Sunucu ${response.status} döndü.`
+  }
 }
 
 /**
