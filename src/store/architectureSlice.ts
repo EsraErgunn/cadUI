@@ -1,5 +1,7 @@
 import type { StateCreator } from 'zustand'
 
+import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
+import { splitWallsAtIntersections } from './architectureSplit'
 import {
   appendWall,
   appendWallChain,
@@ -14,13 +16,8 @@ import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
 import type { PlanPoint } from '../core/coords'
 import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
-import {
-  isPlacementValid,
-  MIN_OPENING_WIDTH_CM,
-  pruneUnfittableOpenings,
-  type OpeningPlacement,
-} from '../core/opening'
-import { getOrphanPointIds, getPlacementRange } from '../core/wall'
+import { MIN_OPENING_WIDTH_CM } from '../core/opening'
+import { getOrphanPointIds } from '../core/wall'
 
 // Selector'lar ve duvar yazma iç fonksiyonları ayrı dosyalarda (max-lines);
 // sözleşme yüzeyi tek yerden okunsun diye buradan yeniden dışa aktarılıyor.
@@ -97,31 +94,6 @@ export function deriveNextUniqueId(data: ArchitectureData): Id {
   )
 }
 
-/** Köşe payı burada hesaplanmaz; getPlacementRange'den geçirilir (K11). */
-function isPlacementValidInState(state: ArchitectureData, placement: OpeningPlacement): boolean {
-  const wall = state.walls.find((candidate) => candidate.id === placement.wallId)
-  if (!wall) return false
-
-  const range = getPlacementRange(wall, state.points, state.walls)
-  if (!range) return false
-
-  return isPlacementValid(placement, range, state.openings)
-}
-
-/**
- * Duvarı silinen veya sığmayacak kadar kısalan açıklığı düşürür (K16).
- * Çağıranın set()'i içinde çalışır: silme + temizlik TEK geri alma adımı olsun.
- * Değişiklik olmadıysa false döner — duvar sürüklemesi her karede projeyi
- * kirletmesin.
- */
-function pruneOpeningsInDraft(draft: ArchitectureData): boolean {
-  const kept = pruneUnfittableOpenings(draft.openings, draft.walls, draft.points)
-  if (kept.length === draft.openings.length) return false
-
-  draft.openings = kept
-  return true
-}
-
 export const createArchitectureSlice: StateCreator<
   CadState,
   [['zustand/immer', never]],
@@ -135,7 +107,11 @@ export const createArchitectureSlice: StateCreator<
     let added: AddedWall | undefined
     set((draft) => {
       added = appendWall(draft, input.start, input.end, input)
-      if (added) markDirty(draft)
+      if (!added) return
+
+      // Yeni duvar bir başkasını kesiyor olabilir: düğüm aynı adımda açılır (K24).
+      splitWallsAtIntersections(draft)
+      markDirty(draft)
     })
     return added
   },
@@ -143,7 +119,10 @@ export const createArchitectureSlice: StateCreator<
   // Zincirin tamamı tek set() içinde: geri alma tek adımda tüm zinciri kaldırır.
   addWallChain: (input) =>
     set((draft) => {
-      if (appendWallChain(draft, input)) markDirty(draft)
+      if (!appendWallChain(draft, input)) return
+
+      splitWallsAtIntersections(draft)
+      markDirty(draft)
     }),
 
   movePoint: (pointId, position) =>
@@ -156,6 +135,8 @@ export const createArchitectureSlice: StateCreator<
       point.y = position.y
       // Köşeyi çekmek duvarı kısaltabilir; sığmayan açıklık aynı adımda düşer (K16).
       pruneOpeningsInDraft(draft)
+      // Köşe başka bir duvarın gövdesine bırakılmış olabilir → T birleşimi (K24).
+      splitWallsAtIntersections(draft)
       markDirty(draft)
     }),
 
@@ -176,6 +157,8 @@ export const createArchitectureSlice: StateCreator<
       // Ötelenen duvarın boyu sabit, açıklıkları güvende. Ama köşeleri paylaşan
       // KOMŞU duvarlar kısalabilir; oradaki sığmayan açıklık aynı adımda düşer (K16).
       pruneOpeningsInDraft(draft)
+      // Taşınan duvar başkalarının üstünden geçmiş olabilir (K24).
+      splitWallsAtIntersections(draft)
       markDirty(draft)
     }),
 

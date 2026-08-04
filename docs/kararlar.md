@@ -510,3 +510,51 @@ incelmeye başlar. `scene/Cameras.tsx`'te uyarı var.
 - Açıklıklar etkilenmedi — duvarı kesmiyor, üstüne boyanıyor.
 
 Nerede: `core/wallShape.ts`, `scene/Wall.tsx`. Ayrıntı: `knowledge/capsule-walls.md`.
+
+---
+
+## 2026-08 · Duvar grafı düzlemsel yapılıyor
+
+### K24 — Kesişimde ve T birleşiminde düğüm açılır, duvar bölünür
+
+Mahal tespiti (`core/room.ts`) yüz taramasıyla çalışacak ve bu ancak kenarların
+YALNIZ düğümlerde buluştuğu bir grafta doğrudur. Kesişip geçen duvarlar bu
+koşulu bozuyordu: ekranda kapalı görünen alan, grafta kapalı değildi.
+
+Artık her düzenlemeden sonra graf düzlemsel hale getiriliyor:
+
+- **T birleşimi** (bir duvarın ucu diğerinin gövdesinde): gövdedeki duvar
+  bölünür, değen ucun var olan `Point`'i PAYLAŞILIR. Yeni nokta üretilseydi
+  aynı yerde iki nokta olur, duvarlar kopuk kalır ve çevrim kapanmazdı.
+- **Kesişim**: iki duvar da bölünür, ortak TEK yeni `Point` üretilir.
+- Bölünen duvarın ilk parçası kendi id'sini korur — seçim, açıklık ve geri
+  alma o id'ye bakıyor.
+
+Bölme, onu tetikleyen çizim/taşımanın `set()`'i içinde çalışır: tek geri alma
+adımı.
+
+### Açıklık çakışması: bölme reddedilir
+
+Bölme noktası bir kapı/pencerenin İÇİNE düşüyorsa o bölme YAPILMAZ. Açıklık
+silinmez, kaydırılmaz — K13'ün "geçersiz yerleştirme reddedilir, kaydırılmaz"
+kuralının aynısı. Kullanıcının koyduğu veri sessizce kaybolmaz.
+
+Kesişimin bir tarafı reddedilirse öbür tarafı da düşer; yoksa bir duvar
+bölünür, diğeri bölünmez ve hiçbir şeye bağlanmayan bir düğüm kalır.
+
+Reddedilmeyen bölmelerde açıklık kendisini İÇEREN parçaya taşınır, `offsetCm`
+o parçanın başına göre yeniden hesaplanır.
+
+Bedeli: kapının üstünden geçen duvar orada düğüm açmaz, o noktada oda çevrimi
+kapanmaz. Kullanıcıya bunu anlatan uyarı henüz yok.
+
+### K9 ile ilişkisi
+
+K9 "duvar BÖLÜNMEZ" diyordu; o kural AÇIKLIK için geçerli ve değişmedi —
+açıklık hâlâ tek parça duvarın üstünde bir delik. K24 topolojik bölmedir,
+kesişim/birleşim noktalarında gerçekleşir ve açıklıkla çakıştığında geri adım
+atar.
+
+Nerede: `core/wallGraph.ts` (saf), `store/architectureSplit.ts` (uygular).
+Bilinen sınırlar (kolineer duvarlar, birleşmeme, karesel maliyet):
+`knowledge/wall-graph.md`.
