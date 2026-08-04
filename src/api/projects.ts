@@ -3,18 +3,16 @@ import { z } from 'zod'
 import { fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import {
-  createMockProject,
-  deleteMockProject,
   queryMockDistricts,
   queryMockFirmEngineers,
   queryMockGasFirmsForProjectFirm,
   queryMockHeatingTypes,
   queryMockProjectFirms,
-  queryMockProjects,
   queryMockProjectStatusCounts,
   queryMockProjectTypes,
   submitMockProject,
 } from './projectsMock'
+import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
 import { parseProjectJson, serializeProjectData } from '../core/serialize'
 
@@ -98,6 +96,14 @@ export const HEATING_TYPE_LABELS: Record<HeatingType, string> = {
 }
 
 /**
+ * LİSTEDEKİ ısınma tipi — `ProjectTypeCode` ile aynı gerekçe: tip parametrik,
+ * arayüz bilmediği bir kodla karşılaşabilir ve rozet ham kodu gösterir.
+ * FORM tarafı bu genişlemeyi ALMAZ: `CreateProjectPayload.heatingType` dar
+ * birleşim kalır, yoksa kullanıcı seçemeyeceği bir değerle proje kaydederdi.
+ */
+export type HeatingTypeCode = HeatingType | (string & {})
+
+/**
  * Bina kullanımı PARAMETRİK DEĞİL: proje/ısınma tipinin aksine Ayarlar'dan
  * beslenmiyor, iki değeri sözleşmede sabit (proje detayındaki "Müstakil" alanı
  * bu ikiliye karşılık geliyor).
@@ -135,7 +141,8 @@ const projectListItemSchema = z.object({
   firmName: z.string(),
   buildingCode: z.string().nullable(),
   projectType: z.string(),
-  heatingType: z.enum(HEATING_TYPES),
+  // Dar birleşim DEĞİL: uç ısınma tipini henüz döndürmüyor, yer tutucu geçebilmeli.
+  heatingType: z.string(),
   updatedAt: z.string(),
   createdAt: z.string(),
   gasFirm: lookupSchema.nullable(),
@@ -150,7 +157,7 @@ export interface ProjectListItem {
   firmName: string
   buildingCode: string | null
   projectType: ProjectTypeCode
-  heatingType: HeatingType
+  heatingType: HeatingTypeCode
   updatedAt: string
   createdAt: string
   gasFirm: Lookup | null
@@ -190,73 +197,147 @@ const submitProjectResultSchema = z.discriminatedUnion('ok', [
 ])
 
 /**
- * Sunucunun ham yanıtı. Alan adları backend'le HENÜZ kesinleşmedi; gaz dağıtım
- * firması düz iki alan olarak geliyor, arayüz ise iç içe nesne bekliyor.
- * Alan adı değişirse yalnız bu şema ve `mapProjectListItem` güncellenir —
- * bileşenler ve `ProjectListItem` etkilenmez.
+ * Rozet adetlerini üreten mock kaydın şekli. Liste artık gerçek uçtan geldiği
+ * için bunun zod şeması ve eşleyicisi kaldırıldı; tip yalnız `projectsMock`
+ * ayakta kaldığı sürece duruyor.
+ *
+ * TODO(api): `GET /api/projects/status-counts` bağlanınca bu tip de silinecek.
  */
-const rawProjectListItemSchema = z.object({
-  id: z.number().int().positive(),
-  pId: z.string(),
-  name: z.string(),
-  firmName: z.string(),
-  buildingCode: z.string().nullish(),
-  projectType: z.string(),
-  heatingType: z.enum(HEATING_TYPES),
-  updatedAt: z.string(),
-  createdAt: z.string(),
-  gasFirmId: z.number().int().positive().nullish(),
-  gasFirmName: z.string().nullish(),
-  hasDocuments: z.boolean(),
-})
-
-export type RawProjectListItem = z.infer<typeof rawProjectListItemSchema>
-
-/**
- * Ham kaydı ekranın beklediği şekle çevirir. İki normalizasyon yapar:
- * eksik/boş metinleri `null`'a indirger (tabloda "—" gösterilecek) ve düz gaz
- * firması alanlarını tek nesnede toplar.
- */
-export function mapProjectListItem(raw: RawProjectListItem): ProjectListItem {
-  const buildingCode = raw.buildingCode?.trim()
-  const gasFirmId = raw.gasFirmId ?? null
-  const gasFirmName = raw.gasFirmName ?? null
-
-  return {
-    id: raw.id,
-    pId: raw.pId,
-    name: raw.name,
-    firmName: raw.firmName,
-    buildingCode: buildingCode === undefined || buildingCode === '' ? null : buildingCode,
-    projectType: raw.projectType,
-    heatingType: raw.heatingType,
-    updatedAt: raw.updatedAt,
-    createdAt: raw.createdAt,
-    gasFirm:
-      gasFirmId === null || gasFirmName === null ? null : { id: gasFirmId, name: gasFirmName },
-    hasDocuments: raw.hasDocuments,
-  }
+export interface RawProjectListItem {
+  id: number
+  pId: string
+  name: string
+  firmName: string
+  buildingCode?: string | null
+  projectType: string
+  heatingType: HeatingType
+  updatedAt: string
+  createdAt: string
+  gasFirmId?: number | null
+  gasFirmName?: string | null
+  hasDocuments: boolean
 }
 
 /**
- * gerçek `GET /api/admin/projects` bağlanınca bu gövde fetch +
- * `rawProjectListItemSchema` doğrulaması + `mapProjectListItem` olacak; imza ve
- * dönüş tipi aynı kaldığı için çağıran taraf değişmez.
+ * GERÇEK UÇ SÖZLEŞMESİ — doğrulandı (2026-08-04, cadapi yerel).
+ *
+ * GET    /api/projects       → 200, DÜZ DİZİ: [{ id, name, code, createdAt, updatedAt }]
+ *                              Sayfalama/filtre parametresi YOK, kayıt id'ye göre azalan.
+ * POST   /api/projects       → 200, { id, name, description, code,
+ *                                     projectFirmRegionId, gasDistributionFirmRegionId,
+ *                                     createdAt, updatedAt }
+ *                              Zorunlu: name, projectFirmRegionId, gasDistributionFirmRegionId.
+ *                              Opsiyonel: description, code. Tanınmayan alan SESSİZCE atılır.
+ * DELETE /api/projects/{id}  → 200 { message }, kayıt yoksa 404.
+ *
+ * Doğrulama hatası: 400 { errors: { Alan: [mesaj] } }
+ * İş kuralı hatası: 400 { message }
+ */
+const apiProjectSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  code: z.string().nullish(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+/**
+ * Uç, listede olmayan alanları hiç göndermiyor. Tabloda boş hücre yerine tire
+ * çıksın diye tek bir yer tutucu kullanılıyor — gösterim metninin veri
+ * katmanında olması geçici, uç alanları döndürmeye başlayınca kalkacak.
+ *
+ * TODO(api): firma adı, proje tipi, ısınma tipi, bina kodu, evrak durumu ve
+ * gaz dağıtım firması uçtan gelmiyor; sözleşmeye eklenince eşleme düzeltilecek.
+ */
+const MISSING_VALUE_LABEL = '—'
+
+/**
+ * Uç `status` döndürmüyor; kayıtların tamamı taslak sayılıyor. Diğer sekmeler
+ * bu yüzden boş liste alır — uydurma bir durum atamak, kullanıcıya onaya
+ * gitmiş gibi görünen bir proje gösterirdi.
+ *
+ * TODO(api): proje durumu uca eklenince bu sabit kalkacak.
+ */
+const API_PROJECT_STATUS: ProjectStatus = 'taslak'
+
+/**
+ * Uçta P_ID diye bir alan yok; `code` opsiyonel ve varsayılan olarak null.
+ * Kayıt kimliği yedek olarak kullanılıyor: boş bırakılsaydı yeni kayıt
+ * vurgusu (pId eşleşmesi) tüm satırları yakalardı.
+ *
+ * TODO(api): sunucu üretimli proje numarası gelince burası sadeleşecek.
+ */
+function toProjectPId(raw: { id: number; code?: string | null }): string {
+  const code = raw.code?.trim()
+  return code === undefined || code === '' ? String(raw.id) : code
+}
+
+function mapApiProject(raw: z.infer<typeof apiProjectSchema>): ProjectListItem {
+  return {
+    id: raw.id,
+    pId: toProjectPId(raw),
+    name: raw.name,
+    firmName: MISSING_VALUE_LABEL,
+    buildingCode: null,
+    projectType: MISSING_VALUE_LABEL,
+    heatingType: MISSING_VALUE_LABEL,
+    updatedAt: raw.updatedAt,
+    createdAt: raw.createdAt,
+    gasFirm: null,
+    hasDocuments: false,
+  }
+}
+
+function matchesQuery(project: ProjectListItem, query: ProjectListQuery): boolean {
+  if (query.status !== API_PROJECT_STATUS) return false
+
+  // Tarih aralığı güncelleme tarihine göre, gün bazlı kapsayıcı.
+  const updatedDay = project.updatedAt.slice(0, 10)
+  if (query.dateFrom !== null && updatedDay < query.dateFrom) return false
+  if (query.dateTo !== null && updatedDay > query.dateTo) return false
+
+  if (query.search !== '') {
+    const hit = includesTr(project.name, query.search) || includesTr(project.pId, query.search)
+    if (!hit) return false
+  }
+
+  // TODO(api): ilçe, proje firması ve bölge uçtan gelmiyor; bu üç filtre şimdilik
+  // hiçbir kaydı elemiyor. Elenseydi filtre seçilir seçilmez liste boşalır ve
+  // kullanıcı veri kaybettiğini sanardı.
+  return true
+}
+
+function compareProjects(a: ProjectListItem, b: ProjectListItem, query: ProjectListQuery): number {
+  const direction = query.sortDir === 'asc' ? 1 : -1
+  if (query.sortBy === 'name') return a.name.localeCompare(b.name, 'tr') * direction
+  return a[query.sortBy].localeCompare(b[query.sortBy]) * direction
+}
+
+/**
+ * TODO(api): `GET /api/projects` filtre/sıralama/sayfalama parametresi almıyor,
+ * bu yüzden TÜM liste çekilip istemcide süzülüyor, sıralanıyor ve 30'arlı
+ * diliniyor. Kayıt sayısı büyüyünce uca `page`/`pageSize`/`q` eklenmeli —
+ * CLAUDE.md "sayfalama sunucu taraflı" kuralının bilinçli, geçici istisnası.
  */
 export async function listProjects(
   query: ProjectListQuery,
   signal?: AbortSignal,
 ): Promise<PagedResult<ProjectListItem>> {
-  const { items, totalCount } = await queryMockProjects(query, signal)
+  const raw = await requestJson(
+    { method: 'GET', path: '/api/projects', signal },
+    z.array(apiProjectSchema),
+  )
 
-  // İki şema iki farklı sözleşmeyi korur: ham şema sunucunun gönderdiğini,
-  // sayfa şeması eşlemeden sonra ekranın beklediğini. Mock da olsa ikisinden de
-  // geçiyor — sözleşme bozulursa gerçek endpoint'ten önce burada patlar.
-  const rawItems = z.array(rawProjectListItemSchema).parse(items)
+  const matched = raw
+    .map(mapApiProject)
+    .filter((project) => matchesQuery(project, query))
+    .sort((a, b) => compareProjects(a, b, query))
+
+  const start = (query.page - 1) * query.pageSize
 
   return projectPageSchema.parse({
-    items: rawItems.map(mapProjectListItem),
-    totalCount,
+    items: matched.slice(start, start + query.pageSize),
+    totalCount: matched.length,
     page: query.page,
     pageSize: query.pageSize,
   })
@@ -271,9 +352,10 @@ export async function getProjectStatusCounts(
   return statusCountsSchema.parse(counts)
 }
 
-/** gerçek `DELETE /api/admin/projects/:id`. */
+/** `DELETE /api/projects/{id}` → 200 `{ message }`. Gövde kullanılmıyor; uç
+    ileride 204'e dönerse şema değil, http.ts'in gövde okuması ayarlanacak. */
 export async function deleteProject(id: number): Promise<void> {
-  await deleteMockProject(id)
+  await requestJson({ method: 'DELETE', path: `/api/projects/${id}` }, z.unknown())
 }
 
 /** gerçek `POST /api/admin/projects/:id/submit`. */
@@ -480,9 +562,65 @@ export async function getGasFirmsForProjectFirm(
   return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(query, signal))
 }
 
-/** gerçek `POST /api/admin/projects`. */
+const apiCreatedProjectSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  description: z.string().nullish(),
+  code: z.string().nullish(),
+  projectFirmRegionId: z.number().int(),
+  gasDistributionFirmRegionId: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+/**
+ * Uç `projectFirmRegionId`/`gasDistributionFirmRegionId` istiyor: bunlar firma
+ * kimliği DEĞİL, firma×bölge bağ kaydının kimliği. Formdaki `projectFirmId`
+ * (11, 12…) buraya konulamaz — uç "bölgesi bulunamadı" der.
+ *
+ * Bu kimlikleri listeleyen bir uç YOK (`/api/regions`, `/api/projectfirmregions`
+ * → 404; `/api/projectfirms` yalnız firmayı döndürüyor, bölge bağını değil) ve
+ * bugün veritabanında yalnız 1 numaralı bağ kayıtlı — 2..6 denendi, hepsi
+ * reddedildi. Sabit bu yüzden, tahmin olduğu için değil.
+ *
+ * TODO(api): firma×bölge bağlarını listeleyen bir uç açılınca form bu değeri
+ * seçilen firmadan türetecek ve sabit kalkacak.
+ */
+const SEEDED_PROJECT_FIRM_REGION_ID = 1
+const SEEDED_GAS_FIRM_REGION_ID = 1
+
+/**
+ * `POST /api/projects`. Uç bugün yalnız `name`, `description`, `code` ve iki
+ * bölge bağını saklıyor; formun geri kalan alanları GÖNDERİLMİYOR.
+ *
+ * TODO(api): adres, iş başlama/bitiş tarihi, yetkili mühendis, bağlantı nesnesi,
+ * daire/işyeri sayısı, alan, ada/pafta/parsel, proje tipi, ruhsat bayrağı, ısınma
+ * tipi, bina kullanımı tipi, kapasite, S.K. basıncı ve kapak açıklaması uçta
+ * karşılığı olmadığı için kaydedilmiyor. Bunları `description` içine JSON olarak
+ * gömmek sunucunun sorgulayamadığı, şemasız bir alan yaratırdı — bilinçli olarak
+ * yapılmadı, uç genişleyince tek tek eklenecek.
+ */
 export async function createProject(payload: CreateProjectPayload): Promise<CreatedProject> {
-  return createdProjectSchema.parse(await createMockProject(payload))
+  const created = await requestJson(
+    {
+      method: 'POST',
+      path: '/api/projects',
+      rawJsonBody: JSON.stringify({
+        name: payload.name,
+        projectFirmRegionId: SEEDED_PROJECT_FIRM_REGION_ID,
+        gasDistributionFirmRegionId: SEEDED_GAS_FIRM_REGION_ID,
+      }),
+    },
+    apiCreatedProjectSchema,
+  )
+
+  // pId liste eşlemesiyle AYNI kuraldan türüyor; ayrışsaydı yeni kayıt vurgusu
+  // (pId eşleşmesi) hiçbir satırı yakalamazdı.
+  return createdProjectSchema.parse({
+    id: created.id,
+    pId: toProjectPId(created),
+    status: API_PROJECT_STATUS,
+  })
 }
 
 /**

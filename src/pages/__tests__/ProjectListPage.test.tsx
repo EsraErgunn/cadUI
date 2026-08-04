@@ -2,9 +2,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ProjectListPage } from '../ProjectListPage'
+
+/** Varsayılan tarih aralığı son bir ay; kayıtlar bugünden olmalı ki süzülmesin. */
+const TODAY = `${new Date().toISOString().slice(0, 10)}T09:00:00`
+
+/**
+ * Liste artık gerçek `GET /api/projects`'e gidiyor; gövde 2026-08-04'te
+ * cadapi'den doğrulanan biçimde. Sil/Gönder rozetleri hâlâ mock uçlardan
+ * geliyor, onlar stub'lanmıyor.
+ */
+const API_PROJECTS = [
+  { id: 3, name: 'Gülbahar Apartmanı', code: null, createdAt: TODAY, updatedAt: TODAY },
+  { id: 2, name: 'Çınar Sitesi', code: 'PRJ-002', createdAt: TODAY, updatedAt: TODAY },
+  { id: 1, name: 'Demo Doğalgaz Projesi', code: null, createdAt: TODAY, updatedAt: TODAY },
+]
 
 function LocationProbe() {
   const location = useLocation()
@@ -31,6 +45,27 @@ function renderPage() {
     </QueryClientProvider>,
   )
 }
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          resolve(
+            new Response(JSON.stringify(API_PROJECTS), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          ),
+        ),
+    ),
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('ProjectListPage (duman)', () => {
   it('taslak projeleri listeler, sekme değişince filtreleri korur', async () => {
