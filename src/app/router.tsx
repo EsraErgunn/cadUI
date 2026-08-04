@@ -6,6 +6,7 @@ import { AdminTodoPage } from '../pages/AdminTodoPage'
 import { EditorPage } from '../pages/EditorPage'
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
+import { NewProjectPage } from '../pages/NewProjectPage'
 import { ProjectListPage } from '../pages/ProjectListPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
@@ -34,7 +35,7 @@ export function AppRouter() {
           <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
           {/* Statik parça dinamik olandan önce eşleşir (React Router sıralaması),
               yoksa /projects/new editörü "new" kimliğiyle açmaya çalışırdı. */}
-          <Route path={PROJECT_CREATE_PATH} element={<AdminTodoPage title="Yeni Proje" />} />
+          <Route path={PROJECT_CREATE_PATH} element={<NewProjectPage />} />
         </Route>
 
         {/* Editör kabuk dışında: tam ekran çizim alanı. */}
@@ -71,6 +72,6 @@ export function AppRouter() {
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
       </Routes>
-    </BrowserRouter>
+ bu   </BrowserRouter>
   )
 }

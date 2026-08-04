@@ -40,9 +40,11 @@ export function AdminSidebar() {
 
   return (
     // Zemin ana içerikle aynı (surface-sunken); ikisi yalnızca sağ kenarlıkla ayrılır.
+    // `overflow-y-auto` YOK: kendi kaydırma kabı olsaydı sayfada ikinci bir dikey
+    // çubuk oluşurdu. Menü uzarsa pencereyle birlikte kayar.
     <nav
       aria-label="Yönetici menüsü"
-      className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-edge bg-surface-sunken text-ink"
+      className="flex w-64 shrink-0 flex-col border-r border-edge bg-surface-sunken text-ink"
     >
       <div className="flex items-center gap-2 border-b border-edge px-5 py-4">
         <img src={logo} alt="" aria-hidden className="h-8 w-auto shrink-0" />

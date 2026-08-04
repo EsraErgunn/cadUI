@@ -7,6 +7,12 @@ export const ADMIN_FOCUS_RING =
 /** Tablo hücresi ve konum izi içindeki bağlantılar. Seçim mavisi + hover'da altı çizili. */
 export const ADMIN_CELL_LINK = `rounded text-selection hover:underline ${ADMIN_FOCUS_RING}`
 
+/** Yeni oluşturulan kaydın satırı. Renk başarı şeridiyle aynı aileden: kullanıcı
+    şeritteki proje numarasıyla satırı gözüyle eşleştirsin. Yalnızca zemin tonu —
+    kenarlık eklenseydi vurgu sönerken satır 4px kayardı. Bilgi bu tona BAĞLI
+    değil: proje numarası zaten şeritte yazıyor (renk tek kanal olmasın). */
+export const ADMIN_ROW_HIGHLIGHT = 'bg-success/10'
+
 /** Sol menü maddeleri. Sidebar zemini ana içerikle aynı olduğu için madde
     vurgusu renk farkıyla değil, bir tık yukarıdaki yüzey + aksan çizgisiyle verilir. */
 export const adminNavItemVariants = cva(
@@ -138,8 +144,53 @@ export const sortHeaderVariants = cva(
   },
 )
 
-/** Metin/seçim girdileri. */
+/**
+ * Metin/seçim girdileri. `tone: 'invalid'` hatayı kenarlıkla da gösterir —
+ * yalnız kırmızı yazı, rengi ayırt edemeyen kullanıcıya sinyal vermez.
+ */
 export const adminFieldVariants = cva(
-  `h-10 rounded-lg border border-edge bg-surface px-3 text-sm text-ink
-   placeholder:text-ink-disabled focus:border-accent focus:outline-none`,
+  `h-10 rounded-lg border bg-surface px-3 text-sm text-ink
+   placeholder:text-ink-disabled focus:outline-none
+   disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-disabled`,
+  {
+    variants: {
+      tone: {
+        plain: 'border-edge focus:border-accent',
+        invalid: 'border-danger focus:border-danger',
+      },
+    },
+    defaultVariants: { tone: 'plain' },
+  },
 )
+
+/** Çok satırlı girdi: sabit yükseklik yerine alt sınır, dikey iç boşluk. */
+export const adminTextAreaVariants = cva(
+  `min-h-24 rounded-lg border bg-surface px-3 py-2 text-sm text-ink
+   placeholder:text-ink-disabled focus:outline-none
+   disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-disabled`,
+  {
+    variants: {
+      tone: {
+        plain: 'border-edge focus:border-accent',
+        invalid: 'border-danger focus:border-danger',
+      },
+    },
+    defaultVariants: { tone: 'plain' },
+  },
+)
+
+/** Sayısal alanın sağındaki alt alta duran yukarı/aşağı okları. */
+export const stepperButtonVariants = cva(
+  `flex h-1/2 w-7 items-center justify-center text-ink-muted transition-colors
+   hover:bg-surface-sunken hover:text-ink
+   disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent
+   ${ADMIN_FOCUS_RING}`,
+)
+
+/** Form kartı (Proje / Yapı / Tesisat Bilgileri). */
+export const formCardVariants = cva(
+  'flex min-w-0 flex-col gap-4 rounded-xl border border-edge bg-surface p-5',
+)
+
+/** Alan etiketi; filtre çubuğundakinden büyük çünkü burada asıl içerik form. */
+export const fieldLabelVariants = cva('text-sm font-medium text-ink')

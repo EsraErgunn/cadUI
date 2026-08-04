@@ -1,9 +1,14 @@
 import { MOCK_REGIONS } from './adminFirmsMock'
 import type {
+  CreatedProject,
+  CreateProjectPayload,
+  GasFirmsForProjectFirmQuery,
   Lookup,
   ProjectListQuery,
   ProjectStatus,
   ProjectStatusCountsQuery,
+  RawFirmEngineer,
+  RawParametricOption,
   RawProjectListItem,
   SubmitProjectResult,
 } from './projects'
@@ -266,7 +271,204 @@ export async function queryMockDistricts(signal?: AbortSignal): Promise<Lookup[]
   return MOCK_DISTRICTS
 }
 
-export async function queryMockProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
+export async function queryMockProjectFirms(
+  region: string | null,
+  signal?: AbortSignal,
+): Promise<Lookup[]> {
   await sleep(MOCK_LATENCY_MS, signal)
-  return MOCK_PROJECT_FIRMS
+  if (region === null) return MOCK_PROJECT_FIRMS
+
+  return MOCK_PROJECT_FIRMS.filter((firm) => MOCK_PROJECT_FIRM_REGIONS.get(firm.id) === region)
+}
+
+/** Proje firmasının bölgesi. Değerler MOCK_PROJECT_REGIONS'tan türetiliyor:
+    elle yazılsaydı üst bardaki bölge listesinde karşılığı olmayan bir ad
+    firmaları görünmez yapardı. */
+const MOCK_PROJECT_FIRM_REGIONS = new Map<number, string>(
+  MOCK_PROJECT_FIRMS.map((firm, index) => [
+    firm.id,
+    MOCK_PROJECT_REGIONS[index % MOCK_PROJECT_REGIONS.length],
+  ]),
+)
+
+/** Proje firması → çalıştığı GD firmaları. Bir proje firması birden fazla GD
+    firmasıyla çalışabilir, o yüzden dizi. */
+const MOCK_GAS_FIRM_LINKS = new Map<number, number[]>([
+  [11, [101, 102]],
+  [12, [101]],
+  [13, [102, 103]],
+  [14, [103]],
+  [15, [101, 103]],
+])
+
+/** GD firmasının bölgeleri, bağlı olduğu proje firmalarından türetilir: elle
+    yazılsaydı "firma seçili ama bölgede GD firması yok" gibi çıkmaz bir kombinasyon
+    üretilebilirdi. */
+function gasFirmRegions(gasFirmId: number): string[] {
+  const regions: string[] = []
+
+  for (const [projectFirmId, gasFirmIds] of MOCK_GAS_FIRM_LINKS) {
+    if (!gasFirmIds.includes(gasFirmId)) continue
+
+    const region = MOCK_PROJECT_FIRM_REGIONS.get(projectFirmId)
+    if (region !== undefined && !regions.includes(region)) regions.push(region)
+  }
+
+  return regions
+}
+
+export async function queryMockGasFirmsForProjectFirm(
+  query: GasFirmsForProjectFirmQuery,
+  signal?: AbortSignal,
+): Promise<Lookup[]> {
+  await sleep(MOCK_LATENCY_MS, signal)
+  const linkedIds = MOCK_GAS_FIRM_LINKS.get(query.projectFirmId) ?? []
+
+  return MOCK_GAS_FIRMS.filter(
+    (firm) =>
+      linkedIds.includes(firm.id) &&
+      (query.region === null || gasFirmRegions(firm.id).includes(query.region)),
+  )
+}
+
+const MOCK_ENGINEER_NAMES: [string, string][] = [
+  ['Ayşe', 'Yıldırım'], ['Mehmet', 'Kaya'], ['Elif', 'Demir'], ['Burak', 'Şahin'],
+  ['Zeynep', 'Aydın'], ['Onur', 'Çelik'], ['Deniz', 'Arslan'], ['Selin', 'Koç'],
+]
+
+/** Her firmada bu kadar mühendis var ve SONUNCUSU pasif: pasif kullanıcının
+    listeye girmediği tarayıcıda da görülebilsin. */
+const ENGINEERS_PER_FIRM = 3
+const FIRST_ENGINEER_ID = 501
+
+interface MockEngineer extends RawFirmEngineer {
+  projectFirmId: number
+}
+
+function buildMockEngineers(): MockEngineer[] {
+  const engineers: MockEngineer[] = []
+
+  MOCK_PROJECT_FIRMS.forEach((firm, firmIndex) => {
+    for (let slot = 0; slot < ENGINEERS_PER_FIRM; slot += 1) {
+      const nameIndex = (firmIndex * ENGINEERS_PER_FIRM + slot) % MOCK_ENGINEER_NAMES.length
+      const [firstName, lastName] = MOCK_ENGINEER_NAMES[nameIndex]
+
+      engineers.push({
+        id: FIRST_ENGINEER_ID + engineers.length,
+        firstName,
+        lastName,
+        isActive: slot < ENGINEERS_PER_FIRM - 1,
+        projectFirmId: firm.id,
+      })
+    }
+  })
+
+  return engineers
+}
+
+const MOCK_ENGINEERS = buildMockEngineers()
+
+/**
+ * Kimliksiz mühendis sorgusu = proje firması kullanıcısı; gerçek uçta firma
+ * token'dan türetilir, mock sabit bir firmayı oturumun firması sayar.
+ * TODO(esra): gerçek uç bağlanınca bu sabit silinecek.
+ */
+const MOCK_TOKEN_PROJECT_FIRM_ID = 11
+
+export async function queryMockFirmEngineers(
+  projectFirmId?: number,
+  signal?: AbortSignal,
+): Promise<RawFirmEngineer[]> {
+  await sleep(MOCK_LATENCY_MS, signal)
+  const firmId = projectFirmId ?? MOCK_TOKEN_PROJECT_FIRM_ID
+
+  return MOCK_ENGINEERS.filter((engineer) => engineer.projectFirmId === firmId)
+}
+
+/** Etiketler `projects.ts`'teki PROJECT_TYPE_LABELS ile aynı ama oradan DEĞER
+    alınamıyor (dosya başındaki döngüsel import notu). */
+const MOCK_PROJECT_TYPE_OPTIONS: RawParametricOption[] = [
+  { code: 'ILAVE', label: 'İlave' },
+  { code: 'ILAVE_TADILAT', label: 'İlave Tadilat' },
+  { code: 'KOLON', label: 'Kolon' },
+  { code: 'KOLON_TADILAT', label: 'Kolon Tadilat' },
+  { code: 'RUHSAT', label: 'Ruhsat' },
+  // Ayarlar'dan sonradan eklenmiş tip: liste sunucudan geldiği için arayüz
+  // yeniden yayınlanmadan görünür (kabul kriteri 6).
+  { code: UNKNOWN_PROJECT_TYPE_CODE, label: 'Dönüşüm' },
+]
+
+const MOCK_HEATING_TYPE_OPTIONS: RawParametricOption[] = [
+  { code: 'bireysel', label: 'Bireysel' },
+  { code: 'merkezi', label: 'Merkezi' },
+]
+
+export async function queryMockProjectTypes(
+  signal?: AbortSignal,
+): Promise<RawParametricOption[]> {
+  await sleep(MOCK_LATENCY_MS, signal)
+  return MOCK_PROJECT_TYPE_OPTIONS
+}
+
+export async function queryMockHeatingTypes(
+  signal?: AbortSignal,
+): Promise<RawParametricOption[]> {
+  await sleep(MOCK_LATENCY_MS, signal)
+  return MOCK_HEATING_TYPE_OPTIONS
+}
+
+/** Yeni projenin ilçesi formda sorulmuyor (adres serbest metin); kayıt ilçe
+    filtresinde de görünsün diye ilk ilçe atanıyor. */
+const CREATED_PROJECT_DISTRICT_ID = MOCK_DISTRICTS[0].id
+
+/**
+ * P_ID SUNUCUDA üretilir — istemci göndermez (kabul kriteri 7). Mock burada
+ * sunucunun yerine geçtiği için numarayı o üretiyor.
+ */
+function nextMockPId(): string {
+  const highest = mockProjects.reduce(
+    (max, project) => Math.max(max, Number(project.pId) || 0),
+    FIRST_P_ID,
+  )
+  return String(highest + 1)
+}
+
+export async function createMockProject(payload: CreateProjectPayload): Promise<CreatedProject> {
+  await sleep(MOCK_LATENCY_MS)
+
+  // Firma kimliği gelmediyse kullanıcı proje firması kullanıcısıdır; gerçek uçta
+  // sunucu bunu token'dan türetir, mock oturumun firmasını sabit sayar.
+  const projectFirmId = payload.projectFirmId ?? MOCK_TOKEN_PROJECT_FIRM_ID
+  const projectFirm = MOCK_PROJECT_FIRMS.find((firm) => firm.id === projectFirmId)
+  const gasFirm =
+    MOCK_GAS_FIRMS.find((firm) => firm.id === payload.gasDistributionFirmId) ?? null
+  const id = mockProjects.reduce((max, project) => Math.max(max, project.id), 0) + 1
+  const pId = nextMockPId()
+  const now = new Date().toISOString()
+
+  // Yeni kayıt listenin başına: varsayılan sıralama son güncellenen üstte.
+  mockProjects = [
+    {
+      id,
+      pId,
+      name: payload.name,
+      firmName: projectFirm?.name ?? '',
+      buildingCode: null,
+      projectType: payload.projectType,
+      heatingType: payload.heatingType,
+      updatedAt: now,
+      createdAt: now,
+      gasFirmId: gasFirm?.id ?? null,
+      gasFirmName: gasFirm?.name ?? null,
+      hasDocuments: false,
+      status: 'taslak',
+      districtId: CREATED_PROJECT_DISTRICT_ID,
+      projectFirmId,
+      region: MOCK_PROJECT_FIRM_REGIONS.get(projectFirmId) ?? MOCK_PROJECT_REGIONS[0],
+      installationNo: `TN${900_000 + id * 13}`,
+    },
+    ...mockProjects,
+  ]
+
+  return { id, pId, status: 'taslak' }
 }
