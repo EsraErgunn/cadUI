@@ -16,7 +16,7 @@ import {
   type TrackedProjectState,
 } from './history'
 import type { ProjectMetaSlice } from './projectMeta'
-import type { ProjectData } from '../core/model'
+import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type ProjectData } from '../core/model'
 import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
 
 export type CadState = ProjectMetaSlice &
@@ -25,7 +25,25 @@ export type CadState = ProjectMetaSlice &
   PlumbingSlice & {
     /** Depodan gelen çizimi state'e yükler. Şema doğrulaması api/serialize'ın işi. */
     loadProject: (data: ProjectData) => void
+    /** Boş projeye döner. Editör başka bir projeye geçerken çağrılır. */
+    resetProject: () => void
   }
+
+/**
+ * Boş proje. Her çağrıda TAZE diziler üretir: sabit bir nesne paylaşılsaydı iki
+ * proje aynı dizi örneğini işaret eder ve birinde çizilen duvar diğerinde de
+ * görünürdü — düzeltmeye çalıştığımız hatanın ta kendisi.
+ */
+function createEmptyProjectData(): ProjectData {
+  return {
+    nextUniqueId: deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA),
+    activeFloorId: DEFAULT_FLOOR_ID,
+    floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+    points: [],
+    walls: [],
+    openings: [],
+  }
+}
 
 // takeNextId/markDirty projectMeta.ts'te: slice'lar onları çalışma zamanında
 // import ediyor, buradan alsalardı cadStore ↔ slice döngüsü oluşurdu (K17).
@@ -67,6 +85,12 @@ export const useCadStore = create<CadState>()(
           // Geçmiş SIFIRLANIR: yükleme bir düzenleme değil, yeni bir başlangıç.
           // Temizlenmezse Ctrl+Z kullanıcıyı önceki projenin çizimine götürür.
           useCadStore.temporal.getState().clear()
+        },
+
+        // Yükleme yoluyla AYNI kapıdan geçer: boş proje de bir "yeni başlangıç",
+        // yani geçmiş ve kirli işaret aynı şekilde sıfırlanmalı.
+        resetProject: () => {
+          useCadStore.getState().loadProject(createEmptyProjectData())
         },
 
         ...createFloorSlice(...args),

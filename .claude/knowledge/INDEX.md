@@ -7,7 +7,7 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 
 | Tarih | Tür | Konu | Özet |
 |-------|-----|------|------|
-| 2026-07 | decision | [persistence](./persistence.md) | Çizim JSON'u MinIO (S3 nesne deposu); SQL sadece DataUrl/yol tutar |
+| 2026-07 | decision | [persistence](./persistence.md) | Çizim JSON'u MinIO (S3 nesne deposu); SQL sadece DataUrl/yol tutar; proje değişince store SIFIRLANIR — yoksa önceki projenin çizimi yenisine kaydedilir |
 | 2026-07 | decision | [id-scheme](./id-scheme.md) | Kalıcı id = artan tamsayı (nextUniqueId), UUID DEĞİL — WebCAD round-trip uyumu |
 | 2026-08 | decision | [access-control](./access-control.md) | Üç rol, kullanıcı başına TEK rol (Role.Code); API fail-closed → token http.ts'te tek yerde eklenir, 401'de atılır |
 | 2026-07 | gotcha | [floor-clone](./floor-clone.md) | Kat kopyalama: id remap zorunlu, kolon klonlanmaz |
