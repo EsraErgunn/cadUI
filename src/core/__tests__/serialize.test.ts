@@ -10,13 +10,14 @@ const emptyProject: ProjectData = {
   points: [],
   walls: [],
   openings: [],
+  rooms: [],
 }
 
 describe('serializeProjectData', () => {
   it('alanları sabit sırayla yazar', () => {
     expect(serializeProjectData(emptyProject)).toBe(
       '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
-        '"points":[],"walls":[],"openings":[]}',
+        '"points":[],"walls":[],"openings":[],"rooms":[]}',
     )
   })
 

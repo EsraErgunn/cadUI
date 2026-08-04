@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
 import { createPropertyActions } from './architecturePropertyOps'
+import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
 import {
   appendWall,
@@ -33,7 +34,7 @@ export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './arch
  * Store'un şekli = kaydedilecek JSON'un şekli (CLAUDE.md kural 4). Pick ile
  * bağlandı: ProjectData'dan sapma DERLEME hatası olur, sessiz ayrışma olmaz.
  */
-type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings'>
+type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings' | 'rooms'>
 
 export type AddOpeningInput = {
   wallId: Id
@@ -87,12 +88,15 @@ export type ArchitectureSlice = ArchitectureData & {
   transformSelection: (selection: Selection, transform: PlanTransform) => boolean
   /** Seçimi çoğaltır ve KOPYALARIN seçimini döndürür (KK-11). */
   duplicateSelection: (selection: Selection, offset: { dxCm: number; dyCm: number }) => Selection
+  /** Boş ad reddedilir, aynı ad yazılmaz; gerekçe renameRoomInDraft'ta. */
+  setRoomName: (roomId: Id, name: string) => void
 }
 
 export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
   points: [],
   walls: [],
   openings: [],
+  rooms: [],
 }
 
 /**
@@ -107,6 +111,7 @@ export function deriveNextUniqueId(data: ArchitectureData): Id {
       ...data.points.map((point) => point.id),
       ...data.walls.map((wall) => wall.id),
       ...data.openings.map((opening) => opening.id),
+      ...data.rooms.map((room) => room.id),
     ) + 1
   )
 }
@@ -128,6 +133,8 @@ export const createArchitectureSlice: StateCreator<
 
       // Yeni duvar bir başkasını kesiyor olabilir: düğüm aynı adımda açılır (K24).
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     })
     return added
@@ -139,6 +146,8 @@ export const createArchitectureSlice: StateCreator<
       if (!appendWallChain(draft, input)) return
 
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -154,6 +163,8 @@ export const createArchitectureSlice: StateCreator<
       pruneOpeningsInDraft(draft)
       // Köşe başka bir duvarın gövdesine bırakılmış olabilir → T birleşimi (K24).
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -176,6 +187,8 @@ export const createArchitectureSlice: StateCreator<
       pruneOpeningsInDraft(draft)
       // Taşınan duvar başkalarının üstünden geçmiş olabilir (K24).
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -188,6 +201,8 @@ export const createArchitectureSlice: StateCreator<
       const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
       draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
       pruneOpeningsInDraft(draft)
+      // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -207,6 +222,8 @@ export const createArchitectureSlice: StateCreator<
       draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
       // Duvarsız açıklık temsil edilemez; sahipsiz wallId bırakılmaz (K16).
       pruneOpeningsInDraft(draft)
+      // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -293,5 +310,10 @@ export const createArchitectureSlice: StateCreator<
   pruneOpeningsOnWalls: () =>
     set((draft) => {
       if (pruneOpeningsInDraft(draft)) markDirty(draft)
+    }),
+
+  setRoomName: (roomId, name) =>
+    set((draft) => {
+      if (renameRoomInDraft(draft, roomId, name)) markDirty(draft)
     }),
 })

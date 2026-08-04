@@ -31,6 +31,7 @@ function projectWithWall(): ProjectData {
       { id: 3, floorId: DEFAULT_FLOOR_ID, p1Id: 1, p2Id: 2, thickness: 20, height: 280 },
     ],
     openings: [],
+    rooms: [],
   }
 }
 

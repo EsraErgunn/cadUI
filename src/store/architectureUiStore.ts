@@ -58,6 +58,11 @@ type ArchitectureUiState = {
    * Record ama yasak olan tür değil — anahtar string-literal union, kaydedilmiyor.
    */
   openingWidthCm: Record<OpeningType, number>
+  /**
+   * Adı düzenlenen oda. Seçim DEĞİL: oda `Selection` modelinde yer almıyor
+   * (seçilebilir nesne değil), çift tık doğrudan düzenlemeyi açar.
+   */
+  editingRoomId: Id | null
   /** Seçimi tümüyle değiştirir (tek tıklama, çerçeve sonucu). */
   setSelection: (selection: Selection) => void
   /** Seçiliyse çıkarır, değilse ekler — Shift+tıklama (KK-10). */
@@ -68,6 +73,7 @@ type ArchitectureUiState = {
   setDraggingPoint: (drag: PointDrag | null) => void
   setDraggingWall: (drag: WallDrag | null) => void
   setHover: (hover: ArchitectureTarget | null) => void
+  setEditingRoom: (roomId: Id | null) => void
 }
 
 /**
@@ -87,6 +93,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingWall: null,
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
+    editingRoomId: null,
 
     setSelection: (selection) =>
       set((draft) => {
@@ -128,6 +135,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setHover: (hover) =>
       set((draft) => {
         draft.hover = hover
+      }),
+
+    setEditingRoom: (roomId) =>
+      set((draft) => {
+        draft.editingRoomId = roomId
       }),
   })),
 )

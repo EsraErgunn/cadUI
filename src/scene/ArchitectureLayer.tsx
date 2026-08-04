@@ -1,10 +1,12 @@
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
+import { Rooms } from './Room'
 import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useOpeningTool } from './useOpeningTool'
+import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
 import { getOpeningOutline } from '../core/opening'
 import { isSelected } from '../core/selection'
@@ -64,8 +66,13 @@ function SelectionTool() {
 
 /** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
 export function ArchitectureLayer() {
+  // Oda adı düzenleme jesti; hook <Canvas> içinde çalışmak zorunda (kamera okuyor).
+  useRoomNameTool()
+
   return (
     <group name="architecture-root">
+      {/* Odalar EN ALTTA (RENDER_ORDER.room < wall): dolgu duvarları örtmesin. */}
+      <Rooms />
       <Walls />
       {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
       <Openings />

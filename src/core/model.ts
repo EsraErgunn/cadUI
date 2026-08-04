@@ -47,9 +47,29 @@ export type Opening = {
   type: OpeningType
 }
 
+export const DEFAULT_ROOM_NAME = 'Oda'
+
+/**
+ * Duvarların çevrelediği kapalı alan. Geometri KOPYALAMAZ: sınırını oluşturan
+ * duvarların id'lerini tutar, poligon her seferinde onlardan türetilir. Kopyalasaydı
+ * duvar oynayınca oda yerinde donar ve hata ekranda görünmezdi.
+ *
+ * Kimlik `wallIds` kümesiyle korunur (K31): duvar ikiye bölününce küme bölme
+ * anında güncellenir, oda aynı oda kalır ve kullanıcının verdiği ad yaşar.
+ * İçinden duvar geçip oda ikiye ayrılırsa eski çevrim yok olur — iki YENİ oda
+ * doğar, ikisi de varsayılan adı alır.
+ *
+ * floorId yok — duvardan türetilir; Opening ile aynı gerekçe (K9).
+ */
+export type Room = {
+  id: Id
+  wallIds: Id[]
+  name: string
+}
+
 /**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
- * Room/Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
+ * Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
  */
 export type ProjectData = {
@@ -59,4 +79,5 @@ export type ProjectData = {
   points: Point[]
   walls: Wall[]
   openings: Opening[]
+  rooms: Room[]
 }
