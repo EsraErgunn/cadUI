@@ -21,6 +21,42 @@ değil. Vana/manometre gibi küçük semboller uzaklaşınca tıklanamaz kalmas�
 zoom'a bağlı tolerans (`getSnapToleranceCm`) eklenir. Üst üste binenlerde dizinin
 SONUNCUSU kazanır (en son çizilen = en üstte görünen).
 
+## Çoklu seçim: düz `Id[]`, mimarideki `SelectionItem[]` değil
+
+Tesisatta seçilebilen tek şey eleman; tür alanı taşımak bugün bilgi taşımıyor.
+Hat/ölçü de seçilebilir olunca mimarideki ayrık birleşime geçilir — şimdiden
+taşınmaz. Yardımcılar `core/elementSelection.ts`'te (toggle / merge / prune).
+
+Çerçeve seçimi **tamamen içeride** kalanı alır, kesişeni almaz — mimarideki
+kuralın aynısı (`core/selection.ts`). Sınav elemanın origin'i DEĞİL dört dünya
+köşesi: origin çoğu sembolde port hizasında, kenarda duruyor; ona bakılsaydı
+çerçevenin yarısı dışında kalan sembol de seçilirdi. Köşeler
+`getElementWorldCorners` ile `getPortWorldPosition`'la AYNI dönüşümden geçer (R2)
+— ayrışırlarsa çerçeve seçimi tıklama seçiminden başka eleman bulur.
+
+Jest ayrımı: boşluğa basış çerçeve başlatır, elemana basış sürükler. Shift+tık
+seçimi değiştirir ve sürükleme BAŞLATMAZ (aynı jestte hem ekleyip hem taşımak
+belirsiz). Seçimin içindeki elemana basmak seçimi korur (grup taşınır),
+dışındakine basmak seçimi ona indirger.
+
+### Grup sürüklemesi kayma taşır, konum değil
+
+`SymbolInstance` sürüklemede mutlak konum değil **kayma** (`dragDeltaRef`) okur:
+seçimdeki her elemana AYNI ref verilir, yoksa seçim büyüdükçe ref sayısı büyürdü.
+Izgaraya BASILAN eleman yakalanır ve kayma ondan türetilir — her eleman ayrı ayrı
+ızgaraya çekilseydi grup kendi içindeki göreli düzenini kaybederdi.
+
+## Pano: uygulama içi, sistem panosu DEĞİL
+
+Kes/kopyala/yapıştır `store/clipboardActions.ts`'te; pano `plumbingUiStore`'da
+(kaydedilmez, geçmişe girmez). Sistem panosuna yazılmıyor çünkü taşınan şey metin
+değil eleman kaydı ve serileştirme sözleşmesi (`plumbingSerialize.ts`) henüz yok.
+
+Panoya `id` ve `floorId` KOPYALANMAZ: yapıştırma yeni id üretir (kural 6) ve
+AKTİF kata düşer. Pay her yapıştırmada artar (`pasteStepCount`) — sabit pay
+olsaydı arka arkaya iki Ctrl+V ikinci kopyayı birincinin tam üstüne koyar,
+kullanıcı yapıştırmanın çalışmadığını sanardı.
+
 ## Sürükleme tek yazımdır
 
 `pointermove` store'a YAZMAZ; konum `useRef`'te birikir ve yalnız `pointerup`'ta

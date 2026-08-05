@@ -22,8 +22,11 @@ export type PlumbingSlice = {
   installationElements: InstallationElement[]
   /** Kat aktif kattan alınır: eleman iki yerde tutulan bir floorId ile ayrışmasın. */
   addElement: (input: AddElementInput) => void
-  removeElement: (elementId: Id) => void
-  moveElement: (elementId: Id, position: PlanPoint) => void
+  /** Yapıştırmanın tek adımlık hâli; üretilen id'ler döner (kopya hemen seçilebilsin). */
+  addElements: (inputs: readonly AddElementInput[]) => Id[]
+  removeElements: (elementIds: readonly Id[]) => void
+  /** Seçimin TAMAMI aynı kaymayla taşınır — tek geçmiş adımı, tek Ctrl+Z. */
+  moveElements: (elementIds: readonly Id[], deltaCm: PlanPoint) => void
   undoPlumbing: () => void
   redoPlumbing: () => void
 }
@@ -50,35 +53,62 @@ export const createPlumbingSlice: StateCreator<
     })
   }
 
+  /**
+   * Tek yerde: hem tekil ekleme hem yapıştırma aynı varsayılanları kullansın.
+   * Parametre yapısal Pick — immer draft'ı `CadState`'in kendisi değil `Draft`'ı.
+   */
+  const pushElement = (
+    draft: Pick<CadState, 'installationElements' | 'activeFloorId' | 'nextUniqueId'>,
+    input: AddElementInput,
+  ): Id => {
+    const id = takeNextId(draft)
+    draft.installationElements.push({
+      id,
+      floorId: draft.activeFloorId,
+      type: input.type,
+      position: input.position,
+      angleDeg: input.angleDeg ?? DEFAULT_ELEMENT_ANGLE_DEG,
+      scale: input.scale ?? DEFAULT_ELEMENT_SCALE,
+    })
+    return id
+  }
+
   return {
     ...INITIAL_PLUMBING_DATA,
 
     // id üretimi + ekleme + kirli işaret TEK set() içinde: tek geçmiş adımı, tek Ctrl+Z.
     addElement: (input) => {
       set((draft) => {
-        draft.installationElements.push({
-          id: takeNextId(draft),
-          floorId: draft.activeFloorId,
-          type: input.type,
-          position: input.position,
-          angleDeg: input.angleDeg ?? DEFAULT_ELEMENT_ANGLE_DEG,
-          scale: input.scale ?? DEFAULT_ELEMENT_SCALE,
-        })
+        pushElement(draft, input)
         markDirty(draft)
       })
       record()
     },
 
-    removeElement: (elementId) => {
+    addElements: (inputs) => {
+      if (inputs.length === 0) return []
+
+      const createdIds: Id[] = []
+      set((draft) => {
+        for (const input of inputs) {
+          createdIds.push(pushElement(draft, input))
+        }
+        markDirty(draft)
+      })
+      record()
+      return createdIds
+    },
+
+    removeElements: (elementIds) => {
       let isRemoved = false
 
       set((draft) => {
-        const index = draft.installationElements.findIndex(
-          (element) => element.id === elementId,
+        const remaining = draft.installationElements.filter(
+          (element) => !elementIds.includes(element.id),
         )
-        if (index === -1) return
+        if (remaining.length === draft.installationElements.length) return
 
-        draft.installationElements.splice(index, 1)
+        draft.installationElements = remaining
         // nextUniqueId geri alınmaz: id bir kez üretilir, asla yeniden kullanılmaz.
         markDirty(draft)
         isRemoved = true
@@ -87,18 +117,21 @@ export const createPlumbingSlice: StateCreator<
       if (isRemoved) record()
     },
 
-    moveElement: (elementId, position) => {
+    moveElements: (elementIds, deltaCm) => {
       let isMoved = false
 
       set((draft) => {
-        const element = draft.installationElements.find(
-          (candidate) => candidate.id === elementId,
-        )
-        if (!element) return
+        for (const element of draft.installationElements) {
+          if (!elementIds.includes(element.id)) continue
 
-        element.position = position
-        markDirty(draft)
-        isMoved = true
+          element.position = {
+            x: element.position.x + deltaCm.x,
+            y: element.position.y + deltaCm.y,
+          }
+          isMoved = true
+        }
+
+        if (isMoved) markDirty(draft)
       })
 
       if (isMoved) record()
