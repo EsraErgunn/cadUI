@@ -11,13 +11,14 @@ const emptyProject: ProjectData = {
   walls: [],
   openings: [],
   rooms: [],
+  symbols: [],
 }
 
 describe('serializeProjectData', () => {
   it('alanları sabit sırayla yazar', () => {
     expect(serializeProjectData(emptyProject)).toBe(
       '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
-        '"points":[],"walls":[],"openings":[],"rooms":[]}',
+        '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[]}',
     )
   })
 

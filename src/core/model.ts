@@ -68,6 +68,46 @@ export type Room = {
 }
 
 /**
+ * Paletteki "nokta sembolü" ailesi (tutanak K-0, Desen A). Yedi araç aynı alan
+ * kümesini paylaşır; aralarındaki tek fark çizilen şekildir.
+ * Kolon/Kiriş/Merdiven (Desen B) ölçü taşıdığı, Baca Şaftı/Kolon Havalandırması
+ * (Desen C) katlar arası eksen kimliği taşıdığı için buraya GİRMEZ.
+ */
+export type PointSymbolType =
+  | 'mainCutoffSwitch'
+  | 'panel'
+  | 'lighting'
+  | 'fireExtinguisher'
+  | 'alarmDevice'
+  | 'earthquakeSensor'
+  | 'vent'
+
+/**
+ * Açıklığın aksine kendi koordinatını TAŞIR: duvara bağlı değil, boşluğa da
+ * bırakılabilir (araç yerleşimin uygunluğunu denetlemez — tutanak K-6).
+ *
+ * `roomId` HENÜZ YOK: tutanak menfez için zorunlu tutuyor ama `Room` modelde
+ * yok. Varsayarak açmak, mahal modeli geldiğinde geri alınacak alan üretir.
+ */
+export type PointSymbol = {
+  id: Id
+  floorId: Id
+  type: PointSymbolType
+  x: number
+  y: number
+  /** 0-359. Adım yakalaması core/transform.ts → snapAngleDeg ile. */
+  rotationDeg: number
+  /** Tip kısaltması + sıra ("P-01"); otomatik üretilir, düzenlenebilir. */
+  label: string
+  /**
+   * Serbest açıklama. Opsiyonel DEĞİL, boş string: `JSON.stringify` undefined
+   * alanı atlar ve iki projenin JSON şekli ayrışırdı — kabul testi alan sırasına
+   * dayanıyor (serialize.ts).
+   */
+  note: string
+}
+
+/**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
  * Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
@@ -80,4 +120,5 @@ export type ProjectData = {
   walls: Wall[]
   openings: Opening[]
   rooms: Room[]
+  symbols: PointSymbol[]
 }

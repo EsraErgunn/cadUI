@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { Floor, Opening, Point, ProjectData, Room, Wall } from './model'
+import type { Floor, Opening, Point, PointSymbol, ProjectData, Room, Wall } from './model'
 
 /**
  * Dış kaynaktan gelen JSON şemadan geçmeden state'e girmez (CLAUDE.md güvenlik).
@@ -44,6 +44,25 @@ const roomSchema = z.object({
   name: z.string(),
 })
 
+const pointSymbolSchema = z.object({
+  id: idSchema,
+  floorId: idSchema,
+  type: z.enum([
+    'mainCutoffSwitch',
+    'panel',
+    'lighting',
+    'fireExtinguisher',
+    'alarmDevice',
+    'earthquakeSensor',
+    'vent',
+  ]),
+  x: z.number(),
+  y: z.number(),
+  rotationDeg: z.number(),
+  label: z.string(),
+  note: z.string(),
+})
+
 export const projectDataSchema = z.object({
   nextUniqueId: idSchema,
   activeFloorId: idSchema,
@@ -52,6 +71,7 @@ export const projectDataSchema = z.object({
   walls: z.array(wallSchema),
   openings: z.array(openingSchema),
   rooms: z.array(roomSchema),
+  symbols: z.array(pointSymbolSchema),
 })
 
 export class ProjectDataParseError extends Error {
@@ -107,6 +127,7 @@ export function serializeProjectData(data: ProjectData): string {
     walls: data.walls.map(toWallJson),
     openings: data.openings.map(toOpeningJson),
     rooms: data.rooms.map(toRoomJson),
+    symbols: data.symbols.map(toPointSymbolJson),
   })
 }
 
@@ -141,5 +162,18 @@ function toOpeningJson(opening: Opening) {
     offsetCm: opening.offsetCm,
     widthCm: opening.widthCm,
     type: opening.type,
+  }
+}
+
+function toPointSymbolJson(symbol: PointSymbol) {
+  return {
+    id: symbol.id,
+    floorId: symbol.floorId,
+    type: symbol.type,
+    x: symbol.x,
+    y: symbol.y,
+    rotationDeg: symbol.rotationDeg,
+    label: symbol.label,
+    note: symbol.note,
   }
 }

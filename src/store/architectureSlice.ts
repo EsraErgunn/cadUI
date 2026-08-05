@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand'
 
+import { INITIAL_ARCHITECTURE_DATA, type ArchitectureData } from './architectureData'
 import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
 import { createPropertyActions } from './architecturePropertyOps'
 import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
@@ -15,11 +16,12 @@ import {
 // cadStore ↔ architectureSlice karşılıklı import eder; bu taraf tip-only olduğu
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
+import { createPointSymbolActions, type PointSymbolActions } from './pointSymbolOps'
 import { markDirty, takeNextId } from './projectMeta'
 import { createSelectionActions } from './selectionOps'
 import { createTransformActions } from './transformOps'
 import type { PlanPoint } from '../core/coords'
-import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
+import { type Id, type OpeningType } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
 import type { Selection } from '../core/selection'
 import type { PlanTransform } from '../core/transform'
@@ -28,13 +30,10 @@ import { getOrphanPointIds } from '../core/wall'
 // Selector'lar ve duvar yazma iç fonksiyonları ayrı dosyalarda (max-lines);
 // sözleşme yüzeyi tek yerden okunsun diye buradan yeniden dışa aktarılıyor.
 export * from './architectureSelectors'
+// Veri şekli + sayaç türetimi ayrı dosyada (max-lines); sözleşme yüzeyi tek yerden okunsun.
+export { deriveNextUniqueId, INITIAL_ARCHITECTURE_DATA } from './architectureData'
+export type { ArchitectureData } from './architectureData'
 export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './architectureWallOps'
-
-/**
- * Store'un şekli = kaydedilecek JSON'un şekli (CLAUDE.md kural 4). Pick ile
- * bağlandı: ProjectData'dan sapma DERLEME hatası olur, sessiz ayrışma olmaz.
- */
-type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings' | 'rooms'>
 
 export type AddOpeningInput = {
   wallId: Id
@@ -49,7 +48,7 @@ export type OpeningTarget = {
   offsetCm: number
 }
 
-export type ArchitectureSlice = ArchitectureData & {
+export type ArchitectureSlice = ArchitectureData & PointSymbolActions & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
@@ -91,31 +90,6 @@ export type ArchitectureSlice = ArchitectureData & {
   /** Boş ad reddedilir, aynı ad yazılmaz; gerekçe renameRoomInDraft'ta. */
   setRoomName: (roomId: Id, name: string) => void
 }
-
-export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
-  points: [],
-  walls: [],
-  openings: [],
-  rooms: [],
-}
-
-/**
- * nextUniqueId veriden TÜRETİLİR, sabit yazılmaz: başlangıç verisi bir gün boş
- * olmazsa (örnek proje, şablon) sabit sayaç var olan bir id'yi ikinci kez üretir
- * ve HATA VERMEZ — id aramaları sessizce şaşar. Bkz. knowledge/id-scheme.md.
- */
-export function deriveNextUniqueId(data: ArchitectureData): Id {
-  return (
-    Math.max(
-      FIRST_FREE_ID - 1,
-      ...data.points.map((point) => point.id),
-      ...data.walls.map((wall) => wall.id),
-      ...data.openings.map((opening) => opening.id),
-      ...data.rooms.map((room) => room.id),
-    ) + 1
-  )
-}
-
 export const createArchitectureSlice: StateCreator<
   CadState,
   [['zustand/immer', never]],
@@ -209,6 +183,7 @@ export const createArchitectureSlice: StateCreator<
   ...createPropertyActions(set),
   ...createSelectionActions(set),
   ...createTransformActions(set),
+  ...createPointSymbolActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {
