@@ -1,25 +1,30 @@
 import { Line } from '@react-three/drei'
 import { useMemo } from 'react'
 
-import { FLOOR_BELOW_GHOST_ELEVATION_CM } from './architectureLayers'
+import { FLOOR_BELOW_GHOST_ELEVATION_CM, OPENING_SYMBOL_LIFT_CM } from './architectureLayers'
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
-import { planToThree, type PlanPoint, type ThreePosition } from '../core/coords'
+import { toOpeningFillPositions } from './openingFill'
+import { SCENE_COLORS } from './sceneTheme'
+import { planToThree, type PlanPoint } from '../core/coords'
 import { getFloorBelowId } from '../core/floors'
-import type { Point, Wall } from '../core/model'
+import type { OpeningType, Point, Wall } from '../core/model'
 import { getOpeningOutline } from '../core/opening'
+import { getOpeningSymbol, type OpeningSymbolRole } from '../core/openingSymbol'
 import { getWallCapsule } from '../core/wallShape'
 import { useCadStore } from '../store/cadStore'
 
-/** Açıklık duvardan ince: duvar kütlesi baskın kalsın, delik onun üstünde okunsun. */
-const GHOST_OPENING_LINE_WIDTH = 1.2
-
-function toGhostRing(corners: readonly PlanPoint[]): ThreePosition[] {
-  // Halka elle kapatılıyor: drei <Line>'ın bu sürümünde `closed` propu yok.
-  return [...corners, corners[0]].map((corner) =>
-    planToThree(corner, FLOOR_BELOW_GHOST_ELEVATION_CM),
-  )
+/**
+ * Aktif katın açıklığından da tesisat hayaletininkinden de ince: bu katman en
+ * geride, salt hizalama referansı. Oranlar mimari görünümdekiyle aynı.
+ */
+const GHOST_STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
+  jamb: 1.2,
+  face: 0.8,
+  detail: 0.7,
 }
+
+const GHOST_SYMBOL_ELEVATION_CM = FLOOR_BELOW_GHOST_ELEVATION_CM + OPENING_SYMBOL_LIFT_CM
 
 function GhostWall({ wall, points }: { wall: Wall; points: readonly Point[] }) {
   const capsule = getWallCapsule(wall, points)
@@ -43,6 +48,69 @@ function GhostWall({ wall, points }: { wall: Wall; points: readonly Point[] }) {
       raycast={() => null}
       toneMapped={false}
     />
+  )
+}
+
+/**
+ * Alt kat açıklığı da mimari görünümle AYNI plan simgesinden (core/openingSymbol.ts)
+ * çizilir, yalnız solgun ve ince. Hizalama referansı olduğu için tip ayrımı gerekli:
+ * üst kat kapısı alttakiyle çakışmasın diye kapı kanadından pencereden ayrılmalı.
+ * Dolgu duvar bandını deler — açıklık bandın üstündeki bir kutu değil boşluktur.
+ */
+function GhostOpening({ outline, type }: { outline: readonly PlanPoint[]; type: OpeningType }) {
+  const symbol = getOpeningSymbol(outline, type)
+
+  return (
+    <>
+      <mesh
+        frustumCulled={false}
+        renderOrder={RENDER_ORDER.floorBelowGhostOpening}
+        // Alt kat SEÇİLEMEZ (KK-13): salt hizalama referansı.
+        raycast={() => null}
+      >
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[toOpeningFillPositions(outline, FLOOR_BELOW_GHOST_ELEVATION_CM), 3]}
+          />
+        </bufferGeometry>
+        <meshBasicMaterial color={SCENE_COLORS.background} depthWrite={false} toneMapped={false} />
+      </mesh>
+
+      {symbol.panel && (
+        <mesh
+          frustumCulled={false}
+          renderOrder={RENDER_ORDER.floorBelowGhostOpening}
+          raycast={() => null}
+        >
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              args={[toOpeningFillPositions(symbol.panel, GHOST_SYMBOL_ELEVATION_CM), 3]}
+            />
+          </bufferGeometry>
+          <meshBasicMaterial
+            color={ARCHITECTURE_COLORS.floorBelowGhost}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+
+      {symbol.strokes.map((stroke) => (
+        <Line
+          key={stroke.name}
+          points={stroke.points.map((corner) => planToThree(corner, GHOST_SYMBOL_ELEVATION_CM))}
+          color={ARCHITECTURE_COLORS.floorBelowGhost}
+          lineWidth={GHOST_STROKE_WIDTHS[stroke.role]}
+          frustumCulled={false}
+          renderOrder={RENDER_ORDER.floorBelowGhostOpening}
+          depthWrite={false}
+          raycast={() => null}
+          toneMapped={false}
+        />
+      ))}
+    </>
   )
 }
 
@@ -77,7 +145,7 @@ export function FloorBelowGhost() {
         if (!wall) return []
 
         const outline = getOpeningOutline(wall, points, opening)
-        return outline ? [{ id: opening.id, ring: toGhostRing(outline) }] : []
+        return outline ? [{ id: opening.id, outline, type: opening.type }] : []
       }),
     [ghostWalls, openings, points],
   )
@@ -90,18 +158,8 @@ export function FloorBelowGhost() {
         <GhostWall key={wall.id} wall={wall} points={points} />
       ))}
 
-      {/* Duvarın ÜSTÜNE çiziliyor (sıra önemli): delik duvarın altında kalmasın. */}
       {ghostOpenings.map((opening) => (
-        <Line
-          key={opening.id}
-          points={opening.ring}
-          color={ARCHITECTURE_COLORS.openingFill}
-          lineWidth={GHOST_OPENING_LINE_WIDTH}
-          renderOrder={RENDER_ORDER.floorBelowGhost}
-          depthWrite={false}
-          raycast={() => null}
-          toneMapped={false}
-        />
+        <GhostOpening key={opening.id} outline={opening.outline} type={opening.type} />
       ))}
     </group>
   )
