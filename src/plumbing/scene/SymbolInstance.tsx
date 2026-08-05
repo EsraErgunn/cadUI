@@ -28,8 +28,12 @@ type SymbolInstanceProps = {
   element: InstallationElement
   tone?: SymbolTone
   isSelected?: boolean
-  /** Yalnız SÜRÜKLENEN elemana verilir: geçici konum her frame buradan okunur. */
-  positionRef?: RefObject<PlanPoint | null>
+  /**
+   * Yalnız SÜRÜKLENEN elemanlara verilir: geçici kayma her frame buradan okunur.
+   * Mutlak konum değil KAYMA, çünkü çoklu seçimde aynı ref tüm seçime gider —
+   * her elemana ayrı ref üretilseydi seçim büyüdükçe ref sayısı da büyürdü.
+   */
+  dragDeltaRef?: RefObject<PlanPoint | null>
 }
 
 /**
@@ -72,7 +76,7 @@ export function SymbolInstance({
   element,
   tone = 'normal',
   isSelected = false,
-  positionRef,
+  dragDeltaRef,
 }: SymbolInstanceProps) {
   const isGhost = tone === 'ghost'
   const groupRef = useRef<Group>(null)
@@ -91,18 +95,23 @@ export function SymbolInstance({
   // Sürükleme konumu doğrudan object3D'ye yazılır: imleç her kıpırdadığında
   // React render'ı tetiklenmez (DrawPreview ile aynı desen).
   useFrame(() => {
-    const dragged = positionRef?.current
-    if (!groupRef.current || !dragged) return
-    groupRef.current.position.set(...planToThree(dragged, SYMBOL_ELEVATION_CM))
+    const delta = dragDeltaRef?.current
+    if (!groupRef.current || !delta) return
+    groupRef.current.position.set(
+      ...planToThree(
+        { x: element.position.x + delta.x, y: element.position.y + delta.y },
+        SYMBOL_ELEVATION_CM,
+      ),
+    )
   })
 
   // Sürükleme bitince grup store konumuna geri döner. İptal edilen (Esc) veya
   // yerinde biten sürüklemede `position` propu DEĞİŞMEZ, dolayısıyla R3F kendi
   // başına geri yazmaz ve sembol bırakıldığı yerde asılı kalırdı.
   useEffect(() => {
-    if (positionRef) return
+    if (dragDeltaRef) return
     groupRef.current?.position.set(...position)
-  }, [positionRef, position])
+  }, [dragDeltaRef, position])
 
   if (loaded.shapes.length === 0) {
     return (

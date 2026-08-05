@@ -2,6 +2,8 @@ import type { InstallationElement } from './installationModel'
 import { svgLocalToPlanOffset } from './ports'
 import type { InstallationElementType, SymbolMetadata } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
+import type { Id } from '../../core/model'
+import { isPointInRect, type PlanRect } from '../../core/selection'
 
 const DEG_TO_RAD = Math.PI / 180
 
@@ -68,6 +70,55 @@ export function isPointInsideElement(
     local.y >= bounds.min.y - padding &&
     local.y <= bounds.max.y + padding
   )
+}
+
+/**
+ * Elemanın dönmüş/ölçeklenmiş kutusunun dünya köşeleri. `toSymbolLocalPoint`'in
+ * TERSİ (ölçekle → +açı döndür → ötele) ve onunla aynı açı yönünü kullanır (R2);
+ * ikisi ayrışırsa çerçeve seçimi tıklama seçiminden farklı eleman bulur.
+ */
+export function getElementWorldCorners(
+  element: InstallationElement,
+  metadata: SymbolMetadata,
+): PlanPoint[] {
+  const bounds = getSymbolLocalBounds(metadata)
+  const angleRad = element.angleDeg * DEG_TO_RAD
+  const cos = Math.cos(angleRad)
+  const sin = Math.sin(angleRad)
+
+  return [
+    { x: bounds.min.x, y: bounds.min.y },
+    { x: bounds.max.x, y: bounds.min.y },
+    { x: bounds.max.x, y: bounds.max.y },
+    { x: bounds.min.x, y: bounds.max.y },
+  ].map((corner) => {
+    const scaledX = corner.x * element.scale
+    const scaledY = corner.y * element.scale
+    return {
+      x: element.position.x + scaledX * cos - scaledY * sin,
+      y: element.position.y + scaledX * sin + scaledY * cos,
+    }
+  })
+}
+
+/**
+ * Çerçevenin TAMAMEN içinde kalan elemanlar — kesişenler seçilmez, mimari
+ * taraftaki çerçeve seçimiyle aynı kural (core/selection.ts). Sınav elemanın
+ * origin'i değil dört köşesi: origin çoğu sembolde port hizasında, kenarda
+ * duruyor; ona bakılsaydı çerçevenin yarısı dışında kalan sembol de seçilirdi.
+ */
+export function getElementsInRect(
+  rect: PlanRect,
+  elements: readonly InstallationElement[],
+  getMetadata: SymbolMetadataLookup,
+): Id[] {
+  return elements
+    .filter((element) =>
+      getElementWorldCorners(element, getMetadata(element.type)).every((corner) =>
+        isPointInRect(corner, rect),
+      ),
+    )
+    .map((element) => element.id)
 }
 
 /**

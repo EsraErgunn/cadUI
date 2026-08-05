@@ -1,4 +1,5 @@
 import { DrawPreview } from './DrawPreview'
+import { SelectionMarquee } from './SelectionMarquee'
 import { SymbolInstance } from './SymbolInstance'
 import { useEscapeToSelectionTool } from './useEscapeToSelectionTool'
 import { usePlacementTool } from './usePlacementTool'
@@ -8,10 +9,10 @@ import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Aktif kattaki elemanlar. Store dizisine olduğu gibi abone olunur — türetilmiş
  *  dizi döndüren bir selector her store değişiminde yeni referans üretirdi. */
-function InstallationElements({ draggedElementId, draggedPositionRef }: SelectionToolState) {
+function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionToolState) {
   const elements = useCadStore((state) => state.installationElements)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  const selectedElementId = usePlumbingUiStore((state) => state.selectedElementId)
+  const selectedElementIds = usePlumbingUiStore((state) => state.selectedElementIds)
 
   return (
     <>
@@ -22,9 +23,9 @@ function InstallationElements({ draggedElementId, draggedPositionRef }: Selectio
           <SymbolInstance
             key={element.id}
             element={element}
-            isSelected={element.id === selectedElementId}
-            // Ref YALNIZ sürüklenen elemana gider: geri kalanı her frame konum yazmaz.
-            positionRef={element.id === draggedElementId ? draggedPositionRef : undefined}
+            isSelected={selectedElementIds.includes(element.id)}
+            // Ref YALNIZ sürüklenen elemanlara gider: geri kalanı her frame konum yazmaz.
+            dragDeltaRef={draggedElementIds.includes(element.id) ? dragDeltaRef : undefined}
           />
         ))}
     </>
@@ -47,6 +48,7 @@ export function PlumbingLayer() {
     <group name="plumbing-root">
       <InstallationElements {...selection} />
       <DrawPreview elementType={preview.elementType} positionRef={preview.positionRef} />
+      <SelectionMarquee />
     </group>
   )
 }
