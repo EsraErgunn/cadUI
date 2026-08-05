@@ -34,6 +34,7 @@ export const SAVE_ITEM_ID = 'save'
 export const EXPORT_ITEM_ID = 'export'
 export const UNDO_ITEM_ID = 'undo'
 export const REDO_ITEM_ID = 'redo'
+export const FLOOR_MANAGEMENT_ITEM_ID = 'floorManagement'
 
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -106,7 +107,14 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
     groups: [
       {
         items: [
-          { id: 'floorManagement', label: 'Kat Yönetimi', ...DISABLED },
+          {
+            id: FLOOR_MANAGEMENT_ITEM_ID,
+            label: 'Kat Yönetimi',
+            kind: 'command',
+            isEnabled: true,
+          },
+          // Kat Kopyalama, mahal (Room) modeli main'e inmeden açılmaz: floorClone
+          // odaları da klonlamak zorunda, yarım remap sessizce yanlış bağlar.
           { id: 'floorCopy', label: 'Kat Kopyalama', ...DISABLED },
         ],
       },
