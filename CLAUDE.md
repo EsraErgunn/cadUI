@@ -10,12 +10,13 @@ Bu dosya **yönetici paneli / liste ekranları** işine dair kuralları toplar.
 ## Klasör sözleşmesi
 
 - İş kuralı bilmeyen, birden çok yönetici ekranının kullanabileceği ortak
-  bileşen/hook → `src/ui/admin/`
-  (bugün orada: `AdminLayout.tsx`, `AdminSidebar.tsx`, `AdminTopBar.tsx`,
-  `adminNavItems.ts`, `adminUrlParams.ts`, `adminVariants.ts`,
-  `useFirmListParams.ts`, `usePermission.ts`, `useTheme.ts`).
-- Tek ekrana özel parçalar → `src/ui/admin/<ekran>/`
-  (bugün orada: `src/ui/admin/firms/`).
+  bileşen/hook → `src/ui/admin/` (kabuk, tablo, sayfalama, filtre, bildirim,
+  boş/yükleniyor durumları, tema ve yetki hook'ları). Ortak form alanları
+  `src/ui/admin/form/` altında.
+- Tek ekrana özel parçalar → `src/ui/admin/<ekran>/` (`firms/`, `projects/`).
+- Bir parça ikinci ekranda gerekince `<ekran>/` altından `admin/` köküne taşınır
+  ve adındaki ekran öneki düşer (`firms/FirmPagination` → `Pagination` gibi).
+  İkinci bir kopya çıkarılmaz.
 - Sayfa bileşenleri → `src/pages/` (`GasDistributionFirmsPage.tsx`,
   `ProjectListPage.tsx`, …). Sayfa route'a bağlanır; kabuk (`AdminLayout`)
   sayfanın içine gömülmez, route ebeveynidir (`src/app/router.tsx`).
@@ -102,8 +103,11 @@ Yeni bir stil gerekiyorsa oraya varyant ekle — bileşenin içine sınıf gömm
 
 ## Versiyon kontrolü
 
-`git add`, `git commit`, `git push`, dal açma/değiştirme dahil **hiçbir**
-versiyon kontrolü işlemi yapma. Commit'leri geliştirici kendisi atar.
+Yerel işlemler (okuma, `git add`, `git commit`, dal açma/değiştirme, stash)
+istenirse yapılabilir. **`git push` YAPILMAZ** ve main'e doğrudan yazılmaz —
+uzağa çıkan her şeyi geliştirici kendisi yapar. Dal adı `feat/…`/`fix/…`,
+commit mesajı `feat:`/`fix:`/`refactor:`/`test:` önekiyle; ayrıntısı
+`.claude/CLAUDE.md` → Çalışma şekli.
 
 ## Kapsam
 
