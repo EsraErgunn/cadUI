@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { OpeningProperties } from './properties/OpeningProperties'
+import { SelectionActions } from './properties/SelectionActions'
 import { WallProperties } from './properties/WallProperties'
 import {
   getPropertyPanelTitle,
@@ -73,6 +74,8 @@ export function PropertyPanel() {
               </p>
             )}
           </div>
+
+          <SelectionActions />
 
           <div className="shrink-0 border-t border-edge px-3 py-2">
             <button

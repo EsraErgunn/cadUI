@@ -16,10 +16,12 @@ import {
 import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
 import { createSelectionActions } from './selectionOps'
+import { createTransformActions } from './transformOps'
 import type { PlanPoint } from '../core/coords'
 import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
 import type { Selection } from '../core/selection'
+import type { PlanTransform } from '../core/transform'
 import { getOrphanPointIds } from '../core/wall'
 
 // Selector'lar ve duvar yazma iç fonksiyonları ayrı dosyalarda (max-lines);
@@ -81,6 +83,10 @@ export type ArchitectureSlice = ArchitectureData & {
    */
   setWallsThickness: (wallIds: readonly Id[], thicknessCm: number) => boolean
   setWallsHeight: (wallIds: readonly Id[], heightCm: number) => boolean
+  /** Seçimi taşır/döndürür/aynalar; hepsi TEK geri alma adımı (KK-11). */
+  transformSelection: (selection: Selection, transform: PlanTransform) => boolean
+  /** Seçimi çoğaltır ve KOPYALARIN seçimini döndürür (KK-11). */
+  duplicateSelection: (selection: Selection, offset: { dxCm: number; dyCm: number }) => Selection
 }
 
 export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
@@ -187,6 +193,7 @@ export const createArchitectureSlice: StateCreator<
 
   ...createPropertyActions(set),
   ...createSelectionActions(set),
+  ...createTransformActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {
