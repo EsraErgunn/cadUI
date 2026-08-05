@@ -35,6 +35,22 @@ export function getOpeningSpan(opening: Pick<Opening, 'offsetCm' | 'widthCm'>): 
   return [opening.offsetCm - halfWidthCm, opening.offsetCm + halfWidthCm]
 }
 
+/**
+ * Merkez ↔ kenar çevrimi (K-3). Model MERKEZİ tutar: açıklık merkeziyle duvarın
+ * orta noktasına yakalanır ve genişlik değişince görsel olarak yerinde kalır.
+ * Kullanıcıya KENAR gösterilir: mühendis "duvar başından X cm" derken açıklığın
+ * yakın kenarını kastediyor.
+ *
+ * Çevrim TEK yerde; formül panele ya da serileştirmeye kopyalanmaz.
+ */
+export function toEdgeOffsetCm(offsetCm: number, widthCm: number): number {
+  return offsetCm - widthCm / 2
+}
+
+export function toCenterOffsetCm(edgeOffsetCm: number, widthCm: number): number {
+  return edgeOffsetCm + widthCm / 2
+}
+
 export function getOpeningsOnWall(wallId: Id, openings: readonly Opening[]): Opening[] {
   return openings.filter((opening) => opening.wallId === wallId)
 }

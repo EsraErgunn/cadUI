@@ -11,6 +11,7 @@ import { FloorManagementDialog } from '../ui/FloorManagementDialog'
 import { FloorTabs } from '../ui/FloorTabs'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
+import { PropertyPanel } from '../ui/PropertyPanel'
 import { StatusBar } from '../ui/StatusBar'
 import { Toolbar } from '../ui/Toolbar'
 
@@ -56,9 +57,9 @@ export function EditorPage() {
           <FloorTabs />
         </main>
 
-        {/* Özellik paneli yuvası. Kardeş eleman olduğu için açıldığında çizim
-            alanını daraltır, üzerine binmez (issue 2.1). Bu issue'da kapalı. */}
-        <aside className="w-0 shrink-0 overflow-hidden" />
+        {/* Kardeş eleman: açıldığında çizim alanını daraltır, üzerine binmez
+            (issue 2.1). Seçim yokken hiç render edilmez. */}
+        <PropertyPanel />
       </div>
 
       <StatusBar />
