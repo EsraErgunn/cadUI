@@ -32,6 +32,7 @@ function projectWithWall(): ProjectData {
     ],
     openings: [],
     rooms: [],
+    symbols: [],
   }
 }
 
