@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 
 import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
+import { createPropertyActions } from './architecturePropertyOps'
 import { splitWallsAtIntersections } from './architectureSplit'
 import {
   appendWall,
@@ -14,7 +15,7 @@ import {
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
-import { deleteSelectionFromDraft } from './selectionOps'
+import { createSelectionActions } from './selectionOps'
 import type { PlanPoint } from '../core/coords'
 import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
@@ -74,6 +75,12 @@ export type ArchitectureSlice = ArchitectureData & {
   pruneOpeningsOnWalls: () => void
   /** Seçili nesnelerin tamamını TEK geri alma adımında siler (KK-10). */
   deleteSelection: (selection: Selection) => boolean
+  /**
+   * Özellik panelinin toplu yazımları (KK-12). Birden çok duvar TEK adımda
+   * güncellenir: tek tek yazılsaydı üç duvar seçen kullanıcı üç Ctrl+Z'ye basardı.
+   */
+  setWallsThickness: (wallIds: readonly Id[], thicknessCm: number) => boolean
+  setWallsHeight: (wallIds: readonly Id[], heightCm: number) => boolean
 }
 
 export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
@@ -178,14 +185,8 @@ export const createArchitectureSlice: StateCreator<
       markDirty(draft)
     }),
 
-  deleteSelection: (selection) => {
-    let isDeleted = false
-    set((draft) => {
-      isDeleted = deleteSelectionFromDraft(draft, selection)
-      if (isDeleted) markDirty(draft)
-    })
-    return isDeleted
-  },
+  ...createPropertyActions(set),
+  ...createSelectionActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {

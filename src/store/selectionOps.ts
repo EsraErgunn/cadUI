@@ -1,4 +1,6 @@
 import { pruneOpeningsInDraft } from './architectureOpeningOps'
+import type { DraftSetter } from './architecturePropertyOps'
+import { markDirty } from './projectMeta'
 import type { ProjectData } from '../core/model'
 import { getSelectedIds, type Selection } from '../core/selection'
 import { getOrphanPointIds } from '../core/wall'
@@ -43,4 +45,17 @@ export function deleteSelectionFromDraft(
   pruneOpeningsInDraft(draft)
 
   return true
+}
+
+export function createSelectionActions(set: DraftSetter) {
+  return {
+    deleteSelection: (selection: Selection): boolean => {
+      let isDeleted = false
+      set((draft) => {
+        isDeleted = deleteSelectionFromDraft(draft, selection)
+        if (isDeleted) markDirty(draft)
+      })
+      return isDeleted
+    },
+  }
 }
