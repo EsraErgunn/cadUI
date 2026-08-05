@@ -53,6 +53,10 @@ export type InstallationToolId = (typeof INSTALLATION_TOOLS)[number]['id']
 
 export const DEFAULT_INSTALLATION_TOOL_ID: InstallationToolId = 'selection'
 
+// Araç hook'ları aktif aracı bu sabitle karşılaştırır; id metni tek yerde durur
+// (core/tools.ts'teki SELECTION_TOOL_ID ile aynı desen).
+export const INSTALLATION_SELECTION_TOOL_ID: InstallationToolId = 'selection'
+
 export function isInstallationToolId(toolId: string): toolId is InstallationToolId {
   return INSTALLATION_TOOLS.some((candidate) => candidate.id === toolId)
 }

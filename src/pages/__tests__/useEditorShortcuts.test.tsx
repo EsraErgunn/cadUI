@@ -2,7 +2,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { resetPlumbingHistory } from '../../plumbing/store/plumbingHistory'
 import { useCadStore } from '../../store/cadStore'
+import { useUiStore } from '../../store/uiStore'
 import { useEditorShortcuts } from '../useEditorShortcuts'
 
 function Harness({ onSave }: { onSave: () => void }) {
@@ -18,7 +20,9 @@ function renderHarness(onSave = vi.fn()) {
 
 beforeEach(() => {
   useCadStore.temporal.getState().clear()
-  useCadStore.setState({ revision: 0, savedRevision: 0 })
+  useCadStore.setState({ revision: 0, savedRevision: 0, installationElements: [] })
+  resetPlumbingHistory([])
+  useUiStore.setState({ activeViewId: 'architecture' })
 })
 
 describe('useEditorShortcuts', () => {
@@ -81,6 +85,53 @@ describe('useEditorShortcuts', () => {
     await user.keyboard('{Control>}y{/Control}')
 
     expect(useCadStore.getState().revision).toBe(1)
+  })
+
+  it('tesisat görünümünde Ctrl+Z tesisat elemanını geri alır', async () => {
+    const user = userEvent.setup()
+    renderHarness()
+    useUiStore.setState({ activeViewId: 'installation' })
+    useCadStore.getState().addElement({ type: 'valve', position: { x: 0, y: 0 } })
+
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useCadStore.getState().installationElements).toHaveLength(0)
+  })
+
+  it('tesisat görünümünde Ctrl+Z mimari geçmişine dokunmaz', async () => {
+    // Aynı tuşu iki dinleyici yakalasaydı tek Ctrl+Z iki geçmişi birden gezerdi.
+    const user = userEvent.setup()
+    renderHarness()
+    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    useUiStore.setState({ activeViewId: 'installation' })
+
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useCadStore.getState().revision).toBe(1)
+  })
+
+  it('mimari görünümünde Ctrl+Z tesisat elemanını geri almaz', async () => {
+    const user = userEvent.setup()
+    renderHarness()
+    useUiStore.setState({ activeViewId: 'installation' })
+    useCadStore.getState().addElement({ type: 'valve', position: { x: 0, y: 0 } })
+    useUiStore.setState({ activeViewId: 'architecture' })
+
+    await user.keyboard('{Control>}z{/Control}')
+
+    expect(useCadStore.getState().installationElements).toHaveLength(1)
+  })
+
+  it('tesisat görünümünde Ctrl+Y tesisat adımını yineler', async () => {
+    const user = userEvent.setup()
+    renderHarness()
+    useUiStore.setState({ activeViewId: 'installation' })
+    useCadStore.getState().addElement({ type: 'valve', position: { x: 0, y: 0 } })
+
+    await user.keyboard('{Control>}z{/Control}')
+    await user.keyboard('{Control>}y{/Control}')
+
+    expect(useCadStore.getState().installationElements).toHaveLength(1)
   })
 
   it('düz S tuşu hiçbir şey yapmaz', async () => {

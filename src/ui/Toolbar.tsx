@@ -1,5 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 
+import { ShortcutHint } from './ShortcutHint'
+import { ARCHITECTURE_SHORTCUTS } from '../core/shortcuts'
 import { ARCHITECTURE_TOOLS } from '../core/tools'
 import { PlumbingToolbar } from '../plumbing/ui/PlumbingToolbar'
 import { useUiStore } from '../store/uiStore'
@@ -54,21 +56,26 @@ export function Toolbar() {
   if (activeViewId === 'installation') return <PlumbingToolbar />
 
   return (
-    // 22 araç tek sütunda 1080p'ye sığmıyor → 11 satır × 2 sütun.
-    <nav
-      aria-label="Araç paleti"
-      className="grid shrink-0 grid-cols-2 content-start gap-1 border-r border-edge bg-surface p-1.5"
-    >
-      {ARCHITECTURE_TOOLS.map((tool) => (
-        <ToolButton
-          key={tool.id}
-          toolId={tool.id}
-          label={tool.label}
-          icon={TOOL_ICONS[tool.id]}
-          isActive={tool.id === activeToolId}
-          onSelect={setActiveTool}
-        />
-      ))}
-    </nav>
+    // Kısayol ipucu paletin ALTINA yapışsın diye sütun: nav yalnız araçları
+    // sarmalar, ipucu araç değil (nav'ın içinde olsaydı palete araç gibi girerdi).
+    <div className="flex shrink-0 flex-col border-r border-ink bg-surface">
+      {/* 22 araç tek sütunda 1080p'ye sığmıyor → 11 satır × 2 sütun. */}
+      <nav aria-label="Araç paleti" className="grid grid-cols-2 content-start gap-1 p-1.5">
+        {ARCHITECTURE_TOOLS.map((tool) => (
+          <ToolButton
+            key={tool.id}
+            toolId={tool.id}
+            label={tool.label}
+            icon={TOOL_ICONS[tool.id]}
+            isActive={tool.id === activeToolId}
+            onSelect={setActiveTool}
+          />
+        ))}
+      </nav>
+
+      <div className="mt-auto border-t border-edge p-1.5">
+        <ShortcutHint title="Mimari kısayollar" shortcuts={ARCHITECTURE_SHORTCUTS} />
+      </div>
+    </div>
   )
 }

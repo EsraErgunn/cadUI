@@ -558,3 +558,140 @@ atar.
 Nerede: `core/wallGraph.ts` (saf), `store/architectureSplit.ts` (uygular).
 Bilinen sınırlar (kolineer duvarlar, birleşmeme, karesel maliyet):
 `knowledge/wall-graph.md`.
+
+## 2026-08 · Geri al/yinele kısayolu görünüme göre ayrılıyor
+
+### K25 — Ctrl+Z aktif görünümün geçmişine gider, dinleyici TEK
+
+Mimari ve tesisat iki ayrı geçmiş tutuyor: mimari veri `cadStore`'un zundo
+sarmalayıcısında (`store/history.ts`), tesisat verisi ayrı bir aynada
+(`plumbing/store/plumbingHistory.ts`). Kısayolları da iki ayrı hook bağlıyordu
+(`pages/useEditorShortcuts.ts` + `plumbing/scene/usePlumbingShortcuts.ts`) ve
+ikisi de `window`'a. Tesisat görünümünde tek Ctrl+Z her iki dinleyiciye birden
+düşüyor, iki geçmişi aynı anda bir adım geri alıyordu — kullanıcı tesisatta bir
+sembolü geri alırken habersizce bir duvar işlemini de geri alıyordu.
+
+Karar: kısayol dinleyicisi TEK (`pages/useEditorShortcuts.ts`); geri al/yinele
+`uiStore.activeViewId`'ye bakıp doğru geçmişe dağıtılır
+(`installation` → `undoPlumbing/redoPlumbing`, diğerleri → `undoProject/redoProject`).
+Görünüme abone OLUNMAZ, tuş anında `getState()` ile okunur: abonelik her görünüm
+değişiminde dinleyiciyi sökülüp kurardı. `usePlumbingShortcuts.ts` silindi.
+
+Ctrl+S görünümden bağımsız: kayıt tüm projeyi kapsıyor.
+
+### Kapanmayan taraf: menü ve ortak sayaçlar
+
+Menü çubuğundaki "Geri Al / Yinele" hâlâ koşulsuz `undoProject` çağırıyor ve
+aktiflikleri `useCanUndo/useCanRedo` ile mimari geçmişten geliyor. Tesisat
+geçmişi için karşılık gelen bir React hook'u yok — ayrılık şimdilik yalnız
+klavye tarafında.
+
+Ayrıca `nextUniqueId` ve `revision` mimari geçmişte izleniyor (`history.ts`),
+tesisat eklemesi ikisini de artırıyor: her tesisat işlemi mimari geçmişe içeriği
+değişmeyen bir adım bırakıyor. Mimaride Ctrl+Z o adımlarda görünürde hiçbir şey
+yapmıyor. Düzeltmesi `history.ts`'in izlenen alanlarına dokunmayı gerektiriyor.
+
+## 2026-08 · Tesisat seçimi: tutma saf geometriyle
+
+### K26 — Eleman tutması R3F ışın olaylarıyla değil, `core/elementPicking.ts` ile
+
+Aşama 4 planı "seçim R3F'in kendi olay sistemiyle (`onPointerDown` +
+`stopPropagation`) yapılır" diyordu. Uygulamada saf geometri seçildi.
+
+`DrawSurface` tuvalin DOM olayını dinliyor; R3F de aynı tuvale kendi dinleyicisini
+kuruyor. Tek `pointerdown` ikisine birden düşüyor, dolayısıyla "boş alana tıklama
+seçimi temizler" kuralı iki dinleyicinin kayıt sırasına bağlı kalırdı — bu sıra
+R3F'in mount düzeninin ayrıntısı, sözleşme değil. Tek olay kaynağı (mevcut
+`drawSurfaceEvents` veri yolu) bu belirsizliği kaldırıyor; repodaki diğer araçlar
+(duvar, açıklık, köşe, yerleştirme) zaten aynı yoldan çalışıyor.
+
+Yan kazanç: tutma sınavı saf fonksiyon, jsdom'da test edilebiliyor. R3F ışını
+edilemezdi. Risk R5 (mimari nesnenin yanlışlıkla seçilmesi) da kendiliğinden
+kapanıyor: sınav yalnız tesisat elemanları üzerinde dönüyor.
+
+Bedeli: tutma kutusu sembolün `bounds`'u, piksel hassasiyetinde SVG silueti değil.
+Küçük semboller için bu zaten istenen davranış (zoom'a bağlı tolerans eklenir).
+
+### Sayaç ve süzme sayaç portları yukarıdaki kolonlara taşındı
+
+İki sembolün gaz bağlantısı çizimde gövdenin yanında değil, yukarı çıkan iki
+dikey kolonda. Portlar gövdenin sol/sağ kenarındaydı (`[0,13]`/`[60,13]`); kolon
+uçlarına alındı (`[20,-20]`/`[40,-20]`, yön `[0,-1]`). `bounds.min.y` de -20'ye
+çekildi — port bounds dışında kalırsa şema doğrulaması uygulamayı açılışta
+patlatır, ayrıca seçim çerçevesi kolonları dışarıda bırakırdı.
+
+Açık kalan: asset'lerin `viewBox`'ı hâlâ `[0,0,60,40]`, yani kolonlar viewBox'ın
+dışında. Sahnede sorun değil (three viewBox'a bakmaz, kırpma yok) ama SVG bir gün
+DOM'da render edilirse kolonlar kesilir.
+
+## 2026-08 · WebCAD referans projesi incelendi
+
+Gerçek bir WebCAD export'u (5 katlı bina, 2 sayaç, kombi + ocak, servis kutusu) alan alan
+incelendi. Biçim dökümü `docs/webcad-format.md`; plana yansıyan maddeler
+`CLAUDE_INSTALLATION_PLAN.md` → "WebCAD referans projesinden gelen kararlar".
+
+### K27 — Boru çapı örnek başına (varsayılan DN25), renk çapı gösterir
+
+WebCAD her boruya `type: {name, radius, color}` gömüyor; çap boru başına veridir, hat
+başına değil. Bizde de öyle olur ve yeni boru **DN25** ile eklenir. Katalog
+(`core/pipeTypes.ts`) genişletilebilir tutulur: yeni çap eklemek bir satır olmalı, çap ne
+araç kimliğine ne renk seçimine gömülür.
+
+Katalog **DN15, 20, 25, 32, 40, 50, 65, 80, 100** (ekip kararı). Çizim kalınlığı EN 10255
+dış çapından gelir (DN15 2.13 cm … DN100 11.43 cm) — `worldUnits` ile çizilen hat gerçek
+boru kalınlığında olur. Tam tablo `CLAUDE_INSTALLATION_PLAN.md` → K-W1'de.
+
+**Eksik:** WebCAD renkleri yalnız DN25/32/40/50 için biliniyor (referans projede geçenler);
+DN15, 20, 65, 80, 100 renkleri belirlenmedi. Varsayarak doldurulmayacak — o beş çap,
+rengi gelene kadar palette seçilebilir olmaz.
+
+Renk çap sınıfından gelir (DN25 kırmızı `255,23,68`, DN32 açık mor, DN40 mavi, DN50 mor).
+**Bunun bedeli:** `CLAUDE.md`'nin "tuvalde sarı = gaz hattı" kuralı geçersizleşti. Marka
+sarısı çizim alanına hâlâ girmiyor, ama artık gaz hattının işareti de değil. Gerekçe: çıktıyı
+okuyan kişi WebCAD çıktısını da okuyor; çapın renkten okunması sektör alışkanlığı.
+
+### K28 — Armatür bir düğümdür, boru üzerinde `t` değil
+
+WebCAD'de vana/sayaç bir `InstalmentPoint`'tir (`inlineApplianceId`) ve boru orada bölünür.
+Hidrolik hesap da (kayıplar düğüm başına sayılıyor: `losses.valves`, `losses.elbows`) bu
+yapıya dayanıyor. Benimsendi.
+
+`core/model.ts`'teki "Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile" maddesi bununla
+çelişiyor. Sözleşme değişikliği olduğu için **A'nın onayı** bekleniyor; Aşama 6 başlamadan
+kapatılmalı, sonradan dönerse Aşama 6–7 yeniden yazılır.
+
+### K29 — İzolasyon nesnedir, segment boolean'ı değil
+
+WebCAD'de `Isolation` kendi model dizisi ve `PipeLine.armatures.Isolation` içinde bir
+armatür. Benimsendi: `installationTools.ts`'teki `insulation` aracı `segment-toggle`
+davranışından `placement`'a döner, `InstallationLineSegment.isInsulated` alanı hiç açılmaz.
+
+### K30 — Round-trip kapsamı: yalnız geometri
+
+WebCAD dosyası hidrolik hesabın sonucunu da saklıyor (`PipeLine.deltaPr/deltaPz/speed/
+entryPressure/losses`, üstelik `myParent` her seviyede özyinelemeli gömülü). Bu alanlar
+bizde üretilmez, yazılmaz, pass-through da edilmez — bayat hesabı geri yazmak sessizce
+yanlış veri üretirdi. Kabul testi "bizim yazdığımızı okuyup aynen geri yazmak"tır.
+
+### Ertelenen: kat kapsamı ve baca
+
+- **Kat.** WebCAD'de tesisatın katı yok; `instalment` kökte tek nesne, yükseklik
+  `InstalmentPoint.elevation` (kolon = aynı x,y üstünde artan kot). Bizim `floorId`'li
+  yapımız bununla çelişiyor ama şimdilik korunuyor — 3B/kot dönüşümü sonraki bir iş.
+- **Baca/havalandırma.** Ayrı graflar (`flueGraph`, `ventilationGraph`, `FluePoint`,
+  `Boiler.flueStartPointId`). Yani baca `InstallationLineKind`'a eklenecek bir hat türü
+  DEĞİL; `knowledge/linear-symbols.md`'deki dönüşüm planı askıya alındı. "İşlevler"
+  başlığına ait, sonraki bir iş.
+
+### Yan bulgu: id evreni konteyner bazlı
+
+Kat 1–4 birebir aynı id'leri taşıyor (Door 42, Wall 5, Point 1…) ve her katın kendi
+`nextUniqueId`'si var; `instalment` de ayrı bir evren. Yani id'ler proje genelinde değil
+konteyner içinde tekil. Bu, floor-clone kuralımızla ("kopya tümüyle yeni id alır")
+çelişiyor — `knowledge/id-scheme.md` ve `floor-clone.md` bu ışıkta gözden geçirilmeli.
+
+### Uyarı: export kişisel veri taşıyor
+
+`GasMeter.subscriberName`, `consumptionPoint`, `boxes[].KutuId`/`KapiKodu`,
+`connectionPoint`, `roadNames`, `districtName` gerçek abone ve adres bilgisi. Ham export
+repoya konacaksa önce anonimleştirilir.

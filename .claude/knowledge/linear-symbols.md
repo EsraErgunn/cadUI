@@ -1,4 +1,14 @@
-# Baca ve havalandırma kanalı: nokta değil, uzayan eleman (KARAR VERİLMEDİ)
+# Baca ve havalandırma kanalı: nokta değil, uzayan eleman (ASKIYA ALINDI)
+
+> **2026-08 güncellemesi — aşağıdaki dönüşüm planı ASKIDA.** WebCAD referans projesi
+> incelendi: baca ve havalandırma orada `InstallationLine` benzeri bir hat türü DEĞİL, kendi
+> **ayrı grafları** (`flueGraph`, `ventilationGraph`), kendi nokta tipleri (`FluePoint`,
+> `VentilationPoint`) ve cihaza bağı (`Boiler.flueStartPointId`, `FluePoint.applianceId`)
+> olan paralel sistemler. Havalandırmanın bir de mimari tarafı var: duvara bağlı `Vent`
+> menfezi + kesit hesabı. Yani "`InstallationLineKind`'a iki değer ekle" yaklaşımı yanlış
+> çıktı. Konu "işlevler" başlığına ait ve sonraki bir işte ele alınacak; aşağıdaki üç soru
+> da o işin parçası. Bkz. [../../docs/webcad-format.md](../../docs/webcad-format.md),
+> kararlar K27–K30.
 
 Kullanıcı kararı: baca ve havalandırma kanalı bir *damga* değil bir *güzergâh*tır —
 boyu kullanıcı tarafından çizilir. Aşama 3'te nokta `InstallationElement` olarak
