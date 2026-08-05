@@ -24,13 +24,16 @@ type PointDrag = {
 }
 
 /**
- * Taşınan duvarın GEÇİCİ ötelemesi. Duvar kendi koordinatını taşımadığı için
- * konum değil ÖTELEME tutulur; çizim tarafı bunu duvarın iki köşesine uygular.
+ * Taşınan duvarLARIN geçici ötelemesi. Duvar kendi koordinatını taşımadığı için
+ * konum değil ÖTELEME tutulur; çizim tarafı bunu her duvarın iki köşesine uygular.
  * draggingPoint ile aynı gerekçeyle store'a bırakma anında yazılır: komşu duvar
  * kısaldıkça sığmayan açıklık her karede silinir ve geri gelmezdi (K16).
+ *
+ * Dizi çünkü çoklu seçim tek jestle taşınıyor (KK-11); tek duvar bunun bir
+ * elemanlı hâli, ayrı bir yol değil.
  */
 type WallDrag = {
-  wallId: Id
+  wallIds: Id[]
   dxCm: number
   dyCm: number
 }

@@ -11,7 +11,7 @@ import {
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel, snapPointToGrid } from '../core/grid'
 import type { Id } from '../core/model'
-import { isItemSelected } from '../core/selection'
+import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -21,10 +21,11 @@ import { useUiStore } from '../store/uiStore'
 const PRIMARY_BUTTON = 0
 
 type WallGrab = {
-  wallId: Id
+  /** Taşınacak duvarlar: tutulan duvar seçimin parçasıysa TÜM seçim (KK-11). */
+  wallIds: Id[]
   /** Basış anındaki ham imleç noktası; öteleme buna göre ölçülür. */
   grabPoint: PlanPoint
-  /** p1'in basış anındaki konumu — ızgara yapışması bu köşe üzerinden yapılır. */
+  /** Tutulan duvarın p1'i — ızgara yapışması bu köşe üzerinden yapılır. */
   originP1: PlanPoint
 }
 
@@ -104,8 +105,11 @@ export function useWallSelectionTool(): void {
         ui.setSelection([item])
       }
 
+      // Tutulan duvar seçimin parçasıysa seçimin TAMAMI taşınır; değilse yalnız o.
+      // (Yukarıdaki dal seçimi zaten bu duvara indirmiş olabilir.)
+      const selectedWallIds = getSelectedIds(useArchitectureUiStore.getState().selection, 'wall')
       grab = {
-        wallId: wall.id,
+        wallIds: selectedWallIds.includes(wall.id) ? selectedWallIds : [wall.id],
         grabPoint: event.planPoint,
         originP1: { x: originP1.x, y: originP1.y },
       }
@@ -125,7 +129,7 @@ export function useWallSelectionTool(): void {
         : snapPointToGrid(rawP1, pickGridLevel(zoom).minorCm)
 
       useArchitectureUiStore.getState().setDraggingWall({
-        wallId: grab.wallId,
+        wallIds: grab.wallIds,
         dxCm: nextP1.x - grab.originP1.x,
         dyCm: nextP1.y - grab.originP1.y,
       })
@@ -134,14 +138,20 @@ export function useWallSelectionTool(): void {
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
-      const { wallId } = grab
+      const { wallIds } = grab
       const drag = useArchitectureUiStore.getState().draggingWall
       endDrag()
 
       // Sürükleme boyunca cadStore'a hiç yazılmadı: tek yazım = tek markDirty =
       // tek Ctrl+Z. Yer değişmediyse (sadece seçmek için tıklama) hiç yazılmaz.
       if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
-      useCadStore.getState().moveWall(wallId, drag.dxCm, drag.dyCm)
+
+      // Taşıma da bir dönüşüm: tek duvar ile çoklu seçim aynı yoldan geçer,
+      // yoksa "birden çok duvar taşındığında ne oluyor" iki yerde yanıtlanırdı.
+      useCadStore.getState().transformSelection(
+        wallIds.map((wallId) => ({ kind: 'wall', id: wallId })),
+        { kind: 'translate', dxCm: drag.dxCm, dyCm: drag.dyCm },
+      )
     }
 
     // Esc taşımayı iptal eder: duvar eski yerinde kalır çünkü store'a yazılmadı.
