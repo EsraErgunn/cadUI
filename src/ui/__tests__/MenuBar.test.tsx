@@ -7,18 +7,24 @@ import { useCadStore } from '../../store/cadStore'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
 
-function renderMenuBar(onCloseEditor = vi.fn(), onSave = vi.fn(), onExport = vi.fn()) {
+function renderMenuBar(
+  onCloseEditor = vi.fn(),
+  onSave = vi.fn(),
+  onExport = vi.fn(),
+  onOpenFloorManagement = vi.fn(),
+) {
   render(
     <MemoryRouter>
       <MenuBar
         onCloseEditor={onCloseEditor}
         onSave={onSave}
         onExport={onExport}
+        onOpenFloorManagement={onOpenFloorManagement}
         isSaving={false}
       />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave, onExport }
+  return { onCloseEditor, onSave, onExport, onOpenFloorManagement }
 }
 
 describe('MenuBar', () => {

@@ -68,10 +68,15 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
 
-B (mimari) iki alt-faya bölündü: **duvar altyapısı** (wall/room/snap/floorClone,
-useWallTool/useRoomTool) ve **açıklık + nesne etkileşimi** (opening, seçim/taşıma,
-özellik paneli beslemesi). İkisinin sınırı knowledge/snap-contract.md'deki
-karşılıklı fonksiyonlardır — o sınırın dışında birbirinin dosyasına yazılmaz.
+B (mimari) iki alt-faya bölündü: **duvar altyapısı** (wall/room/snap,
+useWallTool/useRoomTool, Room tipi) ve **açıklık + nesne etkileşimi** (opening,
+seçim/taşıma/çoklu seçim, grup dönüşümü, özellik paneli, kat yönetimi ve
+floorClone). İkisinin sınırı knowledge/snap-contract.md'deki karşılıklı
+fonksiyonlardır — o sınırın dışında birbirinin dosyasına yazılmaz.
+
+`floorClone` ikinci tarafta çünkü grup çoğaltma (KK-11) ile kat kopyalama (KK-15)
+AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farklı
+şekilde yazılırdı (bkz. knowledge/floor-clone.md).
 
 ## Ürün kuralları (gereksinimler)
 

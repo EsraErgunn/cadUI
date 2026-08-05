@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { useCloseEditor } from './useCloseEditor'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
@@ -5,6 +7,8 @@ import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
 import { AxisIndicator } from '../ui/AxisIndicator'
 import { FloorLabel } from '../ui/FloorLabel'
+import { FloorManagementDialog } from '../ui/FloorManagementDialog'
+import { FloorTabs } from '../ui/FloorTabs'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { StatusBar } from '../ui/StatusBar'
@@ -15,6 +19,7 @@ export function EditorPage() {
   const closeEditor = useCloseEditor()
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
+  const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const handleSave = () => void save()
   useEditorShortcuts({ onSave: handleSave })
 
@@ -24,6 +29,7 @@ export function EditorPage() {
         onCloseEditor={closeEditor}
         onSave={handleSave}
         onExport={exportProject}
+        onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
         isSaving={isSaving}
       />
 
@@ -47,6 +53,7 @@ export function EditorPage() {
           <FloorLabel />
           <OpeningToolOptions />
           <AxisIndicator />
+          <FloorTabs />
         </main>
 
         {/* Özellik paneli yuvası. Kardeş eleman olduğu için açıldığında çizim
@@ -55,6 +62,10 @@ export function EditorPage() {
       </div>
 
       <StatusBar />
+
+      {isFloorDialogOpen && (
+        <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />
+      )}
     </div>
   )
 }

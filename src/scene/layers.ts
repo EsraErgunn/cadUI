@@ -5,6 +5,12 @@
 export const RENDER_ORDER = {
   gridMinor: 0,
   gridMajor: 1,
+  /**
+   * Aktif katın altındaki katın izi (KK-13). architectureGhost'un da ALTINDA:
+   * o karşı KATMANIN izi, bu karşı KATIN izi — ikisi aynı anda görünebilir ve
+   * hizalama referansı olan alt kat en geride durmalı.
+   */
+  floorBelowGhost: 3,
   architectureGhost: 5,
   room: 10,
   wall: 20,

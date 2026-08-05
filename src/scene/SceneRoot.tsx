@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { ArchitectureLayer } from './ArchitectureLayer'
 import { Cameras } from './Cameras'
 import { DrawSurface } from './DrawSurface'
+import { FloorBelowGhost } from './FloorBelowGhost'
 import { Grid } from './Grid'
 import { SCENE_COLORS } from './sceneTheme'
 import { useViewportControls } from './useViewportControls'
@@ -32,6 +33,8 @@ export function SceneRoot() {
       {activeViewId === 'architecture' && (
         <>
           <DrawSurface />
+          {/* Alt kat en geride: hizalama referansı, aktif katın çizimini örtmez. */}
+          <FloorBelowGhost />
           <ArchitectureLayer />
           <InstallationGhost />
         </>
