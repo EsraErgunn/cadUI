@@ -78,7 +78,9 @@ karşılıklı fonksiyonlardır — o sınırın dışında birbirinin dosyasın
 - Bir kat mimarisi boş kata bağımsız kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
 - İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
 - Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
-- Renk: marka sarısı #FFC107 çizim alanına GİRMEZ (tuvalde sarı = gaz hattı). Seçim rengi mavi.
+- Renk: marka sarısı #FFC107 çizim alanına GİRMEZ. Seçim rengi mavi. Gaz hattının rengi
+  ÇAPINDAN gelir (DN25 kırmızı, DN32/40/50 kendi renkleri — WebCAD ile aynı sınıflandırma,
+  K27). "Tuvalde sarı = gaz hattı" kuralı bu kararla kalktı.
 - Kimin projeye erişebileceği (tek sahip mi, çoklu rol mü) KESİNLEŞMEDİ — bkz.
   knowledge/access-control.md. Bu konuda varsayım kodlama.
 

@@ -1,10 +1,34 @@
 import { useEffect, useRef } from 'react'
 
 import { isTypingTarget } from '../core/domEvents'
-import { redoProject, undoProject } from '../store/cadStore'
+import { redoProject, undoProject, useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
 
 export type EditorShortcutHandlers = {
   onSave: () => void
+}
+
+/**
+ * Geri al/yinele AKTİF GÖRÜNÜMÜN geçmişine gider: tesisat görünümünde tesisat
+ * aynası (plumbingHistory), mimaride proje geçmişi. Katmanlar kendi kısayolunu
+ * ayrı bir window dinleyicisiyle bağlasaydı tesisat görünümünde tek Ctrl+Z iki
+ * dinleyiciye birden düşer, iki geçmişi aynı anda geri alırdı.
+ * İzometrikte düzenleme yok; proje geçmişi varsayılan olarak kalır.
+ */
+function undoActiveView(): void {
+  if (useUiStore.getState().activeViewId === 'installation') {
+    useCadStore.getState().undoPlumbing()
+    return
+  }
+  undoProject()
+}
+
+function redoActiveView(): void {
+  if (useUiStore.getState().activeViewId === 'installation') {
+    useCadStore.getState().redoPlumbing()
+    return
+  }
+  redoProject()
 }
 
 /**
@@ -39,9 +63,11 @@ export function useEditorShortcuts({ onSave }: EditorShortcutHandlers): void {
         return
       }
 
+      // Aktif görünüm her tuşta yeniden okunuyor: abone olunsaydı görünüm
+      // değişimi bu effect'i (ve dinleyiciyi) gereksizce yeniden kurardı.
       const isRedo = key === 'y' || event.shiftKey
-      if (isRedo) redoProject()
-      else undoProject()
+      if (isRedo) redoActiveView()
+      else undoActiveView()
     }
 
     window.addEventListener('keydown', handleKeyDown)

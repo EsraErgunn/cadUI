@@ -6,8 +6,8 @@
   "origin": [30, 13],
   "flowDirection": "left-to-right",
   "ports": [
-    { "id": "in", "type": "input", "position": [0, 13], "direction": [1, 0] },
-    { "id": "out", "type": "output", "position": [60, 13], "direction": [1, 0] }
+    { "id": "in", "type": "input", "position": [20, -20], "direction": [0, -1] },
+    { "id": "out", "type": "output", "position": [40, -20], "direction": [0, -1] }
   ],
-  "bounds": { "min": [0, 0], "max": [60, 40] }
+  "bounds": { "min": [0, -20], "max": [60, 40] }
 }

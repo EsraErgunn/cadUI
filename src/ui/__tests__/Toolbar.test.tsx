@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -14,7 +14,10 @@ beforeEach(() => {
 describe('Toolbar', () => {
   it('22 aracın tamamını dokümandaki sırayla gösterir (KK-8)', () => {
     render(<Toolbar />)
-    const buttons = screen.getAllByRole('button')
+    // Sayım nav ile sınırlı: kısayol ipucu butonu palet dışında, araç değil.
+    const buttons = within(screen.getByRole('navigation', { name: 'Araç paleti' })).getAllByRole(
+      'button',
+    )
     expect(buttons).toHaveLength(22)
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(
       ARCHITECTURE_TOOLS.map((tool) => tool.label),
