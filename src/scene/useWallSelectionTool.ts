@@ -9,9 +9,9 @@ import {
   type ArchitectureTargetContext,
 } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
-import { isTypingTarget } from '../core/domEvents'
 import { pickGridLevel, snapPointToGrid } from '../core/grid'
 import type { Id } from '../core/model'
+import { isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -66,9 +66,7 @@ export function useWallSelectionTool(): void {
     }
 
     const clearSelection = () => {
-      if (useArchitectureUiStore.getState().selectedWallId !== null) {
-        useArchitectureUiStore.getState().setSelectedWall(null)
-      }
+      useArchitectureUiStore.getState().clearSelection()
     }
 
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
@@ -81,11 +79,9 @@ export function useWallSelectionTool(): void {
       const context = readContext()
       const target = resolveArchitectureTarget(event.planPoint, context)
 
-      // Köşe ve açıklık üstte: jest onların, duvar seçimi de bırakılır.
-      if (!target || target.kind !== 'wall') {
-        clearSelection()
-        return
-      }
+      // Köşe ve açıklık üstte: jest onların. Boşluk da bizim değil — çerçeve
+      // seçimini useSelectionTool başlatır, seçimi o temizler.
+      if (!target || target.kind !== 'wall') return
 
       if (isEraser) {
         useCadStore.getState().deleteWall(target.wallId)
@@ -97,7 +93,17 @@ export function useWallSelectionTool(): void {
       const originP1 = context.points.find((point) => point.id === wall?.p1Id)
       if (!wall || !originP1) return
 
-      useArchitectureUiStore.getState().setSelectedWall(wall.id)
+      // Shift seçime ekler/çıkarır, düz tıklama seçimi değiştirir (KK-10).
+      // Zaten seçiliyse düz tıklama seçimi KORUR: yoksa çoklu seçimi taşımak için
+      // basılan ilk duvar, taşıma başlamadan seçimi tek nesneye düşürürdü.
+      const ui = useArchitectureUiStore.getState()
+      const item = { kind: 'wall', id: wall.id } as const
+      if (event.shiftKey) {
+        ui.toggleSelected(item)
+      } else if (!isItemSelected(ui.selection, item)) {
+        ui.setSelection([item])
+      }
+
       grab = {
         wallId: wall.id,
         grabPoint: event.planPoint,
@@ -144,31 +150,15 @@ export function useWallSelectionTool(): void {
       clearSelection()
     }
 
-    // Klavye drawSurfaceEvents'te taşınmıyor (onCancel yalnız Esc); açıklık
-    // tarafındaki Delete dinleyicisiyle aynı desen. Seçimler karşılıklı dışlamalı
-    // olduğu için ikisi aynı anda silmez.
-    const handleKeyDown = (keyEvent: KeyboardEvent) => {
-      if (isTypingTarget(keyEvent.target)) return
-      if (keyEvent.key !== 'Delete' && keyEvent.key !== 'Backspace') return
-
-      const { selectedWallId } = useArchitectureUiStore.getState()
-      if (selectedWallId === null) return
-
-      useCadStore.getState().deleteWall(selectedWallId)
-      clearSelection()
-    }
-
     const unsubscribe = subscribeDrawSurface({
       onPointerDown: handlePointerDown,
       onPointerMove: handlePointerMove,
       onPointerUp: handlePointerUp,
       onCancel: handleCancel,
     })
-    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       unsubscribe()
-      window.removeEventListener('keydown', handleKeyDown)
       endDrag()
     }
   }, [camera])

@@ -14,9 +14,11 @@ import {
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
+import { deleteSelectionFromDraft } from './selectionOps'
 import type { PlanPoint } from '../core/coords'
 import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
+import type { Selection } from '../core/selection'
 import { getOrphanPointIds } from '../core/wall'
 
 // Selector'lar ve duvar yazma iç fonksiyonları ayrı dosyalarda (max-lines);
@@ -70,6 +72,8 @@ export type ArchitectureSlice = ArchitectureData & {
   removeOpening: (openingId: Id) => void
   /** Duvar silme/kısaltma sonrası temizlik (K16). */
   pruneOpeningsOnWalls: () => void
+  /** Seçili nesnelerin tamamını TEK geri alma adımında siler (KK-10). */
+  deleteSelection: (selection: Selection) => boolean
 }
 
 export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
@@ -173,6 +177,15 @@ export const createArchitectureSlice: StateCreator<
       pruneOpeningsInDraft(draft)
       markDirty(draft)
     }),
+
+  deleteSelection: (selection) => {
+    let isDeleted = false
+    set((draft) => {
+      isDeleted = deleteSelectionFromDraft(draft, selection)
+      if (isDeleted) markDirty(draft)
+    })
+    return isDeleted
+  },
 
   deleteWall: (wallId) =>
     set((draft) => {

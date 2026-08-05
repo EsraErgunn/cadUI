@@ -1,10 +1,13 @@
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
+import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useOpeningTool } from './useOpeningTool'
+import { useSelectionTool } from './useSelectionTool'
 import { getOpeningOutline } from '../core/opening'
+import { isSelected } from '../core/selection'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
@@ -23,7 +26,7 @@ function Openings() {
   const walls = useCadStore((state) => state.walls)
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  const selectedOpeningId = useArchitectureUiStore((state) => state.selectedOpeningId)
+  const selection = useArchitectureUiStore((state) => state.selection)
 
   return (
     <>
@@ -34,7 +37,9 @@ function Openings() {
         const outline = getOpeningOutline(wall, points, opening)
         if (!outline) return null
 
-        const tone: OpeningTone = opening.id === selectedOpeningId ? 'selected' : 'normal'
+        const tone: OpeningTone = isSelected(selection, 'opening', opening.id)
+          ? 'selected'
+          : 'normal'
 
         // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
         return <Opening key={opening.id} outline={outline} type={opening.type} tone={tone} />
@@ -51,6 +56,12 @@ function Openings() {
   )
 }
 
+/** Çerçeve seçimi hook'u; <Canvas> içinde çalışmak zorunda (Openings ile aynı desen). */
+function SelectionTool() {
+  useSelectionTool()
+  return null
+}
+
 /** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
 export function ArchitectureLayer() {
   return (
@@ -59,8 +70,10 @@ export function ArchitectureLayer() {
       {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
       <Openings />
       <WallTool />
-      {/* Tutamaklar en üstte: altındaki her şeyin üzerinde görünmeli. */}
+      <SelectionTool />
+      {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
+      <SelectionMarquee />
     </group>
   )
 }

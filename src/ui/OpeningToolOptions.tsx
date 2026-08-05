@@ -2,7 +2,10 @@ import { useState } from 'react'
 
 import { getOpeningTypeForTool, MIN_OPENING_WIDTH_CM } from '../core/opening'
 import { selectOpeningById } from '../store/architectureSlice'
-import { useArchitectureUiStore } from '../store/architectureUiStore'
+import {
+  selectSoleSelectedOpeningId,
+  useArchitectureUiStore,
+} from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
@@ -16,14 +19,14 @@ const WIDTH_STEP_CM = 5
  */
 export function OpeningToolOptions() {
   const activeToolId = useUiStore((state) => state.activeToolId)
-  const selectedOpeningId = useArchitectureUiStore((state) => state.selectedOpeningId)
+  const selectedOpeningId = useArchitectureUiStore(selectSoleSelectedOpeningId)
   const openingWidthCm = useArchitectureUiStore((state) => state.openingWidthCm)
   const setOpeningWidthCm = useArchitectureUiStore((state) => state.setOpeningWidthCm)
   const setOpeningWidth = useCadStore((state) => state.setOpeningWidth)
   // selectOpeningById dizideki nesnenin kendisini döndürür (yeni nesne üretmez),
   // bu yüzden abonelik olarak güvenli.
   const selectedOpening = useCadStore((state) =>
-    selectedOpeningId === null ? undefined : selectOpeningById(state, selectedOpeningId),
+    selectedOpeningId === undefined ? undefined : selectOpeningById(state, selectedOpeningId),
   )
 
   const openingType = getOpeningTypeForTool(activeToolId)

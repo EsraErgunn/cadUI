@@ -22,7 +22,7 @@ const WIDTH_LABEL = 'Genişlik (cm)'
 beforeEach(() => {
   useUiStore.setState({ activeToolId: DEFAULT_TOOL_ID })
   useArchitectureUiStore.setState({
-    selectedOpeningId: null,
+    selection: [],
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
   })
   useCadStore.setState({
@@ -88,7 +88,7 @@ describe('OpeningToolOptions', () => {
   it('seçili açıklığın genişliğini gösterir ve Enter ile günceller', async () => {
     const user = userEvent.setup()
     useUiStore.setState({ activeToolId: 'window' })
-    useArchitectureUiStore.setState({ selectedOpeningId: WINDOW_ID })
+    useArchitectureUiStore.setState({ selection: [{ kind: 'opening', id: WINDOW_ID }] })
     render(<OpeningToolOptions />)
 
     expect(screen.getByLabelText(WIDTH_LABEL)).toHaveValue(120)
@@ -103,7 +103,7 @@ describe('OpeningToolOptions', () => {
   it('sığmayan genişlikte uyarır, açıklığı değiştirmez ve girdiyi geri alır', async () => {
     const user = userEvent.setup()
     useUiStore.setState({ activeToolId: 'window' })
-    useArchitectureUiStore.setState({ selectedOpeningId: WINDOW_ID })
+    useArchitectureUiStore.setState({ selection: [{ kind: 'opening', id: WINDOW_ID }] })
     render(<OpeningToolOptions />)
 
     // 250 ortalı 600 cm [-50, 550] olur; duvarın aralığı [25, 470].

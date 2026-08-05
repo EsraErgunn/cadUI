@@ -5,6 +5,7 @@ import { SCENE_COLORS } from './sceneTheme'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { planToThree } from '../core/coords'
 import type { Point, Wall as WallData } from '../core/model'
+import { isSelected } from '../core/selection'
 import { getWallCapsule } from '../core/wallShape'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
@@ -88,14 +89,15 @@ export function Walls() {
   const points = useArchitecturePoints()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)
-  const selectedWallId = useArchitectureUiStore((state) => state.selectedWallId)
+  // Kararlı referansa abone olunur; seçili olup olmadığı render sırasında türetilir.
+  const selection = useArchitectureUiStore((state) => state.selection)
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
   const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
 
   // Seçim vurgudan baskın: seçili duvarın üstündeyken mavi kalır, açılmaz.
   const toneOf = (wallId: WallData['id']): WallTone => {
-    if (wallId === selectedWallId) return 'selected'
+    if (isSelected(selection, 'wall', wallId)) return 'selected'
     return wallId === hoveredWallId ? 'hovered' : 'normal'
   }
 

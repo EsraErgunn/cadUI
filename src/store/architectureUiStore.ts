@@ -5,6 +5,13 @@ import type { ArchitectureTarget } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
 import type { Id, OpeningType } from '../core/model'
 import { DEFAULT_OPENING_WIDTH_CM } from '../core/opening'
+import {
+  getSoleSelectedId,
+  toggleSelectionItem,
+  type PlanRect,
+  type Selection,
+  type SelectionItem,
+} from '../core/selection'
 
 /**
  * Sürüklenen köşenin GEÇİCİ konumu. cadStore'a her karede yazılmaz: movePoint
@@ -29,9 +36,15 @@ type WallDrag = {
 }
 
 type ArchitectureUiState = {
-  selectedOpeningId: Id | null
-  /** Seçili duvar. Açıklık seçimiyle karşılıklı dışlamalı — ikisi aynı jestte temizlenir. */
-  selectedWallId: Id | null
+  /**
+   * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
+   * liste: iki alan varken "ikisi aynı anda dolu olmasın" el sıkışması her yeni
+   * seçilebilir nesnede tekrar kuruluyordu (bkz. knowledge/gesture-bus-precedence.md,
+   * eski TODO(fay-B2)).
+   */
+  selection: Selection
+  /** Sürüklenen çerçevenin anlık dikdörtgeni; yalnız çizim için, seçim bırakışta yazılır. */
+  marquee: PlanRect | null
   draggingPoint: PointDrag | null
   draggingWall: WallDrag | null
   /** İmlecin altındaki nesne. Yalnız vurgu için; hiçbir şeyi seçmez. */
@@ -42,8 +55,12 @@ type ArchitectureUiState = {
    * Record ama yasak olan tür değil — anahtar string-literal union, kaydedilmiyor.
    */
   openingWidthCm: Record<OpeningType, number>
-  setSelectedOpening: (openingId: Id | null) => void
-  setSelectedWall: (wallId: Id | null) => void
+  /** Seçimi tümüyle değiştirir (tek tıklama, çerçeve sonucu). */
+  setSelection: (selection: Selection) => void
+  /** Seçiliyse çıkarır, değilse ekler — Shift+tıklama (KK-10). */
+  toggleSelected: (item: SelectionItem) => void
+  clearSelection: () => void
+  setMarquee: (marquee: PlanRect | null) => void
   setOpeningWidthCm: (type: OpeningType, widthCm: number) => void
   setDraggingPoint: (drag: PointDrag | null) => void
   setDraggingWall: (drag: WallDrag | null) => void
@@ -58,27 +75,36 @@ type ArchitectureUiState = {
  *
  * Bu store aynı zamanda scene/ ile ui/ arasındaki köprü: eslint ikisinin
  * birbirini import etmesini yasaklıyor, ortak nokta store + core.
- *
- * TODO(fay-B2): genel nesne seçimi gelince selectedOpeningId ayrı bir doğruluk
- * kaynağı olmaktan çıkıp o seçimden türetilmeli.
  */
 export const useArchitectureUiStore = create<ArchitectureUiState>()(
   immer((set) => ({
-    selectedOpeningId: null,
-    selectedWallId: null,
+    selection: [],
+    marquee: null,
     draggingPoint: null,
     draggingWall: null,
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
 
-    setSelectedOpening: (openingId) =>
+    setSelection: (selection) =>
       set((draft) => {
-        draft.selectedOpeningId = openingId
+        draft.selection = selection
       }),
 
-    setSelectedWall: (wallId) =>
+    toggleSelected: (item) =>
       set((draft) => {
-        draft.selectedWallId = wallId
+        draft.selection = toggleSelectionItem(draft.selection, item)
+      }),
+
+    clearSelection: () =>
+      set((draft) => {
+        // Zaten boşken yeni dizi yazılmaz: abone bileşenler boşuna render olmasın.
+        if (draft.selection.length === 0) return
+        draft.selection = []
+      }),
+
+    setMarquee: (marquee) =>
+      set((draft) => {
+        draft.marquee = marquee
       }),
 
     setOpeningWidthCm: (type, widthCm) =>
@@ -102,3 +128,20 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
       }),
   })),
 )
+
+/**
+ * Tek açıklık seçiliyken o açıklığın id'si. Açıklığa özel arayüzler (genişlik
+ * şeridi, Delete) bunu okur — çoklu seçimde hangi açıklık olduğu belirsiz
+ * olduğu için undefined döner.
+ *
+ * Selector KARARLI değer döndürür (id ya da undefined), yeni dizi/nesne değil:
+ * `useArchitectureUiStore(selectSoleSelectedOpeningId)` biçiminde doğrudan abone
+ * olunabilir — bkz. knowledge/snap-contract.md abonelik tuzağı.
+ */
+export function selectSoleSelectedOpeningId(state: ArchitectureUiState): Id | undefined {
+  return getSoleSelectedId(state.selection, 'opening')
+}
+
+export function selectSoleSelectedWallId(state: ArchitectureUiState): Id | undefined {
+  return getSoleSelectedId(state.selection, 'wall')
+}

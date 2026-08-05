@@ -4,7 +4,6 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
-import { isTypingTarget } from '../core/domEvents'
 import type { Id } from '../core/model'
 import { getOpeningTypeForTool } from '../core/opening'
 import {
@@ -102,7 +101,7 @@ export function useOpeningTool(): OpeningPreview | undefined {
       if (isEraserActive) {
         if (!grab) return
         useCadStore.getState().removeOpening(grab.opening.id)
-        useArchitectureUiStore.getState().setSelectedOpening(null)
+        useArchitectureUiStore.getState().clearSelection()
         updatePreview(undefined)
         return
       }
@@ -116,7 +115,7 @@ export function useOpeningTool(): OpeningPreview | undefined {
           openingId: grab.opening.id,
           grabDeltaCm: grab.grabDeltaCm,
         }
-        useArchitectureUiStore.getState().setSelectedOpening(grab.opening.id)
+        useArchitectureUiStore.getState().setSelection([{ kind: 'opening', id: grab.opening.id }])
         // Önizleme daha basış anında açıklığın KENDİ yerine sabitlenir: yoksa
         // hareketsiz bir tıklama, hâlâ ref'te duran eski hayaletin offset'ini yazardı.
         updatePreview(
@@ -132,7 +131,8 @@ export function useOpeningTool(): OpeningPreview | undefined {
 
       // Seçim aracında boşluğa basmak seçimi bırakır; yerleştirme yapılmaz.
       if (isSelectionActive) {
-        useArchitectureUiStore.getState().setSelectedOpening(null)
+        // Boşluğa basış: seçimi useSelectionTool yönetir (çerçeve başlatır ya da
+        // temizler). Burada temizlenirse Shift ile çerçeve ekleme hiç çalışmaz.
         isPointerDownSeen = false
         return
       }
@@ -221,7 +221,7 @@ export function useOpeningTool(): OpeningPreview | undefined {
       })
       // Yeni açıklık seçili kalır ki genişlik şeridi hemen onu düzenleyebilsin.
       if (createdId !== undefined) {
-        useArchitectureUiStore.getState().setSelectedOpening(createdId)
+        useArchitectureUiStore.getState().setSelection([{ kind: 'opening', id: createdId }])
       }
     }
 
@@ -229,20 +229,7 @@ export function useOpeningTool(): OpeningPreview | undefined {
       gesture = { kind: 'idle' }
       isPointerDownSeen = false
       updatePreview(undefined)
-      useArchitectureUiStore.getState().setSelectedOpening(null)
-    }
-
-    // Delete taşıması drawSurfaceEvents'te yok (onCancel yalnız Esc). O dosya
-    // D'ye ait ve klavye genel bir mesele, bu yüzden dinleyici burada duruyor.
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) return
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return
-
-      const { selectedOpeningId, setSelectedOpening } = useArchitectureUiStore.getState()
-      if (selectedOpeningId === null) return
-
-      useCadStore.getState().removeOpening(selectedOpeningId)
-      setSelectedOpening(null)
+      useArchitectureUiStore.getState().clearSelection()
     }
 
     const unsubscribe = subscribeDrawSurface({
@@ -251,12 +238,8 @@ export function useOpeningTool(): OpeningPreview | undefined {
       onPointerUp: handlePointerUp,
       onCancel: handleCancel,
     })
-    window.addEventListener('keydown', handleKeyDown)
 
-    return () => {
-      unsubscribe()
-      window.removeEventListener('keydown', handleKeyDown)
-    }
+    return unsubscribe
   }, [camera])
 
   return preview

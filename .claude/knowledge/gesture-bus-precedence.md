@@ -42,12 +42,37 @@ Sürükleme sırasında hover dondurulur (köşe ve duvar sürüklemesi için ay
 `usePointDragTool` sürüklenen köşeyi snap'ten hariç tuttuğu için hover başka bir
 köşeye atlar ve taşınmayan köşe yanmış görünür.
 
-**Seçim karşılıklı dışlamalı, ama iki alanda:** `selectedWallId` ve
-`selectedOpeningId`. Çelişmemelerinin sebebi her iki tarafın da kendi jesti
-sahiplenmediğinde ötekini bırakması — duvara basınca `useOpeningTool` açıklık
-seçimini, açıklığa/köşeye basınca `useWallSelectionTool` duvar seçimini temizler.
-Yeni bir seçilebilir nesne eklenirse bu el sıkışmayı bozmadan ekleyin ya da
-TODO(fay-B2)'deki birleşik seçime geçin.
+**Seçim TEK listede (KK-10).** Eskiden `selectedWallId` ve `selectedOpeningId`
+diye iki alan vardı ve "ikisi aynı anda dolu olmasın" el sıkışması her yeni
+seçilebilir nesnede yeniden kuruluyordu. Artık `architectureUiStore.selection`
+tek doğruluk kaynağı: `{ kind, id }` ögelerinden oluşan bir liste
+(`core/selection.ts`). Eski TODO(fay-B2) bununla kapandı.
+
+Sonuçları:
+
+- **Seçimi jesti sahiplenen yazar.** Duvara basınca `useWallSelectionTool`,
+  açıklığa basınca `useOpeningTool`, boşluğa basınca `useSelectionTool` yazar.
+  Hiçbiri "başkasının seçimini temizleme" işi yapmaz; temizleme boşluğa
+  tıklamanın sonucudur.
+- **Boşluk `useSelectionTool`'un.** `resolveArchitectureTarget` undefined
+  dönerse jest onundur — çerçeve seçimi orada başlar. Diğer iki hook boşlukta
+  artık hiçbir şey yapmaz (eskiden ikisi de seçimi temizliyordu; birleşik
+  seçimde bu Shift ile çerçeve eklemeyi imkânsız kılardı).
+- **Delete TEK dinleyicide.** Duvar ve açıklık hook'larındaki ayrı Delete
+  kopyaları kaldırıldı: birleşik seçimde ikisi de koşsaydı aynı basış iki
+  `markDirty` yazardı. Silme `cadStore.deleteSelection(selection)` ile tek
+  producer'da yapılır → beş nesne seçip silen kullanıcı tek Ctrl+Z'ye basar.
+- **Seçim otomatik budanır.** `useSelectionTool` cadStore'a abone: silinen nesne
+  seçimde asılı kalırsa özellik paneli sahipsiz id ile boş açılır.
+  `pruneSelection` değişiklik yoksa AYNI diziyi döndürür, kontrol referansla.
+
+**Tıklama davranışı — dokümandan sapma, teyide açık.** Düz tıklama seçimi
+DEĞİŞTİRİR, Shift+tıklama seçime ekler/çıkarır. KK-10'un harfi ("seçili bir
+nesneye yeniden tıklandığında nesne seçimden çıkar") düz tıklamanın da toggle
+olmasını okutabilir; öyle yapılsaydı çoklu seçimi taşımak için basılan ilk duvar
+taşıma başlamadan seçimi bozardı ve zaten merge edilmiş duvar taşıma jesti
+kırılırdı. Zaten seçili bir nesneye düz tıklama seçimi KORUR (daraltmaz) —
+grup taşımanın ön koşulu.
 
 **Dosya:** scene/useOpeningTool.ts, scene/usePointDragTool.ts,
 scene/useWallSelectionTool.ts, scene/useArchitectureHover.ts,
