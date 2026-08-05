@@ -11,7 +11,15 @@ export const RENDER_ORDER = {
    * hizalama referansı olan alt kat en geride durmalı.
    */
   floorBelowGhost: 3,
+  /** Açıklık kendi duvarının üstünde ayrı sırada — gerekçesi architectureGhostOpening ile aynı. */
+  floorBelowGhostOpening: 4,
   architectureGhost: 5,
+  /**
+   * Hayalet açıklık, hayalet duvarın ÜSTÜNDE ayrı bir sırada: aynı renderOrder'da
+   * kalsaydı çizim sırası material id'sine (mount sırasına) düşerdi ve sonradan
+   * eklenen bir duvar deliği kapatabilirdi.
+   */
+  architectureGhostOpening: 6,
   room: 10,
   wall: 20,
   opening: 30,

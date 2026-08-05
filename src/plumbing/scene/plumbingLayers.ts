@@ -3,6 +3,8 @@
  * amaç z-fighting'i bitirmek. renderOrder değerleri src/scene/layers.ts'te.
  */
 export const ARCHITECTURE_GHOST_ELEVATION_CM = -0.5
+/** Hayalet açıklığın simgesi dolgusunun bir tık üstünde: ikisi de opak, dolgu kanadı örtmesin. */
+export const ARCHITECTURE_GHOST_SYMBOL_LIFT_CM = 0.02
 /** Tesisatın mimari görünümdeki izi; sıra renderOrder ile belirlenir (bkz. layers.ts). */
 export const INSTALLATION_GHOST_ELEVATION_CM = 0.15
 export const LINE_ELEVATION_CM = 0
