@@ -1,5 +1,6 @@
 import { pruneOpeningsInDraft } from './architectureOpeningOps'
 import type { DraftSetter } from './architecturePropertyOps'
+import { recomputeRoomsInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
@@ -75,6 +76,8 @@ export function transformSelectionInDraft(
   pruneOpeningsInDraft(draft)
   // Taşınan duvar başkalarının üstünden geçmiş olabilir (K24).
   splitWallsAtIntersections(draft)
+  // Bölmeden SONRA: bölünen duvarın id kümesi değişti, oda kimliği ona bakıyor (K31).
+  recomputeRoomsInDraft(draft)
   return true
 }
 
@@ -173,6 +176,8 @@ export function createTransformActions(set: DraftSetter) {
         // Çoğaltma kesişim üretebilir; bölme aynı adımda (K24).
         if (created.length > 0) {
           splitWallsAtIntersections(draft)
+          // Kopyalanan çevrim kapalıysa YENİ oda doğar; varsayılan adı alır (K31).
+          recomputeRoomsInDraft(draft)
           markDirty(draft)
         }
       })

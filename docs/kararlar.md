@@ -695,3 +695,96 @@ konteyner içinde tekil. Bu, floor-clone kuralımızla ("kopya tümüyle yeni id
 `GasMeter.subscriberName`, `consumptionPoint`, `boxes[].KutuId`/`KapiKodu`,
 `connectionPoint`, `roadNames`, `districtName` gerçek abone ve adres bilgisi. Ham export
 repoya konacaksa önce anonimleştirilir.
+
+## 2026-08 · Mahal (oda) tespiti ve çizimi
+
+### K31 — Oda geometri tutmaz, duvar id kümesiyle yaşar
+
+`Room` yalnız `{ id, wallIds, name }`. Poligon her karede duvarlardan türetilir
+(`core/room.ts` → `findRoomFaces`, düzlemsel graf yüz taraması, K24'ün üstüne
+oturur). Kopyalansaydı duvar oynayınca oda yerinde donar, hata da ekranda
+görünmezdi.
+
+`floorId` YOK — duvardan türetilir. `Opening` ile aynı gerekçe (K9): iki yerde
+tutulan bilgi zamanla ayrışır.
+
+**Kimlik = tam duvar kümesi eşleşmesi**, eşik/benzerlik yok. Duvar bölününce
+küme bölme anında güncellenir, oda aynı odadır, kullanıcının verdiği ad yaşar.
+İçinden duvar geçip oda ikiye ayrılırsa eski çevrim yok olur: iki YENİ oda doğar,
+ikisi de varsayılan adı alır. "Hangisi eskisinin devamı" sorusunun doğru cevabı
+olmadığı için tahmin edilmiyor.
+
+### Dolgu duvarların İÇ yüzüne kadar çizilir
+
+Saydam nesneler three.js'te ayrı geçişte ve opak nesnelerden SONRA çizilir;
+`renderOrder` yalnız kendi geçişi içinde sıralar. Bu yüzden `RENDER_ORDER.room`
+(10) < `wall` (20) olmasına rağmen oda dolgusu duvarları boyuyordu (duvar
+pikselleri 18.354 → 8.917).
+
+Çözüm sıralama değil, **hiç değmemek**: dolgu poligonu her kenardan o kenarı
+taşıyan duvarın kalınlığının yarısı kadar içeri çekiliyor
+(`core/roomFill.ts` → `insetRoomPolygon`). Köşeler, komşu iki kenarın ötelenmiş
+DOĞRULARININ kesişimi; tek tek köşe ötelense kenarlar birbirinden kopardı.
+
+Kapsül duvarın yuvarlak ucu köşe noktasında `r` yarıçaplı bir disk (K23); içeri
+çekilmiş köşe köşegen üzerinde `r/sin(θ/2) ≥ r` uzakta kaldığı için diskin de
+dışındadır — hiçbir açıda çakışma olmaz.
+
+Reddedilen alternatifler: duvarı da saydam geçişe almak (`Opening.tsx`'e
+dokunmayı gerektiriyordu, kapsam dışı), ön-karıştırılmış opak gri (odanın
+altındaki ızgara kaybolurdu).
+
+Alan (`areaCm2`) hâlâ duvar MERKEZ EKSENİNDEN ölçülür — küçültme yalnız
+çizimdedir. Referans görsel de merkez ekseni kullanıyor.
+
+### Dolgu üçgenlemesi: kulak kırpma, yelpaze değil
+
+Üçgen yelpaze yalnız DIŞBÜKEY poligonda doğrudur. L şeklindeki odada iç köşeyi
+kesip poligonun dışına taşan üçgenler üretiyordu. `triangulatePolygon` kulak
+kırpma yapıyor: yalnız içeride kalan kulaklar koparıldığı için içbükey odada da
+dolgu şeklin dışına çıkmaz.
+
+### Etiket: font repodan gelir, konum en ferah noktadır
+
+drei `<Text>`, font verilmezse troika varsayılanını Google Fonts CDN'inden
+çekmeye çalışıyor ve istek düşünce HATA VERMEDEN 0 piksel çiziyordu — etiketin
+hiç görünmemesinin sebebi buydu. Font artık repoda:
+`public/fonts/roboto-regular.woff` (Apache 2.0, 34 KB), **latin + latin-ext**.
+Yalnız latin alt kümesinde `ğ ş İ` yok ve oda adları Türkçe. troika `.woff2`
+okumaz.
+
+Etiket çapası ağırlık merkezi DEĞİL, odanın duvarlarından en uzak noktası (en
+büyük iç çemberin merkezi). Ağırlık merkezi L odada ya odanın dışına düşüyor ya
+da iç köşenin dibine oturup iki satırlık bloğu duvarın üstüne taşırıyordu.
+
+Tasarım: ad büyük harf (`tr-TR` locale — varsayılanı `i → I` üretir, `İ` değil),
+altında `m²`, ikisi ortak bir rozetin içinde. Rozet iki yazının BİRLEŞİK
+ölçüsünden büyür; sabit kutu uzun adlarda taşardı. Rozet de SAYDAM çizilir —
+opak olsaydı oda dolgusundan önceki geçişe düşer ve dolgu üstünü boyardı.
+
+### Oda adı çift tıkla düzenlenir
+
+Odaya çift tık, etiketin yerinde bir input açar. Çift tık ortak jest veri
+yolundaki `onPointerDown` akışından türetiliyor — veri yolu yalnız HAM pointer
+olayı taşır ve oraya `onDoubleClick` eklemek başka bir fayın dosyasına yazmak
+olurdu. Boş ad reddedilir (K13 deseni), aynı ad yazılmaz (boş Ctrl+Z adımı
+olmasın), ad değişimi tek geri alma adımıdır.
+
+Kutu drei `<Html>` ile çiziliyor: konumu KAMERAYA bağlı, kamera da `<Canvas>`
+dışına taşınamaz. Kritik tuzak — `Html` içeriğini AYRI bir react-dom köküyle
+çiziyor ve o kökün olay işleyicisinden yapılan store yazımı R3F ağacını yeniden
+çizdirmiyor (kutu ekranda asılı kalıyor, hata yok). Kaydetme/kapanma bu yüzden
+native `window` dinleyicisinde.
+
+Odalar hâlâ seçilebilir nesne DEĞİL; çift tık seçimden bağımsız. Genel nesne
+seçimi gelince (fay-B2) `editingRoomId` o seçimden türetilebilir.
+
+### Bilinen sınır
+
+Kapının üstünden geçen duvar orada düğüm açmaz (K24 gereği bölme reddedilir),
+dolayısıyla o noktada oda çevrimi kapanmaz. Kullanıcıya uyarı henüz yok.
+
+Nerede: `core/room.ts` (yüz taraması), `core/roomIdentity.ts` (kimlik),
+`core/roomLabel.ts` (etiket konumu + m²), `core/roomFill.ts` (içeri çekme +
+üçgenleme), `store/architectureRooms.ts` (yeniden hesaplama), `scene/Room.tsx`,
+`scene/RoomLabel.tsx`.

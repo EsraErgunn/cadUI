@@ -1,11 +1,11 @@
 import { pruneOpeningsInDraft } from './architectureOpeningOps'
 import type { DraftSetter } from './architecturePropertyOps'
+import { recomputeRoomsInDraft } from './architectureRooms'
+// cadStore ↔ store dosyaları karşılıklı import eder; bu taraf tip-only (K17).
+import type { CadState } from './cadStore'
 import { markDirty } from './projectMeta'
-import type { ProjectData } from '../core/model'
 import { getSelectedIds, type Selection } from '../core/selection'
 import { getOrphanPointIds } from '../core/wall'
-
-type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings'>
 
 /**
  * Seçili nesnelerin tamamını TEK geçişte siler (KK-10/KK-11).
@@ -20,10 +20,7 @@ type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings'>
  *
  * Çağıranın set()'i İÇİNDE çalışır. Değişiklik yoksa false döner.
  */
-export function deleteSelectionFromDraft(
-  draft: ArchitectureData,
-  selection: Selection,
-): boolean {
+export function deleteSelectionFromDraft(draft: CadState, selection: Selection): boolean {
   const openingIds = new Set(getSelectedIds(selection, 'opening'))
   const wallIds = new Set(getSelectedIds(selection, 'wall'))
   if (openingIds.size === 0 && wallIds.size === 0) return false
@@ -43,6 +40,9 @@ export function deleteSelectionFromDraft(
   const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
   draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
   pruneOpeningsInDraft(draft)
+  // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
+  // deleteWall'daki temizliğin aynısı — yoksa oda store'da hayalet olarak kalır.
+  recomputeRoomsInDraft(draft)
 
   return true
 }

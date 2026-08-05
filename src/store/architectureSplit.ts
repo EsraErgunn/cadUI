@@ -3,6 +3,7 @@ import type { CadState } from './cadStore'
 import { takeNextId } from './projectMeta'
 import type { Id, Opening, Wall } from '../core/model'
 import { getOpeningSpan } from '../core/opening'
+import { extendRoomsWithSplitPieces } from '../core/roomIdentity'
 import { findWallSplits, type WallSplitPoint } from '../core/wallGraph'
 
 /**
@@ -163,6 +164,15 @@ export function splitWallsAtIntersections(draft: CadState): boolean {
     const lengthCm = Math.hypot(p2.x - p1.x, p2.y - p1.y)
 
     const pieces = splitWall(draft, wall, accepted, lengthCm, resolvePointId)
+
+    // Bölünen duvarı sınırında sayan odalar parçaları da kapsamalı: kapsamazsa
+    // duvar kümesi yüzünkiyle tutmaz, eşleşme kaçar ve kullanıcının verdiği ad
+    // kullanıcı odaya hiç dokunmamışken kaybolur (K31).
+    draft.rooms = extendRoomsWithSplitPieces(
+      draft.rooms,
+      wallId,
+      pieces.map((piece) => piece.wallId),
+    )
 
     // Açıklıklar kendilerini İÇEREN parçaya taşınır; offset o parçanın başına göre.
     for (const opening of draft.openings) {

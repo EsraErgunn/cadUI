@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { Floor, Opening, Point, ProjectData, Wall } from './model'
+import type { Floor, Opening, Point, ProjectData, Room, Wall } from './model'
 
 /**
  * Dış kaynaktan gelen JSON şemadan geçmeden state'e girmez (CLAUDE.md güvenlik).
@@ -38,6 +38,12 @@ const openingSchema = z.object({
   type: z.enum(['door', 'window']),
 })
 
+const roomSchema = z.object({
+  id: idSchema,
+  wallIds: z.array(idSchema),
+  name: z.string(),
+})
+
 export const projectDataSchema = z.object({
   nextUniqueId: idSchema,
   activeFloorId: idSchema,
@@ -45,6 +51,7 @@ export const projectDataSchema = z.object({
   points: z.array(pointSchema),
   walls: z.array(wallSchema),
   openings: z.array(openingSchema),
+  rooms: z.array(roomSchema),
 })
 
 export class ProjectDataParseError extends Error {
@@ -99,6 +106,7 @@ export function serializeProjectData(data: ProjectData): string {
     points: data.points.map(toPointJson),
     walls: data.walls.map(toWallJson),
     openings: data.openings.map(toOpeningJson),
+    rooms: data.rooms.map(toRoomJson),
   })
 }
 
@@ -119,6 +127,11 @@ function toWallJson(wall: Wall) {
     thickness: wall.thickness,
     height: wall.height,
   }
+}
+
+function toRoomJson(room: Room) {
+  // wallIds kopyalanır: store'daki diziyi paylaşmak, JSON üretimini state'e bağlar.
+  return { id: room.id, wallIds: [...room.wallIds], name: room.name }
 }
 
 function toOpeningJson(opening: Opening) {

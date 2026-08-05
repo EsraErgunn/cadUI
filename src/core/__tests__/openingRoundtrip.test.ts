@@ -25,6 +25,7 @@ const project: ProjectData = {
     { id: 12, wallId: 8, offsetCm: 137.5, widthCm: 90, type: 'door' },
     { id: 13, wallId: 9, offsetCm: 200, widthCm: 120, type: 'window' },
   ],
+  rooms: [],
 }
 
 describe('açıklık yükle→kaydet turu', () => {

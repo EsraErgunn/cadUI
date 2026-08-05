@@ -48,6 +48,15 @@
      bu yüzden açık temada koyulaştırılmış cyan kullanılır. */
   --color-accent-ink: #0E7C88;
 
+  /* Tuvalin ÜSTÜNDE duran DOM parçaları (oda adı düzenleme kutusu). Bunlar koyu
+     temada DEĞİŞMEZ, çünkü tuvalin kendisi de değişmiyor: sceneTheme.background
+     iki temada da beyaz. Kabuk token'ları (surface/ink) kullanılsaydı kutu koyu
+     temada beyaz tuvalin üstünde koyu bir leke olurdu.
+     Değerler sceneTheme ile eşleştirildi: kenar = gridMajor, metin = roomLabel. */
+  --color-canvas-overlay: #ffffff;
+  --color-canvas-overlay-edge: #cbd3e0;
+  --color-canvas-overlay-ink: #5b6675;
+
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
