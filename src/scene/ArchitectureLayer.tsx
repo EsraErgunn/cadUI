@@ -2,6 +2,7 @@ import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
 import { Rooms } from './Room'
+import { RoomTool } from './RoomTool'
 import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
@@ -133,6 +134,7 @@ export function ArchitectureLayer() {
       {/* Sembol açıklığın da üstünde (RENDER_ORDER.pointSymbol > opening). */}
       <PointSymbols />
       <WallTool />
+      <RoomTool />
       <SelectionTool />
       {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
