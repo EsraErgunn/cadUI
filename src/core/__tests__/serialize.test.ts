@@ -22,6 +22,27 @@ describe('serializeProjectData', () => {
     )
   })
 
+  it('rooms/symbols alanı OLMAYAN eski dosyayı açar', () => {
+    // Depodaki çizimler bu diziler modele girmeden önce kaydedildi. Zorunlu
+    // tutulursa kullanıcının verisi elimizde ama erişilemez olur.
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[]}'
+
+    const parsed = parseProjectJson(legacy)
+
+    expect(parsed.rooms).toEqual([])
+    expect(parsed.symbols).toEqual([])
+  })
+
+  it('eski dosya bir kez kaydedilince alanlar dosyaya yazılır', () => {
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[]}'
+
+    expect(serializeProjectData(parseProjectJson(legacy))).toContain('"rooms":[],"symbols":[]')
+  })
+
   it('store’a sızmış fazladan alanı JSON’a taşımaz', () => {
     // Kaydedilen JSON = sözleşme. Geçici bir UI alanı store’a eklenirse
     // spread ile sessizce dosyaya yazılırdı.

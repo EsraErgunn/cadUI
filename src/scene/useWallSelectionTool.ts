@@ -56,6 +56,7 @@ export function useWallSelectionTool(): void {
         points: cad.points,
         walls: cad.walls,
         openings: cad.openings,
+        symbols: cad.symbols,
         floorId: cad.activeFloorId,
         toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       }

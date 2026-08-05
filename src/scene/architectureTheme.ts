@@ -10,6 +10,8 @@ export const ARCHITECTURE_COLORS = {
   previewValid: '#4a5a6d',
   /** Reddedilen yerleştirme. Marka sarısı DEĞİL — tuvalde sarı = gaz hattı. */
   previewInvalid: '#d64545',
+  /** Nokta sembolünün çizgi rengi; duvardan koyu, plandan ayırt edilsin. */
+  pointSymbol: '#2f3a49',
   /**
    * Alt kat gölgesi (KK-13). Duvar renginden belirgin biçimde soluk: hizalama
    * referansı okunabilmeli ama aktif katın duvarıyla karıştırılmamalı.
