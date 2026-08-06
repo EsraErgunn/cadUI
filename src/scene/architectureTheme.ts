@@ -1,5 +1,3 @@
-import type { PointSymbolType } from '../core/model'
-
 /**
  * Mimari katmanın renkleri. Seçim rengi buraya kopyalanmaz —
  * sceneTheme.ts → SCENE_COLORS.selection kullanılır.
@@ -12,7 +10,12 @@ export const ARCHITECTURE_COLORS = {
   previewValid: '#4a5a6d',
   /** Reddedilen yerleştirme. Marka sarısı DEĞİL — tuvalde sarı = gaz hattı. */
   previewInvalid: '#d64545',
-  /** Sembol konturunun varsayılan rengi; tip rengi verilmediğinde kullanılır. */
+  /**
+   * Sembol çizgisi — TÜM cihazlar için tek renk. Referans uygulamada cihazlar
+   * nötr koyu konturla çiziliyor, tip başına renklendirilmiyor: ilk bakışta
+   * görülen turkuaz/mor, yeni yerleştirilen ögenin vurgusuymuş. Cihazı ayırt
+   * eden şey RENK değil ŞEKİL ve yanındaki metin.
+   */
   pointSymbol: '#2f3a49',
   /**
    * Alt kat gölgesi (KK-13). Duvar renginden belirgin biçimde soluk: hizalama
@@ -21,21 +24,3 @@ export const ARCHITECTURE_COLORS = {
   floorBelowGhost: '#d3d8e0',
 } as const
 
-/**
- * Cihaz türüne göre renk. Referans uygulama planda her cihazı ayrı renkte
- * çiziyor — pano turkuaz, alarm mor. Bu ikisi WebCAD'de gözlenerek alındı
- * (ekrandan okunduğu için yaklaşık).
- *
- * ⚠️ Kalan beşi TEYİDE AÇIK: gözlenmedi, yalnızca birbirinden ve duvardan
- * ayırt edilebilir olacak şekilde seçildi. Referansta karşılıkları görülünce
- * bu tablo güncellenir — başka hiçbir yer değişmez.
- */
-export const SYMBOL_COLORS: Record<PointSymbolType, string> = {
-  panel: '#7fd4cd',
-  alarmDevice: '#8b7fd4',
-  mainCutoffSwitch: '#d49b7f',
-  earthquakeSensor: '#7f9bd4',
-  fireExtinguisher: '#d47f8b',
-  vent: '#a8b3c4',
-  lighting: '#d4c67f',
-}
