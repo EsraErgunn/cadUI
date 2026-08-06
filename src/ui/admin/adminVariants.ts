@@ -151,7 +151,8 @@ export const sortHeaderVariants = cva(
 export const adminFieldVariants = cva(
   `h-10 rounded-lg border bg-surface px-3 text-sm text-ink
    placeholder:text-ink-disabled focus:outline-none
-   disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-disabled`,
+   disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-disabled
+   read-only:bg-surface-sunken read-only:text-ink-muted`,
   {
     variants: {
       tone: {
@@ -192,5 +193,66 @@ export const formCardVariants = cva(
   'flex min-w-0 flex-col gap-4 rounded-xl border border-edge bg-surface p-5',
 )
 
+/**
+ * Yatay yerleşimde etiket sütunu genişliği. İçeriğe göre daralsaydı her satırda
+ * girdi başka yerden başlar, sağa hizalı etiket sütunu dağılırdı. 9rem en uzun
+ * etiketi ("Grup Firması") tek satırda tutar.
+ */
+const FIELD_LABEL_COLUMN_WIDTH = 'sm:w-36'
+
+/**
+ * Alanın dış iskeleti. `horizontal` iki sütunlu yerleşimdir: etiket solda sağa
+ * hizalı, girdi sağda. `sm:` altında ikisi de alt alta iner — sabit etiket
+ * sütunu telefonda girdiye yer bırakmazdı.
+ */
+export const fieldFrameVariants = cva('flex min-w-0 flex-col gap-1.5', {
+  variants: {
+    layout: {
+      vertical: '',
+      horizontal: 'sm:flex-row sm:items-start sm:gap-4',
+    },
+  },
+  defaultVariants: { layout: 'vertical' },
+})
+
+/** Girdi + yardım metni + hata; yatay yerleşimde kalan genişliği kaplar. */
+export const fieldControlVariants = cva('flex min-w-0 flex-col gap-1.5', {
+  variants: {
+    layout: {
+      vertical: '',
+      horizontal: 'sm:flex-1',
+    },
+  },
+  defaultVariants: { layout: 'vertical' },
+})
+
 /** Alan etiketi; filtre çubuğundakinden büyük çünkü burada asıl içerik form. */
-export const fieldLabelVariants = cva('text-sm font-medium text-ink')
+export const fieldLabelVariants = cva('text-sm font-medium text-ink', {
+  variants: {
+    layout: {
+      vertical: '',
+      // `pt-2.5` girdinin ilk satırıyla göz hizası kurar. Kap `items-center`
+      // olsaydı hata metni belirince etiket aşağı kayardı.
+      horizontal: `${FIELD_LABEL_COLUMN_WIDTH} sm:shrink-0 sm:pt-2.5 sm:text-right`,
+    },
+  },
+  defaultVariants: { layout: 'vertical' },
+})
+
+/** Girdinin İÇİNDE solda duran alan ikonu. `pointer-events-none`: ikona tıklamak
+    girdiye odaklanmayı engellemesin. */
+export const fieldLeadingIconVariants = cva(
+  'pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled',
+)
+
+/** İkon slotu doluyken girdinin sol iç boşluğu — metin ikonun altına girmesin. */
+const FIELD_LEADING_ICON_PADDING = 'pl-9'
+
+/**
+ * İkon slotu doluysa girdiye eklenecek sol iç boşluk, boşsa `undefined`.
+ * `FieldControl` bileşeniyle aynı dosyada duramaz: o dosya yalnız bileşen
+ * dışa aktarabiliyor (react-refresh kuralı).
+ */
+export function fieldIconPadding(hasLeadingIcon: boolean): string | undefined {
+  return hasLeadingIcon ? FIELD_LEADING_ICON_PADDING : undefined
+}

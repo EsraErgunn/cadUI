@@ -2,8 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
 import { AdminHomePage } from '../pages/AdminHomePage'
-import { AdminTodoPage } from '../pages/AdminTodoPage'
 import { EditorPage } from '../pages/EditorPage'
+import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
@@ -60,14 +60,10 @@ export function AppRouter() {
         >
           <Route index element={<AdminHomePage />} />
           <Route path="gas-distribution-firms" element={<GasDistributionFirmsPage />} />
-          <Route
-            path="gas-distribution-firms/new"
-            element={<AdminTodoPage title="Gaz Dağıtım Firma Ekle" />}
-          />
-          <Route
-            path="gas-distribution-firms/:firmId"
-            element={<AdminTodoPage title="Gaz Dağıtım Firma Güncelle" />}
-          />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
+          <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
+          <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
