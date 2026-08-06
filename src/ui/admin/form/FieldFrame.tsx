@@ -2,8 +2,12 @@ import type { ReactNode } from 'react'
 
 import { FieldError } from './FieldError'
 import { FieldHint } from './FieldHint'
-import { errorId, hintId } from './fieldAria'
-import { fieldLabelVariants } from '../adminVariants'
+import { FieldWarning } from './FieldWarning'
+import { errorId, hintId, warningId } from './fieldAria'
+import { fieldControlVariants, fieldFrameVariants, fieldLabelVariants } from '../adminVariants'
+
+/** `horizontal`: etiket solda sağa hizalı, girdi sağda (gaz dağıtım firma formu). */
+export type FieldLayout = 'vertical' | 'horizontal'
 
 export interface FieldFrameProps {
   /** Etiketin `htmlFor`'u ve girdinin `id`'si aynı; bağ burada kurulur. */
@@ -12,7 +16,10 @@ export interface FieldFrameProps {
   /** Etiketin yanındaki soluk ek: "(parametrik)", "(servis kutusu)" gibi. */
   labelNote?: string
   hint?: string
+  /** Engellemeyen bilgi; hatanın aksine kaydetmeyi durdurmaz. */
+  warning?: string
   error?: string
+  layout?: FieldLayout
   children: ReactNode
 }
 
@@ -21,10 +28,19 @@ export interface FieldFrameProps {
  * Girdiyi kendisi render ETMEZ, yalnız çevresini kurar; böylece metin, seçim,
  * tarih ve sayı alanları aynı dikey ritmi ve aynı etiket bağını paylaşır.
  */
-export function FieldFrame({ id, label, labelNote, hint, error, children }: FieldFrameProps) {
+export function FieldFrame({
+  id,
+  label,
+  labelNote,
+  hint,
+  warning,
+  error,
+  layout,
+  children,
+}: FieldFrameProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={id} className={fieldLabelVariants()}>
+    <div className={fieldFrameVariants({ layout })}>
+      <label htmlFor={id} className={fieldLabelVariants({ layout })}>
         {label}
         {/* Boşluk metin düğümü olarak konuyor: yalnız `ml-1` ile ayrılsaydı
             erişilebilir ad "Proje Tipi(parametrik)" diye bitişik okunurdu. */}
@@ -34,10 +50,14 @@ export function FieldFrame({ id, label, labelNote, hint, error, children }: Fiel
         )}
       </label>
 
-      {children}
-
-      {hint !== undefined && <FieldHint id={hintId(id)}>{hint}</FieldHint>}
-      {error !== undefined && <FieldError id={errorId(id)}>{error}</FieldError>}
+      {/* Girdi, yardım metni ve hata TEK sütunda durur: yatay yerleşimde hata
+          metni etiketin değil girdinin altına düşmeli. */}
+      <div className={fieldControlVariants({ layout })}>
+        {children}
+        {hint !== undefined && <FieldHint id={hintId(id)}>{hint}</FieldHint>}
+        {warning !== undefined && <FieldWarning id={warningId(id)}>{warning}</FieldWarning>}
+        {error !== undefined && <FieldError id={errorId(id)}>{error}</FieldError>}
+      </div>
     </div>
   )
 }

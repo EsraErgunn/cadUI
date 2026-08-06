@@ -788,3 +788,59 @@ Nerede: `core/room.ts` (yüz taraması), `core/roomIdentity.ts` (kimlik),
 `core/roomLabel.ts` (etiket konumu + m²), `core/roomFill.ts` (içeri çekme +
 üçgenleme), `store/architectureRooms.ts` (yeniden hesaplama), `scene/Room.tsx`,
 `scene/RoomLabel.tsx`.
+
+## 2026-08 · Yönetici formları: alan hatası toplama kopyası
+
+### K25 — `collectErrors`/`firstErrorField` ikinci kez kopyalandı, üçüncüde ortaklaşacak
+
+`ui/admin/firms/gasFirmSchema.ts`, `ui/admin/projects/newProjectSchema.ts`
+içindeki `collectErrors` ve `firstErrorField` fonksiyonlarının birebir eşini
+taşıyor: alan sırası dizisine bakıp alan başına TEK mesaj toplamak ve görsel
+sıradaki ilk hatalı alanı bulmak.
+
+Ortak yardımcıya çıkarmak, yeni ekranı yazarken proje formunun şemasını ve
+testlerini de değiştirmeyi gerektirirdi; iki ekran da kendi alan kümesine bağlı
+olduğu için kopya bilerek bırakıldı (gerekçe iki dosyada da yazılı).
+
+**Borç:** aynı desen ÜÇÜNCÜ bir ekranda gerekirse ortak yardımcıya çıkarılacak
+(alan sırası dizisiyle parametrik, `ui/admin/form/` altında) ve iki mevcut şema
+ona bağlanacak. Üçüncü kopya yazılmayacak.
+
+### Kuralın ilk uygulaması: `FieldControl`
+
+`TextField`, `SelectField` ve `PhoneField` girdinin içine ikon yerleştiren aynı
+konumlandırma kabını (`relative flex min-w-0 flex-col` + ikon + girdi) üç kez
+kuruyordu. K25'in "üçüncü kopyada ortaklaştır" kuralı gereği
+`ui/admin/form/FieldControl.tsx`'e çıkarıldı; sınıf üreten yardımcı
+(`fieldIconPadding`) `adminVariants.ts`'e gitti, çünkü bileşen dosyası yalnız
+bileşen dışa aktarabiliyor (react-refresh kuralı).
+
+`collectErrors`/`firstErrorField` borcu HÂLÂ açık: o desenin yalnız iki kopyası
+var, üçüncüsünde ortaklaşacak.
+
+## 2026-08 · Gaz dağıtım firma adı: büyük harf tercihi
+
+### K26 — Firma adı otomatik büyütülmez, kullanıcıya hatırlatılır
+
+Gereksinim belgesi madde 9: "mevcut kayıtlarla uyum için büyük harf kullanımı
+**tercih edilecektir**." Tercih, kural değil.
+
+Seçilen davranış: `Firma Adı` alanının altında bilgilendirme metni
+(`GAS_FIRM_NAME_CASE_HINT`) gösterilir. Girdi otomatik büyütülmez, veri
+değiştirilmez, kayıt engellenmez.
+
+Neden otomatik dönüşüm YAPILMADI:
+
+- Belgeye gömülü Dipos V liste ekranındaki kayıtlar büyük harf
+  (`AKSA-ADANA`, `BAŞKENTGAZ`) ama **bizim mock verimiz değil**
+  (`Adana Doğalgaz Dağıtım A.Ş.`). Yeni kayıtları zorla büyütmek listede yeni
+  bir tutarsızlık üretirdi: eski kayıtlar karışık, yenileri hep büyük.
+- Kullanıcının girdiği veriyi sessizce değiştirmek geri alınamaz ve nedeni
+  ekranda görünmez.
+- Tuş vuruşunda dönüştürmek imleci bozar (telefon maskesinde düzeltilen hatanın
+  aynısı), IME ile daha da kötü.
+
+**Açık:** biçim kuralının bağlayıcı olup olmadığı **iş birimine sorulacak**.
+Cevap "zorunlu" gelirse karar (a)'ya yükseltilir: dönüşüm tuş vuruşunda değil
+blur'da veya `toGasFirmPayload` içinde, `toLocaleUpperCase('tr')` ile yapılır ve
+Türkçe `i → İ` / `ı → I` davranışı `core/` testiyle sabitlenir.

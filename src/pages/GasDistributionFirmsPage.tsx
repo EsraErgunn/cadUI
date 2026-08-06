@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { getGasDistributionFirms } from '../api/adminFirms'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
+import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
@@ -12,6 +13,7 @@ import { FirmFilterPanel } from '../ui/admin/firms/FirmFilterPanel'
 import { FirmTableToolbar } from '../ui/admin/firms/FirmTableToolbar'
 import { FIRM_COLUMNS, FIRM_TABLE_CAPTION } from '../ui/admin/firms/firmColumns'
 import { buildFirmFilterChips } from '../ui/admin/firms/firmFilterChips'
+import { useSavedFirmNotice } from '../ui/admin/firms/useSavedFirmNotice'
 import { useFirmListParams } from '../ui/admin/useFirmListParams'
 
 const PAGE_TITLE = 'Gaz Dağıtım Firmaları'
@@ -24,6 +26,7 @@ const BREADCRUMB = [
 
 export function GasDistributionFirmsPage() {
   const { query, setNameQuery, setGroupName, setRegion, toggleSort, setPage } = useFirmListParams()
+  const savedNotice = useSavedFirmNotice()
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(
     () => query.groupName !== null || query.region !== null,
   )
@@ -40,6 +43,10 @@ export function GasDistributionFirmsPage() {
 
   return (
     <div className="mx-auto flex max-w-320 flex-col gap-5">
+      {savedNotice !== null && (
+        <NoticeBar tone="success" message={savedNotice.message} onDismiss={savedNotice.dismiss} />
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={BREADCRUMB}

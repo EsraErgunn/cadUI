@@ -27,6 +27,8 @@ export { SORT_DIRECTIONS, type SortDirection } from './listQuery'
  *
  * GET /api/admin/firm-groups → string[]
  * GET /api/admin/regions → string[]
+ *
+ * Ekle/güncelle ekranının uçları ayrı dosyada: `adminFirmForm.ts`.
  */
 
 export const GAS_FIRM_PAGE_SIZE = 30
@@ -34,7 +36,8 @@ export const GAS_FIRM_PAGE_SIZE = 30
 export const GAS_FIRM_SORT_KEYS = ['dfirmNo', 'groupName', 'name'] as const
 export type GasFirmSortKey = (typeof GAS_FIRM_SORT_KEYS)[number]
 
-const gasDistributionFirmSchema = z.object({
+/** Ekle/güncelle ekranının tekil firma şeması bunu genişletir (`adminFirmForm.ts`). */
+export const gasDistributionFirmSchema = z.object({
   id: z.number().int().positive(),
   dfirmNo: z.number().int().positive(),
   groupName: z.string().nullable(),
@@ -59,9 +62,11 @@ export interface GasDistributionFirmQuery {
   pageSize: number
 }
 
-const MOCK_LATENCY_MS = 320
+/** Mock gecikmesi. Gerçek uçlar bağlanınca bu sabit de `delay` de silinecek;
+    ekle/güncelle dosyası (`adminFirmForm.ts`) aynı gecikmeyi paylaşsın diye dışa açık. */
+export const MOCK_LATENCY_MS = 320
 
-function delay(ms: number, signal?: AbortSignal): Promise<void> {
+export function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, ms)
     signal?.addEventListener('abort', () => {
@@ -103,3 +108,4 @@ export async function getRegions(signal?: AbortSignal): Promise<string[]> {
   await delay(MOCK_LATENCY_MS, signal)
   return nameListSchema.parse(MOCK_REGIONS)
 }
+
