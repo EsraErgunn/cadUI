@@ -26,6 +26,11 @@ type SymbolDisplay = {
   /** `embedded` için gerçek ayak izi; `leader`/`free` için işaretin boyu. */
   widthCm: number
   depthCm: number
+  /**
+   * Duvarı baştan sona geçen cihaz — menfez bir DELİK, duvarın bir yüzüne
+   * monte edilen bir kutu değil. `depthCm` yerine duvarın kalınlığı kullanılır.
+   */
+  spansWallThickness?: boolean
 }
 
 /**
@@ -39,7 +44,7 @@ type SymbolDisplay = {
  */
 export const SYMBOL_DISPLAY: Record<PointSymbolType, SymbolDisplay> = {
   panel: { style: 'embedded', shape: 'filledRect', widthCm: 50, depthCm: 10 },
-  vent: { style: 'embedded', shape: 'hatchedRect', widthCm: 15, depthCm: 10 },
+  vent: { style: 'embedded', shape: 'hatchedRect', widthCm: 15, depthCm: 10, spansWallThickness: true },
   fireExtinguisher: { style: 'embedded', shape: 'filledRect', widthCm: 26, depthCm: 20 },
   mainCutoffSwitch: { style: 'leader', shape: 'circle', widthCm: 24, depthCm: 24 },
   alarmDevice: { style: 'leader', shape: 'square', widthCm: 24, depthCm: 24 },
@@ -131,13 +136,31 @@ function hatchStrokes(halfWidth: number, halfDepth: number, centerY: number): Sy
  * `embedded` cihaz orijinin üstünde durur. `leader` cihazın işareti
  * `LEADER_LENGTH_CM` kadar dışarıda, arada çekme çizgisi vardır.
  */
-export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
+export function getPointSymbolGeometry(
+  type: PointSymbolType,
+  wallThicknessCm?: number,
+): SymbolGeometry {
   const display = SYMBOL_DISPLAY[type]
   const halfWidth = display.widthCm / 2
-  const halfDepth = display.depthCm / 2
 
-  // Duvara gömülü cihaz yüzeyin üstünde; çekme çizgili olan uzakta.
-  const centerY = display.style === 'leader' ? LEADER_LENGTH_CM + halfDepth : 0
+  /*
+   * Gömülü cihaz duvarın İÇİNE çizilir: yüzeye ortalanırsa yarısı içeride yarısı
+   * dışarıda kalır ve duvarın iki tarafına birden taşar. Bu yüzden yüzeyden
+   * (yerel y = 0) içeri doğru, yani -y yönünde uzatılır.
+   *
+   * Menfez duvarı baştan sona geçer (delik); kalınlık bilinmiyorsa kendi
+   * derinliğine düşülür. Diğer gömülü cihazlar monte edildiği yüzden kendi
+   * derinliği kadar içeri girer, duvardan kalınsa duvara sığdırılır.
+   */
+  const embeddedDepth = display.spansWallThickness
+    ? (wallThicknessCm ?? display.depthCm)
+    : Math.min(display.depthCm, wallThicknessCm ?? display.depthCm)
+
+  const halfDepth = display.style === 'embedded' ? embeddedDepth / 2 : display.depthCm / 2
+
+  // Gömülü cihaz yüzeyden içeri; çekme çizgili olan duvarın dışında, uzakta.
+  const centerY = display.style === 'embedded' ? -halfDepth : 0
+  const markerCenterY = display.style === 'leader' ? LEADER_LENGTH_CM + halfDepth : centerY
 
   const leader: SymbolStroke[] =
     display.style === 'leader'
@@ -147,7 +170,7 @@ export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
             role: 'detail',
             points: [
               { x: 0, y: 0 },
-              { x: 0, y: centerY - halfDepth },
+              { x: 0, y: markerCenterY - halfDepth },
             ],
           },
         ]
@@ -157,17 +180,17 @@ export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
     return {
       strokes: [
         ...leader,
-        { name: 'outline', role: 'body', points: circlePoints(halfWidth, centerY) },
+        { name: 'outline', role: 'body', points: circlePoints(halfWidth, markerCenterY) },
       ],
       fills: [],
     }
   }
 
   if (display.shape === 'star') {
-    return { strokes: [...leader, ...starStrokes(halfWidth, centerY)], fills: [] }
+    return { strokes: [...leader, ...starStrokes(halfWidth, markerCenterY)], fills: [] }
   }
 
-  const corners = rectangleCorners(halfWidth, halfDepth, centerY)
+  const corners = rectangleCorners(halfWidth, halfDepth, markerCenterY)
   const outline: SymbolStroke = {
     name: 'outline',
     role: 'body',
@@ -176,7 +199,7 @@ export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
 
   if (display.shape === 'hatchedRect') {
     return {
-      strokes: [...leader, outline, ...hatchStrokes(halfWidth, halfDepth, centerY)],
+      strokes: [...leader, outline, ...hatchStrokes(halfWidth, halfDepth, markerCenterY)],
       fills: [],
     }
   }
@@ -213,7 +236,7 @@ export function getPointSymbolPlanGeometry(
   type: PointSymbolType,
   pose: SymbolPose,
 ): SymbolGeometry {
-  const geometry = getPointSymbolGeometry(type)
+  const geometry = getPointSymbolGeometry(type, pose.wallThicknessCm)
 
   return {
     strokes: geometry.strokes.map((stroke) => ({

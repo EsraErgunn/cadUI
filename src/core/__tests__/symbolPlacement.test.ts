@@ -115,6 +115,10 @@ describe('getSymbolPose — duvara bağlı', () => {
     expect(getSymbolPose(wallSymbol(200, true), walls, points)?.rotationDeg).toBeCloseTo(0)
   })
 
+  it('duvarın kalınlığını taşır — gömülü cihaz o sınıra göre çizilir', () => {
+    expect(getSymbolPose(wallSymbol(200, true), walls, points)?.wallThicknessCm).toBe(20)
+  })
+
   it('dışa yön monte edilen yüzü izler — işaret duvarın içine düşmesin', () => {
     expect(getSymbolPose(wallSymbol(200, true), walls, points)?.outwardSign).toBe(1)
     expect(getSymbolPose(wallSymbol(200, false), walls, points)?.outwardSign).toBe(-1)
@@ -138,6 +142,7 @@ describe('getSymbolPose — serbest', () => {
       position: { x: 200, y: 200 },
       rotationDeg: 45,
       outwardSign: 1,
+      wallThicknessCm: undefined,
     })
   })
 })

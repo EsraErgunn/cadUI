@@ -19,10 +19,16 @@ const ALL_TYPES: PointSymbolType[] = [
   'vent',
 ]
 
-const onFace = { position: { x: 0, y: 0 }, rotationDeg: 0, outwardSign: 1 as const }
+const WALL_THICKNESS_CM = 20
+const onFace = {
+  position: { x: 0, y: 0 },
+  rotationDeg: 0,
+  outwardSign: 1 as const,
+  wallThicknessCm: WALL_THICKNESS_CM,
+}
 
 function allPoints(type: PointSymbolType) {
-  const geometry = getPointSymbolGeometry(type)
+  const geometry = getPointSymbolGeometry(type, WALL_THICKNESS_CM)
   return [...geometry.strokes.flatMap((stroke) => stroke.points), ...geometry.fills.flat()]
 }
 
@@ -87,17 +93,44 @@ describe('getPointSymbolGeometry', () => {
   })
 })
 
-describe('gömülü cihaz duvarın üstünde durur', () => {
-  it('geometri duvar yüzünün etrafında toplanır', () => {
+describe('gömülü cihaz duvarın İÇİNDE kalır', () => {
+  it('yüzeyi aşmaz — duvarın iki tarafına taşmaz', () => {
     const ys = allPoints('panel').map((point) => point.y)
 
-    // Pano 10 derin → yüzeyin ±5 cm'inde.
-    expect(Math.max(...ys)).toBeCloseTo(5)
-    expect(Math.min(...ys)).toBeCloseTo(-5)
+    // Yerel +y duvardan dışa: hiçbir nokta 0'ı geçmemeli.
+    expect(Math.max(...ys)).toBeCloseTo(0)
+    // Pano 10 derin → monte edildiği yüzden 10 cm içeri.
+    expect(Math.min(...ys)).toBeCloseTo(-10)
+  })
+
+  it('menfez duvarı BAŞTAN SONA geçer — delik, kutu değil', () => {
+    const ys = allPoints('vent').map((point) => point.y)
+
+    expect(Math.max(...ys)).toBeCloseTo(0)
+    expect(Math.min(...ys)).toBeCloseTo(-WALL_THICKNESS_CM)
+  })
+
+  it('menfez ince duvarda da tam kalınlığı kaplar', () => {
+    const thin = getPointSymbolGeometry('vent', 8)
+    const ys = thin.strokes.flatMap((stroke) => stroke.points).map((point) => point.y)
+
+    expect(Math.min(...ys)).toBeCloseTo(-8)
+  })
+
+  it('duvardan kalın cihaz duvara sığdırılır', () => {
+    // Yangın söndürücü 20 derin; 12 cm duvarda taşmamalı.
+    const ys = getPointSymbolGeometry('fireExtinguisher', 12)
+      .strokes.flatMap((stroke) => stroke.points)
+      .map((point) => point.y)
+
+    expect(Math.min(...ys)).toBeCloseTo(-12)
+    expect(Math.max(...ys)).toBeCloseTo(0)
   })
 
   it('çekme çizgisi YOK', () => {
-    const names = getPointSymbolGeometry('panel').strokes.map((stroke) => stroke.name)
+    const names = getPointSymbolGeometry('panel', WALL_THICKNESS_CM).strokes.map(
+      (stroke) => stroke.name,
+    )
     expect(names).not.toContain('leader')
   })
 })
@@ -132,7 +165,7 @@ describe('toPlanPoints', () => {
 
   it('sembolün konumuna taşır', () => {
     const [moved] = toPlanPoints(
-      { position: { x: 300, y: 120 }, rotationDeg: 0, outwardSign: 1 },
+      { position: { x: 300, y: 120 }, rotationDeg: 0, outwardSign: 1, wallThicknessCm: 20 },
       [{ x: 0, y: 0 }],
     )
 
@@ -141,7 +174,7 @@ describe('toPlanPoints', () => {
 
   it('duvarın açısı kadar döndürür', () => {
     const [moved] = toPlanPoints(
-      { position: { x: 0, y: 0 }, rotationDeg: 90, outwardSign: 1 },
+      { position: { x: 0, y: 0 }, rotationDeg: 90, outwardSign: 1, wallThicknessCm: 20 },
       [{ x: 25, y: 0 }],
     )
 
@@ -165,6 +198,7 @@ describe('getPointSymbolPlanGeometry', () => {
       position: { x: 100, y: 0 },
       rotationDeg: 0,
       outwardSign: -1,
+      wallThicknessCm: 20,
     })
     const ys = geometry.strokes.flatMap((stroke) => stroke.points).map((point) => point.y)
 

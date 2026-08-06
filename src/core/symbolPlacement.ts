@@ -54,6 +54,12 @@ export type SymbolPose = {
    * Serbest sembolde anlamı yok, +1 verilir.
    */
   outwardSign: 1 | -1
+  /**
+   * Bağlı olduğu duvarın kalınlığı; serbest sembolde undefined.
+   * Gömülü cihaz duvarın İÇİNE çizilirken bu sınıra göre yerleşir — menfez
+   * duvarı baştan sona geçer, pano monte edildiği yüzden içeri doğru uzar.
+   */
+  wallThicknessCm: number | undefined
 }
 
 /**
@@ -76,6 +82,7 @@ export function getSymbolPose(
       position: { x: symbol.x, y: symbol.y },
       rotationDeg: symbol.rotationDeg,
       outwardSign: 1,
+      wallThicknessCm: undefined,
     }
   }
 
@@ -97,6 +104,7 @@ export function getSymbolPose(
     // Duvarın açısı; sembol duvarla birlikte döner, ayrıca saklanmaz.
     rotationDeg: getSegmentAngleDeg(ends.p1, ends.p2),
     outwardSign: faceSign,
+    wallThicknessCm: wall.thickness,
   }
 }
 
