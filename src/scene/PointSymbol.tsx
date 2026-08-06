@@ -4,7 +4,7 @@ import {
   POINT_SYMBOL_ELEVATION_CM,
   POINT_SYMBOL_PREVIEW_ELEVATION_CM,
 } from './architectureLayers'
-import { ARCHITECTURE_COLORS } from './architectureTheme'
+import { ARCHITECTURE_COLORS, SYMBOL_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import {
@@ -23,8 +23,12 @@ const STROKE_WIDTHS: Record<SymbolStrokeRole, number> = {
 
 export type PointSymbolTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
-const TONE_COLORS: Record<PointSymbolTone, string> = {
-  normal: ARCHITECTURE_COLORS.pointSymbol,
+/**
+ * Vurgu/seçim/önizleme tonu cihazın KENDİ rengini bastırır: o durumlar
+ * "hangi cihaz" değil "ne yapıyorsun" bilgisi taşıyor. Normal durumda tip
+ * rengi kullanılır (SYMBOL_COLORS).
+ */
+const TONE_OVERRIDES: Partial<Record<PointSymbolTone, string>> = {
   hovered: SCENE_COLORS.wallHover,
   selected: SCENE_COLORS.selection,
   preview: ARCHITECTURE_COLORS.previewValid,
@@ -72,7 +76,7 @@ export function PointSymbol({ type, pose, tone, symbolId }: PointSymbolProps) {
     ? POINT_SYMBOL_PREVIEW_ELEVATION_CM
     : POINT_SYMBOL_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.pointSymbol
-  const color = TONE_COLORS[tone]
+  const color = TONE_OVERRIDES[tone] ?? SYMBOL_COLORS[type]
   const geometry = getPointSymbolPlanGeometry(type, pose)
 
   return (

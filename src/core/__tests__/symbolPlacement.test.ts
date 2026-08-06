@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { POINT_SYMBOL_SIZE_CM } from '../architectureSymbol'
 import type { Point, PointSymbol, Wall } from '../model'
 import {
   canMountOnWall,
@@ -201,11 +200,5 @@ describe('sembol duvarıyla birlikte gelir', () => {
     ]
 
     expect(getSymbolPose(symbol, walls, rotatedPoints)?.rotationDeg).toBeCloseTo(90)
-  })
-})
-
-describe('sembol boyu', () => {
-  it('plandaki kenar uzunluğu sabittir', () => {
-    expect(POINT_SYMBOL_SIZE_CM).toBeGreaterThan(0)
   })
 })

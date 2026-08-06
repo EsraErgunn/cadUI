@@ -50,7 +50,10 @@ export function resolveArchitectureTarget(
   const symbol = [...context.symbols].reverse().find((candidate) => {
     if (!isSymbolOnFloor(candidate, context.floorId, context.walls)) return false
     const pose = getSymbolPose(candidate, context.walls, context.points)
-    return pose !== undefined && isPointInSymbol(target, pose.position, context.toleranceCm)
+    return (
+      pose !== undefined &&
+      isPointInSymbol(target, pose.position, context.toleranceCm, candidate.type)
+    )
   })
   if (symbol) return { kind: 'symbol', symbolId: symbol.id }
 
