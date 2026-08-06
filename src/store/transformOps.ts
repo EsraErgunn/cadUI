@@ -8,8 +8,14 @@ import { markDirty, takeNextId } from './projectMeta'
 import type { PlanPoint } from '../core/coords'
 import { createIdRemap, remapId } from '../core/idRemap'
 import type { Id } from '../core/model'
+import { getNextSymbolLabel } from '../core/pointSymbol'
 import { getSelectedIds, type Selection, type SelectionItem } from '../core/selection'
-import { applyTransform, getPointsCenter, type PlanTransform } from '../core/transform'
+import {
+  applyTransform,
+  applyTransformToAngleDeg,
+  getPointsCenter,
+  type PlanTransform,
+} from '../core/transform'
 
 /**
  * Dönüşümün dokunduğu köşeler: seçili duvarların uçları. Açıklık kendi
@@ -37,8 +43,14 @@ function collectMovingPointIds(draft: CadState, wallIds: readonly Id[]): Set<Id>
  */
 export function getSelectionPivot(draft: CadState, selection: Selection): PlanPoint | undefined {
   const pointIds = collectMovingPointIds(draft, getSelectedIds(selection, 'wall'))
-  const points = draft.points.filter((point) => pointIds.has(point.id))
-  return getPointsCenter(points)
+  const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
+
+  // Sembol de dayanağa girer: yalnız sembol seçiliyken kutu onun etrafındadır,
+  // yoksa dayanak bulunamaz ve döndürme hiç çalışmaz.
+  return getPointsCenter([
+    ...draft.points.filter((point) => pointIds.has(point.id)),
+    ...draft.symbols.filter((symbol) => symbolIds.has(symbol.id)),
+  ])
 }
 
 /**
@@ -56,7 +68,8 @@ export function transformSelectionInDraft(
   transform: PlanTransform,
 ): boolean {
   const pointIds = collectMovingPointIds(draft, getSelectedIds(selection, 'wall'))
-  if (pointIds.size === 0) return false
+  const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
+  if (pointIds.size === 0 && symbolIds.size === 0) return false
 
   let isChanged = false
   for (const point of draft.points) {
@@ -67,6 +80,21 @@ export function transformSelectionInDraft(
 
     point.x = moved.x
     point.y = moved.y
+    isChanged = true
+  }
+
+  for (const symbol of draft.symbols) {
+    if (!symbolIds.has(symbol.id)) continue
+
+    const moved = applyTransform({ x: symbol.x, y: symbol.y }, transform)
+    // Sembolün KENDİ açısı da dönüşümü izler; yoksa 90° dönen grubun içinde
+    // sembol yer değiştirir ama dik kalır.
+    const rotationDeg = applyTransformToAngleDeg(symbol.rotationDeg, transform)
+    if (moved.x === symbol.x && moved.y === symbol.y && rotationDeg === symbol.rotationDeg) continue
+
+    symbol.x = moved.x
+    symbol.y = moved.y
+    symbol.rotationDeg = rotationDeg
     isChanged = true
   }
 
@@ -101,8 +129,10 @@ export function duplicateSelectionInDraft(
   offset: { dxCm: number; dyCm: number },
 ): Selection {
   const wallIds = getSelectedIds(selection, 'wall')
+  const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
   const sourceWalls = draft.walls.filter((wall) => wallIds.includes(wall.id))
-  if (sourceWalls.length === 0) return []
+  const sourceSymbols = draft.symbols.filter((symbol) => symbolIds.has(symbol.id))
+  if (sourceWalls.length === 0 && sourceSymbols.length === 0) return []
 
   const pointIds = collectMovingPointIds(draft, wallIds)
   const takeId = () => takeNextId(draft)
@@ -150,9 +180,30 @@ export function duplicateSelectionInDraft(
     })
   }
 
-  return sourceWalls.map(
-    (wall): SelectionItem => ({ kind: 'wall', id: remapId(wallRemap, wall.id) }),
-  )
+  // Sembol kimseye bağlı değil: remap gerekmez, yeni id yeter. Etiket YENİDEN
+  // üretilir — kopya kaynağın adını taşısaydı aynı katta iki "P-01" olurdu (KK-10).
+  const copiedSymbols = sourceSymbols.map((symbol) => {
+    const copy = {
+      id: takeId(),
+      floorId: symbol.floorId,
+      type: symbol.type,
+      x: symbol.x + offset.dxCm,
+      y: symbol.y + offset.dyCm,
+      rotationDeg: symbol.rotationDeg,
+      label: getNextSymbolLabel(draft.symbols, symbol.type, symbol.floorId),
+      note: symbol.note,
+    }
+    // Sıradaki etiket bir ÖNCEKİ kopyayı da görsün diye tek tek eklenir.
+    draft.symbols.push(copy)
+    return copy
+  })
+
+  return [
+    ...sourceWalls.map(
+      (wall): SelectionItem => ({ kind: 'wall', id: remapId(wallRemap, wall.id) }),
+    ),
+    ...copiedSymbols.map((symbol): SelectionItem => ({ kind: 'symbol', id: symbol.id })),
+  ]
 }
 
 export function createTransformActions(set: DraftSetter) {

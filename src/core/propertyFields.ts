@@ -5,7 +5,7 @@ import type { SelectionItem } from './selection'
  * bakar, sayıya değil: aynı türden beş duvar da tek duvar da "wall"dır, fark
  * alanların tekil mi toplu mu yazıldığındadır.
  */
-export type PropertySelectionKind = 'none' | 'wall' | 'opening' | 'mixed'
+export type PropertySelectionKind = 'none' | 'wall' | 'opening' | 'symbol' | 'mixed'
 
 export function getPropertySelectionKind(
   selection: readonly SelectionItem[],
@@ -33,12 +33,15 @@ export function getPropertyPanelTitle(
   kind: PropertySelectionKind,
   count: number,
   isDoor: boolean,
+  /** Tek sembol seçiliyken başlıkta türünün Türkçe adı görünür ("Pano Özellikleri"). */
+  symbolTypeLabel = '',
 ): string {
   if (kind === 'wall') return count > 1 ? `${count} Duvar` : 'Duvar Özellikleri'
   if (kind === 'opening') {
     if (count > 1) return `${count} Açıklık`
     return isDoor ? 'Kapı Özellikleri' : 'Pencere Özellikleri'
   }
+  if (kind === 'symbol') return count > 1 ? `${count} Sembol` : symbolTypeLabel
   if (kind === 'mixed') return `${count} Nesne`
   return ''
 }

@@ -18,23 +18,30 @@ import { getOrphanPointIds } from '../core/wall'
  * düşüyor (K16); ters sırada seçili açıklığın id'si duvarıyla birlikte gitmiş
  * olur ve "kaç nesne silindi" sayısı yanlış çıkar.
  *
+ * Nokta sembolü kimseye bağlı değil (kendi koordinatını taşıyor), bu yüzden
+ * sırası önemsiz ve silinmesi temizlik gerektirmiyor.
+ *
  * Çağıranın set()'i İÇİNDE çalışır. Değişiklik yoksa false döner.
  */
 export function deleteSelectionFromDraft(draft: CadState, selection: Selection): boolean {
   const openingIds = new Set(getSelectedIds(selection, 'opening'))
   const wallIds = new Set(getSelectedIds(selection, 'wall'))
-  if (openingIds.size === 0 && wallIds.size === 0) return false
+  const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
+  if (openingIds.size === 0 && wallIds.size === 0 && symbolIds.size === 0) return false
 
   const remainingOpenings = draft.openings.filter((opening) => !openingIds.has(opening.id))
   const remainingWalls = draft.walls.filter((wall) => !wallIds.has(wall.id))
+  const remainingSymbols = draft.symbols.filter((symbol) => !symbolIds.has(symbol.id))
 
   const isChanged =
     remainingOpenings.length !== draft.openings.length ||
-    remainingWalls.length !== draft.walls.length
+    remainingWalls.length !== draft.walls.length ||
+    remainingSymbols.length !== draft.symbols.length
   if (!isChanged) return false
 
   draft.openings = remainingOpenings
   draft.walls = remainingWalls
+  draft.symbols = remainingSymbols
 
   // Duvarı gidince sahipsiz kalan köşe ve açıklıklar aynı adımda temizlenir.
   const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
