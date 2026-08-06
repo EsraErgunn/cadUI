@@ -12,6 +12,7 @@ function renderMenuBar(
   onSave = vi.fn(),
   onExport = vi.fn(),
   onOpenFloorManagement = vi.fn(),
+  onOpenFloorCopy = vi.fn(),
 ) {
   render(
     <MemoryRouter>
@@ -20,11 +21,12 @@ function renderMenuBar(
         onSave={onSave}
         onExport={onExport}
         onOpenFloorManagement={onOpenFloorManagement}
+        onOpenFloorCopy={onOpenFloorCopy}
         isSaving={false}
       />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave, onExport, onOpenFloorManagement }
+  return { onCloseEditor, onSave, onExport, onOpenFloorManagement, onOpenFloorCopy }
 }
 
 describe('MenuBar', () => {
