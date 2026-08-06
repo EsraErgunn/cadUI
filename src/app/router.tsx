@@ -72,6 +72,6 @@ export function AppRouter() {
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
       </Routes>
- bu   </BrowserRouter>
+    </BrowserRouter>
   )
 }
