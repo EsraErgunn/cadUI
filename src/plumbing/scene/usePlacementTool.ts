@@ -3,12 +3,12 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
 import type { PlanPoint } from '../../core/coords'
+import { getPlacementPosition } from '../../core/placement'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { getPlacementElementType } from '../core/installationTools'
-import { getPlacementPosition } from '../core/placement'
 import type { InstallationElementType } from '../core/symbolMetadata'
 
 const LEFT_BUTTON = 0

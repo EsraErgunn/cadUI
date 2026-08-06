@@ -13,3 +13,7 @@ export const OPENING_PREVIEW_ELEVATION_CM = 0.2
  * kalır ve beyaz dolgu kanadı örtebilir.
  */
 export const OPENING_SYMBOL_LIFT_CM = 0.02
+
+/** Nokta sembolü açıklık simgesinin bir tık üstünde; ikisi de opak çiziliyor. */
+export const POINT_SYMBOL_ELEVATION_CM = 0.15
+export const POINT_SYMBOL_PREVIEW_ELEVATION_CM = 0.25

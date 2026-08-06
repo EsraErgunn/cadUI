@@ -24,6 +24,11 @@ export const RENDER_ORDER = {
   wall: 20,
   opening: 30,
   /**
+   * Nokta sembolü açıklığın ve duvarın ÜSTÜNDE: damga plandan okunabilmeli,
+   * altına düşerse duvar kütlesi onu yutar. Tutamakların altında kalır.
+   */
+  pointSymbol: 32,
+  /**
    * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
    * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı
    * (oda dolgusu geldiğinde) tamamen kaybolurdu.

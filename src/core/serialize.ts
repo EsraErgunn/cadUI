@@ -63,6 +63,16 @@ const pointSymbolSchema = z.object({
   note: z.string(),
 })
 
+/**
+ * Modele SONRADAN eklenen diziler `.default([])` taşır: depodaki çizimler o
+ * alanlar yokken kaydedildi ve zorunlu tutulursa "expected array, received
+ * undefined" ile HİÇ AÇILMAZ — kullanıcının verisi elimizde ama erişilemez olur.
+ *
+ * Bit-bit turu bozulmaz: `serializeProjectData` bu alanları her zaman yazıyor,
+ * yani bu sürümün kaydettiği dosya tam alan kümesiyle geri okunur. Varsayılan
+ * yalnız ESKİ dosyaların ilk açılışında devreye girer, sonraki kayıtta alan
+ * dosyaya yazılır. Yeni alan eklerken aynı şey yapılmalı.
+ */
 export const projectDataSchema = z.object({
   nextUniqueId: idSchema,
   activeFloorId: idSchema,
@@ -70,8 +80,8 @@ export const projectDataSchema = z.object({
   points: z.array(pointSchema),
   walls: z.array(wallSchema),
   openings: z.array(openingSchema),
-  rooms: z.array(roomSchema),
-  symbols: z.array(pointSymbolSchema),
+  rooms: z.array(roomSchema).default([]),
+  symbols: z.array(pointSymbolSchema).default([]),
 })
 
 export class ProjectDataParseError extends Error {

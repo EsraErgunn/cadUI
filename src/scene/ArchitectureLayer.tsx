@@ -1,11 +1,13 @@
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
+import { PointSymbol, type PointSymbolTone } from './PointSymbol'
 import { Rooms } from './Room'
 import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useOpeningTool } from './useOpeningTool'
+import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
 import { getOpeningOutline } from '../core/opening'
@@ -58,6 +60,41 @@ function Openings() {
   )
 }
 
+/**
+ * Nokta sembollerini çizer ve yerleştirme aracını çalıştırır (Desen A).
+ * Openings ile aynı desen: hook <Canvas> içinde koşmak zorunda.
+ */
+function PointSymbols() {
+  const preview = usePointSymbolTool()
+  const symbols = useCadStore((state) => state.symbols)
+  const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const hover = useArchitectureUiStore((state) => state.hover)
+
+  const hoveredSymbolId = hover?.kind === 'symbol' ? hover.symbolId : undefined
+
+  return (
+    <>
+      {symbols
+        .filter((symbol) => symbol.floorId === activeFloorId)
+        .map((symbol) => {
+          // Sembol henüz SEÇİLEMİYOR: core/selection.ts'in tür birleşimine girmesi
+          // ve budama/dönüşüm/panel bağlantısı ayrı bir adım. Burada yalnız vurgu var.
+          const tone: PointSymbolTone = symbol.id === hoveredSymbolId ? 'hovered' : 'normal'
+
+          // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
+          return <PointSymbol key={symbol.id} symbolId={symbol.id} symbol={symbol} tone={tone} />
+        })}
+
+      {preview && (
+        <PointSymbol
+          symbol={{ type: preview.type, ...preview.position, rotationDeg: 0 }}
+          tone="preview"
+        />
+      )}
+    </>
+  )
+}
+
 /** Çerçeve seçimi hook'u; <Canvas> içinde çalışmak zorunda (Openings ile aynı desen). */
 function SelectionTool() {
   useSelectionTool()
@@ -76,6 +113,8 @@ export function ArchitectureLayer() {
       <Walls />
       {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
       <Openings />
+      {/* Sembol açıklığın da üstünde (RENDER_ORDER.pointSymbol > opening). */}
+      <PointSymbols />
       <WallTool />
       <SelectionTool />
       {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}

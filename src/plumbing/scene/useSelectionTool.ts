@@ -6,6 +6,7 @@ import { getLoadedSymbol } from './symbolLoader'
 import type { PlanPoint } from '../../core/coords'
 import { isTypingTarget } from '../../core/domEvents'
 import type { Id } from '../../core/model'
+import { getPlacementPosition } from '../../core/placement'
 import { toPlanRect } from '../../core/selection'
 import { getSnapToleranceCm } from '../../core/snap'
 import { readCameraViewport } from '../../scene/cameraViewport'
@@ -15,7 +16,6 @@ import { useUiStore } from '../../store/uiStore'
 import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
-import { getPlacementPosition } from '../core/placement'
 import {
   copyElementsToClipboard,
   cutElementsToClipboard,
