@@ -1,5 +1,6 @@
 import type { PlanPoint } from './coords'
-import type { PointSymbol, PointSymbolType } from './model'
+import type { PointSymbolType } from './model'
+import type { SymbolPose } from './symbolPlacement'
 import { applyTransform } from './transform'
 
 /**
@@ -195,7 +196,7 @@ export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
  * uygulaması yazılmıyor (grup döndürme ile aynı matematik, -0 temizliği dahil).
  */
 export function toPlanPoints(
-  symbol: Pick<PointSymbol, 'x' | 'y' | 'rotationDeg'>,
+  pose: SymbolPose,
   unitPoints: readonly PlanPoint[],
   sizeCm: number = POINT_SYMBOL_SIZE_CM,
 ): PlanPoint[] {
@@ -206,25 +207,30 @@ export function toPlanPoints(
     const rotated = applyTransform(scaled, {
       kind: 'rotate',
       pivot: { x: 0, y: 0 },
-      angleDeg: symbol.rotationDeg,
+      angleDeg: pose.rotationDeg,
     })
-    return { x: rotated.x + symbol.x, y: rotated.y + symbol.y }
+    return { x: rotated.x + pose.position.x, y: rotated.y + pose.position.y }
   })
 }
 
-/** Sembolün plandaki tam geometrisi — sahne bunu doğrudan çizer. */
+/**
+ * Sembolün plandaki tam geometrisi — sahne bunu doğrudan çizer.
+ * Konum ve açı `core/symbolPlacement.ts` → `getSymbolPose`'dan gelir; duvara
+ * bağlı sembolde ikisi de duvardan türer, burada o ayrım bilinmez.
+ */
 export function getPointSymbolPlanGeometry(
-  symbol: Pick<PointSymbol, 'type' | 'x' | 'y' | 'rotationDeg'>,
+  type: PointSymbolType,
+  pose: SymbolPose,
   sizeCm: number = POINT_SYMBOL_SIZE_CM,
 ): SymbolGeometry {
-  const geometry = getPointSymbolGeometry(symbol.type)
+  const geometry = getPointSymbolGeometry(type)
 
   return {
     strokes: geometry.strokes.map((stroke) => ({
       ...stroke,
-      points: toPlanPoints(symbol, stroke.points, sizeCm),
+      points: toPlanPoints(pose, stroke.points, sizeCm),
     })),
-    fills: geometry.fills.map((fill) => toPlanPoints(symbol, fill, sizeCm)),
+    fills: geometry.fills.map((fill) => toPlanPoints(pose, fill, sizeCm)),
   }
 }
 
@@ -235,10 +241,10 @@ export function getPointSymbolPlanGeometry(
  */
 export function isPointInSymbol(
   target: PlanPoint,
-  symbol: Pick<PointSymbol, 'x' | 'y'>,
+  position: PlanPoint,
   toleranceCm: number,
   sizeCm: number = POINT_SYMBOL_SIZE_CM,
 ): boolean {
   const reach = sizeCm / 2 + toleranceCm
-  return Math.abs(target.x - symbol.x) <= reach && Math.abs(target.y - symbol.y) <= reach
+  return Math.abs(target.x - position.x) <= reach && Math.abs(target.y - position.y) <= reach
 }

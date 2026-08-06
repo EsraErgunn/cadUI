@@ -21,11 +21,26 @@ function resetState(): void {
 }
 
 function addSymbol(x: number, y: number, type: 'panel' | 'vent' = 'panel') {
-  return useCadStore.getState().addPointSymbol({ type, position: { x, y } })!
+  return useCadStore.getState().addPointSymbol({ type, attachment: freeAt({ x, y }) })!
+}
+
+/** Serbest bağlanma yardımcısı: testlerin çoğu duvarla ilgilenmiyor. */
+function freeAt(position: { x: number; y: number }) {
+  // Kat AKTİF kattan okunur: üretimde de bağlanmayı araç çözüyor ve serbest
+  // sembol aktif kata düşüyor.
+  return {
+    attachment: 'free' as const,
+    floorId: useCadStore.getState().activeFloorId,
+    x: position.x,
+    y: position.y,
+    rotationDeg: 0,
+  }
 }
 
 function findSymbol(symbolId: number) {
-  return useCadStore.getState().symbols.find((symbol) => symbol.id === symbolId)
+  const symbol = useCadStore.getState().symbols.find((item) => item.id === symbolId)
+  // Bu dosyadaki semboller serbest yerleştiriliyor; dönüşüm testleri x/y okuyor.
+  return symbol?.attachment === 'free' ? symbol : undefined
 }
 
 beforeEach(resetState)

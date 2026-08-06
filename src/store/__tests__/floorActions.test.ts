@@ -188,15 +188,30 @@ describe('setActiveFloor', () => {
 })
 
 describe('kat silme — sonradan eklenen diziler', () => {
-  it('silinen kattaki SEMBOLLER de gider', () => {
-    useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 10, y: 10 } })
-    useCadStore.getState().setActiveFloor(UPPER_FLOOR_ID)
-    useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 20, y: 20 } })
+  it('silinen kattaki SERBEST semboller de gider', () => {
+    const free = (floorId: number) =>
+      ({ attachment: 'free', floorId, x: 10, y: 10, rotationDeg: 0 }) as const
+
+    useCadStore.getState().addPointSymbol({ type: 'lighting', attachment: free(DEFAULT_FLOOR_ID) })
+    useCadStore.getState().addPointSymbol({ type: 'lighting', attachment: free(UPPER_FLOOR_ID) })
 
     useCadStore.getState().removeFloor(UPPER_FLOOR_ID)
 
-    const floorIds = useCadStore.getState().symbols.map((symbol) => symbol.floorId)
-    expect(floorIds).toEqual([DEFAULT_FLOOR_ID])
+    const symbols = useCadStore.getState().symbols
+    expect(symbols).toHaveLength(1)
+    expect(symbols[0].attachment === 'free' && symbols[0].floorId).toBe(DEFAULT_FLOOR_ID)
+  })
+
+  it('silinen kattaki DUVARA BAĞLI sembol duvarıyla birlikte düşer', () => {
+    // Fixture duvarları zemin katta; sembol duvar 8'e bağlı.
+    useCadStore.getState().addPointSymbol({
+      type: 'panel',
+      attachment: { attachment: 'wall', wallId: WALL_ID, offsetCm: 100, isMountedOnFarFace: true },
+    })
+
+    useCadStore.getState().removeFloor(DEFAULT_FLOOR_ID)
+
+    expect(useCadStore.getState().symbols).toHaveLength(0)
   })
 
   it('silinen kattaki ODALAR da gider — sahipsiz wallId kalmaz', () => {

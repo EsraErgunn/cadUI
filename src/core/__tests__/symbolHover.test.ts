@@ -8,8 +8,19 @@ const FLOOR_ID = 1
 const UPPER_FLOOR_ID = 14
 const TOLERANCE_CM = 10
 
+/** Serbest sembol: konumu kendinde, duvara bağlı olanı ayrı test ediliyor. */
 function makeSymbol(id: number, x: number, y: number, floorId = FLOOR_ID): PointSymbol {
-  return { id, floorId, type: 'panel', x, y, rotationDeg: 0, label: `P-0${id}`, note: '' }
+  return {
+    id,
+    type: 'panel',
+    label: `P-0${id}`,
+    note: '',
+    attachment: 'free',
+    floorId,
+    x,
+    y,
+    rotationDeg: 0,
+  }
 }
 
 // Duvar (0,0)-(400,0); sembol duvarın TAM ÜSTÜNDE (200, 0).

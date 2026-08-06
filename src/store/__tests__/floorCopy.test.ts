@@ -30,13 +30,13 @@ function resetState(): void {
     symbols: [
       {
         id: 12,
-        floorId: DEFAULT_FLOOR_ID,
         type: 'panel',
-        x: 100,
-        y: 100,
-        rotationDeg: 0,
         label: 'P-01',
         note: 'kaynak',
+        attachment: 'wall',
+        wallId: 6,
+        offsetCm: 120,
+        isMountedOnFarFace: true,
       },
     ],
     installationElements: [
@@ -61,7 +61,9 @@ function onFloor(floorId: number) {
     walls: [...wallIds],
     openings: state.openings.filter((opening) => wallIds.has(opening.wallId)),
     rooms: state.rooms.filter((room) => room.wallIds.some((id) => wallIds.has(id))),
-    symbols: state.symbols.filter((symbol) => symbol.floorId === floorId),
+    symbols: state.symbols.filter(
+      (symbol) => symbol.attachment === 'wall' && wallIds.has(symbol.wallId),
+    ),
     elements: state.installationElements.filter((element) => element.floorId === floorId),
   }
 }

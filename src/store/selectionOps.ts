@@ -3,6 +3,7 @@ import type { DraftSetter } from './architecturePropertyOps'
 import { recomputeRoomsInDraft } from './architectureRooms'
 // cadStore ↔ store dosyaları karşılıklı import eder; bu taraf tip-only (K17).
 import type { CadState } from './cadStore'
+import { pruneSymbolsInDraft } from './pointSymbolOps'
 import { markDirty } from './projectMeta'
 import { getSelectedIds, type Selection } from '../core/selection'
 import { getOrphanPointIds } from '../core/wall'
@@ -47,6 +48,8 @@ export function deleteSelectionFromDraft(draft: CadState, selection: Selection):
   const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
   draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
   pruneOpeningsInDraft(draft)
+  // Silinen duvara bağlı semboller de düşer (seçimde olmasalar bile).
+  pruneSymbolsInDraft(draft)
   // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
   // deleteWall'daki temizliğin aynısı — yoksa oda store'da hayalet olarak kalır.
   recomputeRoomsInDraft(draft)

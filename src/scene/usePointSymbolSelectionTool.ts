@@ -13,6 +13,7 @@ import type { Id } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
+import { getSymbolPose, resolveSymbolAttachment } from '../core/symbolPlacement'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
@@ -89,16 +90,18 @@ export function usePointSymbolSelectionTool(): void {
       }
       if (!isItemSelected(ui.selection, item)) ui.setSelection([item])
 
-      const symbol = useCadStore
-        .getState()
-        .symbols.find((candidate) => candidate.id === target.symbolId)
-      if (!symbol) return
+      const cad = useCadStore.getState()
+      const symbol = cad.symbols.find((candidate) => candidate.id === target.symbolId)
+      const pose = symbol && getSymbolPose(symbol, cad.walls, cad.points)
+      if (!symbol || !pose) return
 
       const selectedIds = getSelectedIds(useArchitectureUiStore.getState().selection, 'symbol')
       grab = {
-        symbolIds: selectedIds.includes(symbol.id) ? selectedIds : [symbol.id],
+        // Sürükleme TEK sembolü taşır: bağlanma sembol başına çözülüyor (biri
+        // duvara girerken öteki çıkabilir), toplu sürükleme ayrı bir karar.
+        symbolIds: selectedIds.includes(symbol.id) ? [symbol.id] : [symbol.id],
         grabPoint: event.planPoint,
-        origin: { x: symbol.x, y: symbol.y },
+        origin: pose.position,
       }
     }
 
@@ -130,10 +133,19 @@ export function usePointSymbolSelectionTool(): void {
       // Yer değişmediyse (yalnız seçmek için tıklama) store'a hiç yazılmaz.
       if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
 
-      useCadStore.getState().transformSelection(
-        symbolIds.map((id) => ({ kind: 'symbol' as const, id })),
-        { kind: 'translate', dxCm: drag.dxCm, dyCm: drag.dyCm },
-      )
+      // Bırakma noktasında yeniden bağlanma çözülür: sembol duvara girmiş,
+      // duvardan çıkmış ya da başka duvara geçmiş olabilir.
+      const cad = useCadStore.getState()
+      const symbol = cad.symbols.find((candidate) => candidate.id === symbolIds[0])
+      if (!symbol) return
+
+      const attachment = resolveSymbolAttachment(event.planPoint, symbol.type, {
+        walls: cad.walls,
+        points: cad.points,
+        floorId: cad.activeFloorId,
+        toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
+      })
+      useCadStore.getState().movePointSymbol(symbol.id, attachment)
     }
 
     // Esc taşımayı iptal eder: sembol eski yerinde kalır çünkü store'a yazılmadı.

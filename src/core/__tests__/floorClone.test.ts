@@ -30,8 +30,29 @@ const openings: Opening[] = [
 const rooms: Room[] = [{ id: 11, wallIds: [6, 7, 8, 9], name: 'Salon' }]
 
 const symbols: PointSymbol[] = [
-  { id: 12, floorId: GROUND, type: 'panel', x: 100, y: 100, rotationDeg: 0, label: 'P-01', note: 'a' },
-  { id: 13, floorId: GROUND, type: 'panel', x: 300, y: 100, rotationDeg: 90, label: 'P-02', note: '' },
+  // Duvar 6'ya bağlı: kopyada wallId remap'ten geçmeli.
+  {
+    id: 12,
+    type: 'panel',
+    label: 'P-01',
+    note: 'a',
+    attachment: 'wall',
+    wallId: 6,
+    offsetCm: 120,
+    isMountedOnFarFace: true,
+  },
+  // Serbest (aydınlatma): yalnız hedef kata taşınır.
+  {
+    id: 13,
+    type: 'lighting',
+    label: 'AY-01',
+    note: '',
+    attachment: 'free',
+    floorId: GROUND,
+    x: 300,
+    y: 100,
+    rotationDeg: 90,
+  },
 ]
 
 const source: FloorCloneSource = { points, walls, openings, rooms, symbols }
@@ -93,7 +114,6 @@ describe('cloneFloorArchitecture', () => {
 
     expect(clone.points.every((point) => point.floorId === UPPER)).toBe(true)
     expect(clone.walls.every((wall) => wall.floorId === UPPER)).toBe(true)
-    expect(clone.symbols.every((symbol) => symbol.floorId === UPPER)).toBe(true)
   })
 
   it('duvar uçları KOPYA köşelere bağlanır, kaynağınkine değil', () => {
@@ -136,12 +156,29 @@ describe('cloneFloorArchitecture', () => {
     expect(new Set(zincir).size).toBe(4)
   })
 
-  it('sembol geometrisi ve notu korunur, etiket YENİDEN üretilir', () => {
+  it('duvara bağlı sembol KOPYA duvara bağlanır — kaynağınkine değil', () => {
     const clone = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId())
+    const cloneWallIds = new Set(clone.walls.map((wall) => wall.id))
+    const [copied] = clone.symbols
 
-    expect(clone.symbols[0]).toMatchObject({ x: 100, y: 100, rotationDeg: 0, note: 'a' })
-    expect(clone.symbols[1]).toMatchObject({ x: 300, y: 100, rotationDeg: 90 })
-    expect(clone.symbols.map((symbol) => symbol.label)).toEqual(['P-01', 'P-02'])
+    expect(copied.attachment).toBe('wall')
+    expect(copied.attachment === 'wall' && cloneWallIds.has(copied.wallId)).toBe(true)
+    expect(copied.attachment === 'wall' && copied.wallId).not.toBe(6)
+  })
+
+  it('duvara bağlı sembolün offseti ve yüzü korunur', () => {
+    const [copied] = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId()).symbols
+
+    expect(copied).toMatchObject({ note: 'a' })
+    expect(copied.attachment === 'wall' && copied.offsetCm).toBe(120)
+    expect(copied.attachment === 'wall' && copied.isMountedOnFarFace).toBe(true)
+  })
+
+  it('serbest sembol HEDEF kata taşınır, konumu korunur', () => {
+    const free = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId()).symbols[1]
+
+    expect(free).toMatchObject({ attachment: 'free', x: 300, y: 100, rotationDeg: 90 })
+    expect(free.attachment === 'free' && free.floorId).toBe(UPPER)
   })
 
   it('iki sembol AYNI etiketi almaz', () => {

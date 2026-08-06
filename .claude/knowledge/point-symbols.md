@@ -19,10 +19,31 @@ etmiyor; doğalgaz projelendirmesinde standart karşılıkları var. Hepsi tek
 fonksiyonda (`getPointSymbolGeometry`) durduğu için düzeltme yalnız orayı
 değiştirir — model, yerleştirme ve etkileşim dokunulmaz.
 
-## Model
+## Model — sembol duvara BAĞLANIR (referans formatın modeli)
 
-`PointSymbol` kendi koordinatını TAŞIR (açıklığın aksine duvara bağlı değil):
-`x`, `y`, `rotationDeg`, `label`, `note`, `floorId`.
+Referans proje cihazları duvara `wallId + distance + ccw` ile bağlıyor; biz de
+aynısını yapıyoruz. `PointSymbol` ayrık birleşim:
+
+```
+{ attachment: 'wall', wallId, offsetCm, isMountedOnFarFace }
+{ attachment: 'free', floorId, x, y, rotationDeg }
+```
+
+**Duvara bağlı sembol `floorId` ve `rotationDeg` TAŞIMAZ** — ikisi de duvarından
+türer (`getSymbolPose`). Pano bir duvar YÜZEYİNE monte edilir, dolayısıyla duvar
+nereye bakıyorsa o da oraya bakar; iki yerde tutulan yön zamanla ayrışır (Opening
+ile aynı kural, K9). Sonuç: **duvar taşınınca/dönünce sembol kendiliğinden gelir**,
+ayrıca güncelleme yok.
+
+`isMountedOnFarFace` = referanstaki `ccw`: duvarın hangi yüzüne monte edildiği.
+Sembol eksenin üstüne değil, kalınlığın yarısı kadar kaydırılmış YÜZEYE oturur —
+eksende dursaydı duvarın içine gömülmüş görünürdü.
+
+**Aydınlatma her zaman serbest** (`canMountOnWall`): referansta da `x, y` ile
+duruyor, çünkü tavana takılıyor.
+
+Serbest hâl bir hata durumu DEĞİL: araç bırakma noktasının uygunluğunu
+denetlemiyor (K-6), duvara denk gelmeyen yerleştirme meşru.
 
 - **`note` opsiyonel değil, boş string.** `JSON.stringify` undefined alanı atlar
   ve iki projenin JSON şekli ayrışırdı; kabul testi alan sırasına dayanıyor.
@@ -30,6 +51,22 @@ değiştirir — model, yerleştirme ve etkileşim dokunulmaz.
   bir adım; varsayarak alan açmak geri alınacak kod üretir.
 - **Boyut alanı yok**: yedi sembol de şematik damga, ölçülü eleman değil (ölçü
   Desen B'nin işi). Plandaki boy `POINT_SYMBOL_SIZE_CM` sabiti.
+- **`elevation` YOK.** Referans montaj yüksekliğini tutuyor (280, 120, 200) ama
+  tutanağın Desen A alan tablosunda geçmiyor ve 2B planda karşılığı yok. Analiste
+  sorulmadan eklenmedi.
+
+## Duvar silinince sembol de düşer
+
+`pruneSymbolsInDraft` — açıklıktaki K16 temizliğinin karşılığı. Duvarsız bağlı
+sembol temsil edilemez: konumu duvarından türüyor, duvar gidince çizilemez hâle
+gelir ama kaydedilen JSON'da kalmaya devam ederdi. `deleteWall`,
+`deleteSelectionFromDraft` ve `removeFloorFromDraft` üçü de çağırır.
+
+## Dönüşüm yalnız SERBEST sembole uygulanır
+
+Duvara bağlı sembol duvarıyla gelir: duvar seçimdeyse zaten taşınıyor, değilse
+sembol duvarından kopmamalı. Panelde de açı alanı duvara bağlıyken salt okunur —
+gizlenmiyor, kullanıcı değerin nereden geldiğini görsün.
 
 ## Etiket
 

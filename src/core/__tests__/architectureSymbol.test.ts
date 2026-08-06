@@ -19,7 +19,7 @@ const ALL_TYPES: PointSymbolType[] = [
   'vent',
 ]
 
-const atOrigin = { x: 0, y: 0, rotationDeg: 0 }
+const atOrigin = { position: { x: 0, y: 0 }, rotationDeg: 0 }
 
 describe('getPointSymbolGeometry', () => {
   it('yedi tipin hepsi çizilebilir bir şekil döndürür', () => {
@@ -62,21 +62,21 @@ describe('toPlanPoints', () => {
   })
 
   it('sembolün konumuna taşır', () => {
-    const [moved] = toPlanPoints({ x: 300, y: 120, rotationDeg: 0 }, [{ x: 0, y: 0 }])
+    const [moved] = toPlanPoints({ position: { x: 300, y: 120 }, rotationDeg: 0 }, [{ x: 0, y: 0 }])
 
     expect(moved).toEqual({ x: 300, y: 120 })
   })
 
   it('sembolün açısı kadar döndürür', () => {
-    const [moved] = toPlanPoints({ x: 0, y: 0, rotationDeg: 90 }, [{ x: 50, y: 0 }])
+    const [moved] = toPlanPoints({ position: { x: 0, y: 0 }, rotationDeg: 90 }, [{ x: 50, y: 0 }])
 
     expect(moved.x).toBeCloseTo(0)
     expect(moved.y).toBeCloseTo(POINT_SYMBOL_SIZE_CM / 2)
   })
 
   it('döndürme sembolün MERKEZİ etrafındadır — konum değişmez', () => {
-    const symbol = { x: 250, y: 400, rotationDeg: 37 }
-    const [center] = toPlanPoints(symbol, [{ x: 0, y: 0 }])
+    const pose = { position: { x: 250, y: 400 }, rotationDeg: 37 }
+    const [center] = toPlanPoints(pose, [{ x: 0, y: 0 }])
 
     expect(center.x).toBeCloseTo(250)
     expect(center.y).toBeCloseTo(400)
@@ -91,10 +91,8 @@ describe('toPlanPoints', () => {
 
 describe('getPointSymbolPlanGeometry', () => {
   it('çizgileri ve dolguları birlikte çevirir', () => {
-    const geometry = getPointSymbolPlanGeometry({
-      type: 'panel',
-      x: 100,
-      y: 100,
+    const geometry = getPointSymbolPlanGeometry('panel', {
+      position: { x: 100, y: 100 },
       rotationDeg: 0,
     })
 
@@ -109,10 +107,8 @@ describe('getPointSymbolPlanGeometry', () => {
   })
 
   it('çizgi adları çevrimden sonra korunur', () => {
-    const geometry = getPointSymbolPlanGeometry({
-      type: 'vent',
-      x: 0,
-      y: 0,
+    const geometry = getPointSymbolPlanGeometry('vent', {
+      position: { x: 0, y: 0 },
       rotationDeg: 0,
     })
 
@@ -121,19 +117,19 @@ describe('getPointSymbolPlanGeometry', () => {
 })
 
 describe('isPointInSymbol', () => {
-  const symbol = { x: 200, y: 100 }
+  const position = { x: 200, y: 100 }
   const half = POINT_SYMBOL_SIZE_CM / 2
 
   it('merkezdeki imleç sembolün üstündedir', () => {
-    expect(isPointInSymbol({ x: 200, y: 100 }, symbol, 0)).toBe(true)
+    expect(isPointInSymbol({ x: 200, y: 100 }, position, 0)).toBe(true)
   })
 
   it('kenarın hemen dışı toleransla yakalanır', () => {
-    expect(isPointInSymbol({ x: 200 + half + 3, y: 100 }, symbol, 5)).toBe(true)
-    expect(isPointInSymbol({ x: 200 + half + 3, y: 100 }, symbol, 0)).toBe(false)
+    expect(isPointInSymbol({ x: 200 + half + 3, y: 100 }, position, 5)).toBe(true)
+    expect(isPointInSymbol({ x: 200 + half + 3, y: 100 }, position, 0)).toBe(false)
   })
 
   it('uzaktaki imleç sembolün üstünde değildir', () => {
-    expect(isPointInSymbol({ x: 400, y: 100 }, symbol, 5)).toBe(false)
+    expect(isPointInSymbol({ x: 400, y: 100 }, position, 5)).toBe(false)
   })
 })
