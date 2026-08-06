@@ -11,7 +11,6 @@ import {
 
 const FLOOR_ID = 1
 const UPPER_FLOOR_ID = 14
-const TOLERANCE_CM = 10
 
 // Yatay duvar (0,0)-(400,0), kalınlık 20 → yüzeyleri y = ±10.
 const points: Point[] = [
@@ -25,7 +24,7 @@ const walls: Wall[] = [
   { id: 11, floorId: UPPER_FLOOR_ID, p1Id: 3, p2Id: 4, thickness: 20, height: 280 },
 ]
 
-const context = { walls, points, floorId: FLOOR_ID, toleranceCm: TOLERANCE_CM }
+const context = { walls, points, floorId: FLOOR_ID }
 
 function wallSymbol(
   offsetCm: number,
@@ -164,11 +163,26 @@ describe('resolveSymbolAttachment', () => {
     )
   })
 
-  it('duvardan uzağa bırakılan sembol SERBEST kalır', () => {
-    expect(resolveSymbolAttachment({ x: 150, y: 300 }, 'panel', context)).toMatchObject({
+  it('duvardan UZAĞA bırakılsa bile en yakın duvarı yakalar', () => {
+    // Referans uygulamada boş alana tıklanan cihaz en yakın duvara sıçrıyor.
+    const attachment = resolveSymbolAttachment({ x: 150, y: 3000 }, 'panel', context)
+
+    expect(attachment).toMatchObject({ attachment: 'wall', wallId: 10 })
+    expect(attachment.attachment === 'wall' && attachment.offsetCm).toBeCloseTo(150)
+  })
+
+  it('birden çok duvarda EN YAKIN olanı seçer', () => {
+    // Duvar 10 y=0'da; imleç y=5'te ona, y=... uzakta olsa da yine ona yakın.
+    const attachment = resolveSymbolAttachment({ x: 380, y: 40 }, 'panel', context)
+
+    expect(attachment.attachment === 'wall' && attachment.wallId).toBe(10)
+  })
+
+  it('katta hiç duvar yoksa serbest kalır — bağlanacak bir şey yok', () => {
+    const empty = { walls: [], points: [], floorId: FLOOR_ID }
+
+    expect(resolveSymbolAttachment({ x: 10, y: 10 }, 'panel', empty)).toMatchObject({
       attachment: 'free',
-      x: 150,
-      y: 300,
     })
   })
 

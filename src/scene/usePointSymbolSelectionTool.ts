@@ -143,7 +143,6 @@ export function usePointSymbolSelectionTool(): void {
         walls: cad.walls,
         points: cad.points,
         floorId: cad.activeFloorId,
-        toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       })
       useCadStore.getState().movePointSymbol(symbol.id, attachment)
     }

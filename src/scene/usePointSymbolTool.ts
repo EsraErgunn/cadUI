@@ -8,7 +8,6 @@ import type { PlanPoint } from '../core/coords'
 import type { PointSymbolType, SymbolAttachment } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { getPointSymbolTypeForTool } from '../core/pointSymbol'
-import { getSnapToleranceCm } from '../core/snap'
 import {
   getSymbolPose,
   resolveSymbolAttachment,
@@ -65,7 +64,6 @@ export function usePointSymbolTool(): PointSymbolPreview | undefined {
         walls: cad.walls,
         points: cad.points,
         floorId: cad.activeFloorId,
-        toleranceCm: getSnapToleranceCm(zoom),
       })
       if (attachment.attachment === 'wall') return attachment
 

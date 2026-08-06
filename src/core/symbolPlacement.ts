@@ -7,8 +7,8 @@ import type {
   SymbolAttachment,
   Wall,
 } from './model'
-import { getSegmentAngleDeg, getWallEnds } from './wall'
-import { findWallUnderPoint, getWallFrameAtOffsetCm } from './wallPath'
+import { getSegmentAngleDeg, getWallEnds, projectPointOntoWall } from './wall'
+import { getWallFrameAtOffsetCm } from './wallPath'
 
 /**
  * Aydınlatma referans formatta duvara BAĞLANMAZ (`x, y` ile serbest duruyor):
@@ -112,16 +112,43 @@ export type SymbolPlacementContext = {
   walls: readonly Wall[]
   points: readonly Point[]
   floorId: Id
-  toleranceCm: number
 }
 
 /**
- * Bırakma noktası → bağlanma. Duvarın üstündeyse duvara bağlanır (referans
- * formatın modeli), değilse serbest kalır.
+ * İmlece en yakın duvar — MESAFE SINIRI YOK. `findWallUnderPoint` "imleç
+ * duvarın üstünde mi" sorusunu yanıtlıyor ve kalınlık + tolerans dışında
+ * undefined dönüyor; burada sorulan başka bir şey: "hangi duvara ait olmalı".
+ */
+function findNearestWall(
+  target: PlanPoint,
+  walls: readonly Wall[],
+  points: readonly Point[],
+): { wall: Wall; offsetCm: number } | undefined {
+  let best: { wall: Wall; offsetCm: number; distanceCm: number } | undefined
+
+  for (const wall of walls) {
+    const projection = projectPointOntoWall(wall, points, target)
+    if (!projection) continue
+    if (best && projection.distanceCm >= best.distanceCm) continue
+    best = { wall, offsetCm: projection.offsetCm, distanceCm: projection.distanceCm }
+  }
+
+  return best && { wall: best.wall, offsetCm: best.offsetCm }
+}
+
+/**
+ * Bırakma noktası → bağlanma. Duvara bağlanabilen cihaz HER ZAMAN bir duvara
+ * bağlanır: imleç duvardan uzaktaysa EN YAKIN duvara yakalanır, serbest
+ * bırakılamaz. Referans uygulamada davranış budur — boş alana tıklandığında
+ * cihaz en yakın duvara sıçrıyor.
  *
- * Duvarı `findWallUnderPoint` seçer, `resolveSnap` DEĞİL: snap köşede `pointId`
- * dönüp `wallId` vermiyor ve ekran toleransı duvar kalınlığını bilmiyor — kapı
- * yerleştirmede alınan kararın aynısı (knowledge/opening-placement.md).
+ * Bu, tutanağın K-6 maddesindeki "araç yerleşimin uygunluğunu denetlemez"
+ * ilkesini bu cihazlar için daraltıyor: duvara ait olan bir cihazın duvarsız
+ * durması anlamlı bir durum değil. Aydınlatma istisna (`canMountOnWall`), o
+ * tavana takılıyor ve serbest kalıyor.
+ *
+ * Tolerans artık KULLANILMIYOR: mesafe sınırı olsaydı "yakınsa yakala, uzaksa
+ * bırak" davranışı geri gelirdi.
  *
  * Yüz, bırakma noktasının duvar ekseninin hangi tarafında kaldığından çıkar:
  * kullanıcı sembolü hangi yüze bıraktıysa oraya monte edilir.
@@ -143,13 +170,12 @@ export function resolveSymbolAttachment(
 
   const floorWalls = context.walls.filter((wall) => wall.floorId === context.floorId)
   const floorPoints = context.points.filter((point) => point.floorId === context.floorId)
-  const hit = findWallUnderPoint(target, floorWalls, floorPoints, context.toleranceCm)
-  if (!hit) return free
 
-  const wall = floorWalls.find((candidate) => candidate.id === hit.wallId)
-  if (!wall) return free
+  const nearest = findNearestWall(target, floorWalls, floorPoints)
+  // Katta hiç duvar yoksa bağlanacak bir şey yok; tek kalan seçenek serbest.
+  if (!nearest) return free
 
-  const frame = getWallFrameAtOffsetCm(wall, floorPoints, hit.offsetCm)
+  const frame = getWallFrameAtOffsetCm(nearest.wall, floorPoints, nearest.offsetCm)
   if (!frame) return free
 
   // Normal yönündeki işaret hangi yüz olduğunu söyler; sıfırda uzak yüz seçilir
@@ -159,8 +185,8 @@ export function resolveSymbolAttachment(
 
   return {
     attachment: 'wall',
-    wallId: wall.id,
-    offsetCm: hit.offsetCm,
+    wallId: nearest.wall.id,
+    offsetCm: nearest.offsetCm,
     isMountedOnFarFace: side >= 0,
   }
 }

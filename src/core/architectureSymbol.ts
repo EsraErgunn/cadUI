@@ -1,6 +1,14 @@
 import type { PlanPoint } from './coords'
 import type { PointSymbolType } from './model'
 import type { SymbolPose } from './symbolPlacement'
+import {
+  circlePoints,
+  hatchStrokes,
+  rectangleCorners,
+  starStrokes,
+  type SymbolGeometry,
+  type SymbolStroke,
+} from './symbolShapes'
 import { applyTransform } from './transform'
 
 /**
@@ -18,7 +26,13 @@ import { applyTransform } from './transform'
  */
 export type SymbolDrawStyle = 'embedded' | 'leader' | 'free'
 
-export type SymbolShapeKind = 'filledRect' | 'hatchedRect' | 'circle' | 'square' | 'star'
+export type SymbolShapeKind =
+  | 'filledRect'
+  | 'hatchedRect'
+  | 'circle'
+  | 'doubleCircle'
+  | 'square'
+  | 'star'
 
 type SymbolDisplay = {
   style: SymbolDrawStyle
@@ -31,6 +45,11 @@ type SymbolDisplay = {
    * monte edilen bir kutu değil. `depthCm` yerine duvarın kalınlığı kullanılır.
    */
   spansWallThickness?: boolean
+  /**
+   * `leader` ailesinde işaretin duvar yüzünden uzaklığı. 0 ise araya çizgi
+   * ÇEKİLMEZ, işaret yüzeye yaslanır — yangın söndürücü referansta böyle duruyor.
+   */
+  leaderLengthCm?: number
 }
 
 /**
@@ -45,89 +64,22 @@ type SymbolDisplay = {
 export const SYMBOL_DISPLAY: Record<PointSymbolType, SymbolDisplay> = {
   panel: { style: 'embedded', shape: 'filledRect', widthCm: 50, depthCm: 10 },
   vent: { style: 'embedded', shape: 'hatchedRect', widthCm: 15, depthCm: 10, spansWallThickness: true },
-  fireExtinguisher: { style: 'embedded', shape: 'filledRect', widthCm: 26, depthCm: 20 },
+  // İki yan yana daire, duvarın dışında ve yüzeye yaslı (referansta gözlendi).
+  fireExtinguisher: {
+    style: 'leader',
+    shape: 'doubleCircle',
+    widthCm: 30,
+    depthCm: 15,
+    leaderLengthCm: 0,
+  },
   mainCutoffSwitch: { style: 'leader', shape: 'circle', widthCm: 24, depthCm: 24 },
   alarmDevice: { style: 'leader', shape: 'square', widthCm: 24, depthCm: 24 },
   earthquakeSensor: { style: 'leader', shape: 'square', widthCm: 24, depthCm: 24 },
   lighting: { style: 'free', shape: 'star', widthCm: 28, depthCm: 28 },
 }
 
-/** İşaretin duvar yüzünden uzaklığı; çekme çizgisi bu boyda. */
-const LEADER_LENGTH_CM = 45
-
-const CIRCLE_SEGMENTS = 28
-/** Menfez tarasının çizgi sayısı; referansta dar bir bantta birkaç dikey çizgi. */
-const HATCH_LINE_COUNT = 5
-/** Aydınlatma yıldızının ışın sayısı. */
-const STAR_RAY_COUNT = 12
-
-/** Çizgi kalınlığını sahne bu role göre seçer; px değeri core'da tutulmaz. */
-export type SymbolStrokeRole = 'body' | 'detail'
-
-export type SymbolStroke = {
-  /** Benzersiz ad — React key (indeks DEĞİL, CLAUDE.md kural 6). */
-  name: string
-  role: SymbolStrokeRole
-  points: PlanPoint[]
-}
-
-export type SymbolGeometry = {
-  strokes: SymbolStroke[]
-  /** Dolu alanların köşeleri; boşsa dolgu yok. */
-  fills: PlanPoint[][]
-}
-
-function rectangleCorners(halfWidth: number, halfDepth: number, centerY = 0): PlanPoint[] {
-  return [
-    { x: -halfWidth, y: centerY - halfDepth },
-    { x: halfWidth, y: centerY - halfDepth },
-    { x: halfWidth, y: centerY + halfDepth },
-    { x: -halfWidth, y: centerY + halfDepth },
-  ]
-}
-
-function circlePoints(radius: number, centerY: number): PlanPoint[] {
-  const points: PlanPoint[] = []
-  for (let step = 0; step <= CIRCLE_SEGMENTS; step += 1) {
-    const angle = (step / CIRCLE_SEGMENTS) * Math.PI * 2
-    points.push({ x: Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius })
-  }
-  return points
-}
-
-function starStrokes(radius: number, centerY: number): SymbolStroke[] {
-  const strokes: SymbolStroke[] = []
-  for (let ray = 0; ray < STAR_RAY_COUNT; ray += 1) {
-    const angle = (ray / STAR_RAY_COUNT) * Math.PI * 2
-    strokes.push({
-      name: `ray-${ray}`,
-      role: 'detail',
-      points: [
-        { x: 0, y: centerY },
-        { x: Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius },
-      ],
-    })
-  }
-  // İç halka: ışınların ortasını toplar, referanstaki yıldız gibi okunur.
-  strokes.push({ name: 'hub', role: 'body', points: circlePoints(radius * 0.35, centerY) })
-  return strokes
-}
-
-function hatchStrokes(halfWidth: number, halfDepth: number, centerY: number): SymbolStroke[] {
-  const strokes: SymbolStroke[] = []
-  for (let line = 1; line <= HATCH_LINE_COUNT; line += 1) {
-    const x = -halfWidth + ((halfWidth * 2) / (HATCH_LINE_COUNT + 1)) * line
-    strokes.push({
-      name: `hatch-${line}`,
-      role: 'detail',
-      points: [
-        { x, y: centerY - halfDepth },
-        { x, y: centerY + halfDepth },
-      ],
-    })
-  }
-  return strokes
-}
+/** Çekme çizgili cihazların varsayılan uzaklığı; tip başına ezilebilir. */
+const DEFAULT_LEADER_LENGTH_CM = 45
 
 /**
  * Sembolün YEREL cm geometrisi: orijin duvar yüzünde, +x duvar boyunca,
@@ -160,10 +112,12 @@ export function getPointSymbolGeometry(
 
   // Gömülü cihaz yüzeyden içeri; çekme çizgili olan duvarın dışında, uzakta.
   const centerY = display.style === 'embedded' ? -halfDepth : 0
-  const markerCenterY = display.style === 'leader' ? LEADER_LENGTH_CM + halfDepth : centerY
+  const leaderLength = display.leaderLengthCm ?? DEFAULT_LEADER_LENGTH_CM
+  const markerCenterY = display.style === 'leader' ? leaderLength + halfDepth : centerY
 
+  // Uzaklık sıfırsa çizgi çizilmez: işaret zaten yüzeye yaslı.
   const leader: SymbolStroke[] =
-    display.style === 'leader'
+    display.style === 'leader' && leaderLength > 0
       ? [
           {
             name: 'leader',
@@ -181,6 +135,19 @@ export function getPointSymbolGeometry(
       strokes: [
         ...leader,
         { name: 'outline', role: 'body', points: circlePoints(halfWidth, markerCenterY) },
+      ],
+      fills: [],
+    }
+  }
+
+  if (display.shape === 'doubleCircle') {
+    // İki daire yan yana; toplam genişlik widthCm, her biri onun yarısı kadar.
+    const radius = display.widthCm / 4
+    return {
+      strokes: [
+        ...leader,
+        { name: 'left', role: 'body', points: circlePoints(radius, markerCenterY, -radius) },
+        { name: 'right', role: 'body', points: circlePoints(radius, markerCenterY, radius) },
       ],
       fills: [],
     }
@@ -263,9 +230,11 @@ export function isPointInSymbol(
   const display = SYMBOL_DISPLAY[type]
   const outerReach =
     display.style === 'leader'
-      ? LEADER_LENGTH_CM + display.depthCm
+      ? (display.leaderLengthCm ?? DEFAULT_LEADER_LENGTH_CM) + display.depthCm
       : Math.max(display.widthCm, display.depthCm) / 2
 
   const reach = outerReach + toleranceCm
   return Math.abs(target.x - position.x) <= reach && Math.abs(target.y - position.y) <= reach
 }
+
+export type { SymbolGeometry, SymbolStroke, SymbolStrokeRole } from './symbolShapes'

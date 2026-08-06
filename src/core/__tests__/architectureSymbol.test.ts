@@ -37,10 +37,17 @@ describe('SYMBOL_DISPLAY', () => {
     expect(Object.keys(SYMBOL_DISPLAY)).toHaveLength(7)
   })
 
-  it('duvara gömülen cihazların ölçüsü referanstan', () => {
-    // docs/webcad-reference.json → Panel 50×10, FireExtinguisher 26×20.
+  it('duvara gömülen cihazın ölçüsü referanstan', () => {
+    // docs/webcad-reference.json → Panel 50×10.
     expect(SYMBOL_DISPLAY.panel).toMatchObject({ widthCm: 50, depthCm: 10 })
-    expect(SYMBOL_DISPLAY.fireExtinguisher).toMatchObject({ widthCm: 26, depthCm: 20 })
+  })
+
+  it('yangın söndürücü duvarın DIŞINDA, yüzeye yaslı iki daire', () => {
+    expect(SYMBOL_DISPLAY.fireExtinguisher).toMatchObject({
+      style: 'leader',
+      shape: 'doubleCircle',
+      leaderLengthCm: 0,
+    })
   })
 
   it('WebCAD"de gözlenen şekil ve yerleşimi taşır', () => {
@@ -71,11 +78,18 @@ describe('getPointSymbolGeometry', () => {
     }
   })
 
-  it('yalnız pano ve yangın söndürücü DOLU çizilir', () => {
+  it('yalnız pano DOLU çizilir', () => {
     expect(getPointSymbolGeometry('panel').fills).toHaveLength(1)
-    expect(getPointSymbolGeometry('fireExtinguisher').fills).toHaveLength(1)
     expect(getPointSymbolGeometry('alarmDevice').fills).toHaveLength(0)
     expect(getPointSymbolGeometry('vent').fills).toHaveLength(0)
+    expect(getPointSymbolGeometry('fireExtinguisher').fills).toHaveLength(0)
+  })
+
+  it('yangın söndürücü iki daire ve arada ÇEKME ÇİZGİSİ YOK', () => {
+    const names = getPointSymbolGeometry('fireExtinguisher').strokes.map((stroke) => stroke.name)
+
+    expect(names).toEqual(expect.arrayContaining(['left', 'right']))
+    expect(names).not.toContain('leader')
   })
 
   it('menfez taralı: gövde + dikey çizgiler', () => {
@@ -118,12 +132,12 @@ describe('gömülü cihaz duvarın İÇİNDE kalır', () => {
   })
 
   it('duvardan kalın cihaz duvara sığdırılır', () => {
-    // Yangın söndürücü 20 derin; 12 cm duvarda taşmamalı.
-    const ys = getPointSymbolGeometry('fireExtinguisher', 12)
+    // Pano 10 derin; 6 cm duvarda taşmamalı.
+    const ys = getPointSymbolGeometry('panel', 6)
       .strokes.flatMap((stroke) => stroke.points)
       .map((point) => point.y)
 
-    expect(Math.min(...ys)).toBeCloseTo(-12)
+    expect(Math.min(...ys)).toBeCloseTo(-6)
     expect(Math.max(...ys)).toBeCloseTo(0)
   })
 
