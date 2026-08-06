@@ -73,8 +73,15 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
   )
 
   draft.openings = draft.openings.filter((opening) => !removedWallIds.has(opening.wallId))
+  // Oda floorId TAŞIMAZ; kimliği duvar id kümesidir (K31). Katı silinen odanın
+  // duvarları gidiyor, kayıt kalırsa sahipsiz wallId'li hayalet oda oluşur ve
+  // kaydedilen JSON'a yazılmaya devam eder.
+  draft.rooms = draft.rooms.filter(
+    (room) => !room.wallIds.some((wallId) => removedWallIds.has(wallId)),
+  )
   draft.walls = draft.walls.filter((wall) => wall.floorId !== floorId)
   draft.points = draft.points.filter((point) => point.floorId !== floorId)
+  draft.symbols = draft.symbols.filter((symbol) => symbol.floorId !== floorId)
   draft.installationElements = draft.installationElements.filter(
     (element) => element.floorId !== floorId,
   )

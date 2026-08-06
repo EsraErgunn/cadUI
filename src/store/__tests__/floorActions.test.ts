@@ -24,6 +24,8 @@ function resetFloorState(): void {
     walls: FIXTURE_WALLS,
     openings: FIXTURE_OPENINGS,
     installationElements: [],
+    rooms: [],
+    symbols: [],
     nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
     savedRevision: 0,
@@ -182,6 +184,41 @@ describe('setActiveFloor', () => {
     useCadStore.temporal.getState().undo()
 
     expect(useCadStore.getState().floors).toHaveLength(2)
+  })
+})
+
+describe('kat silme — sonradan eklenen diziler', () => {
+  it('silinen kattaki SEMBOLLER de gider', () => {
+    useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 10, y: 10 } })
+    useCadStore.getState().setActiveFloor(UPPER_FLOOR_ID)
+    useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 20, y: 20 } })
+
+    useCadStore.getState().removeFloor(UPPER_FLOOR_ID)
+
+    const floorIds = useCadStore.getState().symbols.map((symbol) => symbol.floorId)
+    expect(floorIds).toEqual([DEFAULT_FLOOR_ID])
+  })
+
+  it('silinen kattaki ODALAR da gider — sahipsiz wallId kalmaz', () => {
+    // Oda floorId taşımıyor, kimliği duvar id kümesi (K31): kat silinince
+    // duvarları gidiyor ama oda kaydı arkada kalırsa hayalet oda oluşur.
+    useCadStore.setState({
+      rooms: [{ id: 500, wallIds: [WALL_ID], name: 'Salon' }],
+    })
+
+    useCadStore.getState().removeFloor(DEFAULT_FLOOR_ID)
+
+    expect(useCadStore.getState().rooms).toHaveLength(0)
+  })
+
+  it('başka kattaki odaya dokunmaz', () => {
+    useCadStore.setState({
+      rooms: [{ id: 500, wallIds: [WALL_ID], name: 'Salon' }],
+    })
+
+    useCadStore.getState().removeFloor(UPPER_FLOOR_ID)
+
+    expect(useCadStore.getState().rooms).toHaveLength(1)
   })
 })
 
