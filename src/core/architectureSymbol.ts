@@ -57,9 +57,8 @@ type SymbolDisplay = {
  * (`width` × `depth`). Sabit kare kullanıldığında pano ile alarm planda aynı
  * boyda görünüyordu; pano 50 cm geniş, alarm 20.
  *
- * ⚠️ Yangın söndürücü referans uygulamada YERLEŞTİRİLEMEDİ, biçimi gözlenmedi.
- * Diğer duvar cihazlarıyla tutarlı olsun diye `embedded` varsayıldı — teyit
- * edilince yalnız bu satır değişir.
+ * ⚠️ `lighting` referansta ölçülemedi (serbest duruyor, kaydı ölçü taşımıyor);
+ * 28 cm şematik bir seçim.
  */
 export const SYMBOL_DISPLAY: Record<PointSymbolType, SymbolDisplay> = {
   panel: { style: 'embedded', shape: 'filledRect', widthCm: 50, depthCm: 10 },
