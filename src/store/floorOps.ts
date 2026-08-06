@@ -75,9 +75,26 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
   draft.openings = draft.openings.filter((opening) => !removedWallIds.has(opening.wallId))
   draft.walls = draft.walls.filter((wall) => wall.floorId !== floorId)
   draft.points = draft.points.filter((point) => point.floorId !== floorId)
+  // Bağlantı kaydı silinen hattı ve elemanı referansla tuttuğu için ONLARDAN
+  // ÖNCE toplanır; ters sırada hangi kayıtların sahipsiz kaldığı anlaşılamazdı
+  // (açıklık–duvar sırasıyla aynı gerekçe).
+  const removedElementIds = new Set(
+    draft.installationElements
+      .filter((element) => element.floorId === floorId)
+      .map((element) => element.id),
+  )
+  const removedLineIds = new Set(
+    draft.installationLines.filter((line) => line.floorId === floorId).map((line) => line.id),
+  )
+  draft.installationConnections = draft.installationConnections.filter(
+    (connection) =>
+      !removedLineIds.has(connection.lineId) &&
+      (connection.target.kind !== 'port' || !removedElementIds.has(connection.target.elementId)),
+  )
   draft.installationElements = draft.installationElements.filter(
     (element) => element.floorId !== floorId,
   )
+  draft.installationLines = draft.installationLines.filter((line) => line.floorId !== floorId)
   draft.floors.splice(index, 1)
 
   if (draft.activeFloorId === floorId) draft.activeFloorId = nextActiveFloorId

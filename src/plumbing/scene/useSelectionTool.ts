@@ -16,6 +16,7 @@ import { useUiStore } from '../../store/uiStore'
 import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
+import { pickLineAt } from '../core/linePicking'
 import {
   copyElementsToClipboard,
   cutElementsToClipboard,
@@ -87,6 +88,11 @@ export function useSelectionTool(): SelectionToolState {
       return cad.installationElements.filter((element) => element.floorId === cad.activeFloorId)
     }
 
+    const readFloorLines = () => {
+      const cad = useCadStore.getState()
+      return cad.installationLines.filter((line) => line.floorId === cad.activeFloorId)
+    }
+
     const getMetadata = (type: Parameters<typeof getLoadedSymbol>[0]) =>
       getLoadedSymbol(type).metadata
 
@@ -103,13 +109,28 @@ export function useSelectionTool(): SelectionToolState {
 
       const ui = usePlumbingUiStore.getState()
 
-      // Boşluğa basış: jest bir çerçevedir. Seçimin temizlenip temizlenmeyeceğine
-      // pointerup karar verir — sürükleme eşiğin altında kalırsa bu bir tıklamadır.
       if (!target) {
+        // Eleman yoksa hat aranır: hat sürüklenmiyor, yalnız seçiliyor
+        // (taşıma/köşe düzenleme sonraki bir işin konusu).
+        const lineId = pickLineAt(event.planPoint, readFloorLines(), getSnapToleranceCm(zoom))
+        if (lineId !== null) {
+          if (event.shiftKey) ui.toggleSelectedLine(lineId)
+          else {
+            ui.setSelectedElements([])
+            ui.setSelectedLines([lineId])
+          }
+          return
+        }
+
+        // Boşluğa basış: jest bir çerçevedir. Seçimin temizlenip temizlenmeyeceğine
+        // pointerup karar verir — sürükleme eşiğin altında kalırsa bu bir tıklamadır.
         marqueeAnchor = event.planPoint
         isAdditiveMarquee = event.shiftKey
         return
       }
+
+      // Elemana basmak hat seçimini bırakır: seçim TEK bir jestle kurulur.
+      if (!event.shiftKey) ui.setSelectedLines([])
 
       // Shift+tık seçimi değiştirir ve sürükleme BAŞLATMAZ: aynı jestte hem
       // seçime ekleyip hem taşımak, kullanıcının hangisini istediğini belirsiz kılar.
@@ -215,7 +236,7 @@ export function useSelectionTool(): SelectionToolState {
       if (isTypingTarget(keyEvent.target)) return
 
       const ui = usePlumbingUiStore.getState()
-      const { selectedElementIds } = ui
+      const { selectedElementIds, selectedLineIds } = ui
       const isClipboardModifier = keyEvent.ctrlKey || keyEvent.metaKey
       const key = keyEvent.key.toLowerCase()
 
@@ -225,17 +246,20 @@ export function useSelectionTool(): SelectionToolState {
         return
       }
 
-      if (selectedElementIds.length === 0) return
-
       if (keyEvent.key === 'Delete' || keyEvent.key === 'Backspace') {
+        if (selectedElementIds.length === 0 && selectedLineIds.length === 0) return
+
         // Sürükleme ortasında silinirse jest de biter; yoksa pointerup artık var
         // olmayan id'leri taşımaya çalışırdı.
         endDrag()
-        useCadStore.getState().removeElements(selectedElementIds)
+        // Eleman ve hat TEK çağrıda gider: bir silme jesti = bir Ctrl+Z.
+        useCadStore.getState().removeSelection(selectedElementIds, selectedLineIds)
         ui.clearSelection()
         return
       }
 
+      // Pano şimdilik yalnız elemanlarda: hat kopyalama id yeniden eşlemesi ister.
+      if (selectedElementIds.length === 0) return
       if (!isClipboardModifier) return
 
       if (key === 'c') {
@@ -270,19 +294,28 @@ export function useSelectionTool(): SelectionToolState {
     }
   }, [camera, isSelectionTool])
 
-  // Silinen eleman seçimde asılı kalmasın: sahipsiz id sürüklemede var olmayanı
-  // taşımaya çalışır (mimari taraftaki pruneSelection ile aynı gerekçe).
+  // Silinen eleman/hat seçimde asılı kalmasın: sahipsiz id sürüklemede var
+  // olmayanı taşımaya çalışır (mimari taraftaki pruneSelection ile aynı gerekçe).
   useEffect(
     () =>
       useCadStore.subscribe((state) => {
         const ui = usePlumbingUiStore.getState()
-        if (ui.selectedElementIds.length === 0) return
 
-        const pruned = pruneElementIds(
-          ui.selectedElementIds,
-          state.installationElements.map((element) => element.id),
-        )
-        if (pruned.length !== ui.selectedElementIds.length) ui.setSelectedElements(pruned)
+        if (ui.selectedElementIds.length > 0) {
+          const pruned = pruneElementIds(
+            ui.selectedElementIds,
+            state.installationElements.map((element) => element.id),
+          )
+          if (pruned.length !== ui.selectedElementIds.length) ui.setSelectedElements(pruned)
+        }
+
+        if (ui.selectedLineIds.length > 0) {
+          const pruned = pruneElementIds(
+            ui.selectedLineIds,
+            state.installationLines.map((line) => line.id),
+          )
+          if (pruned.length !== ui.selectedLineIds.length) ui.setSelectedLines(pruned)
+        }
       }),
     [],
   )
