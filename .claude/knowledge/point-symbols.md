@@ -116,3 +116,19 @@ core/placement.ts (ortak ızgara) · store/pointSymbolOps.ts ·
 scene/usePointSymbolTool.ts (yerleştirme) ·
 scene/usePointSymbolSelectionTool.ts (seçim/taşıma) · scene/PointSymbol.tsx ·
 ui/properties/PointSymbolProperties.tsx
+
+## Kaydedilmiş dosyayı bozmadan model değiştirme
+
+`ProjectData` içindeki bir diziyi değiştirmek depodaki her çizimi etkiler ve
+hata SESSİZ DEĞİL, tam tersine proje **hiç açılmaz**: zod ayrıştırma reddeder,
+kullanıcının çizimi elimizdedir ama erişilemez. Bu tuzağa iki kez düşüldü:
+
+1. `rooms`/`symbols` dizileri eklendi → eski dosyada alan yok → `.default([])`.
+2. `PointSymbol` ayrık birleşime döndü → eski kayıtta `attachment` yok →
+   `z.preprocess` ile eksik ayırt edici `'free'` sayılıyor (o hâliyle her sembol
+   zaten serbestti).
+
+**Kural:** `serialize.ts`'te kaydedilen bir şekli değiştirirken göç yolu AYNI
+commit'te yazılır ve testi eklenir. Bit-bit tur bozulmaz, çünkü
+`serializeProjectData` her zaman tam şekli yazar — göç yalnız ESKİ dosyanın ilk
+açılışında çalışır, sonraki kayıtta alan dosyaya girer.

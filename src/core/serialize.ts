@@ -59,7 +59,7 @@ const symbolTypeSchema = z.enum([
  * sembol `wallId/offsetCm` taşımaz. Tek nesnede opsiyonel alanlarla toplanırsa
  * "duvara bağlı ama x'i de var" gibi geçersiz kayıtlar şemadan geçerdi.
  */
-const pointSymbolSchema = z.discriminatedUnion('attachment', [
+const symbolAttachmentSchema = z.discriminatedUnion('attachment', [
   z.object({
     id: idSchema,
     type: symbolTypeSchema,
@@ -82,6 +82,22 @@ const pointSymbolSchema = z.discriminatedUnion('attachment', [
     rotationDeg: z.number(),
   }),
 ])
+
+/**
+ * `attachment` alanı OLMAYAN sembol, o alan modele girmeden önce kaydedilmiş
+ * demektir; o hâliyle her sembol serbestti (floorId + x/y + rotationDeg). Eksik
+ * ayırt edici zorunlu tutulursa dosya HİÇ AÇILMAZ ve kullanıcının çizimi
+ * elimizde olduğu hâlde erişilemez kalır — depodaki projeler bir kez bu yüzden
+ * açılamadı.
+ *
+ * Şema alan EKLEMENİN ötesinde bir değişiklik (alanların yeri, ayırt edicinin
+ * gelmesi) yaparken göç yolu buraya yazılır. Sonraki kayıtta alan dosyaya
+ * yazılır ve preprocess bir daha devreye girmez.
+ */
+const pointSymbolSchema = z.preprocess((value) => {
+  if (typeof value !== 'object' || value === null || 'attachment' in value) return value
+  return { ...value, attachment: 'free' }
+}, symbolAttachmentSchema)
 
 /**
  * Modele SONRADAN eklenen diziler `.default([])` taşır: depodaki çizimler o

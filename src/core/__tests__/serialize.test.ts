@@ -43,6 +43,45 @@ describe('serializeProjectData', () => {
     expect(serializeProjectData(parseProjectJson(legacy))).toContain('"rooms":[],"symbols":[]')
   })
 
+  it('attachment alanı OLMAYAN eski sembolü SERBEST olarak okur', () => {
+    // Semboller duvara bağlanmadan önce hepsi serbestti; kaydedilmiş dosyalarda
+    // ayırt edici alan yok. Zorunlu tutulursa proje hiç açılmaz.
+    const legacy =
+      '{"nextUniqueId":20,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],' +
+      '"symbols":[{"id":16,"floorId":1,"type":"panel","x":120,"y":80,' +
+      '"rotationDeg":0,"label":"P-01","note":""}]}'
+
+    const [symbol] = parseProjectJson(legacy).symbols
+
+    expect(symbol.attachment).toBe('free')
+    expect(symbol).toMatchObject({ id: 16, type: 'panel', label: 'P-01' })
+    expect(symbol.attachment === 'free' && symbol.x).toBe(120)
+  })
+
+  it('eski sembol bir kez kaydedilince attachment dosyaya yazılır', () => {
+    const legacy =
+      '{"nextUniqueId":20,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],' +
+      '"symbols":[{"id":16,"floorId":1,"type":"panel","x":120,"y":80,' +
+      '"rotationDeg":0,"label":"P-01","note":""}]}'
+
+    expect(serializeProjectData(parseProjectJson(legacy))).toContain('"attachment":"free"')
+  })
+
+  it('yeni biçimdeki duvara bağlı sembol olduğu gibi okunur', () => {
+    const modern =
+      '{"nextUniqueId":20,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],' +
+      '"symbols":[{"id":16,"type":"panel","label":"P-01","note":"",' +
+      '"attachment":"wall","wallId":6,"offsetCm":120,"isMountedOnFarFace":true}]}'
+
+    const [symbol] = parseProjectJson(modern).symbols
+
+    expect(symbol.attachment).toBe('wall')
+    expect(symbol.attachment === 'wall' && symbol.wallId).toBe(6)
+  })
+
   it('store’a sızmış fazladan alanı JSON’a taşımaz', () => {
     // Kaydedilen JSON = sözleşme. Geçici bir UI alanı store’a eklenirse
     // spread ile sessizce dosyaya yazılırdı.
