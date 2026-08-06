@@ -1,6 +1,7 @@
 import type { PlanPoint } from './coords'
 import type { Id, Point, Wall } from './model'
 import { isPointInsidePolygon } from './roomLabel'
+import { MIN_WALL_LENGTH_CM } from './wall'
 
 /** Bundan küçük yüzler çizim artığıdır (kesişimden kalan ince üçgen), oda sayılmaz. */
 const MIN_ROOM_AREA_CM2 = 100
@@ -185,6 +186,36 @@ export function findRoomFaces(
   }
 
   return faces
+}
+
+/**
+ * Sürüklenerek çizilen dikdörtgen odanın köşeleri; `from` ve `to` KARŞIT
+ * köşelerdir, hangi yöne sürüklendiği fark etmez.
+ *
+ * Sıra saat yönünün TERSİ — `findRoomFaces`'in ürettiği yönle aynı olsun diye,
+ * yoksa aynı odanın köşe dizisi nereden geldiğine göre ters dönerdi.
+ *
+ * Kenarlardan biri duvar sayılamayacak kadar kısaysa `undefined`: yarım
+ * dikdörtgen yazmaktansa hiç yazmamak doğru, çünkü kısa kenar `appendWall`
+ * tarafından atılır ve geriye çevrimi kapatmayan üç duvar kalırdı.
+ */
+export function getRoomRectangleCorners(
+  from: PlanPoint,
+  to: PlanPoint,
+): PlanPoint[] | undefined {
+  const minX = Math.min(from.x, to.x)
+  const maxX = Math.max(from.x, to.x)
+  const minY = Math.min(from.y, to.y)
+  const maxY = Math.max(from.y, to.y)
+
+  if (maxX - minX < MIN_WALL_LENGTH_CM || maxY - minY < MIN_WALL_LENGTH_CM) return undefined
+
+  return [
+    { x: minX, y: minY },
+    { x: maxX, y: minY },
+    { x: maxX, y: maxY },
+    { x: minX, y: maxY },
+  ]
 }
 
 /**
