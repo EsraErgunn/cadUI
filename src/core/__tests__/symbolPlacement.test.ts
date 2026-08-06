@@ -115,6 +115,11 @@ describe('getSymbolPose — duvara bağlı', () => {
     expect(getSymbolPose(wallSymbol(200, true), walls, points)?.rotationDeg).toBeCloseTo(0)
   })
 
+  it('dışa yön monte edilen yüzü izler — işaret duvarın içine düşmesin', () => {
+    expect(getSymbolPose(wallSymbol(200, true), walls, points)?.outwardSign).toBe(1)
+    expect(getSymbolPose(wallSymbol(200, false), walls, points)?.outwardSign).toBe(-1)
+  })
+
   it('offset duvar boyunca ilerletir', () => {
     expect(getSymbolPose(wallSymbol(50, true), walls, points)?.position.x).toBeCloseTo(50)
     expect(getSymbolPose(wallSymbol(350, true), walls, points)?.position.x).toBeCloseTo(350)
@@ -132,6 +137,7 @@ describe('getSymbolPose — serbest', () => {
     expect(getSymbolPose(freeSymbol, walls, points)).toEqual({
       position: { x: 200, y: 200 },
       rotationDeg: 45,
+      outwardSign: 1,
     })
   })
 })

@@ -47,6 +47,13 @@ export type SymbolPose = {
   position: PlanPoint
   /** Çizim açısı; duvara bağlı sembolde duvarın açısıdır. */
   rotationDeg: number
+  /**
+   * Yerel +y'nin duvardan DIŞA mı içe mi baktığı. Çekme çizgisiyle çizilen
+   * cihazlar (şalter, alarm, sensör) bu yöne uzar; hangi yüze monte edilmişse
+   * işareti o tarafta durmalı, yoksa duvarın içine doğru çizilirdi.
+   * Serbest sembolde anlamı yok, +1 verilir.
+   */
+  outwardSign: 1 | -1
 }
 
 /**
@@ -65,7 +72,11 @@ export function getSymbolPose(
   points: readonly Point[],
 ): SymbolPose | undefined {
   if (symbol.attachment === 'free') {
-    return { position: { x: symbol.x, y: symbol.y }, rotationDeg: symbol.rotationDeg }
+    return {
+      position: { x: symbol.x, y: symbol.y },
+      rotationDeg: symbol.rotationDeg,
+      outwardSign: 1,
+    }
   }
 
   const wall = walls.find((candidate) => candidate.id === symbol.wallId)
@@ -75,7 +86,7 @@ export function getSymbolPose(
   const ends = getWallEnds(wall, points)
   if (!frame || !ends) return undefined
 
-  const faceSign = symbol.isMountedOnFarFace ? 1 : -1
+  const faceSign: 1 | -1 = symbol.isMountedOnFarFace ? 1 : -1
   const halfThicknessCm = wall.thickness / 2
 
   return {
@@ -85,6 +96,7 @@ export function getSymbolPose(
     },
     // Duvarın açısı; sembol duvarla birlikte döner, ayrıca saklanmaz.
     rotationDeg: getSegmentAngleDeg(ends.p1, ends.p2),
+    outwardSign: faceSign,
   }
 }
 

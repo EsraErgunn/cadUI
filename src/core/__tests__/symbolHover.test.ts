@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { isSameTarget, resolveArchitectureTarget } from '../architectureHover'
-import { SYMBOL_FOOTPRINTS_CM } from '../architectureSymbol'
+import { SYMBOL_DISPLAY } from '../architectureSymbol'
 import type { Opening, Point, PointSymbol, Wall } from '../model'
 
 const FLOOR_ID = 1
@@ -89,7 +89,7 @@ describe('resolveArchitectureTarget — sembol', () => {
 
   it('sembolün uzağında hedef sembol değildir', () => {
     const context = makeContext([makeSymbol(20, 200, 100)])
-    const outside = 100 + SYMBOL_FOOTPRINTS_CM.panel.widthCm
+    const outside = 100 + SYMBOL_DISPLAY.panel.widthCm
 
     expect(resolveArchitectureTarget({ x: 200, y: outside }, context)).toBeUndefined()
   })

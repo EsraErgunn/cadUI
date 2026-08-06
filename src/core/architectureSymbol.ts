@@ -4,33 +4,57 @@ import type { SymbolPose } from './symbolPlacement'
 import { applyTransform } from './transform'
 
 /**
- * Cihazın PLANDAKİ ayak izi: `widthCm` duvar boyunca, `depthCm` duvara dik.
+ * Cihazın PLANDA nasıl çizildiği — referans uygulamada (tplnr.webcad.com.tr)
+ * yedi cihaz da yerleştirilip gözlendi.
  *
- * Ölçüler UYDURULMADI, `docs/webcad-reference.json`'daki gerçek cihaz
- * kayıtlarından alındı (`width` × `depth`). Referans planda cihazı bir resim
- * değil, bu ölçülerde düz bir DİKDÖRTGEN olarak çiziyor — şematik piktogram
- * (daire+çarpı, titreşim dalgası vb.) kullanmıyor.
+ * İki aile var:
+ * - `embedded`: duvar bandının İÇİNE, gerçek ayak izi ölçüsünde çizilir.
+ * - `leader`: duvarın DIŞINDA küçük bir işaret durur, duvara bir çekme
+ *   çizgisiyle bağlanır. İşaret şematik olduğu için cihazın ayak izi kadar
+ *   değil, sabit boydadır.
+ * - `free`: duvara bağlı değil (aydınlatma tavana takılıyor).
  *
- * Sabit kare kullanılsaydı pano ile alarm planda aynı boyda görünürdü; oysa
- * pano 50 cm geniş, alarm 20. Oran yanlış olunca çizim duvara göre yanlış yer
- * kaplıyor ve "garip" görünüyor.
+ * Cihazı ayırt eden şey RENK DEĞİL şekildir; hepsi aynı nötr konturla çizilir.
  */
-export const SYMBOL_FOOTPRINTS_CM: Record<
-  PointSymbolType,
-  { widthCm: number; depthCm: number }
-> = {
-  panel: { widthCm: 50, depthCm: 10 },
-  mainCutoffSwitch: { widthCm: 50, depthCm: 20 },
-  alarmDevice: { widthCm: 20, depthCm: 20 },
-  earthquakeSensor: { widthCm: 20, depthCm: 20 },
-  fireExtinguisher: { widthCm: 26, depthCm: 20 },
-  // Referansta menfezin `depth` alanı yok; `height` (10) düşey yüz ölçüsü.
-  // Planda ince bir bant olarak çiziliyor, o yüzden derinlik ondan alındı.
-  vent: { widthCm: 15, depthCm: 10 },
-  // Aydınlatma referansta ölçüsüz (tavana takılıyor, duvar cihazı değil).
-  // Bu ölçü TEYİDE AÇIK — diğerleriyle okunabilir bir oranda tutuldu.
-  lighting: { widthCm: 20, depthCm: 20 },
+export type SymbolDrawStyle = 'embedded' | 'leader' | 'free'
+
+export type SymbolShapeKind = 'filledRect' | 'hatchedRect' | 'circle' | 'square' | 'star'
+
+type SymbolDisplay = {
+  style: SymbolDrawStyle
+  shape: SymbolShapeKind
+  /** `embedded` için gerçek ayak izi; `leader`/`free` için işaretin boyu. */
+  widthCm: number
+  depthCm: number
 }
+
+/**
+ * `embedded` ölçüleri `docs/webcad-reference.json`'daki cihaz kayıtlarından
+ * (`width` × `depth`). Sabit kare kullanıldığında pano ile alarm planda aynı
+ * boyda görünüyordu; pano 50 cm geniş, alarm 20.
+ *
+ * ⚠️ Yangın söndürücü referans uygulamada YERLEŞTİRİLEMEDİ, biçimi gözlenmedi.
+ * Diğer duvar cihazlarıyla tutarlı olsun diye `embedded` varsayıldı — teyit
+ * edilince yalnız bu satır değişir.
+ */
+export const SYMBOL_DISPLAY: Record<PointSymbolType, SymbolDisplay> = {
+  panel: { style: 'embedded', shape: 'filledRect', widthCm: 50, depthCm: 10 },
+  vent: { style: 'embedded', shape: 'hatchedRect', widthCm: 15, depthCm: 10 },
+  fireExtinguisher: { style: 'embedded', shape: 'filledRect', widthCm: 26, depthCm: 20 },
+  mainCutoffSwitch: { style: 'leader', shape: 'circle', widthCm: 24, depthCm: 24 },
+  alarmDevice: { style: 'leader', shape: 'square', widthCm: 24, depthCm: 24 },
+  earthquakeSensor: { style: 'leader', shape: 'square', widthCm: 24, depthCm: 24 },
+  lighting: { style: 'free', shape: 'star', widthCm: 28, depthCm: 28 },
+}
+
+/** İşaretin duvar yüzünden uzaklığı; çekme çizgisi bu boyda. */
+const LEADER_LENGTH_CM = 45
+
+const CIRCLE_SEGMENTS = 28
+/** Menfez tarasının çizgi sayısı; referansta dar bir bantta birkaç dikey çizgi. */
+const HATCH_LINE_COUNT = 5
+/** Aydınlatma yıldızının ışın sayısı. */
+const STAR_RAY_COUNT = 12
 
 /** Çizgi kalınlığını sahne bu role göre seçer; px değeri core'da tutulmaz. */
 export type SymbolStrokeRole = 'body' | 'detail'
@@ -48,40 +72,131 @@ export type SymbolGeometry = {
   fills: PlanPoint[][]
 }
 
-/**
- * Sembolün YEREL cm geometrisi: orijin cihazın merkezi, +x duvar boyunca,
- * +y duvara dik. Referans gibi düz bir dikdörtgen; içi dolu çizilir, konturu
- * ayrıca çekilir ki küçük cihazlar (20 cm) da sınırıyla okunsun.
- */
-export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
-  const { widthCm, depthCm } = SYMBOL_FOOTPRINTS_CM[type]
-  const halfWidth = widthCm / 2
-  const halfDepth = depthCm / 2
-
-  const corners: PlanPoint[] = [
-    { x: -halfWidth, y: -halfDepth },
-    { x: halfWidth, y: -halfDepth },
-    { x: halfWidth, y: halfDepth },
-    { x: -halfWidth, y: halfDepth },
+function rectangleCorners(halfWidth: number, halfDepth: number, centerY = 0): PlanPoint[] {
+  return [
+    { x: -halfWidth, y: centerY - halfDepth },
+    { x: halfWidth, y: centerY - halfDepth },
+    { x: halfWidth, y: centerY + halfDepth },
+    { x: -halfWidth, y: centerY + halfDepth },
   ]
+}
 
-  return {
-    strokes: [{ name: 'outline', role: 'body', points: [...corners, corners[0]] }],
-    fills: [corners],
+function circlePoints(radius: number, centerY: number): PlanPoint[] {
+  const points: PlanPoint[] = []
+  for (let step = 0; step <= CIRCLE_SEGMENTS; step += 1) {
+    const angle = (step / CIRCLE_SEGMENTS) * Math.PI * 2
+    points.push({ x: Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius })
   }
+  return points
+}
+
+function starStrokes(radius: number, centerY: number): SymbolStroke[] {
+  const strokes: SymbolStroke[] = []
+  for (let ray = 0; ray < STAR_RAY_COUNT; ray += 1) {
+    const angle = (ray / STAR_RAY_COUNT) * Math.PI * 2
+    strokes.push({
+      name: `ray-${ray}`,
+      role: 'detail',
+      points: [
+        { x: 0, y: centerY },
+        { x: Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius },
+      ],
+    })
+  }
+  // İç halka: ışınların ortasını toplar, referanstaki yıldız gibi okunur.
+  strokes.push({ name: 'hub', role: 'body', points: circlePoints(radius * 0.35, centerY) })
+  return strokes
+}
+
+function hatchStrokes(halfWidth: number, halfDepth: number, centerY: number): SymbolStroke[] {
+  const strokes: SymbolStroke[] = []
+  for (let line = 1; line <= HATCH_LINE_COUNT; line += 1) {
+    const x = -halfWidth + ((halfWidth * 2) / (HATCH_LINE_COUNT + 1)) * line
+    strokes.push({
+      name: `hatch-${line}`,
+      role: 'detail',
+      points: [
+        { x, y: centerY - halfDepth },
+        { x, y: centerY + halfDepth },
+      ],
+    })
+  }
+  return strokes
 }
 
 /**
- * Yerel cm → plan uzayı: sembolün açısı kadar döndür, konumuna taşı.
+ * Sembolün YEREL cm geometrisi: orijin duvar yüzünde, +x duvar boyunca,
+ * +y duvardan DIŞA (pose.outwardSign uygulanmış hâliyle).
  *
- * ÖLÇEKLEME YOK — geometri zaten gerçek santimetrede. (Önce birim çerçevede
- * tanımlanıp ölçekleniyordu; ölçüler referanstan gelince ara katman gereksiz
- * kaldı.) Dönme `core/transform.ts` → `applyTransform` ile, ikinci bir rotasyon
- * uygulaması yazılmıyor.
+ * `embedded` cihaz orijinin üstünde durur. `leader` cihazın işareti
+ * `LEADER_LENGTH_CM` kadar dışarıda, arada çekme çizgisi vardır.
+ */
+export function getPointSymbolGeometry(type: PointSymbolType): SymbolGeometry {
+  const display = SYMBOL_DISPLAY[type]
+  const halfWidth = display.widthCm / 2
+  const halfDepth = display.depthCm / 2
+
+  // Duvara gömülü cihaz yüzeyin üstünde; çekme çizgili olan uzakta.
+  const centerY = display.style === 'leader' ? LEADER_LENGTH_CM + halfDepth : 0
+
+  const leader: SymbolStroke[] =
+    display.style === 'leader'
+      ? [
+          {
+            name: 'leader',
+            role: 'detail',
+            points: [
+              { x: 0, y: 0 },
+              { x: 0, y: centerY - halfDepth },
+            ],
+          },
+        ]
+      : []
+
+  if (display.shape === 'circle') {
+    return {
+      strokes: [
+        ...leader,
+        { name: 'outline', role: 'body', points: circlePoints(halfWidth, centerY) },
+      ],
+      fills: [],
+    }
+  }
+
+  if (display.shape === 'star') {
+    return { strokes: [...leader, ...starStrokes(halfWidth, centerY)], fills: [] }
+  }
+
+  const corners = rectangleCorners(halfWidth, halfDepth, centerY)
+  const outline: SymbolStroke = {
+    name: 'outline',
+    role: 'body',
+    points: [...corners, corners[0]],
+  }
+
+  if (display.shape === 'hatchedRect') {
+    return {
+      strokes: [...leader, outline, ...hatchStrokes(halfWidth, halfDepth, centerY)],
+      fills: [],
+    }
+  }
+
+  if (display.shape === 'square') {
+    return { strokes: [...leader, outline], fills: [] }
+  }
+
+  return { strokes: [...leader, outline], fills: [corners] }
+}
+
+/**
+ * Yerel cm → plan uzayı. ÖLÇEKLEME YOK, geometri zaten santimetrede.
+ * `outwardSign` yerel +y'yi duvarın dışına çevirir: sembol hangi yüze monte
+ * edilmişse işareti o tarafta durur, ters yüzde duvarın içine çizilirdi.
  */
 export function toPlanPoints(pose: SymbolPose, localPoints: readonly PlanPoint[]): PlanPoint[] {
   return localPoints.map((local) => {
-    const rotated = applyTransform(local, {
+    const oriented = { x: local.x, y: local.y * pose.outwardSign }
+    const rotated = applyTransform(oriented, {
       kind: 'rotate',
       pivot: { x: 0, y: 0 },
       angleDeg: pose.rotationDeg,
@@ -92,8 +207,7 @@ export function toPlanPoints(pose: SymbolPose, localPoints: readonly PlanPoint[]
 
 /**
  * Sembolün plandaki tam geometrisi — sahne bunu doğrudan çizer. Konum ve açı
- * `core/symbolPlacement.ts` → `getSymbolPose`'dan gelir; duvara bağlı sembolde
- * ikisi de duvardan türer, burada o ayrım bilinmez.
+ * `core/symbolPlacement.ts` → `getSymbolPose`'dan gelir.
  */
 export function getPointSymbolPlanGeometry(
   type: PointSymbolType,
@@ -111,10 +225,11 @@ export function getPointSymbolPlanGeometry(
 }
 
 /**
- * İmleç sembolün üstünde mi? Ayak izinin sınır KUTUSU kullanılıyor: kullanıcı
- * cihazı tutmaya çalışırken kenarının tam üstüne basmak zorunda kalmasın.
- * Döndürülmüş sembolde kutu bir miktar büyük kalır — tutmayı kolaylaştırdığı
- * için kabul edilir, seçim zaten en yakın sembole gidiyor.
+ * İmleç sembolün üstünde mi?
+ *
+ * Çekme çizgili cihazda tutulabilir alan İŞARETİN etrafıdır, duvar yüzü değil:
+ * kullanıcı ekranda gördüğü kutuya basar. Bu yüzden erişim mesafesi çizgi boyunu
+ * da kapsar — duvar yüzünden işaretin dış kenarına kadar.
  */
 export function isPointInSymbol(
   target: PlanPoint,
@@ -122,8 +237,12 @@ export function isPointInSymbol(
   toleranceCm: number,
   type: PointSymbolType,
 ): boolean {
-  const { widthCm, depthCm } = SYMBOL_FOOTPRINTS_CM[type]
-  const reach = Math.max(widthCm, depthCm) / 2 + toleranceCm
+  const display = SYMBOL_DISPLAY[type]
+  const outerReach =
+    display.style === 'leader'
+      ? LEADER_LENGTH_CM + display.depthCm
+      : Math.max(display.widthCm, display.depthCm) / 2
 
+  const reach = outerReach + toleranceCm
   return Math.abs(target.x - position.x) <= reach && Math.abs(target.y - position.y) <= reach
 }
