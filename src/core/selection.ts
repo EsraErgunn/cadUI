@@ -1,6 +1,6 @@
 import type { ArchitectureTarget } from './architectureHover'
 import type { PlanPoint } from './coords'
-import type { Id, Opening, Point, Wall } from './model'
+import type { Id, Opening, Point, PointSymbol, Wall } from './model'
 import { getWallEnds } from './wall'
 import { getWallFrameAtOffsetCm } from './wallPath'
 
@@ -9,7 +9,7 @@ import { getWallFrameAtOffsetCm } from './wallPath'
  * kendi başına taşınması `usePointDragTool`'un işi ve grup dönüşümünde duvarıyla
  * birlikte gelir. Vurgu hedefi (`ArchitectureTarget`) köşeyi de içerir, seçim içermez.
  */
-export type SelectableKind = 'wall' | 'opening'
+export type SelectableKind = 'wall' | 'opening' | 'symbol'
 
 export type SelectionItem = {
   kind: SelectableKind
@@ -75,20 +75,28 @@ export function getSoleSelectedId(
 export function toSelectionItem(target: ArchitectureTarget): SelectionItem | undefined {
   if (target.kind === 'wall') return { kind: 'wall', id: target.wallId }
   if (target.kind === 'opening') return { kind: 'opening', id: target.openingId }
+  if (target.kind === 'symbol') return { kind: 'symbol', id: target.symbolId }
   return undefined
 }
 
-/** Silinen nesne seçimde asılı kalmasın: sahipsiz id özellik panelini boş açar. */
+/**
+ * Silinen nesne seçimde asılı kalmasın: sahipsiz id özellik panelini boş açar.
+ *
+ * Tür başına ayrı dizi geçiliyor; `switch` yerine kayıt kullanılsaydı yeni bir
+ * seçilebilir tür eklendiğinde burası SESSİZCE eksik kalırdı — bu haliyle
+ * derleme "symbols parametresi verilmedi" der.
+ */
 export function pruneSelection(
   selection: Selection,
   walls: readonly Wall[],
   openings: readonly Opening[],
+  symbols: readonly PointSymbol[],
 ): Selection {
-  const pruned = selection.filter((item) =>
-    item.kind === 'wall'
-      ? walls.some((wall) => wall.id === item.id)
-      : openings.some((opening) => opening.id === item.id),
-  )
+  const pruned = selection.filter((item) => {
+    if (item.kind === 'wall') return walls.some((wall) => wall.id === item.id)
+    if (item.kind === 'opening') return openings.some((opening) => opening.id === item.id)
+    return symbols.some((symbol) => symbol.id === item.id)
+  })
   return pruned.length === selection.length ? selection : pruned
 }
 
@@ -159,18 +167,32 @@ export function getOpeningsInRect(
     .map((opening) => opening.id)
 }
 
-/** Çerçevenin kapsadığı her şey — tek geçişte, çağıran iki fonksiyonu ayrı sarmasın. */
+/**
+ * Sembol, KONUMU çerçevede kalıyorsa seçilir. Şeklin tamamının kapsanmasını
+ * aramak, sembolü tam çevreleyen bir çerçevede bile onu dışarıda bırakabilirdi:
+ * damga ızgara noktasına oturuyor, şekli o noktanın etrafına taşıyor.
+ */
+export function getSymbolsInRect(
+  rect: PlanRect,
+  symbols: readonly PointSymbol[],
+): Id[] {
+  return symbols.filter((symbol) => isPointInRect(symbol, rect)).map((symbol) => symbol.id)
+}
+
+/** Çerçevenin kapsadığı her şey — tek geçişte, çağıran üç fonksiyonu ayrı sarmasın. */
 export function getSelectionInRect(
   rect: PlanRect,
   walls: readonly Wall[],
   openings: readonly Opening[],
   points: readonly Point[],
+  symbols: readonly PointSymbol[],
 ): Selection {
   return [
     ...getWallsInRect(rect, walls, points).map((id): SelectionItem => ({ kind: 'wall', id })),
     ...getOpeningsInRect(rect, openings, walls, points).map(
       (id): SelectionItem => ({ kind: 'opening', id }),
     ),
+    ...getSymbolsInRect(rect, symbols).map((id): SelectionItem => ({ kind: 'symbol', id })),
   ]
 }
 

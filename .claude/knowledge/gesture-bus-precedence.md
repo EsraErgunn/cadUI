@@ -30,7 +30,7 @@ koşuyor). Karar geometriyle verilir, sırayla değil.
 zaten başka birinin mi? Yoksa iki yazımlı geri alma geri gelir.
 
 **Sıra TEK yerde: `core/architectureHover.ts` → `resolveArchitectureTarget`.**
-Köşe → açıklık → duvar, yani ekranda üstte durandan alta
+Köşe → sembol → açıklık → duvar, yani ekranda üstte durandan alta
 (HANDLE_ELEVATION_CM > RENDER_ORDER.opening > wall). Hem vurgu hem duvar jesti
 bunu okur; ayrı hesaplasalardı vurgu "şunu tutarsın" der, basış başkasını tutardı.
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Point, Wall } from '../model'
-import { findRoomFaceAt, findRoomFaces } from '../room'
+import { findRoomFaceAt, findRoomFaces, getRoomRectangleCorners } from '../room'
 
 const FLOOR_ID = 1
 
@@ -199,5 +199,45 @@ describe('findRoomFaceAt', () => {
     const hit = findRoomFaceAt(faces, { x: 200, y: 150 })
 
     expect(hit?.areaCm2).toBeCloseTo(200 * 100)
+  })
+})
+
+describe('getRoomRectangleCorners', () => {
+  it('karşıt iki köşeden dört köşe üretir', () => {
+    expect(getRoomRectangleCorners({ x: 0, y: 0 }, { x: 400, y: 300 })).toEqual([
+      { x: 0, y: 0 },
+      { x: 400, y: 0 },
+      { x: 400, y: 300 },
+      { x: 0, y: 300 },
+    ])
+  })
+
+  it('hangi yöne sürüklenirse sürüklensin aynı sonucu verir', () => {
+    const forward = getRoomRectangleCorners({ x: 0, y: 0 }, { x: 400, y: 300 })
+
+    expect(getRoomRectangleCorners({ x: 400, y: 300 }, { x: 0, y: 0 })).toEqual(forward)
+    expect(getRoomRectangleCorners({ x: 0, y: 300 }, { x: 400, y: 0 })).toEqual(forward)
+  })
+
+  it('köşe sırası findRoomFaces ile aynı yöndedir', () => {
+    // İkisi de saat yönünün tersi; biri ters olsaydı aynı odanın köşe dizisi
+    // nereden geldiğine göre farklı yönde çıkardı.
+    const corners = getRoomRectangleCorners({ x: 0, y: 0 }, { x: 400, y: 300 })!
+    let signedArea = 0
+    for (let index = 0; index < corners.length; index += 1) {
+      const current = corners[index]
+      const next = corners[(index + 1) % corners.length]
+      signedArea += current.x * next.y - next.x * current.y
+    }
+
+    expect(signedArea).toBeGreaterThan(0)
+  })
+
+  it('sürüklenmemiş tıklamada köşe üretmez', () => {
+    expect(getRoomRectangleCorners({ x: 100, y: 100 }, { x: 100, y: 100 })).toBeUndefined()
+  })
+
+  it('bir kenarı duvar sayılamayacak kadar kısaysa köşe üretmez', () => {
+    expect(getRoomRectangleCorners({ x: 0, y: 0 }, { x: 400, y: 0.5 })).toBeUndefined()
   })
 })

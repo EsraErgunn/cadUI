@@ -96,7 +96,14 @@ export function useSelectionTool(): void {
 
       const cad = useCadStore.getState()
       const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
-      const framed = getSelectionInRect(rect, floorWalls, cad.openings, cad.points)
+      const floorSymbols = cad.symbols.filter((symbol) => symbol.floorId === cad.activeFloorId)
+      const framed = getSelectionInRect(
+        rect,
+        floorWalls,
+        cad.openings,
+        cad.points,
+        floorSymbols,
+      )
 
       ui.setSelection(wasAdditive ? mergeSelection(ui.selection, framed) : framed)
     }
@@ -163,7 +170,7 @@ export function useSelectionTool(): void {
         const ui = useArchitectureUiStore.getState()
         if (ui.selection.length === 0) return
 
-        const pruned = pruneSelection(ui.selection, state.walls, state.openings)
+        const pruned = pruneSelection(ui.selection, state.walls, state.openings, state.symbols)
         // pruneSelection değişiklik yoksa AYNI diziyi döndürür; kontrol bu yüzden
         // referans karşılaştırması ve her store değişiminde yeni dizi yazılmaz.
         if (pruned !== ui.selection) ui.setSelection(pruned)

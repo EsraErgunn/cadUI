@@ -1,3 +1,7 @@
+import type {
+  GasDistributionFirmDetail,
+  GasDistributionFirmPayload,
+} from './adminFirmForm'
 import type { GasDistributionFirm, GasDistributionFirmQuery } from './adminFirms'
 import { includesTr } from './turkishText'
 
@@ -37,8 +41,27 @@ const FIRST_DFIRM_NO = 1204
 /** Her 4. kayıt gruba bağlı değil → arayüzde "Grup Adı" sütunu "-" gösterir. */
 const UNGROUPED_EVERY = 4
 
-function buildMockFirms(): GasDistributionFirm[] {
-  const firms: GasDistributionFirm[] = []
+/** Her 3. kayıt açıklamasız → form güncelleme modunda boş opsiyonel alan da denenebilsin. */
+const UNDESCRIBED_EVERY = 3
+
+const MOCK_CONTACT_PEOPLE = [
+  'Ahmet Yılmaz',
+  'Ayşe Demir',
+  'Mehmet Kaya',
+  'Fatma Şahin',
+  'Mustafa Çelik',
+]
+
+/** Ham rakam (maskesiz) — arayüz maskeyi core/phone.ts ile kendisi kuruyor. */
+const FIRST_MOCK_PHONE = 5321000000
+const MOCK_PHONE_STEP = 137
+
+function buildMockPhone(index: number): string {
+  return `0${FIRST_MOCK_PHONE + index * MOCK_PHONE_STEP}`
+}
+
+function buildMockFirms(): GasDistributionFirmDetail[] {
+  const firms: GasDistributionFirmDetail[] = []
   let dfirmNo = FIRST_DFIRM_NO
 
   for (const [suffixIndex, suffix] of NAME_SUFFIXES.entries()) {
@@ -51,6 +74,11 @@ function buildMockFirms(): GasDistributionFirm[] {
           index % UNGROUPED_EVERY === 0 ? null : MOCK_FIRM_GROUPS[index % MOCK_FIRM_GROUPS.length],
         name: `${city} ${suffix}`,
         region: MOCK_REGIONS[index % MOCK_REGIONS.length],
+        description:
+          index % UNDESCRIBED_EVERY === 0 ? null : `${city} bölgesi dağıtım firması.`,
+        contactPerson: MOCK_CONTACT_PEOPLE[index % MOCK_CONTACT_PEOPLE.length],
+        address: `${city} Organize Sanayi Bölgesi No: ${index + 1}`,
+        phone: buildMockPhone(index),
       })
       dfirmNo += DFIRM_NO_GAPS[index % DFIRM_NO_GAPS.length]
     }
@@ -59,7 +87,11 @@ function buildMockFirms(): GasDistributionFirm[] {
   return firms
 }
 
-const MOCK_FIRMS = buildMockFirms()
+/**
+ * `let`: ekleme/güncelleme bu diziyi değiştirir, böylece kaydedilen firma liste
+ * ekranında ve toplam kayıt adedinde görünür (KK-10). `projectsMock` ile aynı desen.
+ */
+let mockFirms = buildMockFirms()
 
 function compareFirms(
   left: GasDistributionFirm,
@@ -96,7 +128,7 @@ export function queryMockFirms(query: GasDistributionFirmQuery): {
   items: GasDistributionFirm[]
   totalCount: number
 } {
-  const matched = MOCK_FIRMS.filter((firm) => matchesQuery(firm, query))
+  const matched = mockFirms.filter((firm) => matchesQuery(firm, query))
   const sorted = [...matched].sort((left, right) => compareFirms(left, right, query))
   const offset = (query.page - 1) * query.pageSize
 
@@ -104,4 +136,61 @@ export function queryMockFirms(query: GasDistributionFirmQuery): {
     items: sorted.slice(offset, offset + query.pageSize),
     totalCount: matched.length,
   }
+}
+
+export function findMockFirm(id: number): GasDistributionFirmDetail | null {
+  return mockFirms.find((firm) => firm.id === id) ?? null
+}
+
+/**
+ * Sıradaki uygun numara. Silinen kayıtlar yüzünden numaralar aralıklı olduğu
+ * için boşluklar DOLDURULMAZ — en büyüğün bir fazlası verilir (belge: "numaralar
+ * yeniden düzenlenmeyecektir").
+ */
+export function nextMockDfirmNo(): number {
+  return mockFirms.reduce((largest, firm) => Math.max(largest, firm.dfirmNo), 0) + 1
+}
+
+export function isMockDfirmNoTaken(dfirmNo: number, exceptFirmId: number | null): boolean {
+  return mockFirms.some((firm) => firm.dfirmNo === dfirmNo && firm.id !== exceptFirmId)
+}
+
+/**
+ * Bölge alanı ARAYÜZDEN gelmiyor: form böyle bir alan taşımıyor (belge de
+ * tanımlamıyor), gövdeye de konmuyor. Yeni kaydın bölgeyi nasıl alacağı açık
+ * soru; mock'un liste şemasını doldurabilmesi için burada sabit bir değer var.
+ * TODO(esra): sunucu bölgeyi nasıl belirliyor, backend'e sorulacak.
+ */
+const MOCK_CREATED_FIRM_REGION = MOCK_REGIONS[0]
+
+function nextMockFirmId(): number {
+  return mockFirms.reduce((largest, firm) => Math.max(largest, firm.id), 0) + 1
+}
+
+export function createMockFirm(payload: GasDistributionFirmPayload): GasDistributionFirmDetail {
+  const created: GasDistributionFirmDetail = {
+    ...payload,
+    id: nextMockFirmId(),
+    region: MOCK_CREATED_FIRM_REGION,
+  }
+
+  mockFirms = [...mockFirms, created]
+  return created
+}
+
+/**
+ * Firma No güncellemede salt okunur olduğu için gövdedeki numara mevcut kaydın
+ * numarasıyla aynı olmalı; yine de sunucu tarafı kabul edilen tek doğru kaynak,
+ * bu yüzden çakışma kontrolü burada da yapılır (çağıran `updateGasDistributionFirm`).
+ */
+export function updateMockFirm(
+  id: number,
+  payload: GasDistributionFirmPayload,
+): GasDistributionFirmDetail | null {
+  const existing = mockFirms.find((firm) => firm.id === id)
+  if (existing === undefined) return null
+
+  const updated: GasDistributionFirmDetail = { ...existing, ...payload }
+  mockFirms = mockFirms.map((firm) => (firm.id === id ? updated : firm))
+  return updated
 }

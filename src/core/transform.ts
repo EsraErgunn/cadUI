@@ -90,3 +90,23 @@ export function snapAngleDeg(angleDeg: number, stepDeg: number = ROTATION_STEP_D
   const snapped = Math.round(angleDeg / stepDeg) * stepDeg
   return normalizeZero(((snapped % 360) + 360) % 360)
 }
+
+/**
+ * Dönüşümün bir nesnenin KENDİ açısına etkisi. Konum dönüşümüyle birlikte
+ * uygulanmazsa 90° dönen bir grubun içindeki sembol yerinde döner ama dik kalır.
+ *
+ * Aynalama açıyı da yansıtır: yatay aynada (y çevrilir) açı işaret değiştirir,
+ * dikey aynada (x çevrilir) 180°'den çıkarılır. Öteleme açıya dokunmaz.
+ */
+export function applyTransformToAngleDeg(angleDeg: number, transform: PlanTransform): number {
+  if (transform.kind === 'translate') return angleDeg
+
+  const next =
+    transform.kind === 'rotate'
+      ? angleDeg + transform.angleDeg
+      : transform.axis === 'horizontal'
+        ? -angleDeg
+        : 180 - angleDeg
+
+  return normalizeZero(((next % 360) + 360) % 360)
+}
