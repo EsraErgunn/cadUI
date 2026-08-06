@@ -5,9 +5,14 @@ import { OrthographicCamera } from 'three'
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
 import type { PlanPoint } from '../core/coords'
-import type { PointSymbolType } from '../core/model'
+import type { PointSymbolType, SymbolAttachment } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { getPointSymbolTypeForTool } from '../core/pointSymbol'
+import {
+  getSymbolPose,
+  resolveSymbolAttachment,
+  type SymbolPose,
+} from '../core/symbolPlacement'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
@@ -15,7 +20,8 @@ const LEFT_BUTTON = 0
 
 export type PointSymbolPreview = {
   type: PointSymbolType
-  position: PlanPoint
+  /** Önizleme, bırakılınca oluşacak bağlanmanın pozudur — duvara yapışık görünür. */
+  pose: SymbolPose
 }
 
 /**
@@ -48,17 +54,44 @@ export function usePointSymbolTool(): PointSymbolPreview | undefined {
     // aşağıda symbolType ile korunuyor.
     if (!symbolType || !(camera instanceof OrthographicCamera)) return undefined
 
-    const snapAt = (planPoint: PlanPoint) =>
-      getPlacementPosition(planPoint, readCameraViewport(camera).zoom)
+    const readPlacement = (planPoint: PlanPoint) => {
+      const cad = useCadStore.getState()
+      const { zoom } = readCameraViewport(camera)
+      // Duvara bağlanma ham imleçten çözülür; ızgaraya oturtma yalnız SERBEST
+      // yerleştirme için — duvara yapışan sembolün offseti ızgaraya değil
+      // duvarın eksenine göre anlamlı.
+      const attachment = resolveSymbolAttachment(planPoint, symbolType, {
+        walls: cad.walls,
+        points: cad.points,
+        floorId: cad.activeFloorId,
+      })
+      if (attachment.attachment === 'wall') return attachment
+
+      const snapped = getPlacementPosition(planPoint, zoom)
+      return { ...attachment, x: snapped.x, y: snapped.y }
+    }
+
+    const readPose = (attachment: SymbolAttachment): SymbolPose | undefined => {
+      const cad = useCadStore.getState()
+      return getSymbolPose(
+        { id: 0, type: symbolType, label: '', note: '', ...attachment },
+        cad.walls,
+        cad.points,
+      )
+    }
 
     const unsubscribe = subscribeDrawSurface({
       onPointerMove: (event: DrawSurfacePointerEvent) => {
-        const position = snapAt(event.planPoint)
-        // Aynı ızgara noktasında yeni nesne yazılmaz: her fare hareketi render etmesin.
+        const pose = readPose(readPlacement(event.planPoint))
+        // Aynı yerde yeni nesne yazılmaz: her fare hareketi render etmesin.
         setPreview((current) =>
-          current && current.position.x === position.x && current.position.y === position.y
+          current &&
+          pose &&
+          current.pose.position.x === pose.position.x &&
+          current.pose.position.y === pose.position.y &&
+          current.pose.rotationDeg === pose.rotationDeg
             ? current
-            : { type: symbolType, position },
+            : pose && { type: symbolType, pose },
         )
       },
 
@@ -66,7 +99,7 @@ export function usePointSymbolTool(): PointSymbolPreview | undefined {
         if (event.button !== LEFT_BUTTON) return
         useCadStore.getState().addPointSymbol({
           type: symbolType,
-          position: snapAt(event.planPoint),
+          attachment: readPlacement(event.planPoint),
         })
       },
 

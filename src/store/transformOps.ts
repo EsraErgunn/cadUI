@@ -7,9 +7,11 @@ import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
 import type { PlanPoint } from '../core/coords'
 import { createIdRemap, remapId } from '../core/idRemap'
+import type { SymbolAttachment } from '../core/model'
 import type { Id } from '../core/model'
 import { getNextSymbolLabel } from '../core/pointSymbol'
 import { getSelectedIds, type Selection, type SelectionItem } from '../core/selection'
+import { getSymbolFloorId, getSymbolPose } from '../core/symbolPlacement'
 import {
   applyTransform,
   applyTransformToAngleDeg,
@@ -46,10 +48,16 @@ export function getSelectionPivot(draft: CadState, selection: Selection): PlanPo
   const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
 
   // Sembol de dayanağa girer: yalnız sembol seçiliyken kutu onun etrafındadır,
-  // yoksa dayanak bulunamaz ve döndürme hiç çalışmaz.
+  // yoksa dayanak bulunamaz ve döndürme hiç çalışmaz. Duvara bağlı sembolün
+  // konumu duvarından türediği için pozundan okunur.
+  const symbolPositions = draft.symbols
+    .filter((symbol) => symbolIds.has(symbol.id))
+    .map((symbol) => getSymbolPose(symbol, draft.walls, draft.points)?.position)
+    .filter((position): position is PlanPoint => position !== undefined)
+
   return getPointsCenter([
     ...draft.points.filter((point) => pointIds.has(point.id)),
-    ...draft.symbols.filter((symbol) => symbolIds.has(symbol.id)),
+    ...symbolPositions,
   ])
 }
 
@@ -83,8 +91,10 @@ export function transformSelectionInDraft(
     isChanged = true
   }
 
+  // YALNIZ serbest semboller dönüştürülür. Duvara bağlı sembol duvarıyla gelir:
+  // duvar seçimdeyse zaten taşınıyor, değilse sembol duvarından kopmamalı.
   for (const symbol of draft.symbols) {
-    if (!symbolIds.has(symbol.id)) continue
+    if (!symbolIds.has(symbol.id) || symbol.attachment !== 'free') continue
 
     const moved = applyTransform({ x: symbol.x, y: symbol.y }, transform)
     // Sembolün KENDİ açısı da dönüşümü izler; yoksa 90° dönen grubun içinde
@@ -182,20 +192,41 @@ export function duplicateSelectionInDraft(
 
   // Sembol kimseye bağlı değil: remap gerekmez, yeni id yeter. Etiket YENİDEN
   // üretilir — kopya kaynağın adını taşısaydı aynı katta iki "P-01" olurdu (KK-10).
-  const copiedSymbols = sourceSymbols.map((symbol) => {
+  const copiedSymbols = sourceSymbols.flatMap((symbol) => {
+    const floorId = getSymbolFloorId(symbol, draft.walls)
+    if (floorId === undefined) return []
+
+    // Duvara bağlı sembolün kopyası AYNI duvarda, offset kadar kaydırılmış
+    // durur: serbest x/y'ye çevirmek onu duvarından koparırdı.
+    //
+    // Alanlar TEK TEK yazılıyor, `...symbol` ile değil: spread sembolün id ve
+    // label'ını da taşır, aşağıdaki yeni id/etiket sessizce ezilirdi.
+    const attachment: SymbolAttachment =
+      symbol.attachment === 'wall'
+        ? {
+            attachment: 'wall',
+            wallId: symbol.wallId,
+            offsetCm: symbol.offsetCm + offset.dxCm,
+            isMountedOnFarFace: symbol.isMountedOnFarFace,
+          }
+        : {
+            attachment: 'free',
+            floorId: symbol.floorId,
+            x: symbol.x + offset.dxCm,
+            y: symbol.y + offset.dyCm,
+            rotationDeg: symbol.rotationDeg,
+          }
+
     const copy = {
       id: takeId(),
-      floorId: symbol.floorId,
       type: symbol.type,
-      x: symbol.x + offset.dxCm,
-      y: symbol.y + offset.dyCm,
-      rotationDeg: symbol.rotationDeg,
-      label: getNextSymbolLabel(draft.symbols, symbol.type, symbol.floorId),
+      label: getNextSymbolLabel(draft.symbols, symbol.type, floorId, draft.walls),
       note: symbol.note,
+      ...attachment,
     }
     // Sıradaki etiket bir ÖNCEKİ kopyayı da görsün diye tek tek eklenir.
     draft.symbols.push(copy)
-    return copy
+    return [copy]
   })
 
   return [

@@ -1,6 +1,7 @@
 import type { ArchitectureTarget } from './architectureHover'
 import type { PlanPoint } from './coords'
 import type { Id, Opening, Point, PointSymbol, Wall } from './model'
+import { getSymbolPose } from './symbolPlacement'
 import { getWallEnds } from './wall'
 import { getWallFrameAtOffsetCm } from './wallPath'
 
@@ -175,8 +176,15 @@ export function getOpeningsInRect(
 export function getSymbolsInRect(
   rect: PlanRect,
   symbols: readonly PointSymbol[],
+  walls: readonly Wall[],
+  points: readonly Point[],
 ): Id[] {
-  return symbols.filter((symbol) => isPointInRect(symbol, rect)).map((symbol) => symbol.id)
+  return symbols
+    .filter((symbol) => {
+      const pose = getSymbolPose(symbol, walls, points)
+      return pose !== undefined && isPointInRect(pose.position, rect)
+    })
+    .map((symbol) => symbol.id)
 }
 
 /** Çerçevenin kapsadığı her şey — tek geçişte, çağıran üç fonksiyonu ayrı sarmasın. */
@@ -192,7 +200,9 @@ export function getSelectionInRect(
     ...getOpeningsInRect(rect, openings, walls, points).map(
       (id): SelectionItem => ({ kind: 'opening', id }),
     ),
-    ...getSymbolsInRect(rect, symbols).map((id): SelectionItem => ({ kind: 'symbol', id })),
+    ...getSymbolsInRect(rect, symbols, walls, points).map(
+      (id): SelectionItem => ({ kind: 'symbol', id }),
+    ),
   ]
 }
 

@@ -12,6 +12,7 @@ import type { PlanPoint } from '../core/coords'
 import { isTypingTarget } from '../core/domEvents'
 import { getSelectionInRect, mergeSelection, pruneSelection, toPlanRect } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
+import { getSymbolsOnFloor } from '../core/symbolPlacement'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
@@ -96,7 +97,7 @@ export function useSelectionTool(): void {
 
       const cad = useCadStore.getState()
       const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
-      const floorSymbols = cad.symbols.filter((symbol) => symbol.floorId === cad.activeFloorId)
+      const floorSymbols = getSymbolsOnFloor(cad.symbols, cad.activeFloorId, cad.walls)
       const framed = getSelectionInRect(
         rect,
         floorWalls,

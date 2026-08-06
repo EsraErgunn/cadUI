@@ -83,20 +83,42 @@ export type PointSymbolType =
   | 'vent'
 
 /**
- * Açıklığın aksine kendi koordinatını TAŞIR: duvara bağlı değil, boşluğa da
- * bırakılabilir (araç yerleşimin uygunluğunu denetlemez — tutanak K-6).
+ * Sembolün duvara bağlanma biçimi — referans formatla aynı model.
  *
- * `roomId` HENÜZ YOK: tutanak menfez için zorunlu tutuyor ama `Room` modelde
- * yok. Varsayarak açmak, mahal modeli geldiğinde geri alınacak alan üretir.
+ * Duvara bağlı sembol `floorId` ve `rotationDeg` TAŞIMAZ: ikisi de duvarından
+ * türer. Pano bir duvar YÜZEYİNE monte edilir, dolayısıyla duvar nereye
+ * bakıyorsa o da oraya bakar; iki yerde tutulan yön zamanla ayrışır (Opening ile
+ * aynı kural, K9). Duvar taşınınca sembol kendiliğinden gelir.
+ *
+ * `isMountedOnFarFace` duvarın HANGİ YÜZÜNE monte edildiğini söyler — referans
+ * formattaki `ccw` alanının karşılığı. Kazan dairesi/havalandırma kontrolleri
+ * cihazın hangi mahale baktığını bilmek zorunda.
+ *
+ * Serbest sembol duvara denk gelmeyen yerleştirmedir. Araç bırakma noktasının
+ * uygunluğunu DENETLEMEZ (tutanak K-6), bu yüzden serbest hâl bir hata durumu
+ * değil meşru bir durumdur — aydınlatma ise referansta HER ZAMAN serbest
+ * (tavana takılıyor, duvara değil).
  */
+export type SymbolAttachment =
+  | {
+      attachment: 'wall'
+      wallId: Id
+      /** Duvarın p1 ucundan; Opening.offsetCm ile aynı eksen. */
+      offsetCm: number
+      isMountedOnFarFace: boolean
+    }
+  | {
+      attachment: 'free'
+      floorId: Id
+      x: number
+      y: number
+      /** 0-359. Yalnız serbest sembolde anlamlı; duvara bağlıda duvar belirler. */
+      rotationDeg: number
+    }
+
 export type PointSymbol = {
   id: Id
-  floorId: Id
   type: PointSymbolType
-  x: number
-  y: number
-  /** 0-359. Adım yakalaması core/transform.ts → snapAngleDeg ile. */
-  rotationDeg: number
   /** Tip kısaltması + sıra ("P-01"); otomatik üretilir, düzenlenebilir. */
   label: string
   /**
@@ -105,7 +127,7 @@ export type PointSymbol = {
    * dayanıyor (serialize.ts).
    */
   note: string
-}
+} & SymbolAttachment
 
 /**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.

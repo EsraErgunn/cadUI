@@ -16,7 +16,8 @@ import {
 // cadStore ↔ architectureSlice karşılıklı import eder; bu taraf tip-only olduğu
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
-import { createPointSymbolActions, type PointSymbolActions } from './pointSymbolOps'
+import { createPointSymbolActions, pruneSymbolsInDraft } from './pointSymbolOps'
+import type { PointSymbolActions } from './pointSymbolOps'
 import { markDirty, takeNextId } from './projectMeta'
 import { createSelectionActions } from './selectionOps'
 import { createTransformActions } from './transformOps'
@@ -197,6 +198,8 @@ export const createArchitectureSlice: StateCreator<
       draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
       // Duvarsız açıklık temsil edilemez; sahipsiz wallId bırakılmaz (K16).
       pruneOpeningsInDraft(draft)
+      // Duvara bağlı sembolün konumu duvarından türüyor; duvarsız kalamaz.
+      pruneSymbolsInDraft(draft)
       // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
       recomputeRoomsInDraft(draft)
       markDirty(draft)

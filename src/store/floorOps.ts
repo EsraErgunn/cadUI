@@ -1,5 +1,6 @@
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
+import { pruneSymbolsInDraft } from './pointSymbolOps'
 import { takeNextId } from './projectMeta'
 import {
   getFloorIdAfterRemoval,
@@ -81,7 +82,12 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
   )
   draft.walls = draft.walls.filter((wall) => wall.floorId !== floorId)
   draft.points = draft.points.filter((point) => point.floorId !== floorId)
-  draft.symbols = draft.symbols.filter((symbol) => symbol.floorId !== floorId)
+  // Serbest sembol katını kendi taşır; duvara bağlı olan duvarıyla düşer
+  // (pruneSymbolsInDraft, duvarlar yukarıda silindikten SONRA çalışır).
+  draft.symbols = draft.symbols.filter(
+    (symbol) => symbol.attachment !== 'free' || symbol.floorId !== floorId,
+  )
+  pruneSymbolsInDraft(draft)
   // Bağlantı kaydı silinen hattı ve elemanı referansla tuttuğu için ONLARDAN
   // ÖNCE toplanır; ters sırada hangi kayıtların sahipsiz kaldığı anlaşılamazdı
   // (açıklık–duvar sırasıyla aynı gerekçe).

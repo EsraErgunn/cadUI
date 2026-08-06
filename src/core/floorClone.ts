@@ -1,6 +1,15 @@
 import { createIdRemap, remapId } from './idRemap'
-import type { Id, Opening, Point, PointSymbol, Room, Wall } from './model'
+import type {
+  Id,
+  Opening,
+  Point,
+  PointSymbol,
+  Room,
+  SymbolAttachment,
+  Wall,
+} from './model'
 import { getNextSymbolLabel } from './pointSymbol'
+import { isSymbolOnFloor } from './symbolPlacement'
 
 /**
  * Bir katın kopyalanabilir içeriği. Tesisat elemanları AYRI tutulur: talep
@@ -28,7 +37,7 @@ export function isFloorEmpty(source: FloorCloneSource, floorId: Id): boolean {
   return (
     !source.points.some((point) => point.floorId === floorId) &&
     !source.walls.some((wall) => wall.floorId === floorId) &&
-    !source.symbols.some((symbol) => symbol.floorId === floorId)
+    !source.symbols.some((symbol) => isSymbolOnFloor(symbol, floorId, source.walls))
   )
 }
 
@@ -67,7 +76,9 @@ export function cloneFloorArchitecture(
   const sourceWallIds = new Set(sourceWalls.map((wall) => wall.id))
   const sourceOpenings = source.openings.filter((opening) => sourceWallIds.has(opening.wallId))
   const sourceRooms = source.rooms.filter((room) => isRoomOnFloor(room, sourceWallIds))
-  const sourceSymbols = source.symbols.filter((symbol) => symbol.floorId === sourceFloorId)
+  const sourceSymbols = source.symbols.filter((symbol) =>
+    isSymbolOnFloor(symbol, sourceFloorId, source.walls),
+  )
 
   // Köşeler ÖNCE: duvarın uçları onların yeni id'lerini isteyecek.
   const pointRemap = createIdRemap(
@@ -112,15 +123,39 @@ export function cloneFloorArchitecture(
   // hesaplansaydı her sembol aynı numarayı alırdı.
   const symbols: PointSymbol[] = []
   for (const symbol of sourceSymbols) {
+    /*
+     * Duvara bağlı sembolün `wallId`'si REMAP'ten geçer. Geçirilmezse kopya
+     * KAYNAĞIN duvarına bağlı kalır ve hata VERMEZ: çizim doğru görünür, ama
+     * alt kattaki duvar taşınınca üst kattaki pano da oynar — floor-clone.md'nin
+     * uyardığı sessiz tuzağın ta kendisi.
+     *
+     * Serbest sembol duvara bağlı değil; yalnız hedef kata taşınır.
+     */
+    const attachment: SymbolAttachment =
+      symbol.attachment === 'wall'
+        ? {
+            attachment: 'wall',
+            wallId: remapId(wallRemap, symbol.wallId),
+            offsetCm: symbol.offsetCm,
+            isMountedOnFarFace: symbol.isMountedOnFarFace,
+          }
+        : {
+            attachment: 'free',
+            floorId: targetFloorId,
+            x: symbol.x,
+            y: symbol.y,
+            rotationDeg: symbol.rotationDeg,
+          }
+
     symbols.push({
       id: takeId(),
-      floorId: targetFloorId,
       type: symbol.type,
-      x: symbol.x,
-      y: symbol.y,
-      rotationDeg: symbol.rotationDeg,
-      label: getNextSymbolLabel(symbols, symbol.type, targetFloorId),
+      // Etiket kopya kümesine bakılarak üretilir; hepsi aynı anda hesaplansaydı
+      // her sembol aynı numarayı alırdı. Kat kopyası için duvar listesi de
+      // KOPYALANMIŞ duvarlar olmalı, kaynağınkiler değil.
+      label: getNextSymbolLabel(symbols, symbol.type, targetFloorId, walls),
       note: symbol.note,
+      ...attachment,
     })
   }
 

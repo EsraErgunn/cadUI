@@ -5,7 +5,6 @@ import {
   formatSymbolLabel,
   getNextSymbolLabel,
   getPointSymbolTypeForTool,
-  getSymbolsOnFloor,
   isSymbolLabelTaken,
   isSymbolLabelValid,
   SYMBOL_LABEL_PREFIXES,
@@ -15,13 +14,14 @@ import {
 const GROUND = 1
 const UPPER = 14
 
+/** Serbest sembol: kat alanı kendisinde, duvar çözümü gerekmiyor. */
 function makeSymbol(
   id: number,
   type: PointSymbolType,
   label: string,
   floorId = GROUND,
 ): PointSymbol {
-  return { id, floorId, type, x: 0, y: 0, rotationDeg: 0, label, note: '' }
+  return { id, type, label, note: '', attachment: 'free', floorId, x: 0, y: 0, rotationDeg: 0 }
 }
 
 describe('etiket biçimi', () => {
@@ -42,38 +42,38 @@ describe('etiket biçimi', () => {
 
 describe('getNextSymbolLabel', () => {
   it('boş sahnede 01"den başlar', () => {
-    expect(getNextSymbolLabel([], 'panel', GROUND)).toBe('P-01')
+    expect(getNextSymbolLabel([], 'panel', GROUND, [])).toBe('P-01')
   })
 
   it('en yüksek numaranın bir fazlasını verir', () => {
     const symbols = [makeSymbol(1, 'panel', 'P-01'), makeSymbol(2, 'panel', 'P-05')]
 
-    expect(getNextSymbolLabel(symbols, 'panel', GROUND)).toBe('P-06')
+    expect(getNextSymbolLabel(symbols, 'panel', GROUND, [])).toBe('P-06')
   })
 
   it('numarayı SAYIDAN türetmez — silinen numara geri kullanılmaz', () => {
     // İki sembol var ama numaralar 1 ve 5; sayıya bakılsaydı "P-03" çıkardı.
     const symbols = [makeSymbol(1, 'panel', 'P-01'), makeSymbol(2, 'panel', 'P-05')]
 
-    expect(getNextSymbolLabel(symbols, 'panel', GROUND)).not.toBe('P-03')
+    expect(getNextSymbolLabel(symbols, 'panel', GROUND, [])).not.toBe('P-03')
   })
 
   it('başka TİP sayımı etkilemez', () => {
     const symbols = [makeSymbol(1, 'vent', 'MN-09')]
 
-    expect(getNextSymbolLabel(symbols, 'panel', GROUND)).toBe('P-01')
+    expect(getNextSymbolLabel(symbols, 'panel', GROUND, [])).toBe('P-01')
   })
 
   it('başka KAT sayımı etkilemez', () => {
     const symbols = [makeSymbol(1, 'panel', 'P-07', UPPER)]
 
-    expect(getNextSymbolLabel(symbols, 'panel', GROUND)).toBe('P-01')
+    expect(getNextSymbolLabel(symbols, 'panel', GROUND, [])).toBe('P-01')
   })
 
   it('elle verilmiş biçimsiz etiket sayımı bozmaz', () => {
     const symbols = [makeSymbol(1, 'panel', 'Mutfak panosu'), makeSymbol(2, 'panel', 'P-02')]
 
-    expect(getNextSymbolLabel(symbols, 'panel', GROUND)).toBe('P-03')
+    expect(getNextSymbolLabel(symbols, 'panel', GROUND, [])).toBe('P-03')
   })
 })
 
@@ -81,25 +81,25 @@ describe('isSymbolLabelTaken', () => {
   const symbols = [makeSymbol(1, 'panel', 'P-01'), makeSymbol(2, 'vent', 'MN-01', UPPER)]
 
   it('aynı kattaki aynı adı yakalar', () => {
-    expect(isSymbolLabelTaken(symbols, 'P-01', GROUND)).toBe(true)
+    expect(isSymbolLabelTaken(symbols, 'P-01', GROUND, [])).toBe(true)
   })
 
   it('TİPTEN bağımsızdır — panoya menfezin adı verilemez', () => {
     const sameFloor = [makeSymbol(1, 'vent', 'MN-01')]
 
-    expect(isSymbolLabelTaken(sameFloor, 'MN-01', GROUND)).toBe(true)
+    expect(isSymbolLabelTaken(sameFloor, 'MN-01', GROUND, [])).toBe(true)
   })
 
   it('başka kattaki aynı ad çakışma değildir', () => {
-    expect(isSymbolLabelTaken(symbols, 'MN-01', GROUND)).toBe(false)
+    expect(isSymbolLabelTaken(symbols, 'MN-01', GROUND, [])).toBe(false)
   })
 
   it('sembolün KENDİ adı çakışma sayılmaz', () => {
-    expect(isSymbolLabelTaken(symbols, 'P-01', GROUND, 1)).toBe(false)
+    expect(isSymbolLabelTaken(symbols, 'P-01', GROUND, [], 1)).toBe(false)
   })
 
   it('baştaki sondaki boşluğu yok sayar', () => {
-    expect(isSymbolLabelTaken(symbols, '  P-01 ', GROUND)).toBe(true)
+    expect(isSymbolLabelTaken(symbols, '  P-01 ', GROUND, [])).toBe(true)
   })
 })
 
@@ -123,10 +123,3 @@ describe('getPointSymbolTypeForTool', () => {
   })
 })
 
-describe('getSymbolsOnFloor', () => {
-  it('yalnız o katın sembollerini süzer', () => {
-    const symbols = [makeSymbol(1, 'panel', 'P-01'), makeSymbol(2, 'panel', 'P-01', UPPER)]
-
-    expect(getSymbolsOnFloor(symbols, GROUND).map((symbol) => symbol.id)).toEqual([1])
-  })
-})

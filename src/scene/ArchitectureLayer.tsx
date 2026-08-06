@@ -14,6 +14,7 @@ import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
 import { getOpeningOutline } from '../core/opening'
 import { isSelected } from '../core/selection'
+import { getSymbolPose, getSymbolsOnFloor } from '../core/symbolPlacement'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
@@ -70,6 +71,8 @@ function PointSymbols() {
   const preview = usePointSymbolTool()
   usePointSymbolSelectionTool()
   const symbols = useCadStore((state) => state.symbols)
+  const symbolWalls = useCadStore((state) => state.walls)
+  const symbolPoints = useArchitecturePoints()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)
   const selection = useArchitectureUiStore((state) => state.selection)
@@ -79,35 +82,42 @@ function PointSymbols() {
 
   return (
     <>
-      {symbols
-        .filter((symbol) => symbol.floorId === activeFloorId)
-        .map((symbol) => {
-          // Seçim vurgudan baskın: seçili sembolün üstündeyken mavi kalır.
-          const tone: PointSymbolTone = isSelected(selection, 'symbol', symbol.id)
-            ? 'selected'
-            : symbol.id === hoveredSymbolId
-              ? 'hovered'
-              : 'normal'
+      {getSymbolsOnFloor(symbols, activeFloorId, symbolWalls).map((symbol) => {
+        const pose = getSymbolPose(symbol, symbolWalls, symbolPoints)
+        // Duvarı çözülemeyen bağlı sembol çizilmez; kalıcı olmamalı, duvar
+        // silinince semboller de temizleniyor.
+        if (!pose) return null
 
-          // Sürüklenen sembol geçici konumuyla çizilir; store'a bırakma anında yazılır.
-          const isDragged = draggingSymbols?.symbolIds.includes(symbol.id) ?? false
-          const dragged = isDragged
-            ? {
-                ...symbol,
-                x: symbol.x + draggingSymbols!.dxCm,
-                y: symbol.y + draggingSymbols!.dyCm,
-              }
-            : symbol
+        // Seçim vurgudan baskın: seçili sembolün üstündeyken mavi kalır.
+        const tone: PointSymbolTone = isSelected(selection, 'symbol', symbol.id)
+          ? 'selected'
+          : symbol.id === hoveredSymbolId
+            ? 'hovered'
+            : 'normal'
 
-          // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
-          return <PointSymbol key={symbol.id} symbolId={symbol.id} symbol={dragged} tone={tone} />
-        })}
+        // Sürüklenen sembol geçici konumuyla çizilir; store'a bırakma anında yazılır.
+        const drag = draggingSymbols?.symbolIds.includes(symbol.id) ? draggingSymbols : undefined
+        const drawnPose = drag
+          ? {
+              ...pose,
+              position: { x: pose.position.x + drag.dxCm, y: pose.position.y + drag.dyCm },
+            }
+          : pose
+
+        // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
+        return (
+          <PointSymbol
+            key={symbol.id}
+            symbolId={symbol.id}
+            type={symbol.type}
+            pose={drawnPose}
+            tone={tone}
+          />
+        )
+      })}
 
       {preview && (
-        <PointSymbol
-          symbol={{ type: preview.type, ...preview.position, rotationDeg: 0 }}
-          tone="preview"
-        />
+        <PointSymbol type={preview.type} pose={preview.pose} tone="preview" />
       )}
     </>
   )

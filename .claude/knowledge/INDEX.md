@@ -23,7 +23,7 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 | 2026-07 | gotcha | [turkish-collation](./turkish-collation.md) | `'İ'.toLowerCase()` birleşen nokta üretir → arama sessizce eşleşmez; normalizeTr kullan |
 | 2026-08 | decision | [capsule-walls](./capsule-walls.md) | Duvar = yuvarlak uçlu kapsül (gönye/union YOK); kontursuz düz renk; CAMERA_HEIGHT_CM düşürülmemeli |
 | 2026-08 | decision | [wall-graph](./wall-graph.md) | Duvar grafı DÜZLEMSEL: kesişim/T birleşiminde düğüm açılır ve duvar bölünür; açıklığın içine düşen bölme reddedilir (K24) |
-| 2026-08 | decision | [point-symbols](./point-symbols.md) | Desen A: geometri kodda (SVG yok), etiket kat+tip başına en yüksek numaradan, çakışma reddedilir; jest sırası köşe→sembol→açıklık→duvar; dönüşüm açıyı da çevirir |
+| 2026-08 | decision | [point-symbols](./point-symbols.md) | Desen A: sembol duvara BAĞLANIR (referans modeli, wallId+offsetCm+yüz); bağlıda floorId/açı duvardan türer; aydınlatma serbest; geometri kodda (SVG yok); duvar silinince sembol düşer |
 | 2026-08 | decision | [group-transform](./group-transform.md) | Dönüşüm köşelere uygulanır (açıklık duvarıyla gelir); dayanak sınır kutusu merkezi; taşıma da dönüşümdür; id remap KK-15 ile ORTAK, eksik referans hata fırlatır |
 | 2026-08 | convention | [property-panel](./property-panel.md) | Panel seçime abone; ayrışan değer boş gösterilir; toplu yazım tek Ctrl+Z; kalınlık değişince açıklık temizliği AYNI adımda; konum panelde KENARDAN (K-3) |
 | 2026-08 | gotcha | [gesture-bus-precedence](./gesture-bus-precedence.md) | Tek pointerdown'ı tüm hook'lar görür; köşe > açıklık > duvar > boşluk sırası geometriyle verilir; seçim TEK listede (KK-10), Delete tek dinleyicide |
