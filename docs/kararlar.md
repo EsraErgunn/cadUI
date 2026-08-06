@@ -789,6 +789,320 @@ Nerede: `core/room.ts` (yüz taraması), `core/roomIdentity.ts` (kimlik),
 üçgenleme), `store/architectureRooms.ts` (yeniden hesaplama), `scene/Room.tsx`,
 `scene/RoomLabel.tsx`.
 
+## 2026-08 · Aşama 5: Boru ve branşman çizimi
+
+Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
+bant uzanır, tek sağ tık son noktayı geri alır, çift sağ tık hattı bitirip Seçim
+aracına döner, Esc yarım hattı tümüyle iptal eder ve araç aktif kalır.
+
+### Taslak kalıcı veriye girmez
+
+Devam eden hat `plumbingUiStore.draftLine`'da yaşıyor; `cadStore`'a ancak
+tamamlanınca tek `addLine` çağrısıyla giriyor. Hat + her nokta + her segment id'si
+o tek `set()` içinde üretiliyor → tek `markDirty`, tek Ctrl+Z. Duvar aracı bilerek
+farklı çalışıyor (her segment anında yazılıyor), çünkü duvar zinciri mevcut
+geometriye bağlanabiliyor; hat böyle bir şey yapmıyor.
+
+`addLine` iki noktadan azını reddediyor. `segments.length === points.length - 1`.
+
+### Sağ tık ayrımı saf fonksiyonda
+
+`core/pointerGestures.ts` → `resolveRightClick`. İlk sağ tık kararı 300 ms
+(`DOUBLE_CLICK_WINDOW_MS`) erteler; pencere içinde ikinci tık gelirse "bitir",
+gelmezse "son noktayı geri al". `setTimeout` hook'ta, karar saf fonksiyonda —
+aksi hâlde jest yalnız elle denenerek doğrulanabilirdi (Risk R6).
+
+Geliştirme sırasında kısa süre "tek sağ tık bitirir, Esc son noktada bitirir"
+denendi; şartname metni gelince **geri alındı**. Değiştirmeden önce şartnameye
+bakılmalı.
+
+### Esc hat aracında araçtan çıkarmıyor
+
+`useEscapeToSelectionTool` polyline araçlarını atlıyor. Yerleştirme aracında Esc
+seçim aracına dönüyor (eski davranış), hat aracında yalnız taslağı siliyor —
+kullanıcı paleti yeniden seçmeden yeni hatta başlayabilsin. Çift sağ tıkla bitirme
+ise seçim aracına dönüyor.
+
+### Çap kataloğu ve renk (K-W1, K-W2 uygulaması)
+
+`plumbing/core/pipeTypes.ts` dokuz çap tutuyor (DN15–DN100, EN 10255 dış çapları).
+Renk yalnız WebCAD referansında görülen dört çapta dolu; kalan beşinde `null` —
+varsayılmıyor. Çizilen her yeni hat `DN25` alıyor, renk çaptan geliyor.
+`plumbingTheme.gasLine` (marka sarısı) **kaldırıldı**: gaz hattının rengi artık
+çapından geliyor.
+
+Kalınlık gerçek dış çap: drei `<Line>` + `worldUnits` (duvar kapsülüyle aynı yol).
+Uzaklaşınca ince çaplar piksel altına düşmesin diye 1.5 px'lik alt sınır zoom'dan
+türetiliyor ve kapsayıcıda bir kez hesaplanıyor.
+
+Çizim önizlemesi de **aynı** renk ve kalınlıkta (`scene/lineStyle.ts`): ince
+önizleme, hat bitince kalınlaşmış gibi okunuyordu. Lastik bant kare başına
+geometri üretmiyor — sabit bir birim parça `position/rotation.y/scale.x` ile
+uzatılıyor; `worldUnits` kalınlığı kamera uzayında uyguladığı için ölçek çizgiyi
+kalınlaştırmıyor.
+
+### `isInsulated` alanı açılmadı
+
+K-W4 gereği `InstallationLineSegment`'ten `isInsulated` çıkarıldı: izolasyon
+segment boolean'ı değil kendi nesnesi olacak (Aşama 8).
+
+### Kapsam dışı bırakılanlar
+
+Ortogonal (yatay/dikey) kısıt bu aşamada yok — CLAUDE.md'deki "borular duvarlara
+paralel" ürün kuralı henüz koda girmedi, plan da Aşama 5'te istemiyor. Porta
+yakalanma ve uç bağlantısı Aşama 6'da, uzunluk etiketleri Aşama 7'de.
+
+Nerede: `plumbing/core/pipeTypes.ts`, `plumbing/core/lineGeometry.ts`,
+`plumbing/scene/useLineTool.ts`, `plumbing/scene/InstallationLineMesh.tsx`,
+`plumbing/scene/lineStyle.ts`, `plumbing/scene/useMinimumLineWidthCm.ts`,
+`plumbing/scene/DrawPreview.tsx`, `plumbing/store/plumbingSlice.ts`.
+Ayrıntı: `.claude/knowledge/line-drafting.md`.
+
+## 2026-08 · Aşama 6: Port bağlantısı ve yakalama
+
+Hat ucu artık elemanların bağlantı noktalarına yakalanıyor ve porta sol tıklandığında
+hat orada sonlanıp bağlantı kuruluyor. Bu çizimde araç **aktif kalıyor** (şartname):
+arka arkaya hat çizilebilsin. Çift sağ tıkla bitirme ise Seçim aracına dönüyor —
+ikisi bilerek farklı, çünkü porta bağlanmak "bu hat bitti, sıradakine geçiyorum"
+demek, sağ tık ise "çizim işim bitti" demek.
+
+### Doluluk türetilir, ikinci alan yok
+
+Bir portun dolu olup olmadığı yalnız `installationConnections`'tan okunuyor
+(`core/portSnap.ts` → `isPortOccupied`). Elemanda "bu port dolu" diye ikinci bir
+alan yok (Risk R10): iki kaynak undo, yükleme ve kat silme sonrası ayrışırdı.
+Bir hat ucunun bağlı olup olmadığı da kaydın VARLIĞINDAN okunuyor; serbest uçta
+kayıt yok, `null` bir alan değil.
+
+Bir port en çok bir bağlantı taşıyor. Kural iki yerde korunuyor: araç dolu portu
+aday göstermiyor, `addLine` yazmadan önce tekrar bakıyor (iki ucu aynı porta düşen
+hat için son savunma).
+
+### Snap yarıçapı piksel tabanlı, port ızgarayı bastırıyor
+
+`PORT_SNAP_RADIUS_PX / zoom` → yakalama uzaklığı her ölçekte aynı hissediliyor.
+Öncelik port snap > ızgara snap. Ctrl ızgarayı kapatıyor ama portu kapatmıyor:
+bağlantı kurmak serbest konumlandırmadan daha güçlü bir niyet.
+
+### Bağlı eleman taşınınca hat ucu birlikte geliyor
+
+`moveElements` aynı `set()` içinde bağlı hat ucunu da kaydırıyor. Port dünya konumu
+yeniden hesaplanmıyor, AYNI kayma uygulanıyor: taşımada açı ve ölçek değişmediği
+için sonuç birebir aynı ve store'un sembol metadata'sına (scene katmanı) ihtiyacı
+olmuyor. Döndürme/ölçekleme eklenirse burası `getPortWorldPosition` ile yeniden
+türetmeye çevrilmeli.
+
+Eleman silinince bağlantı düşüyor, hat kalıyor ve ucu serbestleşiyor. Kat silmede
+aynı temizlik `store/floorOps.ts`'te, silinenlerden ÖNCE toplanarak yapılıyor.
+
+### Görsel ayrım biçimden geliyor
+
+Boş port içi boş halka, dolu port içi dolu daire (nötr gri), yakalanan portun
+dışında yeşil vurgu halkası. Hat ucunda da aynı mantık: bağlı uç dolu daire,
+serbest uç içi boş halka. Ayrım yalnız renge bırakılmıyor.
+
+Vurgu halkasının konumu React durumu değil — imleç her kıpırdadığında ağaç yeniden
+kurulmasın diye `useFrame` içinde doğrudan mesh'e yazılıyor.
+
+### Plandan sapma: tüm portlar mount ediliyor
+
+Plan "yalnız imlece yakın elemanların portları mount edilir" diyordu. Uygulamada
+hat aracı etkinken aktif kattaki tüm elemanların portları çiziliyor: eleman sayısı
+onlarla ölçülüyor, geometri/material paylaşılıyor ve yakınlık her karede
+hesaplansaydı mount/unmount dalgalanırdı. Eleman sayısı yüzleri geçerse önce burası
+daraltılacak (Bölüm 15, spatial index).
+
+### Henüz yok
+
+`InstallationEndpointTarget`'ın `line` çeşidi (hattın başka bir hatta bağlanması)
+tipte tanımlı ama kullanılmıyor — branşmanın ana hatta bağlanması sonraki bir işin
+konusu. Serbest uç için uyarı listesi de (KK: "cihaza bağlanmamış uç uyarıyla
+gösterilir") henüz yok; bugün yalnız görsel ayrım var.
+
+Nerede: `plumbing/core/portSnap.ts`, `plumbing/core/ports.ts`,
+`plumbing/scene/useLineTool.ts`, `plumbing/scene/PortMarkers.tsx`,
+`plumbing/scene/InstallationLineMesh.tsx`, `plumbing/store/plumbingSlice.ts`,
+`store/floorOps.ts`. Ayrıntı: `.claude/knowledge/port-connections.md`.
+
+## 2026-08 · Boru çapı seçimi, kalınlık ve boru ayırma
+
+Üç geri bildirim üzerine yapıldı: çizerken hatlar inceliyordu, çap seçilemiyordu ve
+mevcut bir borunun üstünden dallanmanın yolu yoktu.
+
+### Çap artık palette seçiliyor
+
+Aktif çap `plumbingUiStore.activePipeTypeName` — araç ayarı, kaydedilmez ve geçmişe
+girmez (aktif araç gibi). Palette yalnız RENGİ BİLİNEN çaplar var (DN25/32/40/50,
+K-W1): rengi olmayanı seçtirmek onu hangi renkle çizeceğimizi varsaymak olurdu.
+Renk gelince katalog kaydına `colorHex` yazmak yeterli, palet kendiliğinden büyür.
+
+Seçim yalnız bundan sonra çizilecek hatları etkiliyor; mevcut bir hattın çapını
+değiştirmek hat seçimi gerektiriyor (henüz yok).
+
+Renk örneği DOM'da SVG `fill` ile çiziliyor. Değer katalogdan gelen bir hex, tema
+token'ı değil; `style={{}}` ve `bg-[#...]` yasak, SVG özniteliği ise CSS değil —
+sahnedeki R3F proplarıyla aynı istisna.
+
+### Kalınlık: ekranda 3 px alt sınır
+
+`worldUnits` kalınlığı cm cinsinden sabit tuttuğu için uzaklaştıkça hat piksel
+olarak inceliyor. Alt sınır 1.5 px'ten **3 px**'e çıkarıldı: kat geneli görünürken
+(zoom ~0.2) hatlar kıl gibi kalıyordu. Sınır çapları birbirinden ayırt etmeyi
+bozmuyor — oran ancak bu sınırın altında kayboluyor.
+
+Lastik bandın çizim yolu da gerçek hatla aynılaştırıldı: iki köşesi her karede
+`instanceStart`/`instanceEnd` tamponuna yazılıyor. Önceki çözüm (birim parçayı
+`scale.x` ile uzatmak) kalınlığı bozmuyordu — `worldUnits` shader'ı `linewidth`'i
+`modelViewMatrix`'ten sonra uyguluyor — ama önizlemeyi gerçek hattan farklı bir
+yola sokuyordu.
+
+### Borunun üstüne bağlanmak onu AYIRIYOR
+
+Hat aracıyla mevcut bir borunun üstünde gezerken o boruda dolu bir nokta görünüyor;
+oraya tıklamak yeni hattı orada sonlandırıyor (ya da başlatıyor) ve hedef boruyu o
+noktada ikiye ayırıyor. Yeni hat üretilmiyor, mevcut hatta bir köşe ekleniyor.
+
+Mevcut nokta/parça id'lerine dokunulmuyor: bölünen parça kendi id'siyle kısalıyor,
+yalnız ikinci yarısı yeni id alıyor. Hepsi yeniden numaralansaydı o boruya bağlı
+kayıtlar sahipsiz kalırdı (kural 6). İzdüşüm bir köşeye yeterince yakınsa bölme
+yapılmıyor, var olan köşeye bağlanılıyor — yoksa köşenin dibinde sıfıra yakın bir
+parça doğardı.
+
+Bölme ile hat yazımı tek `set()` içinde: tek Ctrl+Z ikisini birden geri alıyor. Bu
+yüzden araç "şu parçayı şurada ayır" isteğini `LineEndAttachment.lineSplit` olarak
+taşıyor ve çözümü store yapıyor — araç doğacak nokta id'sini bilemez.
+
+Snap önceliği: port > mevcut boru > ızgara. Vurgu biçimi de işi anlatıyor: port
+halka ("buraya bağlan"), boru üstündeki dolu nokta ("burada ayır").
+
+Nerede: `plumbing/core/lineSnap.ts`, `plumbing/core/lineSplit.ts`,
+`plumbing/core/pipeTypes.ts`, `plumbing/ui/PipeTypeSelect.tsx`,
+`plumbing/scene/useMinimumLineWidthCm.ts`, `plumbing/scene/DrawPreview.tsx`,
+`plumbing/store/plumbingSlice.ts`.
+
+## 2026-08 · Hat aracı: ön eleman, seçim ve önizleme tuzağı
+
+### Önizlemenin ince görünmesinin sebebi: drei `<Line>` propları material'e de gidiyor
+
+drei `<Line>` bilmediği propları hem `Line2` nesnesine hem de MATERIAL'e yayıyor.
+Banda verilen `visible={false}` bu yüzden `material.visible = false` yapıyor ve
+`object.visible = true` yazmak onu geri getirmiyordu — lastik bant hiç çizilmiyordu.
+Görünürlük artık yalnız nesne üzerinden, `useFrame` içinde ayarlanıyor.
+
+Aynı sınıftan bir tuzak: `transparent`, `opacity`, `userData` da ikisine birden
+gidiyor. Bu yüzden yerleşmiş hat ve önizleme artık **tek bileşenden** (`PipeLine`)
+geçiyor; yeni bir prop oraya eklenir, kullanan yerlere değil. İkisi ayrı ayrı
+kurulduğunda bir prop birinde unutuluyor ve önizleme farklı görünüyordu.
+
+### Hat çiziminin ilk tıklaması eleman koyabiliyor
+
+- **Branşman her zaman sayaçla geliyor**: ilk tık sayacı koyuyor, hat sayacın
+  çıkış portundan başlıyor (gaz yönü: sayaç → tüketim).
+- **İlk boru servis kutusunu kendisi koyuyor** — projede hiç kutu yoksa. Kutu
+  varsa boru serbest başlıyor; servis kutusu proje başına tek.
+
+Eleman kendi geçmiş adımında yazılıyor, hatla aynı adımda değil: Esc'lenen yarım
+çizimde eleman da kaybolsaydı kullanıcının görerek koyduğu şey silinirdi.
+
+### Borular tıklanabilir
+
+`core/linePicking.ts` → `pickLineAt`. Tutma bandı çizilen kalınlığın yarısı + snap
+toleransı, yani ince boru da tıklanabilir kalıyor. Sıra: eleman → hat → çerçeve.
+Seçili hat mavi çiziliyor, Delete siliyor, çap paletindeki tıklama seçili hatlara
+uygulanıyor (ayrı bir "uygula" düğmesi aranmasın).
+
+`selectedLineIds` ayrı liste: eleman ve hat aynı id evreninde ama iki farklı nesne
+türü — tek listede tutulsaydı her okuyan tür ayrımını yeniden yapardı.
+
+Bugün yok: hat sürükleme, köşe düzenleme, çerçeveyle hat seçme, hat kopyalama.
+Seçili elemanla seçili hat aynı anda silinirse iki geçmiş adımı oluşuyor.
+
+Nerede: `plumbing/core/lineSeed.ts`, `plumbing/core/linePicking.ts`,
+`plumbing/scene/InstallationLineMesh.tsx` (`PipeLine`), `plumbing/scene/DrawPreview.tsx`,
+`plumbing/scene/useSelectionTool.ts`, `plumbing/ui/PipeTypeSelect.tsx`.
+
+## 2026-08 · Boru kalınlığı piksel cinsinden veriliyor (worldUnits bırakıldı)
+
+Borular ekrandan uzaklaşınca ve **ekran kenarlarına doğru** inceliyordu. Sebep
+`worldUnits` shader yolunun perspektif varsayımı: göz ışınının bir NOKTADAN
+çıktığını kabul ediyor (vertex'te `cross(start.xyz, worldDir)`, fragment'te
+`normalize(worldPos.xyz) * 1e5`). Kameramız ortografik — ışınlar paralel — ve
+kamera 100.000 cm yukarıda olduğu için hesap float32 hassasiyetini yiyor. Hata
+ekran merkezinden uzaklaştıkça büyüyor; 20 cm'lik duvarda görünmüyor, 3.37 cm'lik
+DN25 borusunda görünüyor.
+
+Kararı: **boru `worldUnits` KULLANMAZ.** Kalınlık ekran pikseli olarak veriliyor:
+
+    lineWidth(px) = max(dışÇap(cm) × zoom, MIN_LINE_WIDTH_PX)
+
+Piksel yolunda shader ekran uzayında çalışıyor (küçük sayılar, ışın varsayımı yok)
+ve yuvarlak uçlar korunuyor. Görünen boyut `worldUnits`'in amaçladığıyla aynı —
+plan fiziksel olarak doğru okunuyor — ama kenarlarda incelme yok. Zoom değişince
+kalınlık yeniden hesaplanmalı; `useCameraZoom` zoom'u state'te tutuyor (Grid.tsx
+deseni: değer değişmezse render yok).
+
+`CAMERA_HEIGHT_CM`'i düşürmek çözüm DEĞİL — capsule-walls.md'deki ters yönlü uyarı
+duruyor, o değer duvar için yüksek tutulmak zorunda. Duvarlar `worldUnits` ile
+kalıyor: aynı hata onlarda da var ama kalınlıkları yanında görünmez.
+
+Uç işaretleri dünya ölçüsünde konumlandığı için piksel kalınlığı `toWidthCm` ile
+cm'ye geri çevriliyor.
+
+Nerede: `plumbing/scene/lineStyle.ts`, `plumbing/scene/useCameraZoom.ts`,
+`plumbing/scene/InstallationLineMesh.tsx`.
+
+## 2026-08 · Çap kataloğu tamamlandı, çap arayüzü sağ panele ertelendi
+
+### K-W1'in boşluğu kapandı: dokuz çapın da rengi var
+
+WebCAD referansında yalnız dört çapın rengi vardı; kalan beşi "ekip belirleyecek"
+diye açık bırakılmıştı. **Ekip belirledi.** Yeni renkler WebCAD'in kullandığı
+Material A400/A700 ailesinden, mevcut dördüyle ve tuvalde ayrılmış renklerle
+çakışmayacak şekilde seçildi:
+
+| DN | Dış çap (cm) | Renk | Kaynak |
+|----|--------------|------|--------|
+| 15 | 2.13 | `#00B8D4` camgöbeği | ekip |
+| 20 | 2.69 | `#FF6D00` turuncu | ekip |
+| 25 | 3.37 | `#FF1744` kırmızı | WebCAD |
+| 32 | 4.24 | `#B388FF` açık mor | WebCAD |
+| 40 | 4.83 | `#304FFE` mavi | WebCAD |
+| 50 | 6.03 | `#6200EA` mor | WebCAD |
+| 65 | 7.61 | `#C51162` macenta | ekip |
+| 80 | 8.89 | `#795548` kahve | ekip |
+| 100 | 11.43 | `#263238` antrasit | ekip |
+
+Çakışmaması gerekenler: marka sarısı `#FFC107` (çizim alanına giremez), seçim
+mavisi `#2d7ff9`, snap yeşili `#0aa06e`, duvar grisi `#6b7280`. Çap büyüdükçe ton
+koyulaşıyor — ana hat plandan ağır okunsun. Renklerin tekilliği ve bu çakışmama
+kuralı testle korunuyor.
+
+`colorHex` artık `string | null` değil `string`: yeni bir çap eklendiğinde TS renk
+vermeye zorluyor. Nötr yedek renk (`unclassifiedLine`) konusuz kaldığı için silindi.
+
+**WebCAD `radius` sütunu doldurulmadı.** O değerler bizim çizimimizde kullanılmıyor
+(kalınlık dış çaptan geliyor) ve yalnız WebCAD'in okuyacağı dosya üretilirse gerekli
+(K-W5). Ölçülmemiş beş satırı tahminle doldurmak, kullanılmayan bir alana varsayım
+yazmak olurdu.
+
+### Çap seçme arayüzü sağdaki işlev paneline saklandı
+
+Sol palete konan çap seçici KALDIRILDI: hat seçilince açılacak sağ paneldeki
+"işlev" kısmının konusu. Çizim şimdilik varsayılan çapla (DN25) yapılıyor.
+Altyapı hazır ve testli, panele yalnız arayüz kalıyor:
+`plumbingUiStore.activePipeTypeName` (çizilecek hattın çapı) ve
+`plumbingSlice.setLinesPipeType(lineIds, name)` (seçili hatların çapı).
+
+### Seçimi silme tek adım
+
+`removeSelection(elementIds, lineIds)` eleman ve hattı AYNI `set()` içinde siliyor:
+bir silme jesti = bir Ctrl+Z. Önce iki ayrı action çağrılıyordu ve seçimde ikisi
+birden varsa kullanıcı iki kez geri almak zorunda kalıyordu. Bağlantı temizliği de
+aynı yerde toplandı — eleman ve hat silme aynı temizliği istiyor.
+
+Nerede: `plumbing/core/pipeTypes.ts`, `plumbing/store/plumbingSlice.ts`,
+`plumbing/scene/useSelectionTool.ts`, `plumbing/ui/PlumbingToolbar.tsx`.
+
 ## 2026-08 · Yönetici formları: alan hatası toplama kopyası
 
 ### K25 — `collectErrors`/`firstErrorField` ikinci kez kopyalandı, üçüncüde ortaklaşacak

@@ -10,7 +10,9 @@ import { PLUMBING_COLORS } from './plumbingTheme'
 import { getGhostMaterial, getLoadedSymbol } from './symbolLoader'
 import { planToThree, type PlanPoint } from '../../core/coords'
 import { RENDER_ORDER } from '../../scene/layers'
+import { useCadStore } from '../../store/cadStore'
 import type { InstallationElement } from '../core/installationModel'
+import { isPortOccupied } from '../core/portSnap'
 
 const DEG_TO_RAD = Math.PI / 180
 const MISSING_SYMBOL_SIZE_CM = 40
@@ -81,6 +83,12 @@ export function SymbolInstance({
   const isGhost = tone === 'ghost'
   const groupRef = useRef<Group>(null)
   const loaded = useMemo(() => getLoadedSymbol(element.type), [element.type])
+  // Dizinin KENDİSİNE abone olunur; doluluk render sırasında türetilir (R10:
+  // doluluk için elemanda ikinci bir alan tutulmaz).
+  const connections = useCadStore((state) => state.installationConnections)
+  const occupiedPortIds = loaded.metadata.ports
+    .filter((port) => isPortOccupied(connections, element.id, port.id))
+    .map((port) => port.id)
   const position = useMemo(
     () =>
       planToThree(
@@ -143,7 +151,11 @@ export function SymbolInstance({
       {isSelected && !isGhost && (
         <>
           <SelectionOutline metadata={loaded.metadata} scale={element.scale} />
-          <PortMarkers metadata={loaded.metadata} scale={element.scale} />
+          <PortMarkers
+            metadata={loaded.metadata}
+            scale={element.scale}
+            occupiedPortIds={occupiedPortIds}
+          />
         </>
       )}
     </group>

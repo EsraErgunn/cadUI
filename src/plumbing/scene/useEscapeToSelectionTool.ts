@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 import { subscribeDrawSurface } from '../../scene/drawSurfaceEvents'
 import { useUiStore } from '../../store/uiStore'
-import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
+import { getLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 
 /**
  * Esc yerleştirmeyi iptal etmekle kalmaz, paleti seçim aracına döndürür: art arda
@@ -19,6 +19,10 @@ export function useEscapeToSelectionTool(): void {
       onCancel: () => {
         const { activeToolId, setActiveTool } = useUiStore.getState()
         if (activeToolId === INSTALLATION_SELECTION_TOOL_ID) return
+        // Hat aracında Esc yarım hattı iptal eder ama araç AKTİF KALIR (şartname):
+        // kullanıcı paleti yeniden seçmeden yeni hatta başlayabilsin. İptalin
+        // kendisi useLineTool'da.
+        if (getLineKind(activeToolId)) return
         setActiveTool(INSTALLATION_SELECTION_TOOL_ID)
       },
     })
