@@ -51,11 +51,16 @@ sembollerin çoğunda var; `Wall, Point, Column, Beam, Staircase`'de YOK,
 
 ## Bizim modelle çelişenler — karara bağlanacak
 
-1. **`Room.pointIds`** — referans odayı POINT id'leriyle tutuyor, CLAUDE.md ise
-   "duvar id'lerinden oluşan çevrim" diyor. KK-9'u yazan kişiyi doğrudan etkiler.
-   Alan doğrulaması: dört nokta merkez hattı 885×475 cm = 42.0375 m²,
-   `measuredArea.value` = 42.04 → **alan duvar merkez hattından hesaplanıyor**,
-   iç yüzden değil. Nokta sırası saat yönünde (shoelace negatif).
+1. ~~**`Room.pointIds`**~~ — **ÇÖZÜLDÜ (K32, `docs/kararlar.md`).** Referans
+   odayı POINT id'leriyle tutuyor, biz `wallIds`'te kaldık: duvarsız oda
+   desteklenmeyecek, dışa aktarma katmanı ucuz bir çeviri (`wallIds → pointIds`
+   duvar uçlarını sıralamaktan ibaret). Alan doğrulaması hâlâ geçerli: dört
+   nokta merkez hattı 885×475 cm = 42.0375 m², `measuredArea.value` = 42.04 →
+   **alan duvar merkez hattından hesaplanıyor**, iç yüzden değil — bizim
+   `areaCm2` zaten öyle. Nokta sırası referansta saat yönünde (shoelace
+   negatif); bizim `findRoomFaces` saat yönünün TERSİNİ üretiyor — adaptör
+   yazılınca sırayı çevirmesi gerekiyor, yoksa sessizce ters sarımlı poligon
+   çıkar.
 2. **`distance` kenar mı, orta mı** — bizde `offsetCm` açıklığın ORTASI.
    Kapı: `wallId:5, distance:44.5, width:85`; duvar 5'in p1 ucunda 20 cm
    kalınlığında dik duvar var. Kenar okumasıyla kapı 44.5–129.5'te durur ve
@@ -75,7 +80,9 @@ sembollerin çoğunda var; `Wall, Point, Column, Beam, Staircase`'de YOK,
 
 Ayrıca doküman madde 104 her mahal için "kullanım tipi (mutfak, salon…)"
 istiyor, referans JSON'da böyle bir alan YOK — sadece `centralVentilation` /
-`topSideOpenable`.
+`topSideOpenable`. K32 gereği ikisi de bizim modele EKLENMEDİ (menfez aracı
+yazılınca o işi yapan kişiyle birlikte kararlaştırılacak); kullanım tipi de
+henüz yok.
 
 ## Yapısal tuzaklar
 
