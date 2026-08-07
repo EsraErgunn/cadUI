@@ -847,6 +847,41 @@ için; ama malzeme dökümünde iki kez sayılır, silme de tek kopyayı kaldır
 çiftini bağlıyorsa ikinci duvar hiç YAZILMAZ, var olanı döner — bu, duvar
 aracının kendisini de etkileyen bir davranış değişikliği.
 
+### K34 — Kolineer örtüşen duvarlar SPLIT SONRASI birleştirilir
+
+K33'teki `appendWall` koruması yalnız İKİ UCU DA aynı köşeye denk gelen
+duvarları yakalıyordu. Bitişik iki oda **farklı boyda** çizilip ortak kenarları
+**kısmen** çakışınca (kısa kenar uzun kenarın içine kısmen giriyor) bu koruma
+işe yaramıyordu: köşeler tam eşleşmediği için `appendWall` ikisini de ayrı
+duvar olarak yazıyor, sonra `splitWallsAtIntersections` her ikisini de kendi
+T birleşiminde AYRI AYRI doğru bölüyor — ama ikisi de örtüşen aralık için
+birer parça üretiyor, sonuçta aynı iki köşe arasında duran iki AYRI duvar
+kalıyordu (bkz. `knowledge/wall-graph.md`, önceki "Bilinen sınırlar"). Tek
+taraflı T birleşiminde de (bir duvar öbürünün tamamen İÇİNDE kalırsa) aynı
+sonuç çıkıyordu — karşılıklı olması şart değildi.
+
+Çözüm bölme AŞAMASINDA değil, **bölme bittikten sonra**: `mergeDuplicateWallsInDraft`
+(`store/architectureSplit.ts`) aktif kattaki tüm duvarları tarar, aynı iki
+köşeyi (yön fark etmez) paylaşanları bulur. **İlk çizilen kazanır** — ama
+"ilk" parçanın KENDİ id'sine bakılarak değil, `originByWallId` üzerinden bu
+turda türediği ORİJİNAL duvarın id'sine bakılarak belirlenir: split'te üretilen
+yeni id, split edilmemiş ama sonradan çizilmiş bir duvarınkinden küçük de büyük
+de çıkabilir, kendi id'si güvenilir bir sıra göstergesi değildir. Kazananın
+kalınlığı/yüksekliği aynen kalır.
+
+Kaybedenin üstündeki açıklık kazanana taşınır (yön tersse `offsetCm` kazananın
+uzunluğundan çıkarılıp çevrilir, K10). Kaybedeni sınırında sayan oda kaydı da
+kazanana güncellenir — yoksa taze yüz taraması eski kaydı eşleştiremez, "yeni
+oda doğdu" sanılır ve kullanıcının verdiği ad kaybolur (K31).
+
+Split hiç olmadığı turlarda bile kontrol çalışır: duplicate önceki bir çağrıda
+doğmuş olabilir, o T birleşimleri artık paylaşılan düğümde olduğu için sonraki
+turda `findWallSplits` hiçbir yeni split görmez — erken dönüş `mergeDuplicateWallsInDraft`'ı
+atlamamalı.
+
+Nerede: `store/architectureSplit.ts`. Testler `store/__tests__/architectureSplit.test.ts`
+("kolineer örtüşme") ve `store/__tests__/roomRectangleTool.test.ts` ("FARKLI BOYDA").
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
