@@ -262,3 +262,4 @@ describe('findBlockingOpening', () => {
     expect(findBlockingOpening(candidate, [wall], points, [door], FLOOR_ID)).toBe(door)
   })
 })
+

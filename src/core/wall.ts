@@ -189,3 +189,72 @@ export function getPlacementRange(
     maxOffsetCm: lengthCm - getNeighbourThicknessCm(wall, wall.p2Id, walls),
   }
 }
+
+/** Bir köşenin taşınmasından etkilenen (hareket eden) duvarlar ile hareket ETMEYENLER. */
+export type PointMoveImpact = {
+  /** Etkilenen her duvarın YENİ (önerilen) segmenti. */
+  segments: WallEnds[]
+  /** Etkilenmeyen duvarlar — açıklık çakışması bunlara karşı kontrol edilir. */
+  stationaryWalls: Wall[]
+}
+
+/**
+ * Bir köşe `targetPosition`'a taşınırsa hangi duvarların nasıl değişeceği.
+ *
+ * Köşeye bağlı duvarların SABİT ucu yerinde kalır, taşınan uç `targetPosition`'a
+ * gider — `movePoint`'in kendisinin yaptığı şey, burada YAZMADAN ÖNCE aynı
+ * hesabı yapıp açıklık çakışmasını sınamak için (K36).
+ */
+export function getPointMoveImpact(
+  pointId: Id,
+  targetPosition: PlanPoint,
+  walls: readonly Wall[],
+  points: readonly Point[],
+): PointMoveImpact {
+  const movingWalls = getWallsAtPoint(pointId, walls)
+  const movingWallIds = new Set(movingWalls.map((wall) => wall.id))
+
+  const segments = movingWalls.flatMap((wall): WallEnds[] => {
+    const otherPointId = wall.p1Id === pointId ? wall.p2Id : wall.p1Id
+    const otherPoint = points.find((point) => point.id === otherPointId)
+    return otherPoint ? [{ p1: { x: otherPoint.x, y: otherPoint.y }, p2: targetPosition }] : []
+  })
+
+  return {
+    segments,
+    stationaryWalls: walls.filter((wall) => !movingWallIds.has(wall.id)),
+  }
+}
+
+/**
+ * Bir duvar grubu (`wallIds`) katı olarak `(dxCm, dyCm)` ötelenirse hangi
+ * duvarların nasıl değişeceği. `moveWall`/`transformSelection`'ın taşıma
+ * kısmıyla aynı hesap, YAZMADAN ÖNCE açıklık çakışmasını sınamak için (K36).
+ */
+export function getWallMoveImpact(
+  wallIds: readonly Id[],
+  dxCm: number,
+  dyCm: number,
+  walls: readonly Wall[],
+  points: readonly Point[],
+): PointMoveImpact {
+  const movingWallIds = new Set(wallIds)
+
+  const segments = wallIds.flatMap((wallId): WallEnds[] => {
+    const wall = walls.find((candidate) => candidate.id === wallId)
+    if (!wall) return []
+    const ends = getWallEnds(wall, points)
+    if (!ends) return []
+    return [
+      {
+        p1: { x: ends.p1.x + dxCm, y: ends.p1.y + dyCm },
+        p2: { x: ends.p2.x + dxCm, y: ends.p2.y + dyCm },
+      },
+    ]
+  })
+
+  return {
+    segments,
+    stationaryWalls: walls.filter((wall) => !movingWallIds.has(wall.id)),
+  }
+}

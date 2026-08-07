@@ -258,3 +258,24 @@ export function findBlockingOpening(
 
   return undefined
 }
+
+/**
+ * `findBlockingOpening`'in birden çok aday segment için toplu hâli — TAŞIMA
+ * senaryosunda kullanılır: bir köşe veya duvar taşınınca ona bağlı BİRDEN
+ * FAZLA duvar birden hareket eder (köşenin tüm komşuları, ya da katı ötelenen
+ * duvarın kendisi), hepsi birlikte kontrol edilmeli. İlk bulunan engel döner.
+ */
+export function findBlockingOpeningInSegments(
+  segments: readonly { p1: PlanPoint; p2: PlanPoint }[],
+  walls: readonly Wall[],
+  points: readonly Point[],
+  openings: readonly Opening[],
+  floorId: Id,
+): Opening | undefined {
+  for (const segment of segments) {
+    const blocking = findBlockingOpening(segment, walls, points, openings, floorId)
+    if (blocking) return blocking
+  }
+
+  return undefined
+}

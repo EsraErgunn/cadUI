@@ -926,6 +926,53 @@ Nerede: `core/wallGraph.ts`, `core/room.ts`, `store/architectureWallOps.ts`,
 `core/__tests__/roomOpeningBlock.test.ts`, `store/__tests__/architectureWallOpeningSync.test.ts`,
 `store/__tests__/architectureSplit.test.ts`.
 
+### K36 — Açıklığa çarpan TAŞIMA da reddedilir; bırakılamayan nesne imlece yapışık kalır
+
+K35 yalnız YENİ duvar yerleştirmeyi kapsıyordu, TAŞIMA (köşe veya duvar
+sürükleme) kasıtlı olarak dışarıda bırakılmıştı. Kullanıcı geri bildirimiyle
+kapsam genişledi: taşınan bir köşe veya duvar, hedef konumda bir açıklığı
+kesiyorsa YA DA onun üstünde bitiyorsa, bırakma (`onPointerUp`) da
+REDDEDİLMELİ — aynı fiziksel gerekçe (K35), taşıma için de geçerli.
+
+**UX modeli değişti: "bas-sürükle-bırak" yerine "tut, geçersiz yere bırakma
+denemesi başarısızsa imlece yapışık kal, geçerli yere TEKRAR TIKLANINCA
+bırak".** Bırakma reddedilince `drag`/`grab` state'i SIFIRLANMAZ (`endDrag()`
+çağrılmaz) — köşe/duvar imleç konumunu takip etmeye devam eder, çünkü
+`onPointerMove` zaten buton durumundan BAĞIMSIZ çalışıyor (native pointermove
+davranışı). Kullanıcı GEÇERLİ bir yere gelip TEKRAR TIKLADIĞINDA, o tıklamanın
+`onPointerDown`'ı YENİ bir tutma başlatmaz (aktif bir `drag`/`grab` varken
+`onPointerDown` erken döner) — karar hep `onPointerUp`'ta verilir, fiziksel
+tuş kalkışı hep "bu konumu dene" anlamına gelir.
+
+Esc (`onCancel`) her zaman `drag`/`grab`'i temizler — kullanıcı geçersiz bir
+sürüklemede TAKILI KALMAZ, istediği an vazgeçebilir.
+
+**Etki hesabı çekirdeğe çıkarıldı** (`core/wall.ts`), çünkü hook'lar
+(`useThree` kullandıkları için R3F/Three.js gerektirir) doğrudan test
+edilemiyor — saf kısmı test edilebilir kalsın diye:
+
+- `getPointMoveImpact(pointId, targetPosition, walls, points)`: köşeye bağlı
+  HER duvarın (sabit uç → yeni konum) segmentini üretir, taşınan duvarları
+  `stationaryWalls`'tan çıkarır — kendi eski hâline göre kontrol etmek
+  anlamsız olurdu, onlar zaten hareket eden taraf.
+- `getWallMoveImpact(wallIds, dxCm, dyCm, walls, points)`: katı ötelenen
+  duvar(lar)ın yeni segmentini üretir, aynı mantık.
+- `findBlockingOpeningInSegments`: K35'in `findBlockingOpening`'inin çoklu
+  segment hâli — üretilen segmentlerin HERHANGİ biri blokeliyse tüm bırakma
+  reddedilir.
+
+**Bilinen sınır — esneyen komşular kapsam dışı.** Duvar taşıma "katı" olduğu
+için (`useWallSelectionTool.ts`), paylaşılan köşeyi taşıyan ama kullanıcının
+DOĞRUDAN seçmediği komşu duvarlar da şekil değiştirir ("esner"). Bu esneyen
+komşuların açıklık çakışması KONTROL EDİLMİYOR — yalnız kullanıcının doğrudan
+taşıdığı (seçili) duvarlar/köşe kontrol ediliyor. Kullanıcı bundan bahsetmedi,
+kapsam kasıtlı olarak dar tutuldu.
+
+Nerede: `core/wall.ts` (`getPointMoveImpact`, `getWallMoveImpact`),
+`core/wallGraph.ts` (`findBlockingOpeningInSegments`), `scene/usePointDragTool.ts`,
+`scene/useWallSelectionTool.ts`. Testler `core/__tests__/wallMoveImpact.test.ts`.
+Hook seviyesi (React/R3F) test edilmedi — tarayıcıda manuel doğrulanmalı.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

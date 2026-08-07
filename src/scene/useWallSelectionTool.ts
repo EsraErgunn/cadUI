@@ -14,6 +14,8 @@ import type { Id } from '../core/model'
 import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
+import { getWallMoveImpact } from '../core/wall'
+import { findBlockingOpeningInSegments } from '../core/wallGraph'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -73,6 +75,11 @@ export function useWallSelectionTool(): void {
 
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
       if (event.button !== PRIMARY_BUTTON) return
+
+      // Bir önceki bırakma açıklık yüzünden REDDEDİLMİŞSE `grab` hâlâ aktif
+      // (K36) — bu tıklama YENİ bir duvar tutma değil, o sürüklemenin BIRAKMA
+      // denemesidir. Karar hep `onPointerUp`'ta verilir.
+      if (grab) return
 
       const toolId = useUiStore.getState().activeToolId
       const isEraser = toolId === ERASER_TOOL_ID
@@ -141,11 +148,40 @@ export function useWallSelectionTool(): void {
 
       const { wallIds } = grab
       const drag = useArchitectureUiStore.getState().draggingWall
-      endDrag()
 
       // Sürükleme boyunca cadStore'a hiç yazılmadı: tek yazım = tek markDirty =
       // tek Ctrl+Z. Yer değişmediyse (sadece seçmek için tıklama) hiç yazılmaz.
-      if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
+      if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) {
+        endDrag()
+        return
+      }
+
+      // Taşınan HER duvarın yeni (ötelenmiş) segmenti kontrol edilir; esneyen
+      // (paylaşılan köşeyi taşıyan ama SEÇİLİ olmayan) komşu duvarlar kapsam
+      // dışı bırakıldı — bilinen sınır (K36).
+      const cad = useCadStore.getState()
+      const { segments, stationaryWalls } = getWallMoveImpact(
+        wallIds,
+        drag.dxCm,
+        drag.dyCm,
+        cad.walls,
+        cad.points,
+      )
+
+      // Hedef bir açıklığın içinden geçiyor veya üstünde bitiyorsa bırakma
+      // REDDEDİLİR — `grab` KORUNUR, `endDrag()` çağrılmaz. Duvar imlece
+      // yapışık kalır, kullanıcı geçerli bir yere gelip TEKRAR tıklayana kadar
+      // sürükleme sürer (K36).
+      const blocking = findBlockingOpeningInSegments(
+        segments,
+        stationaryWalls,
+        cad.points,
+        cad.openings,
+        cad.activeFloorId,
+      )
+      if (blocking) return
+
+      endDrag()
 
       // Taşıma da bir dönüşüm: tek duvar ile çoklu seçim aynı yoldan geçer,
       // yoksa "birden çok duvar taşındığında ne oluyor" iki yerde yanıtlanırdı.

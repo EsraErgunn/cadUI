@@ -76,8 +76,24 @@ ekstra bir ayrım gerekmiyor.
 
 Bu yalnız YENİ duvar yerleştirmeyi (`appendWall`) kapsar; var olan duvarı
 TAŞIYARAK aynı noktaya getirmek (`movePoint`/`moveWall`) `appendWall`'dan
-geçmiyor, K24'ün eski davranışında (bölme reddedilir, duvar silinmez) kalıyor
-— kasıtlı olarak dokunulmadı. Detay: `docs/kararlar.md` K35.
+geçmiyor. Detay: `docs/kararlar.md` K35.
+
+## TAŞIMA da reddedilir; imlece yapışık kalma (K36)
+
+K35'in "yalnız yeni yerleştirme" sınırı kaldırıldı: köşe/duvar TAŞIRKEN de
+(`usePointDragTool.ts`, `useWallSelectionTool.ts`) hedef bir açıklığı
+kesiyorsa/üstünde bitiyorsa bırakma reddedilir. UX modeli "bas-sürükle-bırak"
+değil "tut, geçersiz bırakma denemesi başarısızsa imlece yapışık kal, geçerli
+yere TEKRAR TIKLAYINCA bırak" — `drag`/`grab` reddedilince SIFIRLANMAZ,
+`onPointerMove` buton durumundan bağımsız çalıştığı için köşe/duvar imleci
+takip etmeye devam eder; aktif bir sürükleme varken `onPointerDown` yeni bir
+tutma BAŞLATMAZ, karar hep `onPointerUp`'ta verilir. Esc her zaman temizler.
+
+Saf etki hesabı `core/wall.ts`'e çıkarıldı (`getPointMoveImpact`,
+`getWallMoveImpact`) — hook'lar R3F gerektirdiği için doğrudan test edilemez,
+saf kısmı test edilebilir kalsın diye. Bilinen sınır: duvar taşımada esneyen
+komşular (paylaşılan köşeyi taşıyan ama seçili olmayan duvarlar) kontrol
+edilmiyor, yalnız doğrudan taşınan nesne. Detay: `docs/kararlar.md` K36.
 
 ## Bilinen sınırlar
 
