@@ -6,6 +6,7 @@ import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
 import { AxisIndicator } from '../ui/AxisIndicator'
+import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorLabel } from '../ui/FloorLabel'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
 import { FloorTabs } from '../ui/FloorTabs'
@@ -21,6 +22,7 @@ export function EditorPage() {
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
+  const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const handleSave = () => void save()
   useEditorShortcuts({ onSave: handleSave })
 
@@ -31,6 +33,7 @@ export function EditorPage() {
         onSave={handleSave}
         onExport={exportProject}
         onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
+        onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
         isSaving={isSaving}
       />
 
@@ -67,6 +70,8 @@ export function EditorPage() {
       {isFloorDialogOpen && (
         <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />
       )}
+
+      {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
     </div>
   )
 }

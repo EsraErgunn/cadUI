@@ -44,6 +44,10 @@ export function PlumbingToolbar() {
         ))}
       </nav>
 
+      {/* TODO(tesisat): çap seçimi burada DEĞİL, hat seçilince açılacak sağdaki
+          işlev panelinde olacak. Katalog ve store tarafı hazır: hepsi renkli
+          (core/pipeTypes.ts), uygulama plumbingSlice.setLinesPipeType ile. */}
+
       <div className="mt-auto border-t border-edge p-1.5">
         <ShortcutHint title="Tesisat kısayolları" shortcuts={PLUMBING_SHORTCUTS} />
       </div>

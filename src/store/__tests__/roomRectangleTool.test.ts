@@ -89,4 +89,26 @@ describe('dikdörtgen oda aracı', () => {
     expect(useCadStore.getState().points).toHaveLength(6)
     expect(rooms()).toHaveLength(2)
   })
+
+  it('bitişik ama FARKLI BOYDA ikinci dikdörtgen ortak kenarı DUPLICATE üretmez', () => {
+    // Ortak kenarın kısa ve uzun ucu üst üste bindiğinde iki duvar aynı doğru
+    // üzerinde kısmen çakışıyordu (bilinen sınır, wall-graph.md → K34).
+    drawRectangleRoom({ x: 0, y: 0 }, { x: 400, y: 300 })
+    drawRectangleRoom({ x: 400, y: 100 }, { x: 700, y: 400 })
+
+    const shared = useCadStore
+      .getState()
+      .walls.filter((wall) => {
+        const p1 = useCadStore.getState().points.find((point) => point.id === wall.p1Id)
+        const p2 = useCadStore.getState().points.find((point) => point.id === wall.p2Id)
+        return (
+          p1?.x === 400 && p2?.x === 400 &&
+          new Set([p1.y, p2.y]).size === 2 &&
+          [p1.y, p2.y].every((y) => y === 100 || y === 300)
+        )
+      })
+
+    expect(shared).toHaveLength(1)
+    expect(rooms()).toHaveLength(2)
+  })
 })

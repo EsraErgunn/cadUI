@@ -9,8 +9,8 @@ export const PLUMBING_COLORS = {
    * ızgara çizgisi sanılıyor.
    */
   architectureGhost: '#94a3b8',
-  // Tuvalde sarı = gaz hattı: marka sarısının çizim alanındaki TEK meşru kullanımı.
-  gasLine: '#FFC107',
+  // Hat renkleri burada DEĞİL: çaptan gelir (core/pipeTypes.ts, K-W2). "Tuvalde
+  // sarı = gaz hattı" kuralı bu kararla kalktı.
   /** Sembol yüklenemediğinde çizilen yer tutucu — seçim mavisiyle karışmayan uyarı rengi. */
   assetError: '#dc2626',
 } as const

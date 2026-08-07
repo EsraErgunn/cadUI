@@ -1,6 +1,7 @@
 import { Line } from '@react-three/drei'
 import { useMemo } from 'react'
 
+import { InstallationLines } from './InstallationLineMesh'
 import { SymbolInstance } from './SymbolInstance'
 import {
   ARCHITECTURE_GHOST_ELEVATION_CM,
@@ -190,6 +191,10 @@ export function InstallationGhost() {
 
   return (
     <group name="installation-ghost">
+      {/* Hatlar da ize dahil: yalnız semboller gösterilseydi mimari görünümde
+          borular kaybolur, cihazlar havada duruyormuş gibi okunurdu. */}
+      <InstallationLines tone="ghost" />
+
       {elements
         .filter((element) => element.floorId === activeFloorId)
         .map((element) => (

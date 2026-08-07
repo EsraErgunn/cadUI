@@ -13,6 +13,7 @@ import {
 } from '../core/architectureSymbol'
 import { planToThree, type PlanPoint } from '../core/coords'
 import type { PointSymbol as PointSymbolData } from '../core/model'
+import type { SymbolPose } from '../core/symbolPlacement'
 
 /** Gövde çizgisi detaydan kalın: sembolün silueti uzaktan da okunsun. */
 const STROKE_WIDTHS: Record<SymbolStrokeRole, number> = {
@@ -30,7 +31,9 @@ const TONE_COLORS: Record<PointSymbolTone, string> = {
 }
 
 type PointSymbolProps = {
-  symbol: Pick<PointSymbolData, 'type' | 'x' | 'y' | 'rotationDeg'>
+  type: PointSymbolData['type']
+  /** Konum + açı; duvara bağlı sembolde ikisi de duvardan türetilmiş olarak gelir. */
+  pose: SymbolPose
   tone: PointSymbolTone
   /** Mesh'te yalnız id taşınır (CLAUDE.md kural 4); önizlemede id yok. */
   symbolId?: number
@@ -63,14 +66,14 @@ function toFillPositions(corners: readonly PlanPoint[], elevationCm: number): Fl
  * SVG yükleyici kullanılmıyor: mimari katman kendi sembolünü geometriyle çiziyor,
  * bu yüzden asset/metadata/material önbelleği gerekmiyor.
  */
-export function PointSymbol({ symbol, tone, symbolId }: PointSymbolProps) {
+export function PointSymbol({ type, pose, tone, symbolId }: PointSymbolProps) {
   const isPreview = tone === 'preview'
   const elevationCm = isPreview
     ? POINT_SYMBOL_PREVIEW_ELEVATION_CM
     : POINT_SYMBOL_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.pointSymbol
   const color = TONE_COLORS[tone]
-  const geometry = getPointSymbolPlanGeometry(symbol)
+  const geometry = getPointSymbolPlanGeometry(type, pose)
 
   return (
     <group userData={symbolId === undefined ? undefined : { id: symbolId }}>

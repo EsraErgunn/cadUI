@@ -24,18 +24,34 @@ function resetState(): void {
   useCadStore.temporal.getState().clear()
 }
 
+/** Serbest bağlanma yardımcısı: testlerin çoğu duvarla ilgilenmiyor. */
+function freeAt(position: { x: number; y: number }) {
+  // Kat AKTİF kattan okunur: üretimde de bağlanmayı araç çözüyor ve serbest
+  // sembol aktif kata düşüyor.
+  return {
+    attachment: 'free' as const,
+    floorId: useCadStore.getState().activeFloorId,
+    x: position.x,
+    y: position.y,
+    rotationDeg: 0,
+  }
+}
+
 function findSymbol(symbolId: number) {
   return useCadStore.getState().symbols.find((symbol) => symbol.id === symbolId)
+}
+
+/** Testlerin çoğu serbest sembolle ilgileniyor; açı yalnız orada saklanıyor. */
+function findFreeSymbol(symbolId: number) {
+  const symbol = findSymbol(symbolId)
+  return symbol?.attachment === 'free' ? symbol : undefined
 }
 
 beforeEach(resetState)
 
 describe('addPointSymbol', () => {
   it('sembolü aktif kata ekler ve etiketini üretir', () => {
-    const id = useCadStore.getState().addPointSymbol({
-      type: 'panel',
-      position: { x: 120, y: 80 },
-    })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 120, y: 80 }) })
 
     expect(findSymbol(id!)).toMatchObject({
       floorId: DEFAULT_FLOOR_ID,
@@ -50,7 +66,7 @@ describe('addPointSymbol', () => {
 
   it('arka arkaya eklemede etiket ilerler', () => {
     const add = () =>
-      useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+      useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
     add()
     const secondId = add()
 
@@ -58,16 +74,16 @@ describe('addPointSymbol', () => {
   })
 
   it('kat değişince numaralandırma yeniden başlar', () => {
-    useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
     useCadStore.getState().setActiveFloor(UPPER_FLOOR_ID)
 
-    const id = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(findSymbol(id!)).toMatchObject({ floorId: UPPER_FLOOR_ID, label: 'P-01' })
   })
 
   it('her ekleme TEK geri alma adımıdır', () => {
-    useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 0, y: 0 } })
+    useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.temporal.getState().pastStates).toHaveLength(1)
 
@@ -78,44 +94,42 @@ describe('addPointSymbol', () => {
 
 describe('movePointSymbol', () => {
   it('konumu günceller', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 0, y: 0 }) })
 
-    expect(useCadStore.getState().movePointSymbol(id!, { x: 50, y: 60 })).toBe(true)
+    expect(useCadStore.getState().movePointSymbol(id!, freeAt({ x: 50, y: 60 }))).toBe(true)
     expect(findSymbol(id!)).toMatchObject({ x: 50, y: 60 })
   })
 
-  it('aynı konuma taşımak projeyi kirletmez', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 10, y: 10 } })
-    const revisionAfterAdd = useCadStore.getState().revision
+  it('bağlanma yazımı her zaman uygulanır — sürükleme bırakışta tek yazım', () => {
+    const id = useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 10, y: 10 }) })
 
-    expect(useCadStore.getState().movePointSymbol(id!, { x: 10, y: 10 })).toBe(false)
-    expect(useCadStore.getState().revision).toBe(revisionAfterAdd)
+    expect(useCadStore.getState().movePointSymbol(id!, freeAt({ x: 10, y: 10 }))).toBe(true)
   })
 
   it('tanınmayan id hiçbir şey yapmaz', () => {
-    expect(useCadStore.getState().movePointSymbol(999, { x: 0, y: 0 })).toBe(false)
+    expect(useCadStore.getState().movePointSymbol(999, freeAt({ x: 0, y: 0 }))).toBe(false)
   })
 })
 
 describe('rotatePointSymbol', () => {
   it('açıyı 15 derece adımına yakalar (KK-3)', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
 
     useCadStore.getState().rotatePointSymbol(id!, 47)
 
-    expect(findSymbol(id!)?.rotationDeg).toBe(45)
+    expect(findFreeSymbol(id!)?.rotationDeg).toBe(45)
   })
 
   it('açıyı [0, 360) aralığına indirir', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
 
     useCadStore.getState().rotatePointSymbol(id!, -15)
 
-    expect(findSymbol(id!)?.rotationDeg).toBe(345)
+    expect(findFreeSymbol(id!)?.rotationDeg).toBe(345)
   })
 
   it('aynı açı projeyi kirletmez', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().rotatePointSymbol(id!, 0)).toBe(false)
   })
@@ -123,15 +137,15 @@ describe('rotatePointSymbol', () => {
 
 describe('setPointSymbolLabel', () => {
   it('etiketi değiştirir ve kırpar', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().setPointSymbolLabel(id!, '  Mutfak panosu ')).toBe(true)
     expect(findSymbol(id!)?.label).toBe('Mutfak panosu')
   })
 
   it('aynı kattaki çakışan etiketi REDDEDER (KK-10)', () => {
-    const first = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
-    const second = useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 0, y: 0 } })
+    const first = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
+    const second = useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().setPointSymbolLabel(second!, 'P-01')).toBe(false)
     expect(findSymbol(second!)?.label).toBe('MN-01')
@@ -139,15 +153,15 @@ describe('setPointSymbolLabel', () => {
   })
 
   it('başka kattaki aynı etiket çakışma değildir', () => {
-    useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
     useCadStore.getState().setActiveFloor(UPPER_FLOOR_ID)
-    const upper = useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 0, y: 0 } })
+    const upper = useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().setPointSymbolLabel(upper!, 'P-01')).toBe(true)
   })
 
   it('boş etiket reddedilir', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().setPointSymbolLabel(id!, '   ')).toBe(false)
     expect(findSymbol(id!)?.label).toBe('P-01')
@@ -156,14 +170,14 @@ describe('setPointSymbolLabel', () => {
 
 describe('setPointSymbolNote', () => {
   it('notu yazar', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().setPointSymbolNote(id!, 'Mutfak menfezi')).toBe(true)
     expect(findSymbol(id!)?.note).toBe('Mutfak menfezi')
   })
 
   it('aynı not projeyi kirletmez', () => {
-    const id = useCadStore.getState().addPointSymbol({ type: 'vent', position: { x: 0, y: 0 } })
+    const id = useCadStore.getState().addPointSymbol({ type: 'vent', attachment: freeAt({ x: 0, y: 0 }) })
 
     expect(useCadStore.getState().setPointSymbolNote(id!, '')).toBe(false)
   })
@@ -171,7 +185,7 @@ describe('setPointSymbolNote', () => {
 
 describe('kalıcılık', () => {
   it('semboller kaydedilen projeye girer — tesisat elemanlarının aksine', () => {
-    useCadStore.getState().addPointSymbol({ type: 'panel', position: { x: 120, y: 80 } })
+    useCadStore.getState().addPointSymbol({ type: 'panel', attachment: freeAt({ x: 120, y: 80 }) })
 
     const saved = useCadStore.getState().symbols
     expect(saved).toHaveLength(1)

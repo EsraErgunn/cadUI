@@ -3,6 +3,7 @@ import type { StateCreator } from 'zustand'
 // cadStore ↔ floorSlice karşılıklı import eder; bu taraf tip-only olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz.
 import type { CadState } from './cadStore'
+import { createCopyFloorActions, type CopyFloorActions } from './floorCloneOps'
 import {
   appendFloor,
   moveFloorInDraft,
@@ -14,7 +15,7 @@ import { markDirty } from './projectMeta'
 import type { FloorDirection } from '../core/floors'
 import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type Floor, type Id } from '../core/model'
 
-export type FloorSlice = {
+export type FloorSlice = CopyFloorActions & {
   floors: Floor[]
   activeFloorId: Id
   /** Reddedilirse undefined döner ve HİÇBİR ŞEY değişmez — id bile harcanmaz. */
@@ -33,6 +34,8 @@ export const createFloorSlice: StateCreator<
   [],
   FloorSlice
 > = (set) => ({
+  ...createCopyFloorActions(set),
+
   floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
   activeFloorId: DEFAULT_FLOOR_ID,
 

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetPlumbingHistory } from '../../plumbing/store/plumbingHistory'
+import { INITIAL_PLUMBING_DATA } from '../../plumbing/store/plumbingSlice'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { useEditorShortcuts } from '../useEditorShortcuts'
@@ -20,8 +21,8 @@ function renderHarness(onSave = vi.fn()) {
 
 beforeEach(() => {
   useCadStore.temporal.getState().clear()
-  useCadStore.setState({ revision: 0, savedRevision: 0, installationElements: [] })
-  resetPlumbingHistory([])
+  useCadStore.setState({ revision: 0, savedRevision: 0, ...INITIAL_PLUMBING_DATA })
+  resetPlumbingHistory(INITIAL_PLUMBING_DATA)
   useUiStore.setState({ activeViewId: 'architecture' })
 })
 

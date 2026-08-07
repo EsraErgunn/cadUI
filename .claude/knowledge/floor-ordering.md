@@ -38,6 +38,15 @@ olduğu ANLAŞILAMAZ — `Opening` `floorId` taşımıyor, katı duvarından tü
 Tesisat elemanlarının temizliği de aynı fonksiyonda: kendi slice'ında bırakılsaydı
 kat silme iki ayrı action olur ve tek Ctrl+Z ile geri alınamazdı.
 
+⚠️ **Kalıcı bir diziye yeni alan eklendiğinde burası da güncellenir.** `rooms` ve
+`symbols` bu fonksiyondan SONRA modele girdi ve ikisi de temizlikten atlandı:
+kat siliniyor, o kata ait odalar ve semboller `ProjectData`'da kalıyordu. Hata
+sessizdi — semboller aktif kat filtresi yüzünden görünmüyor, odalar sahipsiz
+`wallId` tutuyordu, ikisi de kaydedilen JSON'a yazılmaya devam ediyordu.
+
+Oda `floorId` TAŞIMAZ (kimliği duvar id kümesi, K31), bu yüzden kata göre değil
+**silinen duvar id'lerine göre** süzülür.
+
 ## Ad çakışması
 
 Aynı ad iki katta kabul edilmez (`isFloorNameTaken`) — kat adı kullanıcının

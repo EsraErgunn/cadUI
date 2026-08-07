@@ -24,6 +24,8 @@ function resetFloorState(): void {
     walls: FIXTURE_WALLS,
     openings: FIXTURE_OPENINGS,
     installationElements: [],
+    rooms: [],
+    symbols: [],
     nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
     savedRevision: 0,
@@ -182,6 +184,56 @@ describe('setActiveFloor', () => {
     useCadStore.temporal.getState().undo()
 
     expect(useCadStore.getState().floors).toHaveLength(2)
+  })
+})
+
+describe('kat silme — sonradan eklenen diziler', () => {
+  it('silinen kattaki SERBEST semboller de gider', () => {
+    const free = (floorId: number) =>
+      ({ attachment: 'free', floorId, x: 10, y: 10, rotationDeg: 0 }) as const
+
+    useCadStore.getState().addPointSymbol({ type: 'lighting', attachment: free(DEFAULT_FLOOR_ID) })
+    useCadStore.getState().addPointSymbol({ type: 'lighting', attachment: free(UPPER_FLOOR_ID) })
+
+    useCadStore.getState().removeFloor(UPPER_FLOOR_ID)
+
+    const symbols = useCadStore.getState().symbols
+    expect(symbols).toHaveLength(1)
+    expect(symbols[0].attachment === 'free' && symbols[0].floorId).toBe(DEFAULT_FLOOR_ID)
+  })
+
+  it('silinen kattaki DUVARA BAĞLI sembol duvarıyla birlikte düşer', () => {
+    // Fixture duvarları zemin katta; sembol duvar 8'e bağlı.
+    useCadStore.getState().addPointSymbol({
+      type: 'panel',
+      attachment: { attachment: 'wall', wallId: WALL_ID, offsetCm: 100, isMountedOnFarFace: true },
+    })
+
+    useCadStore.getState().removeFloor(DEFAULT_FLOOR_ID)
+
+    expect(useCadStore.getState().symbols).toHaveLength(0)
+  })
+
+  it('silinen kattaki ODALAR da gider — sahipsiz wallId kalmaz', () => {
+    // Oda floorId taşımıyor, kimliği duvar id kümesi (K31): kat silinince
+    // duvarları gidiyor ama oda kaydı arkada kalırsa hayalet oda oluşur.
+    useCadStore.setState({
+      rooms: [{ id: 500, wallIds: [WALL_ID], name: 'Salon' }],
+    })
+
+    useCadStore.getState().removeFloor(DEFAULT_FLOOR_ID)
+
+    expect(useCadStore.getState().rooms).toHaveLength(0)
+  })
+
+  it('başka kattaki odaya dokunmaz', () => {
+    useCadStore.setState({
+      rooms: [{ id: 500, wallIds: [WALL_ID], name: 'Salon' }],
+    })
+
+    useCadStore.getState().removeFloor(UPPER_FLOOR_ID)
+
+    expect(useCadStore.getState().rooms).toHaveLength(1)
   })
 })
 

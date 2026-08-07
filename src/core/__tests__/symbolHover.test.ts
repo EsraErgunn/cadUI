@@ -1,15 +1,26 @@
 import { describe, expect, it } from 'vitest'
 
 import { isSameTarget, resolveArchitectureTarget } from '../architectureHover'
-import { POINT_SYMBOL_SIZE_CM } from '../architectureSymbol'
+import { SYMBOL_DISPLAY } from '../architectureSymbol'
 import type { Opening, Point, PointSymbol, Wall } from '../model'
 
 const FLOOR_ID = 1
 const UPPER_FLOOR_ID = 14
 const TOLERANCE_CM = 10
 
+/** Serbest sembol: konumu kendinde, duvara bağlı olanı ayrı test ediliyor. */
 function makeSymbol(id: number, x: number, y: number, floorId = FLOOR_ID): PointSymbol {
-  return { id, floorId, type: 'panel', x, y, rotationDeg: 0, label: `P-0${id}`, note: '' }
+  return {
+    id,
+    type: 'panel',
+    label: `P-0${id}`,
+    note: '',
+    attachment: 'free',
+    floorId,
+    x,
+    y,
+    rotationDeg: 0,
+  }
 }
 
 // Duvar (0,0)-(400,0); sembol duvarın TAM ÜSTÜNDE (200, 0).
@@ -78,7 +89,7 @@ describe('resolveArchitectureTarget — sembol', () => {
 
   it('sembolün uzağında hedef sembol değildir', () => {
     const context = makeContext([makeSymbol(20, 200, 100)])
-    const outside = 100 + POINT_SYMBOL_SIZE_CM
+    const outside = 100 + SYMBOL_DISPLAY.panel.widthCm
 
     expect(resolveArchitectureTarget({ x: 200, y: outside }, context)).toBeUndefined()
   })

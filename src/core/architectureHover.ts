@@ -3,6 +3,7 @@ import type { PlanPoint } from './coords'
 import type { Id, Opening, Point, PointSymbol, Wall } from './model'
 import { findOpeningUnderPoint } from './openingTool'
 import { findCornerPointIdAt } from './snap'
+import { getSymbolPose, isSymbolOnFloor } from './symbolPlacement'
 import { findWallUnderPoint } from './wallPath'
 
 /** İmlecin altındaki nesne. Aynı anda yalnız BİRİ hedeftir. */
@@ -45,14 +46,15 @@ export function resolveArchitectureTarget(
   if (pointId !== undefined) return { kind: 'point', pointId }
 
   // Sembol en son eklenenden geriye taranır: üst üste bırakılmış iki sembolde
-  // üstte duran (sonra eklenen) tutulur.
-  const symbol = [...context.symbols]
-    .reverse()
-    .find(
-      (candidate) =>
-        candidate.floorId === context.floorId &&
-        isPointInSymbol(target, candidate, context.toleranceCm),
+  // üstte duran (sonra eklenen) tutulur. Konum duvara bağlıda duvardan türer.
+  const symbol = [...context.symbols].reverse().find((candidate) => {
+    if (!isSymbolOnFloor(candidate, context.floorId, context.walls)) return false
+    const pose = getSymbolPose(candidate, context.walls, context.points)
+    return (
+      pose !== undefined &&
+      isPointInSymbol(target, pose.position, context.toleranceCm, candidate.type)
     )
+  })
   if (symbol) return { kind: 'symbol', symbolId: symbol.id }
 
   const opening = findOpeningUnderPoint(target, context)

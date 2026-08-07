@@ -1,4 +1,5 @@
-import type { Id, PointSymbol, PointSymbolType } from './model'
+import type { Id, PointSymbol, PointSymbolType, Wall } from './model'
+import { isSymbolOnFloor } from './symbolPlacement'
 
 /**
  * Etiket öneki. Record olduğu için yeni tip eklenip önek unutulursa DERLEME
@@ -43,12 +44,13 @@ export function getNextSymbolLabel(
   symbols: readonly PointSymbol[],
   type: PointSymbolType,
   floorId: Id,
+  walls: readonly Wall[],
 ): string {
   const pattern = new RegExp(`^${SYMBOL_LABEL_PREFIXES[type]}-(\\d+)$`)
 
   let highest = 0
   for (const symbol of symbols) {
-    if (symbol.floorId !== floorId || symbol.type !== type) continue
+    if (symbol.type !== type || !isSymbolOnFloor(symbol, floorId, walls)) continue
     const match = pattern.exec(symbol.label.trim())
     if (match) highest = Math.max(highest, Number(match[1]))
   }
@@ -67,14 +69,15 @@ export function isSymbolLabelTaken(
   symbols: readonly PointSymbol[],
   label: string,
   floorId: Id,
+  walls: readonly Wall[],
   exceptSymbolId?: Id,
 ): boolean {
   const trimmed = label.trim()
   return symbols.some(
     (symbol) =>
-      symbol.floorId === floorId &&
       symbol.id !== exceptSymbolId &&
-      symbol.label.trim() === trimmed,
+      symbol.label.trim() === trimmed &&
+      isSymbolOnFloor(symbol, floorId, walls),
   )
 }
 
@@ -89,11 +92,4 @@ export function isSymbolLabelValid(label: string): boolean {
  */
 export function getPointSymbolTypeForTool(toolId: string): PointSymbolType | undefined {
   return toolId in SYMBOL_LABEL_PREFIXES ? (toolId as PointSymbolType) : undefined
-}
-
-export function getSymbolsOnFloor(
-  symbols: readonly PointSymbol[],
-  floorId: Id,
-): PointSymbol[] {
-  return symbols.filter((symbol) => symbol.floorId === floorId)
 }

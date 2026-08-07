@@ -1,7 +1,10 @@
-import { DrawPreview } from './DrawPreview'
+import { DrawPreview, LineDraftPreview } from './DrawPreview'
+import { InstallationLines } from './InstallationLineMesh'
+import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
 import { SymbolInstance } from './SymbolInstance'
 import { useEscapeToSelectionTool } from './useEscapeToSelectionTool'
+import { useLineTool } from './useLineTool'
 import { usePlacementTool } from './usePlacementTool'
 import { useSelectionTool, type SelectionToolState } from './useSelectionTool'
 import { useCadStore } from '../../store/cadStore'
@@ -41,13 +44,17 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
  */
 export function PlumbingLayer() {
   const preview = usePlacementTool()
+  const line = useLineTool()
   const selection = useSelectionTool()
   useEscapeToSelectionTool()
 
   return (
     <group name="plumbing-root">
+      <InstallationLines />
       <InstallationElements {...selection} />
       <DrawPreview elementType={preview.elementType} positionRef={preview.positionRef} />
+      <DrawingPortMarkers {...line} />
+      <LineDraftPreview {...line} />
       <SelectionMarquee />
     </group>
   )

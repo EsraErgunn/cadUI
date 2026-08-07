@@ -1,10 +1,17 @@
 import { temporal } from 'zundo'
 import { createStore } from 'zustand/vanilla'
 
-import type { InstallationElement } from '../core/installationModel'
+import type {
+  InstallationConnection,
+  InstallationElement,
+  InstallationLine,
+} from '../core/installationModel'
 
-type PlumbingHistoryState = {
+/** Geçmişe giren tesisat verisinin TAMAMI; yeni bir dizi eklenirse buraya da eklenir. */
+export type PlumbingSnapshot = {
   installationElements: InstallationElement[]
+  installationLines: InstallationLine[]
+  installationConnections: InstallationConnection[]
 }
 
 /** Bir oturumda tutulan en fazla geri alma adımı. */
@@ -19,36 +26,43 @@ const HISTORY_LIMIT = 100
  * Bu dosya cadStore'u İÇE AKTARMAZ: cadStore → plumbingSlice → plumbingHistory
  * zincirinde çalışma zamanı döngüsü oluşurdu (K17).
  */
-const historyStore = createStore<PlumbingHistoryState>()(
-  temporal((): PlumbingHistoryState => ({ installationElements: [] }), { limit: HISTORY_LIMIT }),
+const historyStore = createStore<PlumbingSnapshot>()(
+  temporal(
+    (): PlumbingSnapshot => ({
+      installationElements: [],
+      installationLines: [],
+      installationConnections: [],
+    }),
+    { limit: HISTORY_LIMIT },
+  ),
 )
 
 const temporalStore = historyStore.temporal
 
-export function recordPlumbingHistory(elements: InstallationElement[]): void {
-  historyStore.setState({ installationElements: elements })
+export function recordPlumbingHistory(snapshot: PlumbingSnapshot): void {
+  historyStore.setState(snapshot)
 }
 
-/** Geri alınacak adım yoksa null; dönen diziyi cadStore'a yazmak çağıranın işi. */
-export function undoPlumbingHistory(): InstallationElement[] | null {
+/** Geri alınacak adım yoksa null; dönen aynayı cadStore'a yazmak çağıranın işi. */
+export function undoPlumbingHistory(): PlumbingSnapshot | null {
   const { pastStates, undo } = temporalStore.getState()
   if (pastStates.length === 0) return null
 
   undo()
-  return historyStore.getState().installationElements
+  return historyStore.getState()
 }
 
-export function redoPlumbingHistory(): InstallationElement[] | null {
+export function redoPlumbingHistory(): PlumbingSnapshot | null {
   const { futureStates, redo } = temporalStore.getState()
   if (futureStates.length === 0) return null
 
   redo()
-  return historyStore.getState().installationElements
+  return historyStore.getState()
 }
 
 /** Proje yüklendiğinde geçmiş sıfırlanır: önceki projenin adımları geri alınamaz. */
-export function resetPlumbingHistory(elements: InstallationElement[]): void {
+export function resetPlumbingHistory(snapshot: PlumbingSnapshot): void {
   // Önce yaz sonra temizle: ters sırada bu setState geçmişe bir adım bırakırdı.
-  historyStore.setState({ installationElements: elements })
+  historyStore.setState(snapshot)
   temporalStore.getState().clear()
 }

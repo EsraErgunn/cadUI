@@ -8,7 +8,11 @@ import { useCadStore } from '../../store/cadStore'
 import { PropertyPanel } from '../PropertyPanel'
 
 function addSymbol(type: 'panel' | 'vent', x: number, y: number) {
-  return useCadStore.getState().addPointSymbol({ type, position: { x, y } })!
+  return useCadStore.getState().addPointSymbol({
+    type,
+    // Serbest yerleştirme: bu dosyada duvar yok, açı alanı düzenlenebilir olmalı.
+    attachment: { attachment: 'free', floorId: DEFAULT_FLOOR_ID, x, y, rotationDeg: 0 },
+  })!
 }
 
 beforeEach(() => {
@@ -87,7 +91,8 @@ describe('PropertyPanel — nokta sembolü', () => {
     await userEvent.type(input, '47')
     await userEvent.tab()
 
-    expect(useCadStore.getState().symbols[0].rotationDeg).toBe(45)
+    const symbol = useCadStore.getState().symbols[0]
+    expect(symbol.attachment === 'free' && symbol.rotationDeg).toBe(45)
   })
 
   it('not yazılır', async () => {

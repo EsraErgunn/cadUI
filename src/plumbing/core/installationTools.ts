@@ -1,3 +1,4 @@
+import type { InstallationLineKind } from './installationModel'
 import type { InstallationElementType } from './symbolMetadata'
 
 export type InstallationToolBehavior =
@@ -14,6 +15,8 @@ export type InstallationToolDefinition = {
   behavior: InstallationToolBehavior
   /** placement araçları için hangi sembolün yerleştirileceği. */
   elementType?: InstallationElementType
+  /** polyline araçları için çizilen hattın türü. */
+  lineKind?: InstallationLineKind
   // TODO(tesisat): issue "Araç Tanımları" metinleri erişilebilir olunca branch,
   // insulation, strainerMeter ve solenoidValve için description doldurulacak.
   description?: string
@@ -28,9 +31,9 @@ export type InstallationToolDefinition = {
 export const INSTALLATION_TOOLS = [
   { id: 'selection', label: 'Seçim Aracı', behavior: 'selection' },
   { id: 'regulator', label: 'Regülatör Ekle', behavior: 'placement', elementType: 'regulator' },
-  { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline' },
+  { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline', lineKind: 'pipe' },
   { id: 'chimney', label: 'Baca Ekle', behavior: 'placement', elementType: 'chimney' },
-  { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline' },
+  { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline', lineKind: 'branch' },
   { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'segment-toggle' },
   { id: 'gasMeter', label: 'Sayaç Ekle', behavior: 'placement', elementType: 'gasMeter' },
   { id: 'manometer', label: 'Manometre Ekle', behavior: 'placement', elementType: 'manometer' },
@@ -74,4 +77,11 @@ export function getPlacementElementType(toolId: string): InstallationElementType
   const tool = toolDefinitions.find((candidate) => candidate.id === toolId)
   if (!tool || tool.behavior !== 'placement') return null
   return tool.elementType ?? null
+}
+
+/** Araç hat çiziyorsa hangi türü, değilse null. */
+export function getLineKind(toolId: string): InstallationLineKind | null {
+  const tool = toolDefinitions.find((candidate) => candidate.id === toolId)
+  if (!tool || tool.behavior !== 'polyline') return null
+  return tool.lineKind ?? null
 }

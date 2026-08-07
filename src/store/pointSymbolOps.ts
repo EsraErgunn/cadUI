@@ -2,19 +2,16 @@ import type { DraftSetter } from './architecturePropertyOps'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
-import type { PlanPoint } from '../core/coords'
-import type { Id, PointSymbolType } from '../core/model'
+import type { Id, PointSymbolType, SymbolAttachment } from '../core/model'
 import { getNextSymbolLabel, isSymbolLabelTaken, isSymbolLabelValid } from '../core/pointSymbol'
+import { getSymbolFloorId } from '../core/symbolPlacement'
 import { snapAngleDeg } from '../core/transform'
 
 export type AddPointSymbolInput = {
   type: PointSymbolType
-  position: PlanPoint
-  /** Verilmezse 0. Yerleştirme aracı açıyı sonradan panelden değiştirtir. */
-  rotationDeg?: number
+  /** Duvara mı bağlı serbest mi — kararı araç verir (resolveSymbolAttachment). */
+  attachment: SymbolAttachment
 }
-
-const DEFAULT_SYMBOL_ROTATION_DEG = 0
 
 /**
  * Sembol ekler ve id'sini döndürür. Etiket burada ÜRETİLİR (kat + tip başına
@@ -27,13 +24,10 @@ export function addPointSymbolToDraft(draft: CadState, input: AddPointSymbolInpu
   const id = takeNextId(draft)
   draft.symbols.push({
     id,
-    floorId: draft.activeFloorId,
     type: input.type,
-    x: input.position.x,
-    y: input.position.y,
-    rotationDeg: input.rotationDeg ?? DEFAULT_SYMBOL_ROTATION_DEG,
-    label: getNextSymbolLabel(draft.symbols, input.type, draft.activeFloorId),
+    label: getNextSymbolLabel(draft.symbols, input.type, draft.activeFloorId, draft.walls),
     note: '',
+    ...input.attachment,
   })
   return id
 }
@@ -46,12 +40,31 @@ export function addPointSymbolToDraft(draft: CadState, input: AddPointSymbolInpu
 export type PointSymbolActions = {
   /** Nokta sembolü yerleştirir; etiket otomatik üretilir (Desen A). */
   addPointSymbol: (input: AddPointSymbolInput) => Id | undefined
-  movePointSymbol: (symbolId: Id, position: PlanPoint) => boolean
+  movePointSymbol: (symbolId: Id, attachment: SymbolAttachment) => boolean
   /** Açı KK-3'ün 15° adımına yakalanır. */
   rotatePointSymbol: (symbolId: Id, angleDeg: number) => boolean
   /** Çakışan etiket REDDEDİLİR (KK-10). */
   setPointSymbolLabel: (symbolId: Id, label: string) => boolean
   setPointSymbolNote: (symbolId: Id, note: string) => boolean
+}
+
+/**
+ * Duvarı silinen sembolü düşürür — açıklıktaki K16 temizliğinin sembol karşılığı.
+ * Duvarsız bağlı sembol temsil edilemez: konumu duvarından türüyor, duvar gidince
+ * çizilemez hâle gelir ama kaydedilen JSON'da kalmaya devam ederdi.
+ *
+ * Çağıranın set()'i İÇİNDE çalışır: silme + temizlik TEK geri alma adımı.
+ * Serbest semboller etkilenmez, onların duvarı yok.
+ */
+export function pruneSymbolsInDraft(draft: CadState): boolean {
+  const wallIds = new Set(draft.walls.map((wall) => wall.id))
+  const kept = draft.symbols.filter(
+    (symbol) => symbol.attachment === 'free' || wallIds.has(symbol.wallId),
+  )
+  if (kept.length === draft.symbols.length) return false
+
+  draft.symbols = kept
+  return true
 }
 
 export function createPointSymbolActions(set: DraftSetter): PointSymbolActions {
@@ -65,26 +78,40 @@ export function createPointSymbolActions(set: DraftSetter): PointSymbolActions {
       return createdId
     },
 
-    movePointSymbol: (symbolId: Id, position: PlanPoint): boolean => {
+    /**
+     * Sembolü yeni bağlanmaya taşır. Konum değil BAĞLANMA veriliyor: sembol
+     * sürüklenirken duvara girip çıkabiliyor, "konum yaz" imzası duvardan
+     * kopmayı ifade edemezdi (moveOpening'in wallId taşımasıyla aynı gerekçe).
+     */
+    movePointSymbol: (symbolId: Id, attachment: SymbolAttachment): boolean => {
       let isMoved = false
       set((draft) => {
-        const symbol = draft.symbols.find((candidate) => candidate.id === symbolId)
-        if (!symbol || (symbol.x === position.x && symbol.y === position.y)) return
+        const index = draft.symbols.findIndex((candidate) => candidate.id === symbolId)
+        if (index < 0) return
 
-        symbol.x = position.x
-        symbol.y = position.y
+        const symbol = draft.symbols[index]
+        draft.symbols[index] = {
+          id: symbol.id,
+          type: symbol.type,
+          label: symbol.label,
+          note: symbol.note,
+          ...attachment,
+        }
         isMoved = true
         markDirty(draft)
       })
       return isMoved
     },
 
-    /** Açı KK-3'ün 15° adımına yakalanır; serbest açı çağıranın işi değil, henüz yok. */
+    /**
+     * Açı KK-3'ün 15° adımına yakalanır. YALNIZ serbest sembolde: duvara bağlı
+     * sembolün açısı duvarından türüyor, ikinci bir kaynak tutulmuyor.
+     */
     rotatePointSymbol: (symbolId: Id, angleDeg: number): boolean => {
       let isRotated = false
       set((draft) => {
         const symbol = draft.symbols.find((candidate) => candidate.id === symbolId)
-        if (!symbol) return
+        if (!symbol || symbol.attachment !== 'free') return
 
         const next = snapAngleDeg(angleDeg)
         if (symbol.rotationDeg === next) return
@@ -108,7 +135,9 @@ export function createPointSymbolActions(set: DraftSetter): PointSymbolActions {
 
         const trimmed = label.trim()
         if (!isSymbolLabelValid(trimmed)) return
-        if (isSymbolLabelTaken(draft.symbols, trimmed, symbol.floorId, symbol.id)) return
+        const floorId = getSymbolFloorId(symbol, draft.walls)
+        if (floorId === undefined) return
+        if (isSymbolLabelTaken(draft.symbols, trimmed, floorId, draft.walls, symbol.id)) return
         if (symbol.label === trimmed) return
 
         symbol.label = trimmed

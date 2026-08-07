@@ -1,5 +1,6 @@
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
+import { pruneSymbolsInDraft } from './pointSymbolOps'
 import { takeNextId } from './projectMeta'
 import {
   getFloorIdAfterRemoval,
@@ -73,11 +74,40 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
   )
 
   draft.openings = draft.openings.filter((opening) => !removedWallIds.has(opening.wallId))
+  // Oda floorId TAŞIMAZ; kimliği duvar id kümesidir (K31). Katı silinen odanın
+  // duvarları gidiyor, kayıt kalırsa sahipsiz wallId'li hayalet oda oluşur ve
+  // kaydedilen JSON'a yazılmaya devam eder.
+  draft.rooms = draft.rooms.filter(
+    (room) => !room.wallIds.some((wallId) => removedWallIds.has(wallId)),
+  )
   draft.walls = draft.walls.filter((wall) => wall.floorId !== floorId)
   draft.points = draft.points.filter((point) => point.floorId !== floorId)
+  // Serbest sembol katını kendi taşır; duvara bağlı olan duvarıyla düşer
+  // (pruneSymbolsInDraft, duvarlar yukarıda silindikten SONRA çalışır).
+  draft.symbols = draft.symbols.filter(
+    (symbol) => symbol.attachment !== 'free' || symbol.floorId !== floorId,
+  )
+  pruneSymbolsInDraft(draft)
+  // Bağlantı kaydı silinen hattı ve elemanı referansla tuttuğu için ONLARDAN
+  // ÖNCE toplanır; ters sırada hangi kayıtların sahipsiz kaldığı anlaşılamazdı
+  // (açıklık–duvar sırasıyla aynı gerekçe).
+  const removedElementIds = new Set(
+    draft.installationElements
+      .filter((element) => element.floorId === floorId)
+      .map((element) => element.id),
+  )
+  const removedLineIds = new Set(
+    draft.installationLines.filter((line) => line.floorId === floorId).map((line) => line.id),
+  )
+  draft.installationConnections = draft.installationConnections.filter(
+    (connection) =>
+      !removedLineIds.has(connection.lineId) &&
+      (connection.target.kind !== 'port' || !removedElementIds.has(connection.target.elementId)),
+  )
   draft.installationElements = draft.installationElements.filter(
     (element) => element.floorId !== floorId,
   )
+  draft.installationLines = draft.installationLines.filter((line) => line.floorId !== floorId)
   draft.floors.splice(index, 1)
 
   if (draft.activeFloorId === floorId) draft.activeFloorId = nextActiveFloorId
