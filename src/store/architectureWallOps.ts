@@ -9,6 +9,7 @@ import {
   getSegmentLength,
   MIN_WALL_LENGTH_CM,
 } from '../core/wall'
+import { findBlockingOpening } from '../core/wallGraph'
 
 /**
  * Duvar ucu ya var olan bir köşedir (snap sonucu `pointId` döndüyse) ya da yeni
@@ -105,6 +106,15 @@ export function appendWall(
   // Point üretir, yineleme oluşmaz.
   const existing = findWallBetweenEnds(draft, start, end, floorId)
   if (existing) return existing
+
+  // Kapı/pencereden farklı bir açıyla geçen duvar YAZILMAZ — bu, K13/K24'ün
+  // "geçersiz yerleştirme reddedilir" kuralının duvar tarafı: bir açıklığın
+  // İÇİNDEN duvar geçmesi fiziksel olarak anlamsız. Aynı doğrultuda devam eden
+  // duvar (açıklığı taşıyan duvarın kolineer uzantısı) engellenmez — kapı zaten
+  // o duvarın üstünde bir delik, ona binmiyor, onu sürdürüyor.
+  if (findBlockingOpening({ p1: startPosition, p2: endPosition }, draft.walls, draft.points, draft.openings, floorId)) {
+    return undefined
+  }
 
   const p1Id = takeEndPointId(draft, start, floorId)
   const p2Id = takeEndPointId(draft, end, floorId)

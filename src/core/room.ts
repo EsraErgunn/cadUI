@@ -1,7 +1,8 @@
 import type { PlanPoint } from './coords'
-import type { Id, Point, Wall } from './model'
+import type { Id, Opening, Point, Wall } from './model'
 import { isPointInsidePolygon } from './roomLabel'
 import { MIN_WALL_LENGTH_CM } from './wall'
+import { findBlockingOpening } from './wallGraph'
 
 /** Bundan küçük yüzler çizim artığıdır (kesişimden kalan ince üçgen), oda sayılmaz. */
 const MIN_ROOM_AREA_CM2 = 100
@@ -216,6 +217,29 @@ export function getRoomRectangleCorners(
     { x: maxX, y: maxY },
     { x: minX, y: maxY },
   ]
+}
+
+/**
+ * Kapalı köşe zincirinin (dikdörtgen oda aracı) HERHANGİ bir kenarı bir
+ * açıklığın içinden geçiyorsa o açıklığı döner — dört kenardan biri bile
+ * bloke olsa TÜM zincir reddedilmeli, TEK kenarı yazıp diğerlerini atlamak
+ * yarım bir oda bırakırdı. Kenar bazlı ret `appendWall`'da zaten var ama o
+ * yalnız KENDİ segmentine karar veriyor, zincirin tamamına değil.
+ */
+export function findBlockingOpeningInLoop(
+  corners: readonly PlanPoint[],
+  walls: readonly Wall[],
+  points: readonly Point[],
+  openings: readonly Opening[],
+  floorId: Id,
+): Opening | undefined {
+  for (let index = 0; index < corners.length; index += 1) {
+    const from = corners[index]
+    const to = corners[(index + 1) % corners.length]
+    const blocking = findBlockingOpening({ p1: from, p2: to }, walls, points, openings, floorId)
+    if (blocking) return blocking
+  }
+  return undefined
 }
 
 /**

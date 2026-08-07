@@ -6,7 +6,7 @@ import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
-import { getRoomRectangleCorners } from '../core/room'
+import { findBlockingOpeningInLoop, getRoomRectangleCorners } from '../core/room'
 import {
   findCornerPointIdAt,
   getSnapToleranceCm,
@@ -107,6 +107,19 @@ export function useRoomTool(): RoomToolState {
       const cad = useCadStore.getState()
       const context = { points: cad.points, walls: cad.walls, floorId: cad.activeFloorId }
       const toleranceCm = getSnapToleranceCm(zoom)
+
+      // Dört kenarın HERHANGİ biri bir açıklığın içinden geçiyorsa TÜM
+      // dikdörtgen reddedilir — TEK duvar yazılıp diğer üçü atlansaydı yarım
+      // bir oda ortaya çıkardı. `appendWall`'daki kontrol yalnız KENDİ
+      // segmentini reddediyor, zincirin tamamına karar vermiyor.
+      const isBlocked = findBlockingOpeningInLoop(
+        corners,
+        cad.walls,
+        cad.points,
+        cad.openings,
+        cad.activeFloorId,
+      )
+      if (isBlocked) return
 
       /*
        * Köşe var olan bir köşeye denk geliyorsa ONUN pointId'siyle bağlanır.

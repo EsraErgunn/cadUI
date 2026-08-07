@@ -62,6 +62,39 @@ bir duvarınkinden küçük de büyük de çıkabilir. Kaybedenin açıklığı 
 taşınır, kaybedeni sınırında sayan oda kaydı kazanana güncellenir (K31).
 Detay: `docs/kararlar.md` K34.
 
+## Açıklığın içinden geçen VEYA üstünde başlayan/biten duvar hiç yerleştirilemez (K35)
+
+Yukarıdaki K24 "bölme reddedilir" diyor, duvar yine de yazılıyordu. Daha katı
+bir kural var — ve yalnız ÇİZİM için: `findBlockingOpening` (`core/wallGraph.ts`)
+adayın açıklığı GERÇEKTEN kesip kesmediğine bakar. Kolineer devam sorun değil
+(kapı zaten o duvarın üstünde bir delik). **T birleşimi (duvarın UCU açıklığın
+ortasına değmesi) DE reddedilir** — ilk yazımda "K24'ün senaryosu, sorun
+değil" diye muaf tutulmuştu, kullanıcı geri bildirimiyle bunun yanlış
+olduğu anlaşıldı: bir kapı/pencere boşluğunda duvar ne geçebilir ne başlayıp
+bitebilir. `getInteriorCrossing`'in uç değerleri (0/1) zaten kesişim sayıyor,
+ekstra bir ayrım gerekmiyor.
+
+Bu yalnız YENİ duvar yerleştirmeyi (`appendWall`) kapsar; var olan duvarı
+TAŞIYARAK aynı noktaya getirmek (`movePoint`/`moveWall`) `appendWall`'dan
+geçmiyor. Detay: `docs/kararlar.md` K35.
+
+## TAŞIMA da reddedilir; imlece yapışık kalma (K36)
+
+K35'in "yalnız yeni yerleştirme" sınırı kaldırıldı: köşe/duvar TAŞIRKEN de
+(`usePointDragTool.ts`, `useWallSelectionTool.ts`) hedef bir açıklığı
+kesiyorsa/üstünde bitiyorsa bırakma reddedilir. UX modeli "bas-sürükle-bırak"
+değil "tut, geçersiz bırakma denemesi başarısızsa imlece yapışık kal, geçerli
+yere TEKRAR TIKLAYINCA bırak" — `drag`/`grab` reddedilince SIFIRLANMAZ,
+`onPointerMove` buton durumundan bağımsız çalıştığı için köşe/duvar imleci
+takip etmeye devam eder; aktif bir sürükleme varken `onPointerDown` yeni bir
+tutma BAŞLATMAZ, karar hep `onPointerUp`'ta verilir. Esc her zaman temizler.
+
+Saf etki hesabı `core/wall.ts`'e çıkarıldı (`getPointMoveImpact`,
+`getWallMoveImpact`) — hook'lar R3F gerektirdiği için doğrudan test edilemez,
+saf kısmı test edilebilir kalsın diye. Bilinen sınır: duvar taşımada esneyen
+komşular (paylaşılan köşeyi taşıyan ama seçili olmayan duvarlar) kontrol
+edilmiyor, yalnız doğrudan taşınan nesne. Detay: `docs/kararlar.md` K36.
+
 ## Bilinen sınırlar
 
 - **Uca MIN_WALL_LENGTH_CM'den yakın değme bölme üretmez** — güdük duvar

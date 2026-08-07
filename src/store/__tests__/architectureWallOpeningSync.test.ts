@@ -137,3 +137,94 @@ describe('B→A sözleşmesi gerçek duvarda', () => {
     ])
   })
 })
+
+describe('açıklığın içinden geçen duvar reddedilir', () => {
+  it('pencerenin TAM ORTASINDAN dik geçen duvar YAZILMAZ', () => {
+    const { wallId } = addFreeWall()
+    addCentredWindow(wallId)
+    const nextIdBefore = useCadStore.getState().nextUniqueId
+
+    // Pencere [190,310] aralığında; (250,0) tam ortası.
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 250, y: -100 } },
+      end: { position: { x: 250, y: 100 } },
+    })
+
+    expect(added).toBeUndefined()
+    // Reddedilen yerleştirme id HARCAMAZ (K13 deseni) — sahipsiz Point kalmaz.
+    expect(useCadStore.getState().nextUniqueId).toBe(nextIdBefore)
+    expect(useCadStore.getState().walls).toHaveLength(1)
+  })
+
+  it('pencerenin DIŞINDAN geçen duvar normal yazılır', () => {
+    const { wallId } = addFreeWall()
+    addCentredWindow(wallId)
+
+    // Pencere [190,310] aralığında; (50,0) dışında. Ana duvarı GERÇEKTEN kesiyor
+    // (T birleşimi değil), K24 gereği kesişimde ikisi de bölünür — reddedilme
+    // DEĞİL, split. Burada asıl kontrol: hiç REDDEDİLMEDİ.
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 50, y: -100 } },
+      end: { position: { x: 50, y: 100 } },
+    })
+
+    expect(added).toBeDefined()
+  })
+
+  it('AYNI DOĞRULTUDA (kolineer) devam eden duvar engellenmez', () => {
+    const { wallId, p2Id } = addFreeWall()
+    addCentredWindow(wallId)
+
+    // Duvarın devamı: (500,0)'dan (700,0)'a, aynı eksende.
+    const added = useCadStore.getState().addWall({
+      start: { pointId: p2Id },
+      end: { position: { x: 700, y: 0 } },
+    })
+
+    expect(added).toBeDefined()
+    expect(useCadStore.getState().walls).toHaveLength(2)
+  })
+
+  it('kapıyı da aynı şekilde engeller', () => {
+    const { wallId } = addFreeWall()
+    useCadStore.getState().addOpening({ wallId, offsetCm: 250, widthCm: 120, type: 'door' })
+
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 250, y: -100 } },
+      end: { position: { x: 250, y: 100 } },
+    })
+
+    expect(added).toBeUndefined()
+    expect(useCadStore.getState().walls).toHaveLength(1)
+  })
+
+  it('BİTİŞ noktası pencerenin üstünde SONLANDIRILAMAZ (T birleşimi)', () => {
+    // Kullanıcı duvar çizerken son noktayı pencerenin üstüne bırakırsa: duvar
+    // orada BİTİYOR, pencereyi kesmiyor — ama boşluğun içinde bir duvar ucu
+    // duramaz. Görselde bildirilen tuzak tam bu.
+    const { wallId } = addFreeWall()
+    addCentredWindow(wallId)
+
+    // Pencere [190,310] aralığında; (250,0) tam ortası, duvar ORADA bitiyor.
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 250, y: -100 } },
+      end: { position: { x: 250, y: 0 } },
+    })
+
+    expect(added).toBeUndefined()
+    expect(useCadStore.getState().walls).toHaveLength(1)
+  })
+
+  it('BAŞLANGIÇ noktası pencerenin üstünden BAŞLATILAMAZ', () => {
+    const { wallId } = addFreeWall()
+    addCentredWindow(wallId)
+
+    const added = useCadStore.getState().addWall({
+      start: { position: { x: 250, y: 0 } },
+      end: { position: { x: 250, y: 100 } },
+    })
+
+    expect(added).toBeUndefined()
+    expect(useCadStore.getState().walls).toHaveLength(1)
+  })
+})

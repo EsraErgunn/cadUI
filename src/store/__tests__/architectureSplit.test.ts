@@ -133,7 +133,10 @@ describe('kesişimde düğüm — açıklıklar', () => {
     expect(door.offsetCm).toBeCloseTo(100)
   })
 
-  it('açıklığın İÇİNE düşen bölme REDDEDİLİR — açıklık kaybolmaz', () => {
+  it('açıklığın İÇİNE düşen bölme REDDEDİLİR — açıklık kaybolmaz (TAŞIMADA)', () => {
+    // Yeni ÇİZİLEN bir duvar artık appendWall seviyesinde reddediliyor (K35);
+    // bu senaryo yalnız TAŞIMADA (moveWall) hâlâ mümkün — dikey duvar UZAK bir
+    // yerde çizilip SONRA kapının üstüne taşınıyor, appendWall hiç araya girmiyor.
     const horizontal = addWall(0, 0, 400, 0)!
     // Kapı 200 ± 50 → 150..250 aralığını kaplıyor; bölme tam ortasına gelecek.
     const doorId = useCadStore.getState().addOpening({
@@ -142,8 +145,10 @@ describe('kesişimde düğüm — açıklıklar', () => {
       widthCm: 100,
       type: 'door',
     })!
+    const vertical = addWall(200, 300, 200, 700)!
 
-    addWall(200, 0, 200, 300)
+    // Alt ucu (200,300) → (200,0): tam kapının ortasına T birleşimi oluşturur.
+    useCadStore.getState().moveWall(vertical.wallId, 0, -300)
 
     // Yatay duvar BÖLÜNMEDİ: 1 yatay + 1 dikey.
     expect(wallsOnFloor()).toHaveLength(2)

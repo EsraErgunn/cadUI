@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Point, Wall } from '../model'
-import { findWallSplits } from '../wallGraph'
+import type { Opening, Point, Wall } from '../model'
+import { findBlockingOpening, findWallSplits } from '../wallGraph'
 
 const FLOOR_ID = 1
 
@@ -196,3 +196,70 @@ describe('findWallSplits — çok bölmeli duvar', () => {
     expect(findWallSplits(walls, points, FLOOR_ID).get(10)).toHaveLength(1)
   })
 })
+
+describe('findBlockingOpening', () => {
+  function makeOpening(id: number, wallId: number, offsetCm: number, widthCm: number): Opening {
+    return { id, wallId, offsetCm, widthCm, type: 'door' }
+  }
+
+  // Yatay duvar (0,0)-(400,0); kapı 150-250 aralığını kaplıyor (offset 200, genişlik 100).
+  const points = [makePoint(1, 0, 0), makePoint(2, 400, 0)]
+  const wall = makeWall(10, 1, 2)
+  const door = makeOpening(20, 10, 200, 100)
+
+  it('kapının TAM ORTASINDAN dik geçen duvarı REDDEDER', () => {
+    const candidate = { p1: { x: 200, y: -100 }, p2: { x: 200, y: 100 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [door], FLOOR_ID)).toBe(door)
+  })
+
+  it('kapının KENARINDAN (150-250 dışında) geçen duvarı ENGELLEMEZ', () => {
+    const candidate = { p1: { x: 50, y: -100 }, p2: { x: 50, y: 100 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [door], FLOOR_ID)).toBeUndefined()
+  })
+
+  it('AYNI DOĞRULTUDA (kolineer) devam eden duvarı ENGELLEMEZ', () => {
+    // Kapılı duvarın devamı: (400,0)'dan (600,0)'a, aynı eksende.
+    const candidate = { p1: { x: 400, y: 0 }, p2: { x: 600, y: 0 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [door], FLOOR_ID)).toBeUndefined()
+  })
+
+  it('açıklığı olmayan duvarı hiç kontrol etmez', () => {
+    const candidate = { p1: { x: 200, y: -100 }, p2: { x: 200, y: 100 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [], FLOOR_ID)).toBeUndefined()
+  })
+
+  it('başka kattaki açıklığı görmezden gelir', () => {
+    const candidate = { p1: { x: 200, y: -100 }, p2: { x: 200, y: 100 } }
+    const otherFloorWall = makeWall(10, 1, 2, 2)
+
+    expect(
+      findBlockingOpening(candidate, [otherFloorWall], points, [door], FLOOR_ID),
+    ).toBeUndefined()
+  })
+
+  it('pencereyi de aynı şekilde engeller', () => {
+    const window: Opening = { id: 21, wallId: 10, offsetCm: 200, widthCm: 100, type: 'window' }
+    const candidate = { p1: { x: 200, y: -100 }, p2: { x: 200, y: 100 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [window], FLOOR_ID)).toBe(window)
+  })
+
+  it('adayın BİTİŞ ucu kapının üstünde biterse de REDDEDER (T birleşimi)', () => {
+    // (200,-100)'den başlayıp TAM kapının ortasında (200,0) sona eren duvar:
+    // kesişmiyor, orada BİTİYOR — ama kapı boşluğunun içinde duvar duramaz.
+    const candidate = { p1: { x: 200, y: -100 }, p2: { x: 200, y: 0 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [door], FLOOR_ID)).toBe(door)
+  })
+
+  it('adayın BAŞLANGIÇ ucu kapının üstünde başlarsa da REDDEDER', () => {
+    const candidate = { p1: { x: 200, y: 0 }, p2: { x: 200, y: 100 } }
+
+    expect(findBlockingOpening(candidate, [wall], points, [door], FLOOR_ID)).toBe(door)
+  })
+})
+

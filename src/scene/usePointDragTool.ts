@@ -9,6 +9,8 @@ import { pickGridLevel } from '../core/grid'
 import type { Id } from '../core/model'
 import { getSnapToleranceCm, resolveSnap } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
+import { getPointMoveImpact } from '../core/wall'
+import { findBlockingOpeningInSegments } from '../core/wallGraph'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -66,6 +68,13 @@ export function usePointDragTool(): void {
       onPointerDown: (event) => {
         if (event.button !== PRIMARY_BUTTON) return
 
+        // Bir önceki bırakma açıklık yüzünden REDDEDİLMİŞSE `drag` hâlâ aktif
+        // (K36) — bu tıklama YENİ bir köşe tutma değil, o sürüklemenin BIRAKMA
+        // denemesidir. Karar hep `onPointerUp`'ta verilir; burada yalnız yeni
+        // bir grab başlatılmasını engellemek yeterli, `onPointerMove` zaten
+        // buton durumundan bağımsız çalışıp imleci takip ettiriyor.
+        if (drag) return
+
         // Tutulan köşeyi bulmak snap'in kendisidir: yalnız 'point' sayılır,
         // duvar gövdesine basmak köşe tutmaz.
         const grab = snapAt(event.planPoint, event)
@@ -93,8 +102,37 @@ export function usePointDragTool(): void {
 
         const { pointId, mergeTargetId } = drag
         const position = useArchitectureUiStore.getState().draggingPoint?.position
+        if (!position) {
+          endDrag()
+          return
+        }
+
+        // Köşeye bağlı duvarlar bu köşeyle birlikte hareket eder; her biri
+        // YENİ konuma göre kontrol edilir. Taşınan duvarların KENDİSİ listeden
+        // çıkarılır — kendi eski hâllerine göre kontrol etmek anlamsız olurdu,
+        // onlar zaten hareket eden taraf (K36).
+        const cad = useCadStore.getState()
+        const { segments, stationaryWalls } = getPointMoveImpact(
+          pointId,
+          position,
+          cad.walls,
+          cad.points,
+        )
+
+        // Hedef bir açıklığın içinden geçiyor veya üstünde bitiyorsa bırakma
+        // REDDEDİLİR — `drag` state KORUNUR, `endDrag()` çağrılmaz. Köşe
+        // imlece yapışık kalır, kullanıcı geçerli bir yere gelip TEKRAR
+        // tıklayana kadar sürükleme sürer (K36).
+        const blocking = findBlockingOpeningInSegments(
+          segments,
+          stationaryWalls,
+          cad.points,
+          cad.openings,
+          cad.activeFloorId,
+        )
+        if (blocking) return
+
         endDrag()
-        if (!position) return
 
         // Var olan bir köşenin üstüne bırakmak KAYNATIR. Yalnız koordinat
         // eşitlenseydi iki nokta üst üste gelir ama bağlanmazdı.

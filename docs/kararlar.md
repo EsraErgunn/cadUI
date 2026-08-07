@@ -882,6 +882,97 @@ atlamamalı.
 Nerede: `store/architectureSplit.ts`. Testler `store/__tests__/architectureSplit.test.ts`
 ("kolineer örtüşme") ve `store/__tests__/roomRectangleTool.test.ts` ("FARKLI BOYDA").
 
+### K35 — Açıklığın içinden geçen VEYA onun üstünde başlayan/biten duvar YERLEŞTİRİLEMEZ
+
+K24 yalnız "bölme noktası açıklığın içine düşerse bölme reddedilir" diyordu —
+duvarın KENDİSİ yine de yazılıyordu, sadece o noktada düğüm açılmıyordu. Ürün
+kararı bundan daha katı: bir kapı/pencere boşluğunun ortasında bir duvar ne
+başlayabilir ne bitebilir ne de içinden geçebilir — hiçbiri fiziksel olarak
+anlamlı değil. Duvar aracında önizleme lastik bandı olarak kalır, oda
+aracında sürükleme hiçbir şey yazmaz — ikisi de sessizce reddeder, K13'ün
+"geçersiz yerleştirme reddedilir, kaydırılmaz" deseninin aynısı.
+
+**Aynı doğrultuda (kolineer) devam eden duvar sorun DEĞİL.** Açıklığı taşıyan
+duvarın devamı olarak çizilen bir segment ona binmiyor, onu sürdürüyor — kapı
+zaten o duvarın üstünde bir delik (K9). `core/wallGraph.ts` → `findBlockingOpening`
+bunu bedavaya alıyor: iki segment kolineer/paralel olduğunda `getInteriorCrossing`
+zaten `undefined` döner.
+
+**Revizyon: T birleşimi de reddin İÇİNDE.** İlk yazımda "bir duvarın UCU
+açıklığın ortasına değerse (orada bitiyor, geçmiyor) bu K24'ün zaten ele
+aldığı senaryo, reddetmeye gerek yok" diye düşünülmüştü — YANLIŞ çıktı.
+Kullanıcı görsel kanıtla gösterdi: bir duvarın ucunu kapı/pencerenin üstünde
+sonlandırmak da (başlatmak da) aynı derecede geçersiz, "geçme" ile "üstünde
+durma" ürün açısından aynı kural altında. `isAtEnd(crossing.onA, …)` muafiyeti
+kaldırıldı — `getInteriorCrossing` uç değerlerini (0 veya 1) zaten kesişim
+sayıyor, ekstra bir ayrım gerekmiyor.
+
+**Bu yalnız YENİ duvar YERLEŞTİRMEYİ kapsar.** Var olan bir duvarı TAŞIYARAK
+aynı noktaya getirmek (`movePoint`/`moveWall`) `appendWall`'dan geçmiyor, K24'ün
+"bölme reddedilir, duvar silinmez" davranışında kalmaya devam ediyor — kapsam
+dışı, kasıtlı olarak dokunulmadı. K24'ün eski testi bu yüzden TAŞIMA senaryosuna
+çevrildi (`store/__tests__/architectureSplit.test.ts`).
+
+Kontrol iki katmanda: `store/architectureWallOps.ts` → `appendWall` (STORE
+seviyesi son savunma, tek segment reddi — id bile harcanmaz) ve
+`scene/useRoomTool.ts` (ÖN kontrol, dört kenardan HERHANGİ biri blokeliyse
+`addWallChain` hiç çağrılmaz; `appendWall`'ın kendi reddi yalnız kendi
+segmentine karar verir, zincirin tamamına değil — tek kenar reddedilip
+diğerleri yazılsaydı yarım bir oda kalırdı). Ortak çekirdek
+`core/room.ts` → `findBlockingOpeningInLoop`, kapalı köşe zinciri için.
+
+Nerede: `core/wallGraph.ts`, `core/room.ts`, `store/architectureWallOps.ts`,
+`scene/useRoomTool.ts`. Testler `core/__tests__/wallGraph.test.ts`,
+`core/__tests__/roomOpeningBlock.test.ts`, `store/__tests__/architectureWallOpeningSync.test.ts`,
+`store/__tests__/architectureSplit.test.ts`.
+
+### K36 — Açıklığa çarpan TAŞIMA da reddedilir; bırakılamayan nesne imlece yapışık kalır
+
+K35 yalnız YENİ duvar yerleştirmeyi kapsıyordu, TAŞIMA (köşe veya duvar
+sürükleme) kasıtlı olarak dışarıda bırakılmıştı. Kullanıcı geri bildirimiyle
+kapsam genişledi: taşınan bir köşe veya duvar, hedef konumda bir açıklığı
+kesiyorsa YA DA onun üstünde bitiyorsa, bırakma (`onPointerUp`) da
+REDDEDİLMELİ — aynı fiziksel gerekçe (K35), taşıma için de geçerli.
+
+**UX modeli değişti: "bas-sürükle-bırak" yerine "tut, geçersiz yere bırakma
+denemesi başarısızsa imlece yapışık kal, geçerli yere TEKRAR TIKLANINCA
+bırak".** Bırakma reddedilince `drag`/`grab` state'i SIFIRLANMAZ (`endDrag()`
+çağrılmaz) — köşe/duvar imleç konumunu takip etmeye devam eder, çünkü
+`onPointerMove` zaten buton durumundan BAĞIMSIZ çalışıyor (native pointermove
+davranışı). Kullanıcı GEÇERLİ bir yere gelip TEKRAR TIKLADIĞINDA, o tıklamanın
+`onPointerDown`'ı YENİ bir tutma başlatmaz (aktif bir `drag`/`grab` varken
+`onPointerDown` erken döner) — karar hep `onPointerUp`'ta verilir, fiziksel
+tuş kalkışı hep "bu konumu dene" anlamına gelir.
+
+Esc (`onCancel`) her zaman `drag`/`grab`'i temizler — kullanıcı geçersiz bir
+sürüklemede TAKILI KALMAZ, istediği an vazgeçebilir.
+
+**Etki hesabı çekirdeğe çıkarıldı** (`core/wall.ts`), çünkü hook'lar
+(`useThree` kullandıkları için R3F/Three.js gerektirir) doğrudan test
+edilemiyor — saf kısmı test edilebilir kalsın diye:
+
+- `getPointMoveImpact(pointId, targetPosition, walls, points)`: köşeye bağlı
+  HER duvarın (sabit uç → yeni konum) segmentini üretir, taşınan duvarları
+  `stationaryWalls`'tan çıkarır — kendi eski hâline göre kontrol etmek
+  anlamsız olurdu, onlar zaten hareket eden taraf.
+- `getWallMoveImpact(wallIds, dxCm, dyCm, walls, points)`: katı ötelenen
+  duvar(lar)ın yeni segmentini üretir, aynı mantık.
+- `findBlockingOpeningInSegments`: K35'in `findBlockingOpening`'inin çoklu
+  segment hâli — üretilen segmentlerin HERHANGİ biri blokeliyse tüm bırakma
+  reddedilir.
+
+**Bilinen sınır — esneyen komşular kapsam dışı.** Duvar taşıma "katı" olduğu
+için (`useWallSelectionTool.ts`), paylaşılan köşeyi taşıyan ama kullanıcının
+DOĞRUDAN seçmediği komşu duvarlar da şekil değiştirir ("esner"). Bu esneyen
+komşuların açıklık çakışması KONTROL EDİLMİYOR — yalnız kullanıcının doğrudan
+taşıdığı (seçili) duvarlar/köşe kontrol ediliyor. Kullanıcı bundan bahsetmedi,
+kapsam kasıtlı olarak dar tutuldu.
+
+Nerede: `core/wall.ts` (`getPointMoveImpact`, `getWallMoveImpact`),
+`core/wallGraph.ts` (`findBlockingOpeningInSegments`), `scene/usePointDragTool.ts`,
+`scene/useWallSelectionTool.ts`. Testler `core/__tests__/wallMoveImpact.test.ts`.
+Hook seviyesi (React/R3F) test edilmedi — tarayıcıda manuel doğrulanmalı.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
