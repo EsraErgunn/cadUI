@@ -118,7 +118,10 @@ function splitWall(
  */
 export function splitWallsAtIntersections(draft: CadState): boolean {
   const splits = findWallSplits(draft.walls, draft.points, draft.activeFloorId)
-  if (splits.size === 0) return false
+  // Split yoksa da örtüşme temizliği HÂLÂ gerekebilir: duplicate önceki bir
+  // çağrıda doğmuş olabilir ve o T birleşimleri artık paylaşılan düğümde
+  // olduğu için bu turda `findWallSplits` hiçbir yeni split görmez.
+  if (splits.size === 0) return mergeDuplicateWallsInDraft(draft, new Map())
 
   const { rejectedKeys, rejectedOffsets } = collectRejectedSplits(splits, draft.openings)
 
@@ -145,6 +148,11 @@ export function splitWallsAtIntersections(draft: CadState): boolean {
   }
 
   let isChanged = false
+  // Parça id'si → bu TURDA bölündüğü orijinal duvarın id'si. "İlk çizilen
+  // kazanır" kuralı (mergeDuplicateWallsInDraft) buna bakar — parçanın KENDİ
+  // id'si yanıltıcı, çünkü split'te üretilen yeni id, split edilmemiş ama
+  // SONRA çizilmiş bir duvarın id'sinden büyük de küçük de olabilir.
+  const originByWallId = new Map<Id, Id>()
 
   for (const [wallId, wallSplits] of splits) {
     const wall = draft.walls.find((candidate) => candidate.id === wallId)
@@ -164,6 +172,7 @@ export function splitWallsAtIntersections(draft: CadState): boolean {
     const lengthCm = Math.hypot(p2.x - p1.x, p2.y - p1.y)
 
     const pieces = splitWall(draft, wall, accepted, lengthCm, resolvePointId)
+    for (const piece of pieces) originByWallId.set(piece.wallId, wallId)
 
     // Bölünen duvarı sınırında sayan odalar parçaları da kapsamalı: kapsamazsa
     // duvar kümesi yüzünkiyle tutmaz, eşleşme kaçar ve kullanıcının verdiği ad
@@ -190,5 +199,86 @@ export function splitWallsAtIntersections(draft: CadState): boolean {
     isChanged = true
   }
 
+  // Kolineer örtüşme temizliği SPLIT'TEN SONRA: iki duvar aynı doğru üzerinde
+  // kısmen çakışırsa (bitişik iki oda farklı boyda çizilip ortak kenarları
+  // örtüşünce) her ikisi de kendi T birleşiminde AYRI AYRI doğru bölünür, ama
+  // ikisi de örtüşen aralık için birer parça üretir — aynı iki köşe arasında
+  // duran iki AYRI duvar kalır (bkz. knowledge/wall-graph.md "Bilinen sınırlar").
+  if (mergeDuplicateWallsInDraft(draft, originByWallId)) isChanged = true
+
   return isChanged
+}
+
+/**
+ * Aynı iki köşeyi (yön fark etmez) paylaşan duvarlardan biri kalır, "ilk
+ * çizilen kazanır" kuralıyla; kazananın kalınlığı/yüksekliği aynen kalır.
+ *
+ * "İlk çizilen" parçanın KENDİ id'sine değil, `originByWallId` üzerinden bu
+ * turda türediği ORİJİNAL duvarın id'sine bakılarak bulunur — split'te üretilen
+ * yeni id, split edilmemiş ama sonradan çizilmiş bir duvarınkinden küçük de
+ * büyük de çıkabilir, kendi id'si güvenilir bir sıra göstergesi değildir.
+ * Split edilmeyen duvarlar için orijin kendi id'sidir.
+ *
+ * Kaybedenin üstündeki açıklık kazanana TAŞINIR; yön tersse `offsetCm` kazananın
+ * uzunluğundan çıkarılarak çevrilir (K10: offset p1'den ölçülür).
+ *
+ * Kaybedeni sınırında sayan oda kaydı da kazanana GÜNCELLENİR — yoksa taze yüz
+ * taraması eski kaydı eşleştiremez, "yeni oda doğdu" sanılır ve kullanıcının
+ * verdiği ad kaybolur (K31).
+ */
+function mergeDuplicateWallsInDraft(draft: CadState, originByWallId: Map<Id, Id>): boolean {
+  const pairKey = (p1: Id, p2: Id): string => (p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`)
+  const originOf = (wallId: Id): Id => originByWallId.get(wallId) ?? wallId
+
+  const byPair = new Map<string, Wall[]>()
+  for (const wall of draft.walls) {
+    if (wall.floorId !== draft.activeFloorId) continue
+    const key = pairKey(wall.p1Id, wall.p2Id)
+    const group = byPair.get(key) ?? []
+    group.push(wall)
+    byPair.set(key, group)
+  }
+
+  const removedIds = new Set<Id>()
+  // Kaybeden → kazanan; oda kaydındaki wallIds bu haritayla yeniden yazılır.
+  const winnerByLoser = new Map<Id, Id>()
+
+  for (const group of byPair.values()) {
+    if (group.length < 2) continue
+
+    group.sort((left, right) => originOf(left.id) - originOf(right.id))
+    const [winner, ...losers] = group
+    const winnerLengthCm = getWallLengthCm(draft, winner)
+
+    for (const loser of losers) {
+      removedIds.add(loser.id)
+      winnerByLoser.set(loser.id, winner.id)
+
+      // İki uç aynı çift ama yön ters olabilir (loser.p1Id === winner.p2Id).
+      const isReversed = loser.p1Id !== winner.p1Id
+      for (const opening of draft.openings) {
+        if (opening.wallId !== loser.id) continue
+        opening.wallId = winner.id
+        if (isReversed && winnerLengthCm !== undefined) {
+          opening.offsetCm = winnerLengthCm - opening.offsetCm
+        }
+      }
+    }
+  }
+
+  if (removedIds.size === 0) return false
+
+  draft.walls = draft.walls.filter((wall) => !removedIds.has(wall.id))
+  for (const room of draft.rooms) {
+    room.wallIds = room.wallIds.map((wallId) => winnerByLoser.get(wallId) ?? wallId)
+  }
+
+  return true
+}
+
+function getWallLengthCm(draft: CadState, wall: Wall): number | undefined {
+  const p1 = draft.points.find((point) => point.id === wall.p1Id)
+  const p2 = draft.points.find((point) => point.id === wall.p2Id)
+  if (!p1 || !p2) return undefined
+  return Math.hypot(p2.x - p1.x, p2.y - p1.y)
 }

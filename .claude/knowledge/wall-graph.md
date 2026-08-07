@@ -44,10 +44,26 @@ Reddedilmeyen bölmelerde açıklık kendisini İÇEREN parçaya taşınır ve
 Sonucu: kapının üstünden geçen bir duvar orada düğüm AÇMAZ, dolayısıyla o
 noktada oda çevrimi kapanmaz. Kullanıcıya bunu anlatan bir uyarı henüz yok.
 
+## Kolineer örtüşme: split sonrası birleştirme (K34)
+
+`getInteriorCrossing` paralel doğrularda `undefined` döner — üst üste binen
+(kolineer) duvarlar `findWallSplits`'in kesişim/T-birleşimi ikilisiyle
+YAKALANMAZ. Bitişik iki oda farklı boyda çizilip ortak kenarları kısmen
+çakışınca (ya da bir duvar öbürünün tamamen içinde kalınca) her iki duvar da
+kendi T birleşiminde AYRI AYRI doğru bölünüyor, ama ikisi de örtüşen aralık
+için birer parça üretiyordu — aynı iki köşe arasında duran iki AYRI duvar.
+
+Çözüm SPLIT'İN İÇİNDE değil, `splitWallsAtIntersections`'ın SONUNDA:
+`mergeDuplicateWallsInDraft` aynı iki köşeyi paylaşan duvarları bulur, en
+ferah olanı ("ilk çizilen") bırakır. "İlk", parçanın kendi id'sine değil
+`originByWallId` üzerinden bu turda türediği ORİJİNAL duvarın id'sine göre
+belirlenir — split'te üretilen yeni id, sonradan çizilmiş ama hiç bölünmemiş
+bir duvarınkinden küçük de büyük de çıkabilir. Kaybedenin açıklığı kazanana
+taşınır, kaybedeni sınırında sayan oda kaydı kazanana güncellenir (K31).
+Detay: `docs/kararlar.md` K34.
+
 ## Bilinen sınırlar
 
-- **Üst üste binen (kolineer) duvarlar bölünmez.** `getInteriorCrossing`
-  paralel doğrularda undefined döner. Ayrı bir vaka, henüz ele alınmadı.
 - **Uca MIN_WALL_LENGTH_CM'den yakın değme bölme üretmez** — güdük duvar
   oluşmasın diye. O mesafe zaten gözle köşeden ayırt edilemiyor, ama
   topolojik olarak bağlanmamış olur.
