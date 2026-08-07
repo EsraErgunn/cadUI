@@ -882,6 +882,50 @@ atlamamalı.
 Nerede: `store/architectureSplit.ts`. Testler `store/__tests__/architectureSplit.test.ts`
 ("kolineer örtüşme") ve `store/__tests__/roomRectangleTool.test.ts` ("FARKLI BOYDA").
 
+### K35 — Açıklığın içinden geçen VEYA onun üstünde başlayan/biten duvar YERLEŞTİRİLEMEZ
+
+K24 yalnız "bölme noktası açıklığın içine düşerse bölme reddedilir" diyordu —
+duvarın KENDİSİ yine de yazılıyordu, sadece o noktada düğüm açılmıyordu. Ürün
+kararı bundan daha katı: bir kapı/pencere boşluğunun ortasında bir duvar ne
+başlayabilir ne bitebilir ne de içinden geçebilir — hiçbiri fiziksel olarak
+anlamlı değil. Duvar aracında önizleme lastik bandı olarak kalır, oda
+aracında sürükleme hiçbir şey yazmaz — ikisi de sessizce reddeder, K13'ün
+"geçersiz yerleştirme reddedilir, kaydırılmaz" deseninin aynısı.
+
+**Aynı doğrultuda (kolineer) devam eden duvar sorun DEĞİL.** Açıklığı taşıyan
+duvarın devamı olarak çizilen bir segment ona binmiyor, onu sürdürüyor — kapı
+zaten o duvarın üstünde bir delik (K9). `core/wallGraph.ts` → `findBlockingOpening`
+bunu bedavaya alıyor: iki segment kolineer/paralel olduğunda `getInteriorCrossing`
+zaten `undefined` döner.
+
+**Revizyon: T birleşimi de reddin İÇİNDE.** İlk yazımda "bir duvarın UCU
+açıklığın ortasına değerse (orada bitiyor, geçmiyor) bu K24'ün zaten ele
+aldığı senaryo, reddetmeye gerek yok" diye düşünülmüştü — YANLIŞ çıktı.
+Kullanıcı görsel kanıtla gösterdi: bir duvarın ucunu kapı/pencerenin üstünde
+sonlandırmak da (başlatmak da) aynı derecede geçersiz, "geçme" ile "üstünde
+durma" ürün açısından aynı kural altında. `isAtEnd(crossing.onA, …)` muafiyeti
+kaldırıldı — `getInteriorCrossing` uç değerlerini (0 veya 1) zaten kesişim
+sayıyor, ekstra bir ayrım gerekmiyor.
+
+**Bu yalnız YENİ duvar YERLEŞTİRMEYİ kapsar.** Var olan bir duvarı TAŞIYARAK
+aynı noktaya getirmek (`movePoint`/`moveWall`) `appendWall`'dan geçmiyor, K24'ün
+"bölme reddedilir, duvar silinmez" davranışında kalmaya devam ediyor — kapsam
+dışı, kasıtlı olarak dokunulmadı. K24'ün eski testi bu yüzden TAŞIMA senaryosuna
+çevrildi (`store/__tests__/architectureSplit.test.ts`).
+
+Kontrol iki katmanda: `store/architectureWallOps.ts` → `appendWall` (STORE
+seviyesi son savunma, tek segment reddi — id bile harcanmaz) ve
+`scene/useRoomTool.ts` (ÖN kontrol, dört kenardan HERHANGİ biri blokeliyse
+`addWallChain` hiç çağrılmaz; `appendWall`'ın kendi reddi yalnız kendi
+segmentine karar verir, zincirin tamamına değil — tek kenar reddedilip
+diğerleri yazılsaydı yarım bir oda kalırdı). Ortak çekirdek
+`core/room.ts` → `findBlockingOpeningInLoop`, kapalı köşe zinciri için.
+
+Nerede: `core/wallGraph.ts`, `core/room.ts`, `store/architectureWallOps.ts`,
+`scene/useRoomTool.ts`. Testler `core/__tests__/wallGraph.test.ts`,
+`core/__tests__/roomOpeningBlock.test.ts`, `store/__tests__/architectureWallOpeningSync.test.ts`,
+`store/__tests__/architectureSplit.test.ts`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

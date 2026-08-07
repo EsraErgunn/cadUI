@@ -62,6 +62,23 @@ bir duvarınkinden küçük de büyük de çıkabilir. Kaybedenin açıklığı 
 taşınır, kaybedeni sınırında sayan oda kaydı kazanana güncellenir (K31).
 Detay: `docs/kararlar.md` K34.
 
+## Açıklığın içinden geçen VEYA üstünde başlayan/biten duvar hiç yerleştirilemez (K35)
+
+Yukarıdaki K24 "bölme reddedilir" diyor, duvar yine de yazılıyordu. Daha katı
+bir kural var — ve yalnız ÇİZİM için: `findBlockingOpening` (`core/wallGraph.ts`)
+adayın açıklığı GERÇEKTEN kesip kesmediğine bakar. Kolineer devam sorun değil
+(kapı zaten o duvarın üstünde bir delik). **T birleşimi (duvarın UCU açıklığın
+ortasına değmesi) DE reddedilir** — ilk yazımda "K24'ün senaryosu, sorun
+değil" diye muaf tutulmuştu, kullanıcı geri bildirimiyle bunun yanlış
+olduğu anlaşıldı: bir kapı/pencere boşluğunda duvar ne geçebilir ne başlayıp
+bitebilir. `getInteriorCrossing`'in uç değerleri (0/1) zaten kesişim sayıyor,
+ekstra bir ayrım gerekmiyor.
+
+Bu yalnız YENİ duvar yerleştirmeyi (`appendWall`) kapsar; var olan duvarı
+TAŞIYARAK aynı noktaya getirmek (`movePoint`/`moveWall`) `appendWall`'dan
+geçmiyor, K24'ün eski davranışında (bölme reddedilir, duvar silinmez) kalıyor
+— kasıtlı olarak dokunulmadı. Detay: `docs/kararlar.md` K35.
+
 ## Bilinen sınırlar
 
 - **Uca MIN_WALL_LENGTH_CM'den yakın değme bölme üretmez** — güdük duvar

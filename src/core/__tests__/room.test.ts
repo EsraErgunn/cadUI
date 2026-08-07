@@ -241,3 +241,4 @@ describe('getRoomRectangleCorners', () => {
     expect(getRoomRectangleCorners({ x: 0, y: 0 }, { x: 400, y: 0.5 })).toBeUndefined()
   })
 })
+
