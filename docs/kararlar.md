@@ -789,6 +789,64 @@ Nerede: `core/room.ts` (yüz taraması), `core/roomIdentity.ts` (kimlik),
 üçgenleme), `store/architectureRooms.ts` (yeniden hesaplama), `scene/Room.tsx`,
 `scene/RoomLabel.tsx`.
 
+### K32 — WebCAD `Room.pointIds`'e GEÇİLMEDİ, `wallIds` korunuyor
+
+`knowledge/webcad-json-format.md`'deki açık soruyu kapatan karar. Referans
+WebCAD çıktısında oda sınırı nokta id'leriyle (`Room.pointIds`) tutuluyor,
+bizimki duvar id'leriyle (K31). İkisi de aynı sonucu doğuruyor gibi
+görünüyordu — WebCAD'in `pointIds`'i de duvarların köşe noktaları, yani o da
+duvar oynayınca oynuyor — ama üç yerde ayrışıyorlardı ve üçü de `wallIds`
+lehine çıktı:
+
+1. **Duvarsız oda.** `pointIds` modelinde oda, onu çevreleyen duvarlar
+   silinse de var olmaya devam eder — mahal, mahali tanımlayan gaz
+   yönetmeliği açısından anlamsız bir kayıt olarak asılı kalırdı. `wallIds`
+   modelinde bu İMKANSIZ: duvar giderse çevrim kopar, oda kendiliğinden düşer.
+2. **Nokta havuzunun anlamı.** `pointIds`'e geçmek `Point`'in tanımını "duvar
+   köşesi"nden "geometri düğümü"ne genişletirdi. Bugün `getOrphanPointIds`
+   (duvarı olmayan nokta = çöp, silinir) ve üç silme yolu (`architectureSlice`,
+   `selectionOps` ×2) bu varsayıma dayanıyor; `getJointRadiusCm` de öyle
+   (köşedeki en kalın duvarın yarısı — duvarsız noktada tanımsız). Hepsi B2'nin
+   dosyaları. Model değişse ripple'ın yarısı başka bir fayın alanına taşardı.
+3. **Dışa aktarma zaten ucuz bir çeviri.** `wallIds` → `pointIds` duvarların
+   uçlarını sıralamaktan ibaret; WebCAD adaptörü kurulunca tek fonksiyonda
+   çözülür, model sözleşmesini değiştirmeyi gerektirmez.
+
+Karar: `Room` `{ id, wallIds, name }` kalıyor. **Duvarsız oda desteklenmiyor**
+— sürükle-dikdörtgen aracı (aşağıda) bu yüzden gerçek duvar üretiyor, serbest
+poligon değil. **Duvarı silinen oda düşer**, WebCAD'deki gibi asılı kalmaz.
+
+**`centralVentilation` / `topSideOpenable` eklenmedi.** Referansta bu iki alan
+var (havalandırma hesabının girdisi — mahal merkezi kanala mı bağlı, üstten
+açılabiliyor mu). Menfez aracı yazılınca gerekecek ama şimdiden model
+sözleşmesini ikinci kez açmaya değmedi; o işi yazan kişiyle birlikte
+kararlaştırılacak.
+
+Dışa aktarma katmanı henüz yazılmadı. Yazılınca dikkat: `findRoomFaces`
+köşeleri saat yönünün TERSİNE üretiyor (pozitif işaretli alan, dış yüzü elemek
+için), referans WebCAD odası ise saat yönünde — adaptör sırayı çevirmezse
+sessizce ters sarımlı bir poligon yazılır, hata vermez.
+
+### K33 — Dikdörtgen oda aracı dört gerçek duvar üretir
+
+Sürükle-dikdörtgen aracı (`scene/useRoomTool.ts`) K32'nin doğrudan sonucu:
+duvarsız oda desteklenmediği için araç bir kısayoldur, ayrı bir model değil.
+Basılı tut → sürükle → bırak; dört köşe kapalı zincir olarak yazılır
+(`store/architectureWallOps.ts` → `appendWallChain`'e eklenen `isClosed`), mahal
+kapanan çevrimden K31'in kendi mekanizmasıyla doğar. Elle çizilen oda ile
+duvarlardan doğan oda arasında hiçbir davranış farkı yok.
+
+Store'a yalnız BIRAKMA anında yazılır — sürüklerken her karede yazsaydı tek oda
+onlarca geri alma adımı bırakırdı.
+
+Köşeler var olan bir köşeye denk geliyorsa `findCornerPointIdAt` ile onun
+`pointId`'sine bağlanır, konumla değil — aksi hâlde bitişik iki oda çizildiğinde
+ortak kenarda üst üste iki duvar oluşurdu (ekranda görünmez, aynı renk oldukları
+için; ama malzeme dökümünde iki kez sayılır, silme de tek kopyayı kaldırırdı).
+`appendWall` da aynı gerekçeyle güçlendirildi: iki uç zaten var olan aynı köşe
+çiftini bağlıyorsa ikinci duvar hiç YAZILMAZ, var olanı döner — bu, duvar
+aracının kendisini de etkileyen bir davranış değişikliği.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
