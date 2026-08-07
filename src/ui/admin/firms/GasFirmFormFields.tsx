@@ -32,16 +32,15 @@ export function GasFirmFormFields({ form }: GasFirmFormFieldsProps) {
   const { values, errors, setValue } = form
 
   // Belge: liste alfabetik sıralanır ve yeni grup tanımlandıkça güncellenir —
-  // bu yüzden sabit dizi gömülmüyor, sunucudan geliyor.
+  // bu yüzden sabit dizi gömülmüyor, sunucudan geliyor. Türkçe sıralama api
+  // katmanında (sunucu ÇEDAŞ'ı DOĞUGAZ'dan önce veriyor).
   const { data: groups } = useQuery({
     queryKey: ['firmGroups'],
     queryFn: ({ signal }) => getFirmGroups(signal),
   })
+  // Değer KİMLİK: sunucu grubu adla değil kimlikle alıyor.
   const groupOptions = useMemo(
-    () =>
-      [...(groups ?? [])]
-        .sort((left, right) => left.localeCompare(right, 'tr'))
-        .map((name) => ({ value: name, label: name })),
+    () => (groups ?? []).map((group) => ({ value: String(group.id), label: group.name })),
     [groups],
   )
 
@@ -82,15 +81,15 @@ export function GasFirmFormFields({ form }: GasFirmFormFieldsProps) {
       />
 
       <SelectField
-        id={gasFirmFieldId('groupName')}
+        id={gasFirmFieldId('groupId')}
         label="Grup Firması"
         layout="horizontal"
         leftIcon={Network}
         placeholder={NO_GROUP_LABEL}
         options={groupOptions}
-        value={values.groupName}
-        error={errors.groupName}
-        onChange={(value) => setValue('groupName', value)}
+        value={values.groupId}
+        error={errors.groupId}
+        onChange={(value) => setValue('groupId', value)}
       />
 
       <TextField

@@ -145,8 +145,9 @@ describe('submit', () => {
 
     await act(async () => void (await result.current.submit()))
 
+    // Grup seçilmediğinde kimlik `null` gider (sunucu grubu kimlikle alıyor).
     expect(createMock).toHaveBeenCalledWith(
-      expect.objectContaining({ groupName: null, description: null, address: null }),
+      expect.objectContaining({ groupId: null, description: null, address: null }),
     )
   })
 

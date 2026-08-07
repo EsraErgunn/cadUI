@@ -1,9 +1,12 @@
-import type {
-  GasDistributionFirmDetail,
-  GasDistributionFirmPayload,
-} from './adminFirmForm'
-import type { GasDistributionFirm, GasDistributionFirmQuery } from './adminFirms'
-import { includesTr } from './turkishText'
+import type { GasDistributionFirmDetail, GasDistributionFirmPayload } from './adminFirmForm'
+import type { GasDistributionFirm } from './adminFirms'
+import type { FirmGroup } from './gasFirmDto'
+
+/**
+ * Mock kayıt hem liste satırını hem tekil detayı besliyor: liste bölge taşıyor,
+ * tekil yanıt taşımıyor, ikisinin birleşimi burada duruyor.
+ */
+type MockFirm = GasDistributionFirm & GasDistributionFirmDetail
 
 const MOCK_CITIES = [
   'Adana', 'Adıyaman', 'Afyon', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara', 'Antalya',
@@ -15,14 +18,19 @@ const MOCK_CITIES = [
 
 const NAME_SUFFIXES = ['Doğalgaz Dağıtım A.Ş.', 'Gaz Dağıtım A.Ş.', 'Şehiriçi Doğalgaz A.Ş.']
 
-export const MOCK_FIRM_GROUPS = [
-  'Aksa Enerji Grubu',
-  'Çalık Enerji Grubu',
-  'Enerya Grubu',
-  'Kalyon Enerji Grubu',
-  'Palen Enerji Grubu',
-  'Torunlar Enerji Grubu',
+/** Gerçek uç `{ id, name }` döndürüyor; mock da aynı biçimi taklit ediyor. */
+export const MOCK_FIRM_GROUPS: FirmGroup[] = [
+  { id: 1, name: 'Aksa Enerji Grubu' },
+  { id: 2, name: 'Çalık Enerji Grubu' },
+  { id: 3, name: 'Enerya Grubu' },
+  { id: 4, name: 'Kalyon Enerji Grubu' },
+  { id: 5, name: 'Palen Enerji Grubu' },
+  { id: 6, name: 'Torunlar Enerji Grubu' },
 ]
+
+function findMockGroup(groupId: number | null): FirmGroup | null {
+  return MOCK_FIRM_GROUPS.find((group) => group.id === groupId) ?? null
+}
 
 export const MOCK_REGIONS = [
   'Akdeniz',
@@ -60,18 +68,22 @@ function buildMockPhone(index: number): string {
   return `0${FIRST_MOCK_PHONE + index * MOCK_PHONE_STEP}`
 }
 
-function buildMockFirms(): GasDistributionFirmDetail[] {
-  const firms: GasDistributionFirmDetail[] = []
+function buildMockFirms(): MockFirm[] {
+  const firms: MockFirm[] = []
   let dfirmNo = FIRST_DFIRM_NO
 
   for (const [suffixIndex, suffix] of NAME_SUFFIXES.entries()) {
     for (const [cityIndex, city] of MOCK_CITIES.entries()) {
       const index = suffixIndex * MOCK_CITIES.length + cityIndex
+      const group =
+        index % UNGROUPED_EVERY === 0
+          ? null
+          : MOCK_FIRM_GROUPS[index % MOCK_FIRM_GROUPS.length]
       firms.push({
         id: index + 1,
         dfirmNo,
-        groupName:
-          index % UNGROUPED_EVERY === 0 ? null : MOCK_FIRM_GROUPS[index % MOCK_FIRM_GROUPS.length],
+        groupId: group?.id ?? null,
+        groupName: group?.name ?? null,
         name: `${city} ${suffix}`,
         region: MOCK_REGIONS[index % MOCK_REGIONS.length],
         description:
@@ -93,52 +105,15 @@ function buildMockFirms(): GasDistributionFirmDetail[] {
  */
 let mockFirms = buildMockFirms()
 
-function compareFirms(
-  left: GasDistributionFirm,
-  right: GasDistributionFirm,
-  query: GasDistributionFirmQuery,
-): number {
-  const direction = query.sortDir === 'asc' ? 1 : -1
-
-  if (query.sortKey === 'dfirmNo') {
-    return (left.dfirmNo - right.dfirmNo) * direction
-  }
-
-  // Grubu olmayan kayıt her iki yönde de sona düşsün — "-" satırları listeyi bölmesin.
-  const leftValue = query.sortKey === 'name' ? left.name : left.groupName
-  const rightValue = query.sortKey === 'name' ? right.name : right.groupName
-  if (leftValue === null) return rightValue === null ? 0 : 1
-  if (rightValue === null) return -1
-
-  return leftValue.localeCompare(rightValue, 'tr') * direction
-}
-
-function matchesQuery(firm: GasDistributionFirm, query: GasDistributionFirmQuery): boolean {
-  if (query.nameQuery !== '' && !includesTr(firm.name, query.nameQuery)) return false
-  if (query.groupName !== null && firm.groupName !== query.groupName) return false
-  if (query.region !== null && firm.region !== query.region) return false
-  return true
-}
-
 /**
- * Sunucunun yapacağı işi taklit eder: filtre → sırala → SADECE istenen sayfayı dilimle.
- * Gerçek endpoint geldiğinde çağıran taraf değişmez, yalnız bu dosya silinir.
+ * Mock kayıtların TAMAMI. Filtre/sıralama/sayfalama burada YAPILMAZ — gerçek uç
+ * da düz dizi döndürdüğü için o iş `gasFirmListQuery.ts`'te, tek yerde.
  */
-export function queryMockFirms(query: GasDistributionFirmQuery): {
-  items: GasDistributionFirm[]
-  totalCount: number
-} {
-  const matched = mockFirms.filter((firm) => matchesQuery(firm, query))
-  const sorted = [...matched].sort((left, right) => compareFirms(left, right, query))
-  const offset = (query.page - 1) * query.pageSize
-
-  return {
-    items: sorted.slice(offset, offset + query.pageSize),
-    totalCount: matched.length,
-  }
+export function allMockFirms(): GasDistributionFirm[] {
+  return mockFirms
 }
 
-export function findMockFirm(id: number): GasDistributionFirmDetail | null {
+export function findMockFirm(id: number): MockFirm | null {
   return mockFirms.find((firm) => firm.id === id) ?? null
 }
 
@@ -156,10 +131,10 @@ export function isMockDfirmNoTaken(dfirmNo: number, exceptFirmId: number | null)
 }
 
 /**
- * Bölge alanı ARAYÜZDEN gelmiyor: form böyle bir alan taşımıyor (belge de
- * tanımlamıyor), gövdeye de konmuyor. Yeni kaydın bölgeyi nasıl alacağı açık
- * soru; mock'un liste şemasını doldurabilmesi için burada sabit bir değer var.
- * TODO(esra): sunucu bölgeyi nasıl belirliyor, backend'e sorulacak.
+ * Bölge SUNUCUDA YOK: gerçek sözleşmede ne liste satırı ne istek gövdesi bölge
+ * taşıyor. Alan yalnız mock listesinin filtresini besliyor; yeni kayda sabit
+ * bir değer veriliyor ki liste şeması dolsun. Liste gerçek uca bağlanınca
+ * `region` tümüyle düşecek.
  */
 const MOCK_CREATED_FIRM_REGION = MOCK_REGIONS[0]
 
@@ -167,9 +142,15 @@ function nextMockFirmId(): number {
   return mockFirms.reduce((largest, firm) => Math.max(largest, firm.id), 0) + 1
 }
 
-export function createMockFirm(payload: GasDistributionFirmPayload): GasDistributionFirmDetail {
-  const created: GasDistributionFirmDetail = {
+/** Gövde grubu KİMLİKLE taşıyor; listede gösterilen ad kimlikten türetilir. */
+function toMockGroupFields(groupId: number | null) {
+  return { groupId, groupName: findMockGroup(groupId)?.name ?? null }
+}
+
+export function createMockFirm(payload: GasDistributionFirmPayload): MockFirm {
+  const created: MockFirm = {
     ...payload,
+    ...toMockGroupFields(payload.groupId),
     id: nextMockFirmId(),
     region: MOCK_CREATED_FIRM_REGION,
   }
@@ -186,11 +167,15 @@ export function createMockFirm(payload: GasDistributionFirmPayload): GasDistribu
 export function updateMockFirm(
   id: number,
   payload: GasDistributionFirmPayload,
-): GasDistributionFirmDetail | null {
+): MockFirm | null {
   const existing = mockFirms.find((firm) => firm.id === id)
   if (existing === undefined) return null
 
-  const updated: GasDistributionFirmDetail = { ...existing, ...payload }
+  const updated: MockFirm = {
+    ...existing,
+    ...payload,
+    ...toMockGroupFields(payload.groupId),
+  }
   mockFirms = mockFirms.map((firm) => (firm.id === id ? updated : firm))
   return updated
 }

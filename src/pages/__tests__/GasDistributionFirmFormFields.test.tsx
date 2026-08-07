@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { renderFirmFormPage } from './gasFirmFormFixture'
+import type { FirmGroup } from '../../api/gasFirmDto'
 import { GAS_FIRM_MAX_LENGTHS } from '../../ui/admin/firms/gasFirmSchema'
 
 const firmFormApi = vi.hoisted(() => ({
@@ -27,7 +28,7 @@ vi.mock('../../api/adminFirms', async (importOriginal) => ({
   ...firmListApi,
 }))
 
-async function openForm(groups?: string[]) {
+async function openForm(groups?: FirmGroup[]) {
   renderFirmFormPage({ form: firmFormApi, list: firmListApi }, undefined, groups)
   return await screen.findByLabelText(/Firma No/)
 }
@@ -66,18 +67,40 @@ describe('grup firması seçimi', () => {
   })
 
   /**
-   * Belge: liste alfabetik sıralanır. Düz `sort()` kod noktasına göre dizerdi:
-   * 'Ç' (U+00C7) 'D'den (U+0044) sonra gelir, yani ÇEDAŞ yanlış yere düşerdi.
+   * Seçenek DEĞERİ ad değil KİMLİK: sunucu grubu `groupId` ile alıyor.
+   * Sıralama api katmanında (`toSortedFirmGroups`) yapılıyor, bileşen gelen
+   * sırayı bozmadan basıyor — sıralamanın kendi testi `gasFirmDto.test.ts`'te.
    */
-  it('Türkçe harfleri doğru sıralar', async () => {
-    await openForm(['GAZDAŞ', 'DOĞUGAZ', 'ÇEDAŞ', 'AKSA'])
+  it('seçenek değeri kimlik, etiketi addır', async () => {
+    await openForm([
+      { id: 1, name: 'AKSA' },
+      { id: 2, name: 'ÇEDAŞ' },
+    ])
     await screen.findByRole('option', { name: 'ÇEDAŞ' })
 
     const options = Array.from(
       screen.getByLabelText(/Grup Firması/).querySelectorAll('option'),
+    ).map((option) => ({ value: option.value, label: option.textContent }))
+
+    expect(options).toEqual([
+      { value: '', label: '—' },
+      { value: '1', label: 'AKSA' },
+      { value: '2', label: 'ÇEDAŞ' },
+    ])
+  })
+
+  it('gelen sırayı bozmaz', async () => {
+    await openForm([
+      { id: 9, name: 'ZORLU' },
+      { id: 1, name: 'AKSA' },
+    ])
+    await screen.findByRole('option', { name: 'AKSA' })
+
+    const labels = Array.from(
+      screen.getByLabelText(/Grup Firması/).querySelectorAll('option'),
     ).map((option) => option.textContent)
 
-    expect(options).toEqual(['—', 'AKSA', 'ÇEDAŞ', 'DOĞUGAZ', 'GAZDAŞ'])
+    expect(labels).toEqual(['—', 'ZORLU', 'AKSA'])
   })
 })
 

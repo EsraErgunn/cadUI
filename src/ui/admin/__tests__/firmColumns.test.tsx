@@ -11,7 +11,8 @@ const FIRM: GasDistributionFirm = {
   dfirmNo: 1204,
   groupName: 'Aksa Enerji Grubu',
   name: 'ADANA DOĞALGAZ',
-  region: 'Akdeniz',
+  groupId: 1,
+  region: null,
 }
 
 /** Hücreler satır indeksini kullanmıyor; tek satır render edildiği için 0. */

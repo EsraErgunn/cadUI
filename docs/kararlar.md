@@ -1251,3 +1251,42 @@ Neden otomatik dönüşüm YAPILMADI:
 Cevap "zorunlu" gelirse karar (a)'ya yükseltilir: dönüşüm tuş vuruşunda değil
 blur'da veya `toGasFirmPayload` içinde, `toLocaleUpperCase('tr')` ile yapılır ve
 Türkçe `i → İ` / `ı → I` davranışı `core/` testiyle sabitlenir.
+
+## 2026-08 · Gaz dağıtım firma listesi gerçek uca bağlandı
+
+### K27 — İstemci tarafı arama/sıralama/sayfalama GEÇİCİ
+
+`GET /api/gasdistributionfirms` filtresiz, sayfalamasız **düz dizi** döndürüyor;
+`q`, `page`, `pageSize`, `sort` parametreleri yok. Bu yüzden liste ekranı tüm
+kayıtları tek seferde çekiyor ve arama, sıralama, sayfalamayı istemcide yapıyor
+(`api/gasFirmListQuery.ts`).
+
+Bu, CLAUDE.md'deki **"sayfalama sunucu taraflı"** kuralının bilinçli istisnası.
+`listProjects` içinde aynı gerekçeyle aynı istisna var.
+
+**Borç:** backend sayfalı uç açınca `queryFirmList` kaldırılacak, parametreler
+sorguya taşınacak ve uç yalnız istenen sayfayı döndürecek. Kayıt sayısı büyürken
+bu çözüm ölçeklenmez — tek sayfada tüm liste indiriliyor.
+
+Mock yol da AYNI `queryFirmList`'i kullanıyor: iki ayrı eşleşme/sıralama kuralı
+olsaydı mock'tan gerçeğe geçerken davranış sessizce değişirdi.
+
+### Bölge filtresi devre dışı, SİLİNMEDİ
+
+Sunucunun liste satırı bölge taşımıyor. `region` alanı korundu ama `null` geliyor
+ve süzgeç uygulanmıyor — süzülseydi bölge seçili her aramada liste boşalır,
+kullanıcı veri kaybettiğini sanırdı.
+
+Filtre kutusu ekranda duruyor ama `disabled`, altında sebebini söyleyen bir
+açıklama var. Backend "bugün geçerli bölge yetkileri" alanını ekleyince
+`isDisabled` kaldırılacak ve `queryFirmList` içindeki süzgeç geri açılacak.
+
+**Yan etki:** üst bardaki "Bölge" seçimi ile sayfa içindeki filtre AYNI `region`
+URL anahtarını paylaşıyor. Süzgeç uygulanmadığı için üst bardaki seçim de firma
+listesini şu an daraltmıyor.
+
+### Grup filtresi ADLA değil KİMLİKLE
+
+Gerçek veri `groupId` taşıyor. URL anahtarı (`group`) aynı kaldı, taşıdığı değer
+kimlik oldu. Uygulanan filtre çipi kimliği gösteremeyeceği için adı grup
+listesinden çözüyor (aynı react-query anahtarı, ikinci istek çıkmaz).

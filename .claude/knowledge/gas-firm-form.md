@@ -77,19 +77,60 @@ yeniden kurulduğu için konum korunamıyor. Soldan sağa yazımda sorun çıkm�
 Harf süzme `normalizeGasFirmValue` ile **hook'ta**, bileşende değil: hiçbir
 çağıran kuralı atlayamasın.
 
-## `region` istek gövdesinde YOK
+## `region` KAPANDI — sunucu sözleşmesinde bölge yok
 
-Form bölge alanı taşımıyor (belge de tanımlamıyor) ve üst bardaki bölge seçimi
-bir **filtre**, kayıt verisi değil. Yeni kaydın bölgeyi nasıl aldığı **açık
-soru** — varsayımla gövdeye konmadı. Mock, liste şemasını doldurabilmek için
-sabit bir değer atıyor (`MOCK_CREATED_FIRM_REGION`, başında `TODO(esra)`).
+Açık soru 2026-08-06'da kapandı: gerçek uçta ne liste satırı ne istek gövdesi
+bölge taşıyor. Alan yalnız mock listesinin filtresini besliyor; liste gerçek uca
+bağlanınca `region` tümüyle düşecek.
 
-## Grup firması listesi sunucudan
+## Sunucu ↔ arayüz dönüşümü `gasFirmDto.ts`'te
 
-`getFirmGroups()` ucundan gelir, sabit dizi gömülmez (belge: "yeni grup
-firmaları tanımlandıkça otomatik güncellenir"). Sıralama `localeCompare(…, 'tr')`.
+Uç alan adları arayüzünkilerle birebir değil: `companyNumber` ↔ `dfirmNo`,
+`title` ↔ `name`. Arayüz adları DEĞİŞTİRİLMEDİ (bileşenler ve testler onlara
+bağlı); dönüşüm tek dosyada duruyor, sunucu alan adı değişirse yalnız o dosya
+değişir.
 
-Bilinen tutarsızlık: gereksinim belgesi ve Dipos V mockup'ı kısa adlar (AKSA,
-ENERYA…) gösteriyor, mock verimiz uzun adlar ("Aksa Enerji Grubu") taşıyor.
-Ad biçimi backend'e sorulacak; liste ekranıyla tutarlılık için şimdilik mevcut
-uca bağlı kalındı.
+Taban yol `/api/gasdistributionfirms` — `/admin/` yok, tire yok.
+`POST` 201 değil **200** döndürüyor ve tam detay nesnesi veriyor;
+`PUT` yalnız `{ message }` döndürüyor, kimlik vermiyor (çağıranın elindeki
+kimlik geri verilir).
+
+Çakışma **409 DURUM KODUNDAN** tanınıyor (`ApiError.status`), mesaj metninden
+değil — daha önce verilen "metne göre eşleştirme yapma" kararının karşılığı.
+
+## Grup firması artık KİMLİKLE
+
+`getFirmGroups()` → `GET /api/gasdistributiongroups` → `{ id, name }[]`.
+Seçim kutusunun değeri ad değil **kimlik**, istek gövdesi `groupId` gönderiyor,
+seçilmediğinde `null`.
+
+Sıralama İSTEMCİDE (`toSortedFirmGroups`, `localeCompare(…, 'tr')`): sunucu
+Türkçe sıralamıyor, ÇEDAŞ'ı DOĞUGAZ'dan önce veriyor. Tek yerde yapılıyor ki
+form seçim kutusu ile liste filtresi aynı sırayı görsün.
+
+Liste ekranının filtresi hâlâ ADA göre süzüyor (liste mock'ta): kimlik
+kullanılsaydı mock kayıtlarındaki `groupName` ile eşleşmez, filtre hiçbir kayıt
+getirmezdi.
+
+## Liste de gerçek uçta — ama sayfalama İSTEMCİDE
+
+`GET /api/gasdistributionfirms` filtresiz/sayfalamasız düz dizi döndürüyor.
+Liste ekranı tüm kayıtları çekip arama/sıralama/sayfalamayı `gasFirmListQuery.ts`
+içinde yapıyor. **Geçici** — backend sayfalı uç açınca kaldırılacak (K27).
+
+Mock yol da aynı `queryFirmList`'i kullanıyor; iki ayrı kural olsaydı mock'tan
+gerçeğe geçerken davranış sessizce değişirdi.
+
+Benzer ad uyarısı bu fonksiyona bağlı olduğu için artık GERÇEK veriye bakıyor —
+mock'a bakarken veritabanındaki mükerrer adı göremiyordu.
+
+Bölge süzgeci devre dışı (satırda bölge yok), grup süzgeci kimlikle çalışıyor.
+
+## `VITE_API_URL` yoksa mock gövdeye düşülür
+
+`hasApiBaseUrl()` (`http.ts`) tanımlı olup olmadığını söylüyor; form uçları
+tanımlı değilse mock gövdeyi çalıştırıyor. Backend ayakta değilken ekranın
+komple ölmesi yerine mock veriyle çalışmaya devam ediyor.
+
+`getNextDfirmNo()` HER ZAMAN mock: sunucuda karşılığı henüz yok, uç açılınca
+gövdesi `requestJson`'a dönecek, imza değişmeyecek.
