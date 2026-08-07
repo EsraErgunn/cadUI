@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Mock } from 'vitest'
 
 import { ListProbe } from './ListProbe'
+import type { FirmGroup } from '../../api/gasFirmDto'
 import { GasDistributionFirmFormPage } from '../GasDistributionFirmFormPage'
 
 /**
@@ -25,19 +26,24 @@ export interface FirmListMocks {
 
 export const NEXT_DFIRM_NO = 1315
 
+/** Tekil yanıt bölge TAŞIMAZ; grup hem kimlik hem ad olarak gelir. */
 export const EXISTING_FIRM = {
   id: 42,
   dfirmNo: 1204,
-  groupName: 'Aksa Enerji Grubu',
   name: 'ADANA DOĞALGAZ',
-  region: 'Akdeniz',
+  groupId: 1,
+  groupName: 'Aksa Enerji Grubu',
   description: 'Akdeniz bölgesi.',
   contactPerson: 'Ahmet Yılmaz',
   address: 'Adana OSB No: 1',
   phone: '05321000000',
 }
 
-export const FIRM_GROUPS = ['Çalık Enerji Grubu', 'Aksa Enerji Grubu']
+/** Sıralama api katmanında yapılıyor; buradaki sıra uca değil bileşene ait. */
+export const FIRM_GROUPS = [
+  { id: 1, name: 'Aksa Enerji Grubu' },
+  { id: 2, name: 'Çalık Enerji Grubu' },
+]
 
 export const EMPTY_FIRM_PAGE = { items: [], totalCount: 0, page: 1, pageSize: 30 }
 
@@ -49,7 +55,7 @@ export function renderFirmFormPage(
   mocks: { form: FirmFormMocks; list: FirmListMocks },
   route: string = CREATE_ROUTE,
   /** Grup listesi mount'ta çekildiği için render SONRASINDA değiştirilemez. */
-  groups: string[] = FIRM_GROUPS,
+  groups: FirmGroup[] = FIRM_GROUPS,
 ) {
   mocks.form.getNextDfirmNo.mockResolvedValue(NEXT_DFIRM_NO)
   mocks.form.getGasDistributionFirm.mockResolvedValue(EXISTING_FIRM)

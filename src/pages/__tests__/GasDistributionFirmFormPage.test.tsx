@@ -104,7 +104,8 @@ describe('güncelleme ekranı', () => {
 
     // Seçenekler ayrı sorgudan gelir; liste dolmadan seçim değeri tutunamaz.
     await screen.findByRole('option', { name: EXISTING_FIRM.groupName })
-    expect(screen.getByLabelText(/Grup Firması/)).toHaveValue(EXISTING_FIRM.groupName)
+    // Seçim kutusunun DEĞERİ ad değil kimlik: sunucu grubu `groupId` ile alıyor.
+    expect(screen.getByLabelText(/Grup Firması/)).toHaveValue(String(EXISTING_FIRM.groupId))
   })
 
   it('telefonu maskeli gösterir', async () => {

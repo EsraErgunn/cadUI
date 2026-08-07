@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { MOCK_LATENCY_MS, delay, gasDistributionFirmSchema } from './adminFirms'
+import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import {
   createMockFirm,
   findMockFirm,
@@ -8,65 +8,71 @@ import {
   nextMockDfirmNo,
   updateMockFirm,
 } from './adminFirmsMock'
-import { ApiError } from './http'
+import {
+  firmDetailDtoSchema,
+  firmMessageDtoSchema,
+  toFirmDetail,
+  toFirmPayloadDto,
+} from './gasFirmDto'
+import { ApiError, hasApiBaseUrl, requestJson } from './http'
 
 /**
  * API SÖZLEŞMESİ — Gaz dağıtım firma ekle / güncelle ekranı.
- * (Liste uçları `adminFirms.ts` içinde.)
+ * (Liste uçları `adminFirms.ts` içinde ve HÂLÂ mock: sunucuda sayfalama/arama yok.)
  *
- * GET /api/admin/gas-distribution-firms/next-no → { dfirmNo }
- * - Sıradaki uygun numara SUNUCUDA hesaplanır; istemci listeden türetemez
- *   çünkü sayfalama sunucu taraflı ve tek sayfada 30 kayıt var.
- * - Silinen kayıtların boşlukları DOLDURULMAZ (belge: numaralar yeniden
- *   düzenlenmez), en büyüğün bir fazlası verilir.
+ * Taban yol `/api/gasdistributionfirms` — `/admin/` yok, tire yok.
  *
- * GET /api/admin/gas-distribution-firms/:id → GasDistributionFirmDetail
- * - Güncelleme ekranı formu bu yanıtla doldurur.
+ * GET  /api/gasdistributionfirms/:id → FirmDetailDto
+ * POST /api/gasdistributionfirms     → 200 (201 DEĞİL) + FirmDetailDto
+ * PUT  /api/gasdistributionfirms/:id → { message }   (kimlik dönmez)
  *
- * POST /api/admin/gas-distribution-firms   (gövde = GasDistributionFirmPayload)
- * 201 → { id }
- * 409 → firma numarası çakışması
+ * Gövde alanları sunucunun adlarıyla: `title`, `companyNumber`, `groupId`,
+ * `description`, `contactPerson`, `phone`, `address`. Bölge alanı YOK.
+ * Dönüşüm `gasFirmDto.ts`'te.
  *
- * PUT /api/admin/gas-distribution-firms/:id   (gövde = GasDistributionFirmPayload)
- * 200 → { id }
+ * Hata gövdesi her durumda `{ "message": "..." }`; `http.ts` bunu okuyup
+ * `ApiError`e çeviriyor. Firma numarası çakışması **409** ile geliyor ve
+ * DURUM KODUNA göre tanınıyor — mesaj metnine göre eşleştirme YAPILMAZ.
  *
- * Benzersizliğe SUNUCU karar verir; istemci ön kontrolü YOKTUR — yarış durumu
- * istemcide kapatılamaz. Çakışma `DfirmNoTakenError` olarak yükselir ve arayüzde
- * Firma No alanına bağlanır. Hata mesaj METNİNE göre eşleştirilmez.
- * TODO(esra): 409 gövdesindeki ayırt edici kodun adı backend'le doğrulanacak.
+ * `VITE_API_URL` tanımlı değilse tüm uçlar mock gövdeye düşer (`hasApiBaseUrl`).
  */
 
+const CONFLICT = 409
 const NOT_FOUND = 404
 
+const FIRMS_PATH = '/api/gasdistributionfirms'
+
 /**
- * Tekil firma: liste satırının taşımadığı alanlar burada. Liste üç sütun
- * gösteriyor, bu alanları her satır için taşımak boşuna yük olurdu.
- * `phone` HAM rakam (maskesiz) — maskeyi arayüz `core/phone.ts` ile kurar.
+ * Tekil firma — arayüz alan adlarıyla. Liste satırından TÜRETİLMEZ: sunucunun
+ * tekil yanıtında bölge (`region`) yok, liste şeması ise onu taşıyor.
+ * `phone` null olabilir (sunucu boş bırakabiliyor).
  */
-const gasDistributionFirmDetailSchema = gasDistributionFirmSchema.extend({
+const gasDistributionFirmDetailSchema = z.object({
+  id: z.number().int().positive(),
+  dfirmNo: z.number().int(),
+  name: z.string(),
+  groupId: z.number().int().nullable(),
+  groupName: z.string().nullable(),
   description: z.string().nullable(),
   contactPerson: z.string().nullable(),
   address: z.string().nullable(),
-  phone: z.string(),
+  phone: z.string().nullable(),
 })
-
-const savedFirmSchema = z.object({ id: z.number().int().positive() })
-
-const nextDfirmNoSchema = z.object({ dfirmNo: z.number().int().positive() })
 
 export type GasDistributionFirmDetail = z.infer<typeof gasDistributionFirmDetailSchema>
 
 /**
- * Ekleme/güncelleme istek gövdesi.
+ * Ekleme/güncelleme istek gövdesi (ARAYÜZ adlarıyla; sunucuya `toFirmPayloadDto`
+ * ile çevrilir). Grup artık adla değil KİMLİKLE gönderiliyor.
  *
- * `region` BİLEREK yok: form böyle bir alan taşımıyor (belge de tanımlamıyor) ve
- * üst bardaki bölge seçimi bir FİLTRE, kayıt verisi değil. Yeni kaydın bölgeyi
- * nasıl aldığı açık soru — varsayımla gövdeye konmadı.
+ * `region` yok: form böyle bir alan taşımıyor ve sunucunun sözleşmesinde de
+ * bölge bulunmuyor — daha önce açık soru olarak işaretlenen madde bu turda
+ * kapandı.
  */
 export interface GasDistributionFirmPayload {
   dfirmNo: number
   name: string
-  groupName: string | null
+  groupId: number | null
   description: string | null
   contactPerson: string | null
   address: string | null
@@ -76,7 +82,7 @@ export interface GasDistributionFirmPayload {
 
 /**
  * Firma numarası çakışması. Ayrı bir hata tipi: arayüz bunu mesaj metnine
- * bakarak değil `instanceof` ile tanır, böylece sunucunun mesajı değişince
+ * bakarak değil `instanceof` ile tanır, böylece sunucunun metni değişince
  * eşleştirme sessizce kırılmaz.
  */
 export class DfirmNoTakenError extends Error {
@@ -86,49 +92,113 @@ export class DfirmNoTakenError extends Error {
   }
 }
 
-/**  gerçek `GET /api/admin/gas-distribution-firms/next-no`. */
-export async function getNextDfirmNo(signal?: AbortSignal): Promise<number> {
-  await delay(MOCK_LATENCY_MS, signal)
-  return nextDfirmNoSchema.parse({ dfirmNo: nextMockDfirmNo() }).dfirmNo
+/** 409'u çakışma hatasına çevirir, gerisini olduğu gibi geçirir. */
+function rethrowAsDfirmNoTaken(error: unknown): never {
+  if (error instanceof ApiError && error.status === CONFLICT) throw new DfirmNoTakenError()
+  throw error
 }
 
-/**  gerçek `GET /api/admin/gas-distribution-firms/:id`. */
+/**
+ * Sıradaki uygun numara. Sunucuda karşılığı HENÜZ YOK — mock hesaplıyor
+ * (en büyük numaranın bir fazlası, boşluklar doldurulmaz).
+ * backend `GET /api/gasdistributionfirms/next-no` açacak; uç
+ * gelince bu gövde `requestJson`'a döner, imza değişmez.
+ */
+export async function getNextDfirmNo(signal?: AbortSignal): Promise<number> {
+  await delay(MOCK_LATENCY_MS, signal)
+  return nextMockDfirmNo()
+}
+
 export async function getGasDistributionFirm(
+  id: number,
+  signal?: AbortSignal,
+): Promise<GasDistributionFirmDetail> {
+  if (!hasApiBaseUrl()) return getMockFirmDetail(id, signal)
+
+  const dto = await requestJson(
+    { method: 'GET', path: `${FIRMS_PATH}/${id}`, signal },
+    firmDetailDtoSchema,
+  )
+
+  return gasDistributionFirmDetailSchema.parse(toFirmDetail(dto))
+}
+
+/** Ekleme yanıtı tam detay nesnesi döndürüyor; çağıranın ihtiyacı olan kimlik. */
+export async function createGasDistributionFirm(
+  payload: GasDistributionFirmPayload,
+): Promise<number> {
+  if (!hasApiBaseUrl()) return createMockGasFirm(payload)
+
+  try {
+    const dto = await requestJson(
+      {
+        method: 'POST',
+        path: FIRMS_PATH,
+        rawJsonBody: JSON.stringify(toFirmPayloadDto(payload)),
+      },
+      firmDetailDtoSchema,
+    )
+    return dto.id
+  } catch (error) {
+    rethrowAsDfirmNoTaken(error)
+  }
+}
+
+/** `PUT` kimlik döndürmüyor; çağıranın elindeki kimlik geri verilir. */
+export async function updateGasDistributionFirm(
+  id: number,
+  payload: GasDistributionFirmPayload,
+): Promise<number> {
+  if (!hasApiBaseUrl()) return updateMockGasFirm(id, payload)
+
+  try {
+    await requestJson(
+      {
+        method: 'PUT',
+        path: `${FIRMS_PATH}/${id}`,
+        rawJsonBody: JSON.stringify(toFirmPayloadDto(payload)),
+      },
+      firmMessageDtoSchema,
+    )
+    return id
+  } catch (error) {
+    rethrowAsDfirmNoTaken(error)
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* VITE_API_URL yokken kullanılan mock gövdeler. Backend ayakta değilken
+   ekranın komple ölmesi yerine mock veriyle çalışmaya devam eder.     */
+
+async function getMockFirmDetail(
   id: number,
   signal?: AbortSignal,
 ): Promise<GasDistributionFirmDetail> {
   await delay(MOCK_LATENCY_MS, signal)
 
   const firm = findMockFirm(id)
-  if (firm === null) throw new ApiError(NOT_FOUND, 'Firma bulunamadı.')
+  if (firm === null) throw new ApiError(NOT_FOUND, 'Gaz dağıtım firması bulunamadı.')
 
   return gasDistributionFirmDetailSchema.parse(firm)
 }
 
-/**  gerçek `POST /api/admin/gas-distribution-firms`; 409 → DfirmNoTakenError. */
-export async function createGasDistributionFirm(
-  payload: GasDistributionFirmPayload,
-): Promise<number> {
+async function createMockGasFirm(payload: GasDistributionFirmPayload): Promise<number> {
   await delay(MOCK_LATENCY_MS)
-
   if (isMockDfirmNoTaken(payload.dfirmNo, null)) throw new DfirmNoTakenError()
 
-  return savedFirmSchema.parse({ id: createMockFirm(payload).id }).id
+  return createMockFirm(payload).id
 }
 
-/**  gerçek `PUT /api/admin/gas-distribution-firms/:id`. */
-export async function updateGasDistributionFirm(
+async function updateMockGasFirm(
   id: number,
   payload: GasDistributionFirmPayload,
 ): Promise<number> {
   await delay(MOCK_LATENCY_MS)
-
-  // Kaydın KENDİSİ dışlanarak kontrol ediliyor: numara güncellemede salt okunur
-  // olsa da dışlama olmasaydı her güncelleme kendi numarasına takılırdı.
+  // Kaydın KENDİSİ dışlanır, yoksa her güncelleme kendi numarasına takılırdı.
   if (isMockDfirmNoTaken(payload.dfirmNo, id)) throw new DfirmNoTakenError()
 
   const updated = updateMockFirm(id, payload)
-  if (updated === null) throw new ApiError(NOT_FOUND, 'Firma bulunamadı.')
+  if (updated === null) throw new ApiError(NOT_FOUND, 'Gaz dağıtım firması bulunamadı.')
 
-  return savedFirmSchema.parse({ id: updated.id }).id
+  return updated.id
 }

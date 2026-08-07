@@ -42,8 +42,11 @@ export const GAS_FIRM_ERRORS = {
 export interface GasFirmFormValues {
   dfirmNo: string
   name: string
-  /** Boş dize = "—", yani grup firması seçilmedi. */
-  groupName: string
+  /**
+   * Grup firmasının KİMLİĞİ, metin olarak (seçim kutusu değerleri dizedir).
+   * Boş dize = "—", yani seçilmedi. Sunucu grubu adla değil kimlikle alıyor.
+   */
+  groupId: string
   description: string
   contactPerson: string
   address: string
@@ -68,7 +71,7 @@ export function gasFirmFieldId(field: GasFirmField): string {
 export const GAS_FIRM_FIELD_ORDER: GasFirmField[] = [
   'dfirmNo',
   'name',
-  'groupName',
+  'groupId',
   'description',
   'contactPerson',
   'address',
@@ -92,7 +95,7 @@ export const gasFirmSchema = z.object({
     (value) => value.trim().length <= GAS_FIRM_MAX_LENGTHS.name,
     { message: GAS_FIRM_ERRORS.nameTooLong },
   ),
-  groupName: z.string(),
+  groupId: z.string(),
   description: z.string().max(GAS_FIRM_MAX_LENGTHS.description, {
     message: GAS_FIRM_ERRORS.descriptionTooLong,
   }),

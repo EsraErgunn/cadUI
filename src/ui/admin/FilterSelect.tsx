@@ -12,6 +12,9 @@ interface FilterSelectProps {
   emptyLabel: string
   value: string | null
   options: FilterSelectOption[]
+  isDisabled?: boolean
+  /** Kutunun altındaki küçük açıklama; pasif kutuda SEBEBİNİ söylemek için. */
+  hint?: string
   onChange: (value: string | null) => void
 }
 
@@ -23,8 +26,12 @@ export function FilterSelect({
   emptyLabel,
   value,
   options,
+  isDisabled = false,
+  hint,
   onChange,
 }: FilterSelectProps) {
+  const hintId = `${id}-hint`
+
   return (
     <div className="flex min-w-56 flex-col gap-1">
       <label htmlFor={id} className="text-xs font-medium text-ink-muted">
@@ -33,6 +40,8 @@ export function FilterSelect({
       <select
         id={id}
         value={value ?? ''}
+        disabled={isDisabled}
+        aria-describedby={hint === undefined ? undefined : hintId}
         onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
         className={adminFieldVariants({ className: 'pr-8' })}
       >
@@ -43,6 +52,11 @@ export function FilterSelect({
           </option>
         ))}
       </select>
+      {hint !== undefined && (
+        <p id={hintId} className="text-xs text-ink-muted">
+          {hint}
+        </p>
+      )}
     </div>
   )
 }

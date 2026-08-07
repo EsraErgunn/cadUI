@@ -26,10 +26,16 @@ function parseSortDir(raw: string | null): SortDirection {
   return raw === 'desc' ? 'desc' : DEFAULT_SORT_DIR
 }
 
+/** Grup filtresi artık kimlik taşıyor; bozuk/eski değer filtresiz sayılır. */
+function parseGroupId(raw: string | null): number | null {
+  const parsed = Number(raw)
+  return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
 export interface FirmListControls {
   query: GasDistributionFirmQuery
   setNameQuery: (value: string) => void
-  setGroupName: (value: string | null) => void
+  setGroupId: (value: number | null) => void
   setRegion: (value: string | null) => void
   toggleSort: (key: GasFirmSortKey) => void
   setPage: (page: number) => void
@@ -47,7 +53,7 @@ export function useFirmListParams(): FirmListControls {
   const query = useMemo<GasDistributionFirmQuery>(
     () => ({
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
-      groupName: searchParams.get(ADMIN_PARAM_KEYS.groupName),
+      groupId: parseGroupId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
       region: searchParams.get(ADMIN_PARAM_KEYS.region),
       sortKey: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
@@ -77,8 +83,9 @@ export function useFirmListParams(): FirmListControls {
     (value: string) => updateParams({ nameQuery: value }, true),
     [updateParams],
   )
-  const setGroupName = useCallback(
-    (value: string | null) => updateParams({ groupName: value }, true),
+  // URL anahtarı `group` aynı kaldı, taşıdığı değer artık KİMLİK.
+  const setGroupId = useCallback(
+    (value: number | null) => updateParams({ groupName: value?.toString() ?? null }, true),
     [updateParams],
   )
   const setRegion = useCallback(
@@ -90,5 +97,5 @@ export function useFirmListParams(): FirmListControls {
     [updateParams],
   )
 
-  return { query, setNameQuery, setGroupName, setRegion, toggleSort, setPage }
+  return { query, setNameQuery, setGroupId, setRegion, toggleSort, setPage }
 }

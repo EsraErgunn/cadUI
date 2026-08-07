@@ -38,7 +38,7 @@ function renderForm(firmId: number | null = null) {
 
 function buildListPage(items: { id: number; name: string }[]) {
   return {
-    items: items.map((item) => ({ ...item, dfirmNo: 1, groupName: null, region: 'Ege' })),
+    items: items.map((item) => ({ ...item, dfirmNo: 1, groupId: null, groupName: null, region: null })),
     totalCount: items.length,
     page: 1,
     pageSize: 30,

@@ -13,7 +13,7 @@ export function buildEmptyGasFirmValues(): GasFirmFormValues {
   return {
     dfirmNo: '',
     name: '',
-    groupName: '',
+    groupId: '',
     description: '',
     contactPerson: '',
     address: '',
@@ -26,13 +26,14 @@ export function toGasFirmValues(detail: GasDistributionFirmDetail): GasFirmFormV
   return {
     dfirmNo: String(detail.dfirmNo),
     name: detail.name,
-    groupName: detail.groupName ?? '',
+    // Seçim kutusu değerleri dize; grubu olmayan kayıtta boş kalır.
+    groupId: detail.groupId === null ? '' : String(detail.groupId),
     description: detail.description ?? '',
     contactPerson: detail.contactPerson ?? '',
     address: detail.address ?? '',
-    // Sözleşme ham rakam diyor ama yine de süzülüyor: eski bir kayıtta maskeli
-    // metin durursa alan bozuk açılmasın.
-    phoneDigits: toPhoneDigits(detail.phone),
+    // Sunucu telefonu null bırakabiliyor; ayrıca ham rakam beklense de süzülüyor
+    // ki eski bir kayıtta maskeli metin dursa alan bozuk açılmasın.
+    phoneDigits: toPhoneDigits(detail.phone ?? ''),
   }
 }
 
@@ -47,7 +48,8 @@ export function toGasFirmPayload(values: GasFirmParsedValues): GasDistributionFi
   return {
     dfirmNo: Number(values.dfirmNo.trim()),
     name: values.name.trim(),
-    groupName: optionalText(values.groupName),
+    // Seçilmediğinde `null` gider; sunucu grubu kimlikle alıyor.
+    groupId: values.groupId === '' ? null : Number(values.groupId),
     description: optionalText(values.description),
     contactPerson: optionalText(values.contactPerson),
     address: optionalText(values.address),

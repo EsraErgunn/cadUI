@@ -14,7 +14,7 @@ function buildValues(overrides: Partial<GasFirmFormValues> = {}): GasFirmFormVal
   return {
     dfirmNo: '115',
     name: 'ADANA DOĞALGAZ',
-    groupName: '',
+    groupId: '',
     description: '',
     contactPerson: '',
     address: '',
@@ -33,7 +33,7 @@ describe('validateGasFirm', () => {
 
   it('opsiyonel alanların boş kalması kaydı engellemez', () => {
     const { data } = validateGasFirm(
-      buildValues({ groupName: '', description: '', contactPerson: '', address: '' }),
+      buildValues({ groupId: '', description: '', contactPerson: '', address: '' }),
     )
 
     expect(data).not.toBeNull()

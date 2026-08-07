@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { getGasDistributionFirms } from '../api/adminFirms'
+import { getFirmGroups, getGasDistributionFirms } from '../api/adminFirms'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
 import { NoticeBar } from '../ui/admin/NoticeBar'
@@ -25,11 +25,18 @@ const BREADCRUMB = [
 ]
 
 export function GasDistributionFirmsPage() {
-  const { query, setNameQuery, setGroupName, setRegion, toggleSort, setPage } = useFirmListParams()
+  const { query, setNameQuery, setGroupId, setRegion, toggleSort, setPage } = useFirmListParams()
   const savedNotice = useSavedFirmNotice()
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(
-    () => query.groupName !== null || query.region !== null,
-  )
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => query.groupId !== null)
+
+  // Süzgeç kimlikle çalışıyor; çipte gösterilecek ADI aynı önbellekten çözülür
+  // (FirmFilterPanel de bu anahtarı kullanıyor, ikinci istek çıkmaz).
+  const { data: groups } = useQuery({
+    queryKey: ['firmGroups'],
+    queryFn: ({ signal }) => getFirmGroups(signal),
+  })
+  const selectedGroupLabel =
+    groups?.find((group) => group.id === query.groupId)?.name ?? null
 
   const { data, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['gasDistributionFirms', query],
@@ -38,8 +45,7 @@ export function GasDistributionFirmsPage() {
     placeholderData: keepPreviousData,
   })
 
-  const hasActiveFilters =
-    query.nameQuery !== '' || query.groupName !== null || query.region !== null
+  const hasActiveFilters = query.nameQuery !== '' || query.groupId !== null
 
   return (
     <div className="mx-auto flex max-w-320 flex-col gap-5">
@@ -63,9 +69,9 @@ export function GasDistributionFirmsPage() {
 
       {isFilterPanelOpen && (
         <FirmFilterPanel
-          groupName={query.groupName}
+          groupId={query.groupId}
           region={query.region}
-          onGroupNameChange={setGroupName}
+          onGroupIdChange={setGroupId}
           onRegionChange={setRegion}
           onClose={() => setIsFilterPanelOpen(false)}
         />
@@ -74,11 +80,9 @@ export function GasDistributionFirmsPage() {
       <FilterChips
         filters={buildFirmFilterChips({
           nameQuery: query.nameQuery,
-          groupName: query.groupName,
-          region: query.region,
+          groupLabel: selectedGroupLabel,
           onRemoveNameQuery: () => setNameQuery(''),
-          onRemoveGroupName: () => setGroupName(null),
-          onRemoveRegion: () => setRegion(null),
+          onRemoveGroupId: () => setGroupId(null),
         })}
       />
 
