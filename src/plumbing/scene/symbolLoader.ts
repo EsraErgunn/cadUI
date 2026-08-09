@@ -8,6 +8,7 @@ import {
 } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 
+import type { SymbolMetadataLookup } from '../core/elementPicking'
 import {
   parseSymbolMetadata,
   type InstallationElementType,
@@ -173,3 +174,6 @@ export function getLoadedSymbol(type: InstallationElementType): LoadedSymbol {
   symbolCache.set(type, loaded)
   return loaded
 }
+
+/** Saf çekirdek fonksiyonlarının istediği metadata okuyucusu — her araçta tek satır kopyalanmasın. */
+export const getSymbolMetadata: SymbolMetadataLookup = (type) => getLoadedSymbol(type).metadata

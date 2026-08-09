@@ -44,6 +44,12 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   offset ↔ konum dönüşümü sadece `core/wallPath.ts`'te. (bkz. knowledge/arc-walls.md)
 - Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
 - Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
+- Tesisat elemanı nereye yapıştığını TÜRDEN alır (`plumbing/core/attachModes.ts`): armatür
+  boruya oturur ve boruyu AYIRIR (`onLine`), sayaç boş uca takılır ve araya vana girer
+  (`lineEnd`), yakıcı cihaz en yakın boruya kısa kolla bağlanır (`nearestLine`), servis
+  kutusu/baca serbesttir (`free`). Boruya oturan eleman `InstallationLinePoint.inlineElementId`
+  ile düğüme bağlanır — armatür = düğüm, ayrı bağlantı kaydı DEĞİL.
+  (bkz. knowledge/element-attach.md)
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
 - Servis kutusu (`ServiceBox`) kökte TEK nesne (dizi değil) → "tek servis kutusu" kuralı yapı gereği.
 - Kolon (`Riser`) kat dışında, kökte. Kat kopyalanınca KLONLANMAZ; `toFloorId` uzatılır.

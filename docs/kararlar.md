@@ -1381,3 +1381,261 @@ listesini şu an daraltmıyor.
 Gerçek veri `groupId` taşıyor. URL anahtarı (`group`) aynı kaldı, taşıdığı değer
 kimlik oldu. Uygulanan filtre çipi kimliği gösteremeyeceği için adı grup
 listesinden çözüyor (aynı react-query anahtarı, ikinci istek çıkmaz).
+
+---
+
+## 2026-08 · Eleman yapışma modları: armatür boruya, sayaç uca, cihaz kola
+
+### K28 — Yerleştirme serbest değil, hedefe yapışıyor
+
+Tesisat elemanı artık tuvale istenen yere bırakılmıyor. Nereye tutunacağı
+**türden** geliyor (`plumbing/core/attachModes.ts` → `ELEMENT_ATTACH_MODES`):
+
+- `onLine` — vana, selenoid vana, regülatör, manometre, filtre kiti, süzme sayaç,
+  izolasyon: boruya oturur, boru orada ayrılır.
+- `lineEnd` — sayaç: boş (bağlantısız) bir boru ucuna takılır, araya vana girer.
+- `nearestLine` — ocak/soba/şofben/kombi/kazan/diğer: imlecin bıraktığı yerde
+  durur, en yakın boruya kısa bir kolla bağlanır, kolun dibine vana gelir.
+- `free` — servis kutusu, baca, havalandırma: ızgaraya oturur, serbest.
+
+Mod araç kimliğine ya da bileşenin içine gömülmedi: yeni bir sembol eklemek bu
+tabloya bir satır yazmaktan ibaret olmalı.
+
+### Armatür bir DÜĞÜMDÜR, ayrı bağlantı kaydı değil
+
+`InstallationConnection` bir hattın UCUNU tarif ediyor (`end: 'start' | 'end'`);
+armatür ise hattın ortasında. Bu yüzden `InstallationLinePoint` üzerinde
+`inlineElementId` alanı açıldı — WebCAD'in `InstalmentPoint.inlineApplianceId`
+deseninin aynısı (K-W3).
+
+Sonuçları: eleman silinince düğüm boşa çıkar ve **boru bölünmüş kalır**; hat
+silinince **üstündeki armatürler de gider** (düğümü kalmayan vana sahipsiz bir
+sembol olarak asılı kalırdı); armatür taşınınca oturduğu düğüm aynı kaymayla gelir.
+
+### Önizleme yoksa yerleştirme de yok
+
+`onLine` modunda imleç boru üstünde değilse çözücü `null` döner; önizleme çıkmaz
+**ve** tıklama hiçbir şey koymaz. İki koşul tek yerde: ayrı yazılsalardı "hayalet
+görünmüyor ama eleman düşüyor" hâli doğardı. Geçersiz yerleşim de kaydırılmaz,
+**reddedilir** — açıklık yerleştirmesindeki kuralın aynısı.
+
+### Sembol boru açısından değil PORT EKSENİNDEN hizalanıyor
+
+Eleman açısı `segmentAçısı − akışEkseniAçısı` (`getFlowAxisAngleDeg`). Vana gibi
+portları yatay sembollerde bu boru açısının aynısı, ama **sayacın portları
+gövdesinin üstünde** (`gas-meter.meta.json`: origin `[30,13]`, portlar `y = −20`) —
+boru açısı doğrudan kullanılsaydı sayaç boruya ters otururdu. Aynı gerekçeyle
+manometre boruya PORTUYLA değer, gövdesi yanda kalır.
+
+### Regülatörün refakatçileri tabloda
+
+Regülatör tek başına konmuyor: giriş tarafına vana, çıkış tarafına manometre ve
+vana geliyor (`ELEMENT_COMPANIONS`). Ofsetler sembol genişliklerine göre üst üste
+binmeyecek şekilde seçildi. **Bir refakatçi bile parçaya sığmıyorsa yerleşimin
+tamamı reddedilir** — yarısı konsaydı kullanıcı eksik bir grup görürdü.
+
+Sıra tek yerde (`getInlineSpecs`, ofsete göre artan) ve önizleme aynı diziyi
+kullanıyor; iki yerde ayrı hesaplansaydı önizlemedeki sembol başka bir düğüme
+yerleşirdi.
+
+### Sayaç konunca boru çizimi kendiliğinden başlıyor
+
+`placeElementAtLineEnd` sayacın id'sini döndürüyor; araç boruya geçiyor ve taslak
+sayacın **çıkış** portundan açılıyor. Kullanıcı sayacı koyup paletten boruyu
+ayrıca seçmiyor.
+
+### Tek jest = tek Ctrl+Z
+
+Üç yerleştirme aksiyonu da (eleman + refakatçiler + boru ayırma + kol + bağlantı
+kayıtları) tek `set()` içinde çalışıyor. Regülatör dört eleman ve dört bölme
+yazıyor, tek Ctrl+Z hepsini geri alıyor.
+
+### İzolasyon artık bir eleman (K-W4 uygulaması)
+
+`insulation` `TOOLBAR_ONLY_SYMBOL_IDS`'ten çıkıp `INSTALLATION_ELEMENT_TYPES`'a
+girdi, araç davranışı `segment-toggle` yerine `placement` oldu ve `onLine`
+modunda boruya oturuyor. `InstallationLineSegment.isInsulated` alanı hâlâ
+AÇILMADI; izolasyonun kapsadığı aralık Aşama 8'de kendi alanı olacak.
+
+### Bilinen sınırlar
+
+- Yerleştirme aracı boruya yapışırken **kendi kattaki** hatlara bakıyor; başka
+  kattaki boru aday değil.
+- `nearestLine` modunda yarıçap yok ("en yakına yapışır"): hiç AÇIK UÇ yoksa
+  yerleştirme de olmuyor, kullanıcıya ayrı bir uyarı çıkmıyor.
+- Armatürün oturduğu düğüm sürüklenerek boruyu büküyor; armatürü boru boyunca
+  KAYDIRMA (t üzerinde gezdirme) henüz yok.
+
+## 2026-08 · Vana/filtre/regülatör SVG düzeltmeleri, cihaz kolu, boru taşıma, duvar snap'i
+
+### K29 — `nearestLine` artık yalnız AÇIK UÇLARA bağlanıyor, ortaya değil
+
+Vana/soba/kombi gibi `nearestLine` elemanları eskiden `findNearestSegment` ile
+borunun HERHANGİ bir noktasına (ortasına dahi) bağlanıyordu. Artık `lineEnd`
+modunun (sayaç) kullandığı `findNearestFreeLineEnd`'i paylaşıyor: yalnız
+bağlantısız/armatürsüz uçlar aday. Sonuç olarak vana artık boruyu AYIRMIYOR —
+`onLine`'daki gibi bir bölme yok, hattın zaten var olan ucuna `inlineElementId`
+ile oturuyor. `resolveNearestLineAttachment` bu yüzden `connections` parametresi
+aldı (bir uca ikinci eleman takılamaz, port kuralıyla aynı).
+
+Cihazı boruya bağlayan kol yeni bir hat türü aldı: `applianceStub`. Çap
+sınıfından BAĞIMSIZ, hep KIRMIZI ve KESİKLİ çiziliyor (`PLUMBING_COLORS.applianceStub`,
+`PipeLine`'a `isDashed` propu eklendi) — "bu bir boru değil, cihazın kısa
+bağlantısı" görsel olarak ayırt edilsin diye.
+
+### K30 — Regülatör SVG'si artık salt gövde; iki manometre koda taşındı
+
+`regulator.svg` vana + manometre görselini de bakıyordu; bunlar zaten
+`ELEMENT_COMPANIONS`'ta GERÇEK, ayrı elemanlar olarak ekleniyordu — SVG'deki
+kopyalar yalnız görsel gürültüydü. SVG artık yalnız boş gövde dairesi
+(viewBox 76×68 → 24×24). Eskiden yalnız ÇIKIŞ tarafında bir manometre vardı,
+artık HER İKİ tarafta da var — vana ile regülatör arasında, regülatöre YAKIN
+(vana payından dar bir pay ile). Refakatçi sırası artık
+`[valve, manometer, regulator, manometer, valve]` (beş eleman, beş bölme).
+
+Vana/selenoid vana SVG'lerinden gövde dışına taşan giriş/çıkış "kulakçık"
+çizgileri (önce kalınlaştırılıp uzatıldı, sonra kullanıcı isteğiyle TAMAMEN
+kaldırıldı) — filtre kitiyle aynı gerekçe: boru zaten arkasından geçiyor,
+tekrar gerekmiyor. Vana artık yalnız iki üçgenin (bowtie) kendisi.
+
+### K31 — Boru rijit taşıma DENENDİ, GERİ ALINDI
+
+`plumbingSlice.moveLines` + `useSelectionTool`'daki `lineGrab` bir tur içinde
+eklenip kullanıcı isteğiyle AYNI oturumda geri alındı — kod tabanında iz
+bırakmadı. Ürün kararı değil, "şimdilik istemiyoruz" tercihi; ileride tekrar
+istenirse `moveElements`'in aynası olarak (düğümdeki armatür + PORT ile bağlı
+eleman birlikte taşınmalı) yeniden yazılabilir.
+
+### K32 — Hat çizimi duvar eksenine YUMUŞAK yapışıyor (ZORUNLU değil)
+
+CLAUDE.md'deki "borular duvarlara paralel, hat üzerinden başlar" kuralı hâlâ
+ZORUNLU bir kısıt olarak kodda değil — yalnız bir yardımcı snap eklendi.
+`core/wallSnap.ts` → `findNearestWallPoint`, `useLineTool.ts`'teki
+`resolveSnap`'e port > mevcut boru > **duvar ekseni** > ızgara sırasında
+eklendi. Bu bir BAĞLANTI kaydı ÜRETMİYOR — boru grafiği duvarı tanımıyor
+(`core/model.ts` sözleşmesi) — yalnız imleç duvara yakınken başlangıç
+konumunu duvarın eksenine çekiyor; izdüşüm `core/wall.ts`'teki tek fonksiyondan
+(`projectPointOntoWall`) geliyor, ikinci bir kopya yazılmadı.
+
+## 2026-08 · K29–K32 sonrası düzeltmeler: süzme sayaç, izolasyon, kesikli önizleme
+
+### K33 — Süzme sayacın portları gaz sayacından yanlışlıkla kopyalanmıştı
+
+`strainer-meter.svg`/`.meta.json` `gas-meter`'ın (yukarı bakan, `lineEnd`
+modu için tasarlanmış) port düzenini birebir taşıyordu. `strainerMeter` ise
+`onLine` modunda — akış ekseni DİKEY çıktığı için sembol boruya yan yatık
+oturuyordu. Düzeltme: valve'la aynı yatay port düzeni (giriş/çıkış x=0/60,
+y=20), artık iki portlu her `onLine` eleman gibi merkezden (`ORIGIN` çapası)
+doğrudan boruya oturuyor.
+
+### K34 — İzolasyon artık İNCE UCUNDAN tutunuyor, merkezden değil
+
+`insulation.meta.json` → `origin` `[20,15]`den `[20,24]`e taşındı: sembolün
+daralan üç enine çizgisinin en dar olduğu nokta. 0 portlu elemanlarda
+`getOnLineAnchorOffset` çapayı `metadata.origin`'in KENDİSİNE eşitliyor — origin
+tabanın/gövdenin ortasındayken boru sembolün ortasından geçiyordu, artık
+sadece ince ucu boruya değiyor, geniş taban ve sap borudan uzağa düşüyor.
+
+### K35 — Cihaz kolunun kesikli önizlemesi hep SOLİD görünüyordu
+
+`DrawPreview.tsx` → `StubPreviewLine` lastik bant tekniğini kullanıyor:
+`points` PROPU sabit (`RUBBER_BAND_SEED`), iki köşe her karede tamponun İÇİNE
+yazılıyor. drei `<Line>` kesikli desenin mesafesini yalnız `points` PROP
+REFERANSI değiştiğinde `computeLineDistances()` ile hesaplıyor (`Line.js`);
+tampon elle yazıldığında bu hiç tetiklenmiyordu, mesafe sıfır uzunluklu ilk
+kareye takılı kalıyordu. Çözüm: buffer'ı yazdıktan hemen sonra
+`line.computeLineDistances()` ELLE çağrılıyor. Yerleşmiş (kalıcı) kol bu
+tuzağa hiç girmiyordu — `InstallationLineMesh`'te `positions` gerçek bir
+`useMemo`'dan geliyor ve `points` prop'u mount'ta zaten doğru uzunlukla bir
+kez değişiyor.
+
+### K36 — Regülatör payları ikinci kez sıkılaştırıldı
+
+`REGULATOR_MANOMETER_CLEARANCE_CM` 8→4, `VALVE_MANOMETER_CLEARANCE_CM` 20→10.
+Ofsetler ±42/±114'ten ±38/±100'e indi.
+
+## 2026-08 · Port yuvarlağı, kol-kopma düzeltmesi, onLine kaydırma, üçüncü sıkılaştırma
+
+### K37 — Vana/selenoid vana/filtre/süzme sayaçta port yuvarlağı ÇİZİLMEZ
+
+`attachModes.ts` → `NO_PORT_MARKER_TYPES`/`hasPortMarkers`; `PortMarkers.tsx`'in
+paylaşılan bileşeni bu dört tür için erken `null` döner (hem seçili elemanın
+kendi işaretinde hem hat çizerken görünen "buraya bağlan" işaretinde). Gerekçe:
+bu dördü akış geçişli `onLine` — portları boruyu AYIRAN gerçek bir düğüm, WebCAD
+anlamında serbest bir bağlantı hedefi DEĞİL. `isPortOccupied` bu elemanların
+portları için zaten hiçbir zaman `true` dönmeyecekti (armatür bağlantı kaydı
+değil `inlineElementId`'dir), yani işaret hep yanlışlıkla "boş" (mavi)
+görünüyordu. Regülatör ve manometre bu istisnaya dahil değil.
+
+### K38 — Vana taşınınca kol artık KOPMUYOR
+
+`nearestLine`'ın otomatik vanası ana borunun VAR OLAN bir düğümüne
+`inlineElementId` ile oturuyor; cihaza giden kol ise AYRI bir hat, o düğüme
+yalnız bir `{kind:'line'}` bağlantı KAYDIYLA değiyor — kolun kendi başlangıç
+noktası ana borudaki düğümle AYNI nesne değil. `moveElements` vanayı taşırken
+ana borudaki düğümü doğru taşıyordu ama kolun ucunu unutuyordu → vana
+sürüklenince kol görsel olarak KOPUYORDU. Düzeltme: `moveElements`'e dördüncü
+bir döngü eklendi — `target.kind==='line'` bağlantılarını tarayıp hedefi az
+önce taşınmış bir inline elemana aitse kolun o ucunu da aynı deltayla taşıyor.
+
+### K39 — onLine eleman sürüklenince boru BÜKÜLMEZ, eleman ÜZERİNDE KAYAR
+
+Önceki davranış boruyu büküyordu (K28'in bilinen sınırıydı). Yeni resolver
+`core/elementAttach.ts` → `resolveOnLineSlide`: sürüklenen elemanın düğümünün
+İKİ SABİT komşusu bulunur (kendileri hareket etmez), aralarındaki düz hatta
+`projectOntoSegment` ile izdüşürülür ([0,1] aralığına zaten kelepçeli — segment
+dışına taşan sürükleme en yakın komşuya yapışır, boruyu bükmez). Açı SABİT
+kalır çünkü komşular kıpırdamıyor. İki komşusu da yoksa (eleman hattın tam
+UCUNDA — ör. nearestLine'ın boş uca oturan vanası) `null` döner, o elemanlar
+eski serbest `moveElements` yoluna düşer (K38'in düzeltmesi zaten onları
+kapsıyor).
+
+Store'da MUTLAK yazan ayrı bir eylem var: `slideOnLineElement(lineId, pointId,
+elementId, nodePosition, elementPosition)` — `moveElements`'in kayma (delta)
+mantığından bilerek FARKLI. `useSelectionTool.ts`'teki `SelectionGrab.slide`
+yalnız TEK eleman seçiliyken ve çözücü `null` dönmüyorken devreye girer; grup
+taşımasında hep eski serbest kayma kullanılır.
+
+**Bilinen sınır:** boru segmentleri sürükleme boyunca CANLI güncellenmez —
+store yalnız `pointerup`'ta yazılır (moveElements'teki bağlı eleman/hat ucu
+davranışıyla AYNI, yeni bir sınırlama değil).
+
+### K40 — Vana/sayaç payı da sıkılaştırıldı
+
+`elementAttach.ts` → `ATTACH_CLEARANCE_CM` 20→10 (gasMeter'ın otomatik
+vanasının gövdeden uzaklığı) — regülatörün `VALVE_MANOMETER_CLEARANCE_CM`siyle
+(10) aynı değer.
+
+## 2026-08 · Regülatör hâlâ genişti (asıl sebep bounds'tu), izolasyon hâlâ tersti
+
+### K41 — Vana/manometrenin `bounds`'u çizimden İKİ KAT genişti
+
+K36/K40'ta paylar iki kez daraltıldıktan SONRA bile regülatör grubu geniş
+kalmaya devam etti. Kök sebep paylar DEĞİLDİ: `valve.meta.json` hâlâ 60 cm'lik
+eski `bounds`/`viewBox` taşıyordu ama görünen çizim (kulakçık çizgileri
+kaldırıldıktan sonra) yalnız 32 cm'ydi; `manometer.meta.json` de aynı şekilde
+44 cm bildirirken çizim (daire çapı) yalnız 22 cm'ydi. `attachModes.ts`'teki
+`VALVE_HALF_CM`/`MANOMETER_HALF_CM` bu HAYALİ genişliklere göre elle
+yazılmıştı — sembol küçültülmüş GÖRÜNSE de aralıklar eski gövdeye göre
+hesaplanmaya devam ediyordu.
+
+Düzeltme: `valve.svg`/`.meta.json`, `solenoid-valve.svg`/`.meta.json`,
+`manometer.svg`/`.meta.json` gerçek çizim sınırlarına küçültüldü (port
+konumları da aynı oranda içeri çekildi), `VALVE_HALF_CM` 30→16,
+`MANOMETER_HALF_CM` 22→11. Ofsetler ±38/±100'den ±26/±59'a indi — asıl fark
+paylardan değil bu düzeltmeden geldi. **Genel ders:** `bounds` SVG çiziminden
+manuel türetilen bir alan; çizim değişirken (kulakçık silme gibi) aynı adımda
+güncellenmezse aralık hesapları sessizce (ve testte YAKALANMADAN) yanlış kalır.
+
+### K42 — İzolasyon SVG'si yeniden çizildi: simetrik zikzak, artık YAPISAL OLARAK "ters" DURAMAZ
+
+Önceki tasarım (taban çizgisi + yukarı sap + aşağı daralan üç enine çizgi)
+ASİMETRİKTİ. Çapayı önce gövde ortasına, sonra "ince uca" taşımak sorunu
+çözmedi — sorun çapa noktası değil, şeklin kendisiydi: SVG'nin +Y'si planın
+−Y'sine karşılık geldiği için (`svgLocalToPlanOffset`) asimetrik bir şekil
+hangi ucundan tutunursa tutunsun kullanıcıya hep "ters" görünüyordu.
+
+Çözüm: `insulation.svg` tek bir simetrik zikzak `polyline`'a (viewBox 40×16,
+dalga ortada) çevrildi. Çapa (`origin: [20,8]`) dalganın TAM ORTASI — dikey
+ayna görüntüsü aynı desen gibi görünür, yön belirsizliği doğuran asimetri
+kökten kaldırıldı.

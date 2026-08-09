@@ -1,12 +1,7 @@
 import type { InstallationLineKind } from './installationModel'
 import type { InstallationElementType } from './symbolMetadata'
 
-export type InstallationToolBehavior =
-  | 'selection'
-  | 'placement'
-  | 'polyline'
-  | 'segment-toggle'
-  | 'measurement'
+export type InstallationToolBehavior = 'selection' | 'placement' | 'polyline' | 'measurement'
 
 export type InstallationToolDefinition = {
   id: string
@@ -34,7 +29,7 @@ export const INSTALLATION_TOOLS = [
   { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline', lineKind: 'pipe' },
   { id: 'chimney', label: 'Baca Ekle', behavior: 'placement', elementType: 'chimney' },
   { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline', lineKind: 'branch' },
-  { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'segment-toggle' },
+  { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'placement', elementType: 'insulation' },
   { id: 'gasMeter', label: 'Sayaç Ekle', behavior: 'placement', elementType: 'gasMeter' },
   { id: 'manometer', label: 'Manometre Ekle', behavior: 'placement', elementType: 'manometer' },
   { id: 'serviceBox', label: 'Servis Kutusu Ekle', behavior: 'placement', elementType: 'serviceBox' },
@@ -59,6 +54,7 @@ export const DEFAULT_INSTALLATION_TOOL_ID: InstallationToolId = 'selection'
 // Araç hook'ları aktif aracı bu sabitle karşılaştırır; id metni tek yerde durur
 // (core/tools.ts'teki SELECTION_TOOL_ID ile aynı desen).
 export const INSTALLATION_SELECTION_TOOL_ID: InstallationToolId = 'selection'
+export const INSTALLATION_PIPE_TOOL_ID: InstallationToolId = 'pipe'
 
 export function isInstallationToolId(toolId: string): toolId is InstallationToolId {
   return INSTALLATION_TOOLS.some((candidate) => candidate.id === toolId)

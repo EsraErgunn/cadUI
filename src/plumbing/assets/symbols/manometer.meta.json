@@ -2,10 +2,10 @@
   "id": "manometer",
   "label": "Manometre",
   "asset": "manometer.svg",
-  "viewBox": [0, 0, 44, 52],
-  "origin": [22, 34],
+  "viewBox": [0, 0, 22, 52],
+  "origin": [11, 34],
   "ports": [
-    { "id": "in", "type": "input", "position": [22, 48], "direction": [0, 1] }
+    { "id": "in", "type": "input", "position": [11, 48], "direction": [0, 1] }
   ],
-  "bounds": { "min": [0, 0], "max": [44, 52] }
+  "bounds": { "min": [0, 0], "max": [22, 52] }
 }

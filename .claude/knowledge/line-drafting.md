@@ -146,12 +146,25 @@ nesne türü — tek listede tutulsaydı her okuyan tür ayrımını yeniden yap
 Ctrl+Z gerekirdi. Bağlantı temizliği de aynı yerde — eleman ve hat silme aynı
 temizliği istiyor.
 
-Bugün YOK: hat sürükleme, köşe düzenleme, çerçeveyle hat seçme, hat kopyalama.
+## Hat taşıma denendi, GERİ ALINDI (2026-08)
+
+Rijit hat taşıma (`plumbingSlice.moveLines` + `useSelectionTool`'da `lineGrab`)
+bir tur içinde eklenip aynı oturumda kullanıcı isteğiyle GERİ ALINDI — ürün
+kararı değil, "şimdilik istemiyoruz" tercihi. Kod tabanında iz yok; tekrar
+istenirse `moveElements`'in aynası olarak yeniden yazılabilir (düğümdeki
+armatür ve PORT ile bağlı eleman birlikte taşınmalı — bkz. `moveElements`'teki
+desen). Bugün YOK: hat sürükleme, köşe düzenleme, çerçeveyle hat seçme, hat
+kopyalama.
 
 ## Açılmayan alanlar
 
 - `InstallationLineSegment.isInsulated` **yok**: izolasyon segment boolean'ı değil
   kendi nesnesidir (K-W4, Aşama 8).
-- Ortogonal (yatay/dikey) kısıt bu aşamada **yok**; CLAUDE.md'deki "borular
-  duvarlara paralel" ürün kuralı henüz koda girmedi.
+- Ortogonal (yatay/dikey) ZORUNLU kısıt bu aşamada **yok** — CLAUDE.md'deki
+  "borular duvarlara paralel" kuralı hâlâ tam kodda değil. Yalnız YUMUŞAK bir
+  yardımcı var: imleç bir duvara yakınken hat çiziminin başlangıç noktası
+  duvarın eksenine yapışır (`core/wallSnap.ts` → `findNearestWallPoint`,
+  `useLineTool.ts`'teki `resolveSnap` sırası port > mevcut boru > duvar ekseni >
+  ızgara). Bu bir BAĞLANTI kaydı üretmez — boru grafiği duvarı tanımaz
+  (`core/model.ts` sözleşmesi), yalnız konumu çeker; paralellik ZORUNLU değildir.
 - Porta yakalanma ve uç bağlantısı Aşama 6'da.

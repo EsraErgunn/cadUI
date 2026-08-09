@@ -13,10 +13,12 @@ import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
+import { resolveOnLineSlide, type OnLineSlideTarget } from '../core/elementAttach'
 import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { pickLineAt } from '../core/linePicking'
+import type { InstallationElementType } from '../core/symbolMetadata'
 import {
   copyElementsToClipboard,
   cutElementsToClipboard,
@@ -32,6 +34,19 @@ type SelectionGrab = {
   /** Basılan elemanın basış anındaki konumu — ızgara ona göre yakalanır. */
   anchorPosition: PlanPoint
   pointerOrigin: PlanPoint
+  /**
+   * TEK eleman + o eleman boruya oturan (`onLine`) bir armatürse dolu: borunun
+   * ŞEKLİ SABİT kalır, eleman yalnız kendi iki komşusu arasında KAYAR (bkz.
+   * `resolveOnLineSlide`). `result` her pointermove'da güncellenir, pointerup
+   * onu MUTLAK olarak yazar — grup taşımasındaki kayma (delta) mantığından
+   * FARKLI bir yazım yolu olduğu için `moveElements` yerine ayrı bir store
+   * eylemi (`slideOnLineElement`) kullanılır.
+   */
+  slide?: {
+    elementType: InstallationElementType
+    angleDeg: number
+    result: OnLineSlideTarget | null
+  }
 }
 
 export type SelectionToolState = {
@@ -146,10 +161,27 @@ export function useSelectionTool(): SelectionToolState {
         : [target.id]
       if (!ui.selectedElementIds.includes(target.id)) ui.setSelectedElements(elementIds)
 
+      // Tek eleman + boruya oturan bir armatürse (iki komşusu da varsa) sürükleme
+      // KAYDIRMA modunda başlar — grup taşımasında hep SERBEST kayma kullanılır.
+      const slideResult =
+        elementIds.length === 1
+          ? resolveOnLineSlide(
+              readFloorLines(),
+              getMetadata,
+              target.id,
+              target.type,
+              target.angleDeg,
+              event.planPoint,
+            )
+          : null
+
       grab = {
         elementIds,
         anchorPosition: target.position,
         pointerOrigin: event.planPoint,
+        slide: slideResult
+          ? { elementType: target.type, angleDeg: target.angleDeg, result: slideResult }
+          : undefined,
       }
       setDraggedElementIds(elementIds)
     }
@@ -160,6 +192,25 @@ export function useSelectionTool(): SelectionToolState {
         return
       }
       if (!grab) return
+
+      if (grab.slide) {
+        const resolved = resolveOnLineSlide(
+          readFloorLines(),
+          getMetadata,
+          grab.elementIds[0],
+          grab.slide.elementType,
+          grab.slide.angleDeg,
+          event.planPoint,
+        )
+        grab.slide.result = resolved
+        dragDeltaRef.current = resolved
+          ? {
+              x: resolved.elementPosition.x - grab.anchorPosition.x,
+              y: resolved.elementPosition.y - grab.anchorPosition.y,
+            }
+          : null
+        return
+      }
 
       const rawAnchor = {
         x: grab.anchorPosition.x + (event.planPoint.x - grab.pointerOrigin.x),
@@ -207,6 +258,24 @@ export function useSelectionTool(): SelectionToolState {
         return
       }
       if (!grab) return
+
+      if (grab.slide) {
+        const elementId = grab.elementIds[0]
+        const result = grab.slide.result
+        endDrag()
+
+        if (!result) return
+        useCadStore
+          .getState()
+          .slideOnLineElement(
+            result.lineId,
+            result.pointId,
+            elementId,
+            result.nodePosition,
+            result.elementPosition,
+          )
+        return
+      }
 
       const { elementIds } = grab
       const delta = dragDeltaRef.current

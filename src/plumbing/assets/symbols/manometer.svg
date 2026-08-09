@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 52">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 52">
   <g fill="none" stroke="#1e293b" stroke-width="2">
-    <circle cx="22" cy="13" r="11" />
-    <line x1="22" y1="24" x2="22" y2="27" />
-    <polygon points="16,27 28,27 22,34" />
-    <polygon points="16,41 28,41 22,34" />
-    <line x1="22" y1="41" x2="22" y2="48" />
+    <circle cx="11" cy="13" r="11" />
+    <line x1="11" y1="24" x2="11" y2="27" />
+    <polygon points="5,27 17,27 11,34" />
+    <polygon points="5,41 17,41 11,34" />
+    <line x1="11" y1="41" x2="11" y2="48" />
   </g>
 </svg>

@@ -6,15 +6,19 @@ import { InterleavedBufferAttribute, type Group } from 'three'
 import { PipeLine } from './InstallationLineMesh'
 import { getLineColor, getLineWidthPx } from './lineStyle'
 import { PREVIEW_ELEVATION_CM } from './plumbingLayers'
+import { PLUMBING_COLORS } from './plumbingTheme'
 import { getLoadedSymbol } from './symbolLoader'
 import { useCameraZoom } from './useCameraZoom'
 import type { LineToolState } from './useLineTool'
 import type { PlacementPreviewState } from './usePlacementTool'
 import { planToThree, type ThreePosition } from '../../core/coords'
 import { RENDER_ORDER } from '../../scene/layers'
+import { getElementAttachMode } from '../core/attachModes'
+import type { InstallationElementType } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 const PREVIEW_OPACITY = 0.5
+const DEG_TO_RAD = Math.PI / 180
 
 /** Lastik bandın başlangıç geometrisi; iki köşesi her karede yerinden yazılır. */
 const RUBBER_BAND_SEED: ThreePosition[] = [
@@ -23,16 +27,22 @@ const RUBBER_BAND_SEED: ThreePosition[] = [
 ]
 
 /**
- * Bırakılacak sembolün yarı saydam önizlemesi. Konum useFrame'de doğrudan
- * object3D'ye yazılır — imleç her kıpırdadığında React render'ı tetiklenmez.
+ * Önizlemedeki TEK sembol. Konum ve açı useFrame'de doğrudan object3D'ye yazılır
+ * — imleç her kıpırdadığında React render'ı tetiklenmez. Yerleşim dizisi araç
+ * seçilince sabitlenen `previewTypes` ile aynı sıradadır; bu bileşen kendi
+ * sırasındaki girdiyi okur, yoksa görünmez olur.
  */
-export function DrawPreview({ elementType, positionRef }: PlacementPreviewState) {
+function PreviewSymbol({
+  elementType,
+  index,
+  placementsRef,
+}: {
+  elementType: InstallationElementType
+  index: number
+  placementsRef: PlacementPreviewState['placementsRef']
+}) {
   const groupRef = useRef<Group>(null)
-
-  const shapes = useMemo(
-    () => (elementType ? getLoadedSymbol(elementType).shapes : []),
-    [elementType],
-  )
+  const shapes = useMemo(() => getLoadedSymbol(elementType).shapes, [elementType])
 
   // symbolLoader'ın PAYLAŞILAN material'ine yazılmaz; saydamlık klon üzerinde.
   const materials = useMemo(
@@ -58,9 +68,13 @@ export function DrawPreview({ elementType, positionRef }: PlacementPreviewState)
     const group = groupRef.current
     if (!group) return
 
-    const position = positionRef.current
-    group.visible = position !== null
-    if (position) group.position.set(...planToThree(position, PREVIEW_ELEVATION_CM))
+    const placement = placementsRef.current?.[index] ?? null
+    group.visible = placement !== null
+    if (!placement) return
+
+    group.position.set(...planToThree(placement.position, PREVIEW_ELEVATION_CM))
+    // Sembol boruya hizalanır; dönme yönü ports.ts'teki rotatePlanOffset ile aynı (R2).
+    group.rotation.y = placement.angleDeg * DEG_TO_RAD
   })
 
   if (shapes.length === 0) return null
@@ -69,16 +83,97 @@ export function DrawPreview({ elementType, positionRef }: PlacementPreviewState)
     // visible=false ile başlar: imleç tuvale girip ilk pointermove gelene kadar
     // önizleme (0,0)'da durmasın.
     <group ref={groupRef} visible={false} renderOrder={RENDER_ORDER.linePreview}>
-      {shapes.map((shape, index) => (
+      {shapes.map((shape, shapeIndex) => (
         // Dizi bir sembol tipinin SVG'sinden bir kez türer ve yeniden sıralanmaz —
         // domain nesnesi değil, indeks anahtar olarak güvenli (SymbolInstance ile aynı).
         <mesh
-          key={index}
+          key={shapeIndex}
           geometry={shape.geometry}
-          material={materials[index]}
+          material={materials[shapeIndex]}
           raycast={() => null}
         />
       ))}
+    </group>
+  )
+}
+
+/**
+ * Cihazı en yakın boruya bağlayan kolun önizlemesi. Lastik bantla aynı teknik:
+ * iki köşe her karede geometrinin İÇİNE yazılır, `points` propu değiştirilmez
+ * (drei `<Line>` her değişimde yeni BufferGeometry ayırırdı).
+ */
+function StubPreviewLine({ stubRef }: Pick<PlacementPreviewState, 'stubRef'>) {
+  const activePipeTypeName = usePlumbingUiStore((state) => state.activePipeTypeName)
+  const lineRef = useRef<ComponentRef<typeof Line> | null>(null)
+  const zoom = useCameraZoom()
+
+  useFrame(() => {
+    const line = lineRef.current
+    if (!line) return
+
+    const stub = stubRef.current
+    line.visible = stub !== null
+    if (!stub) return
+
+    const { instanceStart, instanceEnd } = line.geometry.attributes
+    if (
+      !(instanceStart instanceof InterleavedBufferAttribute) ||
+      !(instanceEnd instanceof InterleavedBufferAttribute)
+    ) {
+      return
+    }
+
+    instanceStart.setXYZ(0, ...planToThree(stub[0], PREVIEW_ELEVATION_CM))
+    instanceEnd.setXYZ(0, ...planToThree(stub[1], PREVIEW_ELEVATION_CM))
+    instanceStart.data.needsUpdate = true
+    // Kesikli desen `points` PROPUNDAN türeyen mesafeye bakar (drei `<Line>`,
+    // Line.js); lastik bant tekniğinde `points` SABİT kalıyor (RUBBER_BAND_SEED),
+    // yalnız tampon elle yazılıyor — drei'nin otomatik `computeLineDistances()`'ı
+    // hiç tetiklenmez ve desen sıfır uzunluklu ilk kareye takılı kalır. Elle
+    // çağrılmazsa kol her zaman DÜZ görünürdü.
+    line.computeLineDistances()
+  })
+
+  return (
+    <PipeLine
+      lineRef={lineRef}
+      positions={RUBBER_BAND_SEED}
+      colorHex={PLUMBING_COLORS.applianceStub}
+      widthPx={getLineWidthPx(activePipeTypeName, zoom)}
+      renderOrder={RENDER_ORDER.linePreview}
+      isDashed
+    />
+  )
+}
+
+/**
+ * Bırakılacak sembollerin yarı saydam önizlemesi. Boruya yapışan elemanlarda
+ * önizleme YALNIZ geçerli bir hedef yakalanınca çıkar; regülatör gibi
+ * refakatçileriyle gelen elemanlarda vanaları ve manometresi de görünür, çünkü
+ * tıklama hepsini birden koyacak.
+ */
+export function DrawPreview({
+  elementType,
+  previewTypes,
+  placementsRef,
+  stubRef,
+}: PlacementPreviewState) {
+  const hasStub = elementType !== null && getElementAttachMode(elementType) === 'nearestLine'
+
+  return (
+    <group name="placement-preview">
+      {previewTypes.map((type, index) => (
+        // key olarak indeks: aynı tür (iki vana) birden çok kez geçebiliyor ve
+        // dizi araç seçilince sabitlenip bir daha sıralanmıyor.
+        <PreviewSymbol
+          key={index}
+          elementType={type}
+          index={index}
+          placementsRef={placementsRef}
+        />
+      ))}
+
+      {hasStub && <StubPreviewLine stubRef={stubRef} />}
     </group>
   )
 }

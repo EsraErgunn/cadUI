@@ -9,6 +9,7 @@ import { planToThree } from '../../core/coords'
 import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
+import { hasPortMarkers } from '../core/attachModes'
 import type { InstallationElement } from '../core/installationModel'
 import { isPortOccupied } from '../core/portSnap'
 import { svgLocalToPlanOffset } from '../core/ports'
@@ -78,6 +79,10 @@ type PortMarkersProps = {
  * getPortWorldPosition'ın hesabıyla aynı sonucu verir (R2).
  */
 export function PortMarkers({ metadata, scale, occupiedPortIds = [] }: PortMarkersProps) {
+  // Vana/selenoid vana/filtre/süzme sayaç: portları boruyu ayıran gerçek bir
+  // düğüm, bağlanılacak serbest bir hedef değil — işaret hiç çizilmez.
+  if (!hasPortMarkers(metadata.id)) return null
+
   // Grubun ölçeği çocuklara da uygulanıyor; yükseklik farkı dünya ölçüsünde
   // sabit kalsın diye ölçeğe bölünür.
   const elevationCm = (PORT_MARKER_ELEVATION_CM - SYMBOL_ELEVATION_CM) / scale

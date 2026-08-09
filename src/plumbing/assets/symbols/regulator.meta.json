@@ -2,12 +2,12 @@
   "id": "regulator",
   "label": "Regülatör",
   "asset": "regulator.svg",
-  "viewBox": [0, 0, 76, 68],
-  "origin": [38, 50],
+  "viewBox": [0, 0, 24, 24],
+  "origin": [12, 12],
   "flowDirection": "left-to-right",
   "ports": [
-    { "id": "in", "type": "input", "position": [0, 50], "direction": [1, 0] },
-    { "id": "out", "type": "output", "position": [76, 50], "direction": [1, 0] }
+    { "id": "in", "type": "input", "position": [0, 12], "direction": [1, 0] },
+    { "id": "out", "type": "output", "position": [24, 12], "direction": [1, 0] }
   ],
-  "bounds": { "min": [0, 0], "max": [76, 68] }
+  "bounds": { "min": [0, 0], "max": [24, 24] }
 }

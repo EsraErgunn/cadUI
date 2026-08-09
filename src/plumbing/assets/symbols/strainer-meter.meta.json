@@ -3,11 +3,11 @@
   "label": "Süzme Sayaç",
   "asset": "strainer-meter.svg",
   "viewBox": [0, 0, 60, 40],
-  "origin": [30, 13],
+  "origin": [30, 20],
   "flowDirection": "left-to-right",
   "ports": [
-    { "id": "in", "type": "input", "position": [20, -20], "direction": [0, -1] },
-    { "id": "out", "type": "output", "position": [40, -20], "direction": [0, -1] }
+    { "id": "in", "type": "input", "position": [0, 20], "direction": [1, 0] },
+    { "id": "out", "type": "output", "position": [60, 20], "direction": [1, 0] }
   ],
-  "bounds": { "min": [0, -20], "max": [60, 40] }
+  "bounds": { "min": [0, 0], "max": [60, 40] }
 }

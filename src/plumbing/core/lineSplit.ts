@@ -12,6 +12,41 @@ export type LineSplitResult = {
   insertedPointId: Id
 }
 
+export type LineExtendResult = {
+  points: InstallationLinePoint[]
+  segments: InstallationLineSegment[]
+  addedPointId: Id
+}
+
+/**
+ * Hattı UCUNDAN uzatır: yeni köşe uca eklenir, aradaki parça doğar. Sayaç boş uca
+ * takılırken hat sayacın giriş portuna kadar bu şekilde büyür — yeni bir hat
+ * üretilseydi eski uç ile sayaç arasında iki ayrı boru görünürdü.
+ *
+ * Baştan uzatmada nokta ve parça başa eklenir; mevcut id'lere DOKUNULMAZ (kural 6).
+ */
+export function extendLineEnd(
+  line: Pick<InstallationLine, 'points' | 'segments'>,
+  end: 'start' | 'end',
+  position: PlanPoint,
+  createId: () => Id,
+): LineExtendResult | null {
+  const anchor = end === 'start' ? line.points[0] : line.points.at(-1)
+  if (!anchor) return null
+
+  const addedPoint: InstallationLinePoint = { id: createId(), position }
+  const segment: InstallationLineSegment =
+    end === 'start'
+      ? { id: createId(), fromPointId: addedPoint.id, toPointId: anchor.id }
+      : { id: createId(), fromPointId: anchor.id, toPointId: addedPoint.id }
+
+  return {
+    points: end === 'start' ? [addedPoint, ...line.points] : [...line.points, addedPoint],
+    segments: end === 'start' ? [segment, ...line.segments] : [...line.segments, segment],
+    addedPointId: addedPoint.id,
+  }
+}
+
 /**
  * Bir parçanın ortasına köşe ekler: boru orada AYRILIR, yeni bir hat üretilmez.
  * Mevcut nokta ve parça id'lerine DOKUNULMAZ — bölünen parça kendi id'siyle
