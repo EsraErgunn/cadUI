@@ -52,7 +52,7 @@ export function PlumbingLayer() {
     <group name="plumbing-root">
       <InstallationLines />
       <InstallationElements {...selection} />
-      <DrawPreview elementType={preview.elementType} positionRef={preview.positionRef} />
+      <DrawPreview {...preview} />
       <DrawingPortMarkers {...line} />
       <LineDraftPreview {...line} />
       <SelectionMarquee />

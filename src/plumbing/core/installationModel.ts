@@ -17,11 +17,18 @@ export type InstallationElement = {
   scale: number
 }
 
-export type InstallationLineKind = 'pipe' | 'branch'
+export type InstallationLineKind = 'pipe' | 'branch' | 'applianceStub'
 
 export type InstallationLinePoint = {
   id: Id
   position: PlanPoint
+  /**
+   * Bu düğümde oturan armatür (vana, regülatör, manometre, izolasyon…). Armatür
+   * hattın ÜSTÜNDE bir düğümdür, ayrı bir bağlantı kaydı değil (K-W3): bir hat
+   * ucuna değil hattın ortasına oturduğu için `InstallationConnection` bunu
+   * ifade edemez. Serbest duran elemanda bu alan YOKTUR.
+   */
+  inlineElementId?: Id
 }
 
 /**

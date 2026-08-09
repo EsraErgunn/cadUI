@@ -13,4 +13,9 @@ export const PLUMBING_COLORS = {
   // sarı = gaz hattı" kuralı bu kararla kalktı.
   /** Sembol yüklenemediğinde çizilen yer tutucu — seçim mavisiyle karışmayan uyarı rengi. */
   assetError: '#dc2626',
+  /**
+   * Yakıcı cihazı boruya bağlayan kol: çap sınıfından BAĞIMSIZ, hep kırmızı ve
+   * kesikli — boru değil, cihazın kısa bağlantısı olduğu ayırt edilsin diye.
+   */
+  applianceStub: '#ef4444',
 } as const

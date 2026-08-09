@@ -8,6 +8,7 @@ import {
   LINE_ELEVATION_CM,
   LINE_END_MARKER_LIFT_CM,
 } from './plumbingLayers'
+import { PLUMBING_COLORS } from './plumbingTheme'
 import { GHOST_OPACITY } from './symbolLoader'
 import { useCameraZoom } from './useCameraZoom'
 import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
@@ -47,6 +48,10 @@ type InstallationLineMeshProps = {
   tone?: LineTone
 }
 
+/** Kesikli çizginin dünya birimindeki desen boyu — piksel değil, ekranı sabit taramasın. */
+const DASH_SIZE_CM = 8
+const DASH_GAP_CM = 6
+
 type PipeLineProps = {
   positions: ThreePosition[]
   colorHex: string
@@ -54,6 +59,8 @@ type PipeLineProps = {
   widthPx: number
   renderOrder: number
   isGhost?: boolean
+  /** Cihaz kolu gibi boru OLMAYAN bağlantılar kesikli çizilir. */
+  isDashed?: boolean
   /** Ref YALNIZ lastik bandın ihtiyacı; köşeleri her karede tampona yazılıyor. */
   lineRef?: RefObject<ComponentRef<typeof Line> | null>
 }
@@ -73,6 +80,7 @@ export function PipeLine({
   widthPx,
   renderOrder,
   isGhost = false,
+  isDashed = false,
   lineRef,
 }: PipeLineProps) {
   return (
@@ -81,6 +89,9 @@ export function PipeLine({
       points={positions}
       color={colorHex}
       lineWidth={widthPx}
+      dashed={isDashed}
+      dashSize={DASH_SIZE_CM}
+      gapSize={DASH_GAP_CM}
       // Kenar yumuşatma örtme maskesiyle: kapatılırsa yuvarlak uçlar tırtıklanır.
       alphaToCoverage
       // Çizgi geometrinin sınırlarını taştığı için kırpma kapalı (Wall.tsx ile aynı).
@@ -141,8 +152,14 @@ export function InstallationLineMesh({
   tone = 'normal',
 }: InstallationLineMeshProps) {
   const isGhost = tone === 'ghost'
+  const isApplianceStub = line.kind === 'applianceStub'
   const widthPx = getLineWidthPx(line.pipeTypeName, zoom)
-  const colorHex = isSelected && !isGhost ? SCENE_COLORS.selection : getLineColor(line.pipeTypeName)
+  const colorHex =
+    isSelected && !isGhost
+      ? SCENE_COLORS.selection
+      : isApplianceStub
+        ? PLUMBING_COLORS.applianceStub
+        : getLineColor(line.pipeTypeName)
 
   // Referans kararlı tutulur: drei <Line> `points` değişince geometriyi yeniden ayırır.
   const positions = useMemo(
@@ -164,6 +181,7 @@ export function InstallationLineMesh({
         widthPx={widthPx}
         renderOrder={isGhost ? RENDER_ORDER.installationGhost : RENDER_ORDER.pipe}
         isGhost={isGhost}
+        isDashed={isApplianceStub}
       />
 
       {/* Uç işaretleri hayalette çizilmez: mimari görünümde tesisat salt bağlamdır.

@@ -2,7 +2,8 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
-import { getLoadedSymbol } from './symbolLoader'
+import { getSnapRadiusCm } from './snapRadius'
+import { getSymbolMetadata } from './symbolLoader'
 import type { PlanPoint } from '../../core/coords'
 import { getPlacementPosition } from '../../core/placement'
 import { readCameraViewport } from '../../scene/cameraViewport'
@@ -17,17 +18,10 @@ import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSna
 import { resolveRightClick, type RightClickInput } from '../core/pointerGestures'
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
-import type { InstallationElementType } from '../core/symbolMetadata'
+import { findNearestWallPoint } from '../core/wallSnap'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
 const LEFT_BUTTON = 0
-
-/**
- * Yakalama yarıçapı EKRAN piksel cinsinden: zoom'a bölündüğü için yakalama
- * uzaklığı her ölçekte aynı hissedilir. Izgara adımından (en küçüğü 50 cm) daha
- * dar tutulur ki snap ızgarayı bastırırken hedefi şaşırmasın.
- */
-const SNAP_RADIUS_PX = 14
 
 /** İmlecin yakalandığı yer. Sahne bunu vurgular; biçim türe göre değişir. */
 export type LineToolSnap =
@@ -42,8 +36,6 @@ export type LineToolState = {
   /** İmlecin yakaladığı hedef; boşluktaysa null. */
   snapRef: RefObject<LineToolSnap | null>
 }
-
-const getMetadata = (type: InstallationElementType) => getLoadedSymbol(type).metadata
 
 /** Yakalanan hedefin store'a gidecek hâli. Boruya düşen uç, kaydı yazılırken o
  *  boruyu AYIRIR — köşeye düştüyse ayırmaz, var olan köşeye bağlanır. */
@@ -99,15 +91,19 @@ export function useLineTool(): LineToolState {
       usePlumbingUiStore.getState().setDraftLine(draft)
 
     /**
-     * Öncelik: port > mevcut boru > ızgara. Ctrl ızgarayı kapatır (eleman
-     * sürüklemesiyle aynı jest) ama port/boru yakalamasını kapatmaz: bağlantı
-     * kurmak serbest konumlandırmadan daha güçlü bir niyettir.
+     * Öncelik: port > mevcut boru > duvar ekseni > ızgara. Ctrl ızgarayı kapatır
+     * (eleman sürüklemesiyle aynı jest) ama port/boru/duvar yakalamasını kapatmaz:
+     * bağlantı kurmak serbest konumlandırmadan daha güçlü bir niyettir.
+     *
+     * Duvar yakalaması BAĞLANTI KAYDI ÜRETMEZ (`snap: null`) — yalnız konumu
+     * duvar eksenine çeker; ürün kuralı borunun duvara paralel, hat üzerinden
+     * başlamasını ister ama boru grafiği duvarı tanımaz (core/model.ts).
      */
     const resolveSnap = (
       event: DrawSurfacePointerEvent,
     ): { point: PlanPoint; snap: LineToolSnap | null } => {
       const { zoom } = readCameraViewport(camera)
-      const radiusCm = SNAP_RADIUS_PX / zoom
+      const radiusCm = getSnapRadiusCm(zoom)
       const cad = useCadStore.getState()
       const floorElements = cad.installationElements.filter(
         (element) => element.floorId === cad.activeFloorId,
@@ -116,7 +112,7 @@ export function useLineTool(): LineToolState {
       const port = findNearestFreePort(
         floorElements,
         cad.installationConnections,
-        getMetadata,
+        getSymbolMetadata,
         event.planPoint,
         radiusCm,
       )
@@ -125,6 +121,12 @@ export function useLineTool(): LineToolState {
       const floorLines = cad.installationLines.filter((line) => line.floorId === cad.activeFloorId)
       const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
       if (line) return { point: line.position, snap: { kind: 'line', position: line.position, line } }
+
+      if (!event.ctrlKey) {
+        const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
+        const wall = findNearestWallPoint(floorWalls, cad.points, event.planPoint, radiusCm)
+        if (wall) return { point: wall.position, snap: null }
+      }
 
       const point = event.ctrlKey ? event.planPoint : getPlacementPosition(event.planPoint, zoom)
       return { point, snap: null }
@@ -146,7 +148,7 @@ export function useLineTool(): LineToolState {
       const seedType = getLineSeedElementType(kind, hasServiceBox(cad.installationElements))
       if (!seedType) return { kind, points: [point], startTarget: null }
 
-      const metadata = getMetadata(seedType)
+      const metadata = getSymbolMetadata(seedType)
       const seedPort = getSeedPort(metadata)
       const elementId = cad.addElement({ type: seedType, position: point })
       if (!seedPort) return { kind, points: [point], startTarget: null }

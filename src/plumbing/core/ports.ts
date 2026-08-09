@@ -20,21 +20,33 @@ export function svgLocalToPlanOffset(
 }
 
 /**
- * Bir portun plan koordinatı: ölçek → dönme → öteleme sırası (Bölüm 7).
- * SymbolInstance.tsx'teki three `rotation.y = angleDeg * DEG_TO_RAD` ile AYNI
- * yönde döner (Risk R2) — ikisi de standart CCW döndürme matrisini kullanır.
+ * Sembol yerel ofsetini eleman açısıyla döndürür. SymbolInstance.tsx'teki three
+ * `rotation.y = angleDeg * DEG_TO_RAD` ile AYNI yönde döner (Risk R2) — ikisi de
+ * standart CCW döndürme matrisini kullanır. Dönüşüm TEK yerde: ikinci bir kopya
+ * açı işaretini ters çevirir ve port konumu sessizce şaşardı.
  */
+export function rotatePlanOffset(offset: PlanPoint, angleDeg: number): PlanPoint {
+  const angleRad = angleDeg * DEG_TO_RAD
+  const cos = Math.cos(angleRad)
+  const sin = Math.sin(angleRad)
+  return {
+    x: normalizeZero(offset.x * cos - offset.y * sin),
+    y: normalizeZero(offset.x * sin + offset.y * cos),
+  }
+}
+
+/** Bir portun plan koordinatı: ölçek → dönme → öteleme sırası (Bölüm 7). */
 export function getPortWorldPosition(
   element: InstallationElement,
   port: SymbolPortDefinition,
   metadata: SymbolMetadata,
 ): PlanPoint {
-  const offset = svgLocalToPlanOffset(port.position, metadata.origin, element.scale)
-  const angleRad = element.angleDeg * DEG_TO_RAD
-  const cos = Math.cos(angleRad)
-  const sin = Math.sin(angleRad)
+  const offset = rotatePlanOffset(
+    svgLocalToPlanOffset(port.position, metadata.origin, element.scale),
+    element.angleDeg,
+  )
   return {
-    x: element.position.x + normalizeZero(offset.x * cos - offset.y * sin),
-    y: element.position.y + normalizeZero(offset.x * sin + offset.y * cos),
+    x: element.position.x + offset.x,
+    y: element.position.y + offset.y,
   }
 }
