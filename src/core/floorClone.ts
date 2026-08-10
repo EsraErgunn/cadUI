@@ -1,5 +1,7 @@
+import { getNextAreaObjectLabel } from './areaObject'
 import { createIdRemap, remapId } from './idRemap'
 import type {
+  AreaObject,
   Id,
   Opening,
   Point,
@@ -22,6 +24,7 @@ export type FloorArchitecture = {
   openings: Opening[]
   rooms: Room[]
   symbols: PointSymbol[]
+  areaObjects: AreaObject[]
 }
 
 export type FloorCloneSource = {
@@ -30,6 +33,7 @@ export type FloorCloneSource = {
   openings: readonly Opening[]
   rooms: readonly Room[]
   symbols: readonly PointSymbol[]
+  areaObjects: readonly AreaObject[]
 }
 
 /** Katta çizim var mı? Kopya yalnız BOŞ kata aktarılır (CLAUDE.md ürün kuralı). */
@@ -37,7 +41,8 @@ export function isFloorEmpty(source: FloorCloneSource, floorId: Id): boolean {
   return (
     !source.points.some((point) => point.floorId === floorId) &&
     !source.walls.some((wall) => wall.floorId === floorId) &&
-    !source.symbols.some((symbol) => isSymbolOnFloor(symbol, floorId, source.walls))
+    !source.symbols.some((symbol) => isSymbolOnFloor(symbol, floorId, source.walls)) &&
+    !source.areaObjects.some((areaObject) => areaObject.floorId === floorId)
   )
 }
 
@@ -78,6 +83,9 @@ export function cloneFloorArchitecture(
   const sourceRooms = source.rooms.filter((room) => isRoomOnFloor(room, sourceWallIds))
   const sourceSymbols = source.symbols.filter((symbol) =>
     isSymbolOnFloor(symbol, sourceFloorId, source.walls),
+  )
+  const sourceAreaObjects = source.areaObjects.filter(
+    (areaObject) => areaObject.floorId === sourceFloorId,
   )
 
   // Köşeler ÖNCE: duvarın uçları onların yeni id'lerini isteyecek.
@@ -159,5 +167,22 @@ export function cloneFloorArchitecture(
     })
   }
 
-  return { points, walls, openings, rooms, symbols }
+  // Alan nesnesi kimseye bağlı değil (kendi koordinatını taşır), sembolle aynı
+  // gerekçeyle yeni id + YENİ ETİKET alır.
+  const areaObjects: AreaObject[] = []
+  for (const areaObject of sourceAreaObjects) {
+    areaObjects.push({
+      id: takeId(),
+      type: areaObject.type,
+      floorId: targetFloorId,
+      x: areaObject.x,
+      y: areaObject.y,
+      widthCm: areaObject.widthCm,
+      lengthCm: areaObject.lengthCm,
+      angleDeg: areaObject.angleDeg,
+      label: getNextAreaObjectLabel(areaObjects, areaObject.type, targetFloorId),
+    })
+  }
+
+  return { points, walls, openings, rooms, symbols, areaObjects }
 }

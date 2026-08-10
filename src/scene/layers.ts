@@ -28,6 +28,8 @@ export const RENDER_ORDER = {
    * altına düşerse duvar kütlesi onu yutar. Tutamakların altında kalır.
    */
   pointSymbol: 32,
+  /** Alan nesnesi (merdiven/kolon/baca şaftı) nokta sembolünün ÜSTÜNDE — ikisi çakışabilir. */
+  areaObject: 33,
   /**
    * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
    * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı

@@ -1,6 +1,7 @@
 import type { ArchitectureTarget } from './architectureHover'
+import { getAreaObjectCorners } from './areaObject'
 import type { PlanPoint } from './coords'
-import type { Id, Opening, Point, PointSymbol, Wall } from './model'
+import type { AreaObject, Id, Opening, Point, PointSymbol, Wall } from './model'
 import { getSymbolPose } from './symbolPlacement'
 import { getWallEnds } from './wall'
 import { getWallFrameAtOffsetCm } from './wallPath'
@@ -10,7 +11,7 @@ import { getWallFrameAtOffsetCm } from './wallPath'
  * kendi başına taşınması `usePointDragTool`'un işi ve grup dönüşümünde duvarıyla
  * birlikte gelir. Vurgu hedefi (`ArchitectureTarget`) köşeyi de içerir, seçim içermez.
  */
-export type SelectableKind = 'wall' | 'opening' | 'symbol'
+export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area'
 
 export type SelectionItem = {
   kind: SelectableKind
@@ -77,6 +78,7 @@ export function toSelectionItem(target: ArchitectureTarget): SelectionItem | und
   if (target.kind === 'wall') return { kind: 'wall', id: target.wallId }
   if (target.kind === 'opening') return { kind: 'opening', id: target.openingId }
   if (target.kind === 'symbol') return { kind: 'symbol', id: target.symbolId }
+  if (target.kind === 'area') return { kind: 'area', id: target.areaObjectId }
   return undefined
 }
 
@@ -92,10 +94,12 @@ export function pruneSelection(
   walls: readonly Wall[],
   openings: readonly Opening[],
   symbols: readonly PointSymbol[],
+  areaObjects: readonly AreaObject[],
 ): Selection {
   const pruned = selection.filter((item) => {
     if (item.kind === 'wall') return walls.some((wall) => wall.id === item.id)
     if (item.kind === 'opening') return openings.some((opening) => opening.id === item.id)
+    if (item.kind === 'area') return areaObjects.some((areaObject) => areaObject.id === item.id)
     return symbols.some((symbol) => symbol.id === item.id)
   })
   return pruned.length === selection.length ? selection : pruned
@@ -187,6 +191,16 @@ export function getSymbolsInRect(
     .map((symbol) => symbol.id)
 }
 
+/**
+ * Alan nesnesi, dört köşesi de çerçevede TAMAMEN kalıyorsa seçilir —
+ * `getWallsInRect` ile aynı kural (kesişen değil, tam kapsanan).
+ */
+export function getAreaObjectsInRect(rect: PlanRect, areaObjects: readonly AreaObject[]): Id[] {
+  return areaObjects
+    .filter((areaObject) => getAreaObjectCorners(areaObject).every((corner) => isPointInRect(corner, rect)))
+    .map((areaObject) => areaObject.id)
+}
+
 /** Çerçevenin kapsadığı her şey — tek geçişte, çağıran üç fonksiyonu ayrı sarmasın. */
 export function getSelectionInRect(
   rect: PlanRect,
@@ -194,6 +208,7 @@ export function getSelectionInRect(
   openings: readonly Opening[],
   points: readonly Point[],
   symbols: readonly PointSymbol[],
+  areaObjects: readonly AreaObject[],
 ): Selection {
   return [
     ...getWallsInRect(rect, walls, points).map((id): SelectionItem => ({ kind: 'wall', id })),
@@ -203,6 +218,7 @@ export function getSelectionInRect(
     ...getSymbolsInRect(rect, symbols, walls, points).map(
       (id): SelectionItem => ({ kind: 'symbol', id }),
     ),
+    ...getAreaObjectsInRect(rect, areaObjects).map((id): SelectionItem => ({ kind: 'area', id })),
   ]
 }
 

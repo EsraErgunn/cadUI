@@ -1,0 +1,155 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+
+import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
+import { useCadStore } from '../cadStore'
+
+const UPPER_FLOOR_ID = 14
+
+function resetState(): void {
+  useCadStore.setState({
+    floors: [
+      { id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME },
+      { id: UPPER_FLOOR_ID, name: '1. Kat' },
+    ],
+    activeFloorId: DEFAULT_FLOOR_ID,
+    points: [],
+    walls: [],
+    openings: [],
+    rooms: [],
+    symbols: [],
+    areaObjects: [],
+    nextUniqueId: 100,
+    revision: 0,
+    savedRevision: 0,
+  })
+  useCadStore.temporal.getState().clear()
+}
+
+function findAreaObject(id: number) {
+  return useCadStore.getState().areaObjects.find((areaObject) => areaObject.id === id)
+}
+
+beforeEach(resetState)
+
+describe('addAreaObject', () => {
+  it('nesneyi aktif kata varsayılan boyutla ekler ve etiketini üretir', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 120, y: 80 })
+
+    expect(findAreaObject(id!)).toMatchObject({
+      floorId: DEFAULT_FLOOR_ID,
+      type: 'structuralColumn',
+      x: 120,
+      y: 80,
+      widthCm: 100,
+      lengthCm: 100,
+      angleDeg: 0,
+      label: 'K-01',
+    })
+  })
+
+  it('ikinci aynı tip nesne sıradaki numarayı alır', () => {
+    useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+    const secondId = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 100, y: 100 })
+
+    expect(findAreaObject(secondId!)?.label).toBe('K-02')
+  })
+
+  it('bir kapının tam üstüne yerleştirme reddedilir, id bile harcanmaz', () => {
+    useCadStore.setState({
+      points: [
+        { id: 1, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
+        { id: 2, floorId: DEFAULT_FLOOR_ID, x: 400, y: 0 },
+      ],
+      walls: [{ id: 1, floorId: DEFAULT_FLOOR_ID, p1Id: 1, p2Id: 2, thickness: 20, height: 280 }],
+      openings: [{ id: 1, wallId: 1, offsetCm: 200, widthCm: 90, type: 'door' }],
+    })
+    const nextIdBefore = useCadStore.getState().nextUniqueId
+
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 200, y: 0 })
+
+    expect(id).toBeUndefined()
+    expect(useCadStore.getState().areaObjects).toHaveLength(0)
+    expect(useCadStore.getState().nextUniqueId).toBe(nextIdBefore)
+  })
+})
+
+describe('moveAreaObject', () => {
+  it('geçerli konuma taşır', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+
+    const isMoved = useCadStore.getState().moveAreaObject(id!, 300, 300)
+
+    expect(isMoved).toBe(true)
+    expect(findAreaObject(id!)).toMatchObject({ x: 300, y: 300 })
+  })
+
+  it('bir kapının üstüne taşıma reddedilir, konum DEĞİŞMEZ', () => {
+    useCadStore.setState({
+      points: [
+        { id: 1, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
+        { id: 2, floorId: DEFAULT_FLOOR_ID, x: 400, y: 0 },
+      ],
+      walls: [{ id: 1, floorId: DEFAULT_FLOOR_ID, p1Id: 1, p2Id: 2, thickness: 20, height: 280 }],
+      openings: [{ id: 1, wallId: 1, offsetCm: 200, widthCm: 90, type: 'door' }],
+    })
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 350, y: 0 })
+
+    const isMoved = useCadStore.getState().moveAreaObject(id!, 200, 0)
+
+    expect(isMoved).toBe(false)
+    expect(findAreaObject(id!)).toMatchObject({ x: 350, y: 0 })
+  })
+})
+
+describe('setAreaObjectSize', () => {
+  it('genişlik/uzunluğu günceller', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'stairs', x: 0, y: 0 })
+
+    const isResized = useCadStore.getState().setAreaObjectSize(id!, 150, 350)
+
+    expect(isResized).toBe(true)
+    expect(findAreaObject(id!)).toMatchObject({ widthCm: 150, lengthCm: 350 })
+  })
+
+  it('sıfır veya negatif boyut reddedilir', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'stairs', x: 0, y: 0 })
+
+    expect(useCadStore.getState().setAreaObjectSize(id!, 0, 100)).toBe(false)
+  })
+})
+
+describe('rotateAreaObject', () => {
+  it('açıyı 15° adımına yakalar', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+
+    useCadStore.getState().rotateAreaObject(id!, 40)
+
+    expect(findAreaObject(id!)?.angleDeg).toBe(45)
+  })
+})
+
+describe('setAreaObjectLabel', () => {
+  it('çakışan etiketi reddeder', () => {
+    const firstId = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+    const secondId = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 200, y: 200 })
+
+    const isApplied = useCadStore.getState().setAreaObjectLabel(secondId!, findAreaObject(firstId!)!.label)
+
+    expect(isApplied).toBe(false)
+  })
+
+  it('boş etiketi reddeder', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+
+    expect(useCadStore.getState().setAreaObjectLabel(id!, '   ')).toBe(false)
+  })
+
+  it('geçerli yeni etiketi kabul eder', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+
+    const isApplied = useCadStore.getState().setAreaObjectLabel(id!, 'Asansör Boşluğu')
+
+    expect(isApplied).toBe(true)
+    expect(findAreaObject(id!)?.label).toBe('Asansör Boşluğu')
+  })
+})

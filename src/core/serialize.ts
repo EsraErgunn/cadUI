@@ -1,7 +1,9 @@
 import { z } from 'zod'
 
+
 import { DEFAULT_FLOOR_HEIGHT_CM } from './model'
-import type { Floor, Opening, Point, PointSymbol, ProjectData, Room, Wall } from './model'
+import type { AreaObject, Floor, Opening, Point, PointSymbol, ProjectData, Room, Wall } from './model'
+
 
 /**
  * Dış kaynaktan gelen JSON şemadan geçmeden state'e girmez (CLAUDE.md güvenlik).
@@ -107,6 +109,20 @@ const pointSymbolSchema = z.preprocess((value) => {
   return { ...value, attachment: 'free' }
 }, symbolAttachmentSchema)
 
+const areaObjectTypeSchema = z.enum(['stairs', 'structuralColumn', 'flueShaft'])
+
+const areaObjectSchema = z.object({
+  id: idSchema,
+  type: areaObjectTypeSchema,
+  floorId: idSchema,
+  x: z.number(),
+  y: z.number(),
+  widthCm: z.number(),
+  lengthCm: z.number(),
+  angleDeg: z.number(),
+  label: z.string(),
+})
+
 /**
  * Modele SONRADAN eklenen diziler `.default([])` taşır: depodaki çizimler o
  * alanlar yokken kaydedildi ve zorunlu tutulursa "expected array, received
@@ -126,6 +142,7 @@ export const projectDataSchema = z.object({
   openings: z.array(openingSchema),
   rooms: z.array(roomSchema).default([]),
   symbols: z.array(pointSymbolSchema).default([]),
+  areaObjects: z.array(areaObjectSchema).default([]),
 })
 
 export class ProjectDataParseError extends Error {
@@ -182,6 +199,7 @@ export function serializeProjectData(data: ProjectData): string {
     openings: data.openings.map(toOpeningJson),
     rooms: data.rooms.map(toRoomJson),
     symbols: data.symbols.map(toPointSymbolJson),
+    areaObjects: data.areaObjects.map(toAreaObjectJson),
   })
 }
 
@@ -250,5 +268,19 @@ function toPointSymbolJson(symbol: PointSymbol) {
     x: symbol.x,
     y: symbol.y,
     rotationDeg: symbol.rotationDeg,
+  }
+}
+
+function toAreaObjectJson(areaObject: AreaObject) {
+  return {
+    id: areaObject.id,
+    type: areaObject.type,
+    floorId: areaObject.floorId,
+    x: areaObject.x,
+    y: areaObject.y,
+    widthCm: areaObject.widthCm,
+    lengthCm: areaObject.lengthCm,
+    angleDeg: areaObject.angleDeg,
+    label: areaObject.label,
   }
 }

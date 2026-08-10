@@ -11,9 +11,8 @@ import {
 import type { PlanPoint } from '../core/coords'
 import type { Id } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
-import { getSelectedIds, isItemSelected } from '../core/selection'
+import { isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
-import { getSymbolPose, resolveSymbolAttachment } from '../core/symbolPlacement'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
@@ -21,30 +20,28 @@ import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
 
-type SymbolGrab = {
-  /** Taşınacak semboller: tutulan sembol seçimin parçasıysa TÜM seçim. */
-  symbolIds: Id[]
+type AreaObjectGrab = {
+  areaObjectId: Id
   /** Basış anındaki ham imleç noktası; öteleme buna göre ölçülür. */
   grabPoint: PlanPoint
-  /** Tutulan sembolün basış anındaki konumu — ızgara yapışması bunun üzerinden. */
+  /** Tutulan nesnenin basış anındaki konumu — ızgara yapışması bunun üzerinden. */
   origin: PlanPoint
 }
 
 /**
- * Sembol seçme, taşıma ve silme. Duvar/açıklık hook'larıyla aynı sözleşme:
- * `resolveArchitectureTarget` hedef 'symbol' değilse jest hiç başlamaz
- * (knowledge/gesture-bus-precedence.md — karar geometriyle verilir).
- *
- * Sürükleme boyunca cadStore'a YAZILMAZ; tek yazım bırakma anında olur, yani
- * tek markDirty ve tek Ctrl+Z (duvar taşımanın aynısı).
+ * Alan nesnesi seçme, taşıma ve silme — `usePointSymbolSelectionTool` ile aynı
+ * sözleşme (tek yazım bırakma anında, tek Ctrl+Z). Tek fark: `moveAreaObject`
+ * K35/K36 gerekçesiyle REDDEDEBİLİR (kapının üstüne taşıma) — reddedilirse
+ * sürükleme sırasında GÖSTERİLEN konum store'a hiç yazılmaz, nesne eski
+ * yerinde kalır (K13 deseni: kaydırılmaz, sessizce reddedilir).
  */
-export function usePointSymbolSelectionTool(): void {
+export function useAreaObjectSelectionTool(): void {
   const camera = useThree((state) => state.camera)
 
   useEffect(() => {
     if (!(camera instanceof OrthographicCamera)) return undefined
 
-    let grab: SymbolGrab | undefined
+    let grab: AreaObjectGrab | undefined
 
     const readContext = (): ArchitectureTargetContext => {
       const cad = useCadStore.getState()
@@ -61,7 +58,7 @@ export function usePointSymbolSelectionTool(): void {
 
     const endDrag = () => {
       grab = undefined
-      useArchitectureUiStore.getState().setDraggingSymbols(null)
+      useArchitectureUiStore.getState().setDraggingAreaObjects(null)
     }
 
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
@@ -72,10 +69,10 @@ export function usePointSymbolSelectionTool(): void {
       if (toolId !== SELECTION_TOOL_ID && !isEraser) return
 
       const target = resolveArchitectureTarget(event.planPoint, readContext())
-      if (!target || target.kind !== 'symbol') return
+      if (!target || target.kind !== 'area') return
 
       const ui = useArchitectureUiStore.getState()
-      const item = { kind: 'symbol', id: target.symbolId } as const
+      const item = { kind: 'area', id: target.areaObjectId } as const
 
       if (isEraser) {
         useCadStore.getState().deleteSelection([item])
@@ -83,8 +80,7 @@ export function usePointSymbolSelectionTool(): void {
       }
 
       // Shift seçime ekler/çıkarır; düz tıklama seçimi değiştirir ama ZATEN
-      // seçiliyse korur — yoksa çoklu seçimi taşımak için basılan ilk sembol
-      // taşıma başlamadan seçimi tek nesneye düşürürdü (KK-10 ile aynı kural).
+      // seçiliyse korur — usePointSymbolSelectionTool ile aynı gerekçe (KK-10).
       if (event.shiftKey) {
         ui.toggleSelected(item)
         return
@@ -92,17 +88,13 @@ export function usePointSymbolSelectionTool(): void {
       if (!isItemSelected(ui.selection, item)) ui.setSelection([item])
 
       const cad = useCadStore.getState()
-      const symbol = cad.symbols.find((candidate) => candidate.id === target.symbolId)
-      const pose = symbol && getSymbolPose(symbol, cad.walls, cad.points)
-      if (!symbol || !pose) return
+      const areaObject = cad.areaObjects.find((candidate) => candidate.id === target.areaObjectId)
+      if (!areaObject) return
 
-      const selectedIds = getSelectedIds(useArchitectureUiStore.getState().selection, 'symbol')
       grab = {
-        // Sürükleme TEK sembolü taşır: bağlanma sembol başına çözülüyor (biri
-        // duvara girerken öteki çıkabilir), toplu sürükleme ayrı bir karar.
-        symbolIds: selectedIds.includes(symbol.id) ? [symbol.id] : [symbol.id],
+        areaObjectId: areaObject.id,
         grabPoint: event.planPoint,
-        origin: pose.position,
+        origin: { x: areaObject.x, y: areaObject.y },
       }
     }
 
@@ -114,11 +106,11 @@ export function usePointSymbolSelectionTool(): void {
         y: grab.origin.y + (event.planPoint.y - grab.grabPoint.y),
       }
       const { zoom } = readCameraViewport(camera)
-      // Ctrl ızgarayı kapatır — köşe ve duvar sürüklemesiyle aynı jest.
+      // Ctrl ızgarayı kapatır — köşe ve sembol sürüklemesiyle aynı jest.
       const next = event.ctrlKey ? raw : getPlacementPosition(raw, zoom)
 
-      useArchitectureUiStore.getState().setDraggingSymbols({
-        symbolIds: grab.symbolIds,
+      useArchitectureUiStore.getState().setDraggingAreaObjects({
+        areaObjectIds: [grab.areaObjectId],
         dxCm: next.x - grab.origin.x,
         dyCm: next.y - grab.origin.y,
       })
@@ -127,28 +119,25 @@ export function usePointSymbolSelectionTool(): void {
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
-      const { symbolIds } = grab
-      const drag = useArchitectureUiStore.getState().draggingSymbols
+      const { areaObjectId } = grab
+      const drag = useArchitectureUiStore.getState().draggingAreaObjects
       endDrag()
 
       // Yer değişmediyse (yalnız seçmek için tıklama) store'a hiç yazılmaz.
       if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
 
-      // Bırakma noktasında yeniden bağlanma çözülür: sembol duvara girmiş,
-      // duvardan çıkmış ya da başka duvara geçmiş olabilir.
       const cad = useCadStore.getState()
-      const symbol = cad.symbols.find((candidate) => candidate.id === symbolIds[0])
-      if (!symbol) return
+      const areaObject = cad.areaObjects.find((candidate) => candidate.id === areaObjectId)
+      if (!areaObject) return
 
-      const attachment = resolveSymbolAttachment(event.planPoint, symbol.type, {
-        walls: cad.walls,
-        points: cad.points,
-        floorId: cad.activeFloorId,
-      })
-      useCadStore.getState().movePointSymbol(symbol.id, attachment)
+      // Reddedilirse (kapının üstüne düşerse) hiçbir şey yazılmaz, nesne
+      // görsel olarak da eski yerine döner — draggingAreaObjects zaten temizlendi.
+      useCadStore
+        .getState()
+        .moveAreaObject(areaObjectId, areaObject.x + drag.dxCm, areaObject.y + drag.dyCm)
     }
 
-    // Esc taşımayı iptal eder: sembol eski yerinde kalır çünkü store'a yazılmadı.
+    // Esc taşımayı iptal eder: nesne eski yerinde kalır çünkü store'a yazılmadı.
     const handleCancel = () => endDrag()
 
     const unsubscribe = subscribeDrawSurface({

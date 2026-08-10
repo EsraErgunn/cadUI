@@ -48,6 +48,16 @@ type SymbolDrag = {
   dyCm: number
 }
 
+/**
+ * Taşınan alan nesnelerinin GEÇİCİ ötelemesi. draggingSymbols ile aynı gerekçe:
+ * sürükleme boyunca cadStore'a yazılmaz, tek yazım bırakma anında olur.
+ */
+type AreaObjectDrag = {
+  areaObjectIds: Id[]
+  dxCm: number
+  dyCm: number
+}
+
 type ArchitectureUiState = {
   /**
    * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
@@ -61,6 +71,7 @@ type ArchitectureUiState = {
   draggingPoint: PointDrag | null
   draggingWall: WallDrag | null
   draggingSymbols: SymbolDrag | null
+  draggingAreaObjects: AreaObjectDrag | null
   /** İmlecin altındaki nesne. Yalnız vurgu için; hiçbir şeyi seçmez. */
   hover: ArchitectureTarget | null
   /**
@@ -84,6 +95,7 @@ type ArchitectureUiState = {
   setDraggingPoint: (drag: PointDrag | null) => void
   setDraggingWall: (drag: WallDrag | null) => void
   setDraggingSymbols: (drag: SymbolDrag | null) => void
+  setDraggingAreaObjects: (drag: AreaObjectDrag | null) => void
   setHover: (hover: ArchitectureTarget | null) => void
   setEditingRoom: (roomId: Id | null) => void
 }
@@ -104,6 +116,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingPoint: null,
     draggingWall: null,
     draggingSymbols: null,
+    draggingAreaObjects: null,
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
     editingRoomId: null,
@@ -148,6 +161,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingSymbols: (drag) =>
       set((draft) => {
         draft.draggingSymbols = drag
+      }),
+
+    setDraggingAreaObjects: (drag) =>
+      set((draft) => {
+        draft.draggingAreaObjects = drag
       }),
 
     setHover: (hover) =>

@@ -57,7 +57,7 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Dizin yapısı ve sahiplik
 
 - `src/app/` (A) — main, App, router. Giriş koruması SADECE router.tsx'te (RequireAuth).
-- `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
+- `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone/areaObject(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
 - `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
 - `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)

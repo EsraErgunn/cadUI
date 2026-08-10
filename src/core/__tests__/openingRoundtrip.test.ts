@@ -28,6 +28,7 @@ const project: ProjectData = {
   ],
   rooms: [],
   symbols: [],
+  areaObjects: [],
 }
 
 describe('açıklık yükle→kaydet turu', () => {

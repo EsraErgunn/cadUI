@@ -18,6 +18,12 @@ export const ARCHITECTURE_COLORS = {
    */
   pointSymbol: '#2f3a49',
   /**
+   * Alan nesnesi (merdiven/kolon/baca şaftı) — içi ŞEFFAF (tasarım referansı,
+   * hiçbiri dolgu taşımaz), yalnız kontur. Duvar renginden bir tık daha KOYU:
+   * plan üstünde "bu bir yapı elemanı, duvardan da katı" okunsun.
+   */
+  areaObjectStroke: '#232a34',
+  /**
    * Alt kat gölgesi (KK-13). Duvar renginden belirgin biçimde soluk: hizalama
    * referansı okunabilmeli ama aktif katın duvarıyla karıştırılmamalı.
    */
