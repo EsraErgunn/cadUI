@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
+import { createGroundFloor } from '../../core/floors'
+import { DEFAULT_FLOOR_ID } from '../../core/model'
 import type { Selection } from '../../core/selection'
 import { useCadStore } from '../cadStore'
 
 function resetState(): void {
   useCadStore.setState({
-    floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+    floors: [createGroundFloor()],
     activeFloorId: DEFAULT_FLOOR_ID,
     points: [],
     walls: [],

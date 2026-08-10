@@ -8,6 +8,7 @@ import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
+import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { FirmFilterPanel } from '../ui/admin/firms/FirmFilterPanel'
 import { FirmTableToolbar } from '../ui/admin/firms/FirmTableToolbar'
@@ -57,7 +58,7 @@ export function GasDistributionFirmsPage() {
         <PageHeader
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
-          countLabel={data === undefined ? '…' : String(data.totalCount)}
+          countLabel={formatCountLabel(data?.totalCount)}
           description="Sisteme kayıtlı tüm gaz dağıtım firmaları"
         />
         <FirmTableToolbar

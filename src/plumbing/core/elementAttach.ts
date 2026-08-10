@@ -318,4 +318,78 @@ export function resolveOnLineSlide(
   return null
 }
 
+/**
+ * Sayaç/cihazla BİRLİKTE gelen otomatik vana taşınamaz: ana elemanın konumuna
+ * bağlıdır. İki yerleşim şekli var, ikisi de burada tanınır:
+ * - `resolveNearestLineAttachment`: vana hattın TAM UCUNDA oturur (hat
+ *   uzamaz, cihaz ayrı bir kolla bağlanır) → nokta dizinin ilk/son elemanı.
+ * - `resolveFreeEndAttachment`: vana hattın ESKİ ucunda oturur ama hat
+ *   sayacın girişine kadar UZAR (`extendLineEnd`) — eski uç artık dizinin
+ *   İÇİNDE kalır, yalnız ucuna BİTİŞİKTİR ve o yeni uç bir elemanın PORTUNA
+ *   bağlıdır. Bu ikinci durumu index kontrolü tek başına yakalayamaz (K-W3).
+ */
+export function isFixedCompanionValve(
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+  elementId: Id,
+): boolean {
+  for (const line of lines) {
+    const index = line.points.findIndex((point) => point.inlineElementId === elementId)
+    if (index === -1) continue
+
+    const lastIndex = line.points.length - 1
+    if (index === 0 || index === lastIndex) return true
+
+    const isPortConnectedEnd = (end: 'start' | 'end') =>
+      connections.some(
+        (connection) =>
+          connection.lineId === line.id &&
+          connection.end === end &&
+          connection.target.kind === 'port',
+      )
+    if (index === 1 && isPortConnectedEnd('start')) return true
+    if (index === lastIndex - 1 && isPortConnectedEnd('end')) return true
+
+    return false
+  }
+  return false
+}
+
+/**
+ * Seçili hatlar TAŞINDIĞINDA üstlerindeki armatürler ve bağlı uçtaki eleman
+ * (sayaç, cihaz) GERİDE KALMASIN diye seçime eklenir. Hem store'daki gerçek
+ * taşımada (`moveElements`) hem sürükleme sırasındaki CANLI önizlemede
+ * (`useSelectionTool`) kullanılır — ikisi ayrı yazılsaydı önizleme commit'ten
+ * FARKLI elemanları oynatırdı.
+ *
+ * Sayaç/cihazla gelen otomatik vananın burada AYRICA elenmediğine dikkat:
+ * bu fonksiyon nötr bir "bağlantıyı koru" yardımcısıdır. "Vana fare ile
+ * sürüklenemez" kuralı yalnız etkileşim katmanında uygulanır
+ * (`useSelectionTool` → `isFixedCompanionValve`) — burada da elense
+ * `moveElements`'i doğrudan çağıran testler/araçlar valveyi hiç taşıyamazdı.
+ */
+export function expandMoveSelection(
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+  elementIds: readonly Id[],
+  lineIds: readonly Id[],
+): Id[] {
+  const elementIdSet = new Set(elementIds)
+  const lineIdSet = new Set(lineIds)
+
+  for (const line of lines) {
+    if (!lineIdSet.has(line.id)) continue
+    for (const point of line.points) {
+      if (point.inlineElementId !== undefined) elementIdSet.add(point.inlineElementId)
+    }
+  }
+  for (const connection of connections) {
+    if (connection.target.kind !== 'port') continue
+    if (!lineIdSet.has(connection.lineId)) continue
+    elementIdSet.add(connection.target.elementId)
+  }
+
+  return [...elementIdSet]
+}
+
 export type { ElementPlacement } from './attachGeometry'

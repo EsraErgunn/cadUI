@@ -6,8 +6,15 @@ const FOCUSABLE_SELECTOR =
 
 type DialogShellProps = {
   title: string
+  /** Tablo taşıyan pencereler dar kabukta yatay kaydırmaya düşüyor. */
+  size?: 'md' | 'lg'
   onClose: () => void
   children: ReactNode
+}
+
+const DIALOG_WIDTH: Record<'md' | 'lg', string> = {
+  md: 'max-w-lg',
+  lg: 'max-w-4xl',
 }
 
 /**
@@ -18,7 +25,7 @@ type DialogShellProps = {
  * adminButtonVariants'a (indigo admin teması) bağlı, editör kabuğu ise kendi
  * chrome renklerini kullanıyor. Ortaklaştırma teması da ortaklaştırmayı gerektirir.
  */
-export function DialogShell({ title, onClose, children }: DialogShellProps) {
+export function DialogShell({ title, size = 'md', onClose, children }: DialogShellProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
@@ -69,7 +76,7 @@ export function DialogShell({ title, onClose, children }: DialogShellProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-xl border border-edge bg-surface shadow-lg"
+        className={`flex max-h-[85vh] w-full ${DIALOG_WIDTH[size]} flex-col rounded-xl border border-edge bg-surface shadow-lg`}
       >
         <h2 id={titleId} className="shrink-0 border-b border-edge px-5 py-3 text-base font-semibold text-ink">
           {title}

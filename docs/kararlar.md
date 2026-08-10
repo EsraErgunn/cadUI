@@ -2040,3 +2040,76 @@ tek ekrana ait değiller. Bağımlılık tek yönlü (dashboard → announcement
 Tarih/sayı biçimlendiricileri de iki ekran birden kullandığı için
 `ui/admin/adminFormat.ts`'e çıkarıldı; `dashboardFormat.ts` yalnız gösterge
 paneline özel kapsam metinlerini tutuyor.
+
+---
+
+## 2026-08 · Proje firmaları listesi gerçek uca bağlandı
+
+### K29 — İstemci tarafı arama/sıralama/sayfalama, ikinci kez (K27'nin aynısı)
+
+`GET /api/projectfirms` de filtresiz, sayfalamasız **düz dizi** döndürüyor;
+`q`, `page`, `pageSize`, `sort` parametreleri yok (yerel cadapi OpenAPI'sinden
+doğrulandı). Proje firmaları ekranı bu yüzden K27'deki çözümü tekrarlıyor:
+liste tek seferde çekiliyor, arama/sıralama/sayfalama istemcide
+(`api/projectFirmListQuery.ts`).
+
+CLAUDE.md'deki **"sayfalama sunucu taraflı"** kuralının bilinçli istisnası —
+`queryFirmList` ve `listProjects` ile aynı gerekçe. Mock yol da AYNI saf
+fonksiyondan geçiyor.
+
+**K27'den tek farkı, çağrıldığı yer:** `queryFirmList` React Query'nin `queryFn`'i
+içinde çalışıyor ve sorgu `queryKey`'in parçası, yani her kriter değişimi yeni bir
+sorgu (ve yeni bir ağ isteği) demek. Burada sorgu anahtara GİRMİYOR: liste
+`['projectFirmList']` anahtarıyla bir kez çekilip `staleTime` ile duruyor, süzme
+sayfada `useMemo` içinde yapılıyor. Sebep kayıt adedi — belgedeki ekranda ~11.839
+satır var ve arama yazarken uygulanıyor; sorgu anahtara girseydi her tuş vuruşu
+tüm listeyi baştan indirirdi.
+
+**Borç:** backend sayfalı uç açınca `queryProjectFirmList` kaldırılacak,
+parametreler sorguya taşınacak. Bu çözüm ölçeklenmez: tek istekte tüm liste
+indiriliyor.
+
+### Arama debounce'lu; kutunun taslağı bileşende, uygulanan sorgu URL'de
+
+Arama Enter'a değil yazıma bağlı (300 ms, `useDebouncedValue`). Bu iki şeyi
+gerektirdi:
+
+- **Kutunun anlık metni bileşende** (`useDebouncedSearchDraft`) — CLAUDE.md'nin
+  "liste durumunun kopyası bileşende tutulmaz" kuralının bilinçli istisnası.
+  URL yalnız **uygulanmış** sorgunun sahibi; henüz durulmamış yazım sorgu değil.
+- **Yazım URL'e `replace` ile işleniyor** (`useAdminParamWriter`'a opsiyonel
+  `shouldReplace` eklendi) — her tuş vuruşu geçmişe kayıt bıraksaydı "abc" yazan
+  kullanıcının geri tuşuna üç kez basması gerekirdi.
+
+Gaz dağıtım firmaları ekranındaki `key={nameQuery}` numarası burada
+KULLANILAMAZ: orada arama Enter'da uygulandığı için kutunun yeniden kurulması
+görünmüyor, burada her 300 ms'de kurulur ve **kullanıcı odağını kaybederdi**.
+İki yönlü eşitleme bu yüzden `lastAppliedRef` ile ayrıldı (kullanıcı yazdı →
+URL'e yaz; URL kendiliğinden değişti → taslağı eşitle).
+
+Arama karşılaştırması `includesTr`. `toLocaleLowerCase('tr')` **denenmedi çünkü
+sorunu çözmüyor, üretiyor:** 'I' → 'ı' ve 'İ' → 'i' verdiği için düz klavyeyle
+"ISTANBUL" yazan kullanıcı "İstanbul ..." ünvanını BULAMIYOR. `includesTr` üç
+harfi de 'i'ye katlıyor, iki yön de eşleşiyor.
+
+### Ekranın istediği alanların çoğu uçta YOK
+
+Liste DTO'su yalnız `id, companyType, title, taxNumber, contactPerson, phone,
+email` taşıyor. Sonuçlar:
+
+- `Seri No` (`serialNumber`) ve `Gsm` (`phone2`) YALNIZ `/api/projectfirms/{id}`
+  detay yanıtında var. Satır başına detay isteği atmak 30 kayıtta 30 istek
+  demekti; yapılmadı.
+- Yeterlik numarası (`Yeter No`) uçta HİÇ yok.
+- Proje firmasını gaz dağıtım firmasına bağlayan **hiçbir uç yok**.
+
+Sütunlar yine de duruyor ve "-" gösteriyor: sıra belgeden geliyor, uç genişleyince
+yalnız `api/projectFirmDto.ts`'teki eşleme değişecek. `projectFirmDto.test.ts`
+bilerek "bu alanlar null" diye iddia ediyor — alan eklendiğinde test kırılıp
+eşlemenin güncellenmesini hatırlatsın diye.
+
+**KK-5 (her G.D. yetkisi ayrı satır) KARŞILANMIYOR.** Uç firma bazlı dönüyor ve
+istemcide düzleştirilecek yetki verisi de yok; başlıktaki adet bu yüzden
+**tekil firma sayısı**. Filtre paneli (G.D. firması / bölge / yeterlilik) açılıyor
+ama üç kutu da pasif — süzülselerdi ilk seçimde liste boşalır, kullanıcı veri
+kaybettiğini sanardı (K27'deki bölge kararının aynısı).

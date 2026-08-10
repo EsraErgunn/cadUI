@@ -7,7 +7,8 @@ import {
   FIXTURE_WALLS,
   WALL_ID,
 } from './architectureFixture'
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
+import { createGroundFloor } from '../../core/floors'
+import { DEFAULT_FLOOR_HEIGHT_CM, DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
 import { useCadStore } from '../cadStore'
 
 /** Zemin katta hazır bir çizim + üstünde boş bir kat. */
@@ -16,8 +17,8 @@ const UPPER_FLOOR_ID = 100
 function resetFloorState(): void {
   useCadStore.setState({
     floors: [
-      { id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME },
-      { id: UPPER_FLOOR_ID, name: '1. Kat' },
+      createGroundFloor(),
+      { id: UPPER_FLOOR_ID, name: '1. Kat', heightCm: DEFAULT_FLOOR_HEIGHT_CM, isBasement: false },
     ],
     activeFloorId: DEFAULT_FLOOR_ID,
     points: FIXTURE_POINTS,
@@ -40,13 +41,18 @@ describe('addFloor', () => {
     const id = useCadStore.getState().addFloor()
 
     const { floors } = useCadStore.getState()
-    expect(floors.at(-1)).toEqual({ id, name: '2. Kat' })
+    expect(floors.at(-1)).toEqual({ id, name: '2. Kat', heightCm: 300, isBasement: false })
   })
 
   it('verilen adı kırpar', () => {
     const id = useCadStore.getState().addFloor({ name: '  Çatı Katı  ' })
 
-    expect(useCadStore.getState().floors.at(-1)).toEqual({ id, name: 'Çatı Katı' })
+    expect(useCadStore.getState().floors.at(-1)).toEqual({
+      id,
+      name: 'Çatı Katı',
+      heightCm: 300,
+      isBasement: false,
+    })
   })
 
   it('çakışan adı reddeder ve id HARCAMAZ', () => {

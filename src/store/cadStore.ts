@@ -16,7 +16,8 @@ import {
   type TrackedProjectState,
 } from './history'
 import type { ProjectMetaSlice } from './projectMeta'
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type ProjectData } from '../core/model'
+import { createGroundFloor } from '../core/floors'
+import { DEFAULT_FLOOR_ID, type ProjectData } from '../core/model'
 import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
 
 export type CadState = ProjectMetaSlice &
@@ -38,7 +39,7 @@ function createEmptyProjectData(): ProjectData {
   return {
     nextUniqueId: deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA),
     activeFloorId: DEFAULT_FLOOR_ID,
-    floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+    floors: [createGroundFloor()],
     points: [],
     walls: [],
     openings: [],

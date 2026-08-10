@@ -9,22 +9,30 @@ import {
   moveFloorInDraft,
   removeFloorFromDraft,
   renameFloorInDraft,
+  reorderFloorInDraft,
+  setFloorHeightInDraft,
   type AddFloorInput,
 } from './floorOps'
+import { createFloorPlanActions, type FloorPlanActions } from './floorPlanOps'
 import { markDirty } from './projectMeta'
-import type { FloorDirection } from '../core/floors'
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type Floor, type Id } from '../core/model'
+import { createGroundFloor, type FloorDirection } from '../core/floors'
+import type { Floor, Id } from '../core/model'
 
-export type FloorSlice = CopyFloorActions & {
+export type FloorSlice = CopyFloorActions &
+  FloorPlanActions & {
   floors: Floor[]
   activeFloorId: Id
   /** Reddedilirse undefined döner ve HİÇBİR ŞEY değişmez — id bile harcanmaz. */
   addFloor: (input?: AddFloorInput) => Id | undefined
   /** Boş ya da başka katta kullanılan ad reddedilir. */
   renameFloor: (floorId: Id, name: string) => boolean
+  /** 200–600 cm dışı reddedilir. Kot bu değerden türer, ayrıca yazılmaz. */
+  setFloorHeight: (floorId: Id, heightCm: number) => boolean
   /** Katın duvar/nokta/açıklık ve tesisat elemanları da silinir — TEK geri alma adımı. */
   removeFloor: (floorId: Id) => boolean
   moveFloor: (floorId: Id, direction: FloorDirection) => boolean
+  /** Sürükle-bırak sıralama; bodrumu zemin üstüne taşıyan bırakma reddedilir. */
+  reorderFloor: (floorId: Id, targetIndex: number) => boolean
   setActiveFloor: (floorId: Id) => void
 }
 
@@ -35,9 +43,10 @@ export const createFloorSlice: StateCreator<
   FloorSlice
 > = (set) => ({
   ...createCopyFloorActions(set),
+  ...createFloorPlanActions(set),
 
-  floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
-  activeFloorId: DEFAULT_FLOOR_ID,
+  floors: [createGroundFloor()],
+  activeFloorId: createGroundFloor().id,
 
   // Reddedilen işlemler markDirty ÇAĞIRMAZ: kaydedilmemiş değişiklik göstergesi
   // hiçbir şeyin değişmediği bir denemeyle yanmasın.
@@ -59,6 +68,15 @@ export const createFloorSlice: StateCreator<
     return isRenamed
   },
 
+  setFloorHeight: (floorId, heightCm) => {
+    let isChanged = false
+    set((draft) => {
+      isChanged = setFloorHeightInDraft(draft, floorId, heightCm)
+      if (isChanged) markDirty(draft)
+    })
+    return isChanged
+  },
+
   removeFloor: (floorId) => {
     let isRemoved = false
     set((draft) => {
@@ -72,6 +90,15 @@ export const createFloorSlice: StateCreator<
     let isMoved = false
     set((draft) => {
       isMoved = moveFloorInDraft(draft, floorId, direction)
+      if (isMoved) markDirty(draft)
+    })
+    return isMoved
+  },
+
+  reorderFloor: (floorId, targetIndex) => {
+    let isMoved = false
+    set((draft) => {
+      isMoved = reorderFloorInDraft(draft, floorId, targetIndex)
       if (isMoved) markDirty(draft)
     })
     return isMoved

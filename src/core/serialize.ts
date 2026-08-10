@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
+
+import { DEFAULT_FLOOR_HEIGHT_CM } from './model'
 import type { AreaObject, Floor, Opening, Point, PointSymbol, ProjectData, Room, Wall } from './model'
+
 
 /**
  * Dış kaynaktan gelen JSON şemadan geçmeden state'e girmez (CLAUDE.md güvenlik).
@@ -9,9 +12,16 @@ import type { AreaObject, Floor, Opening, Point, PointSymbol, ProjectData, Room,
  */
 const idSchema = z.number().int()
 
+/**
+ * `heightCm`/`isBasement` modele SONRADAN geldi; depodaki çizimlerde yok. Zorunlu
+ * tutulursa o dosyalar HİÇ AÇILMAZ — varsayılan, tek katlı bir binanın makul
+ * hâli (300 cm, bodrum değil). Bkz. projectDataSchema'daki aynı gerekçe.
+ */
 const floorSchema = z.object({
   id: idSchema,
   name: z.string(),
+  heightCm: z.number().default(DEFAULT_FLOOR_HEIGHT_CM),
+  isBasement: z.boolean().default(false),
 })
 
 const pointSchema = z.object({
@@ -194,7 +204,12 @@ export function serializeProjectData(data: ProjectData): string {
 }
 
 function toFloorJson(floor: Floor) {
-  return { id: floor.id, name: floor.name }
+  return {
+    id: floor.id,
+    name: floor.name,
+    heightCm: floor.heightCm,
+    isBasement: floor.isBasement,
+  }
 }
 
 function toPointJson(point: Point) {
