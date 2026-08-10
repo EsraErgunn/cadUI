@@ -3,19 +3,18 @@ import { useState } from 'react'
 import { DialogShell } from './controls/DialogShell'
 import { chromeButtonVariants } from './controls/buttonVariants'
 import { AddFloorMenu } from './floors/AddFloorMenu'
-import { FloorRow } from './floors/FloorRow'
+import { FloorDeleteDialog } from './floors/FloorDeleteDialog'
 import { FloorSummary } from './floors/FloorSummary'
+import { FloorTable } from './floors/FloorTable'
 import { NewFloorHeightField } from './floors/NewFloorHeightField'
 import { FLOOR_FOCUS_RING } from './floors/floorVariants'
 import { useFloorPlanDraft } from './floors/useFloorPlanDraft'
-import { isFloorNameTaken, isFloorNameValid, MIN_FLOOR_COUNT } from '../core/floors'
+import { isFloorNameTaken, isFloorNameValid } from '../core/floors'
 import { DEFAULT_FLOOR_HEIGHT_CM, type Id } from '../core/model'
 
 type FloorManagementDialogProps = {
   onClose: () => void
 }
-
-const COLUMN_HEADERS = ['', 'SEÇ', 'KAT ADI', 'YÜKSEKLİK', 'KOT', 'İÇERİK', 'AKTİF KAT', '']
 
 /**
  * "Katlar" penceresi (KK-1…KK-11). Liste EN ÜST kat başta gösterilir — kullanıcı
@@ -26,16 +25,27 @@ const COLUMN_HEADERS = ['', 'SEÇ', 'KAT ADI', 'YÜKSEKLİK', 'KOT', 'İÇERİK'
  * taslağın kuralları core/floorPlan.ts'te.
  */
 export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
-  const { draft, elevationsCm, emptyFloors, contentOf, canAddFloor, canAddBasement, actions, apply } =
-    useFloorPlanDraft()
+  const {
+    draft,
+    elevationsCm,
+    emptyFloors,
+    contentOf,
+    deletionSummaryOf,
+    canAddFloor,
+    canAddBasement,
+    actions,
+    apply,
+  } = useFloorPlanDraft()
 
   const [newFloorHeightCm, setNewFloorHeightCm] = useState(DEFAULT_FLOOR_HEIGHT_CM)
   const [nameDrafts, setNameDrafts] = useState<Record<Id, string>>({})
   const [draggedFloorId, setDraggedFloorId] = useState<Id | null>(null)
+  /** Onay bekleyen silme. Boş dizi değil null: "pencere kapalı" ile "hiçbiri seçili değil" ayrı. */
+  const [pendingRemovalIds, setPendingRemovalIds] = useState<Id[] | null>(null)
 
-  const isRemovable = draft.floors.length > MIN_FLOOR_COUNT
-  const activeFloorName =
-    draft.floors.find((floor) => floor.id === draft.activeFloorId)?.name ?? '—'
+  const floorNameOf = (floorId: Id): string =>
+    draft.floors.find((floor) => floor.id === floorId)?.name ?? ''
+  const activeFloorName = floorNameOf(draft.activeFloorId) || '—'
 
   const nameErrorOf = (floorId: Id): string | undefined => {
     const text = nameDrafts[floorId]
@@ -62,6 +72,14 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
     setDraggedFloorId(null)
   }
 
+  const deletionSummary =
+    pendingRemovalIds === null ? null : deletionSummaryOf(pendingRemovalIds)
+
+  const confirmRemoval = () => {
+    if (pendingRemovalIds !== null) actions.remove(pendingRemovalIds)
+    setPendingRemovalIds(null)
+  }
+
   const handleApply = () => {
     // Uygulanamayan plan pencereyi kapatmaz: kullanıcı düzeltebilsin.
     if (apply()) onClose()
@@ -78,51 +96,26 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
 
         <NewFloorHeightField heightCm={newFloorHeightCm} onChange={setNewFloorHeightCm} />
 
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-edge text-left text-[11px] uppercase tracking-wide text-ink-muted">
-              {COLUMN_HEADERS.map((header, index) => (
-                // Sıralama tutamağı ve satır aksiyonları sütunları başlıksız
-                // (madde 4); boş başlık hücresi yine de tabloda yer tutmalı.
-                <th key={header || `spacer-${index}`} scope="col" className="px-2 py-1.5">
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {[...draft.floors].reverse().map((floor) => {
-              const index = draft.floors.findIndex((candidate) => candidate.id === floor.id)
-
-              return (
-                <FloorRow
-                  key={floor.id}
-                  floor={floor}
-                  elevationCm={elevationsCm[index]}
-                  content={contentOf(floor.id)}
-                  isActive={floor.id === draft.activeFloorId}
-                  isSelected={draft.selectedFloorIds.includes(floor.id)}
-                  isRemovable={isRemovable}
-                  isDragging={draggedFloorId === floor.id}
-                  nameText={nameDrafts[floor.id] ?? floor.name}
-                  nameError={nameErrorOf(floor.id)}
-                  onNameChange={(name) =>
-                    setNameDrafts((current) => ({ ...current, [floor.id]: name }))
-                  }
-                  onNameCommit={() => commitName(floor.id)}
-                  onHeightCommit={(heightCm) => actions.setHeight(floor.id, heightCm)}
-                  onToggleSelected={() => actions.toggleSelected(floor.id)}
-                  onMakeActive={() => actions.makeActive(floor.id)}
-                  onRemove={() => actions.remove([floor.id])}
-                  onDragStart={() => setDraggedFloorId(floor.id)}
-                  onDragEnd={() => setDraggedFloorId(null)}
-                  onDropBefore={() => handleDrop(floor.id)}
-                  onMoveByKey={(direction) => actions.moveByKey(floor.id, direction)}
-                />
-              )
-            })}
-          </tbody>
-        </table>
+        <FloorTable
+          draft={draft}
+          elevationsCm={elevationsCm}
+          contentOf={contentOf}
+          draggedFloorId={draggedFloorId}
+          onDragStart={setDraggedFloorId}
+          onDragEnd={() => setDraggedFloorId(null)}
+          onDrop={handleDrop}
+          nameTextOf={(floorId) => nameDrafts[floorId] ?? floorNameOf(floorId)}
+          nameErrorOf={nameErrorOf}
+          onNameChange={(floorId, name) =>
+            setNameDrafts((current) => ({ ...current, [floorId]: name }))
+          }
+          onNameCommit={commitName}
+          onHeightCommit={actions.setHeight}
+          onToggleSelected={actions.toggleSelected}
+          onMakeActive={actions.makeActive}
+          onRemove={(floorId) => setPendingRemovalIds([floorId])}
+          onMoveByKey={actions.moveByKey}
+        />
 
         <p className="text-xs text-ink-muted">
           &quot;SEÇ&quot; sütunu toplu işlem içindir. &quot;AKTİF KAT&quot; sütunundaki
@@ -156,7 +149,7 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
               </span>
               <button
                 type="button"
-                onClick={() => actions.remove(draft.selectedFloorIds)}
+                onClick={() => setPendingRemovalIds([...draft.selectedFloorIds])}
                 className={chromeButtonVariants()}
               >
                 Sil
@@ -189,6 +182,14 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
           Uygula
         </button>
       </div>
+
+      {deletionSummary && (
+        <FloorDeleteDialog
+          summary={deletionSummary}
+          onCancel={() => setPendingRemovalIds(null)}
+          onConfirm={confirmRemoval}
+        />
+      )}
     </DialogShell>
   )
 }

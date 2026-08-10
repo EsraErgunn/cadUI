@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import { getFloorContent, isFloorContentEmpty, type FloorContent } from '../../core/floorContent'
+import { getFloorDeletionSummary, type FloorDeletionSummary } from '../../core/floorDeletion'
 import { getFloorElevationsCm } from '../../core/floorElevation'
 import {
   addDraftFloor,
@@ -73,6 +74,17 @@ export function useFloorPlanDraft() {
     [contentSource, draft.floors],
   )
 
+  /**
+   * Silme dökümü TASLAKTAKİ kat listesine bakar (store'a değil): aynı pencerede
+   * eklenmiş bir katı silmek de onay isteyebilmeli ve "en az bir kat kalmalı"
+   * kuralı kullanıcının gördüğü listeye göre işlemeli.
+   */
+  const deletionSummaryOf = useCallback(
+    (floorIds: readonly Id[]): FloorDeletionSummary =>
+      getFloorDeletionSummary(contentSource, draft.floors, floorIds),
+    [contentSource, draft.floors],
+  )
+
   const elevationsCm = useMemo(() => getFloorElevationsCm(draft.floors), [draft.floors])
 
   const emptyFloors = useMemo(
@@ -120,6 +132,7 @@ export function useFloorPlanDraft() {
     elevationsCm,
     emptyFloors,
     contentOf,
+    deletionSummaryOf,
     canAddFloor: canAddFloor(draft.floors),
     canAddBasement: canAddBasement(draft.floors),
     actions,

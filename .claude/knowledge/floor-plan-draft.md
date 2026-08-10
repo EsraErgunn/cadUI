@@ -44,6 +44,29 @@ kurduğu için kaydı kendi yazıyor, ama temizliği aynı fonksiyondan geçiriy
 iki ayrı temizlik yazılsaydı biri (yine) bir diziyi atlar ve sahipsiz duvar
 bırakırdı, bkz. [floor-ordering](./floor-ordering.md) uyarısı.
 
+## Silme onayı taslağı SİLMEZ, onaylar
+
+`FloorDeleteDialog` yalnız dökümü gösterip onay alır; silmeyi çağıran kendi
+taslağına uygular. Pencere taslağı hiç tanımıyor — aynı bileşen ileride başka bir
+silme yolundan da açılabilsin diye.
+
+Döküm ve kot etkisi TASLAK listesine bakar, store'a değil: aynı pencerede
+eklenmiş bir katı silmek de onay isteyebilmeli ve "en az bir kat kalmalı" kuralı
+kullanıcının gördüğü listeye göre işlemeli.
+
+Sayım, kat silme temizliğiyle **aynı ölçütü** kullanır: açıklık ve oda `floorId`
+taşımadığı için ikisi de DUVARINDAN türetilir (K9, K31). Kata göre süzülselerdi
+gösterilen sayı silinenden şaşardı. "Boru bölümü" hat değil SEGMENT sayar —
+kullanıcı kırıklı bir hattı tek boru saymıyor.
+
+Kot etkisi iki kez hesaplanarak bulunuyor (önce/sonra): kot saklanmadığı için
+başka yolu yok, ama asıl kazanç şu — birden çok kat farklı seviyelerden silinince
+düşüş miktarı katlara göre DEĞİŞİR, tek bir "X m iner" cümlesi yanlış olurdu.
+
+⚠️ KK-13'ün istediği düşey eksen (baca şaftı / kolon havalandırması) uyarısı
+YOK: o nesneler `core/model.ts`'te tanımlı değil, varsayım kodlanmadı. Model
+gelince bu pencereye bir uyarı bloğu eklenecek.
+
 ## İçerik rozeti anlık türetilir
 
 `core/floorContent.ts` katta mimari/tesisat var mı sorusunu her gösterimde
