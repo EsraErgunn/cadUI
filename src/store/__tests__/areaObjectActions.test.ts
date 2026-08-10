@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
+import { createGroundFloor } from '../../core/floors'
+import { DEFAULT_FLOOR_HEIGHT_CM, DEFAULT_FLOOR_ID } from '../../core/model'
 import { useCadStore } from '../cadStore'
 
 const UPPER_FLOOR_ID = 14
@@ -8,8 +9,8 @@ const UPPER_FLOOR_ID = 14
 function resetState(): void {
   useCadStore.setState({
     floors: [
-      { id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME },
-      { id: UPPER_FLOOR_ID, name: '1. Kat' },
+      createGroundFloor(),
+      { id: UPPER_FLOOR_ID, name: '1. Kat', heightCm: DEFAULT_FLOOR_HEIGHT_CM, isBasement: false },
     ],
     activeFloorId: DEFAULT_FLOOR_ID,
     points: [],
@@ -44,6 +45,18 @@ describe('addAreaObject', () => {
       lengthCm: 100,
       angleDeg: 0,
       label: 'K-01',
+    })
+  })
+
+  it('kolon havalandırmasını basit yuvarlak varsayılan boyutla ekler', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'columnVentilation', x: 50, y: 60 })
+
+    expect(findAreaObject(id!)).toMatchObject({
+      type: 'columnVentilation',
+      // Baca şaftının iç çemberinden bir tık küçük çap.
+      widthCm: 80,
+      lengthCm: 80,
+      label: 'KH-01',
     })
   })
 

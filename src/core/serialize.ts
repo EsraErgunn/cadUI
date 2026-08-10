@@ -109,7 +109,7 @@ const pointSymbolSchema = z.preprocess((value) => {
   return { ...value, attachment: 'free' }
 }, symbolAttachmentSchema)
 
-const areaObjectTypeSchema = z.enum(['stairs', 'structuralColumn', 'flueShaft'])
+const areaObjectTypeSchema = z.enum(['stairs', 'structuralColumn', 'flueShaft', 'columnVentilation'])
 
 const areaObjectSchema = z.object({
   id: idSchema,

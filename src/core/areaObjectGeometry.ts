@@ -108,6 +108,18 @@ export function getAreaObjectPlanGeometry(
   type: AreaObjectType,
   areaObject: AreaObjectShape,
 ): AreaObjectGeometry {
+  // Kolon havalandırması: baca şaftının KARESİZ hâli — yalnız çember, kare
+  // dış hat YOK (kullanıcı isteği: "sadece yuvarlak bir nesne").
+  if (type === 'columnVentilation') {
+    const radiusCm = Math.min(areaObject.widthCm, areaObject.lengthCm) / 2
+    const circle: AreaObjectStroke = {
+      name: 'circle',
+      role: 'body',
+      points: toAreaObjectPlanPoints(areaObject, buildCirclePoints(radiusCm)),
+    }
+    return { strokes: [circle] }
+  }
+
   const corners = getAreaObjectCorners(areaObject)
   const outline: AreaObjectStroke = { name: 'outline', role: 'body', points: [...corners, corners[0]] }
 

@@ -34,6 +34,7 @@ describe('formatAreaObjectLabel', () => {
     expect(formatAreaObjectLabel('structuralColumn', 3)).toBe('K-03')
     expect(formatAreaObjectLabel('stairs', 12)).toBe('M-12')
     expect(formatAreaObjectLabel('flueShaft', 1)).toBe('BS-01')
+    expect(formatAreaObjectLabel('columnVentilation', 4)).toBe('KH-04')
   })
 })
 

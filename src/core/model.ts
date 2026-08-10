@@ -147,8 +147,13 @@ export type PointSymbol = {
  * yorumu, Desen B). Kolon kod adı bilerek `structuralColumn` — düşey gaz
  * kolonuyla (`Riser`) karışmasın (bkz. docs/kararlar.md "Terminoloji uyarısı").
  * Kiriş buraya GİRMEZ: o çizgisel (x1,y1,x2,y2), bu tip dikdörtgen alan.
+ *
+ * `flueShaft`/`columnVentilation` satır 73 yorumunda aslında Desen C (katlar
+ * arası eksen kimliği, Riser gibi kat-bağımsız) diye ayrılmıştı — bilinçli bir
+ * sadeleştirmeyle burada, basit KAT-BAŞI alan nesnesi olarak modellendi
+ * (bkz. docs/kararlar.md K39/K40). Kat-bağımsız kimlik gerekirse ayrı karar.
  */
-export type AreaObjectType = 'stairs' | 'structuralColumn' | 'flueShaft'
+export type AreaObjectType = 'stairs' | 'structuralColumn' | 'flueShaft' | 'columnVentilation'
 
 /**
  * Serbest, döndürülebilir dikdörtgen alan — merkez (x,y) + boyut (width,length)
