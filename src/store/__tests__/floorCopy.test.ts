@@ -71,12 +71,13 @@ function onFloor(floorId: number) {
 
 beforeEach(resetState)
 
-describe('copyFloor', () => {
+describe('copyFloorToTargets', () => {
   it('mimariyi hedef kata aktarır', () => {
     expect(
-      useCadStore.getState().copyFloor({
+      useCadStore.getState().copyFloorToTargets({
         sourceFloorId: DEFAULT_FLOOR_ID,
-        targetFloorId: UPPER_FLOOR_ID,
+        targetFloorIds: [UPPER_FLOOR_ID],
+        mode: 'overwrite',
         ...bothIncluded,
       }),
     ).toBe(true)
@@ -90,9 +91,10 @@ describe('copyFloor', () => {
   })
 
   it('kaynak kata dokunmaz', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       ...bothIncluded,
     })
 
@@ -102,9 +104,10 @@ describe('copyFloor', () => {
   })
 
   it('kopyanın açıklığı KOPYA duvara bağlanır — kaynağınkine değil', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       ...bothIncluded,
     })
 
@@ -114,9 +117,10 @@ describe('copyFloor', () => {
   })
 
   it('kopyanın odası KOPYA duvarları gösterir', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       ...bothIncluded,
     })
 
@@ -126,9 +130,10 @@ describe('copyFloor', () => {
   })
 
   it('yalnız mimari seçilirse tesisat kopyalanmaz', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       isArchitectureIncluded: true,
       isInstallationIncluded: false,
     })
@@ -138,9 +143,10 @@ describe('copyFloor', () => {
   })
 
   it('yalnız tesisat seçilirse mimari kopyalanmaz', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       isArchitectureIncluded: false,
       isInstallationIncluded: true,
     })
@@ -151,9 +157,10 @@ describe('copyFloor', () => {
 
   it('hiçbiri seçilmezse reddedilir', () => {
     expect(
-      useCadStore.getState().copyFloor({
+      useCadStore.getState().copyFloorToTargets({
         sourceFloorId: DEFAULT_FLOOR_ID,
-        targetFloorId: UPPER_FLOOR_ID,
+        targetFloorIds: [UPPER_FLOOR_ID],
+        mode: 'overwrite',
         isArchitectureIncluded: false,
         isInstallationIncluded: false,
       }),
@@ -161,41 +168,121 @@ describe('copyFloor', () => {
     expect(useCadStore.getState().revision).toBe(0)
   })
 
-  it('DOLU kata kopyalama reddedilir — üzerine yazılmaz', () => {
-    useCadStore.getState().copyFloor({
+  it('"üzerine yaz" kipinde dolu hedefin AYNI TÜRDEN çizimi silinip yenisi yazılır', () => {
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
+      ...bothIncluded,
+    })
+    const firstCopyWallIds = onFloor(UPPER_FLOOR_ID).walls
+
+    expect(
+      useCadStore.getState().copyFloorToTargets({
+        sourceFloorId: DEFAULT_FLOOR_ID,
+        targetFloorIds: [UPPER_FLOOR_ID],
+        mode: 'overwrite',
+        ...bothIncluded,
+      }),
+    ).toBe(true)
+
+    const second = onFloor(UPPER_FLOOR_ID)
+    // Birikmedi: dört duvar yine dört, ama hepsi YENİ id taşıyor.
+    expect(second.walls).toHaveLength(4)
+    expect(second.walls.some((id) => firstCopyWallIds.includes(id))).toBe(false)
+  })
+
+  it('"atla" kipinde dolu hedef işlem dışında kalır', () => {
+    useCadStore.getState().copyFloorToTargets({
+      sourceFloorId: DEFAULT_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       ...bothIncluded,
     })
     const wallCountAfterFirst = useCadStore.getState().walls.length
 
     expect(
-      useCadStore.getState().copyFloor({
+      useCadStore.getState().copyFloorToTargets({
         sourceFloorId: DEFAULT_FLOOR_ID,
-        targetFloorId: UPPER_FLOOR_ID,
+        targetFloorIds: [UPPER_FLOOR_ID],
+        mode: 'skip',
         ...bothIncluded,
       }),
     ).toBe(false)
     expect(useCadStore.getState().walls).toHaveLength(wallCountAfterFirst)
   })
 
-  it('katın kendine kopyalanması reddedilir', () => {
+  it('yalnız mimari kopyalanınca hedefteki TESİSAT silinmez', () => {
+    useCadStore.setState({
+      installationElements: [
+        ...useCadStore.getState().installationElements,
+        {
+          id: 90,
+          floorId: UPPER_FLOOR_ID,
+          type: 'boiler',
+          position: { x: 1, y: 1 },
+          angleDeg: 0,
+          scale: 1,
+        },
+      ],
+    })
+
+    useCadStore.getState().copyFloorToTargets({
+      sourceFloorId: DEFAULT_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
+      isArchitectureIncluded: true,
+      isInstallationIncluded: false,
+    })
+
+    expect(onFloor(UPPER_FLOOR_ID).elements.map((element) => element.id)).toEqual([90])
+  })
+
+  it('birden çok hedefe TEK adımda kopyalar (madde 19)', () => {
+    const thirdFloorId = 15
+    useCadStore.setState({
+      floors: [
+        ...useCadStore.getState().floors,
+        { id: thirdFloorId, name: '2. Kat', heightCm: 300, isBasement: false },
+      ],
+    })
+    // Kurulumun kendi setState"i de geçmişe yazıyor; ölçülen yalnız kopyalama olsun.
+    useCadStore.temporal.getState().clear()
+
     expect(
-      useCadStore.getState().copyFloor({
+      useCadStore.getState().copyFloorToTargets({
         sourceFloorId: DEFAULT_FLOOR_ID,
-        targetFloorId: DEFAULT_FLOOR_ID,
+        targetFloorIds: [UPPER_FLOOR_ID, thirdFloorId],
+        mode: 'overwrite',
+        ...bothIncluded,
+      }),
+    ).toBe(true)
+
+    expect(onFloor(UPPER_FLOOR_ID).walls).toHaveLength(4)
+    expect(onFloor(thirdFloorId).walls).toHaveLength(4)
+    expect(useCadStore.temporal.getState().pastStates).toHaveLength(1)
+  })
+
+  it('kaynak kat hedeflerden ELENİR — kendi üstüne kopyalanmaz', () => {
+    expect(
+      useCadStore.getState().copyFloorToTargets({
+        sourceFloorId: DEFAULT_FLOOR_ID,
+        targetFloorIds: [DEFAULT_FLOOR_ID],
+        mode: 'overwrite',
         ...bothIncluded,
       }),
     ).toBe(false)
+    expect(onFloor(DEFAULT_FLOOR_ID).walls).toHaveLength(4)
   })
 
   it('tanınmayan kat reddedilir ve id harcamaz', () => {
     const before = useCadStore.getState().nextUniqueId
 
     expect(
-      useCadStore.getState().copyFloor({
+      useCadStore.getState().copyFloorToTargets({
         sourceFloorId: DEFAULT_FLOOR_ID,
-        targetFloorId: 404,
+        targetFloorIds: [404],
+        mode: 'overwrite',
         ...bothIncluded,
       }),
     ).toBe(false)
@@ -203,9 +290,10 @@ describe('copyFloor', () => {
   })
 
   it('kopyalama TEK geri alma adımıdır', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       ...bothIncluded,
     })
 
@@ -216,9 +304,10 @@ describe('copyFloor', () => {
   })
 
   it('kopyalanan kat bağımsızdır: kaynağın köşesi oynayınca kopya oynamaz', () => {
-    useCadStore.getState().copyFloor({
+    useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
-      targetFloorId: UPPER_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
       ...bothIncluded,
     })
     const copiedBefore = onFloor(UPPER_FLOOR_ID).points.map((point) => ({ ...point }))

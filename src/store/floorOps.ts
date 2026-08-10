@@ -118,12 +118,11 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
 }
 
 /**
- * Katın ÇİZİMİNİ siler, kat kaydının kendisine dokunmaz. Kat yapısının toplu
- * uygulanmasında (applyFloorPlan) kat listesi baştan kurulduğu için buradan
- * ayrıldı — iki yol tek temizlik mantığını paylaşır, biri unutulup sahipsiz
- * duvar bırakamaz.
+ * Katın MİMARİ çizimini siler. Tür bazlı ayrım kat kopyalamanın "üzerine yaz"
+ * kipi için şart: yalnız mimari kopyalanırken hedefteki tesisata dokunulmaz
+ * (madde 18, "aynı türden çizim silinip").
  */
-export function removeFloorContentInDraft(draft: CadState, floorId: Id): void {
+export function removeFloorArchitectureInDraft(draft: CadState, floorId: Id): void {
   const removedWallIds = new Set(
     draft.walls.filter((wall) => wall.floorId === floorId).map((wall) => wall.id),
   )
@@ -144,7 +143,12 @@ export function removeFloorContentInDraft(draft: CadState, floorId: Id): void {
   )
   pruneSymbolsInDraft(draft)
   // Alan nesnesi her zaman serbest, floorId'yi kendi taşır (sembolün free dalıyla aynı gerekçe).
+  // Mimari tarafta: merdiven/kolon/baca şaftı çizimin yapısal parçası, tesisat değil.
   draft.areaObjects = draft.areaObjects.filter((areaObject) => areaObject.floorId !== floorId)
+}
+
+/** Katın TESİSAT çizimini siler. Gerekçesi için bkz. removeFloorArchitectureInDraft. */
+export function removeFloorInstallationInDraft(draft: CadState, floorId: Id): void {
   // Bağlantı kaydı silinen hattı ve elemanı referansla tuttuğu için ONLARDAN
   // ÖNCE toplanır; ters sırada hangi kayıtların sahipsiz kaldığı anlaşılamazdı
   // (açıklık–duvar sırasıyla aynı gerekçe).
@@ -166,3 +170,15 @@ export function removeFloorContentInDraft(draft: CadState, floorId: Id): void {
   )
   draft.installationLines = draft.installationLines.filter((line) => line.floorId !== floorId)
 }
+
+/**
+ * Katın ÇİZİMİNİ siler, kat kaydının kendisine dokunmaz. Kat yapısının toplu
+ * uygulanmasında (applyFloorPlan) kat listesi baştan kurulduğu için buradan
+ * ayrıldı — iki yol tek temizlik mantığını paylaşır, biri unutulup sahipsiz
+ * duvar bırakamaz.
+ */
+export function removeFloorContentInDraft(draft: CadState, floorId: Id): void {
+  removeFloorArchitectureInDraft(draft, floorId)
+  removeFloorInstallationInDraft(draft, floorId)
+}
+

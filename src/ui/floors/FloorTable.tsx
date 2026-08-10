@@ -15,6 +15,7 @@ export type FloorTableHandlers = {
   onHeightCommit: (floorId: Id, heightCm: number) => boolean
   onToggleSelected: (floorId: Id) => void
   onMakeActive: (floorId: Id) => void
+  onCopy: (floorId: Id) => void
   onRemove: (floorId: Id) => void
   onMoveByKey: (floorId: Id, direction: 'up' | 'down') => void
 }
@@ -66,6 +67,7 @@ export function FloorTable({
         onHeightCommit={(heightCm) => handlers.onHeightCommit(floor.id, heightCm)}
         onToggleSelected={() => handlers.onToggleSelected(floor.id)}
         onMakeActive={() => handlers.onMakeActive(floor.id)}
+        onCopy={() => handlers.onCopy(floor.id)}
         onRemove={() => handlers.onRemove(floor.id)}
         onDragStart={() => onDragStart(floor.id)}
         onDragEnd={onDragEnd}

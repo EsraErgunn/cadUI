@@ -1,7 +1,9 @@
 import { useState } from 'react'
 
+import { formatArchitectureCounts, formatInstallationCounts } from './floorCountText'
 import { FLOOR_FOCUS_RING } from './floorVariants'
-import { isDeletionEmpty, type FloorDeletionSummary } from '../../core/floorDeletion'
+import { isContentCountEmpty } from '../../core/floorContent'
+import type { FloorDeletionSummary } from '../../core/floorDeletion'
 import { formatElevationM } from '../../core/floorElevation'
 import { DialogShell } from '../controls/DialogShell'
 import { chromeButtonVariants } from '../controls/buttonVariants'
@@ -13,12 +15,6 @@ type FloorDeleteDialogProps = {
 }
 
 const CONFIRM_LABEL = 'Kat içeriğinin silineceğini anladım'
-
-/** "14 duvar · 4 mahal · 6 kapı" — sıfır olan tür hiç yazılmaz. */
-function joinCounts(entries: readonly [number, string][]): string {
-  const written = entries.filter(([count]) => count > 0).map(([count, noun]) => `${count} ${noun}`)
-  return written.length > 0 ? written.join(' · ') : 'yok'
-}
 
 function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
@@ -74,23 +70,8 @@ export function FloorDeleteDialog({ summary, onCancel, onConfirm }: FloorDeleteD
         </p>
 
         <div className="space-y-1 rounded-md border border-dashed border-edge px-3 py-2">
-          <SummaryLine
-            label="Mimari"
-            value={joinCounts([
-              [counts.wallCount, 'duvar'],
-              [counts.roomCount, 'mahal'],
-              [counts.doorCount, 'kapı'],
-              [counts.windowCount, 'pencere'],
-              [counts.symbolCount, 'sembol'],
-            ])}
-          />
-          <SummaryLine
-            label="Tesisat"
-            value={joinCounts([
-              [counts.pipeSegmentCount, 'boru bölümü'],
-              [counts.installationElementCount, 'tesisat ögesi'],
-            ])}
-          />
+          <SummaryLine label="Mimari" value={formatArchitectureCounts(counts)} />
+          <SummaryLine label="Tesisat" value={formatInstallationCounts(counts)} />
           {summary.elevationChanges.length > 0 && (
             <SummaryLine
               label="Kot"
@@ -106,7 +87,7 @@ export function FloorDeleteDialog({ summary, onCancel, onConfirm }: FloorDeleteD
           )}
         </div>
 
-        {isDeletionEmpty(counts) && (
+        {isContentCountEmpty(counts) && (
           <p className="text-xs text-ink-muted">Seçilen katlarda çizim yok.</p>
         )}
 

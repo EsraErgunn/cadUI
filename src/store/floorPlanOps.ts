@@ -1,7 +1,7 @@
 import type { DraftSetter } from './architecturePropertyOps'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
-import { copyFloorContentInDraft } from './floorCloneOps'
+import { cloneFloorContentInDraft } from './floorCloneOps'
 import { removeFloorContentInDraft } from './floorOps'
 import { markDirty, takeNextId } from './projectMeta'
 import { isDraftFloorId, type DraftFloor } from '../core/floorPlan'
@@ -88,7 +88,7 @@ function applyFloorPlanInDraft(draft: CadState, input: ApplyFloorPlanInput): boo
     const targetId = realIdOf.get(floor.id)
     if (targetId === undefined) continue
 
-    copyFloorContentInDraft(draft, {
+    cloneFloorContentInDraft(draft, {
       sourceFloorId: sourceId,
       targetFloorId: targetId,
       isArchitectureIncluded: true,

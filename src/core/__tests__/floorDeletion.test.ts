@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { getFloorDeletionSummary, isDeletionEmpty, type FloorDeletionSource } from '../floorDeletion'
+import { isContentCountEmpty, type FloorContentSource } from '../floorContent'
+import { getFloorDeletionSummary } from '../floorDeletion'
 import type { Floor } from '../model'
 
 const GROUND_ID = 1
@@ -18,7 +19,7 @@ const floors = [
   makeFloor(SECOND_ID, '2. Kat'),
 ]
 
-const source: FloorDeletionSource = {
+const source: FloorContentSource = {
   points: [
     { id: 20, floorId: FIRST_ID, x: 0, y: 0 },
     { id: 21, floorId: FIRST_ID, x: 400, y: 0 },
@@ -45,6 +46,7 @@ const source: FloorDeletionSource = {
       isMountedOnFarFace: false,
     },
   ],
+  areaObjects: [],
   installationElements: [{ floorId: FIRST_ID }, { floorId: FIRST_ID }, { floorId: GROUND_ID }],
   installationLines: [],
 }
@@ -72,7 +74,7 @@ describe('getFloorDeletionSummary — döküm', () => {
   })
 
   it('boru bölümü SEGMENT sayar, hat sayısını değil', () => {
-    const withLines: FloorDeletionSource = {
+    const withLines: FloorContentSource = {
       ...source,
       installationLines: [{ floorId: FIRST_ID, segments: [{ id: 1 }, { id: 2 }, { id: 3 }] }],
     }
@@ -123,7 +125,7 @@ describe('getFloorDeletionSummary — son kat', () => {
     const summary = getFloorDeletionSummary(source, floors, [GROUND_ID, FIRST_ID, SECOND_ID])
 
     expect(summary.isBlocked).toBe(true)
-    expect(isDeletionEmpty(summary.counts)).toBe(true)
+    expect(isContentCountEmpty(summary.counts)).toBe(true)
     expect(summary.elevationChanges).toEqual([])
   })
 

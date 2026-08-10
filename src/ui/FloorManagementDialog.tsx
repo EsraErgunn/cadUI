@@ -1,9 +1,10 @@
 import { useState } from 'react'
 
+import { FloorCopyDialog } from './FloorCopyDialog'
 import { DialogShell } from './controls/DialogShell'
 import { chromeButtonVariants } from './controls/buttonVariants'
-import { AddFloorMenu } from './floors/AddFloorMenu'
 import { FloorDeleteDialog } from './floors/FloorDeleteDialog'
+import { FloorPlanActionBar } from './floors/FloorPlanActionBar'
 import { FloorSummary } from './floors/FloorSummary'
 import { FloorTable } from './floors/FloorTable'
 import { NewFloorHeightField } from './floors/NewFloorHeightField'
@@ -42,6 +43,7 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
   const [draggedFloorId, setDraggedFloorId] = useState<Id | null>(null)
   /** Onay bekleyen silme. Boş dizi değil null: "pencere kapalı" ile "hiçbiri seçili değil" ayrı. */
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Id[] | null>(null)
+  const [copySourceFloorId, setCopySourceFloorId] = useState<Id | null>(null)
 
   const floorNameOf = (floorId: Id): string =>
     draft.floors.find((floor) => floor.id === floorId)?.name ?? ''
@@ -85,6 +87,16 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
     if (apply()) onClose()
   }
 
+  /**
+   * Kopyalama STORE üzerinde çalışıyor, taslak üzerinde değil: hedeflerin
+   * "içerik var" durumu ve üzerine yazma uyarısı gerçek çizime bakmak zorunda.
+   * Bu yüzden taslak ÖNCE uygulanır — kullanıcı iki farklı doğruluk hâli
+   * arasında kalmasın. Uygulanamayan taslakta kopyalama açılmaz.
+   */
+  const openCopyDialog = (sourceFloorId: Id) => {
+    if (apply()) setCopySourceFloorId(sourceFloorId)
+  }
+
   return (
     <DialogShell title="Katlar" size="lg" onClose={onClose}>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
@@ -113,6 +125,7 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
           onHeightCommit={actions.setHeight}
           onToggleSelected={actions.toggleSelected}
           onMakeActive={actions.makeActive}
+          onCopy={openCopyDialog}
           onRemove={(floorId) => setPendingRemovalIds([floorId])}
           onMoveByKey={actions.moveByKey}
         />
@@ -123,47 +136,21 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
           olur. Sıra, soldaki tutamaktan sürüklenerek değiştirilir; kot yeniden hesaplanır.
         </p>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <AddFloorMenu
-            floors={draft.floors}
-            contentOf={contentOf}
-            isDisabled={!canAddFloor}
-            onAddEmpty={() => actions.add({ heightCm: newFloorHeightCm })}
-            onAddCopy={(sourceFloorId) =>
-              actions.add({ heightCm: newFloorHeightCm, copyFromFloorId: sourceFloorId })
-            }
-          />
-          <button
-            type="button"
-            onClick={() => actions.add({ isBasement: true, heightCm: newFloorHeightCm })}
-            disabled={!canAddBasement}
-            className={chromeButtonVariants()}
-          >
-            + Bodrum Ekle
-          </button>
-
-          {draft.selectedFloorIds.length > 0 && (
-            <>
-              <span className="ml-2 text-xs text-ink-muted">
-                Seçili {draft.selectedFloorIds.length} kat:
-              </span>
-              <button
-                type="button"
-                onClick={() => setPendingRemovalIds([...draft.selectedFloorIds])}
-                className={chromeButtonVariants()}
-              >
-                Sil
-              </button>
-            </>
-          )}
-        </div>
-
-        {emptyFloors.length > 0 && (
-          <p className="rounded-md border-l-4 border-edge bg-surface-sunken px-3 py-2 text-xs text-ink-muted">
-            <b className="text-ink">{emptyFloors.map((floor) => floor.name).join(', ')}</b> boş. Boş
-            katlar kaydedilir; gönderim öncesi hata kontrollerinde listelenir.
-          </p>
-        )}
+        <FloorPlanActionBar
+          floors={draft.floors}
+          selectedFloorIds={draft.selectedFloorIds}
+          emptyFloors={emptyFloors}
+          contentOf={contentOf}
+          canAddFloor={canAddFloor}
+          canAddBasement={canAddBasement}
+          onAddEmpty={() => actions.add({ heightCm: newFloorHeightCm })}
+          onAddCopy={(sourceFloorId) =>
+            actions.add({ heightCm: newFloorHeightCm, copyFromFloorId: sourceFloorId })
+          }
+          onAddBasement={() => actions.add({ isBasement: true, heightCm: newFloorHeightCm })}
+          onCopySelected={() => openCopyDialog(draft.selectedFloorIds[0])}
+          onRemoveSelected={() => setPendingRemovalIds([...draft.selectedFloorIds])}
+        />
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-2 border-t border-edge px-5 py-3">
@@ -182,6 +169,13 @@ export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
           Uygula
         </button>
       </div>
+
+      {copySourceFloorId !== null && (
+        <FloorCopyDialog
+          initialSourceFloorId={copySourceFloorId}
+          onClose={() => setCopySourceFloorId(null)}
+        />
+      )}
 
       {deletionSummary && (
         <FloorDeleteDialog

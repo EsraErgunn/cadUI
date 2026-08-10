@@ -73,7 +73,7 @@ describe('getFloorContent', () => {
   it('tesisat elemanı ve hattı ayrı rozet üretir', () => {
     const source: FloorContentSource = {
       ...emptySource,
-      installationLines: [{ floorId: GROUND_ID }],
+      installationLines: [{ floorId: GROUND_ID, segments: [] }],
     }
 
     expect(getFloorContent(source, GROUND_ID)).toEqual({
