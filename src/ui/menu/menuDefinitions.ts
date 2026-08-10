@@ -4,6 +4,8 @@ export type MenuItemDefinition = {
   /** checkbox tipi maddeler işaretlenebilir/işaret kaldırılabilir (issue 2.4). */
   kind: 'command' | 'checkbox'
   isEnabled: boolean
+  /** Kullanıcıya göründüğü gibi ("Ctrl+K", "Page Up"); tuşu yakalayan yer ayrı. */
+  shortcut?: string
 }
 
 export type MenuGroupDefinition = {
@@ -36,6 +38,8 @@ export const UNDO_ITEM_ID = 'undo'
 export const REDO_ITEM_ID = 'redo'
 export const FLOOR_MANAGEMENT_ITEM_ID = 'floorManagement'
 export const FLOOR_COPY_ITEM_ID = 'floorCopy'
+export const FLOOR_UP_ITEM_ID = 'floorUp'
+export const FLOOR_DOWN_ITEM_ID = 'floorDown'
 
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -113,8 +117,30 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
             label: 'Kat Yönetimi',
             kind: 'command',
             isEnabled: true,
+            shortcut: 'Ctrl+K',
           },
-          { id: FLOOR_COPY_ITEM_ID, label: 'Kat Kopyalama', kind: 'command', isEnabled: true },
+          {
+            id: FLOOR_COPY_ITEM_ID,
+            label: 'Kat Kopyalama',
+            kind: 'command',
+            isEnabled: true,
+            shortcut: 'Ctrl+Shift+K',
+          },
+          // Bu ikisi pencere AÇMAZ, doğrudan aktif katı değiştirir (madde 1).
+          {
+            id: FLOOR_UP_ITEM_ID,
+            label: 'Üst Kata Geç',
+            kind: 'command',
+            isEnabled: true,
+            shortcut: 'Page Up',
+          },
+          {
+            id: FLOOR_DOWN_ITEM_ID,
+            label: 'Alt Kata Geç',
+            kind: 'command',
+            isEnabled: true,
+            shortcut: 'Page Down',
+          },
         ],
       },
     ],

@@ -4,12 +4,13 @@ import { useCloseEditor } from './useCloseEditor'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
+import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
 import { SceneRoot } from '../scene/SceneRoot'
+import { useCadStore } from '../store/cadStore'
 import { AxisIndicator } from '../ui/AxisIndicator'
 import { FloorCopyDialog } from '../ui/FloorCopyDialog'
-import { FloorLabel } from '../ui/FloorLabel'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
-import { FloorTabs } from '../ui/FloorTabs'
+import { FloorStrip } from '../ui/FloorStrip'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
@@ -24,7 +25,24 @@ export function EditorPage() {
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const handleSave = () => void save()
-  useEditorShortcuts({ onSave: handleSave })
+
+  /**
+   * Şeritten, menüden ve klavyeden yapılan geçiş ANINDA uygulanır (madde 20);
+   * yalnız "Katlar" penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
+   */
+  const goToFloor = (direction: FloorDirection) => {
+    const { floors, activeFloorId, setActiveFloor } = useCadStore.getState()
+    const nextFloorId = getFloorIdInDirection(floors, activeFloorId, direction)
+    // Uçta hiçbir şey olmaz: geçiş döngüsel değil.
+    if (nextFloorId !== undefined) setActiveFloor(nextFloorId)
+  }
+
+  useEditorShortcuts({
+    onSave: handleSave,
+    onOpenFloorManagement: () => setIsFloorDialogOpen(true),
+    onOpenFloorCopy: () => setIsFloorCopyOpen(true),
+    onGoToFloor: goToFloor,
+  })
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -34,6 +52,7 @@ export function EditorPage() {
         onExport={exportProject}
         onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
         onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
+        onGoToFloor={goToFloor}
         isSaving={isSaving}
       />
 
@@ -55,10 +74,9 @@ export function EditorPage() {
 
         <main className="relative min-w-0 flex-1">
           <SceneRoot />
-          <FloorLabel />
+          <FloorStrip />
           <OpeningToolOptions />
           <AxisIndicator />
-          <FloorTabs />
         </main>
 
         {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
