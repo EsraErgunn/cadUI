@@ -12,9 +12,8 @@ import type { Id } from '../../core/model'
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
-import type { LineClipboardEntry } from '../core/clipboard'
+import type { ClipboardConnection, LineClipboardEntry } from '../core/clipboard'
 import {
-  expandMoveSelection,
   type FreeEndAttachment,
   type NearestLineAttachment,
   type OnLineAttachment,
@@ -29,8 +28,10 @@ import type {
   InstallationLineSegment,
   LineEndAttachment,
 } from '../core/installationModel'
+import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
+import { resolveMoveTargets } from '../core/moveTargets'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
 import { DEFAULT_ELEMENT_ANGLE_DEG, DEFAULT_ELEMENT_SCALE } from '../core/placement'
 import { isPortOccupied } from '../core/portSnap'
@@ -53,6 +54,12 @@ export type AddLineInput = {
   endTarget?: LineEndAttachment
 }
 
+/**
+ * Yazılan borunun kimliği. Hat aracı bunu zincirlemek için kullanır: bir
+ * sonraki adımın başı `endPointId`'ye bağlanır (K-W: her adım ayrı boru).
+ */
+export type AddLineResult = { lineId: Id; startPointId: Id; endPointId: Id }
+
 /** Cihazı boruya bağlayan kısa kol da normal bir borudur; ayrı bir hat türü yok. */
 const STUB_LINE_KIND: InstallationLineKind = 'applianceStub'
 
@@ -66,12 +73,14 @@ export type PlumbingSlice = {
   /** Yapıştırmanın tek adımlık hâli; üretilen id'ler döner (kopya hemen seçilebilsin). */
   addElements: (inputs: readonly AddElementInput[]) => Id[]
   /**
-   * Pano yapıştırması: eleman + hat TEK adımda yaratılır (bir Ctrl+V = bir
-   * Ctrl+Z). Yapıştırılan hat bağlantısız/serbest kopyadır — bkz. `LineClipboardEntry`.
+   * Pano yapıştırması: eleman + hat + aralarındaki BAĞLAR tek adımda yaratılır
+   * (bir Ctrl+V = bir Ctrl+Z). Bağlar dizinle gelir, id'ye burada çevrilir —
+   * kopya kaynağıyla aynı davranır (bkz. `core/clipboard.ts`).
    */
   pasteEntries: (
     elementInputs: readonly AddElementInput[],
     lineInputs: readonly LineClipboardEntry[],
+    connections: readonly ClipboardConnection[],
   ) => { elementIds: Id[]; lineIds: Id[] }
   removeElements: (elementIds: readonly Id[]) => void
   /** Eleman + hat aynı jestte siliniyorsa TEK adım: bir silme, bir Ctrl+Z. */
@@ -96,8 +105,17 @@ export type PlumbingSlice = {
     nodePosition: PlanPoint,
     elementPosition: PlanPoint,
   ) => void
-  /** Tamamlanmış taslağı kalıcı hâle getirir; 2 noktadan azı KAYDEDİLMEZ. */
-  addLine: (input: AddLineInput) => void
+  /**
+   * Bir hat köşesini (uç ya da ara nokta) MUTLAK konuma taşır — boru artık
+   * yalnız uçlarından/köşelerinden tutulup taşınabiliyor, gövdesi rijit
+   * kaymaz. Köşeye sonradan `line` bağlantısıyla eklenmiş bir branşman/cihaz
+   * kolu varsa (`getLinkedLinePoints`) o da AYNI konuma gelir — yoksa yeni
+   * eklenen boru köşe taşınınca eski yerinde asılı kalıp KOPARDI. Köşede
+   * oturan bir armatür (`inlineElementId`) varsa o da birlikte gelir.
+   */
+  moveLinePoint: (lineId: Id, pointId: Id, position: PlanPoint) => void
+  /** Bir boru adımını kalıcı hâle getirir; 2 noktadan azı KAYDEDİLMEZ (null döner). */
+  addLine: (input: AddLineInput) => AddLineResult | null
   /** Boruya oturan armatür(ler): hedef parça sırayla ayrılır, her düğüme bir eleman biner. */
   placeOnLineElements: (attachment: OnLineAttachment) => void
   /** Boş boru ucuna eleman: araya vana girer, hat elemanın girişine uzar. Eleman id'si döner. */
@@ -168,6 +186,12 @@ export const createPlumbingSlice: StateCreator<
     }
 
     if (attachment.kind === 'linePoint') {
+      // Hedef gerçekten duruyor mu: zincir çizilirken araya giren bir Ctrl+Z
+      // bir önceki adımı silmiş olabilir; körlemesine yazılsaydı kayıt artık
+      // olmayan bir hatta işaret ederdi.
+      const target = draft.installationLines.find((line) => line.id === attachment.lineId)
+      if (!target?.points.some((point) => point.id === attachment.pointId)) return null
+
       return { kind: 'line', lineId: attachment.lineId, pointId: attachment.pointId }
     }
 
@@ -271,11 +295,12 @@ export const createPlumbingSlice: StateCreator<
     return id
   }
 
-  /** Hat + noktaları + parçaları; hat id'si döner. Çizim ve cihaz kolu aynı yoldan geçer. */
+  /** Hat + noktaları + parçaları; nokta id'leri SIRAYLA döner (yapıştırma bağları
+   *  dizinle kuruyor). Çizim ve cihaz kolu aynı yoldan geçer. */
   const pushLine = (
     draft: Pick<CadState, 'installationLines' | 'activeFloorId' | 'nextUniqueId'>,
     input: { kind: InstallationLineKind; pipeTypeName: PipeTypeName; points: readonly PlanPoint[] },
-  ): Id => {
+  ): { lineId: Id; pointIds: Id[] } => {
     const points: InstallationLinePoint[] = input.points.map((position) => ({
       id: takeNextId(draft),
       position,
@@ -295,7 +320,7 @@ export const createPlumbingSlice: StateCreator<
       points,
       segments,
     })
-    return id
+    return { lineId: id, pointIds: points.map((point) => point.id) }
   }
 
   /** Boruyu verilen yerde ayırır ve doğan düğüme elemanı oturtur; eleman id'si döner. */
@@ -347,7 +372,7 @@ export const createPlumbingSlice: StateCreator<
       return createdIds
     },
 
-    pasteEntries: (elementInputs, lineInputs) => {
+    pasteEntries: (elementInputs, lineInputs, clipboardConnections) => {
       if (elementInputs.length === 0 && lineInputs.length === 0) return { elementIds: [], lineIds: [] }
 
       const elementIds: Id[] = []
@@ -356,9 +381,58 @@ export const createPlumbingSlice: StateCreator<
         for (const input of elementInputs) {
           elementIds.push(pushElement(draft, input))
         }
+
+        // Nokta id'leri hat SIRASIYLA saklanır: kopyalanan bağlar dizine bakıyor,
+        // id'ye çevrimi burada oluyor (kural 6: id yeniden üretilmez, YENİSİ üretilir).
+        const pointIdsByLine: Id[][] = []
         for (const input of lineInputs) {
-          lineIds.push(pushLine(draft, input))
+          const created = pushLine(draft, input)
+          lineIds.push(created.lineId)
+          pointIdsByLine.push(created.pointIds)
         }
+
+        // Kopyanın kaynağıyla AYNI davranması için bağlar da yeniden kurulur:
+        // yoksa yapıştırılan boru ile sayaç bitişik GÖRÜNÜR ama bağlı olmaz,
+        // taşıyınca birbirinden ayrılırlardı.
+        for (const connection of clipboardConnections) {
+          const lineId = lineIds[connection.lineIndex]
+          if (lineId === undefined) continue
+
+          if (connection.kind === 'inline') {
+            const elementId = elementIds[connection.elementIndex]
+            const pointId = pointIdsByLine[connection.lineIndex]?.[connection.pointIndex]
+            if (elementId === undefined || pointId === undefined) continue
+
+            const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+            const point = line?.points.find((candidate) => candidate.id === pointId)
+            if (point) point.inlineElementId = elementId
+            continue
+          }
+
+          if (connection.kind === 'port') {
+            const elementId = elementIds[connection.elementIndex]
+            if (elementId === undefined) continue
+
+            draft.installationConnections.push({
+              lineId,
+              end: connection.end,
+              target: { kind: 'port', elementId, portId: connection.portId },
+            })
+            continue
+          }
+
+          const targetLineId = lineIds[connection.targetLineIndex]
+          const targetPointId =
+            pointIdsByLine[connection.targetLineIndex]?.[connection.targetPointIndex]
+          if (targetLineId === undefined || targetPointId === undefined) continue
+
+          draft.installationConnections.push({
+            lineId,
+            end: connection.end,
+            target: { kind: 'line', lineId: targetLineId, pointId: targetPointId },
+          })
+        }
+
         markDirty(draft)
       })
       record()
@@ -377,112 +451,31 @@ export const createPlumbingSlice: StateCreator<
       })
 
       set((draft) => {
-        const lineIdSet = new Set(lineIds)
-        // Seçili hat bütünüyle taşınırken üstündeki armatürler (K-W3) ve bağlı
-        // uçtaki eleman (sayaç, cihaz) GERİDE KALMASIN diye seçime eklenir —
-        // aksi hâlde hat kayar, üstündeki sembol eski yerinde asılı kalırdı.
-        // Aynı genişletme sürükleme önizlemesinde de kullanılır (useSelectionTool).
-        const elementIdSet = new Set(
-          expandMoveSelection(
-            draft.installationLines,
-            draft.installationConnections,
-            elementIds,
-            lineIds,
-          ),
+        // NE kayacağı önce TEK hesapta çözülür (saf, sıraya bağlı değil), kayma
+        // sonra bir kez uygulanır: kaynak bağlar korunur, hiçbir nokta iki kez
+        // kaymaz. Gerekçesi core/moveTargets.ts'te.
+        const targets = resolveMoveTargets(
+          draft.installationLines,
+          draft.installationConnections,
+          elementIds,
+          lineIds,
         )
 
         for (const element of draft.installationElements) {
-          if (!elementIdSet.has(element.id)) continue
+          if (!targets.elementIds.has(element.id)) continue
           element.position = shift(element.position)
           isMoved = true
         }
 
-        // Seçili hattın ucu BAŞKA bir hattın (dal/branşman) üstündeki bir
-        // noktaya `line` bağlantısıyla değiyorsa VE o karşı hat seçili
-        // DEĞİLSE, uç SABİT kalır — aksi hâlde tüm hat aynı kaymayla
-        // kayarken bu tek uç, sabit duran karşı noktadan KOPARDI (hat +
-        // dal birlikte seçiliyse ikisi zaten aynı kaymayla gider, pime
-        // gerek yok).
-        const pinnedLineEndPointIds = new Set<Id>()
-        for (const connection of draft.installationConnections) {
-          if (connection.target.kind !== 'line') continue
-          if (!lineIdSet.has(connection.lineId)) continue
-          if (lineIdSet.has(connection.target.lineId)) continue
-
-          const ownerLine = draft.installationLines.find(
-            (candidate) => candidate.id === connection.lineId,
-          )
-          const ownPoint =
-            connection.end === 'start' ? ownerLine?.points[0] : ownerLine?.points.at(-1)
-          if (ownPoint) pinnedLineEndPointIds.add(ownPoint.id)
-        }
-
         for (const line of draft.installationLines) {
-          if (!lineIdSet.has(line.id)) continue
           for (const point of line.points) {
-            if (pinnedLineEndPointIds.has(point.id)) continue
+            if (!targets.pointIds.has(point.id)) continue
             point.position = shift(point.position)
+            isMoved = true
           }
-          isMoved = true
         }
 
         if (!isMoved) return
-
-        // Bağlı hat ucu elemanla BİRLİKTE gelir — yalnız hattın KENDİSİ zaten
-        // bütünüyle taşınmadıysa (öyleyse köşe iki kez kaymasın).
-        for (const connection of draft.installationConnections) {
-          if (connection.target.kind !== 'port') continue
-          if (!elementIdSet.has(connection.target.elementId)) continue
-          if (lineIdSet.has(connection.lineId)) continue
-
-          const line = draft.installationLines.find(
-            (candidate) => candidate.id === connection.lineId,
-          )
-          const endPoint =
-            connection.end === 'start' ? line?.points[0] : line?.points[line.points.length - 1]
-          if (!endPoint) continue
-
-          endPoint.position = shift(endPoint.position)
-        }
-
-        // Boruya oturan armatür taşınınca oturduğu DÜĞÜM de aynı kaymayla gelir:
-        // armatür bir düğümdür (K-W3); ikisi ayrılsaydı vana borunun dışında
-        // asılı kalır ve boru o noktada boşuna bölünmüş görünürdü. Hat zaten
-        // bütünüyle taşındıysa düğüm iki kez kaymasın diye atlanır.
-        const movedInlinePointIds = new Set<Id>()
-        for (const line of draft.installationLines) {
-          for (const point of line.points) {
-            if (lineIdSet.has(line.id)) {
-              if (!pinnedLineEndPointIds.has(point.id)) movedInlinePointIds.add(point.id)
-              continue
-            }
-            if (point.inlineElementId === undefined) continue
-            if (!elementIdSet.has(point.inlineElementId)) continue
-
-            point.position = shift(point.position)
-            movedInlinePointIds.add(point.id)
-          }
-        }
-
-        // Cihaz kolu (applianceStub) ana borudaki düğüme AYRI bir nokta nesnesiyle
-        // değil `line` bağlantı kaydıyla değiyor (K-W). O düğüm taşınınca kolun
-        // ucu kendiliğinden gelmez — burada elle taşınmazsa kol görsel olarak
-        // vanadan KOPUK kalır. Kolun kendi hattı zaten seçiliyse atlanır.
-        for (const connection of draft.installationConnections) {
-          if (connection.target.kind !== 'line') continue
-          if (!movedInlinePointIds.has(connection.target.pointId)) continue
-          if (lineIdSet.has(connection.lineId)) continue
-
-          const stubLine = draft.installationLines.find(
-            (candidate) => candidate.id === connection.lineId,
-          )
-          const stubPoint =
-            connection.end === 'start' ? stubLine?.points[0] : stubLine?.points.at(-1)
-          if (!stubPoint) continue
-
-          stubPoint.position = shift(stubPoint.position)
-        }
-
         markDirty(draft)
       })
 
@@ -502,7 +495,22 @@ export const createPlumbingSlice: StateCreator<
         // tıklama geçmişe boş bir adım bırakırdı (moveElements'teki kuralla aynı).
         if (point.position.x === nodePosition.x && point.position.y === nodePosition.y) return
 
-        point.position = nodePosition
+        // Düğüme tutunan hat uçları (branşman, cihaz kolu, komşu boru adımı) da
+        // yeni konuma gelir: armatür kaydırılırken onlar yerinde kalsaydı KOPARDI
+        // (`moveLinePoint` ile aynı kural).
+        for (const link of getLinkedLinePoints(
+          draft.installationLines,
+          draft.installationConnections,
+          lineId,
+          pointId,
+        )) {
+          const linkedLine = draft.installationLines.find(
+            (candidate) => candidate.id === link.lineId,
+          )
+          const linkedPoint = linkedLine?.points.find((candidate) => candidate.id === link.pointId)
+          if (linkedPoint) linkedPoint.position = nodePosition
+        }
+
         element.position = elementPosition
         isChanged = true
         markDirty(draft)
@@ -511,13 +519,57 @@ export const createPlumbingSlice: StateCreator<
       if (isChanged) record()
     },
 
-    // Hat + her nokta + her segment + bağlantı kayıtları TEK set() içinde üretilir:
-    // tek geçmiş adımı, tek Ctrl+Z (Risk R11).
-    addLine: (input) => {
-      if (!hasEnoughPoints(input.points)) return
+    moveLinePoint: (lineId, pointId, position) => {
+      let isMoved = false
 
       set((draft) => {
-        const lineId = pushLine(draft, {
+        const linked = getLinkedLinePoints(
+          draft.installationLines,
+          draft.installationConnections,
+          lineId,
+          pointId,
+        )
+
+        // Köşede bir ELEMAN PORTUNA oturan uç varsa köşe hiç oynamaz: o uç
+        // konumunu porttan alıyor, çekilseydi elemandan KOPARDI. Kısmen taşımak
+        // da olmaz — köşe tek düğüm, ya hepsi gider ya hiçbiri.
+        const anchored = getPortAnchoredPointIds(
+          draft.installationLines,
+          draft.installationConnections,
+        )
+        if (linked.some((link) => anchored.has(link.pointId))) return
+
+        for (const link of linked) {
+          const line = draft.installationLines.find((candidate) => candidate.id === link.lineId)
+          const point = line?.points.find((candidate) => candidate.id === link.pointId)
+          if (!point) continue
+          if (point.position.x === position.x && point.position.y === position.y) continue
+
+          point.position = position
+          isMoved = true
+
+          if (point.inlineElementId !== undefined) {
+            const element = draft.installationElements.find(
+              (candidate) => candidate.id === point.inlineElementId,
+            )
+            if (element) element.position = position
+          }
+        }
+
+        if (isMoved) markDirty(draft)
+      })
+
+      if (isMoved) record()
+    },
+
+    // Hat + her nokta + her segment + bağlantı kayıtları TEK set() içinde üretilir:
+    // tek geçmiş adımı, tek Ctrl+Z (Risk R11). Bir boru ADIMI = bir adım (K-W).
+    addLine: (input) => {
+      if (!hasEnoughPoints(input.points)) return null
+
+      let created: AddLineResult | null = null
+      set((draft) => {
+        const pushed = pushLine(draft, {
           kind: input.kind,
           pipeTypeName: input.pipeTypeName ?? DEFAULT_PIPE_TYPE_NAME,
           points: input.points,
@@ -531,12 +583,18 @@ export const createPlumbingSlice: StateCreator<
           if (!attachment) continue
 
           const target = resolveAttachment(draft, attachment)
-          if (target) draft.installationConnections.push({ lineId, end, target })
+          if (target) draft.installationConnections.push({ lineId: pushed.lineId, end, target })
         }
 
         markDirty(draft)
+        created = {
+          lineId: pushed.lineId,
+          startPointId: pushed.pointIds[0],
+          endPointId: pushed.pointIds[pushed.pointIds.length - 1],
+        }
       })
       record()
+      return created
     },
 
     // Ana eleman + refakatçileri + boru ayırmaları TEK set() içinde: kullanıcı
@@ -627,7 +685,7 @@ export const createPlumbingSlice: StateCreator<
         endPoint.inlineElementId = valveId
 
         const elementId = pushElement(draft, elementPlacement)
-        const stubId = pushLine(draft, {
+        const { lineId: stubId } = pushLine(draft, {
           kind: STUB_LINE_KIND,
           pipeTypeName,
           // Gaz yönü boru → cihaz: kol düğümden başlar, cihazın girişinde biter.

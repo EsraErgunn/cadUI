@@ -179,8 +179,9 @@ export function usePlacementTool(): PlacementPreviewState {
       if (outputPort) {
         usePlumbingUiStore.getState().setDraftLine({
           kind: 'pipe',
-          points: [getPortWorldPosition(element, outputPort, metadata)],
+          anchor: getPortWorldPosition(element, outputPort, metadata),
           startTarget: { kind: 'port', elementId: element.id, portId: outputPort.id },
+          steps: [],
         })
       }
       useUiStore.getState().setActiveTool(INSTALLATION_PIPE_TOOL_ID)

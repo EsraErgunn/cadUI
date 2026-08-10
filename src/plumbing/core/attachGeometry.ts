@@ -1,4 +1,5 @@
 import type { InstallationConnection, InstallationLine } from './installationModel'
+import { hasLinkedLinePoint } from './lineCornerLink'
 import { getSegmentLengthCm } from './lineGeometry'
 import { isLineEndConnected } from './portSnap'
 import { rotatePlanOffset, svgLocalToPlanOffset } from './ports'
@@ -163,6 +164,11 @@ export function findNearestFreeLineEnd(
       const point = end === 'start' ? line.points[0] : line.points.at(-1)
       const neighbor = end === 'start' ? line.points[1] : line.points.at(-2)
       if (!point || !neighbor || point.inlineElementId !== undefined) continue
+      // Zincirin ORTASINDAKİ köşe serbest uç değildir: her sol tık kendi
+      // borusunu yazdığı için (K-W) bir sonraki adım bu noktaya tutunuyor —
+      // yalnız `isLineEndConnected`'e bakılsaydı kayıt komşu hatta durduğu
+      // için burası boş uç sanılır ve sayaç zincirin ortasına takılırdı.
+      if (hasLinkedLinePoint(connections, line.id, point.id)) continue
 
       const distanceCm = getSegmentLengthCm(point.position, cursor)
       if (distanceCm > radiusCm || distanceCm >= nearestDistanceCm) continue

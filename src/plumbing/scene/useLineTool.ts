@@ -12,7 +12,8 @@ import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
-import { appendPoint, removeLastPoint } from '../core/lineGeometry'
+import { advanceChain, rewindChain, startChain } from '../core/lineChain'
+import { isSamePoint } from '../core/lineGeometry'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
 import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSnap'
 import { resolveRightClick, type RightClickInput } from '../core/pointerGestures'
@@ -22,6 +23,9 @@ import { findNearestWallPoint } from '../core/wallSnap'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
 const LEFT_BUTTON = 0
+
+/** Adım geri alınırken yalnız boru silinir; paylaşılan sabit dizi ayırmaz. */
+const NO_ELEMENT_IDS = [] as const
 
 /** İmlecin yakalandığı yer. Sahne bunu vurgular; biçim türe göre değişir. */
 export type LineToolSnap =
@@ -55,17 +59,20 @@ function toAttachment(snap: LineToolSnap): LineEndAttachment {
 }
 
 /**
- * Çok noktalı hat çizimi. `pipe` ve `branch` aynı hook'u paylaşır; fark yalnız
+ * Zincirleme boru çizimi. `pipe` ve `branch` aynı hook'u paylaşır; fark yalnız
  * `kind` alanıdır. Araç mantığı DrawSurface'e YAZILMAZ (kural 7).
  *
- * Jestler (şartname): sol tık nokta ekler · tek sağ tık son noktayı geri alır ·
- * çift sağ tık hattı bitirir ve Seçim aracına döner · Esc yarım hattı tümüyle
- * iptal eder, araç aktif kalır · porta sol tık hattı orada BİTİRİR ve bağlar,
- * araç aktif kalır (arka arkaya hat çizilebilsin).
+ * **Her sol tık KENDİ borusunu yazar** (K-W): iki tık arası bir adım = bir
+ * `InstallationLine`. Bir sonraki adım bir öncekinin ucuna bağlantı kaydıyla
+ * tutunur, böylece köşe sürüklenince komşu adım da gelir
+ * (`core/lineCornerLink.ts`). Eskiden tüm zincir tek çok noktalı hat olarak
+ * bitişte yazılıyordu; adımlar ayrı olunca her boru tek başına seçilebiliyor,
+ * silinebiliyor ve kendi çapını alabiliyor.
  *
- * Devam eden hat plumbingUiStore.draftLine'da yaşar; kalıcı state'e ancak
- * tamamlanınca tek `addLine` çağrısıyla girer → yarım çizim ne kaydedilir ne de
- * geçmişe adım bırakır.
+ * Jestler: sol tık adımı yazar ve köşe bırakır · tek sağ tık SON ADIMI geri
+ * alır · çift sağ tık çizimi bitirir ve Seçim aracına döner · Esc çizimi
+ * bırakır (yazılmış adımlar kalır, araç aktif kalır) · porta ya da mevcut bir
+ * boruya sol tık zinciri orada bağlayıp BİTİRİR, araç aktif kalır.
  */
 export function useLineTool(): LineToolState {
   const activeToolId = useUiStore((state) => state.activeToolId)
@@ -105,6 +112,7 @@ export function useLineTool(): LineToolState {
       const { zoom } = readCameraViewport(camera)
       const radiusCm = getSnapRadiusCm(zoom)
       const cad = useCadStore.getState()
+      const draftLine = readDraft()
       const floorElements = cad.installationElements.filter(
         (element) => element.floorId === cad.activeFloorId,
       )
@@ -118,7 +126,14 @@ export function useLineTool(): LineToolState {
       )
       if (port) return { point: port.position, snap: { kind: 'port', position: port.position, port } }
 
-      const floorLines = cad.installationLines.filter((line) => line.floorId === cad.activeFloorId)
+      // Zincirin ucunun ÜSTÜNDE oturduğu boru aday değildir: kullanıcı oradan
+      // geliyor: kısa bir adım yeni köşeyi kaçınılmaz olarak o borunun yakalama
+      // yarıçapına düşürür ve adım, az önce yazdığı boruyu AYIRARAK biterdi.
+      const anchorLineId =
+        draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
+      const floorLines = cad.installationLines.filter(
+        (line) => line.floorId === cad.activeFloorId && line.id !== anchorLineId,
+      )
       const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
       if (line) return { point: line.position, snap: { kind: 'line', position: line.position, line } }
 
@@ -142,16 +157,16 @@ export function useLineTool(): LineToolState {
      * kaybolurdu — oysa kullanıcı onu görerek koydu.
      */
     const startDraft = (point: PlanPoint, snap: LineToolSnap | null): LineDraft => {
-      if (snap) return { kind, points: [point], startTarget: toAttachment(snap) }
+      if (snap) return { kind, ...startChain(point, toAttachment(snap)) }
 
       const cad = useCadStore.getState()
       const seedType = getLineSeedElementType(kind, hasServiceBox(cad.installationElements))
-      if (!seedType) return { kind, points: [point], startTarget: null }
+      if (!seedType) return { kind, ...startChain(point, null) }
 
       const metadata = getSymbolMetadata(seedType)
       const seedPort = getSeedPort(metadata)
       const elementId = cad.addElement({ type: seedType, position: point })
-      if (!seedPort) return { kind, points: [point], startTarget: null }
+      if (!seedPort) return { kind, ...startChain(point, null) }
 
       const element = useCadStore
         .getState()
@@ -160,33 +175,44 @@ export function useLineTool(): LineToolState {
 
       return {
         kind,
-        points: [startPoint],
-        startTarget: { kind: 'port', elementId, portId: seedPort.id },
+        ...startChain(startPoint, { kind: 'port', elementId, portId: seedPort.id }),
       }
     }
 
-    /** Hattı yazar ve taslağı bırakır. Bir hedefe bağlanarak biten çizimde araç aktif kalır. */
-    const finishLine = (draft: LineDraft | null, endTarget?: LineEndAttachment) => {
+    /**
+     * Bir adımı (iki köşe arası boru) yazar. Hedefe bağlanarak biten adım
+     * zinciri KAPATIR — bağlantı kurulduysa çizilecek bir şey kalmamıştır ve
+     * araç aktif kalır.
+     */
+    const commitStep = (draft: LineDraft, point: PlanPoint, snap: LineToolSnap | null) => {
+      const written = useCadStore.getState().addLine({
+        kind: draft.kind,
+        points: [draft.anchor, point],
+        pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
+        startTarget: draft.startTarget ?? undefined,
+        endTarget: snap ? toAttachment(snap) : undefined,
+      })
+      if (!written) return
+
+      writeDraft(snap ? null : { kind: draft.kind, ...advanceChain(draft, point, written) })
+    }
+
+    /** Çizimi bırakır; yazılmış adımlar KALIR (her biri kendi başına bir borudur). */
+    const finishChain = () => {
       writeDraft(null)
-      if (draft) {
-        useCadStore.getState().addLine({
-          kind: draft.kind,
-          points: draft.points,
-          pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
-          startTarget: draft.startTarget ?? undefined,
-          endTarget,
-        })
-      }
-      if (!endTarget) useUiStore.getState().setActiveTool(INSTALLATION_SELECTION_TOOL_ID)
+      useUiStore.getState().setActiveTool(INSTALLATION_SELECTION_TOOL_ID)
     }
 
-    const undoLastPoint = () => {
+    /** Tek sağ tık: son ADIMI siler ve ucu o adımın başına geri oturtur. */
+    const undoLastStep = () => {
       const draft = readDraft()
       if (!draft) return
 
-      const points = removeLastPoint(draft.points)
-      // Son nokta da silindiyse taslak biter; başlangıç portu da onunla düşer.
-      writeDraft(points.length === 0 ? null : { ...draft, points })
+      const rewound = rewindChain(draft)
+      if (rewound.removedLineId !== null) {
+        useCadStore.getState().removeSelection(NO_ELEMENT_IDS, [rewound.removedLineId])
+      }
+      writeDraft(rewound.chain && { kind: draft.kind, ...rewound.chain })
     }
 
     const applyRightClick = (input: RightClickInput) => {
@@ -201,8 +227,8 @@ export function useLineTool(): LineToolState {
         )
       }
 
-      if (resolution.action === 'undoPoint') undoLastPoint()
-      if (resolution.action === 'finish') finishLine(readDraft())
+      if (resolution.action === 'undoPoint') undoLastStep()
+      if (resolution.action === 'finish') finishChain()
     }
 
     const unsubscribe = subscribeDrawSurface({
@@ -228,21 +254,19 @@ export function useLineTool(): LineToolState {
           return
         }
 
-        const points = appendPoint(draft.points, resolved.point)
-        // Porta ya da mevcut bir boruya tıklamak hattı orada SONLANDIRIR:
-        // bağlantı kurulduysa çizilecek bir şey kalmamıştır.
-        if (resolved.snap) {
-          finishLine({ ...draft, points }, toAttachment(resolved.snap))
-          return
-        }
-        writeDraft({ ...draft, points })
+        // Aynı yere ikinci tık sıfır boy boru üretirdi.
+        if (isSamePoint(draft.anchor, resolved.point)) return
+
+        commitStep(draft, resolved.point, resolved.snap)
       },
 
       // contextmenu'yü DrawSurface yakalayıp preventDefault ediyor.
       onContextMenu: () => applyRightClick({ kind: 'click', atMs: performance.now() }),
 
-      // Esc yarım hattın TAMAMINI iptal eder ve hiçbir şey kaydetmez; araç aktif
-      // kalır ki kullanıcı paleti yeniden seçmeden yeni hatta başlayabilsin.
+      // Esc devam eden zinciri BIRAKIR; yazılmış adımlar kalır (her sol tık
+      // kendi borusunu yazdı, kullanıcı onları görerek koydu — tıpkı başlangıç
+      // elemanı gibi). Araç aktif kalır ki paleti yeniden seçmeden yeni bir
+      // zincire başlanabilsin.
       onCancel: () => {
         clearTimer()
         pendingRightClickAtMs = null

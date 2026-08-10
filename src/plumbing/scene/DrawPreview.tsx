@@ -179,15 +179,16 @@ export function DrawPreview({
 }
 
 /**
- * Devam eden hattın önizlemesi: yerleşmiş noktalar + son noktadan imlece uzanan
- * lastik bant. İkisi de yerleşmiş hattın ÇİZDİĞİ bileşenden (`PipeLine`) geçer —
- * ayrı ayrı kurulsalardı bir prop birinde unutulur ve önizleme farklı (ör. daha
- * ince) görünürdü.
+ * Devam eden çizimin önizlemesi: zincirin ucundan imlece uzanan lastik bant.
+ * YALNIZ bant çizilir — yazılmış adımlar artık gerçek borulardır (her sol tık
+ * kendi borusunu yazıyor, K-W) ve sahnede zaten duruyorlar. Bant da yerleşmiş
+ * hattın ÇİZDİĞİ bileşenden (`PipeLine`) geçer; ayrı kurulsaydı bir prop
+ * unutulur ve önizleme farklı (ör. daha ince) görünürdü.
  *
- * Yerleşmiş kısım yalnız TIKLAMA başına yeniden kurulur. Lastik bandın iki köşesi
- * her karede geometrinin İÇİNE yazılır (`instanceStart`/`instanceEnd`): drei
- * `<Line>` `points` propu her değiştiğinde yeni `BufferGeometry` ayırdığı için
- * bant propla sürülseydi kare başına geometri çöpü üretirdi.
+ * Bandın iki köşesi her karede geometrinin İÇİNE yazılır (`instanceStart`/
+ * `instanceEnd`): drei `<Line>` `points` propu her değiştiğinde yeni
+ * `BufferGeometry` ayırdığı için bant propla sürülseydi kare başına geometri
+ * çöpü üretirdi.
  *
  * ⚠️ Banda `visible` PROPU VERİLMEZ: drei `<Line>` bilmediği propları hem nesneye
  * hem MATERIAL'e yayıyor, `material.visible = false` de bandı kalıcı olarak
@@ -199,23 +200,15 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
   const rubberBandRef = useRef<ComponentRef<typeof Line> | null>(null)
   const zoom = useCameraZoom()
 
-  const points = draft?.points
-  const pointCount = points?.length ?? 0
-
-  // Referans kararlı tutulur: drei <Line> `points` değişince geometriyi yeniden ayırır.
-  const settledPositions = useMemo(
-    () => (points ?? []).map((point) => planToThree(point, PREVIEW_ELEVATION_CM)),
-    [points],
-  )
+  const anchor = draft?.anchor
 
   useFrame(() => {
     const rubberBand = rubberBandRef.current
     if (!rubberBand) return
 
     const cursor = cursorRef.current
-    const lastPoint = points?.at(-1)
-    rubberBand.visible = Boolean(cursor && lastPoint)
-    if (!cursor || !lastPoint) return
+    rubberBand.visible = Boolean(cursor && anchor)
+    if (!cursor || !anchor) return
 
     // LineGeometry köşeleri araya dizilmiş tek tamponda tutar; ikisine de yazıp
     // tamponu bir kez güncellemek yeterli.
@@ -227,24 +220,22 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
       return
     }
 
-    instanceStart.setXYZ(0, ...planToThree(lastPoint, PREVIEW_ELEVATION_CM))
+    instanceStart.setXYZ(0, ...planToThree(anchor, PREVIEW_ELEVATION_CM))
     instanceEnd.setXYZ(0, ...planToThree(cursor, PREVIEW_ELEVATION_CM))
     instanceStart.data.needsUpdate = true
   })
 
-  if (kind === null || pointCount === 0) return null
-
-  const pipeLineProps = {
-    colorHex: getLineColor(activePipeTypeName),
-    widthPx: getLineWidthPx(activePipeTypeName, zoom),
-    renderOrder: RENDER_ORDER.linePreview,
-  }
+  if (kind === null || !anchor) return null
 
   return (
     <group name="line-draft">
-      {pointCount > 1 && <PipeLine positions={settledPositions} {...pipeLineProps} />}
-
-      <PipeLine lineRef={rubberBandRef} positions={RUBBER_BAND_SEED} {...pipeLineProps} />
+      <PipeLine
+        lineRef={rubberBandRef}
+        positions={RUBBER_BAND_SEED}
+        colorHex={getLineColor(activePipeTypeName)}
+        widthPx={getLineWidthPx(activePipeTypeName, zoom)}
+        renderOrder={RENDER_ORDER.linePreview}
+      />
     </group>
   )
 }
