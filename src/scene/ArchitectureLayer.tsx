@@ -1,10 +1,20 @@
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
+import { PointSymbol, type PointSymbolTone } from './PointSymbol'
+import { Rooms } from './Room'
+import { RoomTool } from './RoomTool'
+import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useOpeningTool } from './useOpeningTool'
+import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
+import { usePointSymbolTool } from './usePointSymbolTool'
+import { useRoomNameTool } from './useRoomNameTool'
+import { useSelectionTool } from './useSelectionTool'
 import { getOpeningOutline } from '../core/opening'
+import { isSelected } from '../core/selection'
+import { getSymbolPose, getSymbolsOnFloor } from '../core/symbolPlacement'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
@@ -23,7 +33,7 @@ function Openings() {
   const walls = useCadStore((state) => state.walls)
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  const selectedOpeningId = useArchitectureUiStore((state) => state.selectedOpeningId)
+  const selection = useArchitectureUiStore((state) => state.selection)
 
   return (
     <>
@@ -34,7 +44,9 @@ function Openings() {
         const outline = getOpeningOutline(wall, points, opening)
         if (!outline) return null
 
-        const tone: OpeningTone = opening.id === selectedOpeningId ? 'selected' : 'normal'
+        const tone: OpeningTone = isSelected(selection, 'opening', opening.id)
+          ? 'selected'
+          : 'normal'
 
         // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
         return <Opening key={opening.id} outline={outline} type={opening.type} tone={tone} />
@@ -51,16 +63,92 @@ function Openings() {
   )
 }
 
+/**
+ * Nokta sembollerini çizer ve yerleştirme aracını çalıştırır (Desen A).
+ * Openings ile aynı desen: hook <Canvas> içinde koşmak zorunda.
+ */
+function PointSymbols() {
+  const preview = usePointSymbolTool()
+  usePointSymbolSelectionTool()
+  const symbols = useCadStore((state) => state.symbols)
+  const symbolWalls = useCadStore((state) => state.walls)
+  const symbolPoints = useArchitecturePoints()
+  const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const hover = useArchitectureUiStore((state) => state.hover)
+  const selection = useArchitectureUiStore((state) => state.selection)
+  const draggingSymbols = useArchitectureUiStore((state) => state.draggingSymbols)
+
+  const hoveredSymbolId = hover?.kind === 'symbol' ? hover.symbolId : undefined
+
+  return (
+    <>
+      {getSymbolsOnFloor(symbols, activeFloorId, symbolWalls).map((symbol) => {
+        const pose = getSymbolPose(symbol, symbolWalls, symbolPoints)
+        // Duvarı çözülemeyen bağlı sembol çizilmez; kalıcı olmamalı, duvar
+        // silinince semboller de temizleniyor.
+        if (!pose) return null
+
+        // Seçim vurgudan baskın: seçili sembolün üstündeyken mavi kalır.
+        const tone: PointSymbolTone = isSelected(selection, 'symbol', symbol.id)
+          ? 'selected'
+          : symbol.id === hoveredSymbolId
+            ? 'hovered'
+            : 'normal'
+
+        // Sürüklenen sembol geçici konumuyla çizilir; store'a bırakma anında yazılır.
+        const drag = draggingSymbols?.symbolIds.includes(symbol.id) ? draggingSymbols : undefined
+        const drawnPose = drag
+          ? {
+              ...pose,
+              position: { x: pose.position.x + drag.dxCm, y: pose.position.y + drag.dyCm },
+            }
+          : pose
+
+        // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
+        return (
+          <PointSymbol
+            key={symbol.id}
+            symbolId={symbol.id}
+            type={symbol.type}
+            pose={drawnPose}
+            tone={tone}
+          />
+        )
+      })}
+
+      {preview && (
+        <PointSymbol type={preview.type} pose={preview.pose} tone="preview" />
+      )}
+    </>
+  )
+}
+
+/** Çerçeve seçimi hook'u; <Canvas> içinde çalışmak zorunda (Openings ile aynı desen). */
+function SelectionTool() {
+  useSelectionTool()
+  return null
+}
+
 /** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
 export function ArchitectureLayer() {
+  // Oda adı düzenleme jesti; hook <Canvas> içinde çalışmak zorunda (kamera okuyor).
+  useRoomNameTool()
+
   return (
     <group name="architecture-root">
+      {/* Odalar EN ALTTA (RENDER_ORDER.room < wall): dolgu duvarları örtmesin. */}
+      <Rooms />
       <Walls />
       {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
       <Openings />
+      {/* Sembol açıklığın da üstünde (RENDER_ORDER.pointSymbol > opening). */}
+      <PointSymbols />
       <WallTool />
-      {/* Tutamaklar en üstte: altındaki her şeyin üzerinde görünmeli. */}
+      <RoomTool />
+      <SelectionTool />
+      {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
+      <SelectionMarquee />
     </group>
   )
 }

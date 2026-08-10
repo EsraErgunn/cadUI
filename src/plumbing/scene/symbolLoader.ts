@@ -8,6 +8,7 @@ import {
 } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 
+import type { SymbolMetadataLookup } from '../core/elementPicking'
 import {
   parseSymbolMetadata,
   type InstallationElementType,
@@ -15,8 +16,10 @@ import {
 } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
-/** Soluk ama okunur: bu değerin altında koyu konturlu semboller ızgaraya karışıyor. */
-const GHOST_OPACITY = 0.35
+/** Soluk ama okunur: bu değerin altında koyu konturlu semboller ızgaraya karışıyor.
+ *  Hat hayaleti de aynı değeri kullanır (InstallationLineMesh) — sembol ve boru
+ *  aynı izde farklı solukluktaysa katman iki parçaya bölünmüş görünüyor. */
+export const GHOST_OPACITY = 0.35
 
 export type SymbolShape = { geometry: BufferGeometry; material: Material }
 export type LoadedSymbol = { shapes: readonly SymbolShape[]; metadata: SymbolMetadata }
@@ -171,3 +174,6 @@ export function getLoadedSymbol(type: InstallationElementType): LoadedSymbol {
   symbolCache.set(type, loaded)
   return loaded
 }
+
+/** Saf çekirdek fonksiyonlarının istediği metadata okuyucusu — her araçta tek satır kopyalanmasın. */
+export const getSymbolMetadata: SymbolMetadataLookup = (type) => getLoadedSymbol(type).metadata

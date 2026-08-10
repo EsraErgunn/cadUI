@@ -1,6 +1,9 @@
 import type { StateCreator } from 'zustand'
 
+import { INITIAL_ARCHITECTURE_DATA, type ArchitectureData } from './architectureData'
 import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
+import { createPropertyActions } from './architecturePropertyOps'
+import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
 import {
   appendWall,
@@ -13,22 +16,25 @@ import {
 // cadStore ↔ architectureSlice karşılıklı import eder; bu taraf tip-only olduğu
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
+import { createPointSymbolActions, pruneSymbolsInDraft } from './pointSymbolOps'
+import type { PointSymbolActions } from './pointSymbolOps'
 import { markDirty, takeNextId } from './projectMeta'
+import { createSelectionActions } from './selectionOps'
+import { createTransformActions } from './transformOps'
 import type { PlanPoint } from '../core/coords'
-import { FIRST_FREE_ID, type Id, type OpeningType, type ProjectData } from '../core/model'
+import { type Id, type OpeningType } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
+import type { Selection } from '../core/selection'
+import type { PlanTransform } from '../core/transform'
 import { getOrphanPointIds } from '../core/wall'
 
 // Selector'lar ve duvar yazma iç fonksiyonları ayrı dosyalarda (max-lines);
 // sözleşme yüzeyi tek yerden okunsun diye buradan yeniden dışa aktarılıyor.
 export * from './architectureSelectors'
+// Veri şekli + sayaç türetimi ayrı dosyada (max-lines); sözleşme yüzeyi tek yerden okunsun.
+export { deriveNextUniqueId, INITIAL_ARCHITECTURE_DATA } from './architectureData'
+export type { ArchitectureData } from './architectureData'
 export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './architectureWallOps'
-
-/**
- * Store'un şekli = kaydedilecek JSON'un şekli (CLAUDE.md kural 4). Pick ile
- * bağlandı: ProjectData'dan sapma DERLEME hatası olur, sessiz ayrışma olmaz.
- */
-type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings'>
 
 export type AddOpeningInput = {
   wallId: Id
@@ -43,7 +49,7 @@ export type OpeningTarget = {
   offsetCm: number
 }
 
-export type ArchitectureSlice = ArchitectureData & {
+export type ArchitectureSlice = ArchitectureData & PointSymbolActions & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
@@ -70,30 +76,21 @@ export type ArchitectureSlice = ArchitectureData & {
   removeOpening: (openingId: Id) => void
   /** Duvar silme/kısaltma sonrası temizlik (K16). */
   pruneOpeningsOnWalls: () => void
+  /** Seçili nesnelerin tamamını TEK geri alma adımında siler (KK-10). */
+  deleteSelection: (selection: Selection) => boolean
+  /**
+   * Özellik panelinin toplu yazımları (KK-12). Birden çok duvar TEK adımda
+   * güncellenir: tek tek yazılsaydı üç duvar seçen kullanıcı üç Ctrl+Z'ye basardı.
+   */
+  setWallsThickness: (wallIds: readonly Id[], thicknessCm: number) => boolean
+  setWallsHeight: (wallIds: readonly Id[], heightCm: number) => boolean
+  /** Seçimi taşır/döndürür/aynalar; hepsi TEK geri alma adımı (KK-11). */
+  transformSelection: (selection: Selection, transform: PlanTransform) => boolean
+  /** Seçimi çoğaltır ve KOPYALARIN seçimini döndürür (KK-11). */
+  duplicateSelection: (selection: Selection, offset: { dxCm: number; dyCm: number }) => Selection
+  /** Boş ad reddedilir, aynı ad yazılmaz; gerekçe renameRoomInDraft'ta. */
+  setRoomName: (roomId: Id, name: string) => void
 }
-
-export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
-  points: [],
-  walls: [],
-  openings: [],
-}
-
-/**
- * nextUniqueId veriden TÜRETİLİR, sabit yazılmaz: başlangıç verisi bir gün boş
- * olmazsa (örnek proje, şablon) sabit sayaç var olan bir id'yi ikinci kez üretir
- * ve HATA VERMEZ — id aramaları sessizce şaşar. Bkz. knowledge/id-scheme.md.
- */
-export function deriveNextUniqueId(data: ArchitectureData): Id {
-  return (
-    Math.max(
-      FIRST_FREE_ID - 1,
-      ...data.points.map((point) => point.id),
-      ...data.walls.map((wall) => wall.id),
-      ...data.openings.map((opening) => opening.id),
-    ) + 1
-  )
-}
-
 export const createArchitectureSlice: StateCreator<
   CadState,
   [['zustand/immer', never]],
@@ -111,6 +108,8 @@ export const createArchitectureSlice: StateCreator<
 
       // Yeni duvar bir başkasını kesiyor olabilir: düğüm aynı adımda açılır (K24).
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     })
     return added
@@ -122,6 +121,8 @@ export const createArchitectureSlice: StateCreator<
       if (!appendWallChain(draft, input)) return
 
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -137,6 +138,8 @@ export const createArchitectureSlice: StateCreator<
       pruneOpeningsInDraft(draft)
       // Köşe başka bir duvarın gövdesine bırakılmış olabilir → T birleşimi (K24).
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -159,6 +162,8 @@ export const createArchitectureSlice: StateCreator<
       pruneOpeningsInDraft(draft)
       // Taşınan duvar başkalarının üstünden geçmiş olabilir (K24).
       splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -171,8 +176,15 @@ export const createArchitectureSlice: StateCreator<
       const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))
       draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
       pruneOpeningsInDraft(draft)
+      // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
+
+  ...createPropertyActions(set),
+  ...createSelectionActions(set),
+  ...createTransformActions(set),
+  ...createPointSymbolActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {
@@ -186,6 +198,10 @@ export const createArchitectureSlice: StateCreator<
       draft.points = draft.points.filter((point) => !orphanIds.has(point.id))
       // Duvarsız açıklık temsil edilemez; sahipsiz wallId bırakılmaz (K16).
       pruneOpeningsInDraft(draft)
+      // Duvara bağlı sembolün konumu duvarından türüyor; duvarsız kalamaz.
+      pruneSymbolsInDraft(draft)
+      // Duvar düşünce çevrim kopar: kapanmayan oda aynı adımda silinir (K31).
+      recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
 
@@ -272,5 +288,10 @@ export const createArchitectureSlice: StateCreator<
   pruneOpeningsOnWalls: () =>
     set((draft) => {
       if (pruneOpeningsInDraft(draft)) markDirty(draft)
+    }),
+
+  setRoomName: (roomId, name) =>
+    set((draft) => {
+      if (renameRoomInDraft(draft, roomId, name)) markDirty(draft)
     }),
 })

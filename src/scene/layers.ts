@@ -5,10 +5,29 @@
 export const RENDER_ORDER = {
   gridMinor: 0,
   gridMajor: 1,
+  /**
+   * Aktif katın altındaki katın izi (KK-13). architectureGhost'un da ALTINDA:
+   * o karşı KATMANIN izi, bu karşı KATIN izi — ikisi aynı anda görünebilir ve
+   * hizalama referansı olan alt kat en geride durmalı.
+   */
+  floorBelowGhost: 3,
+  /** Açıklık kendi duvarının üstünde ayrı sırada — gerekçesi architectureGhostOpening ile aynı. */
+  floorBelowGhostOpening: 4,
   architectureGhost: 5,
+  /**
+   * Hayalet açıklık, hayalet duvarın ÜSTÜNDE ayrı bir sırada: aynı renderOrder'da
+   * kalsaydı çizim sırası material id'sine (mount sırasına) düşerdi ve sonradan
+   * eklenen bir duvar deliği kapatabilirdi.
+   */
+  architectureGhostOpening: 6,
   room: 10,
   wall: 20,
   opening: 30,
+  /**
+   * Nokta sembolü açıklığın ve duvarın ÜSTÜNDE: damga plandan okunabilmeli,
+   * altına düşerse duvar kütlesi onu yutar. Tutamakların altında kalır.
+   */
+  pointSymbol: 32,
   /**
    * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
    * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı

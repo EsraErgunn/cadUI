@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { Floor, Opening, Point, ProjectData, Wall } from './model'
+import type { Floor, Opening, Point, PointSymbol, ProjectData, Room, Wall } from './model'
 
 /**
  * Dış kaynaktan gelen JSON şemadan geçmeden state'e girmez (CLAUDE.md güvenlik).
@@ -38,6 +38,77 @@ const openingSchema = z.object({
   type: z.enum(['door', 'window']),
 })
 
+const roomSchema = z.object({
+  id: idSchema,
+  wallIds: z.array(idSchema),
+  name: z.string(),
+})
+
+const symbolTypeSchema = z.enum([
+  'mainCutoffSwitch',
+  'panel',
+  'lighting',
+  'fireExtinguisher',
+  'alarmDevice',
+  'earthquakeSensor',
+  'vent',
+])
+
+/**
+ * Ayrık birleşim: duvara bağlı sembol `x/y/floorId/rotationDeg` TAŞIMAZ, serbest
+ * sembol `wallId/offsetCm` taşımaz. Tek nesnede opsiyonel alanlarla toplanırsa
+ * "duvara bağlı ama x'i de var" gibi geçersiz kayıtlar şemadan geçerdi.
+ */
+const symbolAttachmentSchema = z.discriminatedUnion('attachment', [
+  z.object({
+    id: idSchema,
+    type: symbolTypeSchema,
+    label: z.string(),
+    note: z.string(),
+    attachment: z.literal('wall'),
+    wallId: idSchema,
+    offsetCm: z.number(),
+    isMountedOnFarFace: z.boolean(),
+  }),
+  z.object({
+    id: idSchema,
+    type: symbolTypeSchema,
+    label: z.string(),
+    note: z.string(),
+    attachment: z.literal('free'),
+    floorId: idSchema,
+    x: z.number(),
+    y: z.number(),
+    rotationDeg: z.number(),
+  }),
+])
+
+/**
+ * `attachment` alanı OLMAYAN sembol, o alan modele girmeden önce kaydedilmiş
+ * demektir; o hâliyle her sembol serbestti (floorId + x/y + rotationDeg). Eksik
+ * ayırt edici zorunlu tutulursa dosya HİÇ AÇILMAZ ve kullanıcının çizimi
+ * elimizde olduğu hâlde erişilemez kalır — depodaki projeler bir kez bu yüzden
+ * açılamadı.
+ *
+ * Şema alan EKLEMENİN ötesinde bir değişiklik (alanların yeri, ayırt edicinin
+ * gelmesi) yaparken göç yolu buraya yazılır. Sonraki kayıtta alan dosyaya
+ * yazılır ve preprocess bir daha devreye girmez.
+ */
+const pointSymbolSchema = z.preprocess((value) => {
+  if (typeof value !== 'object' || value === null || 'attachment' in value) return value
+  return { ...value, attachment: 'free' }
+}, symbolAttachmentSchema)
+
+/**
+ * Modele SONRADAN eklenen diziler `.default([])` taşır: depodaki çizimler o
+ * alanlar yokken kaydedildi ve zorunlu tutulursa "expected array, received
+ * undefined" ile HİÇ AÇILMAZ — kullanıcının verisi elimizde ama erişilemez olur.
+ *
+ * Bit-bit turu bozulmaz: `serializeProjectData` bu alanları her zaman yazıyor,
+ * yani bu sürümün kaydettiği dosya tam alan kümesiyle geri okunur. Varsayılan
+ * yalnız ESKİ dosyaların ilk açılışında devreye girer, sonraki kayıtta alan
+ * dosyaya yazılır. Yeni alan eklerken aynı şey yapılmalı.
+ */
 export const projectDataSchema = z.object({
   nextUniqueId: idSchema,
   activeFloorId: idSchema,
@@ -45,6 +116,8 @@ export const projectDataSchema = z.object({
   points: z.array(pointSchema),
   walls: z.array(wallSchema),
   openings: z.array(openingSchema),
+  rooms: z.array(roomSchema).default([]),
+  symbols: z.array(pointSymbolSchema).default([]),
 })
 
 export class ProjectDataParseError extends Error {
@@ -99,6 +172,8 @@ export function serializeProjectData(data: ProjectData): string {
     points: data.points.map(toPointJson),
     walls: data.walls.map(toWallJson),
     openings: data.openings.map(toOpeningJson),
+    rooms: data.rooms.map(toRoomJson),
+    symbols: data.symbols.map(toPointSymbolJson),
   })
 }
 
@@ -121,6 +196,11 @@ function toWallJson(wall: Wall) {
   }
 }
 
+function toRoomJson(room: Room) {
+  // wallIds kopyalanır: store'daki diziyi paylaşmak, JSON üretimini state'e bağlar.
+  return { id: room.id, wallIds: [...room.wallIds], name: room.name }
+}
+
 function toOpeningJson(opening: Opening) {
   return {
     id: opening.id,
@@ -128,5 +208,34 @@ function toOpeningJson(opening: Opening) {
     offsetCm: opening.offsetCm,
     widthCm: opening.widthCm,
     type: opening.type,
+  }
+}
+
+function toPointSymbolJson(symbol: PointSymbol) {
+  const head = {
+    id: symbol.id,
+    type: symbol.type,
+    label: symbol.label,
+    note: symbol.note,
+    attachment: symbol.attachment,
+  }
+
+  // Alan sırası ELLE sabit (kabul testinin dayanağı); iki dal ayrı yazılıyor
+  // çünkü spread ile birleştirmek sırayı çalışma zamanına bırakır.
+  if (symbol.attachment === 'wall') {
+    return {
+      ...head,
+      wallId: symbol.wallId,
+      offsetCm: symbol.offsetCm,
+      isMountedOnFarFace: symbol.isMountedOnFarFace,
+    }
+  }
+
+  return {
+    ...head,
+    floorId: symbol.floorId,
+    x: symbol.x,
+    y: symbol.y,
+    rotationDeg: symbol.rotationDeg,
   }
 }

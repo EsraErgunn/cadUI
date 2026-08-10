@@ -17,18 +17,14 @@ export const INSTALLATION_ELEMENT_TYPES = [
   'otherAppliance',
   'chimney',
   'ventilationDuct',
+  // İzolasyon segment boolean'ı değil, boruya oturan bir NESNEDİR (K-W4).
+  'insulation',
 ] as const
 
 export type InstallationElementType = (typeof INSTALLATION_ELEMENT_TYPES)[number]
 
 /** Sahneye yerleşmeyen, yalnız toolbar'da temsil edilen araçların asset kimlikleri. */
-export const TOOLBAR_ONLY_SYMBOL_IDS = [
-  'selection',
-  'pipe',
-  'branch',
-  'insulation',
-  'measurement',
-] as const
+export const TOOLBAR_ONLY_SYMBOL_IDS = ['selection', 'pipe', 'branch', 'measurement'] as const
 
 export type ToolbarOnlySymbolId = (typeof TOOLBAR_ONLY_SYMBOL_IDS)[number]
 
@@ -85,10 +81,11 @@ export const SYMBOL_PORT_COUNTS: Record<SymbolId, { input: number; output: numbe
   otherAppliance: { input: 1, output: 0 },
   chimney: { input: 0, output: 0 },
   ventilationDuct: { input: 0, output: 0 },
+  // İzolasyon boruyu kesmez, üstüne oturur: portu yoktur, çapası merkezidir.
+  insulation: { input: 0, output: 0 },
   selection: { input: 0, output: 0 },
   pipe: { input: 0, output: 0 },
   branch: { input: 0, output: 0 },
-  insulation: { input: 0, output: 0 },
   measurement: { input: 0, output: 0 },
 }
 

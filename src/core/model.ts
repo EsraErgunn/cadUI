@@ -47,9 +47,91 @@ export type Opening = {
   type: OpeningType
 }
 
+export const DEFAULT_ROOM_NAME = 'Oda'
+
+/**
+ * Duvarların çevrelediği kapalı alan. Geometri KOPYALAMAZ: sınırını oluşturan
+ * duvarların id'lerini tutar, poligon her seferinde onlardan türetilir. Kopyalasaydı
+ * duvar oynayınca oda yerinde donar ve hata ekranda görünmezdi.
+ *
+ * Kimlik `wallIds` kümesiyle korunur (K31): duvar ikiye bölününce küme bölme
+ * anında güncellenir, oda aynı oda kalır ve kullanıcının verdiği ad yaşar.
+ * İçinden duvar geçip oda ikiye ayrılırsa eski çevrim yok olur — iki YENİ oda
+ * doğar, ikisi de varsayılan adı alır.
+ *
+ * floorId yok — duvardan türetilir; Opening ile aynı gerekçe (K9).
+ */
+export type Room = {
+  id: Id
+  wallIds: Id[]
+  name: string
+}
+
+/**
+ * Paletteki "nokta sembolü" ailesi (tutanak K-0, Desen A). Yedi araç aynı alan
+ * kümesini paylaşır; aralarındaki tek fark çizilen şekildir.
+ * Kolon/Kiriş/Merdiven (Desen B) ölçü taşıdığı, Baca Şaftı/Kolon Havalandırması
+ * (Desen C) katlar arası eksen kimliği taşıdığı için buraya GİRMEZ.
+ */
+export type PointSymbolType =
+  | 'mainCutoffSwitch'
+  | 'panel'
+  | 'lighting'
+  | 'fireExtinguisher'
+  | 'alarmDevice'
+  | 'earthquakeSensor'
+  | 'vent'
+
+/**
+ * Sembolün duvara bağlanma biçimi — referans formatla aynı model.
+ *
+ * Duvara bağlı sembol `floorId` ve `rotationDeg` TAŞIMAZ: ikisi de duvarından
+ * türer. Pano bir duvar YÜZEYİNE monte edilir, dolayısıyla duvar nereye
+ * bakıyorsa o da oraya bakar; iki yerde tutulan yön zamanla ayrışır (Opening ile
+ * aynı kural, K9). Duvar taşınınca sembol kendiliğinden gelir.
+ *
+ * `isMountedOnFarFace` duvarın HANGİ YÜZÜNE monte edildiğini söyler — referans
+ * formattaki `ccw` alanının karşılığı. Kazan dairesi/havalandırma kontrolleri
+ * cihazın hangi mahale baktığını bilmek zorunda.
+ *
+ * Serbest sembol duvara denk gelmeyen yerleştirmedir. Araç bırakma noktasının
+ * uygunluğunu DENETLEMEZ (tutanak K-6), bu yüzden serbest hâl bir hata durumu
+ * değil meşru bir durumdur — aydınlatma ise referansta HER ZAMAN serbest
+ * (tavana takılıyor, duvara değil).
+ */
+export type SymbolAttachment =
+  | {
+      attachment: 'wall'
+      wallId: Id
+      /** Duvarın p1 ucundan; Opening.offsetCm ile aynı eksen. */
+      offsetCm: number
+      isMountedOnFarFace: boolean
+    }
+  | {
+      attachment: 'free'
+      floorId: Id
+      x: number
+      y: number
+      /** 0-359. Yalnız serbest sembolde anlamlı; duvara bağlıda duvar belirler. */
+      rotationDeg: number
+    }
+
+export type PointSymbol = {
+  id: Id
+  type: PointSymbolType
+  /** Tip kısaltması + sıra ("P-01"); otomatik üretilir, düzenlenebilir. */
+  label: string
+  /**
+   * Serbest açıklama. Opsiyonel DEĞİL, boş string: `JSON.stringify` undefined
+   * alanı atlar ve iki projenin JSON şekli ayrışırdı — kabul testi alan sırasına
+   * dayanıyor (serialize.ts).
+   */
+  note: string
+} & SymbolAttachment
+
 /**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
- * Room/Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
+ * Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
  */
 export type ProjectData = {
@@ -59,4 +141,6 @@ export type ProjectData = {
   points: Point[]
   walls: Wall[]
   openings: Opening[]
+  rooms: Room[]
+  symbols: PointSymbol[]
 }

@@ -43,6 +43,8 @@ export const FIXTURE_NEXT_FREE_ID = deriveNextUniqueId({
   points: FIXTURE_POINTS,
   walls: FIXTURE_WALLS,
   openings: FIXTURE_OPENINGS,
+  rooms: [],
+  symbols: [],
 })
 
 /** Her testin aynı sahneden başlaması için. beforeEach içinde çağrılır. */
@@ -51,6 +53,7 @@ export function resetArchitectureState(): void {
     points: FIXTURE_POINTS,
     walls: FIXTURE_WALLS,
     openings: FIXTURE_OPENINGS,
+    rooms: [],
     nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
     savedRevision: 0,

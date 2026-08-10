@@ -1,12 +1,18 @@
+import { useState } from 'react'
+
 import { useCloseEditor } from './useCloseEditor'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { SceneRoot } from '../scene/SceneRoot'
 import { AxisIndicator } from '../ui/AxisIndicator'
+import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorLabel } from '../ui/FloorLabel'
+import { FloorManagementDialog } from '../ui/FloorManagementDialog'
+import { FloorTabs } from '../ui/FloorTabs'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
+import { PropertyPanel } from '../ui/PropertyPanel'
 import { StatusBar } from '../ui/StatusBar'
 import { Toolbar } from '../ui/Toolbar'
 
@@ -15,6 +21,8 @@ export function EditorPage() {
   const closeEditor = useCloseEditor()
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
+  const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
+  const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const handleSave = () => void save()
   useEditorShortcuts({ onSave: handleSave })
 
@@ -24,6 +32,8 @@ export function EditorPage() {
         onCloseEditor={closeEditor}
         onSave={handleSave}
         onExport={exportProject}
+        onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
+        onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
         isSaving={isSaving}
       />
 
@@ -47,14 +57,21 @@ export function EditorPage() {
           <FloorLabel />
           <OpeningToolOptions />
           <AxisIndicator />
+          <FloorTabs />
         </main>
 
-        {/* Özellik paneli yuvası. Kardeş eleman olduğu için açıldığında çizim
-            alanını daraltır, üzerine binmez (issue 2.1). Bu issue'da kapalı. */}
-        <aside className="w-0 shrink-0 overflow-hidden" />
+        {/* Kardeş eleman: açıldığında çizim alanını daraltır, üzerine binmez
+            (issue 2.1). Seçim yokken hiç render edilmez. */}
+        <PropertyPanel />
       </div>
 
       <StatusBar />
+
+      {isFloorDialogOpen && (
+        <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />
+      )}
+
+      {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
     </div>
   )
 }

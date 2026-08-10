@@ -44,6 +44,12 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   offset ↔ konum dönüşümü sadece `core/wallPath.ts`'te. (bkz. knowledge/arc-walls.md)
 - Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
 - Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
+- Tesisat elemanı nereye yapıştığını TÜRDEN alır (`plumbing/core/attachModes.ts`): armatür
+  boruya oturur ve boruyu AYIRIR (`onLine`), sayaç boş uca takılır ve araya vana girer
+  (`lineEnd`), yakıcı cihaz en yakın boruya kısa kolla bağlanır (`nearestLine`), servis
+  kutusu/baca serbesttir (`free`). Boruya oturan eleman `InstallationLinePoint.inlineElementId`
+  ile düğüme bağlanır — armatür = düğüm, ayrı bağlantı kaydı DEĞİL.
+  (bkz. knowledge/element-attach.md)
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
 - Servis kutusu (`ServiceBox`) kökte TEK nesne (dizi değil) → "tek servis kutusu" kuralı yapı gereği.
 - Kolon (`Riser`) kat dışında, kökte. Kat kopyalanınca KLONLANMAZ; `toFloorId` uzatılır.
@@ -58,16 +64,25 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - `src/ui/` — MenuBar/menu/Toolbar/tools/StatusBar/FloorLabel/AxisIndicator/controls/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
 - `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
   liste parçaları. Kabuk sayfaya GÖMÜLMEZ, route ebeveynidir. Liste durumu (arama/filtre/
-  sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Yetki `usePermission` ile
-  soyutlanır — rol modeli varsayılmaz. (bkz. knowledge/admin-list-state.md)
+  sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Rol modeli KESİNLEŞTİ:
+  üç rol, kullanıcı başına tek rol, kontrol `Role.Code` ile. Görünürlük kararı `useIsAdmin`
+  (login yanıtındaki `roleCode`); `usePermission` hâlâ mock izin listesine bakıyor, yeni
+  kodda kullanılmaz. İkisi birleşene kadar tek yetki kaynağı rol kodudur — istemci tarafı
+  yalnız GÖRÜNÜRLÜK içindir, denetim sunucuda.
+  (bkz. knowledge/access-control.md, knowledge/admin-list-state.md)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
 
-B (mimari) iki alt-faya bölündü: **duvar altyapısı** (wall/room/snap/floorClone,
-useWallTool/useRoomTool) ve **açıklık + nesne etkileşimi** (opening, seçim/taşıma,
-özellik paneli beslemesi). İkisinin sınırı knowledge/snap-contract.md'deki
-karşılıklı fonksiyonlardır — o sınırın dışında birbirinin dosyasına yazılmaz.
+B (mimari) iki alt-faya bölündü: **duvar altyapısı** (wall/room/snap,
+useWallTool/useRoomTool, Room tipi) ve **açıklık + nesne etkileşimi** (opening,
+seçim/taşıma/çoklu seçim, grup dönüşümü, özellik paneli, kat yönetimi ve
+floorClone). İkisinin sınırı knowledge/snap-contract.md'deki karşılıklı
+fonksiyonlardır — o sınırın dışında birbirinin dosyasına yazılmaz.
+
+`floorClone` ikinci tarafta çünkü grup çoğaltma (KK-11) ile kat kopyalama (KK-15)
+AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farklı
+şekilde yazılırdı (bkz. knowledge/floor-clone.md).
 
 ## Ürün kuralları (gereksinimler)
 
@@ -78,7 +93,9 @@ karşılıklı fonksiyonlardır — o sınırın dışında birbirinin dosyasın
 - Bir kat mimarisi boş kata bağımsız kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
 - İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
 - Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
-- Renk: marka sarısı #FFC107 çizim alanına GİRMEZ (tuvalde sarı = gaz hattı). Seçim rengi mavi.
+- Renk: marka sarısı #FFC107 çizim alanına GİRMEZ. Seçim rengi mavi. Gaz hattının rengi
+  ÇAPINDAN gelir (DN25 kırmızı, DN32/40/50 kendi renkleri — WebCAD ile aynı sınıflandırma,
+  K27). "Tuvalde sarı = gaz hattı" kuralı bu kararla kalktı.
 - Kimin projeye erişebileceği (tek sahip mi, çoklu rol mü) KESİNLEŞMEDİ — bkz.
   knowledge/access-control.md. Bu konuda varsayım kodlama.
 

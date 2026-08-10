@@ -1,5 +1,6 @@
 import type { PlanPoint } from './coords'
-import type { Id, Point, Wall } from './model'
+import type { Id, Opening, Point, Wall } from './model'
+import { getOpeningSpan } from './opening'
 import { getSegmentLength, getWallEnds, MIN_WALL_LENGTH_CM } from './wall'
 
 /** Kayan nokta payı: snap noktayı zaten doğrunun ÜSTÜNE koyuyor, eşik dar olmalı. */
@@ -201,4 +202,80 @@ export function findWallSplits(
   }
 
   return splits
+}
+
+/**
+ * Aday duvar segmenti bir açıklığın (kapı/pencere) İÇİNDEN geçiyorsa YA DA
+ * onun içinde/üzerinde BAŞLIYOR/BİTİYORSA o açıklığı döner — yerleştirme buna
+ * göre reddedilir. Fiziksel gerekçe: bir kapı/pencere boşluğunun ortasında
+ * duvar ne başlayabilir ne durabilir ne de son bulabilir.
+ *
+ * Aday, açıklığı taşıyan duvarla KOLİNEER ise (aynı doğrultuda devam ediyorsa)
+ * sorun sayılmaz: `getInteriorCrossing` paralel/üst üste durumda `undefined`
+ * döner, bu fonksiyon o durumu otomatik atlar. Açıklık zaten o duvarın
+ * ÜSTÜNDE bir delik (K9); aynı doğrultuda uzatma ona binmiyor, onu sürdürüyor.
+ *
+ * Adayın UCU duvara değmesi (T birleşimi) de REDDİN İÇİNDE — yalnız gerçek
+ * bir çapraz geçiş değil, kesişim noktası açıklığın aralığındaysa uç-değme de
+ * yasak. `getInteriorCrossing` uç değerlerini (0 veya 1) zaten kesişim
+ * sayıyor, ekstra bir eleme gerekmiyor.
+ *
+ * Bu, YENİ duvar YERLEŞTİRMEYİ kapsar (`appendWall`, dolayısıyla duvar ve oda
+ * aracı). Var olan bir duvarı TAŞIYARAK aynı noktaya getirmek (`movePoint`/
+ * `moveWall`) ayrı bir yoldan geçiyor ve K24'ün "bölme reddedilir, duvar
+ * silinmez" davranışında kalıyor — kapsam dışı, dokunulmadı.
+ */
+export function findBlockingOpening(
+  candidate: { p1: PlanPoint; p2: PlanPoint },
+  walls: readonly Wall[],
+  points: readonly Point[],
+  openings: readonly Opening[],
+  floorId: Id,
+): Opening | undefined {
+  const candidateLengthCm = getSegmentLength(candidate.p1, candidate.p2)
+  if (candidateLengthCm < MIN_WALL_LENGTH_CM) return undefined
+  const candidateSegment: Segment = { p1: candidate.p1, p2: candidate.p2, lengthCm: candidateLengthCm }
+
+  for (const wall of walls) {
+    if (wall.floorId !== floorId) continue
+
+    const wallOpenings = openings.filter((opening) => opening.wallId === wall.id)
+    if (wallOpenings.length === 0) continue
+
+    const wallSegment = readSegment(wall, points)
+    if (!wallSegment) continue
+
+    // Kolineer veya kesişmiyor: undefined, bu duvar için sorun yok.
+    const crossing = getInteriorCrossing(candidateSegment, wallSegment)
+    if (!crossing) continue
+
+    const blocking = wallOpenings.find((opening) => {
+      const [startCm, endCm] = getOpeningSpan(opening)
+      return crossing.onB > startCm && crossing.onB < endCm
+    })
+    if (blocking) return blocking
+  }
+
+  return undefined
+}
+
+/**
+ * `findBlockingOpening`'in birden çok aday segment için toplu hâli — TAŞIMA
+ * senaryosunda kullanılır: bir köşe veya duvar taşınınca ona bağlı BİRDEN
+ * FAZLA duvar birden hareket eder (köşenin tüm komşuları, ya da katı ötelenen
+ * duvarın kendisi), hepsi birlikte kontrol edilmeli. İlk bulunan engel döner.
+ */
+export function findBlockingOpeningInSegments(
+  segments: readonly { p1: PlanPoint; p2: PlanPoint }[],
+  walls: readonly Wall[],
+  points: readonly Point[],
+  openings: readonly Opening[],
+  floorId: Id,
+): Opening | undefined {
+  for (const segment of segments) {
+    const blocking = findBlockingOpening(segment, walls, points, openings, floorId)
+    if (blocking) return blocking
+  }
+
+  return undefined
 }

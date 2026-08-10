@@ -42,6 +42,8 @@ function createEmptyProjectData(): ProjectData {
     points: [],
     walls: [],
     openings: [],
+    rooms: [],
+    symbols: [],
   }
 }
 
@@ -79,6 +81,8 @@ export const useCadStore = create<CadState>()(
             draft.points = data.points
             draft.walls = data.walls
             draft.openings = data.openings
+            draft.rooms = data.rooms
+            draft.symbols = data.symbols
             draft.revision = 0
             draft.savedRevision = 0
           })
@@ -153,5 +157,7 @@ export function selectProjectData(state: CadState): ProjectData {
     points: state.points,
     walls: state.walls,
     openings: state.openings,
+    rooms: state.rooms,
+    symbols: state.symbols,
   }
 }

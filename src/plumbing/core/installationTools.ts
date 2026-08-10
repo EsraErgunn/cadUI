@@ -1,11 +1,7 @@
+import type { InstallationLineKind } from './installationModel'
 import type { InstallationElementType } from './symbolMetadata'
 
-export type InstallationToolBehavior =
-  | 'selection'
-  | 'placement'
-  | 'polyline'
-  | 'segment-toggle'
-  | 'measurement'
+export type InstallationToolBehavior = 'selection' | 'placement' | 'polyline' | 'measurement'
 
 export type InstallationToolDefinition = {
   id: string
@@ -14,6 +10,8 @@ export type InstallationToolDefinition = {
   behavior: InstallationToolBehavior
   /** placement araçları için hangi sembolün yerleştirileceği. */
   elementType?: InstallationElementType
+  /** polyline araçları için çizilen hattın türü. */
+  lineKind?: InstallationLineKind
   // TODO(tesisat): issue "Araç Tanımları" metinleri erişilebilir olunca branch,
   // insulation, strainerMeter ve solenoidValve için description doldurulacak.
   description?: string
@@ -28,10 +26,10 @@ export type InstallationToolDefinition = {
 export const INSTALLATION_TOOLS = [
   { id: 'selection', label: 'Seçim Aracı', behavior: 'selection' },
   { id: 'regulator', label: 'Regülatör Ekle', behavior: 'placement', elementType: 'regulator' },
-  { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline' },
+  { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline', lineKind: 'pipe' },
   { id: 'chimney', label: 'Baca Ekle', behavior: 'placement', elementType: 'chimney' },
-  { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline' },
-  { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'segment-toggle' },
+  { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline', lineKind: 'branch' },
+  { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'placement', elementType: 'insulation' },
   { id: 'gasMeter', label: 'Sayaç Ekle', behavior: 'placement', elementType: 'gasMeter' },
   { id: 'manometer', label: 'Manometre Ekle', behavior: 'placement', elementType: 'manometer' },
   { id: 'serviceBox', label: 'Servis Kutusu Ekle', behavior: 'placement', elementType: 'serviceBox' },
@@ -53,6 +51,11 @@ export type InstallationToolId = (typeof INSTALLATION_TOOLS)[number]['id']
 
 export const DEFAULT_INSTALLATION_TOOL_ID: InstallationToolId = 'selection'
 
+// Araç hook'ları aktif aracı bu sabitle karşılaştırır; id metni tek yerde durur
+// (core/tools.ts'teki SELECTION_TOOL_ID ile aynı desen).
+export const INSTALLATION_SELECTION_TOOL_ID: InstallationToolId = 'selection'
+export const INSTALLATION_PIPE_TOOL_ID: InstallationToolId = 'pipe'
+
 export function isInstallationToolId(toolId: string): toolId is InstallationToolId {
   return INSTALLATION_TOOLS.some((candidate) => candidate.id === toolId)
 }
@@ -70,4 +73,11 @@ export function getPlacementElementType(toolId: string): InstallationElementType
   const tool = toolDefinitions.find((candidate) => candidate.id === toolId)
   if (!tool || tool.behavior !== 'placement') return null
   return tool.elementType ?? null
+}
+
+/** Araç hat çiziyorsa hangi türü, değilse null. */
+export function getLineKind(toolId: string): InstallationLineKind | null {
+  const tool = toolDefinitions.find((candidate) => candidate.id === toolId)
+  if (!tool || tool.behavior !== 'polyline') return null
+  return tool.lineKind ?? null
 }

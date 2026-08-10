@@ -35,6 +35,22 @@ export function getOpeningSpan(opening: Pick<Opening, 'offsetCm' | 'widthCm'>): 
   return [opening.offsetCm - halfWidthCm, opening.offsetCm + halfWidthCm]
 }
 
+/**
+ * Merkez ↔ kenar çevrimi (K-3). Model MERKEZİ tutar: açıklık merkeziyle duvarın
+ * orta noktasına yakalanır ve genişlik değişince görsel olarak yerinde kalır.
+ * Kullanıcıya KENAR gösterilir: mühendis "duvar başından X cm" derken açıklığın
+ * yakın kenarını kastediyor.
+ *
+ * Çevrim TEK yerde; formül panele ya da serileştirmeye kopyalanmaz.
+ */
+export function toEdgeOffsetCm(offsetCm: number, widthCm: number): number {
+  return offsetCm - widthCm / 2
+}
+
+export function toCenterOffsetCm(edgeOffsetCm: number, widthCm: number): number {
+  return edgeOffsetCm + widthCm / 2
+}
+
 export function getOpeningsOnWall(wallId: Id, openings: readonly Opening[]): Opening[] {
   return openings.filter((opening) => opening.wallId === wallId)
 }
@@ -133,40 +149,6 @@ export function getOpeningOutline(
     offsetAlongNormal(endFrame.point, endFrame.normal, -halfThicknessCm),
     offsetAlongNormal(endFrame.point, endFrame.normal, halfThicknessCm),
     offsetAlongNormal(startFrame.point, startFrame.normal, halfThicknessCm),
-  ]
-}
-
-function getMidpoint(a: PlanPoint, b: PlanPoint): PlanPoint {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-}
-
-/**
- * Kapı kanadı / pencere kayıdı simgesinin PLAN noktaları; boş dizi = simge yok.
- * Geometri köşelerden TÜRETİLİR (kalınlık yönü c0→c3, eksen yönü c0→c1), böylece
- * çapraz duvarda da duvarın eksenini takip eder ve burada açı dönüşümü yapılmaz.
- */
-export function getOpeningSymbolPoints(
-  outline: readonly PlanPoint[],
-  type: OpeningType,
-): PlanPoint[] {
-  const [c0, c1, c2, c3] = outline
-
-  // Pencere: iki jamb ortasını birleştiren kayıt çizgisi.
-  if (type === 'window') return [getMidpoint(c0, c3), getMidpoint(c1, c2)]
-
-  // Kapı: başlangıç jamb'ından açıklık genişliği kadar dışa açılan düz kanat.
-  // Tam yay simgesi ayrı bir simge işi, bu issue'nun kapsamı dışında.
-  const hinge = getMidpoint(c0, c3)
-  const widthCm = Math.hypot(c1.x - c0.x, c1.y - c0.y)
-  const thicknessCm = Math.hypot(c3.x - c0.x, c3.y - c0.y)
-  if (thicknessCm === 0) return []
-
-  return [
-    hinge,
-    {
-      x: hinge.x + ((c3.x - c0.x) / thicknessCm) * widthCm,
-      y: hinge.y + ((c3.y - c0.y) / thicknessCm) * widthCm,
-    },
   ]
 }
 

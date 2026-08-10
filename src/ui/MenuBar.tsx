@@ -17,6 +17,8 @@ import {
   CLOSE_EDITOR_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
+  FLOOR_COPY_ITEM_ID,
+  FLOOR_MANAGEMENT_ITEM_ID,
   FLOOR_MENU_ID,
   REDO_ITEM_ID,
   SAVE_ITEM_ID,
@@ -27,10 +29,19 @@ type MenuBarProps = {
   onCloseEditor: () => void
   onSave: () => void
   onExport: () => void
+  onOpenFloorManagement: () => void
+  onOpenFloorCopy: () => void
   isSaving: boolean
 }
 
-export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarProps) {
+export function MenuBar({
+  onCloseEditor,
+  onSave,
+  onExport,
+  onOpenFloorManagement,
+  onOpenFloorCopy,
+  isSaving,
+}: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
   const isDirty = useCadStore(selectIsProjectDirty)
@@ -73,6 +84,8 @@ export function MenuBar({ onCloseEditor, onSave, onExport, isSaving }: MenuBarPr
     if (itemId === EXPORT_ITEM_ID) onExport()
     if (itemId === UNDO_ITEM_ID) undoProject()
     if (itemId === REDO_ITEM_ID) redoProject()
+    if (itemId === FLOOR_MANAGEMENT_ITEM_ID) onOpenFloorManagement()
+    if (itemId === FLOOR_COPY_ITEM_ID) onOpenFloorCopy()
   }
 
   return (

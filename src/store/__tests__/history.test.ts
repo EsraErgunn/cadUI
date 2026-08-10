@@ -99,6 +99,8 @@ describe('geri al / yinele', () => {
       points: [],
       walls: [],
       openings: [],
+      rooms: [],
+      symbols: [],
     })
 
     expect(temporal().pastStates).toHaveLength(0)

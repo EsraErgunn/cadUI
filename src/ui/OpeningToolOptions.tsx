@@ -2,28 +2,36 @@ import { useState } from 'react'
 
 import { getOpeningTypeForTool, MIN_OPENING_WIDTH_CM } from '../core/opening'
 import { selectOpeningById } from '../store/architectureSlice'
-import { useArchitectureUiStore } from '../store/architectureUiStore'
+import {
+  selectSoleSelectedOpeningId,
+  useArchitectureUiStore,
+} from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
 const WIDTH_STEP_CM = 5
 
 /**
- * Kapı/pencere aracının seçenek şeridi. Özellik paneli (PropertyPanel) başka bir
- * issue'nun kapsamında olduğu için genişlik düzenlemesi buraya alındı (K15).
- * Seçili açıklık varsa ONUN genişliğini, yoksa sıradaki yerleştirmenin
- * varsayılanını düzenler.
+ * Kapı/pencere aracının seçenek şeridi (K15). Seçili açıklık varsa ONUN
+ * genişliğini, yoksa sıradaki yerleştirmenin varsayılanını düzenler.
+ *
+ * Seçili açıklığın genişliği artık PropertyPanel'de de düzenlenebiliyor (KK-12).
+ * İkisi çelişmez — aynı store action'ını çağırıyorlar — ama aynı değerin iki
+ * denetimi var. Şerit yerleştirme SIRASINDA gerekli (henüz seçim yokken sıradaki
+ * genişliği belirliyor), o yüzden kaldırılmadı.
+ * TODO(fay-B2): şerit yalnız "sıradaki genişlik"e indirgenip seçili açıklık
+ * düzenlemesi tamamen panele bırakılsın mı — ekiple konuşulacak.
  */
 export function OpeningToolOptions() {
   const activeToolId = useUiStore((state) => state.activeToolId)
-  const selectedOpeningId = useArchitectureUiStore((state) => state.selectedOpeningId)
+  const selectedOpeningId = useArchitectureUiStore(selectSoleSelectedOpeningId)
   const openingWidthCm = useArchitectureUiStore((state) => state.openingWidthCm)
   const setOpeningWidthCm = useArchitectureUiStore((state) => state.setOpeningWidthCm)
   const setOpeningWidth = useCadStore((state) => state.setOpeningWidth)
   // selectOpeningById dizideki nesnenin kendisini döndürür (yeni nesne üretmez),
   // bu yüzden abonelik olarak güvenli.
   const selectedOpening = useCadStore((state) =>
-    selectedOpeningId === null ? undefined : selectOpeningById(state, selectedOpeningId),
+    selectedOpeningId === undefined ? undefined : selectOpeningById(state, selectedOpeningId),
   )
 
   const openingType = getOpeningTypeForTool(activeToolId)

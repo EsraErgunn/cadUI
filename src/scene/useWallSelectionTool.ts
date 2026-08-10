@@ -9,11 +9,13 @@ import {
   type ArchitectureTargetContext,
 } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
-import { isTypingTarget } from '../core/domEvents'
 import { pickGridLevel, snapPointToGrid } from '../core/grid'
 import type { Id } from '../core/model'
+import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
+import { getWallMoveImpact } from '../core/wall'
+import { findBlockingOpeningInSegments } from '../core/wallGraph'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -21,10 +23,11 @@ import { useUiStore } from '../store/uiStore'
 const PRIMARY_BUTTON = 0
 
 type WallGrab = {
-  wallId: Id
+  /** Taşınacak duvarlar: tutulan duvar seçimin parçasıysa TÜM seçim (KK-11). */
+  wallIds: Id[]
   /** Basış anındaki ham imleç noktası; öteleme buna göre ölçülür. */
   grabPoint: PlanPoint
-  /** p1'in basış anındaki konumu — ızgara yapışması bu köşe üzerinden yapılır. */
+  /** Tutulan duvarın p1'i — ızgara yapışması bu köşe üzerinden yapılır. */
   originP1: PlanPoint
 }
 
@@ -55,6 +58,7 @@ export function useWallSelectionTool(): void {
         points: cad.points,
         walls: cad.walls,
         openings: cad.openings,
+        symbols: cad.symbols,
         floorId: cad.activeFloorId,
         toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       }
@@ -66,13 +70,16 @@ export function useWallSelectionTool(): void {
     }
 
     const clearSelection = () => {
-      if (useArchitectureUiStore.getState().selectedWallId !== null) {
-        useArchitectureUiStore.getState().setSelectedWall(null)
-      }
+      useArchitectureUiStore.getState().clearSelection()
     }
 
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
       if (event.button !== PRIMARY_BUTTON) return
+
+      // Bir önceki bırakma açıklık yüzünden REDDEDİLMİŞSE `grab` hâlâ aktif
+      // (K36) — bu tıklama YENİ bir duvar tutma değil, o sürüklemenin BIRAKMA
+      // denemesidir. Karar hep `onPointerUp`'ta verilir.
+      if (grab) return
 
       const toolId = useUiStore.getState().activeToolId
       const isEraser = toolId === ERASER_TOOL_ID
@@ -81,11 +88,9 @@ export function useWallSelectionTool(): void {
       const context = readContext()
       const target = resolveArchitectureTarget(event.planPoint, context)
 
-      // Köşe ve açıklık üstte: jest onların, duvar seçimi de bırakılır.
-      if (!target || target.kind !== 'wall') {
-        clearSelection()
-        return
-      }
+      // Köşe ve açıklık üstte: jest onların. Boşluk da bizim değil — çerçeve
+      // seçimini useSelectionTool başlatır, seçimi o temizler.
+      if (!target || target.kind !== 'wall') return
 
       if (isEraser) {
         useCadStore.getState().deleteWall(target.wallId)
@@ -97,9 +102,22 @@ export function useWallSelectionTool(): void {
       const originP1 = context.points.find((point) => point.id === wall?.p1Id)
       if (!wall || !originP1) return
 
-      useArchitectureUiStore.getState().setSelectedWall(wall.id)
+      // Shift seçime ekler/çıkarır, düz tıklama seçimi değiştirir (KK-10).
+      // Zaten seçiliyse düz tıklama seçimi KORUR: yoksa çoklu seçimi taşımak için
+      // basılan ilk duvar, taşıma başlamadan seçimi tek nesneye düşürürdü.
+      const ui = useArchitectureUiStore.getState()
+      const item = { kind: 'wall', id: wall.id } as const
+      if (event.shiftKey) {
+        ui.toggleSelected(item)
+      } else if (!isItemSelected(ui.selection, item)) {
+        ui.setSelection([item])
+      }
+
+      // Tutulan duvar seçimin parçasıysa seçimin TAMAMI taşınır; değilse yalnız o.
+      // (Yukarıdaki dal seçimi zaten bu duvara indirmiş olabilir.)
+      const selectedWallIds = getSelectedIds(useArchitectureUiStore.getState().selection, 'wall')
       grab = {
-        wallId: wall.id,
+        wallIds: selectedWallIds.includes(wall.id) ? selectedWallIds : [wall.id],
         grabPoint: event.planPoint,
         originP1: { x: originP1.x, y: originP1.y },
       }
@@ -119,7 +137,7 @@ export function useWallSelectionTool(): void {
         : snapPointToGrid(rawP1, pickGridLevel(zoom).minorCm)
 
       useArchitectureUiStore.getState().setDraggingWall({
-        wallId: grab.wallId,
+        wallIds: grab.wallIds,
         dxCm: nextP1.x - grab.originP1.x,
         dyCm: nextP1.y - grab.originP1.y,
       })
@@ -128,33 +146,54 @@ export function useWallSelectionTool(): void {
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
-      const { wallId } = grab
+      const { wallIds } = grab
       const drag = useArchitectureUiStore.getState().draggingWall
-      endDrag()
 
       // Sürükleme boyunca cadStore'a hiç yazılmadı: tek yazım = tek markDirty =
       // tek Ctrl+Z. Yer değişmediyse (sadece seçmek için tıklama) hiç yazılmaz.
-      if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
-      useCadStore.getState().moveWall(wallId, drag.dxCm, drag.dyCm)
+      if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) {
+        endDrag()
+        return
+      }
+
+      // Taşınan HER duvarın yeni (ötelenmiş) segmenti kontrol edilir; esneyen
+      // (paylaşılan köşeyi taşıyan ama SEÇİLİ olmayan) komşu duvarlar kapsam
+      // dışı bırakıldı — bilinen sınır (K36).
+      const cad = useCadStore.getState()
+      const { segments, stationaryWalls } = getWallMoveImpact(
+        wallIds,
+        drag.dxCm,
+        drag.dyCm,
+        cad.walls,
+        cad.points,
+      )
+
+      // Hedef bir açıklığın içinden geçiyor veya üstünde bitiyorsa bırakma
+      // REDDEDİLİR — `grab` KORUNUR, `endDrag()` çağrılmaz. Duvar imlece
+      // yapışık kalır, kullanıcı geçerli bir yere gelip TEKRAR tıklayana kadar
+      // sürükleme sürer (K36).
+      const blocking = findBlockingOpeningInSegments(
+        segments,
+        stationaryWalls,
+        cad.points,
+        cad.openings,
+        cad.activeFloorId,
+      )
+      if (blocking) return
+
+      endDrag()
+
+      // Taşıma da bir dönüşüm: tek duvar ile çoklu seçim aynı yoldan geçer,
+      // yoksa "birden çok duvar taşındığında ne oluyor" iki yerde yanıtlanırdı.
+      useCadStore.getState().transformSelection(
+        wallIds.map((wallId) => ({ kind: 'wall', id: wallId })),
+        { kind: 'translate', dxCm: drag.dxCm, dyCm: drag.dyCm },
+      )
     }
 
     // Esc taşımayı iptal eder: duvar eski yerinde kalır çünkü store'a yazılmadı.
     const handleCancel = () => {
       endDrag()
-      clearSelection()
-    }
-
-    // Klavye drawSurfaceEvents'te taşınmıyor (onCancel yalnız Esc); açıklık
-    // tarafındaki Delete dinleyicisiyle aynı desen. Seçimler karşılıklı dışlamalı
-    // olduğu için ikisi aynı anda silmez.
-    const handleKeyDown = (keyEvent: KeyboardEvent) => {
-      if (isTypingTarget(keyEvent.target)) return
-      if (keyEvent.key !== 'Delete' && keyEvent.key !== 'Backspace') return
-
-      const { selectedWallId } = useArchitectureUiStore.getState()
-      if (selectedWallId === null) return
-
-      useCadStore.getState().deleteWall(selectedWallId)
       clearSelection()
     }
 
@@ -164,11 +203,9 @@ export function useWallSelectionTool(): void {
       onPointerUp: handlePointerUp,
       onCancel: handleCancel,
     })
-    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       unsubscribe()
-      window.removeEventListener('keydown', handleKeyDown)
       endDrag()
     }
   }, [camera])

@@ -1,14 +1,21 @@
-import { DrawPreview } from './DrawPreview'
+import { DrawPreview, LineDraftPreview } from './DrawPreview'
+import { InstallationLines } from './InstallationLineMesh'
+import { DrawingPortMarkers } from './PortMarkers'
+import { SelectionMarquee } from './SelectionMarquee'
 import { SymbolInstance } from './SymbolInstance'
+import { useEscapeToSelectionTool } from './useEscapeToSelectionTool'
+import { useLineTool } from './useLineTool'
 import { usePlacementTool } from './usePlacementTool'
-import { usePlumbingShortcuts } from './usePlumbingShortcuts'
+import { useSelectionTool, type SelectionToolState } from './useSelectionTool'
 import { useCadStore } from '../../store/cadStore'
+import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Aktif kattaki elemanlar. Store dizisine olduğu gibi abone olunur — türetilmiş
  *  dizi döndüren bir selector her store değişiminde yeni referans üretirdi. */
-function InstallationElements() {
+function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionToolState) {
   const elements = useCadStore((state) => state.installationElements)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const selectedElementIds = usePlumbingUiStore((state) => state.selectedElementIds)
 
   return (
     <>
@@ -16,7 +23,13 @@ function InstallationElements() {
         .filter((element) => element.floorId === activeFloorId)
         // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
         .map((element) => (
-          <SymbolInstance key={element.id} element={element} />
+          <SymbolInstance
+            key={element.id}
+            element={element}
+            isSelected={selectedElementIds.includes(element.id)}
+            // Ref YALNIZ sürüklenen elemanlara gider: geri kalanı her frame konum yazmaz.
+            dragDeltaRef={draggedElementIds.includes(element.id) ? dragDeltaRef : undefined}
+          />
         ))}
     </>
   )
@@ -26,15 +39,23 @@ function InstallationElements() {
  * Tesisat sahnesinin kökü; SceneRoot yalnız tesisat görünümünde mount eder.
  * Karşı katmanın hayaleti buraya GİRMEZ: iki hayalet de SceneRoot'ta, görünüm
  * anahtarının yanında durur (ikisi de aktif katı kendi okur).
+ * Klavye kısayolu buraya BAĞLANMAZ: geri al/yinele aktif görünüme göre
+ * pages/useEditorShortcuts.ts'te tek dinleyiciden dağıtılır.
  */
 export function PlumbingLayer() {
   const preview = usePlacementTool()
-  usePlumbingShortcuts()
+  const line = useLineTool()
+  const selection = useSelectionTool()
+  useEscapeToSelectionTool()
 
   return (
     <group name="plumbing-root">
-      <InstallationElements />
-      <DrawPreview elementType={preview.elementType} positionRef={preview.positionRef} />
+      <InstallationLines />
+      <InstallationElements {...selection} />
+      <DrawPreview {...preview} />
+      <DrawingPortMarkers {...line} />
+      <LineDraftPreview {...line} />
+      <SelectionMarquee />
     </group>
   )
 }

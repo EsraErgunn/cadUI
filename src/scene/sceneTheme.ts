@@ -10,6 +10,18 @@ export const SCENE_COLORS = {
   selection: '#2d7ff9',
   /** Duvarın TEK rengi — kontur yok, düz dolgu (K23). */
   wallFill: '#6b7280',
+  /**
+   * Oda dolgusu SAYDAMDIR: ızgara altından okunmaya devam etsin, oda çizimi
+   * bastırmasın. Opak denendiğinde ya ızgarayı siliyor ya da (soluk tonda)
+   * ızgarayla karışıp görünmez kalıyordu. Duvarla çakışmaz — poligon duvarların
+   * iç yüzüne kadar çekilir, çünkü saydam geçişte renderOrder onu duvarın
+   * altında tutmaya yetmiyor (K31).
+   */
+  roomFill: '#8a94a3',
+  roomFillOpacity: 0.22,
+  roomLabel: '#5b6675',
+  /** Oda adının arkasındaki rozet: beyaza yakın, dolgu üstünde ad okunur kalsın. */
+  roomLabelBadge: '#f7f8fa',
   /** İmleç duvarın üstündeyken: bir tık açık. Seçim DEĞİL, yalnız "buradasın". */
   wallHover: '#8c93a0',
   /** Köşe vurgusu duvar vurgusundan da açık — köşe duvarın üstünde durur. */

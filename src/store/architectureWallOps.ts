@@ -9,6 +9,7 @@ import {
   getSegmentLength,
   MIN_WALL_LENGTH_CM,
 } from '../core/wall'
+import { findBlockingOpening } from '../core/wallGraph'
 
 /**
  * Duvar ucu ya var olan bir köşedir (snap sonucu `pointId` döndüyse) ya da yeni
@@ -27,6 +28,13 @@ export type AddWallInput = {
 export type AddWallChainInput = {
   /** Zincirin noktaları; ardışık her ikisi bir duvar olur. */
   ends: readonly WallEnd[]
+  /**
+   * Son köşeyi İLK köşeye bağlayan kenar da yazılsın mı (dikdörtgen oda aracı).
+   * Kapanış kenarını çağıran kendisi ekleyemez: ilk köşenin `pointId`'si ancak
+   * ilk duvar yazılırken doğuyor, konumla kapatmak ise aynı yerde ikinci bir
+   * Point üretir ve çevrim — dolayısıyla mahal — hiç oluşmazdı.
+   */
+  isClosed?: boolean
   thickness?: number
   height?: number
 }
@@ -52,6 +60,27 @@ function takeEndPointId(draft: CadState, end: WallEnd, floorId: Id): Id {
   return id
 }
 
+function findWallBetweenEnds(
+  draft: CadState,
+  start: WallEnd,
+  end: WallEnd,
+  floorId: Id,
+): AddedWall | undefined {
+  if (!('pointId' in start) || !('pointId' in end)) return undefined
+
+  const wall = draft.walls.find(
+    (candidate) =>
+      candidate.floorId === floorId &&
+      // Yön önemsiz: A→B ile B→A aynı duvardır.
+      ((candidate.p1Id === start.pointId && candidate.p2Id === end.pointId) ||
+        (candidate.p1Id === end.pointId && candidate.p2Id === start.pointId)),
+  )
+  if (!wall) return undefined
+
+  // Uçlar İSTENEN yönde döner; zincir bir sonraki duvarı p2Id'den sürdürüyor.
+  return { wallId: wall.id, p1Id: start.pointId, p2Id: end.pointId }
+}
+
 /**
  * Tek duvarı yazar. Uçlar çözülemiyorsa (silinmiş id) veya duvar sıfır boyluysa
  * hiç dokunmaz: önce doğrula sonra yaz — yoksa geçersiz durumda sahipsiz Point kalır.
@@ -68,6 +97,25 @@ export function appendWall(
   if (getSegmentLength(startPosition, endPosition) < MIN_WALL_LENGTH_CM) return undefined
 
   const floorId = draft.activeFloorId
+
+  // Aynı iki köşe arasında zaten duvar varsa İKİNCİSİ yazılmaz; var olan döner
+  // ki zincir kopmadan sürsün. Bitişik iki oda çizildiğinde ortak kenar üst üste
+  // iki duvar olurdu: ekranda görünmez (aynı renk) ama malzeme dökümünde iki kez
+  // sayılır ve silme tek duvarı kaldırınca öbürü kalırdı.
+  // Yalnız iki uç da var olan bir köşeye bağlıysa mümkün — konumla gelen uç yeni
+  // Point üretir, yineleme oluşmaz.
+  const existing = findWallBetweenEnds(draft, start, end, floorId)
+  if (existing) return existing
+
+  // Kapı/pencereden farklı bir açıyla geçen duvar YAZILMAZ — bu, K13/K24'ün
+  // "geçersiz yerleştirme reddedilir" kuralının duvar tarafı: bir açıklığın
+  // İÇİNDEN duvar geçmesi fiziksel olarak anlamsız. Aynı doğrultuda devam eden
+  // duvar (açıklığı taşıyan duvarın kolineer uzantısı) engellenmez — kapı zaten
+  // o duvarın üstünde bir delik, ona binmiyor, onu sürdürüyor.
+  if (findBlockingOpening({ p1: startPosition, p2: endPosition }, draft.walls, draft.points, draft.openings, floorId)) {
+    return undefined
+  }
+
   const p1Id = takeEndPointId(draft, start, floorId)
   const p2Id = takeEndPointId(draft, end, floorId)
   const wallId = takeNextId(draft)
@@ -136,6 +184,7 @@ export function mergePointInto(draft: CadState, sourceId: Id, targetId: Id): boo
  */
 export function appendWallChain(draft: CadState, input: AddWallChainInput): boolean {
   let anchor: WallEnd | undefined
+  let firstPointId: Id | undefined
   let hasAdded = false
 
   for (const end of input.ends) {
@@ -147,8 +196,15 @@ export function appendWallChain(draft: CadState, input: AddWallChainInput): bool
     const added = appendWall(draft, anchor, end, input)
     if (!added) continue
 
+    firstPointId ??= added.p1Id
     anchor = { pointId: added.p2Id }
     hasAdded = true
+  }
+
+  // Kapanış kenarı pointId ile yazılır (bkz. isClosed). Hiç duvar yazılmadıysa
+  // kapatılacak bir zincir de yok.
+  if (input.isClosed && anchor && firstPointId !== undefined) {
+    if (appendWall(draft, anchor, { pointId: firstPointId }, input)) hasAdded = true
   }
 
   return hasAdded

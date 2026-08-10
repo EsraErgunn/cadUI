@@ -10,14 +10,76 @@ const emptyProject: ProjectData = {
   points: [],
   walls: [],
   openings: [],
+  rooms: [],
+  symbols: [],
 }
 
 describe('serializeProjectData', () => {
   it('alanları sabit sırayla yazar', () => {
     expect(serializeProjectData(emptyProject)).toBe(
       '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
-        '"points":[],"walls":[],"openings":[]}',
+        '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[]}',
     )
+  })
+
+  it('rooms/symbols alanı OLMAYAN eski dosyayı açar', () => {
+    // Depodaki çizimler bu diziler modele girmeden önce kaydedildi. Zorunlu
+    // tutulursa kullanıcının verisi elimizde ama erişilemez olur.
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[]}'
+
+    const parsed = parseProjectJson(legacy)
+
+    expect(parsed.rooms).toEqual([])
+    expect(parsed.symbols).toEqual([])
+  })
+
+  it('eski dosya bir kez kaydedilince alanlar dosyaya yazılır', () => {
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[]}'
+
+    expect(serializeProjectData(parseProjectJson(legacy))).toContain('"rooms":[],"symbols":[]')
+  })
+
+  it('attachment alanı OLMAYAN eski sembolü SERBEST olarak okur', () => {
+    // Semboller duvara bağlanmadan önce hepsi serbestti; kaydedilmiş dosyalarda
+    // ayırt edici alan yok. Zorunlu tutulursa proje hiç açılmaz.
+    const legacy =
+      '{"nextUniqueId":20,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],' +
+      '"symbols":[{"id":16,"floorId":1,"type":"panel","x":120,"y":80,' +
+      '"rotationDeg":0,"label":"P-01","note":""}]}'
+
+    const [symbol] = parseProjectJson(legacy).symbols
+
+    expect(symbol.attachment).toBe('free')
+    expect(symbol).toMatchObject({ id: 16, type: 'panel', label: 'P-01' })
+    expect(symbol.attachment === 'free' && symbol.x).toBe(120)
+  })
+
+  it('eski sembol bir kez kaydedilince attachment dosyaya yazılır', () => {
+    const legacy =
+      '{"nextUniqueId":20,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],' +
+      '"symbols":[{"id":16,"floorId":1,"type":"panel","x":120,"y":80,' +
+      '"rotationDeg":0,"label":"P-01","note":""}]}'
+
+    expect(serializeProjectData(parseProjectJson(legacy))).toContain('"attachment":"free"')
+  })
+
+  it('yeni biçimdeki duvara bağlı sembol olduğu gibi okunur', () => {
+    const modern =
+      '{"nextUniqueId":20,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],' +
+      '"symbols":[{"id":16,"type":"panel","label":"P-01","note":"",' +
+      '"attachment":"wall","wallId":6,"offsetCm":120,"isMountedOnFarFace":true}]}'
+
+    const [symbol] = parseProjectJson(modern).symbols
+
+    expect(symbol.attachment).toBe('wall')
+    expect(symbol.attachment === 'wall' && symbol.wallId).toBe(6)
   })
 
   it('store’a sızmış fazladan alanı JSON’a taşımaz', () => {

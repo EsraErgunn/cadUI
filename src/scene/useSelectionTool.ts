@@ -1,0 +1,181 @@
+import { useThree } from '@react-three/fiber'
+import { useEffect } from 'react'
+import { OrthographicCamera } from 'three'
+
+import { readCameraViewport } from './cameraViewport'
+import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import {
+  resolveArchitectureTarget,
+  type ArchitectureTargetContext,
+} from '../core/architectureHover'
+import type { PlanPoint } from '../core/coords'
+import { isTypingTarget } from '../core/domEvents'
+import { getSelectionInRect, mergeSelection, pruneSelection, toPlanRect } from '../core/selection'
+import { getSnapToleranceCm } from '../core/snap'
+import { getSymbolsOnFloor } from '../core/symbolPlacement'
+import { SELECTION_TOOL_ID } from '../core/tools'
+import { useArchitectureUiStore } from '../store/architectureUiStore'
+import { useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
+
+const PRIMARY_BUTTON = 0
+
+/** Çoğaltma kopyayı kaynağın üstüne koymaz: kullanıcı ikisini ayırt edebilmeli. */
+const DUPLICATE_OFFSET_CM = 50
+
+/**
+ * Çerçeve seçimi, Shift ile ekleme/çıkarma ve seçimin tamamını silme (KK-10).
+ *
+ * Aynı pointerdown'ı duvar/açıklık/köşe hook'ları da görüyor. Bu hook en ALTTAN
+ * da alta bakar: hedef YOKSA, yani boşluğa basıldıysa jest bunundur
+ * (knowledge/gesture-bus-precedence.md — karar geometriyle verilir, abone olma
+ * sırasıyla değil).
+ *
+ * Nesne üzerindeki tek tıklama seçimi duvar/açıklık hook'larında yazılır: jesti
+ * kim sahipleniyorsa seçimi de o yazar, yoksa aynı basış iki kez seçim değiştirir.
+ */
+export function useSelectionTool(): void {
+  const camera = useThree((state) => state.camera)
+
+  useEffect(() => {
+    if (!(camera instanceof OrthographicCamera)) return undefined
+
+    let anchor: PlanPoint | undefined
+    let isAdditive = false
+
+    const readContext = (): ArchitectureTargetContext => {
+      const cad = useCadStore.getState()
+      return {
+        points: cad.points,
+        walls: cad.walls,
+        openings: cad.openings,
+        symbols: cad.symbols,
+        floorId: cad.activeFloorId,
+        toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
+      }
+    }
+
+    const endMarquee = () => {
+      anchor = undefined
+      isAdditive = false
+      useArchitectureUiStore.getState().setMarquee(null)
+    }
+
+    const handlePointerDown = (event: DrawSurfacePointerEvent) => {
+      if (event.button !== PRIMARY_BUTTON) return
+      if (useUiStore.getState().activeToolId !== SELECTION_TOOL_ID) return
+
+      // Nesnenin üstündeyse jest onun; çerçeve yalnız boşlukta başlar.
+      if (resolveArchitectureTarget(event.planPoint, readContext())) return
+
+      anchor = event.planPoint
+      isAdditive = event.shiftKey
+    }
+
+    const handlePointerMove = (event: DrawSurfacePointerEvent) => {
+      if (!anchor) return
+      useArchitectureUiStore.getState().setMarquee(toPlanRect(anchor, event.planPoint))
+    }
+
+    const handlePointerUp = (event: DrawSurfacePointerEvent) => {
+      if (!anchor || event.button !== PRIMARY_BUTTON) return
+
+      const rect = toPlanRect(anchor, event.planPoint)
+      const wasAdditive = isAdditive
+      endMarquee()
+
+      const ui = useArchitectureUiStore.getState()
+
+      // Sürükleme eşiğin altındaysa bu bir çerçeve değil, boşluğa TIKLAMADIR:
+      // seçim bırakılır. Eşik ekran mesafesi (snap toleransıyla aynı 10 px), yoksa
+      // uzaklaşınca titrek el bile çerçeve başlatırdı.
+      const slopCm = getSnapToleranceCm(readCameraViewport(camera).zoom)
+      if (rect.maxX - rect.minX < slopCm && rect.maxY - rect.minY < slopCm) {
+        if (!wasAdditive) ui.clearSelection()
+        return
+      }
+
+      const cad = useCadStore.getState()
+      const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
+      const floorSymbols = getSymbolsOnFloor(cad.symbols, cad.activeFloorId, cad.walls)
+      const framed = getSelectionInRect(
+        rect,
+        floorWalls,
+        cad.openings,
+        cad.points,
+        floorSymbols,
+      )
+
+      ui.setSelection(wasAdditive ? mergeSelection(ui.selection, framed) : framed)
+    }
+
+    // Esc yarım kalan çerçeveyi iptal eder ve seçimi bırakır.
+    const handleCancel = () => {
+      endMarquee()
+      useArchitectureUiStore.getState().clearSelection()
+    }
+
+    /**
+     * Delete seçimin TAMAMINI siler, tek adımda. Klavye drawSurfaceEvents'te
+     * taşınmıyor (onCancel yalnız Esc), bu yüzden dinleyici burada.
+     *
+     * Tek dinleyici var: duvar ve açıklık hook'larındaki ayrı Delete kopyaları
+     * kaldırıldı — birleşik seçimde ikisi birden koşsaydı aynı basış iki
+     * markDirty yazardı.
+     */
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return
+
+      const ui = useArchitectureUiStore.getState()
+      if (ui.selection.length === 0) return
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        useCadStore.getState().deleteSelection(ui.selection)
+        ui.clearSelection()
+        return
+      }
+
+      // Ctrl+D: çoğalt (KK-11). preventDefault şart — tarayıcının "yer imi ekle"si
+      // aynı tuşta.
+      if (event.key.toLowerCase() === 'd' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault()
+        const created = useCadStore.getState().duplicateSelection(ui.selection, {
+          dxCm: DUPLICATE_OFFSET_CM,
+          dyCm: DUPLICATE_OFFSET_CM,
+        })
+        // Seçim KOPYAYA geçer: kullanıcı çoğalttığı şeyi hemen sürükleyebilsin.
+        if (created.length > 0) ui.setSelection(created)
+      }
+    }
+
+    const unsubscribe = subscribeDrawSurface({
+      onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerUp,
+      onCancel: handleCancel,
+    })
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      unsubscribe()
+      window.removeEventListener('keydown', handleKeyDown)
+      endMarquee()
+    }
+  }, [camera])
+
+  // Silinen nesne seçimde asılı kalmasın: özellik paneli (KK-12) sahipsiz id ile
+  // boş açılır ve grup dönüşümü (KK-11) var olmayan nesneyi taşımaya çalışır.
+  useEffect(
+    () =>
+      useCadStore.subscribe((state) => {
+        const ui = useArchitectureUiStore.getState()
+        if (ui.selection.length === 0) return
+
+        const pruned = pruneSelection(ui.selection, state.walls, state.openings, state.symbols)
+        // pruneSelection değişiklik yoksa AYNI diziyi döndürür; kontrol bu yüzden
+        // referans karşılaştırması ve her store değişiminde yeni dizi yazılmaz.
+        if (pruned !== ui.selection) ui.setSelection(pruned)
+      }),
+    [],
+  )
+}

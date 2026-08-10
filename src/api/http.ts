@@ -43,6 +43,15 @@ export type JsonRequest = RequestOptions & {
   rawJsonBody?: string
 }
 
+/**
+ * API kökü tanımlı mı? Gerçek uca bağlanmış modüller bunu sorup mock gövdeye
+ * düşebilir: backend ayakta değilken (veya `.env.local` yokken) ekranın komple
+ * ölmesi yerine mock veriyle çalışmaya devam eder.
+ */
+export function hasApiBaseUrl(): boolean {
+  return API_BASE_URL !== ''
+}
+
 function buildUrl(path: string): string {
   if (!API_BASE_URL) {
     throw new NetworkError('VITE_API_URL tanımlı değil — .env.local dosyasını oluşturun.')

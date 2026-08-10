@@ -558,3 +558,1327 @@ atar.
 Nerede: `core/wallGraph.ts` (saf), `store/architectureSplit.ts` (uygular).
 Bilinen sınırlar (kolineer duvarlar, birleşmeme, karesel maliyet):
 `knowledge/wall-graph.md`.
+
+## 2026-08 · Geri al/yinele kısayolu görünüme göre ayrılıyor
+
+### K25 — Ctrl+Z aktif görünümün geçmişine gider, dinleyici TEK
+
+Mimari ve tesisat iki ayrı geçmiş tutuyor: mimari veri `cadStore`'un zundo
+sarmalayıcısında (`store/history.ts`), tesisat verisi ayrı bir aynada
+(`plumbing/store/plumbingHistory.ts`). Kısayolları da iki ayrı hook bağlıyordu
+(`pages/useEditorShortcuts.ts` + `plumbing/scene/usePlumbingShortcuts.ts`) ve
+ikisi de `window`'a. Tesisat görünümünde tek Ctrl+Z her iki dinleyiciye birden
+düşüyor, iki geçmişi aynı anda bir adım geri alıyordu — kullanıcı tesisatta bir
+sembolü geri alırken habersizce bir duvar işlemini de geri alıyordu.
+
+Karar: kısayol dinleyicisi TEK (`pages/useEditorShortcuts.ts`); geri al/yinele
+`uiStore.activeViewId`'ye bakıp doğru geçmişe dağıtılır
+(`installation` → `undoPlumbing/redoPlumbing`, diğerleri → `undoProject/redoProject`).
+Görünüme abone OLUNMAZ, tuş anında `getState()` ile okunur: abonelik her görünüm
+değişiminde dinleyiciyi sökülüp kurardı. `usePlumbingShortcuts.ts` silindi.
+
+Ctrl+S görünümden bağımsız: kayıt tüm projeyi kapsıyor.
+
+### Kapanmayan taraf: menü ve ortak sayaçlar
+
+Menü çubuğundaki "Geri Al / Yinele" hâlâ koşulsuz `undoProject` çağırıyor ve
+aktiflikleri `useCanUndo/useCanRedo` ile mimari geçmişten geliyor. Tesisat
+geçmişi için karşılık gelen bir React hook'u yok — ayrılık şimdilik yalnız
+klavye tarafında.
+
+Ayrıca `nextUniqueId` ve `revision` mimari geçmişte izleniyor (`history.ts`),
+tesisat eklemesi ikisini de artırıyor: her tesisat işlemi mimari geçmişe içeriği
+değişmeyen bir adım bırakıyor. Mimaride Ctrl+Z o adımlarda görünürde hiçbir şey
+yapmıyor. Düzeltmesi `history.ts`'in izlenen alanlarına dokunmayı gerektiriyor.
+
+## 2026-08 · Tesisat seçimi: tutma saf geometriyle
+
+### K26 — Eleman tutması R3F ışın olaylarıyla değil, `core/elementPicking.ts` ile
+
+Aşama 4 planı "seçim R3F'in kendi olay sistemiyle (`onPointerDown` +
+`stopPropagation`) yapılır" diyordu. Uygulamada saf geometri seçildi.
+
+`DrawSurface` tuvalin DOM olayını dinliyor; R3F de aynı tuvale kendi dinleyicisini
+kuruyor. Tek `pointerdown` ikisine birden düşüyor, dolayısıyla "boş alana tıklama
+seçimi temizler" kuralı iki dinleyicinin kayıt sırasına bağlı kalırdı — bu sıra
+R3F'in mount düzeninin ayrıntısı, sözleşme değil. Tek olay kaynağı (mevcut
+`drawSurfaceEvents` veri yolu) bu belirsizliği kaldırıyor; repodaki diğer araçlar
+(duvar, açıklık, köşe, yerleştirme) zaten aynı yoldan çalışıyor.
+
+Yan kazanç: tutma sınavı saf fonksiyon, jsdom'da test edilebiliyor. R3F ışını
+edilemezdi. Risk R5 (mimari nesnenin yanlışlıkla seçilmesi) da kendiliğinden
+kapanıyor: sınav yalnız tesisat elemanları üzerinde dönüyor.
+
+Bedeli: tutma kutusu sembolün `bounds`'u, piksel hassasiyetinde SVG silueti değil.
+Küçük semboller için bu zaten istenen davranış (zoom'a bağlı tolerans eklenir).
+
+### Sayaç ve süzme sayaç portları yukarıdaki kolonlara taşındı
+
+İki sembolün gaz bağlantısı çizimde gövdenin yanında değil, yukarı çıkan iki
+dikey kolonda. Portlar gövdenin sol/sağ kenarındaydı (`[0,13]`/`[60,13]`); kolon
+uçlarına alındı (`[20,-20]`/`[40,-20]`, yön `[0,-1]`). `bounds.min.y` de -20'ye
+çekildi — port bounds dışında kalırsa şema doğrulaması uygulamayı açılışta
+patlatır, ayrıca seçim çerçevesi kolonları dışarıda bırakırdı.
+
+Açık kalan: asset'lerin `viewBox`'ı hâlâ `[0,0,60,40]`, yani kolonlar viewBox'ın
+dışında. Sahnede sorun değil (three viewBox'a bakmaz, kırpma yok) ama SVG bir gün
+DOM'da render edilirse kolonlar kesilir.
+
+## 2026-08 · WebCAD referans projesi incelendi
+
+Gerçek bir WebCAD export'u (5 katlı bina, 2 sayaç, kombi + ocak, servis kutusu) alan alan
+incelendi. Biçim dökümü `docs/webcad-format.md`; plana yansıyan maddeler
+`CLAUDE_INSTALLATION_PLAN.md` → "WebCAD referans projesinden gelen kararlar".
+
+### K27 — Boru çapı örnek başına (varsayılan DN25), renk çapı gösterir
+
+WebCAD her boruya `type: {name, radius, color}` gömüyor; çap boru başına veridir, hat
+başına değil. Bizde de öyle olur ve yeni boru **DN25** ile eklenir. Katalog
+(`core/pipeTypes.ts`) genişletilebilir tutulur: yeni çap eklemek bir satır olmalı, çap ne
+araç kimliğine ne renk seçimine gömülür.
+
+Katalog **DN15, 20, 25, 32, 40, 50, 65, 80, 100** (ekip kararı). Çizim kalınlığı EN 10255
+dış çapından gelir (DN15 2.13 cm … DN100 11.43 cm) — `worldUnits` ile çizilen hat gerçek
+boru kalınlığında olur. Tam tablo `CLAUDE_INSTALLATION_PLAN.md` → K-W1'de.
+
+**Eksik:** WebCAD renkleri yalnız DN25/32/40/50 için biliniyor (referans projede geçenler);
+DN15, 20, 65, 80, 100 renkleri belirlenmedi. Varsayarak doldurulmayacak — o beş çap,
+rengi gelene kadar palette seçilebilir olmaz.
+
+Renk çap sınıfından gelir (DN25 kırmızı `255,23,68`, DN32 açık mor, DN40 mavi, DN50 mor).
+**Bunun bedeli:** `CLAUDE.md`'nin "tuvalde sarı = gaz hattı" kuralı geçersizleşti. Marka
+sarısı çizim alanına hâlâ girmiyor, ama artık gaz hattının işareti de değil. Gerekçe: çıktıyı
+okuyan kişi WebCAD çıktısını da okuyor; çapın renkten okunması sektör alışkanlığı.
+
+### K28 — Armatür bir düğümdür, boru üzerinde `t` değil
+
+WebCAD'de vana/sayaç bir `InstalmentPoint`'tir (`inlineApplianceId`) ve boru orada bölünür.
+Hidrolik hesap da (kayıplar düğüm başına sayılıyor: `losses.valves`, `losses.elbows`) bu
+yapıya dayanıyor. Benimsendi.
+
+`core/model.ts`'teki "Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile" maddesi bununla
+çelişiyor. Sözleşme değişikliği olduğu için **A'nın onayı** bekleniyor; Aşama 6 başlamadan
+kapatılmalı, sonradan dönerse Aşama 6–7 yeniden yazılır.
+
+### K29 — İzolasyon nesnedir, segment boolean'ı değil
+
+WebCAD'de `Isolation` kendi model dizisi ve `PipeLine.armatures.Isolation` içinde bir
+armatür. Benimsendi: `installationTools.ts`'teki `insulation` aracı `segment-toggle`
+davranışından `placement`'a döner, `InstallationLineSegment.isInsulated` alanı hiç açılmaz.
+
+### K30 — Round-trip kapsamı: yalnız geometri
+
+WebCAD dosyası hidrolik hesabın sonucunu da saklıyor (`PipeLine.deltaPr/deltaPz/speed/
+entryPressure/losses`, üstelik `myParent` her seviyede özyinelemeli gömülü). Bu alanlar
+bizde üretilmez, yazılmaz, pass-through da edilmez — bayat hesabı geri yazmak sessizce
+yanlış veri üretirdi. Kabul testi "bizim yazdığımızı okuyup aynen geri yazmak"tır.
+
+### Ertelenen: kat kapsamı ve baca
+
+- **Kat.** WebCAD'de tesisatın katı yok; `instalment` kökte tek nesne, yükseklik
+  `InstalmentPoint.elevation` (kolon = aynı x,y üstünde artan kot). Bizim `floorId`'li
+  yapımız bununla çelişiyor ama şimdilik korunuyor — 3B/kot dönüşümü sonraki bir iş.
+- **Baca/havalandırma.** Ayrı graflar (`flueGraph`, `ventilationGraph`, `FluePoint`,
+  `Boiler.flueStartPointId`). Yani baca `InstallationLineKind`'a eklenecek bir hat türü
+  DEĞİL; `knowledge/linear-symbols.md`'deki dönüşüm planı askıya alındı. "İşlevler"
+  başlığına ait, sonraki bir iş.
+
+### Yan bulgu: id evreni konteyner bazlı
+
+Kat 1–4 birebir aynı id'leri taşıyor (Door 42, Wall 5, Point 1…) ve her katın kendi
+`nextUniqueId`'si var; `instalment` de ayrı bir evren. Yani id'ler proje genelinde değil
+konteyner içinde tekil. Bu, floor-clone kuralımızla ("kopya tümüyle yeni id alır")
+çelişiyor — `knowledge/id-scheme.md` ve `floor-clone.md` bu ışıkta gözden geçirilmeli.
+
+### Uyarı: export kişisel veri taşıyor
+
+`GasMeter.subscriberName`, `consumptionPoint`, `boxes[].KutuId`/`KapiKodu`,
+`connectionPoint`, `roadNames`, `districtName` gerçek abone ve adres bilgisi. Ham export
+repoya konacaksa önce anonimleştirilir.
+
+## 2026-08 · Mahal (oda) tespiti ve çizimi
+
+### K31 — Oda geometri tutmaz, duvar id kümesiyle yaşar
+
+`Room` yalnız `{ id, wallIds, name }`. Poligon her karede duvarlardan türetilir
+(`core/room.ts` → `findRoomFaces`, düzlemsel graf yüz taraması, K24'ün üstüne
+oturur). Kopyalansaydı duvar oynayınca oda yerinde donar, hata da ekranda
+görünmezdi.
+
+`floorId` YOK — duvardan türetilir. `Opening` ile aynı gerekçe (K9): iki yerde
+tutulan bilgi zamanla ayrışır.
+
+**Kimlik = tam duvar kümesi eşleşmesi**, eşik/benzerlik yok. Duvar bölününce
+küme bölme anında güncellenir, oda aynı odadır, kullanıcının verdiği ad yaşar.
+İçinden duvar geçip oda ikiye ayrılırsa eski çevrim yok olur: iki YENİ oda doğar,
+ikisi de varsayılan adı alır. "Hangisi eskisinin devamı" sorusunun doğru cevabı
+olmadığı için tahmin edilmiyor.
+
+### Dolgu duvarların İÇ yüzüne kadar çizilir
+
+Saydam nesneler three.js'te ayrı geçişte ve opak nesnelerden SONRA çizilir;
+`renderOrder` yalnız kendi geçişi içinde sıralar. Bu yüzden `RENDER_ORDER.room`
+(10) < `wall` (20) olmasına rağmen oda dolgusu duvarları boyuyordu (duvar
+pikselleri 18.354 → 8.917).
+
+Çözüm sıralama değil, **hiç değmemek**: dolgu poligonu her kenardan o kenarı
+taşıyan duvarın kalınlığının yarısı kadar içeri çekiliyor
+(`core/roomFill.ts` → `insetRoomPolygon`). Köşeler, komşu iki kenarın ötelenmiş
+DOĞRULARININ kesişimi; tek tek köşe ötelense kenarlar birbirinden kopardı.
+
+Kapsül duvarın yuvarlak ucu köşe noktasında `r` yarıçaplı bir disk (K23); içeri
+çekilmiş köşe köşegen üzerinde `r/sin(θ/2) ≥ r` uzakta kaldığı için diskin de
+dışındadır — hiçbir açıda çakışma olmaz.
+
+Reddedilen alternatifler: duvarı da saydam geçişe almak (`Opening.tsx`'e
+dokunmayı gerektiriyordu, kapsam dışı), ön-karıştırılmış opak gri (odanın
+altındaki ızgara kaybolurdu).
+
+Alan (`areaCm2`) hâlâ duvar MERKEZ EKSENİNDEN ölçülür — küçültme yalnız
+çizimdedir. Referans görsel de merkez ekseni kullanıyor.
+
+### Dolgu üçgenlemesi: kulak kırpma, yelpaze değil
+
+Üçgen yelpaze yalnız DIŞBÜKEY poligonda doğrudur. L şeklindeki odada iç köşeyi
+kesip poligonun dışına taşan üçgenler üretiyordu. `triangulatePolygon` kulak
+kırpma yapıyor: yalnız içeride kalan kulaklar koparıldığı için içbükey odada da
+dolgu şeklin dışına çıkmaz.
+
+### Etiket: font repodan gelir, konum en ferah noktadır
+
+drei `<Text>`, font verilmezse troika varsayılanını Google Fonts CDN'inden
+çekmeye çalışıyor ve istek düşünce HATA VERMEDEN 0 piksel çiziyordu — etiketin
+hiç görünmemesinin sebebi buydu. Font artık repoda:
+`public/fonts/roboto-regular.woff` (Apache 2.0, 34 KB), **latin + latin-ext**.
+Yalnız latin alt kümesinde `ğ ş İ` yok ve oda adları Türkçe. troika `.woff2`
+okumaz.
+
+Etiket çapası ağırlık merkezi DEĞİL, odanın duvarlarından en uzak noktası (en
+büyük iç çemberin merkezi). Ağırlık merkezi L odada ya odanın dışına düşüyor ya
+da iç köşenin dibine oturup iki satırlık bloğu duvarın üstüne taşırıyordu.
+
+Tasarım: ad büyük harf (`tr-TR` locale — varsayılanı `i → I` üretir, `İ` değil),
+altında `m²`, ikisi ortak bir rozetin içinde. Rozet iki yazının BİRLEŞİK
+ölçüsünden büyür; sabit kutu uzun adlarda taşardı. Rozet de SAYDAM çizilir —
+opak olsaydı oda dolgusundan önceki geçişe düşer ve dolgu üstünü boyardı.
+
+### Oda adı çift tıkla düzenlenir
+
+Odaya çift tık, etiketin yerinde bir input açar. Çift tık ortak jest veri
+yolundaki `onPointerDown` akışından türetiliyor — veri yolu yalnız HAM pointer
+olayı taşır ve oraya `onDoubleClick` eklemek başka bir fayın dosyasına yazmak
+olurdu. Boş ad reddedilir (K13 deseni), aynı ad yazılmaz (boş Ctrl+Z adımı
+olmasın), ad değişimi tek geri alma adımıdır.
+
+Kutu drei `<Html>` ile çiziliyor: konumu KAMERAYA bağlı, kamera da `<Canvas>`
+dışına taşınamaz. Kritik tuzak — `Html` içeriğini AYRI bir react-dom köküyle
+çiziyor ve o kökün olay işleyicisinden yapılan store yazımı R3F ağacını yeniden
+çizdirmiyor (kutu ekranda asılı kalıyor, hata yok). Kaydetme/kapanma bu yüzden
+native `window` dinleyicisinde.
+
+Odalar hâlâ seçilebilir nesne DEĞİL; çift tık seçimden bağımsız. Genel nesne
+seçimi gelince (fay-B2) `editingRoomId` o seçimden türetilebilir.
+
+### Bilinen sınır
+
+Kapının üstünden geçen duvar orada düğüm açmaz (K24 gereği bölme reddedilir),
+dolayısıyla o noktada oda çevrimi kapanmaz. Kullanıcıya uyarı henüz yok.
+
+Nerede: `core/room.ts` (yüz taraması), `core/roomIdentity.ts` (kimlik),
+`core/roomLabel.ts` (etiket konumu + m²), `core/roomFill.ts` (içeri çekme +
+üçgenleme), `store/architectureRooms.ts` (yeniden hesaplama), `scene/Room.tsx`,
+`scene/RoomLabel.tsx`.
+
+### K32 — WebCAD `Room.pointIds`'e GEÇİLMEDİ, `wallIds` korunuyor
+
+`knowledge/webcad-json-format.md`'deki açık soruyu kapatan karar. Referans
+WebCAD çıktısında oda sınırı nokta id'leriyle (`Room.pointIds`) tutuluyor,
+bizimki duvar id'leriyle (K31). İkisi de aynı sonucu doğuruyor gibi
+görünüyordu — WebCAD'in `pointIds`'i de duvarların köşe noktaları, yani o da
+duvar oynayınca oynuyor — ama üç yerde ayrışıyorlardı ve üçü de `wallIds`
+lehine çıktı:
+
+1. **Duvarsız oda.** `pointIds` modelinde oda, onu çevreleyen duvarlar
+   silinse de var olmaya devam eder — mahal, mahali tanımlayan gaz
+   yönetmeliği açısından anlamsız bir kayıt olarak asılı kalırdı. `wallIds`
+   modelinde bu İMKANSIZ: duvar giderse çevrim kopar, oda kendiliğinden düşer.
+2. **Nokta havuzunun anlamı.** `pointIds`'e geçmek `Point`'in tanımını "duvar
+   köşesi"nden "geometri düğümü"ne genişletirdi. Bugün `getOrphanPointIds`
+   (duvarı olmayan nokta = çöp, silinir) ve üç silme yolu (`architectureSlice`,
+   `selectionOps` ×2) bu varsayıma dayanıyor; `getJointRadiusCm` de öyle
+   (köşedeki en kalın duvarın yarısı — duvarsız noktada tanımsız). Hepsi B2'nin
+   dosyaları. Model değişse ripple'ın yarısı başka bir fayın alanına taşardı.
+3. **Dışa aktarma zaten ucuz bir çeviri.** `wallIds` → `pointIds` duvarların
+   uçlarını sıralamaktan ibaret; WebCAD adaptörü kurulunca tek fonksiyonda
+   çözülür, model sözleşmesini değiştirmeyi gerektirmez.
+
+Karar: `Room` `{ id, wallIds, name }` kalıyor. **Duvarsız oda desteklenmiyor**
+— sürükle-dikdörtgen aracı (aşağıda) bu yüzden gerçek duvar üretiyor, serbest
+poligon değil. **Duvarı silinen oda düşer**, WebCAD'deki gibi asılı kalmaz.
+
+**`centralVentilation` / `topSideOpenable` eklenmedi.** Referansta bu iki alan
+var (havalandırma hesabının girdisi — mahal merkezi kanala mı bağlı, üstten
+açılabiliyor mu). Menfez aracı yazılınca gerekecek ama şimdiden model
+sözleşmesini ikinci kez açmaya değmedi; o işi yazan kişiyle birlikte
+kararlaştırılacak.
+
+Dışa aktarma katmanı henüz yazılmadı. Yazılınca dikkat: `findRoomFaces`
+köşeleri saat yönünün TERSİNE üretiyor (pozitif işaretli alan, dış yüzü elemek
+için), referans WebCAD odası ise saat yönünde — adaptör sırayı çevirmezse
+sessizce ters sarımlı bir poligon yazılır, hata vermez.
+
+### K33 — Dikdörtgen oda aracı dört gerçek duvar üretir
+
+Sürükle-dikdörtgen aracı (`scene/useRoomTool.ts`) K32'nin doğrudan sonucu:
+duvarsız oda desteklenmediği için araç bir kısayoldur, ayrı bir model değil.
+Basılı tut → sürükle → bırak; dört köşe kapalı zincir olarak yazılır
+(`store/architectureWallOps.ts` → `appendWallChain`'e eklenen `isClosed`), mahal
+kapanan çevrimden K31'in kendi mekanizmasıyla doğar. Elle çizilen oda ile
+duvarlardan doğan oda arasında hiçbir davranış farkı yok.
+
+Store'a yalnız BIRAKMA anında yazılır — sürüklerken her karede yazsaydı tek oda
+onlarca geri alma adımı bırakırdı.
+
+Köşeler var olan bir köşeye denk geliyorsa `findCornerPointIdAt` ile onun
+`pointId`'sine bağlanır, konumla değil — aksi hâlde bitişik iki oda çizildiğinde
+ortak kenarda üst üste iki duvar oluşurdu (ekranda görünmez, aynı renk oldukları
+için; ama malzeme dökümünde iki kez sayılır, silme de tek kopyayı kaldırırdı).
+`appendWall` da aynı gerekçeyle güçlendirildi: iki uç zaten var olan aynı köşe
+çiftini bağlıyorsa ikinci duvar hiç YAZILMAZ, var olanı döner — bu, duvar
+aracının kendisini de etkileyen bir davranış değişikliği.
+
+### K34 — Kolineer örtüşen duvarlar SPLIT SONRASI birleştirilir
+
+K33'teki `appendWall` koruması yalnız İKİ UCU DA aynı köşeye denk gelen
+duvarları yakalıyordu. Bitişik iki oda **farklı boyda** çizilip ortak kenarları
+**kısmen** çakışınca (kısa kenar uzun kenarın içine kısmen giriyor) bu koruma
+işe yaramıyordu: köşeler tam eşleşmediği için `appendWall` ikisini de ayrı
+duvar olarak yazıyor, sonra `splitWallsAtIntersections` her ikisini de kendi
+T birleşiminde AYRI AYRI doğru bölüyor — ama ikisi de örtüşen aralık için
+birer parça üretiyor, sonuçta aynı iki köşe arasında duran iki AYRI duvar
+kalıyordu (bkz. `knowledge/wall-graph.md`, önceki "Bilinen sınırlar"). Tek
+taraflı T birleşiminde de (bir duvar öbürünün tamamen İÇİNDE kalırsa) aynı
+sonuç çıkıyordu — karşılıklı olması şart değildi.
+
+Çözüm bölme AŞAMASINDA değil, **bölme bittikten sonra**: `mergeDuplicateWallsInDraft`
+(`store/architectureSplit.ts`) aktif kattaki tüm duvarları tarar, aynı iki
+köşeyi (yön fark etmez) paylaşanları bulur. **İlk çizilen kazanır** — ama
+"ilk" parçanın KENDİ id'sine bakılarak değil, `originByWallId` üzerinden bu
+turda türediği ORİJİNAL duvarın id'sine bakılarak belirlenir: split'te üretilen
+yeni id, split edilmemiş ama sonradan çizilmiş bir duvarınkinden küçük de büyük
+de çıkabilir, kendi id'si güvenilir bir sıra göstergesi değildir. Kazananın
+kalınlığı/yüksekliği aynen kalır.
+
+Kaybedenin üstündeki açıklık kazanana taşınır (yön tersse `offsetCm` kazananın
+uzunluğundan çıkarılıp çevrilir, K10). Kaybedeni sınırında sayan oda kaydı da
+kazanana güncellenir — yoksa taze yüz taraması eski kaydı eşleştiremez, "yeni
+oda doğdu" sanılır ve kullanıcının verdiği ad kaybolur (K31).
+
+Split hiç olmadığı turlarda bile kontrol çalışır: duplicate önceki bir çağrıda
+doğmuş olabilir, o T birleşimleri artık paylaşılan düğümde olduğu için sonraki
+turda `findWallSplits` hiçbir yeni split görmez — erken dönüş `mergeDuplicateWallsInDraft`'ı
+atlamamalı.
+
+Nerede: `store/architectureSplit.ts`. Testler `store/__tests__/architectureSplit.test.ts`
+("kolineer örtüşme") ve `store/__tests__/roomRectangleTool.test.ts` ("FARKLI BOYDA").
+
+### K35 — Açıklığın içinden geçen VEYA onun üstünde başlayan/biten duvar YERLEŞTİRİLEMEZ
+
+K24 yalnız "bölme noktası açıklığın içine düşerse bölme reddedilir" diyordu —
+duvarın KENDİSİ yine de yazılıyordu, sadece o noktada düğüm açılmıyordu. Ürün
+kararı bundan daha katı: bir kapı/pencere boşluğunun ortasında bir duvar ne
+başlayabilir ne bitebilir ne de içinden geçebilir — hiçbiri fiziksel olarak
+anlamlı değil. Duvar aracında önizleme lastik bandı olarak kalır, oda
+aracında sürükleme hiçbir şey yazmaz — ikisi de sessizce reddeder, K13'ün
+"geçersiz yerleştirme reddedilir, kaydırılmaz" deseninin aynısı.
+
+**Aynı doğrultuda (kolineer) devam eden duvar sorun DEĞİL.** Açıklığı taşıyan
+duvarın devamı olarak çizilen bir segment ona binmiyor, onu sürdürüyor — kapı
+zaten o duvarın üstünde bir delik (K9). `core/wallGraph.ts` → `findBlockingOpening`
+bunu bedavaya alıyor: iki segment kolineer/paralel olduğunda `getInteriorCrossing`
+zaten `undefined` döner.
+
+**Revizyon: T birleşimi de reddin İÇİNDE.** İlk yazımda "bir duvarın UCU
+açıklığın ortasına değerse (orada bitiyor, geçmiyor) bu K24'ün zaten ele
+aldığı senaryo, reddetmeye gerek yok" diye düşünülmüştü — YANLIŞ çıktı.
+Kullanıcı görsel kanıtla gösterdi: bir duvarın ucunu kapı/pencerenin üstünde
+sonlandırmak da (başlatmak da) aynı derecede geçersiz, "geçme" ile "üstünde
+durma" ürün açısından aynı kural altında. `isAtEnd(crossing.onA, …)` muafiyeti
+kaldırıldı — `getInteriorCrossing` uç değerlerini (0 veya 1) zaten kesişim
+sayıyor, ekstra bir ayrım gerekmiyor.
+
+**Bu yalnız YENİ duvar YERLEŞTİRMEYİ kapsar.** Var olan bir duvarı TAŞIYARAK
+aynı noktaya getirmek (`movePoint`/`moveWall`) `appendWall`'dan geçmiyor, K24'ün
+"bölme reddedilir, duvar silinmez" davranışında kalmaya devam ediyor — kapsam
+dışı, kasıtlı olarak dokunulmadı. K24'ün eski testi bu yüzden TAŞIMA senaryosuna
+çevrildi (`store/__tests__/architectureSplit.test.ts`).
+
+Kontrol iki katmanda: `store/architectureWallOps.ts` → `appendWall` (STORE
+seviyesi son savunma, tek segment reddi — id bile harcanmaz) ve
+`scene/useRoomTool.ts` (ÖN kontrol, dört kenardan HERHANGİ biri blokeliyse
+`addWallChain` hiç çağrılmaz; `appendWall`'ın kendi reddi yalnız kendi
+segmentine karar verir, zincirin tamamına değil — tek kenar reddedilip
+diğerleri yazılsaydı yarım bir oda kalırdı). Ortak çekirdek
+`core/room.ts` → `findBlockingOpeningInLoop`, kapalı köşe zinciri için.
+
+Nerede: `core/wallGraph.ts`, `core/room.ts`, `store/architectureWallOps.ts`,
+`scene/useRoomTool.ts`. Testler `core/__tests__/wallGraph.test.ts`,
+`core/__tests__/roomOpeningBlock.test.ts`, `store/__tests__/architectureWallOpeningSync.test.ts`,
+`store/__tests__/architectureSplit.test.ts`.
+
+### K36 — Açıklığa çarpan TAŞIMA da reddedilir; bırakılamayan nesne imlece yapışık kalır
+
+K35 yalnız YENİ duvar yerleştirmeyi kapsıyordu, TAŞIMA (köşe veya duvar
+sürükleme) kasıtlı olarak dışarıda bırakılmıştı. Kullanıcı geri bildirimiyle
+kapsam genişledi: taşınan bir köşe veya duvar, hedef konumda bir açıklığı
+kesiyorsa YA DA onun üstünde bitiyorsa, bırakma (`onPointerUp`) da
+REDDEDİLMELİ — aynı fiziksel gerekçe (K35), taşıma için de geçerli.
+
+**UX modeli değişti: "bas-sürükle-bırak" yerine "tut, geçersiz yere bırakma
+denemesi başarısızsa imlece yapışık kal, geçerli yere TEKRAR TIKLANINCA
+bırak".** Bırakma reddedilince `drag`/`grab` state'i SIFIRLANMAZ (`endDrag()`
+çağrılmaz) — köşe/duvar imleç konumunu takip etmeye devam eder, çünkü
+`onPointerMove` zaten buton durumundan BAĞIMSIZ çalışıyor (native pointermove
+davranışı). Kullanıcı GEÇERLİ bir yere gelip TEKRAR TIKLADIĞINDA, o tıklamanın
+`onPointerDown`'ı YENİ bir tutma başlatmaz (aktif bir `drag`/`grab` varken
+`onPointerDown` erken döner) — karar hep `onPointerUp`'ta verilir, fiziksel
+tuş kalkışı hep "bu konumu dene" anlamına gelir.
+
+Esc (`onCancel`) her zaman `drag`/`grab`'i temizler — kullanıcı geçersiz bir
+sürüklemede TAKILI KALMAZ, istediği an vazgeçebilir.
+
+**Etki hesabı çekirdeğe çıkarıldı** (`core/wall.ts`), çünkü hook'lar
+(`useThree` kullandıkları için R3F/Three.js gerektirir) doğrudan test
+edilemiyor — saf kısmı test edilebilir kalsın diye:
+
+- `getPointMoveImpact(pointId, targetPosition, walls, points)`: köşeye bağlı
+  HER duvarın (sabit uç → yeni konum) segmentini üretir, taşınan duvarları
+  `stationaryWalls`'tan çıkarır — kendi eski hâline göre kontrol etmek
+  anlamsız olurdu, onlar zaten hareket eden taraf.
+- `getWallMoveImpact(wallIds, dxCm, dyCm, walls, points)`: katı ötelenen
+  duvar(lar)ın yeni segmentini üretir, aynı mantık.
+- `findBlockingOpeningInSegments`: K35'in `findBlockingOpening`'inin çoklu
+  segment hâli — üretilen segmentlerin HERHANGİ biri blokeliyse tüm bırakma
+  reddedilir.
+
+**Bilinen sınır — esneyen komşular kapsam dışı.** Duvar taşıma "katı" olduğu
+için (`useWallSelectionTool.ts`), paylaşılan köşeyi taşıyan ama kullanıcının
+DOĞRUDAN seçmediği komşu duvarlar da şekil değiştirir ("esner"). Bu esneyen
+komşuların açıklık çakışması KONTROL EDİLMİYOR — yalnız kullanıcının doğrudan
+taşıdığı (seçili) duvarlar/köşe kontrol ediliyor. Kullanıcı bundan bahsetmedi,
+kapsam kasıtlı olarak dar tutuldu.
+
+Nerede: `core/wall.ts` (`getPointMoveImpact`, `getWallMoveImpact`),
+`core/wallGraph.ts` (`findBlockingOpeningInSegments`), `scene/usePointDragTool.ts`,
+`scene/useWallSelectionTool.ts`. Testler `core/__tests__/wallMoveImpact.test.ts`.
+Hook seviyesi (React/R3F) test edilmedi — tarayıcıda manuel doğrulanmalı.
+
+## 2026-08 · Aşama 5: Boru ve branşman çizimi
+
+Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
+bant uzanır, tek sağ tık son noktayı geri alır, çift sağ tık hattı bitirip Seçim
+aracına döner, Esc yarım hattı tümüyle iptal eder ve araç aktif kalır.
+
+### Taslak kalıcı veriye girmez
+
+Devam eden hat `plumbingUiStore.draftLine`'da yaşıyor; `cadStore`'a ancak
+tamamlanınca tek `addLine` çağrısıyla giriyor. Hat + her nokta + her segment id'si
+o tek `set()` içinde üretiliyor → tek `markDirty`, tek Ctrl+Z. Duvar aracı bilerek
+farklı çalışıyor (her segment anında yazılıyor), çünkü duvar zinciri mevcut
+geometriye bağlanabiliyor; hat böyle bir şey yapmıyor.
+
+`addLine` iki noktadan azını reddediyor. `segments.length === points.length - 1`.
+
+### Sağ tık ayrımı saf fonksiyonda
+
+`core/pointerGestures.ts` → `resolveRightClick`. İlk sağ tık kararı 300 ms
+(`DOUBLE_CLICK_WINDOW_MS`) erteler; pencere içinde ikinci tık gelirse "bitir",
+gelmezse "son noktayı geri al". `setTimeout` hook'ta, karar saf fonksiyonda —
+aksi hâlde jest yalnız elle denenerek doğrulanabilirdi (Risk R6).
+
+Geliştirme sırasında kısa süre "tek sağ tık bitirir, Esc son noktada bitirir"
+denendi; şartname metni gelince **geri alındı**. Değiştirmeden önce şartnameye
+bakılmalı.
+
+### Esc hat aracında araçtan çıkarmıyor
+
+`useEscapeToSelectionTool` polyline araçlarını atlıyor. Yerleştirme aracında Esc
+seçim aracına dönüyor (eski davranış), hat aracında yalnız taslağı siliyor —
+kullanıcı paleti yeniden seçmeden yeni hatta başlayabilsin. Çift sağ tıkla bitirme
+ise seçim aracına dönüyor.
+
+### Çap kataloğu ve renk (K-W1, K-W2 uygulaması)
+
+`plumbing/core/pipeTypes.ts` dokuz çap tutuyor (DN15–DN100, EN 10255 dış çapları).
+Renk yalnız WebCAD referansında görülen dört çapta dolu; kalan beşinde `null` —
+varsayılmıyor. Çizilen her yeni hat `DN25` alıyor, renk çaptan geliyor.
+`plumbingTheme.gasLine` (marka sarısı) **kaldırıldı**: gaz hattının rengi artık
+çapından geliyor.
+
+Kalınlık gerçek dış çap: drei `<Line>` + `worldUnits` (duvar kapsülüyle aynı yol).
+Uzaklaşınca ince çaplar piksel altına düşmesin diye 1.5 px'lik alt sınır zoom'dan
+türetiliyor ve kapsayıcıda bir kez hesaplanıyor.
+
+Çizim önizlemesi de **aynı** renk ve kalınlıkta (`scene/lineStyle.ts`): ince
+önizleme, hat bitince kalınlaşmış gibi okunuyordu. Lastik bant kare başına
+geometri üretmiyor — sabit bir birim parça `position/rotation.y/scale.x` ile
+uzatılıyor; `worldUnits` kalınlığı kamera uzayında uyguladığı için ölçek çizgiyi
+kalınlaştırmıyor.
+
+### `isInsulated` alanı açılmadı
+
+K-W4 gereği `InstallationLineSegment`'ten `isInsulated` çıkarıldı: izolasyon
+segment boolean'ı değil kendi nesnesi olacak (Aşama 8).
+
+### Kapsam dışı bırakılanlar
+
+Ortogonal (yatay/dikey) kısıt bu aşamada yok — CLAUDE.md'deki "borular duvarlara
+paralel" ürün kuralı henüz koda girmedi, plan da Aşama 5'te istemiyor. Porta
+yakalanma ve uç bağlantısı Aşama 6'da, uzunluk etiketleri Aşama 7'de.
+
+Nerede: `plumbing/core/pipeTypes.ts`, `plumbing/core/lineGeometry.ts`,
+`plumbing/scene/useLineTool.ts`, `plumbing/scene/InstallationLineMesh.tsx`,
+`plumbing/scene/lineStyle.ts`, `plumbing/scene/useMinimumLineWidthCm.ts`,
+`plumbing/scene/DrawPreview.tsx`, `plumbing/store/plumbingSlice.ts`.
+Ayrıntı: `.claude/knowledge/line-drafting.md`.
+
+## 2026-08 · Aşama 6: Port bağlantısı ve yakalama
+
+Hat ucu artık elemanların bağlantı noktalarına yakalanıyor ve porta sol tıklandığında
+hat orada sonlanıp bağlantı kuruluyor. Bu çizimde araç **aktif kalıyor** (şartname):
+arka arkaya hat çizilebilsin. Çift sağ tıkla bitirme ise Seçim aracına dönüyor —
+ikisi bilerek farklı, çünkü porta bağlanmak "bu hat bitti, sıradakine geçiyorum"
+demek, sağ tık ise "çizim işim bitti" demek.
+
+### Doluluk türetilir, ikinci alan yok
+
+Bir portun dolu olup olmadığı yalnız `installationConnections`'tan okunuyor
+(`core/portSnap.ts` → `isPortOccupied`). Elemanda "bu port dolu" diye ikinci bir
+alan yok (Risk R10): iki kaynak undo, yükleme ve kat silme sonrası ayrışırdı.
+Bir hat ucunun bağlı olup olmadığı da kaydın VARLIĞINDAN okunuyor; serbest uçta
+kayıt yok, `null` bir alan değil.
+
+Bir port en çok bir bağlantı taşıyor. Kural iki yerde korunuyor: araç dolu portu
+aday göstermiyor, `addLine` yazmadan önce tekrar bakıyor (iki ucu aynı porta düşen
+hat için son savunma).
+
+### Snap yarıçapı piksel tabanlı, port ızgarayı bastırıyor
+
+`PORT_SNAP_RADIUS_PX / zoom` → yakalama uzaklığı her ölçekte aynı hissediliyor.
+Öncelik port snap > ızgara snap. Ctrl ızgarayı kapatıyor ama portu kapatmıyor:
+bağlantı kurmak serbest konumlandırmadan daha güçlü bir niyet.
+
+### Bağlı eleman taşınınca hat ucu birlikte geliyor
+
+`moveElements` aynı `set()` içinde bağlı hat ucunu da kaydırıyor. Port dünya konumu
+yeniden hesaplanmıyor, AYNI kayma uygulanıyor: taşımada açı ve ölçek değişmediği
+için sonuç birebir aynı ve store'un sembol metadata'sına (scene katmanı) ihtiyacı
+olmuyor. Döndürme/ölçekleme eklenirse burası `getPortWorldPosition` ile yeniden
+türetmeye çevrilmeli.
+
+Eleman silinince bağlantı düşüyor, hat kalıyor ve ucu serbestleşiyor. Kat silmede
+aynı temizlik `store/floorOps.ts`'te, silinenlerden ÖNCE toplanarak yapılıyor.
+
+### Görsel ayrım biçimden geliyor
+
+Boş port içi boş halka, dolu port içi dolu daire (nötr gri), yakalanan portun
+dışında yeşil vurgu halkası. Hat ucunda da aynı mantık: bağlı uç dolu daire,
+serbest uç içi boş halka. Ayrım yalnız renge bırakılmıyor.
+
+Vurgu halkasının konumu React durumu değil — imleç her kıpırdadığında ağaç yeniden
+kurulmasın diye `useFrame` içinde doğrudan mesh'e yazılıyor.
+
+### Plandan sapma: tüm portlar mount ediliyor
+
+Plan "yalnız imlece yakın elemanların portları mount edilir" diyordu. Uygulamada
+hat aracı etkinken aktif kattaki tüm elemanların portları çiziliyor: eleman sayısı
+onlarla ölçülüyor, geometri/material paylaşılıyor ve yakınlık her karede
+hesaplansaydı mount/unmount dalgalanırdı. Eleman sayısı yüzleri geçerse önce burası
+daraltılacak (Bölüm 15, spatial index).
+
+### Henüz yok
+
+`InstallationEndpointTarget`'ın `line` çeşidi (hattın başka bir hatta bağlanması)
+tipte tanımlı ama kullanılmıyor — branşmanın ana hatta bağlanması sonraki bir işin
+konusu. Serbest uç için uyarı listesi de (KK: "cihaza bağlanmamış uç uyarıyla
+gösterilir") henüz yok; bugün yalnız görsel ayrım var.
+
+Nerede: `plumbing/core/portSnap.ts`, `plumbing/core/ports.ts`,
+`plumbing/scene/useLineTool.ts`, `plumbing/scene/PortMarkers.tsx`,
+`plumbing/scene/InstallationLineMesh.tsx`, `plumbing/store/plumbingSlice.ts`,
+`store/floorOps.ts`. Ayrıntı: `.claude/knowledge/port-connections.md`.
+
+## 2026-08 · Boru çapı seçimi, kalınlık ve boru ayırma
+
+Üç geri bildirim üzerine yapıldı: çizerken hatlar inceliyordu, çap seçilemiyordu ve
+mevcut bir borunun üstünden dallanmanın yolu yoktu.
+
+### Çap artık palette seçiliyor
+
+Aktif çap `plumbingUiStore.activePipeTypeName` — araç ayarı, kaydedilmez ve geçmişe
+girmez (aktif araç gibi). Palette yalnız RENGİ BİLİNEN çaplar var (DN25/32/40/50,
+K-W1): rengi olmayanı seçtirmek onu hangi renkle çizeceğimizi varsaymak olurdu.
+Renk gelince katalog kaydına `colorHex` yazmak yeterli, palet kendiliğinden büyür.
+
+Seçim yalnız bundan sonra çizilecek hatları etkiliyor; mevcut bir hattın çapını
+değiştirmek hat seçimi gerektiriyor (henüz yok).
+
+Renk örneği DOM'da SVG `fill` ile çiziliyor. Değer katalogdan gelen bir hex, tema
+token'ı değil; `style={{}}` ve `bg-[#...]` yasak, SVG özniteliği ise CSS değil —
+sahnedeki R3F proplarıyla aynı istisna.
+
+### Kalınlık: ekranda 3 px alt sınır
+
+`worldUnits` kalınlığı cm cinsinden sabit tuttuğu için uzaklaştıkça hat piksel
+olarak inceliyor. Alt sınır 1.5 px'ten **3 px**'e çıkarıldı: kat geneli görünürken
+(zoom ~0.2) hatlar kıl gibi kalıyordu. Sınır çapları birbirinden ayırt etmeyi
+bozmuyor — oran ancak bu sınırın altında kayboluyor.
+
+Lastik bandın çizim yolu da gerçek hatla aynılaştırıldı: iki köşesi her karede
+`instanceStart`/`instanceEnd` tamponuna yazılıyor. Önceki çözüm (birim parçayı
+`scale.x` ile uzatmak) kalınlığı bozmuyordu — `worldUnits` shader'ı `linewidth`'i
+`modelViewMatrix`'ten sonra uyguluyor — ama önizlemeyi gerçek hattan farklı bir
+yola sokuyordu.
+
+### Borunun üstüne bağlanmak onu AYIRIYOR
+
+Hat aracıyla mevcut bir borunun üstünde gezerken o boruda dolu bir nokta görünüyor;
+oraya tıklamak yeni hattı orada sonlandırıyor (ya da başlatıyor) ve hedef boruyu o
+noktada ikiye ayırıyor. Yeni hat üretilmiyor, mevcut hatta bir köşe ekleniyor.
+
+Mevcut nokta/parça id'lerine dokunulmuyor: bölünen parça kendi id'siyle kısalıyor,
+yalnız ikinci yarısı yeni id alıyor. Hepsi yeniden numaralansaydı o boruya bağlı
+kayıtlar sahipsiz kalırdı (kural 6). İzdüşüm bir köşeye yeterince yakınsa bölme
+yapılmıyor, var olan köşeye bağlanılıyor — yoksa köşenin dibinde sıfıra yakın bir
+parça doğardı.
+
+Bölme ile hat yazımı tek `set()` içinde: tek Ctrl+Z ikisini birden geri alıyor. Bu
+yüzden araç "şu parçayı şurada ayır" isteğini `LineEndAttachment.lineSplit` olarak
+taşıyor ve çözümü store yapıyor — araç doğacak nokta id'sini bilemez.
+
+Snap önceliği: port > mevcut boru > ızgara. Vurgu biçimi de işi anlatıyor: port
+halka ("buraya bağlan"), boru üstündeki dolu nokta ("burada ayır").
+
+Nerede: `plumbing/core/lineSnap.ts`, `plumbing/core/lineSplit.ts`,
+`plumbing/core/pipeTypes.ts`, `plumbing/ui/PipeTypeSelect.tsx`,
+`plumbing/scene/useMinimumLineWidthCm.ts`, `plumbing/scene/DrawPreview.tsx`,
+`plumbing/store/plumbingSlice.ts`.
+
+## 2026-08 · Hat aracı: ön eleman, seçim ve önizleme tuzağı
+
+### Önizlemenin ince görünmesinin sebebi: drei `<Line>` propları material'e de gidiyor
+
+drei `<Line>` bilmediği propları hem `Line2` nesnesine hem de MATERIAL'e yayıyor.
+Banda verilen `visible={false}` bu yüzden `material.visible = false` yapıyor ve
+`object.visible = true` yazmak onu geri getirmiyordu — lastik bant hiç çizilmiyordu.
+Görünürlük artık yalnız nesne üzerinden, `useFrame` içinde ayarlanıyor.
+
+Aynı sınıftan bir tuzak: `transparent`, `opacity`, `userData` da ikisine birden
+gidiyor. Bu yüzden yerleşmiş hat ve önizleme artık **tek bileşenden** (`PipeLine`)
+geçiyor; yeni bir prop oraya eklenir, kullanan yerlere değil. İkisi ayrı ayrı
+kurulduğunda bir prop birinde unutuluyor ve önizleme farklı görünüyordu.
+
+### Hat çiziminin ilk tıklaması eleman koyabiliyor
+
+- **Branşman her zaman sayaçla geliyor**: ilk tık sayacı koyuyor, hat sayacın
+  çıkış portundan başlıyor (gaz yönü: sayaç → tüketim).
+- **İlk boru servis kutusunu kendisi koyuyor** — projede hiç kutu yoksa. Kutu
+  varsa boru serbest başlıyor; servis kutusu proje başına tek.
+
+Eleman kendi geçmiş adımında yazılıyor, hatla aynı adımda değil: Esc'lenen yarım
+çizimde eleman da kaybolsaydı kullanıcının görerek koyduğu şey silinirdi.
+
+### Borular tıklanabilir
+
+`core/linePicking.ts` → `pickLineAt`. Tutma bandı çizilen kalınlığın yarısı + snap
+toleransı, yani ince boru da tıklanabilir kalıyor. Sıra: eleman → hat → çerçeve.
+Seçili hat mavi çiziliyor, Delete siliyor, çap paletindeki tıklama seçili hatlara
+uygulanıyor (ayrı bir "uygula" düğmesi aranmasın).
+
+`selectedLineIds` ayrı liste: eleman ve hat aynı id evreninde ama iki farklı nesne
+türü — tek listede tutulsaydı her okuyan tür ayrımını yeniden yapardı.
+
+Bugün yok: hat sürükleme, köşe düzenleme, çerçeveyle hat seçme, hat kopyalama.
+Seçili elemanla seçili hat aynı anda silinirse iki geçmiş adımı oluşuyor.
+
+Nerede: `plumbing/core/lineSeed.ts`, `plumbing/core/linePicking.ts`,
+`plumbing/scene/InstallationLineMesh.tsx` (`PipeLine`), `plumbing/scene/DrawPreview.tsx`,
+`plumbing/scene/useSelectionTool.ts`, `plumbing/ui/PipeTypeSelect.tsx`.
+
+## 2026-08 · Boru kalınlığı piksel cinsinden veriliyor (worldUnits bırakıldı)
+
+Borular ekrandan uzaklaşınca ve **ekran kenarlarına doğru** inceliyordu. Sebep
+`worldUnits` shader yolunun perspektif varsayımı: göz ışınının bir NOKTADAN
+çıktığını kabul ediyor (vertex'te `cross(start.xyz, worldDir)`, fragment'te
+`normalize(worldPos.xyz) * 1e5`). Kameramız ortografik — ışınlar paralel — ve
+kamera 100.000 cm yukarıda olduğu için hesap float32 hassasiyetini yiyor. Hata
+ekran merkezinden uzaklaştıkça büyüyor; 20 cm'lik duvarda görünmüyor, 3.37 cm'lik
+DN25 borusunda görünüyor.
+
+Kararı: **boru `worldUnits` KULLANMAZ.** Kalınlık ekran pikseli olarak veriliyor:
+
+    lineWidth(px) = max(dışÇap(cm) × zoom, MIN_LINE_WIDTH_PX)
+
+Piksel yolunda shader ekran uzayında çalışıyor (küçük sayılar, ışın varsayımı yok)
+ve yuvarlak uçlar korunuyor. Görünen boyut `worldUnits`'in amaçladığıyla aynı —
+plan fiziksel olarak doğru okunuyor — ama kenarlarda incelme yok. Zoom değişince
+kalınlık yeniden hesaplanmalı; `useCameraZoom` zoom'u state'te tutuyor (Grid.tsx
+deseni: değer değişmezse render yok).
+
+`CAMERA_HEIGHT_CM`'i düşürmek çözüm DEĞİL — capsule-walls.md'deki ters yönlü uyarı
+duruyor, o değer duvar için yüksek tutulmak zorunda. Duvarlar `worldUnits` ile
+kalıyor: aynı hata onlarda da var ama kalınlıkları yanında görünmez.
+
+Uç işaretleri dünya ölçüsünde konumlandığı için piksel kalınlığı `toWidthCm` ile
+cm'ye geri çevriliyor.
+
+Nerede: `plumbing/scene/lineStyle.ts`, `plumbing/scene/useCameraZoom.ts`,
+`plumbing/scene/InstallationLineMesh.tsx`.
+
+## 2026-08 · Çap kataloğu tamamlandı, çap arayüzü sağ panele ertelendi
+
+### K-W1'in boşluğu kapandı: dokuz çapın da rengi var
+
+WebCAD referansında yalnız dört çapın rengi vardı; kalan beşi "ekip belirleyecek"
+diye açık bırakılmıştı. **Ekip belirledi.** Yeni renkler WebCAD'in kullandığı
+Material A400/A700 ailesinden, mevcut dördüyle ve tuvalde ayrılmış renklerle
+çakışmayacak şekilde seçildi:
+
+| DN | Dış çap (cm) | Renk | Kaynak |
+|----|--------------|------|--------|
+| 15 | 2.13 | `#00B8D4` camgöbeği | ekip |
+| 20 | 2.69 | `#FF6D00` turuncu | ekip |
+| 25 | 3.37 | `#FF1744` kırmızı | WebCAD |
+| 32 | 4.24 | `#B388FF` açık mor | WebCAD |
+| 40 | 4.83 | `#304FFE` mavi | WebCAD |
+| 50 | 6.03 | `#6200EA` mor | WebCAD |
+| 65 | 7.61 | `#C51162` macenta | ekip |
+| 80 | 8.89 | `#795548` kahve | ekip |
+| 100 | 11.43 | `#263238` antrasit | ekip |
+
+Çakışmaması gerekenler: marka sarısı `#FFC107` (çizim alanına giremez), seçim
+mavisi `#2d7ff9`, snap yeşili `#0aa06e`, duvar grisi `#6b7280`. Çap büyüdükçe ton
+koyulaşıyor — ana hat plandan ağır okunsun. Renklerin tekilliği ve bu çakışmama
+kuralı testle korunuyor.
+
+`colorHex` artık `string | null` değil `string`: yeni bir çap eklendiğinde TS renk
+vermeye zorluyor. Nötr yedek renk (`unclassifiedLine`) konusuz kaldığı için silindi.
+
+**WebCAD `radius` sütunu doldurulmadı.** O değerler bizim çizimimizde kullanılmıyor
+(kalınlık dış çaptan geliyor) ve yalnız WebCAD'in okuyacağı dosya üretilirse gerekli
+(K-W5). Ölçülmemiş beş satırı tahminle doldurmak, kullanılmayan bir alana varsayım
+yazmak olurdu.
+
+### Çap seçme arayüzü sağdaki işlev paneline saklandı
+
+Sol palete konan çap seçici KALDIRILDI: hat seçilince açılacak sağ paneldeki
+"işlev" kısmının konusu. Çizim şimdilik varsayılan çapla (DN25) yapılıyor.
+Altyapı hazır ve testli, panele yalnız arayüz kalıyor:
+`plumbingUiStore.activePipeTypeName` (çizilecek hattın çapı) ve
+`plumbingSlice.setLinesPipeType(lineIds, name)` (seçili hatların çapı).
+
+### Seçimi silme tek adım
+
+`removeSelection(elementIds, lineIds)` eleman ve hattı AYNI `set()` içinde siliyor:
+bir silme jesti = bir Ctrl+Z. Önce iki ayrı action çağrılıyordu ve seçimde ikisi
+birden varsa kullanıcı iki kez geri almak zorunda kalıyordu. Bağlantı temizliği de
+aynı yerde toplandı — eleman ve hat silme aynı temizliği istiyor.
+
+Nerede: `plumbing/core/pipeTypes.ts`, `plumbing/store/plumbingSlice.ts`,
+`plumbing/scene/useSelectionTool.ts`, `plumbing/ui/PlumbingToolbar.tsx`.
+
+## 2026-08 · Yönetici formları: alan hatası toplama kopyası
+
+### K25 — `collectErrors`/`firstErrorField` ikinci kez kopyalandı, üçüncüde ortaklaşacak
+
+`ui/admin/firms/gasFirmSchema.ts`, `ui/admin/projects/newProjectSchema.ts`
+içindeki `collectErrors` ve `firstErrorField` fonksiyonlarının birebir eşini
+taşıyor: alan sırası dizisine bakıp alan başına TEK mesaj toplamak ve görsel
+sıradaki ilk hatalı alanı bulmak.
+
+Ortak yardımcıya çıkarmak, yeni ekranı yazarken proje formunun şemasını ve
+testlerini de değiştirmeyi gerektirirdi; iki ekran da kendi alan kümesine bağlı
+olduğu için kopya bilerek bırakıldı (gerekçe iki dosyada da yazılı).
+
+**Borç:** aynı desen ÜÇÜNCÜ bir ekranda gerekirse ortak yardımcıya çıkarılacak
+(alan sırası dizisiyle parametrik, `ui/admin/form/` altında) ve iki mevcut şema
+ona bağlanacak. Üçüncü kopya yazılmayacak.
+
+### Kuralın ilk uygulaması: `FieldControl`
+
+`TextField`, `SelectField` ve `PhoneField` girdinin içine ikon yerleştiren aynı
+konumlandırma kabını (`relative flex min-w-0 flex-col` + ikon + girdi) üç kez
+kuruyordu. K25'in "üçüncü kopyada ortaklaştır" kuralı gereği
+`ui/admin/form/FieldControl.tsx`'e çıkarıldı; sınıf üreten yardımcı
+(`fieldIconPadding`) `adminVariants.ts`'e gitti, çünkü bileşen dosyası yalnız
+bileşen dışa aktarabiliyor (react-refresh kuralı).
+
+`collectErrors`/`firstErrorField` borcu HÂLÂ açık: o desenin yalnız iki kopyası
+var, üçüncüsünde ortaklaşacak.
+
+## 2026-08 · Gaz dağıtım firma adı: büyük harf tercihi
+
+### K26 — Firma adı otomatik büyütülmez, kullanıcıya hatırlatılır
+
+Gereksinim belgesi madde 9: "mevcut kayıtlarla uyum için büyük harf kullanımı
+**tercih edilecektir**." Tercih, kural değil.
+
+Seçilen davranış: `Firma Adı` alanının altında bilgilendirme metni
+(`GAS_FIRM_NAME_CASE_HINT`) gösterilir. Girdi otomatik büyütülmez, veri
+değiştirilmez, kayıt engellenmez.
+
+Neden otomatik dönüşüm YAPILMADI:
+
+- Belgeye gömülü Dipos V liste ekranındaki kayıtlar büyük harf
+  (`AKSA-ADANA`, `BAŞKENTGAZ`) ama **bizim mock verimiz değil**
+  (`Adana Doğalgaz Dağıtım A.Ş.`). Yeni kayıtları zorla büyütmek listede yeni
+  bir tutarsızlık üretirdi: eski kayıtlar karışık, yenileri hep büyük.
+- Kullanıcının girdiği veriyi sessizce değiştirmek geri alınamaz ve nedeni
+  ekranda görünmez.
+- Tuş vuruşunda dönüştürmek imleci bozar (telefon maskesinde düzeltilen hatanın
+  aynısı), IME ile daha da kötü.
+
+**Açık:** biçim kuralının bağlayıcı olup olmadığı **iş birimine sorulacak**.
+Cevap "zorunlu" gelirse karar (a)'ya yükseltilir: dönüşüm tuş vuruşunda değil
+blur'da veya `toGasFirmPayload` içinde, `toLocaleUpperCase('tr')` ile yapılır ve
+Türkçe `i → İ` / `ı → I` davranışı `core/` testiyle sabitlenir.
+
+## 2026-08 · Gaz dağıtım firma listesi gerçek uca bağlandı
+
+### K27 — İstemci tarafı arama/sıralama/sayfalama GEÇİCİ
+
+`GET /api/gasdistributionfirms` filtresiz, sayfalamasız **düz dizi** döndürüyor;
+`q`, `page`, `pageSize`, `sort` parametreleri yok. Bu yüzden liste ekranı tüm
+kayıtları tek seferde çekiyor ve arama, sıralama, sayfalamayı istemcide yapıyor
+(`api/gasFirmListQuery.ts`).
+
+Bu, CLAUDE.md'deki **"sayfalama sunucu taraflı"** kuralının bilinçli istisnası.
+`listProjects` içinde aynı gerekçeyle aynı istisna var.
+
+**Borç:** backend sayfalı uç açınca `queryFirmList` kaldırılacak, parametreler
+sorguya taşınacak ve uç yalnız istenen sayfayı döndürecek. Kayıt sayısı büyürken
+bu çözüm ölçeklenmez — tek sayfada tüm liste indiriliyor.
+
+Mock yol da AYNI `queryFirmList`'i kullanıyor: iki ayrı eşleşme/sıralama kuralı
+olsaydı mock'tan gerçeğe geçerken davranış sessizce değişirdi.
+
+### Bölge filtresi devre dışı, SİLİNMEDİ
+
+Sunucunun liste satırı bölge taşımıyor. `region` alanı korundu ama `null` geliyor
+ve süzgeç uygulanmıyor — süzülseydi bölge seçili her aramada liste boşalır,
+kullanıcı veri kaybettiğini sanırdı.
+
+Filtre kutusu ekranda duruyor ama `disabled`, altında sebebini söyleyen bir
+açıklama var. Backend "bugün geçerli bölge yetkileri" alanını ekleyince
+`isDisabled` kaldırılacak ve `queryFirmList` içindeki süzgeç geri açılacak.
+
+**Yan etki:** üst bardaki "Bölge" seçimi ile sayfa içindeki filtre AYNI `region`
+URL anahtarını paylaşıyor. Süzgeç uygulanmadığı için üst bardaki seçim de firma
+listesini şu an daraltmıyor.
+
+### Grup filtresi ADLA değil KİMLİKLE
+
+Gerçek veri `groupId` taşıyor. URL anahtarı (`group`) aynı kaldı, taşıdığı değer
+kimlik oldu. Uygulanan filtre çipi kimliği gösteremeyeceği için adı grup
+listesinden çözüyor (aynı react-query anahtarı, ikinci istek çıkmaz).
+
+---
+
+## 2026-08 · Eleman yapışma modları: armatür boruya, sayaç uca, cihaz kola
+
+### K28 — Yerleştirme serbest değil, hedefe yapışıyor
+
+Tesisat elemanı artık tuvale istenen yere bırakılmıyor. Nereye tutunacağı
+**türden** geliyor (`plumbing/core/attachModes.ts` → `ELEMENT_ATTACH_MODES`):
+
+- `onLine` — vana, selenoid vana, regülatör, manometre, filtre kiti, süzme sayaç,
+  izolasyon: boruya oturur, boru orada ayrılır.
+- `lineEnd` — sayaç: boş (bağlantısız) bir boru ucuna takılır, araya vana girer.
+- `nearestLine` — ocak/soba/şofben/kombi/kazan/diğer: imlecin bıraktığı yerde
+  durur, en yakın boruya kısa bir kolla bağlanır, kolun dibine vana gelir.
+- `free` — servis kutusu, baca, havalandırma: ızgaraya oturur, serbest.
+
+Mod araç kimliğine ya da bileşenin içine gömülmedi: yeni bir sembol eklemek bu
+tabloya bir satır yazmaktan ibaret olmalı.
+
+### Armatür bir DÜĞÜMDÜR, ayrı bağlantı kaydı değil
+
+`InstallationConnection` bir hattın UCUNU tarif ediyor (`end: 'start' | 'end'`);
+armatür ise hattın ortasında. Bu yüzden `InstallationLinePoint` üzerinde
+`inlineElementId` alanı açıldı — WebCAD'in `InstalmentPoint.inlineApplianceId`
+deseninin aynısı (K-W3).
+
+Sonuçları: eleman silinince düğüm boşa çıkar ve **boru bölünmüş kalır**; hat
+silinince **üstündeki armatürler de gider** (düğümü kalmayan vana sahipsiz bir
+sembol olarak asılı kalırdı); armatür taşınınca oturduğu düğüm aynı kaymayla gelir.
+
+### Önizleme yoksa yerleştirme de yok
+
+`onLine` modunda imleç boru üstünde değilse çözücü `null` döner; önizleme çıkmaz
+**ve** tıklama hiçbir şey koymaz. İki koşul tek yerde: ayrı yazılsalardı "hayalet
+görünmüyor ama eleman düşüyor" hâli doğardı. Geçersiz yerleşim de kaydırılmaz,
+**reddedilir** — açıklık yerleştirmesindeki kuralın aynısı.
+
+### Sembol boru açısından değil PORT EKSENİNDEN hizalanıyor
+
+Eleman açısı `segmentAçısı − akışEkseniAçısı` (`getFlowAxisAngleDeg`). Vana gibi
+portları yatay sembollerde bu boru açısının aynısı, ama **sayacın portları
+gövdesinin üstünde** (`gas-meter.meta.json`: origin `[30,13]`, portlar `y = −20`) —
+boru açısı doğrudan kullanılsaydı sayaç boruya ters otururdu. Aynı gerekçeyle
+manometre boruya PORTUYLA değer, gövdesi yanda kalır.
+
+### Regülatörün refakatçileri tabloda
+
+Regülatör tek başına konmuyor: giriş tarafına vana, çıkış tarafına manometre ve
+vana geliyor (`ELEMENT_COMPANIONS`). Ofsetler sembol genişliklerine göre üst üste
+binmeyecek şekilde seçildi. **Bir refakatçi bile parçaya sığmıyorsa yerleşimin
+tamamı reddedilir** — yarısı konsaydı kullanıcı eksik bir grup görürdü.
+
+Sıra tek yerde (`getInlineSpecs`, ofsete göre artan) ve önizleme aynı diziyi
+kullanıyor; iki yerde ayrı hesaplansaydı önizlemedeki sembol başka bir düğüme
+yerleşirdi.
+
+### Sayaç konunca boru çizimi kendiliğinden başlıyor
+
+`placeElementAtLineEnd` sayacın id'sini döndürüyor; araç boruya geçiyor ve taslak
+sayacın **çıkış** portundan açılıyor. Kullanıcı sayacı koyup paletten boruyu
+ayrıca seçmiyor.
+
+### Tek jest = tek Ctrl+Z
+
+Üç yerleştirme aksiyonu da (eleman + refakatçiler + boru ayırma + kol + bağlantı
+kayıtları) tek `set()` içinde çalışıyor. Regülatör dört eleman ve dört bölme
+yazıyor, tek Ctrl+Z hepsini geri alıyor.
+
+### İzolasyon artık bir eleman (K-W4 uygulaması)
+
+`insulation` `TOOLBAR_ONLY_SYMBOL_IDS`'ten çıkıp `INSTALLATION_ELEMENT_TYPES`'a
+girdi, araç davranışı `segment-toggle` yerine `placement` oldu ve `onLine`
+modunda boruya oturuyor. `InstallationLineSegment.isInsulated` alanı hâlâ
+AÇILMADI; izolasyonun kapsadığı aralık Aşama 8'de kendi alanı olacak.
+
+### Bilinen sınırlar
+
+- Yerleştirme aracı boruya yapışırken **kendi kattaki** hatlara bakıyor; başka
+  kattaki boru aday değil.
+- `nearestLine` modunda yarıçap yok ("en yakına yapışır"): hiç AÇIK UÇ yoksa
+  yerleştirme de olmuyor, kullanıcıya ayrı bir uyarı çıkmıyor.
+- Armatürün oturduğu düğüm sürüklenerek boruyu büküyor; armatürü boru boyunca
+  KAYDIRMA (t üzerinde gezdirme) henüz yok.
+
+## 2026-08 · Vana/filtre/regülatör SVG düzeltmeleri, cihaz kolu, boru taşıma, duvar snap'i
+
+### K29 — `nearestLine` artık yalnız AÇIK UÇLARA bağlanıyor, ortaya değil
+
+Vana/soba/kombi gibi `nearestLine` elemanları eskiden `findNearestSegment` ile
+borunun HERHANGİ bir noktasına (ortasına dahi) bağlanıyordu. Artık `lineEnd`
+modunun (sayaç) kullandığı `findNearestFreeLineEnd`'i paylaşıyor: yalnız
+bağlantısız/armatürsüz uçlar aday. Sonuç olarak vana artık boruyu AYIRMIYOR —
+`onLine`'daki gibi bir bölme yok, hattın zaten var olan ucuna `inlineElementId`
+ile oturuyor. `resolveNearestLineAttachment` bu yüzden `connections` parametresi
+aldı (bir uca ikinci eleman takılamaz, port kuralıyla aynı).
+
+Cihazı boruya bağlayan kol yeni bir hat türü aldı: `applianceStub`. Çap
+sınıfından BAĞIMSIZ, hep KIRMIZI ve KESİKLİ çiziliyor (`PLUMBING_COLORS.applianceStub`,
+`PipeLine`'a `isDashed` propu eklendi) — "bu bir boru değil, cihazın kısa
+bağlantısı" görsel olarak ayırt edilsin diye.
+
+### K30 — Regülatör SVG'si artık salt gövde; iki manometre koda taşındı
+
+`regulator.svg` vana + manometre görselini de bakıyordu; bunlar zaten
+`ELEMENT_COMPANIONS`'ta GERÇEK, ayrı elemanlar olarak ekleniyordu — SVG'deki
+kopyalar yalnız görsel gürültüydü. SVG artık yalnız boş gövde dairesi
+(viewBox 76×68 → 24×24). Eskiden yalnız ÇIKIŞ tarafında bir manometre vardı,
+artık HER İKİ tarafta da var — vana ile regülatör arasında, regülatöre YAKIN
+(vana payından dar bir pay ile). Refakatçi sırası artık
+`[valve, manometer, regulator, manometer, valve]` (beş eleman, beş bölme).
+
+Vana/selenoid vana SVG'lerinden gövde dışına taşan giriş/çıkış "kulakçık"
+çizgileri (önce kalınlaştırılıp uzatıldı, sonra kullanıcı isteğiyle TAMAMEN
+kaldırıldı) — filtre kitiyle aynı gerekçe: boru zaten arkasından geçiyor,
+tekrar gerekmiyor. Vana artık yalnız iki üçgenin (bowtie) kendisi.
+
+### K31 — Boru rijit taşıma DENENDİ, GERİ ALINDI
+
+`plumbingSlice.moveLines` + `useSelectionTool`'daki `lineGrab` bir tur içinde
+eklenip kullanıcı isteğiyle AYNI oturumda geri alındı — kod tabanında iz
+bırakmadı. Ürün kararı değil, "şimdilik istemiyoruz" tercihi; ileride tekrar
+istenirse `moveElements`'in aynası olarak (düğümdeki armatür + PORT ile bağlı
+eleman birlikte taşınmalı) yeniden yazılabilir.
+
+### K32 — Hat çizimi duvar eksenine YUMUŞAK yapışıyor (ZORUNLU değil)
+
+CLAUDE.md'deki "borular duvarlara paralel, hat üzerinden başlar" kuralı hâlâ
+ZORUNLU bir kısıt olarak kodda değil — yalnız bir yardımcı snap eklendi.
+`core/wallSnap.ts` → `findNearestWallPoint`, `useLineTool.ts`'teki
+`resolveSnap`'e port > mevcut boru > **duvar ekseni** > ızgara sırasında
+eklendi. Bu bir BAĞLANTI kaydı ÜRETMİYOR — boru grafiği duvarı tanımıyor
+(`core/model.ts` sözleşmesi) — yalnız imleç duvara yakınken başlangıç
+konumunu duvarın eksenine çekiyor; izdüşüm `core/wall.ts`'teki tek fonksiyondan
+(`projectPointOntoWall`) geliyor, ikinci bir kopya yazılmadı.
+
+## 2026-08 · K29–K32 sonrası düzeltmeler: süzme sayaç, izolasyon, kesikli önizleme
+
+### K33 — Süzme sayacın portları gaz sayacından yanlışlıkla kopyalanmıştı
+
+`strainer-meter.svg`/`.meta.json` `gas-meter`'ın (yukarı bakan, `lineEnd`
+modu için tasarlanmış) port düzenini birebir taşıyordu. `strainerMeter` ise
+`onLine` modunda — akış ekseni DİKEY çıktığı için sembol boruya yan yatık
+oturuyordu. Düzeltme: valve'la aynı yatay port düzeni (giriş/çıkış x=0/60,
+y=20), artık iki portlu her `onLine` eleman gibi merkezden (`ORIGIN` çapası)
+doğrudan boruya oturuyor.
+
+### K34 — İzolasyon artık İNCE UCUNDAN tutunuyor, merkezden değil
+
+`insulation.meta.json` → `origin` `[20,15]`den `[20,24]`e taşındı: sembolün
+daralan üç enine çizgisinin en dar olduğu nokta. 0 portlu elemanlarda
+`getOnLineAnchorOffset` çapayı `metadata.origin`'in KENDİSİNE eşitliyor — origin
+tabanın/gövdenin ortasındayken boru sembolün ortasından geçiyordu, artık
+sadece ince ucu boruya değiyor, geniş taban ve sap borudan uzağa düşüyor.
+
+### K35 — Cihaz kolunun kesikli önizlemesi hep SOLİD görünüyordu
+
+`DrawPreview.tsx` → `StubPreviewLine` lastik bant tekniğini kullanıyor:
+`points` PROPU sabit (`RUBBER_BAND_SEED`), iki köşe her karede tamponun İÇİNE
+yazılıyor. drei `<Line>` kesikli desenin mesafesini yalnız `points` PROP
+REFERANSI değiştiğinde `computeLineDistances()` ile hesaplıyor (`Line.js`);
+tampon elle yazıldığında bu hiç tetiklenmiyordu, mesafe sıfır uzunluklu ilk
+kareye takılı kalıyordu. Çözüm: buffer'ı yazdıktan hemen sonra
+`line.computeLineDistances()` ELLE çağrılıyor. Yerleşmiş (kalıcı) kol bu
+tuzağa hiç girmiyordu — `InstallationLineMesh`'te `positions` gerçek bir
+`useMemo`'dan geliyor ve `points` prop'u mount'ta zaten doğru uzunlukla bir
+kez değişiyor.
+
+### K36 — Regülatör payları ikinci kez sıkılaştırıldı
+
+`REGULATOR_MANOMETER_CLEARANCE_CM` 8→4, `VALVE_MANOMETER_CLEARANCE_CM` 20→10.
+Ofsetler ±42/±114'ten ±38/±100'e indi.
+
+## 2026-08 · Port yuvarlağı, kol-kopma düzeltmesi, onLine kaydırma, üçüncü sıkılaştırma
+
+### K37 — Vana/selenoid vana/filtre/süzme sayaçta port yuvarlağı ÇİZİLMEZ
+
+`attachModes.ts` → `NO_PORT_MARKER_TYPES`/`hasPortMarkers`; `PortMarkers.tsx`'in
+paylaşılan bileşeni bu dört tür için erken `null` döner (hem seçili elemanın
+kendi işaretinde hem hat çizerken görünen "buraya bağlan" işaretinde). Gerekçe:
+bu dördü akış geçişli `onLine` — portları boruyu AYIRAN gerçek bir düğüm, WebCAD
+anlamında serbest bir bağlantı hedefi DEĞİL. `isPortOccupied` bu elemanların
+portları için zaten hiçbir zaman `true` dönmeyecekti (armatür bağlantı kaydı
+değil `inlineElementId`'dir), yani işaret hep yanlışlıkla "boş" (mavi)
+görünüyordu. Regülatör ve manometre bu istisnaya dahil değil.
+
+### K38 — Vana taşınınca kol artık KOPMUYOR
+
+`nearestLine`'ın otomatik vanası ana borunun VAR OLAN bir düğümüne
+`inlineElementId` ile oturuyor; cihaza giden kol ise AYRI bir hat, o düğüme
+yalnız bir `{kind:'line'}` bağlantı KAYDIYLA değiyor — kolun kendi başlangıç
+noktası ana borudaki düğümle AYNI nesne değil. `moveElements` vanayı taşırken
+ana borudaki düğümü doğru taşıyordu ama kolun ucunu unutuyordu → vana
+sürüklenince kol görsel olarak KOPUYORDU. Düzeltme: `moveElements`'e dördüncü
+bir döngü eklendi — `target.kind==='line'` bağlantılarını tarayıp hedefi az
+önce taşınmış bir inline elemana aitse kolun o ucunu da aynı deltayla taşıyor.
+
+### K39 — onLine eleman sürüklenince boru BÜKÜLMEZ, eleman ÜZERİNDE KAYAR
+
+Önceki davranış boruyu büküyordu (K28'in bilinen sınırıydı). Yeni resolver
+`core/elementAttach.ts` → `resolveOnLineSlide`: sürüklenen elemanın düğümünün
+İKİ SABİT komşusu bulunur (kendileri hareket etmez), aralarındaki düz hatta
+`projectOntoSegment` ile izdüşürülür ([0,1] aralığına zaten kelepçeli — segment
+dışına taşan sürükleme en yakın komşuya yapışır, boruyu bükmez). Açı SABİT
+kalır çünkü komşular kıpırdamıyor. İki komşusu da yoksa (eleman hattın tam
+UCUNDA — ör. nearestLine'ın boş uca oturan vanası) `null` döner, o elemanlar
+eski serbest `moveElements` yoluna düşer (K38'in düzeltmesi zaten onları
+kapsıyor).
+
+Store'da MUTLAK yazan ayrı bir eylem var: `slideOnLineElement(lineId, pointId,
+elementId, nodePosition, elementPosition)` — `moveElements`'in kayma (delta)
+mantığından bilerek FARKLI. `useSelectionTool.ts`'teki `SelectionGrab.slide`
+yalnız TEK eleman seçiliyken ve çözücü `null` dönmüyorken devreye girer; grup
+taşımasında hep eski serbest kayma kullanılır.
+
+**Bilinen sınır:** boru segmentleri sürükleme boyunca CANLI güncellenmez —
+store yalnız `pointerup`'ta yazılır (moveElements'teki bağlı eleman/hat ucu
+davranışıyla AYNI, yeni bir sınırlama değil).
+
+### K40 — Vana/sayaç payı da sıkılaştırıldı
+
+`elementAttach.ts` → `ATTACH_CLEARANCE_CM` 20→10 (gasMeter'ın otomatik
+vanasının gövdeden uzaklığı) — regülatörün `VALVE_MANOMETER_CLEARANCE_CM`siyle
+(10) aynı değer.
+
+## 2026-08 · Regülatör hâlâ genişti (asıl sebep bounds'tu), izolasyon hâlâ tersti
+
+### K41 — Vana/manometrenin `bounds`'u çizimden İKİ KAT genişti
+
+K36/K40'ta paylar iki kez daraltıldıktan SONRA bile regülatör grubu geniş
+kalmaya devam etti. Kök sebep paylar DEĞİLDİ: `valve.meta.json` hâlâ 60 cm'lik
+eski `bounds`/`viewBox` taşıyordu ama görünen çizim (kulakçık çizgileri
+kaldırıldıktan sonra) yalnız 32 cm'ydi; `manometer.meta.json` de aynı şekilde
+44 cm bildirirken çizim (daire çapı) yalnız 22 cm'ydi. `attachModes.ts`'teki
+`VALVE_HALF_CM`/`MANOMETER_HALF_CM` bu HAYALİ genişliklere göre elle
+yazılmıştı — sembol küçültülmüş GÖRÜNSE de aralıklar eski gövdeye göre
+hesaplanmaya devam ediyordu.
+
+Düzeltme: `valve.svg`/`.meta.json`, `solenoid-valve.svg`/`.meta.json`,
+`manometer.svg`/`.meta.json` gerçek çizim sınırlarına küçültüldü (port
+konumları da aynı oranda içeri çekildi), `VALVE_HALF_CM` 30→16,
+`MANOMETER_HALF_CM` 22→11. Ofsetler ±38/±100'den ±26/±59'a indi — asıl fark
+paylardan değil bu düzeltmeden geldi. **Genel ders:** `bounds` SVG çiziminden
+manuel türetilen bir alan; çizim değişirken (kulakçık silme gibi) aynı adımda
+güncellenmezse aralık hesapları sessizce (ve testte YAKALANMADAN) yanlış kalır.
+
+### K42 — İzolasyon SVG'si yeniden çizildi: simetrik zikzak, artık YAPISAL OLARAK "ters" DURAMAZ
+
+Önceki tasarım (taban çizgisi + yukarı sap + aşağı daralan üç enine çizgi)
+ASİMETRİKTİ. Çapayı önce gövde ortasına, sonra "ince uca" taşımak sorunu
+çözmedi — sorun çapa noktası değil, şeklin kendisiydi: SVG'nin +Y'si planın
+−Y'sine karşılık geldiği için (`svgLocalToPlanOffset`) asimetrik bir şekil
+hangi ucundan tutunursa tutunsun kullanıcıya hep "ters" görünüyordu.
+
+Çözüm: `insulation.svg` tek bir simetrik zikzak `polyline`'a (viewBox 40×16,
+dalga ortada) çevrildi. Çapa (`origin: [20,8]`) dalganın TAM ORTASI — dikey
+ayna görüntüsü aynı desen gibi görünür, yön belirsizliği doğuran asimetri
+kökten kaldırıldı.
+
+## 2026-08 · Yönetici anasayfası (Genel Bakış)
+
+### K28 — Ekran tek uçtan beslenir, veri katmanı sözleşmeyi garanti eder
+
+Tüm sayılar `GET /api/admin/dashboard/summary?region=` sözleşmesinden geliyor
+(`api/adminDashboard.ts`). Liste uçlarının toplamı ALINMADI: sayfalı bir uçtan
+toplam çıkarmak yanlış sonuç verir.
+
+**Uç HENÜZ YOK.** Sunucunun OpenAPI belgesinde 21 rota var, hiçbiri `dashboard`
+veya `summary` içermiyor; `/api/admin/` öneki de hiç bulunmuyor. Bu yüzden yol
+`/api/dashboard/summary` olarak yazıldı — backend NİHAİ adı farklı verebilir,
+uç açılınca `DASHBOARD_SUMMARY_PATH` sabiti doğrulanacak.
+
+**Sonuç: ekrandaki sayıların hemen hepsi ÖRNEK VERİ.** Base URL dolu olduğu için
+istek gerçekten atılıyor, 404 dönüyor ve katman sessizce mock'a düşüyor.
+
+Mock'a düşme koşulu SADECE bu dosyaya özel (`isMissingEndpoint`): 404, 501 ve
+ağ hatası mock'a düşer. **401, 403 ve 5xx GEÇİRİLİR** — `http.ts` 401'de oturumu
+düşürüyor ve `RequireAuth` girişe yönlendiriyor; bunları mock'a yutsaydık süresi
+dolmuş oturumda kullanıcı sahte veriyle dolu çalışan bir ekran görürdü, ki bu
+hata ekranından çok daha kötü bir sonuç. Gas-firm katmanına dokunulmadı.
+
+Mock'a düşerken konsola **tek satır** `console.warn` yazılır (modül düzeyinde
+bayrakla bir kez; bölge her değişince sorgu tekrar çalıştığı için aksi hâlde
+konsol aynı satırla dolardı). Bu BİLİNÇLİ bir teşhis çıktısıdır, CLAUDE.md'deki
+`console.log` yasağı gürültü amaçlı log'lar içindir — **"unutulmuş log" diye
+silinmemeli**; `eslint-disable-next-line no-console` gerekçesiyle birlikte duruyor.
+Uç açılınca bu blok tümüyle kalkacak.
+
+Mock veri bölge taşıyor, böylece bölge seçimi gerçekten çalışıyor ve KK-2 test
+edilebiliyor — 404 ile mock'a düşülen durumda da süzgeç işliyor.
+
+Sıralama, üst sınırlar (5 bölge / 2 duyuru) ve duyuru kısaltması `normalizeSummary`
+içinde, **kaynaktan bağımsız** uygulanıyor. Yalnız mock yolunda yapılsaydı sunucu
+bir gün sırasız veya 10 satır döndürdüğünde KK-5/KK-6 sessizce ihlal olurdu.
+
+Duyuru özeti CSS `line-clamp` ile değil **veri katmanında 120 karakterde**
+kısaltılıyor: satır sayısı yazı tipine ve kart genişliğine bağlı olduğu için test
+edilemezdi, karakter sınırı deterministik.
+
+### Bölge filtresi burada AKTİF, liste ekranında pasif
+
+Bilinçli fark. Gaz dağıtım listesinde bölge süzgeci devre dışı (K27) çünkü gerçek
+uç bölge taşımıyor. Gösterge panelinde ise veri zaten mock; mock'a bölge alanı
+koyup süzgeci çalıştırmak KK-2'yi test edilebilir kılıyor ve gerçek uç gelince
+yalnız veri kaynağı değişecek.
+
+### Mockup'ta olup belgede olmayan: "Abone Sorgulama"
+
+Yeşil mockup'ta sağ üstte "Abone Sorgulama" butonu var; gereksinim belgesinde ve
+KK-1'de geçmiyor (ikisi de yalnız "Duyuru Yayınla" diyor). **Kapsam dışı
+bırakıldı**, eklenmedi.
+
+### Olmayan ekrana bağlantı yerine PASİF öğe
+
+> GÜNCELLENDİ — hızlı işlemler ve "Duyuru Yayınla" için bu karar artık geçerli
+> değil; bkz. aşağıdaki "Hedefi olmayan kısayollar" ve "Duyuru Yayınla formu"
+> başlıkları. Aşağıdaki gerekçe hâlâ pasif kalan öğeler için duruyor.
+
+Hedef ekranı yazılmamış her öğe ölü bağlantı yerine `aria-disabled` ile pasif
+render ediliyor: "Proje Firması Ekle", "Kullanıcı Oluştur", "Duyuru Yayınla".
+Duyurular kartındaki "Tümünü Gör" ise düz metin — hedefi olmayan bir bağlantı
+hiç kurulmadı. Hepsinin başında sahipli `TODO(esra)` var.
+
+Gerçek `disabled` KULLANILMADI: `disabled` düğme odaklanamaz, dolayısıyla
+"Bu ekran henüz hazır değil" açıklaması klavye ve ekran okuyucu kullanıcısına
+hiç ulaşmazdı. Açıklama `title` ile de verilmedi (ekran okuyucularda tutarsız
+okunuyor); görünür bir metne `aria-describedby` ile bağlı.
+
+`adminNavItems.ts`'e dokunulmadı — olmayan sayfalara menü maddesi açmak ölü link
+üretirdi.
+
+### Yeni yetki anahtarları
+
+`projectFirm.create` ve `user.create` eklendi (kalıp `<varlık>.<eylem>`).
+"Projeleri Görüntüle" için anahtar AÇILMADI: proje listesi sol menüden zaten
+korumasız açılıyor, kısayolu gizlemek tutarsız olurdu.
+
+### Yeni renk token'ları
+
+`--color-success-soft` (#3f8f63 / #5fbf8c) ve `--color-warning` (#b26a00 /
+#e0a458). `success-soft` YALNIZ büyük kalın sayaç rakamında kullanılır: beyaz
+zeminde ~3.4:1, WCAG AA büyük metin eşiğini (3:1) geçer ama küçük metin eşiğini
+(4.5:1) geçmez. Kısıt token'ın yanına yorum olarak yazıldı.
+
+### Çubuk grafik: kütüphane yok, inline stil yok
+
+Yatay çubuk native `<progress value max>` ile çiziliyor; oran `max`'ı en yüksek
+değere kurarak tarayıcıya bırakılıyor. Grafik kütüphanesi eklemek tek eksenli
+beş satırlık bir gösterim için paket boyutunu ve tema uyumu yükünü boşuna
+artırırdı. Genişliği `style={{}}` ile yazmak CLAUDE.md'nin inline stil yasağını
+ihlal ederdi; `<progress>` dolgusu yalnız satıcı sözde-öğeleriyle boyandığı için
+görünüm `styles/dashboardBar.css`'e ayrı dosya olarak konuldu.
+
+## Genel Bakış: backend'den istenecek uçlar ve alanlar
+
+Aşağıdakiler mock; MR açıklamasına da eklenecek.
+
+1. `GET /api/dashboard/summary?date=&region=` — TEK uç (nihai adı backend
+   onaylayacak). `date` YEREL takvim günü (`YYYY-MM-DD`) ve ZORUNLU: `today` ve
+   `regionDensity` yalnız O GÜNE ait kayıtlardan hesaplanmalı, `counts` ise
+   günden bağımsız birikimli toplam.
+   Beklenen yanıt gövdesi:
+
+   ```json
+   {
+     "counts": { "gasDistributionUsers": 2926, "projectFirms": 11838, "projectFirmUsers": 24804 },
+     "today": { "newProjects": 11, "approved": 3, "rejected": 0 },
+     "regionDensity": [{ "region": "Marmara", "count": 28 }],
+     "announcements": [
+       { "id": 2, "title": "...", "summary": "...", "publishedAt": "2026-07-11T06:00:00Z", "source": "Sistem" }
+     ]
+   }
+   ```
+
+   Alanlar:
+   - `counts.gasDistributionUsers`, `counts.projectFirms`, `counts.projectFirmUsers`
+   - `today.newProjects` (bugün OLUŞTURULAN, `createdAt`), `today.approved`, `today.rejected`
+   - `regionDensity[]` → `{ region, count }` (bugün gelen projeler)
+   - `announcements[]` → `{ id, title, summary, publishedAt, source }`
+2. **Kullanıcı sayıları için uç yok.** Gaz dağıtım ve proje firması kullanıcı
+   sayıları hiçbir uçtan gelmiyor.
+3. **Proje durum alanı listede yok.** `ProjectListItemDto` durum taşımadığı için
+   "Onaylanmış"/"Reddedilen" sayaçları sunucudan gelmeli.
+4. **Bölge alanı.** Proje ve firma kayıtlarında bölge yok; K27'deki bölge
+   yetkisi alanı gelince hem bu ekran hem liste süzgeci gerçek veriye bağlanır.
+5. **Duyuru varlığı yok.** `source` alanı 'Sistem' | firma adı ayrımını taşımalı;
+   amber kenarlık buna bağlı.
+6. `GET /api/me/permissions` hâlâ mock — `projectFirm.create` ve `user.create`
+   sunucudan gelmeli.
+7. `POST /api/dashboard/announcements` — duyuru yayınlama. İstek gövdesi
+   `{ title, body, region: string | null, isSystem: boolean }`, yanıt tek bir
+   `Announcement`. Görünen `source` alanını sunucu belirler (`isSystem` ise
+   'Sistem'); `region: null` = tüm bölgeler.
+
+### "Bugün" sayaçları güne bağlandı, gün dönünce sıfırlanıyor
+
+Sayaçlar artık BİR GÜNÜN kayıtlarını sayıyor. Gün anahtarı (`YYYY-MM-DD`,
+`api/dayKey.ts`) hem sorgu anahtarının hem `?date=` parametresinin parçası:
+gece yarısı anahtar değişiyor, veri yeni gün için yeniden isteniyor ve sayaçlar
+sıfırdan başlıyor. Yani "gece yarısı sıfırlanır" ayrı bir kural değil, veri
+kapsamının doğal sonucu — istemcide sıfırlayan bir kod YOK.
+
+Gün YEREL takvim günü. `toISOString()` KULLANILMADI: o UTC'ye çevirir, TR
+saatiyle gece yarısından sonra açılan ekran bir önceki günü sorardı.
+
+Günü `useCurrentDay` taşıyor. Tarihi her render'da `new Date()` ile okumak
+yetmezdi: render'ı TETİKLEYEN bir şey olmadığı için gece boyunca açık kalan
+sekmede dünkü tarih ve dünkü sayaçlar ekranda kalırdı. Zamanlayıcı gece
+yarısından 500 ms sonraya kuruluyor (erken uyanan `setTimeout` hâlâ dünü
+görürdü) ve her uyanışta kendini yeniden kuruyor. Arka plandaki sekmede tarayıcı
+zamanlayıcıyı kıstığı için `visibilitychange` de dinleniyor.
+
+Mock'ta hareketler artık gün taşıyor ve uygulamanın AÇILDIĞI güne yazılıyor:
+sabit tarih yazılsaydı mock ertesi gün "bugün" olmaktan çıkardı. Birikimli
+sayılar (kullanıcı/firma adedi) günden bağımsız kaldı — onlar devreden toplam.
+
+### "Duyuru Yayınla" formu: diyalog + canlı önizleme
+
+Belgede formun nasıl olacağı yazmıyordu. Ayrı SAYFA değil DİYALOG seçildi:
+yönetici anasayfadan ayrılmadan yazıp yayınlıyor ve sonucu arkadaki Duyurular
+kartında hemen görüyor.
+
+Alanlar: Başlık (zorunlu, 3–80), Kapsam (bölge; BOŞ BIRAKILABİLİR = tüm
+bölgeler), Duyuru Metni (zorunlu, 500 karakter sayacıyla), "Sistem duyurusu"
+kutusu. Kutu bilinçli: kartın amber sol kenarlığı `source === 'Sistem'`
+ayrımına bağlıydı ama bu ayrımı kuracak bir giriş yoktu.
+
+Formun altında CANLI ÖNİZLEME var ve kartın kendi satır bileşenini
+(`AnnouncementItem`) kullanıyor — kart ile önizleme aynı koddan çiziliyor,
+ikinci bir kopya zamanla sessizce ayrışırdı. Kısaltmayı da veri katmanının
+kendi fonksiyonu yapıyor: metnin nerede kesileceği yayınlamadan ÖNCE görülüyor.
+
+Görünen `source` alanını SUNUCU belirler; istemci yalnız `isSystem` gönderir.
+Kaynak adını istemcide üretmek iki ekranın farklı etiket yazması demekti.
+`POST /api/dashboard/announcements` de HENÜZ YOK; özet ucuyla aynı kural
+geçerli (404/501/ağ hatası → mock, 401/403/5xx → geçer, kullanıcı "yayınlandı"
+sanmasın). Mock, yayınlanan duyuruyu oturum boyunca tutuyor.
+
+Diyalog kabuğu `ui/admin/AdminDialog.tsx`'e çıkarıldı ve `ConfirmDialog` de
+ona bağlandı: odak tuzağı + Esc + odağın geri dönmesi mantığı üçüncü kez
+kopyalanmadı. `ConfirmDialog` açılışta odağı ONAY düğmesine almaya devam ediyor
+(`initialFocusRef`), kabuğun varsayılanı ilk odaklanabilir öğe.
+
+### Hedefi olmayan kısayollar: pasif düğme yerine "bu ekran gelecektir" sayfası
+
+Önceki karar (pasif `aria-disabled` öğe) DEĞİŞTİ. Hızlı işlemlerin dördü de
+gerçek bağlantı; ekranı yazılmamış olanlar `ComingSoonPage`'e gidiyor
+("Bu ekran gelecektir." + Anasayfaya dön).
+
+Yollar şimdiden gerçek adlarıyla açıldı (`/admin/project-firms/new`,
+`/admin/users/new`); ekran gelince YALNIZ route'un element'i değişecek,
+kısayollara ve bağlantılara dokunulmayacak. Tıklamadan önce beklenti kurulsun
+diye kısayolda "Yakında" rozeti var ve rozet erişilebilir adın parçası
+("Kullanıcı Oluştur Yakında"), yani ekran okuyucu kullanıcısına da ulaşıyor.
+
+Yetki kuralı aynı kaldı: kullanıcının izni yoksa kısayol listede HİÇ yer almaz
+(pasif de görünmez). Sol menüye (`ADMIN_NAV_ITEMS`) yine dokunulmadı — menüdeki
+`path: null` maddeleri kendi issue'larında ele alınacak.
+
+Duyurular kartındaki "Tümünü Gör" de aynı desene bağlandı: düz metin değil
+gerçek bağlantı (`/admin/announcements`), hedefinde bugün karşılama sayfası var.
+
+### Sol menüde pasif madde kalmadı
+
+`ADMIN_NAV_ITEMS`'ta `path: null` bitti; her maddenin yolu var
+(`/admin/project-firms`, `/admin/firm-users`, `/admin/documents`,
+`/admin/policies`) ve ekranı yazılmamış olanlar karşılama sayfasına gidiyor.
+
+Gerekçe erişilebilirlik: `disabled` düğme ODAKLANAMAZ, dolayısıyla o dört madde
+klavye ve ekran okuyucu kullanıcısına hiç görünmüyordu. Artık `NavLink`
+oldukları için hem görünüyorlar hem `aria-current` işaretini alıyorlar.
+`adminNavItemVariants`'ın `disabled` tonu kullanılmadığı için silindi.
+
+"Yakında" rozeti hem menüde hem hızlı işlemlerde aynı bileşenden geliyor
+(`ui/admin/ComingSoonBadge.tsx`) — ikinci kopya çıkarılmadı. Rozet METİN, yani
+erişilebilir adın parçası; yalnız renkle verilseydi ayrımı göremeyen kullanıcıya
+hiçbir şey söylemezdi.
+
+### Duyuru listesi ekranı (`/admin/announcements`)
+
+"Tümünü Gör" artık gerçek bir ekrana gidiyor. `GET /api/dashboard/announcements`
+sayfalı liste döndürüyor (`?q=&region=&page=&pageSize=`); uç yokken mock aynı
+süzme/sıralama/sayfalama davranışını taklit ediyor.
+
+Liste satırı anasayfa kartıyla AYNI bileşen DEĞİL ve bu bilinçli: kart dar yerde
+120 karakterde kısaltılmış `summary` gösteriyor, liste ekranının işi duyuruyu TAM
+göstermek. Bu yüzden liste ucu ayrı bir satır tipi taşıyor (`AnnouncementDetail`:
+kısaltılmamış `body` + `region`). Ortaklaştırılsalardı biri diğerinin kısıtını
+taşımak zorunda kalırdı.
+
+Arama başlıkta VE metinde, `includesTr` ile (kendi `toLowerCase()` çözümü
+yazılmadı). Sayfa/arama durumu URL'de (`useAnnouncementListParams`), bölge için
+ayrı süzgeç YOK — kapsam üst bardaki seçimden geliyor, böylece anasayfa ile liste
+arasında gezinirken kapsam korunuyor.
+
+Yayınlama formu iki ekranda da aynı bileşen. Bu yüzden duyuru parçaları
+`ui/admin/dashboard/` altından `ui/admin/announcements/` altına taşındı: artık
+tek ekrana ait değiller. Bağımlılık tek yönlü (dashboard → announcements).
+Tarih/sayı biçimlendiricileri de iki ekran birden kullandığı için
+`ui/admin/adminFormat.ts`'e çıkarıldı; `dashboardFormat.ts` yalnız gösterge
+paneline özel kapsam metinlerini tutuyor.

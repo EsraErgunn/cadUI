@@ -11,8 +11,8 @@ import { useCadStore } from '../store/cadStore'
  * sırasında birlikte hareket ederler. Doğrudan cadStore okunsaydı köşe bırakılana
  * kadar yerinde donar, duvar imlecin arkasında kalırdı.
  *
- * Duvar ötelemesi iki köşeye birden uygulanır; o köşeleri paylaşan komşu duvarlar
- * da aynı havuzdan okuduğu için esneyerek takip eder.
+ * Duvar ötelemesi taşınan HER duvarın iki köşesine uygulanır; o köşeleri paylaşan
+ * komşu duvarlar da aynı havuzdan okuduğu için esneyerek takip eder.
  */
 export function useArchitecturePoints(): Point[] {
   const points = useCadStore((state) => state.points)
@@ -31,10 +31,14 @@ export function useArchitecturePoints(): Point[] {
 
     if (!draggingWall) return points
 
-    const wall = walls.find((candidate) => candidate.id === draggingWall.wallId)
-    if (!wall) return points
-
-    const movingIds = new Set([wall.p1Id, wall.p2Id])
+    // Set: bir köşeyi iki taşınan duvar paylaşabilir, öteleme iki kez uygulanmasın.
+    const movingIds = new Set<Point['id']>()
+    for (const wall of walls) {
+      if (!draggingWall.wallIds.includes(wall.id)) continue
+      movingIds.add(wall.p1Id)
+      movingIds.add(wall.p2Id)
+    }
+    if (movingIds.size === 0) return points
     return points.map((point) =>
       movingIds.has(point.id)
         ? { ...point, x: point.x + draggingWall.dxCm, y: point.y + draggingWall.dyCm }

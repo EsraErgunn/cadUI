@@ -133,7 +133,10 @@ describe('kesişimde düğüm — açıklıklar', () => {
     expect(door.offsetCm).toBeCloseTo(100)
   })
 
-  it('açıklığın İÇİNE düşen bölme REDDEDİLİR — açıklık kaybolmaz', () => {
+  it('açıklığın İÇİNE düşen bölme REDDEDİLİR — açıklık kaybolmaz (TAŞIMADA)', () => {
+    // Yeni ÇİZİLEN bir duvar artık appendWall seviyesinde reddediliyor (K35);
+    // bu senaryo yalnız TAŞIMADA (moveWall) hâlâ mümkün — dikey duvar UZAK bir
+    // yerde çizilip SONRA kapının üstüne taşınıyor, appendWall hiç araya girmiyor.
     const horizontal = addWall(0, 0, 400, 0)!
     // Kapı 200 ± 50 → 150..250 aralığını kaplıyor; bölme tam ortasına gelecek.
     const doorId = useCadStore.getState().addOpening({
@@ -142,8 +145,10 @@ describe('kesişimde düğüm — açıklıklar', () => {
       widthCm: 100,
       type: 'door',
     })!
+    const vertical = addWall(200, 300, 200, 700)!
 
-    addWall(200, 0, 200, 300)
+    // Alt ucu (200,300) → (200,0): tam kapının ortasına T birleşimi oluşturur.
+    useCadStore.getState().moveWall(vertical.wallId, 0, -300)
 
     // Yatay duvar BÖLÜNMEDİ: 1 yatay + 1 dikey.
     expect(wallsOnFloor()).toHaveLength(2)
@@ -168,6 +173,75 @@ describe('kesişimde düğüm — geri alma', () => {
     // Tek Ctrl+Z hem dikey duvarı hem bölmeyi geri almalı.
     expect(wallsOnFloor()).toHaveLength(1)
   })
+})
+
+describe('kolineer örtüşme — bilinen sınır artık kapalı', () => {
+  beforeEach(resetEmpty)
+
+  it('kısmen çakışan iki kolineer duvar TEK duvara iner', () => {
+    // Bitişik iki oda farklı boyda çizildiğinde tam bu senaryo oluşur: iki
+    // duvar aynı doğru üzerinde ama yalnız bir aralıkta örtüşüyor.
+    addWall(0, 0, 0, 500)
+    addWall(0, 100, 0, 400)
+
+    const overlapping = useCadStore
+      .getState()
+      .walls.filter(
+        (wall) =>
+          pointAt(wall.p1Id)?.y === 100 && pointAt(wall.p2Id)?.y === 400,
+      )
+    expect(overlapping).toHaveLength(1)
+  })
+
+  it('bir duvar öbürünün TAMAMEN içinde kalırsa da tek duvara iner', () => {
+    addWall(0, 0, 0, 500)
+    addWall(0, 100, 0, 200)
+
+    const overlapping = useCadStore
+      .getState()
+      .walls.filter(
+        (wall) =>
+          pointAt(wall.p1Id)?.y === 100 && pointAt(wall.p2Id)?.y === 200,
+      )
+    expect(overlapping).toHaveLength(1)
+  })
+
+  it('kazanan İLK ÇİZİLENİN kalınlığını korur', () => {
+    useCadStore
+      .getState()
+      .addWall({ start: { position: { x: 0, y: 0 } }, end: { position: { x: 0, y: 500 } }, thickness: 30 })
+    useCadStore
+      .getState()
+      .addWall({ start: { position: { x: 0, y: 100 } }, end: { position: { x: 0, y: 400 } }, thickness: 15 })
+
+    const overlapping = useCadStore
+      .getState()
+      .walls.find((wall) => pointAt(wall.p1Id)?.y === 100 && pointAt(wall.p2Id)?.y === 400)!
+    expect(overlapping.thickness).toBe(30)
+  })
+
+  it('kaybedenin üstündeki açıklık kazanana taşınır', () => {
+    // Kapı eklendiği anda henüz çakışma yok (B ayrı bir yerde) — çakışma
+    // ancak B SONRADAN A'nın üstüne taşınınca oluşur, o zaman B kaybeder.
+    addWall(0, 0, 0, 500)
+    const b = addWall(100, 100, 100, 400)!
+    const doorId = useCadStore.getState().addOpening({
+      wallId: b.wallId,
+      offsetCm: 150,
+      widthCm: 40,
+      type: 'door',
+    })!
+
+    useCadStore.getState().moveWall(b.wallId, -100, 0)
+
+    const door = useCadStore.getState().openings.find((opening) => opening.id === doorId)!
+    const wall = useCadStore.getState().walls.find((candidate) => candidate.id === door.wallId)!
+    expect(pointAt(wall.p1Id)?.y).toBe(100)
+    expect(pointAt(wall.p2Id)?.y).toBe(400)
+    // Yön aynı kaldığı için offset DEĞİŞMEDEN taşınır.
+    expect(door.offsetCm).toBeCloseTo(150)
+  })
+
 })
 
 describe('kesişimde düğüm — taşımada', () => {

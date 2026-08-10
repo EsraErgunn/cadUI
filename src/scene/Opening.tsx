@@ -7,6 +7,7 @@ import {
 } from './architectureLayers'
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
+import { toOpeningFillPositions } from './openingFill'
 import { SCENE_COLORS } from './sceneTheme'
 import { planToThree, type PlanPoint } from '../core/coords'
 import type { OpeningType } from '../core/model'
@@ -39,19 +40,6 @@ function isPreviewTone(tone: OpeningTone): boolean {
   return tone === 'previewValid' || tone === 'previewInvalid'
 }
 
-/** İki üçgen: 4 köşeden (0,1,2) ve (0,2,3). */
-function toFillPositions(corners: readonly PlanPoint[], elevationCm: number): Float32Array {
-  const order = [0, 1, 2, 0, 2, 3]
-  const positions = new Float32Array(order.length * 3)
-
-  order.forEach((cornerIndex, slot) => {
-    const [x, y, z] = planToThree(corners[cornerIndex], elevationCm)
-    positions.set([x, y, z], slot * 3)
-  })
-
-  return positions
-}
-
 export function Opening({ outline, type, tone }: OpeningProps) {
   const isPreview = isPreviewTone(tone)
   const elevationCm = isPreview ? OPENING_PREVIEW_ELEVATION_CM : OPENING_ELEVATION_CM
@@ -68,7 +56,7 @@ export function Opening({ outline, type, tone }: OpeningProps) {
         <bufferGeometry>
           <bufferAttribute
             attach="attributes-position"
-            args={[toFillPositions(outline, elevationCm), 3]}
+            args={[toOpeningFillPositions(outline, elevationCm), 3]}
           />
         </bufferGeometry>
         <meshBasicMaterial
@@ -84,7 +72,7 @@ export function Opening({ outline, type, tone }: OpeningProps) {
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
-              args={[toFillPositions(symbol.panel, symbolElevationCm), 3]}
+              args={[toOpeningFillPositions(symbol.panel, symbolElevationCm), 3]}
             />
           </bufferGeometry>
           <meshBasicMaterial color={strokeColor} depthWrite={false} toneMapped={false} />

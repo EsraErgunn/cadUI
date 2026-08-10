@@ -1,14 +1,21 @@
 import { Line } from '@react-three/drei'
 import { useMemo } from 'react'
 
+import { InstallationLines } from './InstallationLineMesh'
 import { SymbolInstance } from './SymbolInstance'
-import { ARCHITECTURE_GHOST_ELEVATION_CM } from './plumbingLayers'
+import {
+  ARCHITECTURE_GHOST_ELEVATION_CM,
+  ARCHITECTURE_GHOST_SYMBOL_LIFT_CM,
+} from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
-import type { Point, Wall as WallData } from '../../core/model'
-import { getOpeningOutline, getOpeningSymbolPoints } from '../../core/opening'
+import type { OpeningType, Point, Wall as WallData } from '../../core/model'
+import { getOpeningOutline } from '../../core/opening'
+import { getOpeningSymbol, type OpeningSymbolRole } from '../../core/openingSymbol'
 import { getWallCapsule } from '../../core/wallShape'
 import { RENDER_ORDER } from '../../scene/layers'
+import { toOpeningFillPositions } from '../../scene/openingFill'
+import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
 
 /*
@@ -20,8 +27,15 @@ import { useCadStore } from '../../store/cadStore'
  * Gerekçeler: .claude/knowledge/ghost-layers.md
  */
 
-/** Açıklık duvardan ince: duvar kütlesi baskın kalsın, delik onun üstünde okunsun. */
-const GHOST_OPENING_LINE_WIDTH = 1.4
+/**
+ * Mimari görünümün 1.8 / 1.2 / 1 oranı, hayalette bir tık ince: açıklık bağlam,
+ * konu değil — duvar kütlesi baskın kalsın, delik onun üstünde okunsun.
+ */
+const GHOST_STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
+  jamb: 1.4,
+  face: 1,
+  detail: 0.8,
+}
 
 type GhostLineProps = {
   points: ThreePosition[]
@@ -35,7 +49,7 @@ function GhostLine({ points, lineWidth }: GhostLineProps) {
       points={points}
       color={PLUMBING_COLORS.architectureGhost}
       lineWidth={lineWidth}
-      renderOrder={RENDER_ORDER.architectureGhost}
+      renderOrder={RENDER_ORDER.architectureGhostOpening}
       depthWrite={false}
       raycast={() => null}
       toneMapped={false}
@@ -71,13 +85,63 @@ function GhostWall({ wall, points }: { wall: WallData; points: readonly Point[] 
   )
 }
 
-function toGhostPoints(corners: readonly PlanPoint[]): ThreePosition[] {
-  return corners.map((corner) => planToThree(corner, ARCHITECTURE_GHOST_ELEVATION_CM))
-}
+const GHOST_SYMBOL_ELEVATION_CM =
+  ARCHITECTURE_GHOST_ELEVATION_CM + ARCHITECTURE_GHOST_SYMBOL_LIFT_CM
 
-function toGhostRing(corners: readonly PlanPoint[]): ThreePosition[] {
-  // Halka elle kapatılıyor: drei <Line>'ın bu sürümünde `closed` propu yok.
-  return toGhostPoints([...corners, corners[0]])
+/**
+ * Hayalet açıklık, mimari görünümle AYNI plan simgesinden çizilir
+ * (core/openingSymbol.ts): kapı kanadından, pencere cam çizgilerinden tanınsın.
+ * Zemin rengindeki dolgu hayalet duvar bandını DELER — açıklık bandın üstüne
+ * çizilmiş bir kutu değil, gerçek boşluk gibi okunsun.
+ */
+function GhostOpening({ outline, type }: { outline: readonly PlanPoint[]; type: OpeningType }) {
+  const symbol = getOpeningSymbol(outline, type)
+
+  return (
+    <>
+      <mesh
+        frustumCulled={false}
+        renderOrder={RENDER_ORDER.architectureGhostOpening}
+        raycast={() => null}
+      >
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[toOpeningFillPositions(outline, ARCHITECTURE_GHOST_ELEVATION_CM), 3]}
+          />
+        </bufferGeometry>
+        <meshBasicMaterial color={SCENE_COLORS.background} depthWrite={false} toneMapped={false} />
+      </mesh>
+
+      {symbol.panel && (
+        <mesh
+          frustumCulled={false}
+          renderOrder={RENDER_ORDER.architectureGhostOpening}
+          raycast={() => null}
+        >
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              args={[toOpeningFillPositions(symbol.panel, GHOST_SYMBOL_ELEVATION_CM), 3]}
+            />
+          </bufferGeometry>
+          <meshBasicMaterial
+            color={PLUMBING_COLORS.architectureGhost}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+
+      {symbol.strokes.map((stroke) => (
+        <GhostLine
+          key={stroke.name}
+          points={stroke.points.map((corner) => planToThree(corner, GHOST_SYMBOL_ELEVATION_CM))}
+          lineWidth={GHOST_STROKE_WIDTHS[stroke.role]}
+        />
+      ))}
+    </>
+  )
 }
 
 /** Tesisat görünümündeki mimari: aktif kattaki duvarlar + kapı/pencere delikleri. */
@@ -102,15 +166,7 @@ export function ArchitectureGhost() {
         const outline = getOpeningOutline(wall, points, opening)
         if (!outline) return []
 
-        // Kanat/kayıt simgesi mimari görünümle AYNI fonksiyondan gelir
-        // (core/opening.ts): hayalet plandan sapmasın, kapı pencereden ayırt edilsin.
-        return [
-          {
-            id: opening.id,
-            ring: toGhostRing(outline),
-            symbol: toGhostPoints(getOpeningSymbolPoints(outline, opening.type)),
-          },
-        ]
+        return [{ id: opening.id, outline, type: opening.type }]
       }),
     [floorWalls, openings, points],
   )
@@ -121,14 +177,8 @@ export function ArchitectureGhost() {
         <GhostWall key={wall.id} wall={wall} points={points} />
       ))}
 
-      {/* Duvarın ÜSTÜNE çiziliyor (sıra önemli): delik duvar konturunun altında kalmasın. */}
       {openingGhosts.map((opening) => (
-        <group key={opening.id}>
-          <GhostLine points={opening.ring} lineWidth={GHOST_OPENING_LINE_WIDTH} />
-          {opening.symbol.length > 0 && (
-            <GhostLine points={opening.symbol} lineWidth={GHOST_OPENING_LINE_WIDTH} />
-          )}
-        </group>
+        <GhostOpening key={opening.id} outline={opening.outline} type={opening.type} />
       ))}
     </group>
   )
@@ -141,6 +191,10 @@ export function InstallationGhost() {
 
   return (
     <group name="installation-ghost">
+      {/* Hatlar da ize dahil: yalnız semboller gösterilseydi mimari görünümde
+          borular kaybolur, cihazlar havada duruyormuş gibi okunurdu. */}
+      <InstallationLines tone="ghost" />
+
       {elements
         .filter((element) => element.floorId === activeFloorId)
         .map((element) => (
