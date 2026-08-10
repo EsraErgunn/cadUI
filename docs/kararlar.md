@@ -973,6 +973,36 @@ Nerede: `core/wall.ts` (`getPointMoveImpact`, `getWallMoveImpact`),
 `scene/useWallSelectionTool.ts`. Testler `core/__tests__/wallMoveImpact.test.ts`.
 Hook seviyesi (React/R3F) test edilmedi — tarayıcıda manuel doğrulanmalı.
 
+### K37 — Özellik paneli artık ÜSTE biniyor, KK-12'nin kardeş-eleman modeli terk edildi
+
+KK-12 kararı özellik panelini çizim alanının flex KARDEŞİ yapmıştı: panel
+açılınca tuval daralıyordu, "üzerine binmez" bilinçli bir tercihti. Kullanıcı
+geri bildirimi tersini istedi — her nesne seçiminde tuvalin sağa kayması
+rahatsız edici, panel bir pencere gibi sağdan kayarak açılıp tuvalin ÜSTÜNE
+binmeli, tuvalin genişliğini etkilememeli.
+
+`EditorPage.tsx`'teki orta satır (`Toolbar` + `main` + `PropertyPanel`) artık
+`relative`; `PropertyPanel`'in dış kabuğu bu satıra göre `absolute inset-y-0
+right-0`, `translate-x-full` (kapalı) ↔ `translate-x-0` (açık) arasında
+`transition-transform` ile kayıyor. `main` artık panelin varlığından bağımsız
+her zaman tam genişlik.
+
+**Seçim yokken panel artık DOM'dan tamamen düşmüyor.** Eskiden `kind ===
+'none'` durumunda `return null` deniyordu (KK-12'nin "kapalıyken DOM üretme"
+kararı) — ama kayma animasyonunun oynaması için panelin kapanış anında hâlâ
+mevcut olması gerekiyor, `null` dönülürse animasyon hiç görünmeden kaybolur.
+Bunun yerine panel her zaman render edilir, kapalıyken `aria-hidden="true"` +
+`inert` + `pointer-events-none` ile hem ekran okuyucudan hem klavye/tıklama
+sırasından çıkarılır — KK-12'nin asıl kaygısı ("gizli panel odakta kalıyor")
+böyle çözülü kalıyor, DOM'da kalması ise ihmal edilebilir bir maliyet (boş bir
+`aside`).
+
+Nerede: `pages/EditorPage.tsx`, `ui/PropertyPanel.tsx`. İçerideki tüm
+davranış (commit-on-blur, ayrışan değer boş gösterme, toplu yazım tek
+Ctrl+Z — bkz. `knowledge/property-panel.md`) değişmedi, yalnız dış kabuk.
+Testler `ui/__tests__/PropertyPanel.test.tsx` (mevcut testler güncellenmeden
+geçti — `aria-hidden` zaten `queryByRole`'ü filtreliyor).
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

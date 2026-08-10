@@ -61,7 +61,7 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
 - `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
-- `src/ui/` — MenuBar/menu/Toolbar/tools/StatusBar/FloorLabel/AxisIndicator/controls/ExportDialog(D), FloorTabs(B), PropertyPanel/WarningList(C)
+- `src/ui/` — MenuBar/menu/Toolbar/tools/StatusBar/FloorLabel/AxisIndicator/controls/ExportDialog(D), FloorTabs/PropertyPanel(B), WarningList(C)
 - `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
   liste parçaları. Kabuk sayfaya GÖMÜLMEZ, route ebeveynidir. Liste durumu (arama/filtre/
   sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Rol modeli KESİNLEŞTİ:

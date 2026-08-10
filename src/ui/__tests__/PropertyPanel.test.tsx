@@ -29,7 +29,7 @@ beforeEach(() => {
 })
 
 describe('PropertyPanel', () => {
-  it('seçim yokken hiç render edilmez (KK-12)', () => {
+  it('seçim yokken erişilebilirlik ağacından gizlenir (K37)', () => {
     render(<PropertyPanel />)
 
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
