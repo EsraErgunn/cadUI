@@ -1,11 +1,12 @@
 import { usePlumbingUiStore } from './plumbingUiStore'
+import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 import {
-  offsetClipboardEntries,
-  offsetLineClipboardEntries,
-  toClipboardEntries,
-  toLineClipboardEntries,
+  getPasteDeltaCm,
+  shiftClipboardEntries,
+  shiftLineClipboardEntries,
+  toClipboardPayload,
 } from '../core/clipboard'
 
 /**
@@ -20,10 +21,15 @@ import {
 
 export function copySelectionToClipboard(elementIds: readonly Id[], lineIds: readonly Id[]): void {
   const cad = useCadStore.getState()
-  const elementEntries = toClipboardEntries(cad.installationElements, elementIds)
-  const lineEntries = toLineClipboardEntries(cad.installationLines, lineIds)
-  if (elementEntries.length === 0 && lineEntries.length === 0) return
-  usePlumbingUiStore.getState().copyToClipboard(elementEntries, lineEntries)
+  const payload = toClipboardPayload(
+    cad.installationElements,
+    cad.installationLines,
+    cad.installationConnections,
+    elementIds,
+    lineIds,
+  )
+  if (payload.elements.length === 0 && payload.lines.length === 0) return
+  usePlumbingUiStore.getState().copyToClipboard(payload)
 }
 
 export function cutSelectionToClipboard(elementIds: readonly Id[], lineIds: readonly Id[]): void {
@@ -32,8 +38,17 @@ export function cutSelectionToClipboard(elementIds: readonly Id[], lineIds: read
   usePlumbingUiStore.getState().clearSelection()
 }
 
-/** Yapıştırılan eleman/hat id'leri; ikisi de boşsa pano boştu. */
-export function pasteClipboard(): { elementIds: Id[]; lineIds: Id[] } {
+/**
+ * Yapıştırılan eleman/hat id'leri; ikisi de boşsa pano boştu.
+ *
+ * `cursor` = imlecin plan koordinatı: kopya oraya (panonun merkezi imlece
+ * gelecek şekilde) düşer. İmleç tuvale hiç girmediyse null geçilir ve eski
+ * paylı yerleşime dönülür — bkz. `getPasteDeltaCm`.
+ */
+export function pasteClipboard(
+  cursor: PlanPoint | null,
+  gridStepCm = 0,
+): { elementIds: Id[]; lineIds: Id[] } {
   const ui = usePlumbingUiStore.getState()
   if (ui.elementClipboard.length === 0 && ui.lineClipboard.length === 0) {
     return { elementIds: [], lineIds: [] }
@@ -42,10 +57,19 @@ export function pasteClipboard(): { elementIds: Id[]; lineIds: Id[] } {
   // Pay sayacı ÖNCE artar: ilk yapıştırma da kaynağın üstüne düşmesin.
   ui.advancePasteStep()
   const pasteStepCount = usePlumbingUiStore.getState().pasteStepCount
-  const elementEntries = offsetClipboardEntries(ui.elementClipboard, pasteStepCount)
-  const lineEntries = offsetLineClipboardEntries(ui.lineClipboard, pasteStepCount)
+  const deltaCm = getPasteDeltaCm(
+    ui.elementClipboard,
+    ui.lineClipboard,
+    cursor,
+    pasteStepCount,
+    gridStepCm,
+  )
+  const elementEntries = shiftClipboardEntries(ui.elementClipboard, deltaCm)
+  const lineEntries = shiftLineClipboardEntries(ui.lineClipboard, deltaCm)
 
-  const { elementIds, lineIds } = useCadStore.getState().pasteEntries(elementEntries, lineEntries)
+  const { elementIds, lineIds } = useCadStore
+    .getState()
+    .pasteEntries(elementEntries, lineEntries, ui.connectionClipboard)
   // Seçim KOPYAYA geçer: kullanıcı yapıştırdığı şeyi hemen sürükleyebilsin.
   if (elementIds.length > 0 || lineIds.length > 0) {
     ui.setSelectedElements(elementIds)

@@ -98,3 +98,21 @@ export function isLineEndConnected(
     (connection) => connection.lineId === lineId && connection.end === end,
   )
 }
+
+/**
+ * Uç bir ELEMAN portuna mı bağlı. Hat-hat bağı (zincirin bir sonraki adımı,
+ * branşman, cihaz kolu) sayılmaz: o uç hâlâ elle sürüklenebilir bir köşedir,
+ * porta bağlı olan ise yalnız elemanı taşıyarak hareket eder.
+ */
+export function isLineEndOnPort(
+  connections: readonly InstallationConnection[],
+  lineId: Id,
+  end: InstallationConnection['end'],
+): boolean {
+  return connections.some(
+    (connection) =>
+      connection.lineId === lineId &&
+      connection.end === end &&
+      connection.target.kind === 'port',
+  )
+}

@@ -7,17 +7,9 @@ export function getSegmentLengthCm(from: PlanPoint, to: PlanPoint): number {
   return Math.hypot(to.x - from.x, to.y - from.y)
 }
 
-/** Aynı yere ikinci tık sıfır boy segment üretirdi; nokta eklenmez (duvar aracıyla aynı kural). */
-export function appendPoint(points: readonly PlanPoint[], point: PlanPoint): PlanPoint[] {
-  const last = points[points.length - 1]
-  if (last && last.x === point.x && last.y === point.y) return [...points]
-
-  return [...points, point]
-}
-
-/** Tek noktalı taslakta boş dizi döner — çağıran taslağı tümüyle bırakır. */
-export function removeLastPoint(points: readonly PlanPoint[]): PlanPoint[] {
-  return points.slice(0, -1)
+/** Aynı yere ikinci tık sıfır boy boru üretirdi; adım yazılmaz (duvar aracıyla aynı kural). */
+export function isSamePoint(a: PlanPoint, b: PlanPoint): boolean {
+  return a.x === b.x && a.y === b.y
 }
 
 export function hasEnoughPoints(points: readonly PlanPoint[]): boolean {

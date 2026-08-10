@@ -1,25 +1,42 @@
 # decision + gotcha: Hat çizimi (boru / branşman)
 
-## Taslak kalıcı state'e girmez
+## Her sol tık KENDİ borusunu yazar (2026-08, ürün isteği)
 
-Devam eden hat `plumbingUiStore.draftLine`'da yaşar, `cadStore`'a ancak
-tamamlanınca **tek** `addLine` çağrısıyla girer. Hat + her nokta + her segment id'si
-o tek `set()` içinde `takeNextId` ile üretilir → tek `markDirty`, tek Ctrl+Z.
-Her tıkta store'a yazılsaydı yarım çizim hem kaydedilir hem geçmişi tıklama sayısı
-kadar adımla doldururdu (duvar aracı bilerek farklı çalışıyor: orada her segment
-anında yazılır çünkü duvar zinciri mevcut geometriye bağlanabiliyor).
+Bir çizim jesti artık tek bir çok noktalı hat üretmiyor: **iki tık arası bir adım
+= bir `InstallationLine`**. Ardışık adımlar ortak köşede buluşur ve ikincinin başı
+birincinin ucuna `line` bağlantısıyla tutunur — köşe sürüklenince ikisi birden
+gelir (`core/lineCornerLink.ts`). Böylece her boru tek başına seçilebiliyor,
+silinebiliyor ve kendi çapını alabiliyor; her adım kendi Ctrl+Z adımı.
 
-`addLine` 2 noktadan azını **reddeder**; taslak yine de temizlenir.
+> Eskiden burada "taslak kalıcı state'e girmez, tek addLine = tek Ctrl+Z"
+> yazıyordu. O kural **adım başına** geçerli: bir adımın hattı + noktaları +
+> segmentleri + bağlantıları hâlâ TEK `set()` içinde üretilir. Değişen, jestin
+> tamamının değil adımın atomik olması.
+
+`plumbingUiStore.draftLine` artık yarım bir hat değil, zincirin **nerede kaldığı**:
+`anchor` (lastik bandın kökü) + `startTarget` + yazılmış `steps`. Zincir
+aritmetiği saf: `core/lineChain.ts` → `startChain`/`advanceChain`/`rewindChain`.
+
+`addLine` 2 noktadan azını **reddeder** (`null` döner); yazılan borunun
+`{ lineId, startPointId, endPointId }` kimliği döner — zincirleme buna dayanır.
+
+**Tuzak:** zincirin ucunun oturduğu boru snap adayı DEĞİLDİR (`useLineTool`
+→ `resolveSnap`). Aday bırakılsaydı yakalama yarıçapından kısa bir adım, az önce
+yazdığı boruyu AYIRARAK zinciri kapatırdı.
 
 ## Jestler (şartname)
 
 | Jest | Sonuç | Araç sonrası |
 |---|---|---|
-| Sol tık | Nokta ekler (port snap > ızgara snap) | aktif kalır |
-| Sol tık **boş bir porta** | Hat orada BİTER + bağlantı kaydı | **aktif kalır** |
-| Tek sağ tık | Son noktayı geri alır (nokta yoksa etkisiz) | aktif kalır |
-| Çift sağ tık | Hattı bitirir | Seçim aracına döner |
-| Esc | Yarım hattın TAMAMINI iptal eder, hiçbir şey kaydedilmez | aktif kalır |
+| Sol tık | Adımı YAZAR ve köşe bırakır (port snap > mevcut boru > duvar ekseni > ızgara) | aktif kalır |
+| Sol tık **boş bir porta / mevcut boruya** | Adımı yazar, oraya bağlar, zinciri BİTİRİR | **aktif kalır** |
+| Tek sağ tık | Son ADIMI siler, uç bir önceki köşeye döner | aktif kalır |
+| Çift sağ tık | Zinciri bitirir (yazılmış adımlar kalır) | Seçim aracına döner |
+| Esc | Zinciri BIRAKIR — yazılmış adımlar kalır, silinmez | aktif kalır |
+
+Esc'in artık geri aldığı bir şey yok: her adım kullanıcının görerek koyduğu
+kalıcı bir borudur (başlangıç elemanıyla aynı gerekçe). Yanlış adım tek sağ tıkla
+ya da Ctrl+Z ile gider.
 
 Tek/çift ayrımı saf fonksiyonda: `core/pointerGestures.ts` → `resolveRightClick`.
 İlk sağ tık kararı `DOUBLE_CLICK_WINDOW_MS` (300 ms) erteler; pencere içinde ikinci
@@ -75,10 +92,15 @@ kaldırıldı. Altyapı hazır ve testli, panele yalnız arayüz kalıyor:
 Eleman kendi geçmiş adımında yazılır, hatla aynı adımda değil: Esc'lenen yarım
 çizimde eleman da kaybolsaydı kullanıcının görerek koyduğu şey silinirdi.
 
-## Önizleme yerleşmiş hattın AYNISI çizilir
+## Önizleme yalnız LASTİK BANTTIR
+
+`LineDraftPreview` artık YALNIZ zincirin ucundan imlece uzanan bandı çizer:
+yazılmış adımlar gerçek borulardır, sahnede zaten duruyorlar. (Eskiden bant +
+"yerleşmiş taslak parçası" birlikte çiziliyordu; her adım anında yazıldığı için
+o kısım kalktı — kalsaydı aynı boru iki kez, üst üste çizilirdi.)
 
 Renk ve kalınlık `scene/lineStyle.ts`'ten, ikisi de aynı fonksiyondan gelir.
-Yerleşmiş hat da önizleme de **tek bileşenden** (`PipeLine`) geçer — ayrı ayrı
+Yerleşmiş hat da bant da **tek bileşenden** (`PipeLine`) geçer — ayrı ayrı
 kurulsalardı bir prop birinde unutulur ve önizleme farklı (ör. daha ince)
 görünürdü. Yeni bir prop eklerken `PipeLine`'a ekle, kullanan yerlere değil.
 
@@ -146,15 +168,115 @@ nesne türü — tek listede tutulsaydı her okuyan tür ayrımını yeniden yap
 Ctrl+Z gerekirdi. Bağlantı temizliği de aynı yerde — eleman ve hat silme aynı
 temizliği istiyor.
 
-## Hat taşıma denendi, GERİ ALINDI (2026-08)
+**Yapıştırma İMLECE düşer** (2026-08): panonun sınır kutusunun MERKEZİ imlecin
+altına gelir (`getPasteDeltaCm`). Kayma ızgaraya yuvarlanır — yuvarlanan konum
+değil KAYMA, yoksa merkezi yarım adım kaçık bir seçim tüm köşeleri ızgara dışına
+taşırdı. İmleç tuvale hiç girmediyse (klavyeyle Ctrl+V) eski paylı yerleşime
+düşülür, o yüzden `pasteStepCount` duruyor. Eleman sınırı SEMBOL kutusu değil
+ORIGIN: metadata bu katmana girmiyor ve tek eleman yapıştırınca origin tam
+imlecin altına düşüyor.
 
-Rijit hat taşıma (`plumbingSlice.moveLines` + `useSelectionTool`'da `lineGrab`)
-bir tur içinde eklenip aynı oturumda kullanıcı isteğiyle GERİ ALINDI — ürün
-kararı değil, "şimdilik istemiyoruz" tercihi. Kod tabanında iz yok; tekrar
-istenirse `moveElements`'in aynası olarak yeniden yazılabilir (düğümdeki
-armatür ve PORT ile bağlı eleman birlikte taşınmalı — bkz. `moveElements`'teki
-desen). Bugün YOK: hat sürükleme, köşe düzenleme, çerçeveyle hat seçme, hat
-kopyalama.
+**Pano BAĞLARI da kopyalar** (2026-08): eskiden yalnız geometri kopyalanıyordu,
+yapıştırılan boru ile sayaç bitişik GÖRÜNÜP bağlı olmuyor, ilk taşımada
+ayrılıyorlardı. Artık üç bağ da kopyaya taşınır — port, hat-hat köşesi ve
+boruya oturan armatür (`inlineElementId`).
+
+- Bağ **dizinle** taşınır, id ile değil (kural 6): `ClipboardConnection`
+  panodaki eleman/hat sırasına bakar, `pasteEntries` bunları yeni id'lere
+  çevirir. Üç liste (eleman/hat/bağ) TEK fonksiyonda üretilir
+  (`toClipboardPayload`) — ayrı ayrı süzülselerdi sıralar ayrışır ve bağ
+  YANLIŞ nesneye bağlanırdı.
+- Yalnız **iki ucu da seçimin içinde** kalan bağ kopyalanır. Yoksa yapıştırılan
+  boru KAYNAĞIN sayacına bağlanır, bir portu iki hat paylaşırdı.
+- Kısa süre denenip kaldırıldı: uçları çakışan hatları geometriden bağlamak
+  (`getCoincidentEndConnections`). Gerçek bağlar kopyalanınca gereksizleşti ve
+  zararlıydı — kaynakta yalnızca DEĞEN (bağlı olmayan) iki boru kopyada
+  birbirine kaynardı.
+
+## Hat GÖVDESİNDEN taşınamaz, yalnız köşelerinden — SEÇİLİ GRUP hariç
+
+Tek bir boru gövdesine basıp sürüklemek onu taşımaz, yalnız SEÇER; boru
+köşelerinden taşınır. **Ama zaten seçili bir GRUBUN parçasına basmak seçimin
+tamamını taşır** (2026-08 ürün isteği: "hepsini seçtikten sonra hepsini
+taşıyabilelim") — elemanlar + hatlar tek `moveElements` çağrısıyla, tek Ctrl+Z.
+
+- Grup = seçimde birden çok nesne (`selectedElementIds.length +
+  selectedLineIds.length > 1`). Tek boru seçiliyken köşe düzenleme çalışmaya
+  devam eder; grup varsa seçili boruya basış köşe sürüklemesinin ÖNÜNE geçer —
+  kullanıcı "hepsini taşıyorum" derken tek köşe çekmek istemez.
+- Seçim DIŞINDA bir şeye basmak seçimi ona indirger (eski kural), dolayısıyla
+  yanlışlıkla grup taşımak mümkün değil: önce seçmek gerekir.
+- Dayanak (ızgara yakalaması) elemana basışta elemanın konumu, boruya basışta
+  ızgaraya yakalanmış BASIŞ noktasıdır — ikisinde de kayma ızgara katı çıkar,
+  seçim kendi içindeki göreli düzenini korur.
+- Canlı önizleme: sürüklenen hatlara `InstallationLines` → `DragOffsetGroup`
+  tek `group` ofseti uygular (nokta başına hesap yok). Bu sarmalayıcı YALNIZ
+  sürüklenen hatlar için mount edilir — her hatta bir `useFrame` kurulsaydı
+  kare başına hat sayısı kadar geri çağrım çalışırdı.
+- Önizlemenin eleman kümesi commit'le AYNI fonksiyondan (`expandMoveSelection`)
+  geçer: taşınan borunun üstündeki armatür ve ucundaki cihaz sürükleme boyunca
+  geride kalıp pointerup'ta yerine ZIPLAMAZ.
+
+## Taşımada KOPMA YOK — `core/moveTargets.ts`
+
+**Seçim rijit taşınır, kaynak yerinden ayrılmaz.** Model üç bağı KAYNAK sayar:
+hat ucu ↔ eleman portu, hat ucu ↔ başka bir hattın köşesi (zincirin adımları,
+branşman, cihaz kolu), düğüm ↔ üstündeki armatür. Kayan bir köşeye kaynaklı her
+uç da kayar (o hatlar esner); yayılım SABİT NOKTAYA kadar sürer, çünkü zincir
+çok halkalı olabilir (adım → adım → cihaz kolu).
+
+Yayılımı durduran tek şey **ÇAPA**: taşınmayan bir elemanın portuna oturan uç.
+Konumunu porttan alıyor, yerinden oynayamaz — çapa olmasaydı ağın bir ucundan
+çekmek bütün tesisatı sürüklerdi. Aynı çapa köşe sürüklemesini de bağlar:
+köşede porta oturan bir uç varsa o köşe HİÇ oynamaz (kısmen oynatmak koparırdı),
+`useSelectionTool` sürüklemeyi hiç başlatmaz.
+
+> **Tuzak — bu iş neden saf ve TEK hesap:** önce arka arkaya geçişlerle
+> yapılıyordu (önce elemanlar, sonra "pim", sonra takip) ve karar SIRASI sonucu
+> değiştiriyordu: bir köşenin kayacağı, ona bakan pim kararından sonra belli
+> oluyordu; aynı nokta iki geçişte iki kez kaydırılabiliyordu. İkisi de gerçek
+> kopmalara yol açtı. Artık küme önce kapanıyor, kayma sonra BİR KEZ uygulanıyor.
+> Yeni bir bağ türü eklerken kuralı `resolveMoveTargets`'a ekle, store'a değil.
+
+Aynı hesabı sahne de kullanır (`useSelectionTool` → `startElementDrag`):
+önizleme ile bırakınca oluşan sonuç ayrışmasın. Bütünüyle kayan hatlar tek group
+ofsetiyle çizilir; yalnız bir UCU çekilen komşu hat önizlenmez, bırakınca yerine
+oturur (bilinen ve kabul edilen fark).
+
+Testler: `store/__tests__/moveInvariant.test.ts` 4 eleman + 4 hattın **255
+seçim birleşiminin hepsinde** hiçbir bağın kopmadığını sınar — senaryo testleri
+ara birleşimleri kaçırıyordu. Okunur senaryolar
+`store/__tests__/plumbingMove.test.ts`'te, ortak sahne `plumbingMoveFixture.ts`.
+- Köşe düzenleme `useSelectionTool.ts` → `tryStartCornerDrag`, `core/lineSnap.ts`
+  → `findNearestPointOnLines` ile var olan bir köşeyi yakalar. Gövdeye basmak
+  YENİ köşe AÇMAZ (her sol tık zaten çizerken kalıcı köşe bıraktığı için buna
+  gerek kalmadı — eski `insertPoint`/`insertLineCorner` yolu kalktı). Store
+  yazımı `plumbingSlice.moveLinePoint`.
+- Köşeye basıp SÜRÜKLEMEDEN bırakmak boruyu SEÇER (Shift ile seçime ekler) —
+  her adımın iki ucu köşe olduğundan (yukarıdaki karar) köşeye basış "seçemedim"
+  hissi vermemeli. Yer değişmediyse store'a hiç yazılmaz.
+- **Yalnız bir ELEMAN PORTUNA bağlı uç** köşe sürüklemesi BAŞLATMAZ: o uç yalnız
+  bağlı elemanı taşıyarak hareket eder (`isLineEndOnPort`). Hat-hat bağı engel
+  DEĞİLDİR — zincirin her ara köşesi böyle bir bağdır, `isLineEndConnected`'e
+  bakılsaydı çizilen borunun hiçbir köşesi tutulamazdı.
+- **Zincirin komşu adımı ve sonradan eklenen branşman/cihaz kolu KOPMASIN diye**:
+  bir köşeye `line` bağlantısıyla tutunan tüm hat uçları (`getLinkedLinePoints`,
+  `core/lineCornerLink.ts`) AYNI konuma taşınır — tek `set()`, tek Ctrl+Z.
+  Kapanış GEÇİŞLİ (zincirin üçüncü halkası da gelir) ve İKİ YÖNLÜ: köşe hangi
+  adımdan tutulursa tutulsun aynı küme çıkar. Tek yön taransaydı zincir
+  yazılışının tersine çekilince kopardı. Köşede oturan bir armatür
+  (`inlineElementId`) de birlikte gelir.
+- Canlı önizleme store'a sürükleme boyunca YAZILMAZ: `InstallationLines`
+  sürüklenen köşenin bağlı kümesini BİR kez hesaplar (`useDraggedCorners`) ve
+  her hat kendi payına düşen geçici konumu prop olarak alır; hat TEK PARÇA,
+  geçici köşesiyle çizilir.
+- Uç işaretinin biçimi `getLineEndRole`'dan gelir: porta bağlı uç dolu daire,
+  zincirin ortak köşesi küçük nokta, gerçekten serbest uç içi boş halka. Ortak
+  köşeyi iki komşu adım da çizer, ikisi de nokta olduğu için üst üste tek nokta
+  görünür.
+- Bugün YOK: çerçeveyle köşe seçme, birden çok köşeyi birden sürükleme, köşe
+  silme (yalnız borunun/elemanın kendisi silinebilir — bir adımı silmek zincirde
+  boşluk bırakır, komşuları yerinde kalır).
 
 ## Açılmayan alanlar
 

@@ -1,14 +1,11 @@
 import { Line } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type ComponentRef, type RefObject } from 'react'
-import { CircleGeometry, DoubleSide, MeshBasicMaterial, RingGeometry, type Group } from 'three'
+import { Fragment, useMemo, useRef, type ComponentRef, type ReactNode, type RefObject } from 'react'
+import type { Group } from 'three'
 
+import { LineTerminal, CornerMarker } from './LineMarkers'
 import { getLineColor, getLineWidthPx, toWidthCm } from './lineStyle'
-import {
-  INSTALLATION_GHOST_ELEVATION_CM,
-  LINE_ELEVATION_CM,
-  LINE_END_MARKER_LIFT_CM,
-} from './plumbingLayers'
+import { INSTALLATION_GHOST_ELEVATION_CM, LINE_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import { GHOST_OPACITY } from './symbolLoader'
 import { useCameraZoom } from './useCameraZoom'
@@ -17,26 +14,12 @@ import type { Id } from '../../core/model'
 import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
-import type { InstallationConnection, InstallationLine } from '../core/installationModel'
-import { isLineEndConnected } from '../core/portSnap'
+import type { InstallationConnection, InstallationLine, InstallationLinePoint } from '../core/installationModel'
+import { getLinkedLinePoints } from '../core/lineCornerLink'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Hat tıklanabilir değil: tesisat tutması ışınla değil saf geometriyle yapılıyor. */
 const LINE_MESH_PROPS = { raycast: () => null }
-
-/**
- * Uç işaretleri birim yarıçapla üretilir, her hatta çapına göre ölçeklenir:
- * hat kalınlaştıkça işaret de büyür, tek geometri paylaşılır.
- */
-const END_MARKER_SEGMENTS = 16
-const CONNECTED_DISC_GEOMETRY = new CircleGeometry(1, END_MARKER_SEGMENTS)
-CONNECTED_DISC_GEOMETRY.rotateX(Math.PI / 2)
-const FREE_RING_GEOMETRY = new RingGeometry(0.55, 1, END_MARKER_SEGMENTS)
-FREE_RING_GEOMETRY.rotateX(Math.PI / 2)
-
-/** Bağlı uç dolu daire, serbest uç içi boş halka — ayrım yalnız renkle yapılmaz. */
-const CONNECTED_MARKER_SCALE = 0.55
-const FREE_MARKER_SCALE = 0.9
 
 /** `ghost` = mimari görünümdeki soluk iz. */
 export type LineTone = 'normal' | 'ghost'
@@ -48,12 +31,8 @@ type InstallationLineMeshProps = {
   connections?: readonly InstallationConnection[]
   isSelected?: boolean
   tone?: LineTone
-  /**
-   * Yalnız SÜRÜKLENEN hatlara verilir: geçici kayma her frame buradan okunur.
-   * SymbolInstance ile AYNI desen — tüm köşeler aynı kaymayla gittiği için
-   * hat grubuna TEK bir group ofseti yetiyor, nokta başına yeniden hesap gerekmiyor.
-   */
-  dragDeltaRef?: RefObject<PlanPoint | null>
+  /** Sürüklenmekte olan köşe bu hattı ilgilendiriyorsa geçici konumu. */
+  draggedCorner?: DraggedCorner
 }
 
 /** Kesikli çizginin dünya birimindeki desen boyu — piksel değil, ekranı sabit taramasın. */
@@ -114,41 +93,56 @@ export function PipeLine({
   )
 }
 
-type LineEndMarkerProps = {
-  position: PlanPoint
-  widthCm: number
-  isConnected: boolean
-  colorHex: string
+/** Bir hattın sürükleme sırasında geçici konuma taşınan köşesi. */
+export type DraggedCorner = { pointId: Id; position: PlanPoint }
+
+type DragOffsetGroupProps = {
+  deltaRef: RefObject<PlanPoint | null>
+  children: ReactNode
 }
 
 /**
- * Hattın ucu bağlı mı serbest mi (KK-7). Material instance başına üretiliyor
- * çünkü renk çaptan geliyor; geometri paylaşılıyor ve mount başına dispose
- * gerektirmiyor (React unmount'ta material'i R3F bırakır).
+ * Sürüklenen hattın canlı kayması: bütün köşelere AYNI ofset, nokta başına
+ * hesap yerine tek `group` konumu (SymbolInstance ile aynı desen). Kayma ref'te
+ * biriktiği için sürükleme boyunca ne store'a yazılır ne de React render eder.
+ *
+ * YALNIZ sürüklenen hatlar için mount edilir — her hatta bir `useFrame`
+ * kurulsaydı kare başına hat sayısı kadar geri çağrım çalışırdı (aynı gerekçe
+ * lineStyle.ts'teki zoom okumasında da var). Sürükleme bitince bu sarmalayıcı
+ * unmount olur, ofset kendiliğinden sıfırlanır.
  */
-function LineEndMarker({ position, widthCm, isConnected, colorHex }: LineEndMarkerProps) {
-  const material = useMemo(
-    () =>
-      new MeshBasicMaterial({
-        color: colorHex,
-        // Yatırılan halkanın ön yüzü aşağı bakıyor; tepeden bakan kamera arkasını görür.
-        side: DoubleSide,
-        depthWrite: false,
-        toneMapped: false,
-      }),
-    [colorHex],
-  )
+function DragOffsetGroup({ deltaRef, children }: DragOffsetGroupProps) {
+  const groupRef = useRef<Group>(null)
 
-  return (
-    <mesh
-      geometry={isConnected ? CONNECTED_DISC_GEOMETRY : FREE_RING_GEOMETRY}
-      material={material}
-      position={planToThree(position, LINE_ELEVATION_CM + LINE_END_MARKER_LIFT_CM)}
-      scale={widthCm * (isConnected ? CONNECTED_MARKER_SCALE : FREE_MARKER_SCALE)}
-      renderOrder={RENDER_ORDER.fitting}
-      raycast={() => null}
-    />
-  )
+  useFrame(() => {
+    const delta = deltaRef.current
+    // Plan (x,y) → three (x,-z): dönüşümün tek sahibi coords.ts, burada yalnız
+    // hazır ofset uygulanıyor (planToThree bir KONUM üretir, kayma değil).
+    groupRef.current?.position.set(delta?.x ?? 0, 0, -(delta?.y ?? 0))
+  })
+
+  return <group ref={groupRef}>{children}</group>
+}
+
+/**
+ * Sürüklenen köşenin canlı konumuyla düzeltilmiş nokta listesi. `architectureUiStore
+ * .draggingPoint` + `useArchitecturePoints()` ile AYNI desen (duvar köşesi
+ * sürüklemesi): köşe bırakılana kadar cadStore YAZILMAZ, sahne geçici konumu
+ * `plumbingUiStore.draggingLineCorner`'dan okur. Hat TEK PARÇA render edilir —
+ * gövdeyi ikiye bölüp üstüne ayrı bir önizleme çizmek (önceki deneme) düz
+ * borunun yanında bükülen bir kopyası varmış gibi durup boruyu İKİLİYORDU.
+ */
+function useDraggedLinePoints(
+  line: InstallationLine,
+  corner: DraggedCorner | undefined,
+): InstallationLinePoint[] {
+  return useMemo(() => {
+    if (!corner) return line.points
+
+    return line.points.map((point) =>
+      point.id === corner.pointId ? { ...point, position: corner.position } : point,
+    )
+  }, [line.points, corner])
 }
 
 /** Renk ÇAPTAN gelir (K-W2); seçiliyken maviye döner — seçim rengi tek yerden. */
@@ -158,7 +152,7 @@ export function InstallationLineMesh({
   connections = [],
   isSelected = false,
   tone = 'normal',
-  dragDeltaRef,
+  draggedCorner,
 }: InstallationLineMeshProps) {
   const isGhost = tone === 'ghost'
   const isApplianceStub = line.kind === 'applianceStub'
@@ -169,37 +163,23 @@ export function InstallationLineMesh({
       : isApplianceStub
         ? PLUMBING_COLORS.applianceStub
         : getLineColor(line.pipeTypeName)
-  const groupRef = useRef<Group>(null)
+
+  const points = useDraggedLinePoints(line, draggedCorner)
 
   // Referans kararlı tutulur: drei <Line> `points` değişince geometriyi yeniden ayırır.
   const positions = useMemo(
     () =>
-      line.points.map((point) =>
+      points.map((point) =>
         planToThree(point.position, isGhost ? INSTALLATION_GHOST_ELEVATION_CM : LINE_ELEVATION_CM),
       ),
-    [isGhost, line.points],
+    [isGhost, points],
   )
 
-  const firstPoint = line.points[0]
-  const lastPoint = line.points[line.points.length - 1]
-
-  // Sürükleme kayması bütün köşelere AYNI ofsetle uygulanır: nokta başına yeniden
-  // hesap yerine tek group ofseti (SymbolInstance ile aynı desen).
-  useFrame(() => {
-    const delta = dragDeltaRef?.current
-    if (!groupRef.current || !delta) return
-    groupRef.current.position.set(delta.x, 0, -delta.y)
-  })
-
-  // Sürükleme bitince (veya Esc ile iptal edilince) grup ofseti sıfırlanır —
-  // yoksa hat store konumuna dönerken bir kare eski ofsette asılı kalırdı.
-  useEffect(() => {
-    if (dragDeltaRef) return
-    groupRef.current?.position.set(0, 0, 0)
-  }, [dragDeltaRef])
+  const firstPoint = points[0]
+  const lastPoint = points.at(-1)
 
   return (
-    <group ref={groupRef}>
+    <group>
       <PipeLine
         positions={positions}
         colorHex={colorHex}
@@ -213,18 +193,36 @@ export function InstallationLineMesh({
           Boyları dünya ölçüsünde: çizginin piksel kalınlığı cm'ye geri çevrilir. */}
       {!isGhost && firstPoint && lastPoint && (
         <>
-          <LineEndMarker
-            position={firstPoint.position}
+          <LineTerminal
+            point={firstPoint}
+            end="start"
+            lineId={line.id}
+            connections={connections}
             widthCm={toWidthCm(widthPx, zoom)}
             colorHex={colorHex}
-            isConnected={isLineEndConnected(connections, line.id, 'start')}
           />
-          <LineEndMarker
-            position={lastPoint.position}
+          <LineTerminal
+            point={lastPoint}
+            end="end"
+            lineId={line.id}
+            connections={connections}
             widthCm={toWidthCm(widthPx, zoom)}
             colorHex={colorHex}
-            isConnected={isLineEndConnected(connections, line.id, 'end')}
           />
+          {/* Ara köşeler (kırılma noktaları): boru yalnız buralardan (ve
+              uçlarından) tutulabiliyor — armatür oturan köşe kendi sembolüyle
+              zaten işaretli, burada ikinci bir nokta çizip üst üste bindirmez. */}
+          {points.slice(1, -1).map(
+            (point) =>
+              point.inlineElementId === undefined && (
+                <CornerMarker
+                  key={point.id}
+                  position={point.position}
+                  widthCm={toWidthCm(widthPx, zoom)}
+                  colorHex={colorHex}
+                />
+              ),
+          )}
         </>
       )}
     </group>
@@ -233,35 +231,78 @@ export function InstallationLineMesh({
 
 type InstallationLinesProps = {
   tone?: LineTone
-  /** Sürüklenen hatlar; yalnız bunlara `dragDeltaRef` verilir (bkz. useSelectionTool). */
+  /** Sürüklenen hatlar; canlı kayma YALNIZ bunlara uygulanır (bkz. useSelectionTool). */
   draggedLineIds?: readonly Id[]
   dragDeltaRef?: RefObject<PlanPoint | null>
 }
 
+/** Sürükleme yokken paylaşılan boş harita: her render'da yeni Map ayırmamak için. */
+const NO_DRAGGED_CORNERS: ReadonlyMap<Id, DraggedCorner> = new Map()
+
+/**
+ * Sürüklenen köşe + ONUNLA BİRLİKTE giden komşu hat uçları, hat başına
+ * indekslenmiş. Kapsayıcıda BİR kez hesaplanır: her hat kendi payına düşeni
+ * prop olarak alır, hepsi ayrı ayrı bağlantı listesini taramaz.
+ *
+ * Bir hattın iki ucu aynı köşede buluşamayacağı için (sıfır boy adım yazılmaz)
+ * hat başına tek kayıt yeterli.
+ */
+function useDraggedCorners(
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): ReadonlyMap<Id, DraggedCorner> {
+  const drag = usePlumbingUiStore((state) => state.draggingLineCorner)
+
+  return useMemo(() => {
+    if (!drag) return NO_DRAGGED_CORNERS
+
+    const corners = new Map<Id, DraggedCorner>()
+    for (const link of getLinkedLinePoints(lines, connections, drag.lineId, drag.pointId)) {
+      corners.set(link.lineId, { pointId: link.pointId, position: drag.position })
+    }
+    return corners
+  }, [drag, lines, connections])
+}
+
 /** Aktif kattaki hatlar. Store dizilerine olduğu gibi abone olunur (türetilmiş dizi
  *  her store değişiminde yeni referans üretirdi). */
-export function InstallationLines({ tone, draggedLineIds, dragDeltaRef }: InstallationLinesProps) {
+export function InstallationLines({
+  tone,
+  draggedLineIds,
+  dragDeltaRef,
+}: InstallationLinesProps) {
   const lines = useCadStore((state) => state.installationLines)
   const connections = useCadStore((state) => state.installationConnections)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const selectedLineIds = usePlumbingUiStore((state) => state.selectedLineIds)
+  const draggedCorners = useDraggedCorners(lines, connections)
   const zoom = useCameraZoom()
 
   return (
     <group name="installation-lines">
       {lines
         .filter((line) => line.floorId === activeFloorId)
-        .map((line) => (
-          <InstallationLineMesh
-            key={line.id}
-            line={line}
-            zoom={zoom}
-            connections={connections}
-            isSelected={selectedLineIds.includes(line.id)}
-            tone={tone}
-            dragDeltaRef={draggedLineIds?.includes(line.id) ? dragDeltaRef : undefined}
-          />
-        ))}
+        .map((line) => {
+          const mesh = (
+            <InstallationLineMesh
+              line={line}
+              zoom={zoom}
+              connections={connections}
+              isSelected={selectedLineIds.includes(line.id)}
+              tone={tone}
+              draggedCorner={draggedCorners.get(line.id)}
+            />
+          )
+
+          if (!dragDeltaRef || !draggedLineIds?.includes(line.id)) {
+            return <Fragment key={line.id}>{mesh}</Fragment>
+          }
+          return (
+            <DragOffsetGroup key={line.id} deltaRef={dragDeltaRef}>
+              {mesh}
+            </DragOffsetGroup>
+          )
+        })}
     </group>
   )
 }
