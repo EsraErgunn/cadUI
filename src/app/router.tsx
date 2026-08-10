@@ -9,6 +9,7 @@ import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPag
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
+import { ProjectFirmsPage } from '../pages/ProjectFirmsPage'
 import { ProjectListPage } from '../pages/ProjectListPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
@@ -76,18 +77,23 @@ export function AppRouter() {
           <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
           <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
 
+          <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
+
           <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
 
           {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
               hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
               kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
           <Route
-            path={PROJECT_FIRMS_PATH}
-            element={<ComingSoonPage title="Proje Firmaları" section="Firmalar" />}
-          />
-          <Route
             path={PROJECT_FIRM_CREATE_PATH}
             element={<ComingSoonPage title="Proje Firması Ekle" section="Firmalar" />}
+          />
+          {/* Firma adının hedefi; güncelleme ekranı kendi issue'sunda gelecek.
+              Rota olmasaydı tıklama yakalayıcı route'a düşüp kullanıcıyı proje
+              listesine atardı. */}
+          <Route
+            path={`${PROJECT_FIRMS_PATH}/:firmId`}
+            element={<ComingSoonPage title="Proje Firması Güncelle" section="Firmalar" />}
           />
           <Route
             path={FIRM_USERS_PATH}

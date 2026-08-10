@@ -29,6 +29,16 @@ export function gasFirmUpdatePath(firmId: number): string {
  */
 export const PROJECT_FIRMS_PATH = `${ADMIN_HOME_PATH}/project-firms`
 export const PROJECT_FIRM_CREATE_PATH = `${PROJECT_FIRMS_PATH}/new`
+
+/**
+ * Proje firması güncelleme ekranının yolu. Ekranı HENÜZ YOK — uçları
+ * (`PUT /api/projectfirms/{id}`) hazır ama route'u kendi issue'sunda gelecek;
+ * gaz dağıtım firması güncelleme ekranı da bir dönem böyleydi.
+ */
+export function projectFirmUpdatePath(firmId: number): string {
+  return `${PROJECT_FIRMS_PATH}/${firmId}`
+}
+
 export const FIRM_USERS_PATH = `${ADMIN_HOME_PATH}/firm-users`
 export const USER_CREATE_PATH = `${ADMIN_HOME_PATH}/users/new`
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
@@ -76,13 +86,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: Factory,
     path: GAS_DISTRIBUTION_FIRMS_PATH,
   },
-  {
-    key: 'projectFirms',
-    label: 'Proje Firmaları',
-    icon: Building2,
-    path: PROJECT_FIRMS_PATH,
-    isComingSoon: true,
-  },
+  { key: 'projectFirms', label: 'Proje Firmaları', icon: Building2, path: PROJECT_FIRMS_PATH },
   {
     key: 'firmUsers',
     label: 'Firma Kullanıcıları',

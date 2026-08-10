@@ -36,9 +36,17 @@ describe('AdminSidebar', () => {
   it('ekranı hazır olmayan madde "Yakında" rozetiyle işaretlenir', () => {
     renderSidebar()
 
-    const comingSoon = screen.getByRole('link', { name: /Proje Firmaları/ })
+    const comingSoon = screen.getByRole('link', { name: /Firma Kullanıcıları/ })
     expect(comingSoon).toHaveTextContent('Yakında')
     expect(screen.getByRole('link', { name: /Anasayfa/ })).not.toHaveTextContent('Yakında')
+  })
+
+  // Ekranı yazılan madde rozetini KAYBETMELİ; rozet kalsaydı çalışan bir ekran
+  // "hazır değil" görünürdü.
+  it('ekranı yazılmış madde rozet taşımaz', () => {
+    renderSidebar()
+
+    expect(screen.getByRole('link', { name: /Proje Firmaları/ })).not.toHaveTextContent('Yakında')
   })
 
   it('bulunulan sayfanın maddesi işaretlenir', () => {
