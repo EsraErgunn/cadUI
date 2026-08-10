@@ -4,7 +4,10 @@ import { FIRST_FREE_ID, type Id, type ProjectData } from '../core/model'
  * Store'un şekli = kaydedilecek JSON'un şekli (CLAUDE.md kural 4). Pick ile
  * bağlandı: ProjectData'dan sapma DERLEME hatası olur, sessiz ayrışma olmaz.
  */
-export type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings' | 'rooms' | 'symbols'>
+export type ArchitectureData = Pick<
+  ProjectData,
+  'points' | 'walls' | 'openings' | 'rooms' | 'symbols' | 'areaObjects'
+>
 
 export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
   points: [],
@@ -12,6 +15,7 @@ export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
   openings: [],
   rooms: [],
   symbols: [],
+  areaObjects: [],
 }
 
 /**
@@ -31,6 +35,7 @@ export function deriveNextUniqueId(data: ArchitectureData): Id {
       ...data.openings.map((opening) => opening.id),
       ...data.rooms.map((room) => room.id),
       ...data.symbols.map((symbol) => symbol.id),
+      ...data.areaObjects.map((areaObject) => areaObject.id),
     ) + 1
   )
 }

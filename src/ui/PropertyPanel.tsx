@@ -1,10 +1,12 @@
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { AreaObjectProperties } from './properties/AreaObjectProperties'
 import { OpeningProperties } from './properties/OpeningProperties'
 import { PointSymbolProperties } from './properties/PointSymbolProperties'
 import { SelectionActions } from './properties/SelectionActions'
 import { WallProperties } from './properties/WallProperties'
+import { AREA_OBJECT_TYPE_LABELS } from '../core/areaObject'
 import { SYMBOL_TYPE_LABELS } from '../core/pointSymbol'
 import {
   getPropertyPanelTitle,
@@ -33,6 +35,7 @@ export function PropertyPanel() {
   const wallIds = getSelectedIds(selection, 'wall')
   const openingIds = getSelectedIds(selection, 'opening')
   const symbolIds = getSelectedIds(selection, 'symbol')
+  const areaObjectIds = getSelectedIds(selection, 'area')
 
   // Başlıktaki "Kapı/Pencere" ayrımı tek açıklık seçiliyken anlamlı.
   const soleOpening = useCadStore((state) =>
@@ -42,6 +45,12 @@ export function PropertyPanel() {
   const soleSymbolLabel = useCadStore((state) =>
     symbolIds.length === 1
       ? state.symbols.find((symbol) => symbol.id === symbolIds[0])?.type
+      : undefined,
+  )
+  // Tek alan nesnesinde başlık türünün Türkçe adını gösterir ("Kolon Özellikleri").
+  const soleAreaObjectLabel = useCadStore((state) =>
+    areaObjectIds.length === 1
+      ? state.areaObjects.find((areaObject) => areaObject.id === areaObjectIds[0])?.type
       : undefined,
   )
 
@@ -77,6 +86,7 @@ export function PropertyPanel() {
           selection.length,
           soleOpening?.type === 'door',
           soleSymbolLabel ? `${SYMBOL_TYPE_LABELS[soleSymbolLabel]} Özellikleri` : '',
+          soleAreaObjectLabel ? `${AREA_OBJECT_TYPE_LABELS[soleAreaObjectLabel]} Özellikleri` : '',
         )}
       </button>
 
@@ -86,6 +96,7 @@ export function PropertyPanel() {
             {kind === 'wall' && <WallProperties wallIds={wallIds} />}
             {kind === 'opening' && <OpeningProperties openingIds={openingIds} />}
             {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
+            {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
             {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
                 genişliği aynı şey değil. Silme yine de çalışır. */}
             {kind === 'mixed' && (

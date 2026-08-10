@@ -1,6 +1,7 @@
 import { isPointInSymbol } from './architectureSymbol'
+import { isPointInAreaObject } from './areaObject'
 import type { PlanPoint } from './coords'
-import type { Id, Opening, Point, PointSymbol, Wall } from './model'
+import type { AreaObject, Id, Opening, Point, PointSymbol, Wall } from './model'
 import { findOpeningUnderPoint } from './openingTool'
 import { findCornerPointIdAt } from './snap'
 import { getSymbolPose, isSymbolOnFloor } from './symbolPlacement'
@@ -10,6 +11,7 @@ import { findWallUnderPoint } from './wallPath'
 export type ArchitectureTarget =
   | { kind: 'point'; pointId: Id }
   | { kind: 'symbol'; symbolId: Id }
+  | { kind: 'area'; areaObjectId: Id }
   | { kind: 'opening'; openingId: Id }
   | { kind: 'wall'; wallId: Id }
 
@@ -18,6 +20,7 @@ export type ArchitectureTargetContext = {
   walls: readonly Wall[]
   openings: readonly Opening[]
   symbols: readonly PointSymbol[]
+  areaObjects: readonly AreaObject[]
   floorId: Id
   toleranceCm: number
 }
@@ -27,10 +30,10 @@ export type ArchitectureTargetContext = {
  * sahipliği bunu okur — ikisi ayrı hesaplarsa vurgu "şunu tutarsın" der, basış
  * başka şeyi tutar (knowledge/gesture-bus-precedence.md).
  *
- * Sıra ekranda üstte durandan alta: köşe → sembol → açıklık → duvar. Köşe
- * tutamağı en üstte (HANDLE_ELEVATION_CM), nokta sembolü duvarın ve açıklığın
- * üstüne çiziliyor (RENDER_ORDER.pointSymbol), açıklık duvarın üstüne boyanıyor
- * (RENDER_ORDER.opening > wall), duvar en altta.
+ * Sıra ekranda üstte durandan alta: köşe → sembol → alan nesnesi → açıklık →
+ * duvar. Köşe tutamağı en üstte (HANDLE_ELEVATION_CM), nokta sembolü duvarın
+ * ve açıklığın üstüne çiziliyor (RENDER_ORDER.pointSymbol), açıklık duvarın
+ * üstüne boyanıyor (RENDER_ORDER.opening > wall), duvar en altta.
  *
  * Köşe koşulu `findCornerPointIdAt` ile paylaşılıyor; burada ikinci kopya yazılmaz.
  */
@@ -57,6 +60,14 @@ export function resolveArchitectureTarget(
   })
   if (symbol) return { kind: 'symbol', symbolId: symbol.id }
 
+  // Aynı gerekçe: son eklenen üstte duruyor sayılır.
+  const areaObject = [...context.areaObjects]
+    .reverse()
+    .find(
+      (candidate) => candidate.floorId === context.floorId && isPointInAreaObject(target, candidate),
+    )
+  if (areaObject) return { kind: 'area', areaObjectId: areaObject.id }
+
   const opening = findOpeningUnderPoint(target, context)
   if (opening) return { kind: 'opening', openingId: opening.id }
 
@@ -76,6 +87,7 @@ export function isSameTarget(
   if (!a || !b) return a === b
   if (a.kind === 'point' && b.kind === 'point') return a.pointId === b.pointId
   if (a.kind === 'symbol' && b.kind === 'symbol') return a.symbolId === b.symbolId
+  if (a.kind === 'area' && b.kind === 'area') return a.areaObjectId === b.areaObjectId
   if (a.kind === 'opening' && b.kind === 'opening') return a.openingId === b.openingId
   if (a.kind === 'wall' && b.kind === 'wall') return a.wallId === b.wallId
   return false

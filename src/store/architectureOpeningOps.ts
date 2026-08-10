@@ -1,8 +1,21 @@
-import type { ProjectData } from '../core/model'
+import type { Id, OpeningType, ProjectData } from '../core/model'
 import { isPlacementValid, pruneUnfittableOpenings, type OpeningPlacement } from '../core/opening'
 import { getPlacementRange } from '../core/wall'
 
 type ArchitectureData = Pick<ProjectData, 'points' | 'walls' | 'openings'>
+
+export type AddOpeningInput = {
+  wallId: Id
+  offsetCm: number
+  widthCm: number
+  type: OpeningType
+}
+
+/** Taşımanın hedefi: açıklık duvarlar arasında gezebildiği için wallId de taşınır. */
+export type OpeningTarget = {
+  wallId: Id
+  offsetCm: number
+}
 
 /** Köşe payı burada hesaplanmaz; getPlacementRange'den geçirilir (K11). */
 export function isPlacementValidInState(

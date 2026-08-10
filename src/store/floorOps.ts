@@ -88,6 +88,8 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
     (symbol) => symbol.attachment !== 'free' || symbol.floorId !== floorId,
   )
   pruneSymbolsInDraft(draft)
+  // Alan nesnesi her zaman serbest, floorId'yi kendi taşır (sembolün free dalıyla aynı gerekçe).
+  draft.areaObjects = draft.areaObjects.filter((areaObject) => areaObject.floorId !== floorId)
   // Bağlantı kaydı silinen hattı ve elemanı referansla tuttuğu için ONLARDAN
   // ÖNCE toplanır; ters sırada hangi kayıtların sahipsiz kaldığı anlaşılamazdı
   // (açıklık–duvar sırasıyla aynı gerekçe).

@@ -1003,6 +1003,134 @@ Ctrl+Z — bkz. `knowledge/property-panel.md`) değişmedi, yalnız dış kabuk.
 Testler `ui/__tests__/PropertyPanel.test.tsx` (mevcut testler güncellenmeden
 geçti — `aria-hidden` zaten `queryByRole`'ü filtreliyor).
 
+### K38 — Alan nesnesi (merdiven/kolon/baca şaftı): yeni model, v1 tıkla+panel
+
+PointSymbol'ün (Desen A) bilerek dışarıda bıraktığı "ölçü taşıyan" nesneler
+(model.ts satır 71-75 yorumu, Desen B) için yeni bir tip: `AreaObject`, serbest
+döndürülebilir dikdörtgen — merkez `(x,y)` + `widthCm`/`lengthCm` + `angleDeg`.
+`AreaObjectType`: `stairs` (Merdiven), `structuralColumn` (Kolon — kod adı
+bilerek düşey gaz kolonu `Riser`'dan ayrı, bkz. "Terminoloji uyarısı"),
+`flueShaft` (Baca Şaftı) — üçü de `core/tools.ts`'te zaten vardı, toolId'lerle
+BİREBİR aynı isim kullanıldı (PointSymbolType'ın kendi tool id'leri olması
+gibi). Kiriş buraya GİRMEDİ: o çizgisel (x1,y1,x2,y2), ayrı bir model, ayrı iş.
+
+**Çizim etkileşimi v1: tıkla-yerleştir (varsayılan boyut) + sağ panelden
+sayısal ayar.** Tuvalde sürükleyerek boyutlandırma/döndürme (resize/rotate
+gizmo) kasıtlı olarak DIŞARIDA bırakıldı — kod tabanında hiçbir yerde böyle bir
+tutamaç deseni yok (PointSymbol'ün döndürmesi bile sahnede değil, panelde bir
+sayısal alan), sıfırdan inşa etmek ayrı bir işti. Kullanıcı bu kapsam
+daraltmasını onayladı; tutamaç SONRAKİ bir iş.
+
+**K35/K36 açıklık koruması buraya da uygulandı.** `findBlockingOpeningInSegments`
+(K35/K36, `core/wallGraph.ts`) segment-agnostik olduğu için aynen kullanıldı:
+`core/areaObject.ts` → `findBlockingOpeningForAreaObject` nesnenin dört kenarını
+segment olarak geçiriyor. Yerleştirme, taşıma, boyutlandırma ve döndürme —
+dördü de bir kapı/pencerenin içinden geçen sonucu üretirse REDDEDİLİR (id bile
+harcanmaz, K13 deseni). **Aynı bilinen sınır miras alındı:** nesnenin kenarı
+açıklığı taşıyan duvarla PARALEL ve üst üsteyse (örn. bir kolon duvara tam
+yaslanıp kapıyı örtüyor), `getInteriorCrossing` kesişim üretmez, kontrol o
+durumu YAKALAMAZ — wall-graph.md'deki "üst üste binen duvarlar" sınırıyla aynı.
+
+**Model sözleşmesine dokunma gerekti.** `core/model.ts` → `ProjectData` "dört
+kişi arasındaki sözleşme, izinsiz alan eklenmez" diyor; `model.ts`/`serialize.ts`
+bu oturumda sahipsizdi (README/proje notu). `serialize.ts`'e AYNI commit'te
+`.default([])` migration + `docs/sample-project.json`'a `"areaObjects":[]`
+eklendi — yoksa kabul testi ("bit bit aynı") kırılırdı.
+
+**Seçim/vurgu zincirine yeni bir `'area'` türü girdi.** `core/selection.ts`
+(`SelectableKind`), `core/architectureHover.ts` (`ArchitectureTarget`,
+sıra: köşe → sembol → **alan nesnesi** → açıklık → duvar), `core/propertyFields.ts`
+(`PropertySelectionKind`) — üçü de PointSymbol'ün `'symbol'` dalıyla birebir
+aynı desende genişletildi.
+
+**Kat kopyalama (KK-14) ve kat silme de güncellendi.** `core/floorClone.ts` →
+`cloneFloorArchitecture` alan nesnelerini de kopyalıyor (yeni id + yeni etiket,
+sembolle aynı gerekçe); `store/floorOps.ts` → `removeFloorFromDraft` katı
+silinen alan nesnelerini düşürüyor. İkisi de unutulsaydı özellik "çalışıyor
+görünüp" kat işlemlerinde sessizce veri kaybederdi.
+
+**Tarayıcıda MANUEL doğrulanmadı** — editör girişi gerçek backend'e login
+oluyor, oturumda ayakta değildi. `npm run build`/`lint`/`test:run` yeşil
+(placement/selection hook'ları R3F gerektirdiği için testsiz kaldı, K36 ile
+aynı sınır).
+
+Nerede: `core/model.ts`, `core/serialize.ts`, `core/areaObject.ts`,
+`core/selection.ts`, `core/architectureHover.ts`, `core/propertyFields.ts`,
+`core/floorClone.ts`, `store/areaObjectOps.ts`, `store/architectureSlice.ts`,
+`store/architectureUiStore.ts`, `store/floorOps.ts`, `store/floorCloneOps.ts`,
+`store/selectionOps.ts`, `scene/useAreaObjectTool.ts`,
+`scene/useAreaObjectSelectionTool.ts`, `scene/AreaObject.tsx`,
+`scene/ArchitectureLayer.tsx`, `ui/properties/AreaObjectProperties.tsx`,
+`ui/PropertyPanel.tsx`. Testler `core/__tests__/areaObject.test.ts`,
+`core/__tests__/floorClone.test.ts`, `store/__tests__/areaObjectActions.test.ts`,
+`ui/__tests__/AreaObjectProperties.test.tsx`.
+
+### K39 — Alan nesnesi çizimi tipe göre farklılaştı, sonra kullanıcı geri bildirimiyle İKİ TUR revize edildi
+
+K38'in ilk çizimi hepsi için aynı düz dikdörtgendi (duvar rengiyle dolu). İlk
+revizyonda (K39'un ilk hâli) üçü açık gri dolgu + koyu kontur oldu, merdivene
+basamak + DOLU üçgen ok eklendi. Kullanıcıya üç ok stili (ince çizgi / dolu
+üçgen / köşegen çizgili) gösterildi, **ince çizgi oku seçti** — sonraki
+revizyonda bu ve başka geri bildirimler uygulandı, son hâl şu:
+
+**İçi TAMAMEN ŞEFFAF — hiçbir tip dolgu taşımaz, yalnız çizgi.**
+`AreaObjectGeometry.fills` alanı KALDIRILDI, `scene/AreaObject.tsx` artık tek
+bir dolgu mesh'i bile üretmiyor, yalnız `<Line>`. Kolon/baca şaftı/merdiven
+üçü de sade kontur.
+
+- **Kolon / Baca şaftı:** varsayılan boyut 1m × 1m'e BÜYÜTÜLDÜ (`DEFAULT_AREA_OBJECT_SIZE_CM`,
+  eski 25×25/40×40 çok küçüktü). Baca şaftının iç çemberi karenin dış hattıyla
+  AYNI kalınlıkta (`role: 'body'`, kullanıcı özellikle istedi — ince "ayrıntı"
+  değil).
+- **Merdiven:** iniş oku İNCE ÇİZGİ (gövde + V başlık), DOLU üçgen değil.
+  Yön **-y (yerel)** ucuna bakıyor: `Cameras.tsx`'te ekranda "yukarı" plan
+  +Y'ye denk geliyor, dolayısıyla "aşağı" (iniş yönü) plan -Y — ilk tur
+  yanlışlıkla +Y'ye bakıyordu, kullanıcı "aşağı doğru baksın" dedi.
+
+**Renk: duvardan bir tık koyu, çizgiler kalınlaştırıldı.** `ARCHITECTURE_COLORS.areaObjectStroke`
+duvar renginden (`#3e4a5a`) koyu bir ton (`#232a34`); gövde çizgisi kalınlığı
+1.8→3, ayrıntı 1→1.5 ("daha soft bir tasarım için" — kalın çizgi + boş iç,
+ince/dolu çizginin tersi).
+
+**Önizleme artık FARKLI RENK değil, AYNI rengin SAYDAM hâli.** Eskiden
+`previewValid` mavisiydi; kullanıcı "yerleştirdiğimde normal hâlini alsın,
+önizlemede aynı şeklin bir tık saydamı gözüksün" dedi.
+`scene/AreaObject.tsx` artık önizlemede `ARCHITECTURE_COLORS.areaObjectStroke`
+ile AYNI rengi, yalnız `opacity: 0.45` ile çiziyor (`transparent` prop'u
+drei `<Line>`'a geçiyor).
+
+**Kolon/baca şaftı büyüyünce K35/K36 kontrolünde GERÇEK bir boşluk çıktı.**
+`findBlockingOpeningInSegments` yalnız nesnenin KENARLARININ duvarı NEREDE
+kestiğine bakıyor; 100cm'lik bir nesne bir kapıyı (90cm) tam ortalarsa kenar
+kesişim noktaları (offsetten ±50cm) açıklığın aralığının (±45cm) TAM DIŞINA
+düşüyor — nesne kapıyı fiziksel olarak tamamen sarmalıyor ama hiçbir kenar
+aralığın İÇİNDE kesişmediği için eski kontrol bunu KAÇIRIYORDU (test bunu
+25×25 kolonla YAKALAMAMIŞTI, boyut büyüyünce ortaya çıktı). Düzeltme:
+`findBlockingOpeningForAreaObject` artık ikinci bir kontrol de yapıyor —
+açıklığın MERKEZ noktası (`getWallFrameAtOffsetCm`) nesnenin içinde mi
+(`isPointInAreaObject`). İkisi birlikte de wall-graph.md'deki "üst üste binen
+duvarlar" sınırını miras alıyor (bkz. kod yorumu).
+
+**Çizgi kalınlığı `worldUnits`'e çevrildi.** İlk hâl drei `<Line>`'ın piksel-bazlı
+(worldUnits yok) kalınlığını kullanıyordu — ekranda sabit piksel genişlik,
+yani zoom out'ta nesneye göre ORANTISIZ kalınlaşıyordu. `Wall.tsx`'teki
+`worldUnits` + cm cinsinden `lineWidth` deseni kopyalandı (gövde 2.5cm,
+ayrıntı 1.2cm) — artık zoom'dan bağımsız sabit fiziksel kalınlık.
+
+**Dosya 200 satırı aştı, ikiye bölündü (kod hijyeni kuralı).** Çizim
+fonksiyonları (`getAreaObjectPlanGeometry`, `buildStairTreadLines`,
+`buildStairArrowLines`, `buildCirclePoints`, `AreaObjectGeometry`/`Stroke`
+tipleri) yeni `core/areaObjectGeometry.ts`'ye taşındı; `core/areaObject.ts`
+etiket/geometri-yardımcı/K35-K36 çarpışma mantığında kaldı, `toAreaObjectPlanPoints`
+ikisi arasında paylaşılsın diye `export` edildi.
+
+**Tutamaç (resize/rotate gizmo) hâlâ v1 dışı** — kullanıcı iki kez teyit etti.
+
+Nerede: `core/areaObject.ts`, `core/areaObjectGeometry.ts`, `scene/AreaObject.tsx`,
+`scene/architectureTheme.ts`. Testler `core/__tests__/areaObject.test.ts`
+(etiket/geometri/çarpışma, yeni "geniş nesne kapıyı sarar" testi dahil),
+`core/__tests__/areaObjectGeometry.test.ts` (çizim, ayrı dosya).
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

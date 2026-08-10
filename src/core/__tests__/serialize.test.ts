@@ -12,17 +12,18 @@ const emptyProject: ProjectData = {
   openings: [],
   rooms: [],
   symbols: [],
+  areaObjects: [],
 }
 
 describe('serializeProjectData', () => {
   it('alanları sabit sırayla yazar', () => {
     expect(serializeProjectData(emptyProject)).toBe(
       '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
-        '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[]}',
+        '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],"areaObjects":[]}',
     )
   })
 
-  it('rooms/symbols alanı OLMAYAN eski dosyayı açar', () => {
+  it('rooms/symbols/areaObjects alanı OLMAYAN eski dosyayı açar', () => {
     // Depodaki çizimler bu diziler modele girmeden önce kaydedildi. Zorunlu
     // tutulursa kullanıcının verisi elimizde ama erişilemez olur.
     const legacy =
@@ -33,6 +34,7 @@ describe('serializeProjectData', () => {
 
     expect(parsed.rooms).toEqual([])
     expect(parsed.symbols).toEqual([])
+    expect(parsed.areaObjects).toEqual([])
   })
 
   it('eski dosya bir kez kaydedilince alanlar dosyaya yazılır', () => {
@@ -40,7 +42,9 @@ describe('serializeProjectData', () => {
       '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
       '"points":[],"walls":[],"openings":[]}'
 
-    expect(serializeProjectData(parseProjectJson(legacy))).toContain('"rooms":[],"symbols":[]')
+    expect(serializeProjectData(parseProjectJson(legacy))).toContain(
+      '"rooms":[],"symbols":[],"areaObjects":[]',
+    )
   })
 
   it('attachment alanı OLMAYAN eski sembolü SERBEST olarak okur', () => {
@@ -91,6 +95,29 @@ describe('serializeProjectData', () => {
     } as unknown as ProjectData
 
     expect(serializeProjectData(polluted)).not.toContain('isHovered')
+  })
+
+  it('alan nesnesini yazar ve okur', () => {
+    const withArea: ProjectData = {
+      ...emptyProject,
+      areaObjects: [
+        {
+          id: 5,
+          type: 'structuralColumn',
+          floorId: DEFAULT_FLOOR_ID,
+          x: 100,
+          y: 200,
+          widthCm: 25,
+          lengthCm: 25,
+          angleDeg: 0,
+          label: 'K-01',
+        },
+      ],
+    }
+
+    const roundTripped = parseProjectJson(serializeProjectData(withArea))
+
+    expect(roundTripped).toEqual(withArea)
   })
 
   it('ondalıkları yuvarlamaz', () => {

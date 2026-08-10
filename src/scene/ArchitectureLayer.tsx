@@ -1,3 +1,4 @@
+import { AreaObject, type AreaObjectTone } from './AreaObject'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
@@ -7,11 +8,14 @@ import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
+import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
+import { useAreaObjectTool } from './useAreaObjectTool'
 import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
+import { DEFAULT_AREA_OBJECT_SIZE_CM } from '../core/areaObject'
 import { getOpeningOutline } from '../core/opening'
 import { isSelected } from '../core/selection'
 import { getSymbolPose, getSymbolsOnFloor } from '../core/symbolPlacement'
@@ -123,6 +127,70 @@ function PointSymbols() {
   )
 }
 
+/**
+ * Alan nesnelerini (merdiven/kolon/baca şaftı) çizer, yerleştirme ve
+ * seçim/taşıma araçlarını çalıştırır. PointSymbols ile aynı desen.
+ */
+function AreaObjects() {
+  const preview = useAreaObjectTool()
+  useAreaObjectSelectionTool()
+  const areaObjects = useCadStore((state) => state.areaObjects)
+  const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const hover = useArchitectureUiStore((state) => state.hover)
+  const selection = useArchitectureUiStore((state) => state.selection)
+  const draggingAreaObjects = useArchitectureUiStore((state) => state.draggingAreaObjects)
+
+  const hoveredAreaObjectId = hover?.kind === 'area' ? hover.areaObjectId : undefined
+
+  return (
+    <>
+      {areaObjects
+        .filter((areaObject) => areaObject.floorId === activeFloorId)
+        .map((areaObject) => {
+          // Seçim vurgudan baskın — PointSymbols ile aynı gerekçe.
+          const tone: AreaObjectTone = isSelected(selection, 'area', areaObject.id)
+            ? 'selected'
+            : areaObject.id === hoveredAreaObjectId
+              ? 'hovered'
+              : 'normal'
+
+          // Sürüklenen nesne geçici konumuyla çizilir; store'a bırakma anında yazılır.
+          const drag = draggingAreaObjects?.areaObjectIds.includes(areaObject.id)
+            ? draggingAreaObjects
+            : undefined
+          const drawn = drag
+            ? { ...areaObject, x: areaObject.x + drag.dxCm, y: areaObject.y + drag.dyCm }
+            : areaObject
+
+          // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
+          return (
+            <AreaObject
+              key={areaObject.id}
+              areaObjectId={areaObject.id}
+              type={areaObject.type}
+              areaObject={drawn}
+              tone={tone}
+            />
+          )
+        })}
+
+      {preview && (
+        <AreaObject
+          type={preview.type}
+          areaObject={{
+            x: preview.position.x,
+            y: preview.position.y,
+            widthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].widthCm,
+            lengthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].lengthCm,
+            angleDeg: 0,
+          }}
+          tone="preview"
+        />
+      )}
+    </>
+  )
+}
+
 /** Çerçeve seçimi hook'u; <Canvas> içinde çalışmak zorunda (Openings ile aynı desen). */
 function SelectionTool() {
   useSelectionTool()
@@ -143,6 +211,8 @@ export function ArchitectureLayer() {
       <Openings />
       {/* Sembol açıklığın da üstünde (RENDER_ORDER.pointSymbol > opening). */}
       <PointSymbols />
+      {/* Alan nesnesi sembolün de üstünde (RENDER_ORDER.areaObject > pointSymbol). */}
+      <AreaObjects />
       <WallTool />
       <RoomTool />
       <SelectionTool />

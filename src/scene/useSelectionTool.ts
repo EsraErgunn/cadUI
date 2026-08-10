@@ -50,6 +50,7 @@ export function useSelectionTool(): void {
         walls: cad.walls,
         openings: cad.openings,
         symbols: cad.symbols,
+        areaObjects: cad.areaObjects,
         floorId: cad.activeFloorId,
         toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       }
@@ -98,12 +99,16 @@ export function useSelectionTool(): void {
       const cad = useCadStore.getState()
       const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
       const floorSymbols = getSymbolsOnFloor(cad.symbols, cad.activeFloorId, cad.walls)
+      const floorAreaObjects = cad.areaObjects.filter(
+        (areaObject) => areaObject.floorId === cad.activeFloorId,
+      )
       const framed = getSelectionInRect(
         rect,
         floorWalls,
         cad.openings,
         cad.points,
         floorSymbols,
+        floorAreaObjects,
       )
 
       ui.setSelection(wasAdditive ? mergeSelection(ui.selection, framed) : framed)
@@ -171,7 +176,13 @@ export function useSelectionTool(): void {
         const ui = useArchitectureUiStore.getState()
         if (ui.selection.length === 0) return
 
-        const pruned = pruneSelection(ui.selection, state.walls, state.openings, state.symbols)
+        const pruned = pruneSelection(
+          ui.selection,
+          state.walls,
+          state.openings,
+          state.symbols,
+          state.areaObjects,
+        )
         // pruneSelection değişiklik yoksa AYNI diziyi döndürür; kontrol bu yüzden
         // referans karşılaştırması ve her store değişiminde yeni dizi yazılmaz.
         if (pruned !== ui.selection) ui.setSelection(pruned)

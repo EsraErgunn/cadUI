@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { isSameTarget, resolveArchitectureTarget } from '../architectureHover'
 import { SYMBOL_DISPLAY } from '../architectureSymbol'
-import type { Opening, Point, PointSymbol, Wall } from '../model'
+import type { AreaObject, Opening, Point, PointSymbol, Wall } from '../model'
 
 const FLOOR_ID = 1
 const UPPER_FLOOR_ID = 14
@@ -38,6 +38,7 @@ function makeContext(symbols: PointSymbol[]) {
     walls,
     openings: [] as Opening[],
     symbols,
+    areaObjects: [] as AreaObject[],
     floorId: FLOOR_ID,
     toleranceCm: TOLERANCE_CM,
   }

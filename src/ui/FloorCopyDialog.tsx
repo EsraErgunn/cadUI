@@ -29,7 +29,8 @@ export function FloorCopyDialog({ onClose }: FloorCopyDialogProps) {
   const openings = useCadStore((state) => state.openings)
   const rooms = useCadStore((state) => state.rooms)
   const symbols = useCadStore((state) => state.symbols)
-  const projectData = { points, walls, openings, rooms, symbols }
+  const areaObjects = useCadStore((state) => state.areaObjects)
+  const projectData = { points, walls, openings, rooms, symbols, areaObjects }
 
   const [sourceFloorId, setSourceFloorId] = useState<Id>(activeFloorId)
   const [targetFloorId, setTargetFloorId] = useState<Id | null>(null)

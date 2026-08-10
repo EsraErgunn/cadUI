@@ -17,3 +17,7 @@ export const OPENING_SYMBOL_LIFT_CM = 0.02
 /** Nokta sembolü açıklık simgesinin bir tık üstünde; ikisi de opak çiziliyor. */
 export const POINT_SYMBOL_ELEVATION_CM = 0.15
 export const POINT_SYMBOL_PREVIEW_ELEVATION_CM = 0.25
+
+/** Alan nesnesi (merdiven/kolon/baca şaftı) nokta sembolünün bir tık üstünde. */
+export const AREA_OBJECT_ELEVATION_CM = 0.16
+export const AREA_OBJECT_PREVIEW_ELEVATION_CM = 0.26

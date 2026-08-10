@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { cloneFloorArchitecture, isFloorEmpty, type FloorCloneSource } from '../floorClone'
-import type { Opening, Point, PointSymbol, Room, Wall } from '../model'
+import type { AreaObject, Opening, Point, PointSymbol, Room, Wall } from '../model'
 
 const GROUND = 1
 const UPPER = 14
@@ -55,7 +55,21 @@ const symbols: PointSymbol[] = [
   },
 ]
 
-const source: FloorCloneSource = { points, walls, openings, rooms, symbols }
+const areaObjects: AreaObject[] = [
+  {
+    id: 14,
+    type: 'structuralColumn',
+    floorId: GROUND,
+    x: 50,
+    y: 50,
+    widthCm: 25,
+    lengthCm: 25,
+    angleDeg: 0,
+    label: 'K-01',
+  },
+]
+
+const source: FloorCloneSource = { points, walls, openings, rooms, symbols, areaObjects }
 
 function makeTakeId(start = 100) {
   let next = start
@@ -77,7 +91,7 @@ describe('isFloorEmpty', () => {
 })
 
 describe('cloneFloorArchitecture', () => {
-  it('kaynağın nokta, duvar, açıklık, oda ve sembollerini kopyalar', () => {
+  it('kaynağın nokta, duvar, açıklık, oda, sembol ve alan nesnelerini kopyalar', () => {
     const clone = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId())
 
     expect(clone.points).toHaveLength(4)
@@ -85,6 +99,21 @@ describe('cloneFloorArchitecture', () => {
     expect(clone.openings).toHaveLength(1)
     expect(clone.rooms).toHaveLength(1)
     expect(clone.symbols).toHaveLength(2)
+    expect(clone.areaObjects).toHaveLength(1)
+  })
+
+  it('alan nesnesi hedef kata taşınır, konumu ve boyutu korunur', () => {
+    const [copied] = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId()).areaObjects
+
+    expect(copied).toMatchObject({
+      type: 'structuralColumn',
+      floorId: UPPER,
+      x: 50,
+      y: 50,
+      widthCm: 25,
+      lengthCm: 25,
+    })
+    expect(copied.id).not.toBe(14)
   })
 
   it('başka katın nesnesini kopyalamaz', () => {
@@ -95,7 +124,7 @@ describe('cloneFloorArchitecture', () => {
 
   it('her nesne YENİ id alır', () => {
     const clone = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId())
-    const sourceIds = new Set([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    const sourceIds = new Set([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
 
     const cloneIds = [
       ...clone.points.map((item) => item.id),
@@ -103,6 +132,7 @@ describe('cloneFloorArchitecture', () => {
       ...clone.openings.map((item) => item.id),
       ...clone.rooms.map((item) => item.id),
       ...clone.symbols.map((item) => item.id),
+      ...clone.areaObjects.map((item) => item.id),
     ]
     expect(cloneIds.some((id) => sourceIds.has(id))).toBe(false)
     // Hepsi birbirinden de farklı.

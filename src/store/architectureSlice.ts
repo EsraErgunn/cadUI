@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import { INITIAL_ARCHITECTURE_DATA, type ArchitectureData } from './architectureData'
 import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
+import type { AddOpeningInput, OpeningTarget } from './architectureOpeningOps'
 import { createPropertyActions } from './architecturePropertyOps'
 import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
@@ -13,6 +14,7 @@ import {
   type AddWallChainInput,
   type AddWallInput,
 } from './architectureWallOps'
+import { createAreaObjectActions, type AreaObjectActions } from './areaObjectOps'
 // cadStore ↔ architectureSlice karşılıklı import eder; bu taraf tip-only olduğu
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
@@ -22,7 +24,7 @@ import { markDirty, takeNextId } from './projectMeta'
 import { createSelectionActions } from './selectionOps'
 import { createTransformActions } from './transformOps'
 import type { PlanPoint } from '../core/coords'
-import { type Id, type OpeningType } from '../core/model'
+import { type Id } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
 import type { Selection } from '../core/selection'
 import type { PlanTransform } from '../core/transform'
@@ -34,22 +36,10 @@ export * from './architectureSelectors'
 // Veri şekli + sayaç türetimi ayrı dosyada (max-lines); sözleşme yüzeyi tek yerden okunsun.
 export { deriveNextUniqueId, INITIAL_ARCHITECTURE_DATA } from './architectureData'
 export type { ArchitectureData } from './architectureData'
+export type { AddOpeningInput, OpeningTarget } from './architectureOpeningOps'
 export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './architectureWallOps'
 
-export type AddOpeningInput = {
-  wallId: Id
-  offsetCm: number
-  widthCm: number
-  type: OpeningType
-}
-
-/** Taşımanın hedefi: açıklık duvarlar arasında gezebildiği için wallId de taşınır. */
-export type OpeningTarget = {
-  wallId: Id
-  offsetCm: number
-}
-
-export type ArchitectureSlice = ArchitectureData & PointSymbolActions & {
+export type ArchitectureSlice = ArchitectureData & PointSymbolActions & AreaObjectActions & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
@@ -185,6 +175,7 @@ export const createArchitectureSlice: StateCreator<
   ...createSelectionActions(set),
   ...createTransformActions(set),
   ...createPointSymbolActions(set),
+  ...createAreaObjectActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {

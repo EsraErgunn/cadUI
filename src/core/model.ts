@@ -130,6 +130,33 @@ export type PointSymbol = {
 } & SymbolAttachment
 
 /**
+ * PointSymbol'ün (Desen A) dışında bıraktığı "ölçü taşıyan" nesneler (satır 73
+ * yorumu, Desen B). Kolon kod adı bilerek `structuralColumn` — düşey gaz
+ * kolonuyla (`Riser`) karışmasın (bkz. docs/kararlar.md "Terminoloji uyarısı").
+ * Kiriş buraya GİRMEZ: o çizgisel (x1,y1,x2,y2), bu tip dikdörtgen alan.
+ */
+export type AreaObjectType = 'stairs' | 'structuralColumn' | 'flueShaft'
+
+/**
+ * Serbest, döndürülebilir dikdörtgen alan — merkez (x,y) + boyut (width,length)
+ * + açı. PointSymbol'ün "free" dalına yapısal olarak en yakını ama PointSymbol'e
+ * GİRMEZ: o ölçü taşımaz (bkz. satır 71-75 yorumu), bu taşır.
+ */
+export type AreaObject = {
+  id: Id
+  type: AreaObjectType
+  floorId: Id
+  x: number
+  y: number
+  widthCm: number
+  lengthCm: number
+  /** 0-359, x ekseninden saat yönünün tersine. */
+  angleDeg: number
+  /** PointSymbol.label ile aynı gerekçe: otomatik üretilir, düzenlenebilir. */
+  label: string
+}
+
+/**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
  * Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
@@ -143,4 +170,5 @@ export type ProjectData = {
   openings: Opening[]
   rooms: Room[]
   symbols: PointSymbol[]
+  areaObjects: AreaObject[]
 }
