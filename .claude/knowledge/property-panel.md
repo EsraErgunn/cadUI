@@ -6,10 +6,20 @@ seçimin türünü verir: `none` / `wall` / `opening` / `mixed`. Sayı değil T�
 belirleyicidir — beş duvar da tek duvar da `wall`'dır, fark alanların tekil mi
 toplu mu yazıldığındadır.
 
-**Seçim yokken panel hiç RENDER EDİLMEZ** (`w-0` bir kabuk bırakılmaz):
-kapalıyken DOM üretmemek "gizli panel odakta kalıyor" sınıfı hataları baştan
-keser. EditorPage'de çizim alanının KARDEŞİDİR — açılınca tuvali daraltır,
-üzerine binmez.
+**Panel çizim alanının ÜSTÜNE biner, sağdan kayarak açılır/kapanır (K37).**
+Eskiden (KK-12) EditorPage'de çizim alanının KARDEŞİYDİ — açılınca tuvali
+daraltıyordu; kullanıcı geri bildirimiyle bu terk edildi, çünkü seçim
+yapıldıkça canvas'ın kayması rahatsız ediciydi. `PropertyPanel.tsx`'in dış
+kabuğu artık `EditorPage.tsx`'teki `relative` satırın altında `absolute
+inset-y-0 right-0`, `translate-x-full` ↔ `translate-x-0` ile kayıyor
+(`transition-transform`).
+
+**Seçim yokken de DOM'da kalır ama erişilemez.** Animasyonun oynayabilmesi
+için `kind === 'none'` artık `return null` DEMİYOR — `aria-hidden` +
+`inert` + `pointer-events-none` ile hem ekran okuyuculardan hem
+tıklama/tab sırasından çıkarılıyor. Eski "gizli panel odakta kalıyor"
+riski böyle kapatıldı; DOM'da kalması küçük bir maliyet (boş `aside`),
+KK-12'nin çözdüğü sorun (odaklanabilirlik) yine çözülü kalıyor.
 
 ## Ayrışan değer boş gösterilir
 
@@ -58,6 +68,6 @@ sözleşmesi işine bağlı (bkz. [webcad-json-format](./webcad-json-format.md))
 - **Çoklu açıklıkta konum salt okunur**: iki açıklığa aynı offset yazmak onları
   üst üste bindirmeye çalışmaktır, ikincisi zaten reddedilirdi.
 
-**Dosya:** core/propertyFields.ts · ui/PropertyPanel.tsx ·
+**Dosya:** core/propertyFields.ts · ui/PropertyPanel.tsx · pages/EditorPage.tsx ·
 ui/properties/PropertyNumberField.tsx · ui/properties/WallProperties.tsx ·
 ui/properties/OpeningProperties.tsx · store/architecturePropertyOps.ts

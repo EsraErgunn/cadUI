@@ -48,8 +48,9 @@ export function EditorPage() {
 
       {/* min-h-0 / min-w-0 şart: flex çocukları varsayılan olarak içeriğinden
           küçülmeyi reddeder; olmazsa canvas taşar ve durum çubuğunu ekran dışına
-          iter. Menü/palet/durum çubuğu shrink-0, kalan alanı çizim alanı doldurur. */}
-      <div className="flex min-h-0 flex-1">
+          iter. Menü/palet/durum çubuğu shrink-0, kalan alanı çizim alanı doldurur.
+          relative: PropertyPanel'in absolute konumlanması buna göre. */}
+      <div className="relative flex min-h-0 flex-1">
         <Toolbar />
 
         <main className="relative min-w-0 flex-1">
@@ -60,8 +61,8 @@ export function EditorPage() {
           <FloorTabs />
         </main>
 
-        {/* Kardeş eleman: açıldığında çizim alanını daraltır, üzerine binmez
-            (issue 2.1). Seçim yokken hiç render edilmez. */}
+        {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
+            kayarak açılır/kapanır, satırın altında konumlanır. */}
         <PropertyPanel />
       </div>
 
