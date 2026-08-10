@@ -32,6 +32,18 @@ export function formatCount(value: number): string {
   return NUMBER_FORMATTER.format(value)
 }
 
+/** Veri henüz gelmediğinde başlıkta adet yerine görünen işaret. */
+const PENDING_COUNT_LABEL = '…'
+
+/**
+ * Başlıktaki kayıt adedi (`PageHeader.countLabel`). Ekranlar adedi kendi
+ * `String()`'iyle yazdığı sürece biri binlik ayraçlı, biri ayraçsız
+ * gösteriyordu ("11.839" ve "11839").
+ */
+export function formatCountLabel(totalCount: number | undefined): string {
+  return totalCount === undefined ? PENDING_COUNT_LABEL : formatCount(totalCount)
+}
+
 export function formatLongDate(date: Date): string {
   return LONG_DATE_FORMATTER.format(date)
 }

@@ -63,12 +63,21 @@ export function applyParamPatch(
 export function useAdminParamWriter(): (
   patch: AdminParamPatch,
   shouldResetPage: boolean,
+  /**
+   * Geçmişe yeni kayıt eklemeden yaz. Debounce'lu arama içindir: her tuş
+   * vuruşu ayrı kayıt bıraksaydı "abc" yazan kullanıcının geri tuşuna üç kez
+   * basması gerekirdi. Varsayılan `false` — mevcut çağıranların davranışı aynı.
+   */
+  shouldReplace?: boolean,
 ) => void {
   const [, setSearchParams] = useSearchParams()
 
   return useCallback(
-    (patch: AdminParamPatch, shouldResetPage: boolean) => {
-      setSearchParams((current) => applyParamPatch(current, patch, shouldResetPage))
+    (patch: AdminParamPatch, shouldResetPage: boolean, shouldReplace = false) => {
+      setSearchParams(
+        (current) => applyParamPatch(current, patch, shouldResetPage),
+        { replace: shouldReplace },
+      )
     },
     [setSearchParams],
   )
