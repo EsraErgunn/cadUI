@@ -2,6 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
 import { AdminHomePage } from '../pages/AdminHomePage'
+import { AnnouncementsPage } from '../pages/AnnouncementsPage'
+import { ComingSoonPage } from '../pages/ComingSoonPage'
 import { EditorPage } from '../pages/EditorPage'
 import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
@@ -11,7 +13,16 @@ import { ProjectListPage } from '../pages/ProjectListPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
 import { AdminLayout } from '../ui/admin/AdminLayout'
-import { PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
+import {
+  ANNOUNCEMENTS_PATH,
+  DOCUMENTS_PATH,
+  FIRM_USERS_PATH,
+  POLICIES_PATH,
+  PROJECT_CREATE_PATH,
+  PROJECT_FIRMS_PATH,
+  PROJECT_FIRM_CREATE_PATH,
+  USER_CREATE_PATH,
+} from '../ui/admin/adminNavItems'
 
 export function AppRouter() {
   return (
@@ -64,6 +75,30 @@ export function AppRouter() {
               yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
           <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
           <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
+
+          <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
+
+          {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
+              hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
+              kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
+          <Route
+            path={PROJECT_FIRMS_PATH}
+            element={<ComingSoonPage title="Proje Firmaları" section="Firmalar" />}
+          />
+          <Route
+            path={PROJECT_FIRM_CREATE_PATH}
+            element={<ComingSoonPage title="Proje Firması Ekle" section="Firmalar" />}
+          />
+          <Route
+            path={FIRM_USERS_PATH}
+            element={<ComingSoonPage title="Firma Kullanıcıları" section="Kullanıcılar" />}
+          />
+          <Route
+            path={USER_CREATE_PATH}
+            element={<ComingSoonPage title="Kullanıcı Oluştur" section="Kullanıcılar" />}
+          />
+          <Route path={DOCUMENTS_PATH} element={<ComingSoonPage title="Evraklar" />} />
+          <Route path={POLICIES_PATH} element={<ComingSoonPage title="Poliçeler" />} />
         </Route>
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />

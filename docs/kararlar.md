@@ -1639,3 +1639,246 @@ hangi ucundan tutunursa tutunsun kullanıcıya hep "ters" görünüyordu.
 dalga ortada) çevrildi. Çapa (`origin: [20,8]`) dalganın TAM ORTASI — dikey
 ayna görüntüsü aynı desen gibi görünür, yön belirsizliği doğuran asimetri
 kökten kaldırıldı.
+
+## 2026-08 · Yönetici anasayfası (Genel Bakış)
+
+### K28 — Ekran tek uçtan beslenir, veri katmanı sözleşmeyi garanti eder
+
+Tüm sayılar `GET /api/admin/dashboard/summary?region=` sözleşmesinden geliyor
+(`api/adminDashboard.ts`). Liste uçlarının toplamı ALINMADI: sayfalı bir uçtan
+toplam çıkarmak yanlış sonuç verir.
+
+**Uç HENÜZ YOK.** Sunucunun OpenAPI belgesinde 21 rota var, hiçbiri `dashboard`
+veya `summary` içermiyor; `/api/admin/` öneki de hiç bulunmuyor. Bu yüzden yol
+`/api/dashboard/summary` olarak yazıldı — backend NİHAİ adı farklı verebilir,
+uç açılınca `DASHBOARD_SUMMARY_PATH` sabiti doğrulanacak.
+
+**Sonuç: ekrandaki sayıların hemen hepsi ÖRNEK VERİ.** Base URL dolu olduğu için
+istek gerçekten atılıyor, 404 dönüyor ve katman sessizce mock'a düşüyor.
+
+Mock'a düşme koşulu SADECE bu dosyaya özel (`isMissingEndpoint`): 404, 501 ve
+ağ hatası mock'a düşer. **401, 403 ve 5xx GEÇİRİLİR** — `http.ts` 401'de oturumu
+düşürüyor ve `RequireAuth` girişe yönlendiriyor; bunları mock'a yutsaydık süresi
+dolmuş oturumda kullanıcı sahte veriyle dolu çalışan bir ekran görürdü, ki bu
+hata ekranından çok daha kötü bir sonuç. Gas-firm katmanına dokunulmadı.
+
+Mock'a düşerken konsola **tek satır** `console.warn` yazılır (modül düzeyinde
+bayrakla bir kez; bölge her değişince sorgu tekrar çalıştığı için aksi hâlde
+konsol aynı satırla dolardı). Bu BİLİNÇLİ bir teşhis çıktısıdır, CLAUDE.md'deki
+`console.log` yasağı gürültü amaçlı log'lar içindir — **"unutulmuş log" diye
+silinmemeli**; `eslint-disable-next-line no-console` gerekçesiyle birlikte duruyor.
+Uç açılınca bu blok tümüyle kalkacak.
+
+Mock veri bölge taşıyor, böylece bölge seçimi gerçekten çalışıyor ve KK-2 test
+edilebiliyor — 404 ile mock'a düşülen durumda da süzgeç işliyor.
+
+Sıralama, üst sınırlar (5 bölge / 2 duyuru) ve duyuru kısaltması `normalizeSummary`
+içinde, **kaynaktan bağımsız** uygulanıyor. Yalnız mock yolunda yapılsaydı sunucu
+bir gün sırasız veya 10 satır döndürdüğünde KK-5/KK-6 sessizce ihlal olurdu.
+
+Duyuru özeti CSS `line-clamp` ile değil **veri katmanında 120 karakterde**
+kısaltılıyor: satır sayısı yazı tipine ve kart genişliğine bağlı olduğu için test
+edilemezdi, karakter sınırı deterministik.
+
+### Bölge filtresi burada AKTİF, liste ekranında pasif
+
+Bilinçli fark. Gaz dağıtım listesinde bölge süzgeci devre dışı (K27) çünkü gerçek
+uç bölge taşımıyor. Gösterge panelinde ise veri zaten mock; mock'a bölge alanı
+koyup süzgeci çalıştırmak KK-2'yi test edilebilir kılıyor ve gerçek uç gelince
+yalnız veri kaynağı değişecek.
+
+### Mockup'ta olup belgede olmayan: "Abone Sorgulama"
+
+Yeşil mockup'ta sağ üstte "Abone Sorgulama" butonu var; gereksinim belgesinde ve
+KK-1'de geçmiyor (ikisi de yalnız "Duyuru Yayınla" diyor). **Kapsam dışı
+bırakıldı**, eklenmedi.
+
+### Olmayan ekrana bağlantı yerine PASİF öğe
+
+> GÜNCELLENDİ — hızlı işlemler ve "Duyuru Yayınla" için bu karar artık geçerli
+> değil; bkz. aşağıdaki "Hedefi olmayan kısayollar" ve "Duyuru Yayınla formu"
+> başlıkları. Aşağıdaki gerekçe hâlâ pasif kalan öğeler için duruyor.
+
+Hedef ekranı yazılmamış her öğe ölü bağlantı yerine `aria-disabled` ile pasif
+render ediliyor: "Proje Firması Ekle", "Kullanıcı Oluştur", "Duyuru Yayınla".
+Duyurular kartındaki "Tümünü Gör" ise düz metin — hedefi olmayan bir bağlantı
+hiç kurulmadı. Hepsinin başında sahipli `TODO(esra)` var.
+
+Gerçek `disabled` KULLANILMADI: `disabled` düğme odaklanamaz, dolayısıyla
+"Bu ekran henüz hazır değil" açıklaması klavye ve ekran okuyucu kullanıcısına
+hiç ulaşmazdı. Açıklama `title` ile de verilmedi (ekran okuyucularda tutarsız
+okunuyor); görünür bir metne `aria-describedby` ile bağlı.
+
+`adminNavItems.ts`'e dokunulmadı — olmayan sayfalara menü maddesi açmak ölü link
+üretirdi.
+
+### Yeni yetki anahtarları
+
+`projectFirm.create` ve `user.create` eklendi (kalıp `<varlık>.<eylem>`).
+"Projeleri Görüntüle" için anahtar AÇILMADI: proje listesi sol menüden zaten
+korumasız açılıyor, kısayolu gizlemek tutarsız olurdu.
+
+### Yeni renk token'ları
+
+`--color-success-soft` (#3f8f63 / #5fbf8c) ve `--color-warning` (#b26a00 /
+#e0a458). `success-soft` YALNIZ büyük kalın sayaç rakamında kullanılır: beyaz
+zeminde ~3.4:1, WCAG AA büyük metin eşiğini (3:1) geçer ama küçük metin eşiğini
+(4.5:1) geçmez. Kısıt token'ın yanına yorum olarak yazıldı.
+
+### Çubuk grafik: kütüphane yok, inline stil yok
+
+Yatay çubuk native `<progress value max>` ile çiziliyor; oran `max`'ı en yüksek
+değere kurarak tarayıcıya bırakılıyor. Grafik kütüphanesi eklemek tek eksenli
+beş satırlık bir gösterim için paket boyutunu ve tema uyumu yükünü boşuna
+artırırdı. Genişliği `style={{}}` ile yazmak CLAUDE.md'nin inline stil yasağını
+ihlal ederdi; `<progress>` dolgusu yalnız satıcı sözde-öğeleriyle boyandığı için
+görünüm `styles/dashboardBar.css`'e ayrı dosya olarak konuldu.
+
+## Genel Bakış: backend'den istenecek uçlar ve alanlar
+
+Aşağıdakiler mock; MR açıklamasına da eklenecek.
+
+1. `GET /api/dashboard/summary?date=&region=` — TEK uç (nihai adı backend
+   onaylayacak). `date` YEREL takvim günü (`YYYY-MM-DD`) ve ZORUNLU: `today` ve
+   `regionDensity` yalnız O GÜNE ait kayıtlardan hesaplanmalı, `counts` ise
+   günden bağımsız birikimli toplam.
+   Beklenen yanıt gövdesi:
+
+   ```json
+   {
+     "counts": { "gasDistributionUsers": 2926, "projectFirms": 11838, "projectFirmUsers": 24804 },
+     "today": { "newProjects": 11, "approved": 3, "rejected": 0 },
+     "regionDensity": [{ "region": "Marmara", "count": 28 }],
+     "announcements": [
+       { "id": 2, "title": "...", "summary": "...", "publishedAt": "2026-07-11T06:00:00Z", "source": "Sistem" }
+     ]
+   }
+   ```
+
+   Alanlar:
+   - `counts.gasDistributionUsers`, `counts.projectFirms`, `counts.projectFirmUsers`
+   - `today.newProjects` (bugün OLUŞTURULAN, `createdAt`), `today.approved`, `today.rejected`
+   - `regionDensity[]` → `{ region, count }` (bugün gelen projeler)
+   - `announcements[]` → `{ id, title, summary, publishedAt, source }`
+2. **Kullanıcı sayıları için uç yok.** Gaz dağıtım ve proje firması kullanıcı
+   sayıları hiçbir uçtan gelmiyor.
+3. **Proje durum alanı listede yok.** `ProjectListItemDto` durum taşımadığı için
+   "Onaylanmış"/"Reddedilen" sayaçları sunucudan gelmeli.
+4. **Bölge alanı.** Proje ve firma kayıtlarında bölge yok; K27'deki bölge
+   yetkisi alanı gelince hem bu ekran hem liste süzgeci gerçek veriye bağlanır.
+5. **Duyuru varlığı yok.** `source` alanı 'Sistem' | firma adı ayrımını taşımalı;
+   amber kenarlık buna bağlı.
+6. `GET /api/me/permissions` hâlâ mock — `projectFirm.create` ve `user.create`
+   sunucudan gelmeli.
+7. `POST /api/dashboard/announcements` — duyuru yayınlama. İstek gövdesi
+   `{ title, body, region: string | null, isSystem: boolean }`, yanıt tek bir
+   `Announcement`. Görünen `source` alanını sunucu belirler (`isSystem` ise
+   'Sistem'); `region: null` = tüm bölgeler.
+
+### "Bugün" sayaçları güne bağlandı, gün dönünce sıfırlanıyor
+
+Sayaçlar artık BİR GÜNÜN kayıtlarını sayıyor. Gün anahtarı (`YYYY-MM-DD`,
+`api/dayKey.ts`) hem sorgu anahtarının hem `?date=` parametresinin parçası:
+gece yarısı anahtar değişiyor, veri yeni gün için yeniden isteniyor ve sayaçlar
+sıfırdan başlıyor. Yani "gece yarısı sıfırlanır" ayrı bir kural değil, veri
+kapsamının doğal sonucu — istemcide sıfırlayan bir kod YOK.
+
+Gün YEREL takvim günü. `toISOString()` KULLANILMADI: o UTC'ye çevirir, TR
+saatiyle gece yarısından sonra açılan ekran bir önceki günü sorardı.
+
+Günü `useCurrentDay` taşıyor. Tarihi her render'da `new Date()` ile okumak
+yetmezdi: render'ı TETİKLEYEN bir şey olmadığı için gece boyunca açık kalan
+sekmede dünkü tarih ve dünkü sayaçlar ekranda kalırdı. Zamanlayıcı gece
+yarısından 500 ms sonraya kuruluyor (erken uyanan `setTimeout` hâlâ dünü
+görürdü) ve her uyanışta kendini yeniden kuruyor. Arka plandaki sekmede tarayıcı
+zamanlayıcıyı kıstığı için `visibilitychange` de dinleniyor.
+
+Mock'ta hareketler artık gün taşıyor ve uygulamanın AÇILDIĞI güne yazılıyor:
+sabit tarih yazılsaydı mock ertesi gün "bugün" olmaktan çıkardı. Birikimli
+sayılar (kullanıcı/firma adedi) günden bağımsız kaldı — onlar devreden toplam.
+
+### "Duyuru Yayınla" formu: diyalog + canlı önizleme
+
+Belgede formun nasıl olacağı yazmıyordu. Ayrı SAYFA değil DİYALOG seçildi:
+yönetici anasayfadan ayrılmadan yazıp yayınlıyor ve sonucu arkadaki Duyurular
+kartında hemen görüyor.
+
+Alanlar: Başlık (zorunlu, 3–80), Kapsam (bölge; BOŞ BIRAKILABİLİR = tüm
+bölgeler), Duyuru Metni (zorunlu, 500 karakter sayacıyla), "Sistem duyurusu"
+kutusu. Kutu bilinçli: kartın amber sol kenarlığı `source === 'Sistem'`
+ayrımına bağlıydı ama bu ayrımı kuracak bir giriş yoktu.
+
+Formun altında CANLI ÖNİZLEME var ve kartın kendi satır bileşenini
+(`AnnouncementItem`) kullanıyor — kart ile önizleme aynı koddan çiziliyor,
+ikinci bir kopya zamanla sessizce ayrışırdı. Kısaltmayı da veri katmanının
+kendi fonksiyonu yapıyor: metnin nerede kesileceği yayınlamadan ÖNCE görülüyor.
+
+Görünen `source` alanını SUNUCU belirler; istemci yalnız `isSystem` gönderir.
+Kaynak adını istemcide üretmek iki ekranın farklı etiket yazması demekti.
+`POST /api/dashboard/announcements` de HENÜZ YOK; özet ucuyla aynı kural
+geçerli (404/501/ağ hatası → mock, 401/403/5xx → geçer, kullanıcı "yayınlandı"
+sanmasın). Mock, yayınlanan duyuruyu oturum boyunca tutuyor.
+
+Diyalog kabuğu `ui/admin/AdminDialog.tsx`'e çıkarıldı ve `ConfirmDialog` de
+ona bağlandı: odak tuzağı + Esc + odağın geri dönmesi mantığı üçüncü kez
+kopyalanmadı. `ConfirmDialog` açılışta odağı ONAY düğmesine almaya devam ediyor
+(`initialFocusRef`), kabuğun varsayılanı ilk odaklanabilir öğe.
+
+### Hedefi olmayan kısayollar: pasif düğme yerine "bu ekran gelecektir" sayfası
+
+Önceki karar (pasif `aria-disabled` öğe) DEĞİŞTİ. Hızlı işlemlerin dördü de
+gerçek bağlantı; ekranı yazılmamış olanlar `ComingSoonPage`'e gidiyor
+("Bu ekran gelecektir." + Anasayfaya dön).
+
+Yollar şimdiden gerçek adlarıyla açıldı (`/admin/project-firms/new`,
+`/admin/users/new`); ekran gelince YALNIZ route'un element'i değişecek,
+kısayollara ve bağlantılara dokunulmayacak. Tıklamadan önce beklenti kurulsun
+diye kısayolda "Yakında" rozeti var ve rozet erişilebilir adın parçası
+("Kullanıcı Oluştur Yakında"), yani ekran okuyucu kullanıcısına da ulaşıyor.
+
+Yetki kuralı aynı kaldı: kullanıcının izni yoksa kısayol listede HİÇ yer almaz
+(pasif de görünmez). Sol menüye (`ADMIN_NAV_ITEMS`) yine dokunulmadı — menüdeki
+`path: null` maddeleri kendi issue'larında ele alınacak.
+
+Duyurular kartındaki "Tümünü Gör" de aynı desene bağlandı: düz metin değil
+gerçek bağlantı (`/admin/announcements`), hedefinde bugün karşılama sayfası var.
+
+### Sol menüde pasif madde kalmadı
+
+`ADMIN_NAV_ITEMS`'ta `path: null` bitti; her maddenin yolu var
+(`/admin/project-firms`, `/admin/firm-users`, `/admin/documents`,
+`/admin/policies`) ve ekranı yazılmamış olanlar karşılama sayfasına gidiyor.
+
+Gerekçe erişilebilirlik: `disabled` düğme ODAKLANAMAZ, dolayısıyla o dört madde
+klavye ve ekran okuyucu kullanıcısına hiç görünmüyordu. Artık `NavLink`
+oldukları için hem görünüyorlar hem `aria-current` işaretini alıyorlar.
+`adminNavItemVariants`'ın `disabled` tonu kullanılmadığı için silindi.
+
+"Yakında" rozeti hem menüde hem hızlı işlemlerde aynı bileşenden geliyor
+(`ui/admin/ComingSoonBadge.tsx`) — ikinci kopya çıkarılmadı. Rozet METİN, yani
+erişilebilir adın parçası; yalnız renkle verilseydi ayrımı göremeyen kullanıcıya
+hiçbir şey söylemezdi.
+
+### Duyuru listesi ekranı (`/admin/announcements`)
+
+"Tümünü Gör" artık gerçek bir ekrana gidiyor. `GET /api/dashboard/announcements`
+sayfalı liste döndürüyor (`?q=&region=&page=&pageSize=`); uç yokken mock aynı
+süzme/sıralama/sayfalama davranışını taklit ediyor.
+
+Liste satırı anasayfa kartıyla AYNI bileşen DEĞİL ve bu bilinçli: kart dar yerde
+120 karakterde kısaltılmış `summary` gösteriyor, liste ekranının işi duyuruyu TAM
+göstermek. Bu yüzden liste ucu ayrı bir satır tipi taşıyor (`AnnouncementDetail`:
+kısaltılmamış `body` + `region`). Ortaklaştırılsalardı biri diğerinin kısıtını
+taşımak zorunda kalırdı.
+
+Arama başlıkta VE metinde, `includesTr` ile (kendi `toLowerCase()` çözümü
+yazılmadı). Sayfa/arama durumu URL'de (`useAnnouncementListParams`), bölge için
+ayrı süzgeç YOK — kapsam üst bardaki seçimden geliyor, böylece anasayfa ile liste
+arasında gezinirken kapsam korunuyor.
+
+Yayınlama formu iki ekranda da aynı bileşen. Bu yüzden duyuru parçaları
+`ui/admin/dashboard/` altından `ui/admin/announcements/` altına taşındı: artık
+tek ekrana ait değiller. Bağımlılık tek yönlü (dashboard → announcements).
+Tarih/sayı biçimlendiricileri de iki ekran birden kullandığı için
+`ui/admin/adminFormat.ts`'e çıkarıldı; `dashboardFormat.ts` yalnız gösterge
+paneline özel kapsam metinlerini tutuyor.
