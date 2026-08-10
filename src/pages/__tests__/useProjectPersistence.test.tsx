@@ -54,6 +54,8 @@ beforeEach(() => {
   api.saveProjectVersion.mockResolvedValue({
     id: 1,
     projectId: 1,
+
+    
     objectKey: 'k',
     label: null,
     createdAt: '2026-08-04T00:00:00Z',
