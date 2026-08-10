@@ -33,8 +33,10 @@ export const DEFAULT_AREA_OBJECT_SIZE_CM: Record<AreaObjectType, { widthCm: numb
   // En az 1m kenar — kullanıcı görsel referansla netleştirdi (K39 taslağı çok küçüktü).
   structuralColumn: { widthCm: 100, lengthCm: 100 },
   flueShaft: { widthCm: 100, lengthCm: 100 },
-  // Basit yuvarlak menfez — WebCAD'deki RoofVent{radius,x,y} notuyla aynı ölçek.
-  columnVentilation: { widthCm: 30, lengthCm: 30 },
+  // Baca şaftının iç çemberine YAKIN (100 × 0.92 = 92) ama bir tık küçük çap —
+  // kullanıcı istedi. areaObjectGeometry.ts → FLUE_SHAFT_CIRCLE_RATIO değişirse
+  // elle senkron kalmalı.
+  columnVentilation: { widthCm: 80, lengthCm: 80 },
 }
 
 const LABEL_NUMBER_PAD = 2

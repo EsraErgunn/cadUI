@@ -53,8 +53,9 @@ describe('addAreaObject', () => {
 
     expect(findAreaObject(id!)).toMatchObject({
       type: 'columnVentilation',
-      widthCm: 30,
-      lengthCm: 30,
+      // Baca şaftının iç çemberinden bir tık küçük çap.
+      widthCm: 80,
+      lengthCm: 80,
       label: 'KH-01',
     })
   })
