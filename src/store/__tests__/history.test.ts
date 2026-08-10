@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { resetArchitectureState, WALL_ID, WINDOW_ID } from './architectureFixture'
+import { createGroundFloor } from '../../core/floors'
 import { redoProject, undoProject, useCadStore } from '../cadStore'
 import { HISTORY_LIMIT } from '../history'
 
@@ -95,7 +96,7 @@ describe('geri al / yinele', () => {
     useCadStore.getState().loadProject({
       nextUniqueId: 2,
       activeFloorId: 1,
-      floors: [{ id: 1, name: 'Zemin Kat' }],
+      floors: [createGroundFloor()],
       points: [],
       walls: [],
       openings: [],

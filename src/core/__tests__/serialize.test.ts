@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type ProjectData } from '../model'
+import { createGroundFloor } from '../floors'
+import { DEFAULT_FLOOR_ID, type ProjectData } from '../model'
 import { ProjectDataParseError, parseProjectJson, serializeProjectData } from '../serialize'
 
 const emptyProject: ProjectData = {
   nextUniqueId: 2,
   activeFloorId: DEFAULT_FLOOR_ID,
-  floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+  floors: [createGroundFloor()],
   points: [],
   walls: [],
   openings: [],
@@ -17,7 +18,8 @@ const emptyProject: ProjectData = {
 describe('serializeProjectData', () => {
   it('alanları sabit sırayla yazar', () => {
     expect(serializeProjectData(emptyProject)).toBe(
-      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '{"nextUniqueId":2,"activeFloorId":1,' +
+        '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
         '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[]}',
     )
   })
@@ -41,6 +43,31 @@ describe('serializeProjectData', () => {
       '"points":[],"walls":[],"openings":[]}'
 
     expect(serializeProjectData(parseProjectJson(legacy))).toContain('"rooms":[],"symbols":[]')
+  })
+
+  it('heightCm/isBasement alanı OLMAYAN eski katı varsayılanlarla okur', () => {
+    // Kat yüksekliği modele sonradan geldi; zorunlu tutulsaydı depodaki her
+    // çizim "expected number, received undefined" ile hiç açılmazdı.
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[]}'
+
+    expect(parseProjectJson(legacy).floors[0]).toEqual({
+      id: 1,
+      name: 'Zemin Kat',
+      heightCm: 300,
+      isBasement: false,
+    })
+  })
+
+  it('eski kat bir kez kaydedilince yükseklik dosyaya yazılır', () => {
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[]}'
+
+    expect(serializeProjectData(parseProjectJson(legacy))).toContain(
+      '"heightCm":300,"isBasement":false',
+    )
   })
 
   it('attachment alanı OLMAYAN eski sembolü SERBEST olarak okur', () => {

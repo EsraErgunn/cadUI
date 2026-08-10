@@ -1,12 +1,25 @@
 /** Kalıcı id: proje bazlı artan tamsayı. Bkz. knowledge/id-scheme.md. */
 export type Id = number
 
+/**
+ * Kot (`elevation`) ALANI YOK: kat yüksekliklerinden ve sıradan her gösterimde
+ * türetilir (core/floorElevation.ts). Saklansaydı bir katın yüksekliği değişince
+ * üstündeki bütün kotları güncellemek gerekirdi ve biri atlandığında JSON
+ * sessizce tutarsız kalırdı.
+ *
+ * `isBasement` bir görüntü etiketi değil sıra kısıtı: bodrum katlar dizinin
+ * başında (zemin katın ALTINDA) durur, kotu negatiftir ve bina yüksekliğine
+ * girmez.
+ */
 export type Floor = {
   id: Id
   name: string
+  heightCm: number
+  isBasement: boolean
 }
 
 export const DEFAULT_FLOOR_NAME = 'Zemin Kat'
+export const DEFAULT_FLOOR_HEIGHT_CM = 300
 
 /** Proje açıldığında oluşan tek kat 1 numarayı alır, sayaç 2'den devam eder. */
 export const DEFAULT_FLOOR_ID: Id = 1

@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  MAX_BASEMENT_COUNT,
+  MAX_FLOOR_COUNT,
+  canAddBasement,
+  canAddFloor,
   canRemoveFloor,
+  createGroundFloor,
+  getBasementCount,
+  getNextBasementName,
+  isFloorHeightValid,
+  reorderFloorInList,
   getFloorBelowId,
   getFloorById,
   getFloorIdAfterRemoval,
@@ -15,9 +24,13 @@ import {
 import type { Floor } from '../model'
 
 // Dizinin başı en ALT kat.
-const basement: Floor = { id: 1, name: 'Bodrum Kat' }
-const ground: Floor = { id: 2, name: 'Zemin Kat' }
-const first: Floor = { id: 3, name: '1. Kat' }
+function makeFloor(id: number, name: string, isBasement = false, heightCm = 300): Floor {
+  return { id, name, heightCm, isBasement }
+}
+
+const basement: Floor = makeFloor(1, 'Bodrum Kat', true, 280)
+const ground: Floor = makeFloor(2, 'Zemin Kat', false, 320)
+const first: Floor = makeFloor(3, '1. Kat', false, 320)
 const floors = [basement, ground, first]
 
 describe('getFloorIndex / getFloorById', () => {
@@ -82,7 +95,7 @@ describe('getNextFloorName', () => {
   })
 
   it('numarada boşluk varsa en yükseği esas alır', () => {
-    expect(getNextFloorName([ground, { id: 9, name: '5. Kat' }])).toBe('6. Kat')
+    expect(getNextFloorName([ground, makeFloor(9, '5. Kat')])).toBe('6. Kat')
   })
 })
 
@@ -108,7 +121,8 @@ describe('moveFloorInList', () => {
   })
 
   it('katı bir sıra aşağı taşır', () => {
-    expect(moveFloorInList(floors, ground.id, 'down').map((floor) => floor.id)).toEqual([2, 1, 3])
+    // Zemin kat değil 1. Kat taşınıyor: zeminin altı bodrum, o yön kısıtlı.
+    expect(moveFloorInList(floors, first.id, 'down').map((floor) => floor.id)).toEqual([1, 3, 2])
   })
 
   it('sınırda AYNI dizi referansını döndürür — boş geri alma adımı üretilmesin', () => {
@@ -116,10 +130,95 @@ describe('moveFloorInList', () => {
     expect(moveFloorInList(floors, basement.id, 'down')).toBe(floors)
     expect(moveFloorInList(floors, 404, 'up')).toBe(floors)
   })
+
+  it('bodrum/normal ayrımını bozan komşu takasını reddeder', () => {
+    expect(moveFloorInList(floors, basement.id, 'up')).toBe(floors)
+    expect(moveFloorInList(floors, ground.id, 'down')).toBe(floors)
+  })
 })
 
 describe('getFloorInsertIndex', () => {
-  it('yeni kat en üste eklenir', () => {
+  it('yeni kat en üste, bodrum en alta eklenir', () => {
     expect(getFloorInsertIndex(floors)).toBe(floors.length)
+    expect(getFloorInsertIndex(floors, true)).toBe(0)
+  })
+})
+
+describe('createGroundFloor', () => {
+  it('her çağrıda TAZE nesne verir — iki proje aynı katı paylaşmasın', () => {
+    expect(createGroundFloor()).not.toBe(createGroundFloor())
+    expect(createGroundFloor()).toEqual({
+      id: 1,
+      name: 'Zemin Kat',
+      heightCm: 300,
+      isBasement: false,
+    })
+  })
+})
+
+describe('isFloorHeightValid', () => {
+  it('200–600 cm dışını reddeder', () => {
+    expect(isFloorHeightValid(200)).toBe(true)
+    expect(isFloorHeightValid(600)).toBe(true)
+    expect(isFloorHeightValid(199)).toBe(false)
+    expect(isFloorHeightValid(601)).toBe(false)
+    expect(isFloorHeightValid(Number.NaN)).toBe(false)
+  })
+})
+
+describe('getBasementCount / canAddFloor / canAddBasement', () => {
+  it('bodrumları sayar', () => {
+    expect(getBasementCount(floors)).toBe(1)
+    expect(getBasementCount([ground])).toBe(0)
+  })
+
+  it('kat tavanı bodrumları DA kapsar', () => {
+    const full = Array.from({ length: MAX_FLOOR_COUNT }, (_, index) =>
+      makeFloor(index + 1, `${index + 1}. Kat`),
+    )
+
+    expect(canAddFloor(full)).toBe(false)
+    expect(canAddBasement(full)).toBe(false)
+  })
+
+  it('bodrum kendi tavanına ayrıca tabidir', () => {
+    const basements = Array.from({ length: MAX_BASEMENT_COUNT }, (_, index) =>
+      makeFloor(index + 1, `${index + 2}. Bodrum Kat`, true),
+    )
+    const withGround = [...basements, ground]
+
+    // Proje tavanı dolmadı ama bodrum tavanı doldu.
+    expect(canAddFloor(withGround)).toBe(true)
+    expect(canAddBasement(withGround)).toBe(false)
+  })
+})
+
+describe('getNextBasementName', () => {
+  it('ilk bodrum numarasızdır, sonrakiler numaralanır', () => {
+    expect(getNextBasementName([ground])).toBe('Bodrum Kat')
+    expect(getNextBasementName(floors)).toBe('2. Bodrum Kat')
+    expect(getNextBasementName([makeFloor(9, '2. Bodrum Kat', true), basement, ground])).toBe(
+      '3. Bodrum Kat',
+    )
+  })
+})
+
+describe('reorderFloorInList', () => {
+  it('katı verilen indekse taşır', () => {
+    expect(reorderFloorInList(floors, first.id, 1).map((floor) => floor.id)).toEqual([1, 3, 2])
+  })
+
+  it('bodrumu zemin katın ÜZERİNE taşımayı reddeder', () => {
+    expect(reorderFloorInList(floors, basement.id, 2)).toBe(floors)
+  })
+
+  it('normal katı bodrumun ALTINA taşımayı da reddeder — ayrım iki yönlü', () => {
+    expect(reorderFloorInList(floors, ground.id, 0)).toBe(floors)
+  })
+
+  it('değişiklik yoksa AYNI dizi referansını döndürür', () => {
+    expect(reorderFloorInList(floors, first.id, 2)).toBe(floors)
+    expect(reorderFloorInList(floors, first.id, 9)).toBe(floors)
+    expect(reorderFloorInList(floors, 404, 0)).toBe(floors)
   })
 })

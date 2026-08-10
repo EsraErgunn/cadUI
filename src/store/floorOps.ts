@@ -3,28 +3,69 @@ import type { CadState } from './cadStore'
 import { pruneSymbolsInDraft } from './pointSymbolOps'
 import { takeNextId } from './projectMeta'
 import {
+  canAddBasement,
+  canAddFloor,
   getFloorIdAfterRemoval,
   getFloorInsertIndex,
+  getNextBasementName,
   getNextFloorName,
+  isFloorHeightValid,
   isFloorNameTaken,
   isFloorNameValid,
   moveFloorInList,
+  reorderFloorInList,
   type FloorDirection,
 } from '../core/floors'
-import type { Id } from '../core/model'
+import { DEFAULT_FLOOR_HEIGHT_CM, type Id } from '../core/model'
 
 export type AddFloorInput = {
-  /** Verilmezse sıradaki "N. Kat" adı üretilir. */
+  /** Verilmezse sıradaki "N. Kat" (bodrumda "Bodrum Kat") adı üretilir. */
   name?: string
+  /** Bodrum en ALTA eklenir ve kendi tavanına (5) tabidir. */
+  isBasement?: boolean
+  /** Madde 3: "Yeni kat yüksekliği" alanından gelir, mevcut katlara dokunmaz. */
+  heightCm?: number
 }
 
 export function appendFloor(draft: CadState, input: AddFloorInput): Id | undefined {
-  const name = input.name?.trim() ?? getNextFloorName(draft.floors)
+  const isBasement = input.isBasement ?? false
+  if (isBasement ? !canAddBasement(draft.floors) : !canAddFloor(draft.floors)) return undefined
+
+  const name =
+    input.name?.trim() ??
+    (isBasement ? getNextBasementName(draft.floors) : getNextFloorName(draft.floors))
   if (!isFloorNameValid(name) || isFloorNameTaken(draft.floors, name)) return undefined
 
+  const heightCm = input.heightCm ?? DEFAULT_FLOOR_HEIGHT_CM
+  if (!isFloorHeightValid(heightCm)) return undefined
+
   const id = takeNextId(draft)
-  draft.floors.splice(getFloorInsertIndex(draft.floors), 0, { id, name })
+  draft.floors.splice(getFloorInsertIndex(draft.floors, isBasement), 0, {
+    id,
+    name,
+    heightCm,
+    isBasement,
+  })
   return id
+}
+
+/** Kot bu değerden TÜRETİLİR; sınır dışı yükseklik reddedilir, kırpılmaz. */
+export function setFloorHeightInDraft(draft: CadState, floorId: Id, heightCm: number): boolean {
+  if (!isFloorHeightValid(heightCm)) return false
+
+  const floor = draft.floors.find((candidate) => candidate.id === floorId)
+  if (!floor || floor.heightCm === heightCm) return false
+
+  floor.heightCm = heightCm
+  return true
+}
+
+export function reorderFloorInDraft(draft: CadState, floorId: Id, targetIndex: number): boolean {
+  const reordered = reorderFloorInList(draft.floors, floorId, targetIndex)
+  if (reordered === draft.floors) return false
+
+  draft.floors = [...reordered]
+  return true
 }
 
 export function renameFloorInDraft(draft: CadState, floorId: Id, name: string): boolean {

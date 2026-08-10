@@ -15,6 +15,40 @@ En alt katın altı yoktur, `undefined` döner.
 başta gösterir (kullanıcı binayı kesitten görüyor). Çeviri yalnız görüntü
 katmanındadır (`[...floors].reverse()`); veri yapısı görüntü için çevrilmez.
 
+## Bodrum ayrımı sıranın KISITIDIR, etiket değil
+
+`Floor.isBasement` yalnız satırın zeminini boyayan bir işaret değil: bodrumlar
+dizinin başında, normal katlar arkasında durur ve bu bölünme kotun İŞARETİNİ
+belirler. Sıralama onu bozamaz (madde 9: "bodrum katlar zemin katın üzerine
+taşınamaz").
+
+Kısıt taşıma yönüne değil **sonuç dizisine** bakılarak denetlenir
+(`isFloorOrderValid` → `reorderFloorInList`): sürükle-bırak katı herhangi bir
+indekse atabiliyor, yön bazlı kontrol yalnız komşu takasını yakalardı.
+`moveFloorInList` artık bunun ince bir sarmalayıcısı — iki yol tek kuralı
+paylaşır. Kısıt İKİ YÖNLÜ: normal katı bodrumun altına indirmek de reddedilir.
+
+Sınırlar `core/floors.ts`'te: proje geneli 40 kat (bodrumlar DAHİL), ayrıca en
+fazla 5 bodrum; kat yüksekliği 200–600 cm. Bodrum iki tavana birden tabidir.
+
+## Kot SAKLANMAZ, kat yüksekliklerinden türetilir
+
+`Floor` kot alanı taşımaz; `core/floorElevation.ts` her gösterimde hesaplar.
+Saklansaydı bir katın yüksekliği değişince üstündeki bütün kotları güncellemek
+gerekirdi ve biri atlandığında JSON sessizce tutarsız kalırdı — `Opening`'in
+`floorId` taşımaması ile aynı gerekçe (K9).
+
+- Sıfır noktası ZEMİN KATIN TABANI = ilk bodrum olmayan kat.
+- Zemin kat silinip geriye yalnız bodrum kalırsa referans dizinin ÜSTÜ olur
+  (`floors.length`), böylece hiçbir bodrum ±0,00 görünmez.
+- Bina yüksekliği bodrumları SAYMAZ — bina zemin üstünde göründüğü kadardır.
+- Kot metnindeki işaret elle yazılır (`+3,20` / `±0,00` / `−2,80`):
+  `toLocaleString` eksi yerine tire üretir ve sıfıra hiç işaret koymaz, oysa
+  `±0,00` "burası referans düzlem" diyen ayrı bir bilgi.
+
+`heightCm`/`isBasement` modele SONRADAN geldi → `serialize.ts` şemasında
+`.default()` taşır, yoksa depodaki çizimler HİÇ AÇILMAZDI.
+
 ## Kat geçişi geçmişe adım YAZMAZ
 
 `activeFloorId` hem `ProjectData`'da hem zundo anlık görüntüsünde DURUR ama
@@ -58,6 +92,6 @@ Yeni kat adı kat SAYISINDAN türetilmez, var olan en yüksek "N. Kat"
 numarasından türetilir (`getNextFloorName`) — bodrum ve zemin katları da dizide
 olduğu için sayıya bakmak numarayı hemen kaydırırdı.
 
-**Dosya:** core/floors.ts (saf) · store/floorOps.ts (draft) · store/floorSlice.ts
-(action) · ui/FloorManagementDialog.tsx · ui/FloorTabs.tsx ·
-scene/FloorBelowGhost.tsx
+**Dosya:** core/floors.ts + core/floorElevation.ts (saf) · store/floorOps.ts
+(draft) · store/floorSlice.ts (action) · ui/FloorManagementDialog.tsx ·
+ui/FloorTabs.tsx · scene/FloorBelowGhost.tsx
