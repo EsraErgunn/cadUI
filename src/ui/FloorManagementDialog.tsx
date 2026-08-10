@@ -1,167 +1,192 @@
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { DialogShell } from './controls/DialogShell'
 import { chromeButtonVariants } from './controls/buttonVariants'
-import { canRemoveFloor, isFloorNameTaken, isFloorNameValid } from '../core/floors'
-import type { Id } from '../core/model'
-import { useCadStore } from '../store/cadStore'
+import { AddFloorMenu } from './floors/AddFloorMenu'
+import { FloorRow } from './floors/FloorRow'
+import { FloorSummary } from './floors/FloorSummary'
+import { NewFloorHeightField } from './floors/NewFloorHeightField'
+import { FLOOR_FOCUS_RING } from './floors/floorVariants'
+import { useFloorPlanDraft } from './floors/useFloorPlanDraft'
+import { isFloorNameTaken, isFloorNameValid, MIN_FLOOR_COUNT } from '../core/floors'
+import { DEFAULT_FLOOR_HEIGHT_CM, type Id } from '../core/model'
 
 type FloorManagementDialogProps = {
   onClose: () => void
 }
 
+const COLUMN_HEADERS = ['', 'SEÇ', 'KAT ADI', 'YÜKSEKLİK', 'KOT', 'İÇERİK', 'AKTİF KAT', '']
+
 /**
- * Kat Yönetimi (KK-13). Liste EN ÜST kat başta gösterilir — kullanıcı binayı
- * kesitten görüyor. Store'daki dizi ise en alt kat başta; çeviri yalnız burada
- * yapılır, veri yapısı görüntü için ters çevrilmez.
+ * "Katlar" penceresi (KK-1…KK-11). Liste EN ÜST kat başta gösterilir — kullanıcı
+ * binayı kesitten görüyor. Store'daki dizi ise en alt kat başta; çeviri yalnız
+ * burada yapılır, veri yapısı görüntü için ters çevrilmez.
+ *
+ * Düzenlemeler taslakta birikir ve store'a yalnız "Uygula" yazar (madde 13);
+ * taslağın kuralları core/floorPlan.ts'te.
  */
 export function FloorManagementDialog({ onClose }: FloorManagementDialogProps) {
-  const floors = useCadStore((state) => state.floors)
-  const activeFloorId = useCadStore((state) => state.activeFloorId)
-  const addFloor = useCadStore((state) => state.addFloor)
-  const renameFloor = useCadStore((state) => state.renameFloor)
-  const removeFloor = useCadStore((state) => state.removeFloor)
-  const moveFloor = useCadStore((state) => state.moveFloor)
-  const setActiveFloor = useCadStore((state) => state.setActiveFloor)
+  const { draft, elevationsCm, emptyFloors, contentOf, canAddFloor, canAddBasement, actions, apply } =
+    useFloorPlanDraft()
 
-  const [pendingRemovalId, setPendingRemovalId] = useState<Id | null>(null)
-  const [draftNames, setDraftNames] = useState<Record<Id, string>>({})
+  const [newFloorHeightCm, setNewFloorHeightCm] = useState(DEFAULT_FLOOR_HEIGHT_CM)
+  const [nameDrafts, setNameDrafts] = useState<Record<Id, string>>({})
+  const [draggedFloorId, setDraggedFloorId] = useState<Id | null>(null)
 
-  const isRemovable = canRemoveFloor(floors)
-  const topDownFloors = [...floors].reverse()
+  const isRemovable = draft.floors.length > MIN_FLOOR_COUNT
+  const activeFloorName =
+    draft.floors.find((floor) => floor.id === draft.activeFloorId)?.name ?? '—'
+
+  const nameErrorOf = (floorId: Id): string | undefined => {
+    const text = nameDrafts[floorId]
+    if (text === undefined) return undefined
+    if (!isFloorNameValid(text)) return 'Kat adı boş olamaz.'
+    if (isFloorNameTaken(draft.floors, text, floorId)) return 'Bu ad başka bir katta kullanılıyor.'
+    return undefined
+  }
 
   const commitName = (floorId: Id) => {
-    const draft = draftNames[floorId]
-    if (draft !== undefined) renameFloor(floorId, draft)
-    setDraftNames((current) => {
+    const text = nameDrafts[floorId]
+    if (text !== undefined) actions.rename(floorId, text)
+    setNameDrafts((current) => {
       const next = { ...current }
       delete next[floorId]
       return next
     })
   }
 
-  const nameErrorOf = (floorId: Id): string | undefined => {
-    const draft = draftNames[floorId]
-    if (draft === undefined) return undefined
-    if (!isFloorNameValid(draft)) return 'Kat adı boş olamaz.'
-    if (isFloorNameTaken(floors, draft, floorId)) return 'Bu ad başka bir katta kullanılıyor.'
-    return undefined
+  const handleDrop = (targetFloorId: Id) => {
+    if (draggedFloorId === null || draggedFloorId === targetFloorId) return
+    const targetIndex = draft.floors.findIndex((floor) => floor.id === targetFloorId)
+    if (targetIndex >= 0) actions.reorder(draggedFloorId, targetIndex)
+    setDraggedFloorId(null)
+  }
+
+  const handleApply = () => {
+    // Uygulanamayan plan pencereyi kapatmaz: kullanıcı düzeltebilsin.
+    if (apply()) onClose()
   }
 
   return (
-    <DialogShell title="Kat Yönetimi" onClose={onClose}>
-      <ul className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {topDownFloors.map((floor) => {
-          const nameError = nameErrorOf(floor.id)
-          const isPendingRemoval = pendingRemovalId === floor.id
+    <DialogShell title="Katlar" size="lg" onClose={onClose}>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        <FloorSummary
+          floors={draft.floors}
+          activeFloorName={activeFloorName}
+          emptyFloorCount={emptyFloors.length}
+        />
 
-          return (
-            <li key={floor.id} className="border-b border-edge/60 py-2 last:border-b-0">
-              <div className="flex items-center gap-2">
-                <input
-                  value={draftNames[floor.id] ?? floor.name}
-                  onChange={(event) =>
-                    setDraftNames((current) => ({ ...current, [floor.id]: event.target.value }))
+        <NewFloorHeightField heightCm={newFloorHeightCm} onChange={setNewFloorHeightCm} />
+
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-edge text-left text-[11px] uppercase tracking-wide text-ink-muted">
+              {COLUMN_HEADERS.map((header, index) => (
+                // Sıralama tutamağı ve satır aksiyonları sütunları başlıksız
+                // (madde 4); boş başlık hücresi yine de tabloda yer tutmalı.
+                <th key={header || `spacer-${index}`} scope="col" className="px-2 py-1.5">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[...draft.floors].reverse().map((floor) => {
+              const index = draft.floors.findIndex((candidate) => candidate.id === floor.id)
+
+              return (
+                <FloorRow
+                  key={floor.id}
+                  floor={floor}
+                  elevationCm={elevationsCm[index]}
+                  content={contentOf(floor.id)}
+                  isActive={floor.id === draft.activeFloorId}
+                  isSelected={draft.selectedFloorIds.includes(floor.id)}
+                  isRemovable={isRemovable}
+                  isDragging={draggedFloorId === floor.id}
+                  nameText={nameDrafts[floor.id] ?? floor.name}
+                  nameError={nameErrorOf(floor.id)}
+                  onNameChange={(name) =>
+                    setNameDrafts((current) => ({ ...current, [floor.id]: name }))
                   }
-                  onBlur={() => commitName(floor.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') event.currentTarget.blur()
-                  }}
-                  aria-label={`${floor.name} adı`}
-                  aria-invalid={nameError !== undefined}
-                  className="min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 py-1 text-sm text-ink aria-[invalid=true]:border-danger"
+                  onNameCommit={() => commitName(floor.id)}
+                  onHeightCommit={(heightCm) => actions.setHeight(floor.id, heightCm)}
+                  onToggleSelected={() => actions.toggleSelected(floor.id)}
+                  onMakeActive={() => actions.makeActive(floor.id)}
+                  onRemove={() => actions.remove([floor.id])}
+                  onDragStart={() => setDraggedFloorId(floor.id)}
+                  onDragEnd={() => setDraggedFloorId(null)}
+                  onDropBefore={() => handleDrop(floor.id)}
+                  onMoveByKey={(direction) => actions.moveByKey(floor.id, direction)}
                 />
+              )
+            })}
+          </tbody>
+        </table>
 
-                {floor.id === activeFloorId ? (
-                  <span className="shrink-0 rounded-md bg-surface-sunken px-2 py-1 text-xs text-ink-muted">
-                    Aktif
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setActiveFloor(floor.id)}
-                    className={chromeButtonVariants()}
-                  >
-                    Geç
-                  </button>
-                )}
+        <p className="text-xs text-ink-muted">
+          &quot;SEÇ&quot; sütunu toplu işlem içindir. &quot;AKTİF KAT&quot; sütunundaki
+          &quot;Aktif Yap&quot;, o katı çizim alanına getirir; aynı anda yalnızca bir kat aktif
+          olur. Sıra, soldaki tutamaktan sürüklenerek değiştirilir; kot yeniden hesaplanır.
+        </p>
 
-                <button
-                  type="button"
-                  onClick={() => moveFloor(floor.id, 'up')}
-                  aria-label={`${floor.name} bir sıra yukarı`}
-                  className={chromeButtonVariants({ shape: 'icon' })}
-                >
-                  <ChevronUp size={16} strokeWidth={1.8} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveFloor(floor.id, 'down')}
-                  aria-label={`${floor.name} bir sıra aşağı`}
-                  className={chromeButtonVariants({ shape: 'icon' })}
-                >
-                  <ChevronDown size={16} strokeWidth={1.8} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPendingRemovalId(floor.id)}
-                  disabled={!isRemovable}
-                  title={isRemovable ? undefined : 'Projede en az bir kat kalmalı'}
-                  aria-label={`${floor.name} sil`}
-                  className={chromeButtonVariants({ shape: 'icon' })}
-                >
-                  <Trash2 size={16} strokeWidth={1.8} aria-hidden />
-                </button>
-              </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <AddFloorMenu
+            floors={draft.floors}
+            contentOf={contentOf}
+            isDisabled={!canAddFloor}
+            onAddEmpty={() => actions.add({ heightCm: newFloorHeightCm })}
+            onAddCopy={(sourceFloorId) =>
+              actions.add({ heightCm: newFloorHeightCm, copyFromFloorId: sourceFloorId })
+            }
+          />
+          <button
+            type="button"
+            onClick={() => actions.add({ isBasement: true, heightCm: newFloorHeightCm })}
+            disabled={!canAddBasement}
+            className={chromeButtonVariants()}
+          >
+            + Bodrum Ekle
+          </button>
 
-              {nameError && (
-                <p role="alert" className="mt-1 text-xs text-danger">
-                  {nameError}
-                </p>
-              )}
+          {draft.selectedFloorIds.length > 0 && (
+            <>
+              <span className="ml-2 text-xs text-ink-muted">
+                Seçili {draft.selectedFloorIds.length} kat:
+              </span>
+              <button
+                type="button"
+                onClick={() => actions.remove(draft.selectedFloorIds)}
+                className={chromeButtonVariants()}
+              >
+                Sil
+              </button>
+            </>
+          )}
+        </div>
 
-              {/* Onay iç içe diyalog değil satır içi: modal üstüne modal, odak
-                  tuzağını iki kez kurmayı gerektirir ve klavye sırası karışır. */}
-              {isPendingRemoval && (
-                <div role="alert" className="mt-2 rounded-md bg-surface-sunken px-3 py-2">
-                  <p className="text-xs text-ink-muted">
-                    <b className="text-ink">{floor.name}</b> silinecek. Bu kattaki mimari ve
-                    tesisat çizimleri de silinir.
-                  </p>
-                  <div className="mt-2 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPendingRemovalId(null)}
-                      className={chromeButtonVariants()}
-                    >
-                      Vazgeç
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        removeFloor(floor.id)
-                        setPendingRemovalId(null)
-                      }}
-                      className="inline-flex h-8 items-center rounded-md bg-danger px-3 text-sm text-surface"
-                    >
-                      Sil
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+        {emptyFloors.length > 0 && (
+          <p className="rounded-md border-l-4 border-edge bg-surface-sunken px-3 py-2 text-xs text-ink-muted">
+            <b className="text-ink">{emptyFloors.map((floor) => floor.name).join(', ')}</b> boş. Boş
+            katlar kaydedilir; gönderim öncesi hata kontrollerinde listelenir.
+          </p>
+        )}
+      </div>
 
-      <div className="flex shrink-0 items-center justify-between border-t border-edge px-5 py-3">
-        <button type="button" onClick={() => addFloor()} className={chromeButtonVariants()}>
-          <Plus size={16} strokeWidth={1.8} aria-hidden />
-          Boş Kat Ekle
+      <div className="flex shrink-0 items-center justify-end gap-2 border-t border-edge px-5 py-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
+        >
+          İptal
         </button>
-        <button type="button" onClick={onClose} className={chromeButtonVariants()}>
-          Kapat
+        <button
+          type="button"
+          onClick={handleApply}
+          className={`${chromeButtonVariants({ tone: 'active' })} ${FLOOR_FOCUS_RING}`}
+        >
+          Uygula
         </button>
       </div>
     </DialogShell>

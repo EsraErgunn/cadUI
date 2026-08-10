@@ -22,7 +22,12 @@ export type CopyFloorActions = {
   copyFloor: (input: CopyFloorInput) => boolean
 }
 
-function copyFloorInDraft(draft: CadState, input: CopyFloorInput): boolean {
+/**
+ * Kat yapısının toplu uygulanması (applyFloorPlan) da bunu çağırıyor: "kat ekle
+ * → X'tan kopyalayarak" ile satır aksiyonundaki kopyalama AYNI klonlama yolundan
+ * geçsin, id remap iki kez iki farklı şekilde yazılmasın.
+ */
+export function copyFloorContentInDraft(draft: CadState, input: CopyFloorInput): boolean {
   const { sourceFloorId, targetFloorId } = input
   if (sourceFloorId === targetFloorId) return false
   if (!input.isArchitectureIncluded && !input.isInstallationIncluded) return false
@@ -73,7 +78,7 @@ export function createCopyFloorActions(set: DraftSetter): CopyFloorActions {
     copyFloor: (input) => {
       let isCopied = false
       set((draft) => {
-        isCopied = copyFloorInDraft(draft, input)
+        isCopied = copyFloorContentInDraft(draft, input)
         if (isCopied) markDirty(draft)
       })
       return isCopied
