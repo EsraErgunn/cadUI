@@ -37,6 +37,7 @@ export function useFloorPlanDraft() {
   const openings = useCadStore((state) => state.openings)
   const rooms = useCadStore((state) => state.rooms)
   const symbols = useCadStore((state) => state.symbols)
+  const areaObjects = useCadStore((state) => state.areaObjects)
   const installationElements = useCadStore((state) => state.installationElements)
   const installationLines = useCadStore((state) => state.installationLines)
 
@@ -45,8 +46,17 @@ export function useFloorPlanDraft() {
   )
 
   const contentSource = useMemo(
-    () => ({ points, walls, openings, rooms, symbols, installationElements, installationLines }),
-    [points, walls, openings, rooms, symbols, installationElements, installationLines],
+    () => ({
+      points,
+      walls,
+      openings,
+      rooms,
+      symbols,
+      areaObjects,
+      installationElements,
+      installationLines,
+    }),
+    [points, walls, openings, rooms, symbols, areaObjects, installationElements, installationLines],
   )
 
   /**

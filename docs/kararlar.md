@@ -1131,6 +1131,59 @@ Nerede: `core/areaObject.ts`, `core/areaObjectGeometry.ts`, `scene/AreaObject.ts
 (etiket/geometri/çarpışma, yeni "geniş nesne kapıyı sarar" testi dahil),
 `core/__tests__/areaObjectGeometry.test.ts` (çizim, ayrı dosya).
 
+### K40 — Zoom'da çizgi kalınlığı sabitlendi, ilk yerleştirmede Ctrl da ızgarayı kapatıyor
+
+İki küçük ama gerçek düzeltme, kullanıcı tarayıcıda deneyip fark etti:
+
+**Çizgi kalınlığı artık `worldUnits`.** drei `<Line>` varsayılan olarak
+piksel-bazlı kalınlık kullanır (ekranda sabit piksel genişlik) — zoom out'ta
+nesneye göre ORANTISIZ kalınlaşıyordu. `Wall.tsx`'teki desen kopyalandı:
+`worldUnits` + cm cinsinden `lineWidth` (gövde 2.5cm, ayrıntı 1.2cm) — artık
+fiziksel kalınlık zoom'dan bağımsız sabit.
+
+**Ctrl ile ızgara kapatma ilk yerleştirmede de çalışıyor.** Taşırken zaten
+vardı (`useAreaObjectSelectionTool.ts`, köşe/duvar sürüklemesiyle aynı jest);
+`useAreaObjectTool.ts`'te (tıkla-yerleştir) YOKTU — kullanıcı "ilk yerleştirirken
+yapmıyor" dedi. `readPosition` artık `event.ctrlKey`'e bakıyor.
+
+Nerede: `scene/AreaObject.tsx`, `scene/useAreaObjectTool.ts`.
+
+### K41 — Kolon Havalandırması: dördüncü alan nesnesi tipi, yalnız çember
+
+Roadmap notu: "Kolon Havalandırması — WebCAD'de RoofVent{radius,x,y}, basit
+nokta+yarıçap." `AreaObjectType`'a `columnVentilation` eklendi — Baca Şaftı'nın
+KARESİZ hâli: kullanıcının tarifiyle "baca şaftının ortası", yalnız çember,
+kare dış hat yok. Varsayılan boyut 30×30cm (çap ~30cm, RoofVent notuyla aynı
+ölçek). Etiket öneki `KH`.
+
+**Bilinen sapma, kaydedildi ama düzeltilmedi.** `model.ts`'in kendi PointSymbolType
+yorumu (satır 86-87, K38'den ÖNCE yazılmıştı) Baca Şaftı + Kolon Havalandırması'nı
+"Desen C — katlar arası eksen kimliği taşıyor" diye ayrı bir gruba koyuyordu —
+Riser gibi kat-bağımsız, kökte duran bir model demek. K39'da Baca Şaftı zaten
+basit kat-başı `AreaObject` (Desen B) olarak kuruldu, bu tutarlılıkla Kolon
+Havalandırması da aynı yere eklendi. Kat-bağımsız kimlik (Riser gibi
+`toFloorId` ile kat kopyalanınca klonlanmama) gerekirse ayrı bir karar ve
+muhtemelen model değişikliği gerekir — bugün varsayılmadı, `model.ts`'e bunu
+açıklayan bir yorum eklendi.
+
+**Aynı oturumda main'de ayrı bir entegrasyon boşluğu bulundu, düzeltildi.**
+`feat/floor-management-dialog` dalı (bu K'dan bağımsız, floor-height-elevation
+ile birlikte mergelenmiş) yeni `core/floorContent.ts` eklemiş; `FloorContentSource`
+tipi `FloorCloneSource`'u (K38'in `areaObjects` zorunlu kıldığı tip) genişletiyor
+ama iki çağıran yer (`floorContent.test.ts`, `ui/floors/useFloorPlanDraft.ts`)
+`areaObjects` alanını eklemeyi unutmuş — main derlenmiyordu. `getFloorContent`
+o alanı hiç OKUMUYOR bile, yalnız tip yapısı gerektiriyordu; iki yere `areaObjects`
+eklemek yetti. Ayrıca `docs/sample-project.json`'da (aynı floor-height-elevation
+mergesinden kalma) dosyanın başında/sonunda fazladan boş satır vardı — kabul
+testi ("bit bit aynı") ham metni `toBe` ile karşılaştırdığı için bu da
+kırmızıydı, dosya tek satıra düzeltildi.
+
+Nerede: `core/model.ts`, `core/serialize.ts`, `core/areaObject.ts`,
+`core/areaObjectGeometry.ts`, `core/__tests__/areaObject.test.ts`,
+`core/__tests__/areaObjectGeometry.test.ts`, `store/__tests__/areaObjectActions.test.ts`
+— ve ilgisiz düzeltmeler: `ui/floors/useFloorPlanDraft.ts`,
+`core/__tests__/floorContent.test.ts`, `docs/sample-project.json`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

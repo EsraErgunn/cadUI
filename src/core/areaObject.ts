@@ -12,6 +12,7 @@ export const AREA_OBJECT_LABEL_PREFIXES: Record<AreaObjectType, string> = {
   stairs: 'M',
   structuralColumn: 'K',
   flueShaft: 'BS',
+  columnVentilation: 'KH',
 }
 
 /** Kullanıcıya görünen Türkçe ad; panel başlığı ve durum metinleri bunu okur. */
@@ -19,6 +20,7 @@ export const AREA_OBJECT_TYPE_LABELS: Record<AreaObjectType, string> = {
   stairs: 'Merdiven',
   structuralColumn: 'Kolon',
   flueShaft: 'Baca Şaftı',
+  columnVentilation: 'Kolon Havalandırması',
 }
 
 /**
@@ -31,6 +33,8 @@ export const DEFAULT_AREA_OBJECT_SIZE_CM: Record<AreaObjectType, { widthCm: numb
   // En az 1m kenar — kullanıcı görsel referansla netleştirdi (K39 taslağı çok küçüktü).
   structuralColumn: { widthCm: 100, lengthCm: 100 },
   flueShaft: { widthCm: 100, lengthCm: 100 },
+  // Basit yuvarlak menfez — WebCAD'deki RoofVent{radius,x,y} notuyla aynı ölçek.
+  columnVentilation: { widthCm: 30, lengthCm: 30 },
 }
 
 const LABEL_NUMBER_PAD = 2

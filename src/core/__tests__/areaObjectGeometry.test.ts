@@ -47,6 +47,20 @@ describe('getAreaObjectPlanGeometry', () => {
     expect(maxDistance).toBeGreaterThan(15)
   })
 
+  it('kolon havalandırması: yalnız çember, KARE dış hat YOK', () => {
+    const geometry = getAreaObjectPlanGeometry(
+      'columnVentilation',
+      makeAreaObject({ x: 0, y: 0, widthCm: 30, lengthCm: 30, angleDeg: 0 }),
+    )
+
+    expect(geometry.strokes.map((stroke) => stroke.name)).toEqual(['circle'])
+    // Baca şaftından farklı olarak KARE içine sıkıştırılmaz — tam yarıçap.
+    const maxDistance = Math.max(
+      ...geometry.strokes[0].points.map((point) => Math.hypot(point.x, point.y)),
+    )
+    expect(maxDistance).toBeCloseTo(15, 1)
+  })
+
   it('merdiven: basamak çizgileri ve iniş oku (ince çizgi) üretir', () => {
     const geometry = getAreaObjectPlanGeometry(
       'stairs',

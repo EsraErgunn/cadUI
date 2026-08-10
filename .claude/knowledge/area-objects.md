@@ -1,11 +1,17 @@
-# decision: Alan nesnesi (merdiven/kolon/baca şaftı) — K38/K39
+# decision: Alan nesnesi (merdiven/kolon/baca şaftı/kolon havalandırması) — K38-K41
 
 **Model:** `AreaObject` (`core/model.ts`) — serbest, döndürülebilir dikdörtgen:
 `{id, type, floorId, x, y, widthCm, lengthCm, angleDeg, label}`. PointSymbol'ün
 (Desen A) bilerek dışarıda bıraktığı "ölçü taşıyan" nesneler (Desen B) için.
-`AreaObjectType`: `stairs` | `structuralColumn` | `flueShaft` — `core/tools.ts`
-toolId'leriyle BİREBİR aynı isim (PointSymbolType ile aynı desen). Kiriş buraya
-GİRMEZ: o çizgisel (x1,y1,x2,y2), ayrı bir model.
+`AreaObjectType`: `stairs` | `structuralColumn` | `flueShaft` | `columnVentilation`
+— `core/tools.ts` toolId'leriyle BİREBİR aynı isim (PointSymbolType ile aynı
+desen). Kiriş buraya GİRMEZ: o çizgisel (x1,y1,x2,y2), ayrı bir model.
+
+⚠️ **Bilinen sapma:** `model.ts`'in PointSymbolType yorumu (K38'den ÖNCE
+yazılmıştı) Baca Şaftı + Kolon Havalandırması'nı "Desen C — katlar arası eksen
+kimliği" diye ayrı, Riser gibi kat-bağımsız bir modele koyuyordu. İkisi de
+burada, basit KAT-BAŞI `AreaObject` olarak modellendi — bilinçli sadeleştirme,
+kat-bağımsız kimlik gerekirse ayrı karar.
 
 ## Çizim etkileşimi v1: tıkla-yerleştir + panelden ayarla
 
@@ -118,18 +124,46 @@ yardımcıları + K35/K36 çarpışma mantığında kaldı.
 onaylanan kapsam daraltmasının DIŞINDA bir şey olarak değil, aynı kararın
 devamı olarak İKİ KEZ teyit etti ("tutamaçları sonra halledelim").
 
-## Tarayıcıda doğrulanmadı
+## Kolon Havalandırması (K41): Baca Şaftı'nın karesiz hâli
 
-Yerleştirme/seçim hook'ları R3F gerektirdiği için birim testsiz kaldı (K36 ile
-aynı sınır) VE bu oturumda backend ayakta olmadığı için tarayıcıda da manuel
-doğrulanmadı. `npm run build`/`lint`/`test:run` yeşil. **Sıradaki kişi mutlaka
-tarayıcıda dener.**
+Roadmap notu: "WebCAD'de RoofVent{radius,x,y}, basit nokta+yarıçap."
+`getAreaObjectPlanGeometry`'de AYRI bir dal — yalnız `circle` stroke'u döner,
+`outline` (kare) YOK. Varsayılan boyut 30×30cm, etiket öneki `KH`. Toolbar
+zaten hazırdı (`core/tools.ts` → `columnVentilation`, `toolIcons.ts` → `Wind`
+ikonu) — `AREA_OBJECT_LABEL_PREFIXES`'e eklemek yerleştirme aracını otomatik
+bağladı (`getAreaObjectTypeForTool` genel `toolId in RECORD` kontrolü).
+
+## Main'de ayrı bir entegrasyon boşluğu bulundu ve düzeltildi (K41 sırasında)
+
+`feat/floor-management-dialog` (ayrı bir kişinin dalı, bu işten bağımsız) yeni
+`core/floorContent.ts` eklemiş; `FloorContentSource` tipi K38'in
+`FloorCloneSource`'unu (artık `areaObjects` zorunlu) genişletiyordu ama iki
+çağıran (`floorContent.test.ts`, `ui/floors/useFloorPlanDraft.ts`)
+`areaObjects` eklemeyi unutmuştu — **main derlenmiyordu**, benim dalımdan
+bağımsız. `getFloorContent` o alanı hiç okumuyor, yalnız tip yapısı için
+gerekiyordu — iki yere eklemek yetti. Ayrıca `docs/sample-project.json`'da
+(aynı merge'den, `heightCm`/`isBasement` eklenirken) dosya başı/sonunda
+fazladan boş satır kalmıştı, kabul testini ("bit bit aynı", ham metin `toBe`)
+kırıyordu — tek satıra düzeltildi.
+
+**Ders:** `git fetch` + yeni dal açtıktan hemen sonra `npx tsc -b` çalıştırmak
+ucuza mal oluyor — kendi değişikliklerine başlamadan ÖNCE main'in gerçekten
+yeşil olduğunu doğrular, aksi hâlde "ben mi bozdum" sorusuyla vakit kaybedilir.
+
+## Tarayıcıda KISMEN doğrulandı
+
+Kullanıcı bu turda gerçekten tarayıcıda denedi — zoom out'ta çizgi kalınlaşması
+(K40) ve ilk yerleştirmede Ctrl'in ızgarayı kapatmaması (K40) tarayıcı
+testinden çıktı. Yerleştirme/seçim hook'ları yine de R3F gerektirdiği için
+birim testsiz kaldı (K36 ile aynı sınır); Kolon Havalandırması'nın kendisi
+ayrıca tarayıcıda denenmedi.
 
 **Dosya:** core/model.ts · core/serialize.ts · core/areaObject.ts ·
-core/selection.ts · core/architectureHover.ts · core/propertyFields.ts ·
-core/floorClone.ts · store/areaObjectOps.ts · store/architectureSlice.ts ·
-store/architectureUiStore.ts · store/floorOps.ts · store/floorCloneOps.ts ·
-store/selectionOps.ts · scene/useAreaObjectTool.ts ·
+core/areaObjectGeometry.ts · core/selection.ts · core/architectureHover.ts ·
+core/propertyFields.ts · core/floorClone.ts · store/areaObjectOps.ts ·
+store/architectureSlice.ts · store/architectureUiStore.ts · store/floorOps.ts ·
+store/floorCloneOps.ts · store/selectionOps.ts · scene/useAreaObjectTool.ts ·
 scene/useAreaObjectSelectionTool.ts · scene/AreaObject.tsx ·
 scene/ArchitectureLayer.tsx · ui/properties/AreaObjectProperties.tsx ·
-ui/PropertyPanel.tsx
+ui/PropertyPanel.tsx · (ilgisiz düzeltme) ui/floors/useFloorPlanDraft.ts ·
+docs/sample-project.json
