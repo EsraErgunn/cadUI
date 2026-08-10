@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type ProjectData } from '../../core/model'
+import { createGroundFloor } from '../../core/floors'
+import { DEFAULT_FLOOR_ID, type ProjectData } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 import { useProjectPersistence } from '../useProjectPersistence'
 
@@ -22,7 +23,7 @@ function projectWithWall(): ProjectData {
   return {
     nextUniqueId: 10,
     activeFloorId: DEFAULT_FLOOR_ID,
-    floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+    floors: [createGroundFloor()],
     points: [
       { id: 1, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
       { id: 2, floorId: DEFAULT_FLOOR_ID, x: 100, y: 0 },

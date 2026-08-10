@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type ProjectData } from '../model'
+import { createGroundFloor } from '../floors'
+import { DEFAULT_FLOOR_ID, type ProjectData } from '../model'
 
 /**
  * Açıklıkların yükle→kaydet turunda bit bit korunduğunu doğrular.
@@ -10,7 +11,7 @@ import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME, type ProjectData } from '../model
 const project: ProjectData = {
   nextUniqueId: 15,
   activeFloorId: DEFAULT_FLOOR_ID,
-  floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+  floors: [createGroundFloor()],
   points: [
     { id: 2, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
     { id: 3, floorId: DEFAULT_FLOOR_ID, x: 500, y: 0 },

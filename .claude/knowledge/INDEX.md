@@ -11,7 +11,7 @@ Tür: `decision` (neden öyle) · `gotcha` (sessizce bozan tuzak) ·
 | 2026-07 | decision | [id-scheme](./id-scheme.md) | Kalıcı id = artan tamsayı (nextUniqueId), UUID DEĞİL — WebCAD round-trip uyumu |
 | 2026-08 | decision | [access-control](./access-control.md) | Üç rol, kullanıcı başına TEK rol (Role.Code); API fail-closed → token http.ts'te tek yerde eklenir, 401'de atılır |
 | 2026-07 | gotcha | [floor-clone](./floor-clone.md) | Kat kopyalama: id remap zorunlu (Wall.p1Id/p2Id, Opening.wallId, Room.wallIds), sembol etiketi yeniden üretilir, hedef kat BOŞ olmalı |
-| 2026-08 | decision | [floor-ordering](./floor-ordering.md) | Kat sırası dizinin KENDİSİ (order alanı yok), başı en alt kat; kat geçişi geçmişe adım yazmaz; kat silmede açıklık→duvar→nokta sırası |
+| 2026-08 | decision | [floor-ordering](./floor-ordering.md) | Kat sırası dizinin KENDİSİ (order alanı yok), başı en alt kat; kat geçişi geçmişe adım yazmaz; kat silmede açıklık→duvar→nokta sırası; KOT SAKLANMAZ (floorElevation.ts türetir, sıfır = zemin katın tabanı, bina yüksekliği bodrumu saymaz); isBasement sıranın kısıtı — sonuç dizisine bakılır, iki yönlü; 40 kat / 5 bodrum / 200–600 cm |
 | 2026-07 | gotcha | [tool-logic](./tool-logic.md) | Araç mantığı DrawSurface'e yazılmaz → merge çakışması |
 | 2026-07 | convention | [coordinates](./coordinates.md) | Plan↔Three dönüşümü sadece coords.ts; marka sarısı çizim alanına girmez (gaz hattını da TEMSİL ETMEZ, K27) |
 | 2026-07 | decision | [viewport](./viewport.md) | %100 = 1cm/1px; zoom/pan kamerada (store'da değil); kamera rotation −90° şart |

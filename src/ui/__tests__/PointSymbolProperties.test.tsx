@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
+import { createGroundFloor } from '../../core/floors'
+import { DEFAULT_FLOOR_ID } from '../../core/model'
 import { useArchitectureUiStore } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { PropertyPanel } from '../PropertyPanel'
@@ -17,7 +18,7 @@ function addSymbol(type: 'panel' | 'vent', x: number, y: number) {
 
 beforeEach(() => {
   useCadStore.setState({
-    floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME }],
+    floors: [createGroundFloor()],
     activeFloorId: DEFAULT_FLOOR_ID,
     points: [],
     walls: [],

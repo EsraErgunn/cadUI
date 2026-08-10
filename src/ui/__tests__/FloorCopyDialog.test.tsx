@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '../../core/model'
+import { createGroundFloor } from '../../core/floors'
+import { DEFAULT_FLOOR_HEIGHT_CM, DEFAULT_FLOOR_ID } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 import { FloorCopyDialog } from '../FloorCopyDialog'
 
@@ -11,8 +12,8 @@ const UPPER_FLOOR_ID = 14
 beforeEach(() => {
   useCadStore.setState({
     floors: [
-      { id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME },
-      { id: UPPER_FLOOR_ID, name: '1. Kat' },
+      createGroundFloor(),
+      { id: UPPER_FLOOR_ID, name: '1. Kat', heightCm: DEFAULT_FLOOR_HEIGHT_CM, isBasement: false },
     ],
     activeFloorId: DEFAULT_FLOOR_ID,
     points: [

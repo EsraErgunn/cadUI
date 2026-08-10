@@ -1,3 +1,4 @@
+import { DEFAULT_FLOOR_HEIGHT_CM, DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from './model'
 import type { Floor, Id } from './model'
 
 /**
@@ -10,7 +11,46 @@ export const LOWEST_FLOOR_INDEX = 0
 /** Proje en az bir kat taşır: son kat silinirse çizilecek yüzey kalmaz. */
 export const MIN_FLOOR_COUNT = 1
 
+/** Madde 10: tavan bodrumları DA kapsar, bodrum için ayrıca kendi tavanı var. */
+export const MAX_FLOOR_COUNT = 40
+export const MAX_BASEMENT_COUNT = 5
+
+/** Madde 3/6: hem satırdaki yükseklik hem "yeni kat yüksekliği" aynı sınırlara tabi. */
+export const MIN_FLOOR_HEIGHT_CM = 200
+export const MAX_FLOOR_HEIGHT_CM = 600
+
 export type FloorDirection = 'up' | 'down'
+
+/** Proje açılışındaki tek kat. Üç yerde ayrı ayrı yazılırsa alan ekledikçe ayrışır. */
+export function createGroundFloor(): Floor {
+  return {
+    id: DEFAULT_FLOOR_ID,
+    name: DEFAULT_FLOOR_NAME,
+    heightCm: DEFAULT_FLOOR_HEIGHT_CM,
+    isBasement: false,
+  }
+}
+
+export function getBasementCount(floors: readonly Floor[]): number {
+  return floors.reduce((count, floor) => (floor.isBasement ? count + 1 : count), 0)
+}
+
+export function isFloorHeightValid(heightCm: number): boolean {
+  return (
+    Number.isFinite(heightCm) &&
+    heightCm >= MIN_FLOOR_HEIGHT_CM &&
+    heightCm <= MAX_FLOOR_HEIGHT_CM
+  )
+}
+
+export function canAddFloor(floors: readonly Floor[]): boolean {
+  return floors.length < MAX_FLOOR_COUNT
+}
+
+/** Bodrum iki tavana birden tabi: proje geneli (40) ve bodruma özel (5). */
+export function canAddBasement(floors: readonly Floor[]): boolean {
+  return canAddFloor(floors) && getBasementCount(floors) < MAX_BASEMENT_COUNT
+}
 
 export function getFloorIndex(floors: readonly Floor[], floorId: Id): number {
   return floors.findIndex((floor) => floor.id === floorId)
@@ -45,12 +85,17 @@ export function getFloorIdAfterRemoval(floors: readonly Floor[], removedId: Id):
   return below?.id ?? above?.id
 }
 
-/** Yeni katın dizideki yeri: her zaman en üst. Bina yukarı doğru büyür. */
-export function getFloorInsertIndex(floors: readonly Floor[]): number {
-  return floors.length
+/**
+ * Yeni katın dizideki yeri: normal kat en üste (dizinin sonu), bodrum en alta
+ * (dizinin başı). Bina yukarı doğru büyür, bodrum aşağı doğru kazılır.
+ */
+export function getFloorInsertIndex(floors: readonly Floor[], isBasement = false): number {
+  return isBasement ? LOWEST_FLOOR_INDEX : floors.length
 }
 
 const ORDINAL_FLOOR_NAME_PATTERN = /^(\d+)\. Kat$/
+const ORDINAL_BASEMENT_NAME_PATTERN = /^(\d+)\. Bodrum Kat$/
+const FIRST_BASEMENT_NAME = 'Bodrum Kat'
 
 /**
  * Yeni kat adı: var olan en yüksek "N. Kat" numarasının bir fazlası. Kat sayısına
@@ -64,6 +109,22 @@ export function getNextFloorName(floors: readonly Floor[]): string {
     if (match) highest = Math.max(highest, Number(match[1]))
   }
   return `${highest + 1}. Kat`
+}
+
+/**
+ * İlk bodrum sade "Bodrum Kat"; ikincisinden itibaren numaralanır. Tek bodrumlu
+ * binada "1. Bodrum Kat" demek gereksiz bir numara okutur.
+ */
+export function getNextBasementName(floors: readonly Floor[]): string {
+  const hasFirst = floors.some((floor) => floor.name.trim() === FIRST_BASEMENT_NAME)
+  if (!hasFirst) return FIRST_BASEMENT_NAME
+
+  let highest = 1
+  for (const floor of floors) {
+    const match = ORDINAL_BASEMENT_NAME_PATTERN.exec(floor.name.trim())
+    if (match) highest = Math.max(highest, Number(match[1]))
+  }
+  return `${highest + 1}. ${FIRST_BASEMENT_NAME}`
 }
 
 /**
@@ -85,10 +146,42 @@ export function isFloorNameValid(name: string): boolean {
 }
 
 /**
- * Katı bir sıra yukarı/aşağı taşır. Sınırdaysa AYNI diziyi döndürür (yeni referans
- * değil): çağıran `===` ile "değişiklik olmadı"yı anlar ve boş bir geri alma adımı
- * üretmez.
+ * Bodrumlar dizinin başında, normal katlar arkasında — bu ayrım kotun işaretini
+ * belirlediği için sıralama onu BOZAMAZ (madde 9: "bodrum katlar zemin katın
+ * üzerine taşınamaz"). Kısıtı taşıma yönüne değil sonuç dizisine bakarak
+ * denetliyoruz: sürükle-bırak katı herhangi bir indekse atabiliyor, yön bazlı
+ * kontrol yalnız komşu takasını yakalardı.
  */
+function isFloorOrderValid(floors: readonly Floor[]): boolean {
+  let hasSeenNonBasement = false
+  for (const floor of floors) {
+    if (floor.isBasement && hasSeenNonBasement) return false
+    if (!floor.isBasement) hasSeenNonBasement = true
+  }
+  return true
+}
+
+/**
+ * Katı verilen indekse taşır. Sıra değişmiyorsa ya da bodrum/normal ayrımını
+ * bozuyorsa AYNI diziyi döndürür (yeni referans değil): çağıran `===` ile
+ * "değişiklik olmadı"yı anlar ve boş bir geri alma adımı üretmez.
+ */
+export function reorderFloorInList(
+  floors: readonly Floor[],
+  floorId: Id,
+  targetIndex: number,
+): readonly Floor[] {
+  const index = getFloorIndex(floors, floorId)
+  if (index < 0 || index === targetIndex) return floors
+  if (targetIndex < 0 || targetIndex >= floors.length) return floors
+
+  const reordered = [...floors]
+  const [moved] = reordered.splice(index, 1)
+  reordered.splice(targetIndex, 0, moved)
+  return isFloorOrderValid(reordered) ? reordered : floors
+}
+
+/** Bir sıra yukarı/aşağı — klavyeyle sıralama. Kısıtlar reorder ile ortak. */
 export function moveFloorInList(
   floors: readonly Floor[],
   floorId: Id,
@@ -97,11 +190,5 @@ export function moveFloorInList(
   const index = getFloorIndex(floors, floorId)
   if (index < 0) return floors
 
-  const targetIndex = direction === 'up' ? index + 1 : index - 1
-  if (targetIndex < 0 || targetIndex >= floors.length) return floors
-
-  const reordered = [...floors]
-  const [moved] = reordered.splice(index, 1)
-  reordered.splice(targetIndex, 0, moved)
-  return reordered
+  return reorderFloorInList(floors, floorId, direction === 'up' ? index + 1 : index - 1)
 }
