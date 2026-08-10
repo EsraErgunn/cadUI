@@ -16,11 +16,12 @@ import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
 /**
- * Seçili nesnenin özellik paneli (KK-12). EditorPage'de çizim alanının KARDEŞİ
- * olarak duruyor: açıldığında tuvali daraltır, üzerine binmez.
+ * Seçili nesnenin özellik paneli (K37). Çizim alanının ÜSTÜNE biner, sağdan
+ * kayarak açılır/kapanır — EditorPage'deki `relative` satırın altında `absolute`
+ * konumlanıyor, canvas genişliğini artık etkilemiyor (KK-12'nin yerini aldı).
  *
- * Hiçbir nesne seçili değilken hiç render edilmez — kapalıyken DOM üretmemek,
- * "gizli panel odakta kalıyor" sınıfı hataları baştan keser.
+ * Hiçbir nesne seçili değilken de DOM'da kalır (animasyon için) ama
+ * `pointer-events-none` + ekran dışına kaydırılmış: odaklanamaz, tıklanamaz.
  */
 export function PropertyPanel() {
   const selection = useArchitectureUiStore((state) => state.selection)
@@ -44,7 +45,7 @@ export function PropertyPanel() {
       : undefined,
   )
 
-  if (kind === 'none') return null
+  const isOpen = kind !== 'none'
 
   const handleDelete = () => {
     deleteSelection(selection)
@@ -54,7 +55,11 @@ export function PropertyPanel() {
   return (
     <aside
       aria-label="Nesne özellikleri"
-      className="flex w-64 shrink-0 flex-col border-l border-edge bg-surface"
+      aria-hidden={!isOpen}
+      inert={!isOpen ? true : undefined}
+      className={`absolute inset-y-0 right-0 z-10 flex w-64 shrink-0 flex-col border-l border-edge bg-surface shadow-lg transition-transform duration-200 ease-out ${
+        isOpen ? 'translate-x-0' : 'pointer-events-none translate-x-full'
+      }`}
     >
       <button
         type="button"

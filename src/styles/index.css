@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Tailwind'in karşılamadığı özel CSS ayrı dosyada (CLAUDE.md → Stil). */
+@import "./dashboardBar.css";
 
 /* Koyu tema class ile açılır (<html class="dark">), işletim sistemi tercihiyle değil:
    tema seçimi kullanıcıya ait ve localStorage'da saklanıyor. */
@@ -28,6 +30,14 @@
      o dolgunun üstüne gelen metindir (admin-primary/admin-primary-ink deseni). */
   --color-success: #157347;
   --color-success-ink: #ffffff;
+  /* Gösterge panelindeki "Onaylanmış" sayacı. KISIT: YALNIZ büyük ve kalın
+     sayaç rakamında kullanılır — beyaz zeminde ~3.4:1, yani WCAG AA'nın büyük
+     metin eşiğini (3:1) geçer ama küçük metin eşiğini (4.5:1) geçmez. Etiket,
+     ikon veya normal metinde KULLANILMAZ; onlar `ink`/`ink-muted` kalır. */
+  --color-success-soft: #3f8f63;
+  /* Uyarı vurgusu: sistem kaynaklı bakım/kesinti duyurusunun sol kenarlığı.
+     Yalnız kenarlık — metin rengi olarak kullanılmaz, kontrastı sınanmadı. */
+  --color-warning: #b26a00;
    --color-brand-yellow: #FFC107;
   --color-brand-navy: #1B2A4A;
   --color-surface-light: #F7F8FA;
@@ -85,6 +95,9 @@
      açılıyor; açılan yeşilin üstünde beyaz metin okunmadığı için ink koyulaşır. */
   --color-success: #22a06b;
   --color-success-ink: #0b1f16;
+  /* Açık temadakiyle aynı kısıt: yalnız büyük kalın sayaç rakamı. */
+  --color-success-soft: #5fbf8c;
+  --color-warning: #e0a458;
 }
 
 html,

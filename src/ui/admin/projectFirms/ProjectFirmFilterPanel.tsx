@@ -1,0 +1,78 @@
+import { X } from 'lucide-react'
+
+import { FilterSelect } from '../FilterSelect'
+import { ALL_REGIONS_LABEL } from '../adminUrlParams'
+import { ADMIN_FOCUS_RING } from '../adminVariants'
+
+/**
+ * Üç kriterin de pasif olmasının sebebi AYNI: liste satırı bu bilgilerin
+ * hiçbirini taşımıyor (`GET /api/projectfirms` yalnız firma alanlarını
+ * döndürüyor). Seçim uygulanabilseydi liste ilk seçimde boşalır ve kullanıcı
+ * veri kaybettiğini sanardı — gaz dağıtım firmaları ekranında bölge süzgeci
+ * için verilen kararın aynısı (docs/kararlar.md K27, K29).
+ *
+ * Panel yine de açılıyor: gereksinim 4.3 "Filtrele tıklanınca kriter alanı
+ * açılır" diyor ve kullanıcının hangi kriterlerin geleceğini görmesi, düğmenin
+ * hiçbir şey yapmamasından iyi.
+ */
+const DISABLED_HINT = 'Bu bilgi sunucudan gelene kadar filtre kullanılamıyor.'
+
+const ANY_GAS_FIRM_LABEL = 'Tümü'
+const ANY_QUALIFICATION_LABEL = 'Tümü'
+
+const NO_OPTIONS: never[] = []
+
+interface ProjectFirmFilterPanelProps {
+  onClose: () => void
+}
+
+export function ProjectFirmFilterPanel({ onClose }: ProjectFirmFilterPanelProps) {
+  return (
+    <section
+      aria-label="Ek filtre kriterleri"
+      className="flex flex-wrap items-start gap-4 rounded-xl border border-edge bg-surface p-4"
+    >
+      {/* Seçenekler ÇEKİLMİYOR: pasif kutuya liste doldurmak için ağ isteği
+          atmak boşuna. Süzgeç açılınca kaynak uçlar buraya bağlanacak. */}
+      <FilterSelect
+        id="project-firm-filter-gas-firm"
+        label="G.D. Firması"
+        emptyLabel={ANY_GAS_FIRM_LABEL}
+        value={null}
+        options={NO_OPTIONS}
+        isDisabled
+        hint={DISABLED_HINT}
+        onChange={() => {}}
+      />
+      <FilterSelect
+        id="project-firm-filter-region"
+        label="Bölge"
+        emptyLabel={ALL_REGIONS_LABEL}
+        value={null}
+        options={NO_OPTIONS}
+        isDisabled
+        hint={DISABLED_HINT}
+        onChange={() => {}}
+      />
+      <FilterSelect
+        id="project-firm-filter-qualification"
+        label="Yeterlilik Durumu"
+        emptyLabel={ANY_QUALIFICATION_LABEL}
+        value={null}
+        options={NO_OPTIONS}
+        isDisabled
+        hint={DISABLED_HINT}
+        onChange={() => {}}
+      />
+
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Filtre alanını kapat"
+        className={`ml-auto inline-flex size-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-sunken ${ADMIN_FOCUS_RING}`}
+      >
+        <X aria-hidden className="size-4" />
+      </button>
+    </section>
+  )
+}

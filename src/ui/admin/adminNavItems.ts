@@ -22,6 +22,31 @@ export function gasFirmUpdatePath(firmId: number): string {
   return `${GAS_DISTRIBUTION_FIRMS_PATH}/${firmId}`
 }
 
+/**
+ * Ekranları HENÜZ YAZILMAMIŞ yollar. Rotalar bugün "yakında" karşılama ekranına
+ * bağlı (router.tsx); yol adları şimdiden gerçek yerlerine konuldu ki ekran
+ * gelince yalnız route'un element'i değişsin, bağlantılara dokunulmasın.
+ */
+export const PROJECT_FIRMS_PATH = `${ADMIN_HOME_PATH}/project-firms`
+export const PROJECT_FIRM_CREATE_PATH = `${PROJECT_FIRMS_PATH}/new`
+
+/**
+ * Proje firması güncelleme ekranının yolu. Ekranı HENÜZ YOK — uçları
+ * (`PUT /api/projectfirms/{id}`) hazır ama route'u kendi issue'sunda gelecek;
+ * gaz dağıtım firması güncelleme ekranı da bir dönem böyleydi.
+ */
+export function projectFirmUpdatePath(firmId: number): string {
+  return `${PROJECT_FIRMS_PATH}/${firmId}`
+}
+
+export const FIRM_USERS_PATH = `${ADMIN_HOME_PATH}/firm-users`
+export const USER_CREATE_PATH = `${ADMIN_HOME_PATH}/users/new`
+export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
+export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
+
+/** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
+export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
+
 export const PROJECT_CREATE_PATH = `${PROJECT_LIST_PATH}/new`
 
 /**
@@ -37,15 +62,19 @@ export interface AdminNavItem {
   key: string
   label: string
   icon: LucideIcon
-  /** Ekranı henüz olmayan maddede null — madde görünür ama tıklanamaz. */
-  path: string | null
+  path: string
+  /** Hedef gerçek ekran mı, yoksa "bu ekran gelecektir" karşılaması mı. */
+  isComingSoon?: boolean
 }
 
 /**
  * Sol menünün TEK kaynağı: sıra, etiket ve yol burada durur. Yeni yönetici ekranı
- * eklenince yalnız bu dizi ve router.tsx değişir, AdminLayout'a dokunulmaz.
+ * eklenince yalnız bu dizi ve router.tsx değişir, AdminSidebar'a dokunulmaz.
  *
- *  path'i null olan maddeler kendi issue'larında route alacak.
+ * Her maddenin yolu VAR. Ekranı yazılmamış olanlar bugün karşılama sayfasına
+ * gidiyor (`isComingSoon`), pasif düğme olarak durmuyorlar: `disabled` düğme
+ * odaklanamadığı için o maddeler klavye ve ekran okuyucu kullanıcısına hiç
+ * görünmüyordu.
  */
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Geçici karşılama ekranı (AdminHomePage). Kendi yolu var; "Projeler" maddesiyle
@@ -57,9 +86,27 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: Factory,
     path: GAS_DISTRIBUTION_FIRMS_PATH,
   },
-  { key: 'projectFirms', label: 'Proje Firmaları', icon: Building2, path: null },
-  { key: 'firmUsers', label: 'Firma Kullanıcıları', icon: Users, path: null },
+  { key: 'projectFirms', label: 'Proje Firmaları', icon: Building2, path: PROJECT_FIRMS_PATH },
+  {
+    key: 'firmUsers',
+    label: 'Firma Kullanıcıları',
+    icon: Users,
+    path: FIRM_USERS_PATH,
+    isComingSoon: true,
+  },
   { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
-  { key: 'documents', label: 'Evraklar', icon: FileText, path: null },
-  { key: 'policies', label: 'Poliçeler', icon: ShieldCheck, path: null },
+  {
+    key: 'documents',
+    label: 'Evraklar',
+    icon: FileText,
+    path: DOCUMENTS_PATH,
+    isComingSoon: true,
+  },
+  {
+    key: 'policies',
+    label: 'Poliçeler',
+    icon: ShieldCheck,
+    path: POLICIES_PATH,
+    isComingSoon: true,
+  },
 ]
