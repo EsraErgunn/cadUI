@@ -110,6 +110,20 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
   // Son kat: silinirse çizilecek yüzey kalmaz.
   if (nextActiveFloorId === undefined) return false
 
+  removeFloorContentInDraft(draft, floorId)
+  draft.floors.splice(index, 1)
+
+  if (draft.activeFloorId === floorId) draft.activeFloorId = nextActiveFloorId
+  return true
+}
+
+/**
+ * Katın ÇİZİMİNİ siler, kat kaydının kendisine dokunmaz. Kat yapısının toplu
+ * uygulanmasında (applyFloorPlan) kat listesi baştan kurulduğu için buradan
+ * ayrıldı — iki yol tek temizlik mantığını paylaşır, biri unutulup sahipsiz
+ * duvar bırakamaz.
+ */
+export function removeFloorContentInDraft(draft: CadState, floorId: Id): void {
   const removedWallIds = new Set(
     draft.walls.filter((wall) => wall.floorId === floorId).map((wall) => wall.id),
   )
@@ -149,8 +163,4 @@ export function removeFloorFromDraft(draft: CadState, floorId: Id): boolean {
     (element) => element.floorId !== floorId,
   )
   draft.installationLines = draft.installationLines.filter((line) => line.floorId !== floorId)
-  draft.floors.splice(index, 1)
-
-  if (draft.activeFloorId === floorId) draft.activeFloorId = nextActiveFloorId
-  return true
 }

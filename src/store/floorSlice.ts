@@ -13,11 +13,13 @@ import {
   setFloorHeightInDraft,
   type AddFloorInput,
 } from './floorOps'
+import { createFloorPlanActions, type FloorPlanActions } from './floorPlanOps'
 import { markDirty } from './projectMeta'
 import { createGroundFloor, type FloorDirection } from '../core/floors'
 import type { Floor, Id } from '../core/model'
 
-export type FloorSlice = CopyFloorActions & {
+export type FloorSlice = CopyFloorActions &
+  FloorPlanActions & {
   floors: Floor[]
   activeFloorId: Id
   /** Reddedilirse undefined döner ve HİÇBİR ŞEY değişmez — id bile harcanmaz. */
@@ -41,6 +43,7 @@ export const createFloorSlice: StateCreator<
   FloorSlice
 > = (set) => ({
   ...createCopyFloorActions(set),
+  ...createFloorPlanActions(set),
 
   floors: [createGroundFloor()],
   activeFloorId: createGroundFloor().id,

@@ -166,11 +166,11 @@ function isFloorOrderValid(floors: readonly Floor[]): boolean {
  * bozuyorsa AYNI diziyi döndürür (yeni referans değil): çağıran `===` ile
  * "değişiklik olmadı"yı anlar ve boş bir geri alma adımı üretmez.
  */
-export function reorderFloorInList(
-  floors: readonly Floor[],
+export function reorderFloorInList<T extends Floor>(
+  floors: readonly T[],
   floorId: Id,
   targetIndex: number,
-): readonly Floor[] {
+): readonly T[] {
   const index = getFloorIndex(floors, floorId)
   if (index < 0 || index === targetIndex) return floors
   if (targetIndex < 0 || targetIndex >= floors.length) return floors
@@ -182,11 +182,11 @@ export function reorderFloorInList(
 }
 
 /** Bir sıra yukarı/aşağı — klavyeyle sıralama. Kısıtlar reorder ile ortak. */
-export function moveFloorInList(
-  floors: readonly Floor[],
+export function moveFloorInList<T extends Floor>(
+  floors: readonly T[],
   floorId: Id,
   direction: FloorDirection,
-): readonly Floor[] {
+): readonly T[] {
   const index = getFloorIndex(floors, floorId)
   if (index < 0) return floors
 
