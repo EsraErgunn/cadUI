@@ -1,0 +1,32 @@
+/* Bölge yoğunluğu çubuğu.
+   Tailwind ile yazılamaz: dolgu oranı çalışma anında hesaplanıyor ve `<progress>`
+   dolgusu yalnız satıcı sözde-öğeleriyle boyanabiliyor. CLAUDE.md inline
+   `style={{}}` yasağı gereği oran, elementin value/max özniteliklerinden geliyor;
+   burada yalnız GÖRÜNÜM tanımlı. Renkler token'lardan, iki temada da doğru. */
+
+.dashboard-bar {
+  appearance: none;
+  block-size: 0.5rem;
+  inline-size: 100%;
+  border: 0;
+  border-radius: 9999px;
+  background-color: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+/* Chrome/Safari: hem oluk hem dolgu ayrı sözde-öğe. */
+.dashboard-bar::-webkit-progress-bar {
+  background-color: var(--color-surface-sunken);
+  border-radius: 9999px;
+}
+
+.dashboard-bar::-webkit-progress-value {
+  background-color: var(--color-success);
+  border-radius: 9999px;
+}
+
+/* Firefox: yalnız dolgu için sözde-öğe var. */
+.dashboard-bar::-moz-progress-bar {
+  background-color: var(--color-success);
+  border-radius: 9999px;
+}

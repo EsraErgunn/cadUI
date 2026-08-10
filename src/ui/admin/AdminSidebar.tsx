@@ -1,22 +1,19 @@
 import { Moon, Sun } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
+import { ComingSoonBadge } from './ComingSoonBadge'
 import { ADMIN_NAV_ITEMS, type AdminNavItem } from './adminNavItems'
 import { adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
 import { useTheme } from './useTheme'
 import logo from '../../assets/brand/logo3.png'
 
+/**
+ * Menü maddesi. Ekranı yazılmamış madde de bağlantı: hedefinde "bu ekran
+ * gelecektir" karşılaması var. Eskiden `disabled` düğmeydi ve o hâlde
+ * odaklanamadığı için klavye kullanıcısı maddeyi hiç göremiyordu.
+ */
 function AdminNavEntry({ item }: { item: AdminNavItem }) {
   const Icon = item.icon
-
-  if (item.path === null) {
-    return (
-      <button type="button" disabled className={adminNavItemVariants({ tone: 'disabled' })}>
-        <Icon aria-hidden className="size-4 shrink-0" />
-        {item.label}
-      </button>
-    )
-  }
 
   return (
     <NavLink
@@ -27,7 +24,8 @@ function AdminNavEntry({ item }: { item: AdminNavItem }) {
       {({ isActive }) => (
         <>
           <Icon aria-hidden className="size-4 shrink-0" />
-          {item.label}
+          <span className="min-w-0 flex-1">{item.label}</span>
+          {item.isComingSoon === true && <ComingSoonBadge />}
           {isActive && <span className="sr-only">(bulunulan sayfa)</span>}
         </>
       )}

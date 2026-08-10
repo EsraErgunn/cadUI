@@ -23,7 +23,6 @@ export const adminNavItemVariants = cva(
       tone: {
         plain: 'text-ink-muted hover:bg-surface hover:text-ink',
         active: 'bg-surface font-semibold text-ink ring-1 ring-inset ring-accent',
-        disabled: 'cursor-not-allowed text-ink-disabled',
       },
     },
     defaultVariants: { tone: 'plain' },
@@ -186,6 +185,25 @@ export const stepperButtonVariants = cva(
    hover:bg-surface-sunken hover:text-ink
    disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent
    ${ADMIN_FOCUS_RING}`,
+)
+
+/**
+ * Diyalog paneli. Uzun içerik panelin İÇİNDE kayar (`max-h` + `overflow-y-auto`):
+ * zemin kaymadığı için arkadaki sayfa kilitli görünür, alçak ekranda da form
+ * düğmelerine erişilir.
+ */
+export const adminDialogPanelVariants = cva(
+  'flex max-h-[85vh] w-full flex-col overflow-y-auto rounded-xl border border-edge bg-surface p-5 shadow-lg',
+  {
+    variants: {
+      size: {
+        md: 'max-w-md',
+        /** Form + önizleme yan yana sığsın diye geniş varyant. */
+        lg: 'max-w-2xl',
+      },
+    },
+    defaultVariants: { size: 'md' },
+  },
 )
 
 /** Form kartı (Proje / Yapı / Tesisat Bilgileri). */
