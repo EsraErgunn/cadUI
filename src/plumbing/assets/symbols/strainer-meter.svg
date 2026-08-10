@@ -1,9 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
   <g fill="none" stroke="#1e293b" stroke-width="2">
-    <rect x="14" y="6" width="32" height="28" />
-    <circle cx="30" cy="20" r="7" />
-    <line x1="30" y1="20" x2="30" y2="15" />
-    <line x1="18" y1="30" x2="22" y2="26" />
-    <line x1="38" y1="30" x2="42" y2="26" />
+    <!-- Yukarı çıkan çizgiler -->
+    <line x1="40" y1="6" x2="40" y2="-20" />
+    <line x1="20" y1="6" x2="20" y2="-20" />
+
+    <!-- Gövde -->
+    <rect x="14" y="6" width="32" height="25" />
+
   </g>
 </svg>

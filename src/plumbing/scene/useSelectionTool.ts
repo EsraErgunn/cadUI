@@ -13,15 +13,21 @@ import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-import { resolveOnLineSlide, type OnLineSlideTarget } from '../core/elementAttach'
+import {
+  expandMoveSelection,
+  isFixedCompanionValve,
+  resolveOnLineSlide,
+  type OnLineSlideTarget,
+} from '../core/elementAttach'
 import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
+import type { InstallationElement } from '../core/installationModel'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
-import { pickLineAt } from '../core/linePicking'
+import { getLinesInRect, pickLineAt } from '../core/linePicking'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import {
-  copyElementsToClipboard,
-  cutElementsToClipboard,
+  copySelectionToClipboard,
+  cutSelectionToClipboard,
   pasteClipboard,
 } from '../store/clipboardActions'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
@@ -31,6 +37,8 @@ const PRIMARY_BUTTON = 0
 type SelectionGrab = {
   /** Sürüklenen seçimin tamamı; hepsi aynı kaymayla taşınır. */
   elementIds: Id[]
+  /** Seçili hatlar: TÜM köşeleriyle birlikte aynı kaymayla taşınır. */
+  lineIds: Id[]
   /** Basılan elemanın basış anındaki konumu — ızgara ona göre yakalanır. */
   anchorPosition: PlanPoint
   pointerOrigin: PlanPoint
@@ -52,6 +60,8 @@ type SelectionGrab = {
 export type SelectionToolState = {
   /** Sürüklenen elemanlar; sahne onları store konumu + kayma ile çizer. */
   draggedElementIds: readonly Id[]
+  /** Sürüklenen hatlar; aynı kaymayla ELEMANLARLA EŞ ZAMANLI çizilir. */
+  draggedLineIds: readonly Id[]
   dragDeltaRef: RefObject<PlanPoint | null>
 }
 
@@ -76,6 +86,7 @@ export function useSelectionTool(): SelectionToolState {
   // Sürüklenen elemanlar React durumu: jest başına İKİ render (başlangıç + bitiş).
   // Kaymanın kendisi ref'te — her pointermove render tetikleseydi sürükleme takılırdı.
   const [draggedElementIds, setDraggedElementIds] = useState<readonly Id[]>([])
+  const [draggedLineIds, setDraggedLineIds] = useState<readonly Id[]>([])
   const dragDeltaRef = useRef<PlanPoint | null>(null)
 
   useEffect(() => {
@@ -89,6 +100,7 @@ export function useSelectionTool(): SelectionToolState {
       grab = undefined
       dragDeltaRef.current = null
       setDraggedElementIds([])
+      setDraggedLineIds([])
     }
 
     const endMarquee = () => {
@@ -108,8 +120,136 @@ export function useSelectionTool(): SelectionToolState {
       return cad.installationLines.filter((line) => line.floorId === cad.activeFloorId)
     }
 
+    const readConnections = () => useCadStore.getState().installationConnections
+
     const getMetadata = (type: Parameters<typeof getLoadedSymbol>[0]) =>
       getLoadedSymbol(type).metadata
+
+    /**
+     * Sürüklemenin canlı önizlemesi commit'teki (moveElements) genişletmeyle
+     * AYNI kümeyi göstersin diye aynı fonksiyondan geçer (bkz. elementAttach.ts).
+     * Sayaç/cihazla gelen otomatik vana burada FARE ile taşınabilir kümeden
+     * elenir — bu eleme yalnız etkileşim katmanında: `moveElements`'i doğrudan
+     * çağıran kod (ör. testler) valveyi hâlâ taşıyabilir.
+     */
+    const startGroupDrag = (
+      elementIds: readonly Id[],
+      lineIds: readonly Id[],
+      anchorPosition: PlanPoint,
+      pointerOrigin: PlanPoint,
+    ) => {
+      const lines = readFloorLines()
+      const connections = readConnections()
+      const movableElementIds = expandMoveSelection(lines, connections, elementIds, lineIds).filter(
+        (id) => !isFixedCompanionValve(lines, connections, id),
+      )
+      grab = {
+        elementIds: movableElementIds,
+        lineIds: [...lineIds],
+        anchorPosition,
+        pointerOrigin,
+      }
+      setDraggedElementIds(movableElementIds)
+      setDraggedLineIds(lineIds)
+    }
+
+    /** Elemana basılmadığında: hat aranır, yoksa jest bir çerçeve seçimidir. */
+    const handleEmptyPointerDown = (event: DrawSurfacePointerEvent, zoom: number) => {
+      const ui = usePlumbingUiStore.getState()
+      const lineId = pickLineAt(event.planPoint, readFloorLines(), getSnapToleranceCm(zoom))
+      if (lineId === null) {
+        // Boşluğa basış: jest bir çerçevedir. Seçimin temizlenip temizlenmeyeceğine
+        // pointerup karar verir — sürükleme eşiğin altında kalırsa bu bir tıklamadır.
+        marqueeAnchor = event.planPoint
+        isAdditiveMarquee = event.shiftKey
+        return
+      }
+
+      if (event.shiftKey) {
+        ui.toggleSelectedLine(lineId)
+        return
+      }
+
+      // Zaten seçili bir hatta basmak TÜM seçimi (elemanlar dahil) KORUR:
+      // karma seçim (boru + eleman) aynı jestte birlikte sürüklenebilsin.
+      const isAlreadySelected = ui.selectedLineIds.includes(lineId)
+      if (!isAlreadySelected) {
+        ui.setSelectedElements([])
+        ui.setSelectedLines([lineId])
+      }
+
+      startGroupDrag(
+        isAlreadySelected ? ui.selectedElementIds : [],
+        isAlreadySelected ? ui.selectedLineIds : [lineId],
+        event.planPoint,
+        event.planPoint,
+      )
+    }
+
+    /** Bir elemana basıldığında: seçim güncellenir, ardından kaydırma/grup
+     *  sürüklemesi başlar (sayaç/cihazla gelen vana hariç, K-W3). */
+    const handleElementPointerDown = (event: DrawSurfacePointerEvent, target: InstallationElement) => {
+      const ui = usePlumbingUiStore.getState()
+
+      // Shift+tık seçimi değiştirir ve sürükleme BAŞLATMAZ: aynı jestte hem
+      // seçime ekleyip hem taşımak, kullanıcının hangisini istediğini belirsiz kılar.
+      if (event.shiftKey) {
+        ui.toggleSelectedElement(target.id)
+        return
+      }
+
+      // Seçimin içindeki bir elemana basmak TÜM seçimi (hatlar dahil) KORUR
+      // (karma grubu birlikte taşımak için); dışındakine basmak seçimi ona indirger.
+      const isTargetAlreadySelected = ui.selectedElementIds.includes(target.id)
+      if (!isTargetAlreadySelected) {
+        ui.setSelectedElements([target.id])
+        ui.setSelectedLines([])
+      }
+      const elementIds = isTargetAlreadySelected ? ui.selectedElementIds : [target.id]
+      const lineIds = isTargetAlreadySelected ? ui.selectedLineIds : []
+
+      // Sayaç/cihazla gelen otomatik vana ayrı taşınamaz: seçilir ama
+      // sürüklenmez, yalnız ana eleman (sayaç/cihaz) hareket eder. BU KONTROL
+      // kaydırmadan ÖNCE yapılır: sayacın vanası (`resolveFreeEndAttachment`)
+      // hat uzadığı için İKİ komşuya da sahiptir, yani `resolveOnLineSlide`
+      // BAŞARIYLA sonuç dönerdi — sırası ters olsaydı kilit hiç devreye girmezdi.
+      if (
+        elementIds.length === 1 &&
+        lineIds.length === 0 &&
+        isFixedCompanionValve(readFloorLines(), readConnections(), target.id)
+      ) {
+        return
+      }
+
+      // Tek eleman (hat seçili değilken) + boruya oturan bir armatürse (iki
+      // komşusu da varsa) sürükleme KAYDIRMA modunda başlar — grup taşımasında
+      // hep SERBEST kayma kullanılır.
+      const slideResult =
+        elementIds.length === 1 && lineIds.length === 0
+          ? resolveOnLineSlide(
+              readFloorLines(),
+              getMetadata,
+              target.id,
+              target.type,
+              target.angleDeg,
+              event.planPoint,
+            )
+          : null
+
+      if (slideResult) {
+        grab = {
+          elementIds: [...elementIds],
+          lineIds: [],
+          anchorPosition: target.position,
+          pointerOrigin: event.planPoint,
+          slide: { elementType: target.type, angleDeg: target.angleDeg, result: slideResult },
+        }
+        setDraggedElementIds(elementIds)
+        return
+      }
+
+      startGroupDrag(elementIds, lineIds, target.position, event.planPoint)
+    }
 
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
       if (event.button !== PRIMARY_BUTTON) return
@@ -122,68 +262,12 @@ export function useSelectionTool(): SelectionToolState {
         getSnapToleranceCm(zoom),
       )
 
-      const ui = usePlumbingUiStore.getState()
-
       if (!target) {
-        // Eleman yoksa hat aranır: hat sürüklenmiyor, yalnız seçiliyor
-        // (taşıma/köşe düzenleme sonraki bir işin konusu).
-        const lineId = pickLineAt(event.planPoint, readFloorLines(), getSnapToleranceCm(zoom))
-        if (lineId !== null) {
-          if (event.shiftKey) ui.toggleSelectedLine(lineId)
-          else {
-            ui.setSelectedElements([])
-            ui.setSelectedLines([lineId])
-          }
-          return
-        }
-
-        // Boşluğa basış: jest bir çerçevedir. Seçimin temizlenip temizlenmeyeceğine
-        // pointerup karar verir — sürükleme eşiğin altında kalırsa bu bir tıklamadır.
-        marqueeAnchor = event.planPoint
-        isAdditiveMarquee = event.shiftKey
+        handleEmptyPointerDown(event, zoom)
         return
       }
 
-      // Elemana basmak hat seçimini bırakır: seçim TEK bir jestle kurulur.
-      if (!event.shiftKey) ui.setSelectedLines([])
-
-      // Shift+tık seçimi değiştirir ve sürükleme BAŞLATMAZ: aynı jestte hem
-      // seçime ekleyip hem taşımak, kullanıcının hangisini istediğini belirsiz kılar.
-      if (event.shiftKey) {
-        ui.toggleSelectedElement(target.id)
-        return
-      }
-
-      // Seçimin içindeki bir elemana basmak seçimi KORUR (grubu taşımak için);
-      // dışındakine basmak seçimi ona indirger.
-      const elementIds = ui.selectedElementIds.includes(target.id)
-        ? [...ui.selectedElementIds]
-        : [target.id]
-      if (!ui.selectedElementIds.includes(target.id)) ui.setSelectedElements(elementIds)
-
-      // Tek eleman + boruya oturan bir armatürse (iki komşusu da varsa) sürükleme
-      // KAYDIRMA modunda başlar — grup taşımasında hep SERBEST kayma kullanılır.
-      const slideResult =
-        elementIds.length === 1
-          ? resolveOnLineSlide(
-              readFloorLines(),
-              getMetadata,
-              target.id,
-              target.type,
-              target.angleDeg,
-              event.planPoint,
-            )
-          : null
-
-      grab = {
-        elementIds,
-        anchorPosition: target.position,
-        pointerOrigin: event.planPoint,
-        slide: slideResult
-          ? { elementType: target.type, angleDeg: target.angleDeg, result: slideResult }
-          : undefined,
-      }
-      setDraggedElementIds(elementIds)
+      handleElementPointerDown(event, target)
     }
 
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
@@ -245,9 +329,15 @@ export function useSelectionTool(): SelectionToolState {
         return
       }
 
-      const framed = getElementsInRect(rect, readFloorElements(), getMetadata)
-      if (wasAdditive) ui.addSelectedElements(framed)
-      else ui.setSelectedElements(framed)
+      const framedElements = getElementsInRect(rect, readFloorElements(), getMetadata)
+      const framedLines = getLinesInRect(rect, readFloorLines())
+      if (wasAdditive) {
+        ui.addSelectedElements(framedElements)
+        ui.addSelectedLines(framedLines)
+      } else {
+        ui.setSelectedElements(framedElements)
+        ui.setSelectedLines(framedLines)
+      }
     }
 
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
@@ -277,14 +367,14 @@ export function useSelectionTool(): SelectionToolState {
         return
       }
 
-      const { elementIds } = grab
+      const { elementIds, lineIds } = grab
       const delta = dragDeltaRef.current
       endDrag()
 
       // Yer değişmediyse (yalnız seçmek için tıklama) store'a hiç yazılmaz:
       // yoksa her tıklama geçmişe boş bir adım bırakırdı.
       if (!delta || (delta.x === 0 && delta.y === 0)) return
-      useCadStore.getState().moveElements(elementIds, delta)
+      useCadStore.getState().moveElements(elementIds, lineIds, delta)
     }
 
     // Esc sürüklemeyi/çerçeveyi iptal eder: store'a yazılmadığı için elemanlar
@@ -327,13 +417,12 @@ export function useSelectionTool(): SelectionToolState {
         return
       }
 
-      // Pano şimdilik yalnız elemanlarda: hat kopyalama id yeniden eşlemesi ister.
-      if (selectedElementIds.length === 0) return
+      if (selectedElementIds.length === 0 && selectedLineIds.length === 0) return
       if (!isClipboardModifier) return
 
       if (key === 'c') {
         keyEvent.preventDefault()
-        copyElementsToClipboard(selectedElementIds)
+        copySelectionToClipboard(selectedElementIds, selectedLineIds)
         return
       }
 
@@ -341,7 +430,7 @@ export function useSelectionTool(): SelectionToolState {
         keyEvent.preventDefault()
         // Sürükleme ortasında kesilirse jest de biter (Delete ile aynı gerekçe).
         endDrag()
-        cutElementsToClipboard(selectedElementIds)
+        cutSelectionToClipboard(selectedElementIds, selectedLineIds)
       }
     }
 
@@ -389,5 +478,5 @@ export function useSelectionTool(): SelectionToolState {
     [],
   )
 
-  return { draggedElementIds, dragDeltaRef }
+  return { draggedElementIds, draggedLineIds, dragDeltaRef }
 }

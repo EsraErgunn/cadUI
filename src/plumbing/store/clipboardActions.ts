@@ -1,7 +1,12 @@
 import { usePlumbingUiStore } from './plumbingUiStore'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
-import { offsetClipboardEntries, toClipboardEntries } from '../core/clipboard'
+import {
+  offsetClipboardEntries,
+  offsetLineClipboardEntries,
+  toClipboardEntries,
+  toLineClipboardEntries,
+} from '../core/clipboard'
 
 /**
  * Kes/kopyala/yapıştır: cadStore (çizim) ile plumbingUiStore (pano) arasında
@@ -9,35 +14,42 @@ import { offsetClipboardEntries, toClipboardEntries } from '../core/clipboard'
  * ikinci bir dinleyici kurulsaydı aynı basış iki yerde işlenirdi.
  *
  * Pano tarayıcının kendi kes/kopyala/yapıştırını KULLANMAZ: taşınan şey metin
- * değil eleman kaydı, sistem panosuna yazmak için serileştirme sözleşmesi
+ * değil eleman/hat kaydı, sistem panosuna yazmak için serileştirme sözleşmesi
  * gerekirdi (plumbingSerialize.ts henüz yok).
  */
 
-export function copyElementsToClipboard(elementIds: readonly Id[]): void {
-  const entries = toClipboardEntries(useCadStore.getState().installationElements, elementIds)
-  if (entries.length === 0) return
-  usePlumbingUiStore.getState().copyToClipboard(entries)
+export function copySelectionToClipboard(elementIds: readonly Id[], lineIds: readonly Id[]): void {
+  const cad = useCadStore.getState()
+  const elementEntries = toClipboardEntries(cad.installationElements, elementIds)
+  const lineEntries = toLineClipboardEntries(cad.installationLines, lineIds)
+  if (elementEntries.length === 0 && lineEntries.length === 0) return
+  usePlumbingUiStore.getState().copyToClipboard(elementEntries, lineEntries)
 }
 
-export function cutElementsToClipboard(elementIds: readonly Id[]): void {
-  copyElementsToClipboard(elementIds)
-  useCadStore.getState().removeElements(elementIds)
+export function cutSelectionToClipboard(elementIds: readonly Id[], lineIds: readonly Id[]): void {
+  copySelectionToClipboard(elementIds, lineIds)
+  useCadStore.getState().removeSelection(elementIds, lineIds)
   usePlumbingUiStore.getState().clearSelection()
 }
 
-/** Yapıştırılan elemanların id'leri; boş dizi = pano boştu. */
-export function pasteClipboard(): Id[] {
+/** Yapıştırılan eleman/hat id'leri; ikisi de boşsa pano boştu. */
+export function pasteClipboard(): { elementIds: Id[]; lineIds: Id[] } {
   const ui = usePlumbingUiStore.getState()
-  if (ui.clipboard.length === 0) return []
+  if (ui.elementClipboard.length === 0 && ui.lineClipboard.length === 0) {
+    return { elementIds: [], lineIds: [] }
+  }
 
   // Pay sayacı ÖNCE artar: ilk yapıştırma da kaynağın üstüne düşmesin.
   ui.advancePasteStep()
-  const entries = offsetClipboardEntries(
-    ui.clipboard,
-    usePlumbingUiStore.getState().pasteStepCount,
-  )
-  const createdIds = useCadStore.getState().addElements(entries)
+  const pasteStepCount = usePlumbingUiStore.getState().pasteStepCount
+  const elementEntries = offsetClipboardEntries(ui.elementClipboard, pasteStepCount)
+  const lineEntries = offsetLineClipboardEntries(ui.lineClipboard, pasteStepCount)
+
+  const { elementIds, lineIds } = useCadStore.getState().pasteEntries(elementEntries, lineEntries)
   // Seçim KOPYAYA geçer: kullanıcı yapıştırdığı şeyi hemen sürükleyebilsin.
-  if (createdIds.length > 0) ui.setSelectedElements(createdIds)
-  return createdIds
+  if (elementIds.length > 0 || lineIds.length > 0) {
+    ui.setSelectedElements(elementIds)
+    ui.setSelectedLines(lineIds)
+  }
+  return { elementIds, lineIds }
 }

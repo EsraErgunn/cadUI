@@ -2,6 +2,7 @@ import type { InstallationLine } from './installationModel'
 import { PIPE_TYPES } from './pipeTypes'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
+import { isPointInRect, type PlanRect } from '../../core/selection'
 import { projectOntoSegment } from '../../core/wall'
 
 /**
@@ -30,4 +31,14 @@ export function pickLineAt(
   }
 
   return null
+}
+
+/**
+ * Çerçevenin TAMAMEN içinde kalan hatlar — kesişenler seçilmez, elemanlardaki
+ * `getElementsInRect` ile aynı kural (core/elementPicking.ts).
+ */
+export function getLinesInRect(rect: PlanRect, lines: readonly InstallationLine[]): Id[] {
+  return lines
+    .filter((line) => line.points.every((point) => isPointInRect(point.position, rect)))
+    .map((line) => line.id)
 }

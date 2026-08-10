@@ -1,6 +1,7 @@
 import { Line } from '@react-three/drei'
-import { useMemo, type ComponentRef, type RefObject } from 'react'
-import { CircleGeometry, DoubleSide, MeshBasicMaterial, RingGeometry } from 'three'
+import { useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, type ComponentRef, type RefObject } from 'react'
+import { CircleGeometry, DoubleSide, MeshBasicMaterial, RingGeometry, type Group } from 'three'
 
 import { getLineColor, getLineWidthPx, toWidthCm } from './lineStyle'
 import {
@@ -12,6 +13,7 @@ import { PLUMBING_COLORS } from './plumbingTheme'
 import { GHOST_OPACITY } from './symbolLoader'
 import { useCameraZoom } from './useCameraZoom'
 import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
+import type { Id } from '../../core/model'
 import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
@@ -46,6 +48,12 @@ type InstallationLineMeshProps = {
   connections?: readonly InstallationConnection[]
   isSelected?: boolean
   tone?: LineTone
+  /**
+   * Yalnız SÜRÜKLENEN hatlara verilir: geçici kayma her frame buradan okunur.
+   * SymbolInstance ile AYNI desen — tüm köşeler aynı kaymayla gittiği için
+   * hat grubuna TEK bir group ofseti yetiyor, nokta başına yeniden hesap gerekmiyor.
+   */
+  dragDeltaRef?: RefObject<PlanPoint | null>
 }
 
 /** Kesikli çizginin dünya birimindeki desen boyu — piksel değil, ekranı sabit taramasın. */
@@ -150,6 +158,7 @@ export function InstallationLineMesh({
   connections = [],
   isSelected = false,
   tone = 'normal',
+  dragDeltaRef,
 }: InstallationLineMeshProps) {
   const isGhost = tone === 'ghost'
   const isApplianceStub = line.kind === 'applianceStub'
@@ -160,6 +169,7 @@ export function InstallationLineMesh({
       : isApplianceStub
         ? PLUMBING_COLORS.applianceStub
         : getLineColor(line.pipeTypeName)
+  const groupRef = useRef<Group>(null)
 
   // Referans kararlı tutulur: drei <Line> `points` değişince geometriyi yeniden ayırır.
   const positions = useMemo(
@@ -173,8 +183,23 @@ export function InstallationLineMesh({
   const firstPoint = line.points[0]
   const lastPoint = line.points[line.points.length - 1]
 
+  // Sürükleme kayması bütün köşelere AYNI ofsetle uygulanır: nokta başına yeniden
+  // hesap yerine tek group ofseti (SymbolInstance ile aynı desen).
+  useFrame(() => {
+    const delta = dragDeltaRef?.current
+    if (!groupRef.current || !delta) return
+    groupRef.current.position.set(delta.x, 0, -delta.y)
+  })
+
+  // Sürükleme bitince (veya Esc ile iptal edilince) grup ofseti sıfırlanır —
+  // yoksa hat store konumuna dönerken bir kare eski ofsette asılı kalırdı.
+  useEffect(() => {
+    if (dragDeltaRef) return
+    groupRef.current?.position.set(0, 0, 0)
+  }, [dragDeltaRef])
+
   return (
-    <>
+    <group ref={groupRef}>
       <PipeLine
         positions={positions}
         colorHex={colorHex}
@@ -202,13 +227,20 @@ export function InstallationLineMesh({
           />
         </>
       )}
-    </>
+    </group>
   )
+}
+
+type InstallationLinesProps = {
+  tone?: LineTone
+  /** Sürüklenen hatlar; yalnız bunlara `dragDeltaRef` verilir (bkz. useSelectionTool). */
+  draggedLineIds?: readonly Id[]
+  dragDeltaRef?: RefObject<PlanPoint | null>
 }
 
 /** Aktif kattaki hatlar. Store dizilerine olduğu gibi abone olunur (türetilmiş dizi
  *  her store değişiminde yeni referans üretirdi). */
-export function InstallationLines({ tone }: { tone?: LineTone }) {
+export function InstallationLines({ tone, draggedLineIds, dragDeltaRef }: InstallationLinesProps) {
   const lines = useCadStore((state) => state.installationLines)
   const connections = useCadStore((state) => state.installationConnections)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -227,6 +259,7 @@ export function InstallationLines({ tone }: { tone?: LineTone }) {
             connections={connections}
             isSelected={selectedLineIds.includes(line.id)}
             tone={tone}
+            dragDeltaRef={draggedLineIds?.includes(line.id) ? dragDeltaRef : undefined}
           />
         ))}
     </group>
