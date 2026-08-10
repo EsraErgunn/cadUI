@@ -50,7 +50,10 @@ export function PlumbingLayer() {
 
   return (
     <group name="plumbing-root">
-      <InstallationLines />
+      <InstallationLines
+        draggedLineIds={selection.draggedLineIds}
+        dragDeltaRef={selection.dragDeltaRef}
+      />
       <InstallationElements {...selection} />
       <DrawPreview {...preview} />
       <DrawingPortMarkers {...line} />

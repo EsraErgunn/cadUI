@@ -12,10 +12,12 @@ import type { Id } from '../../core/model'
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
-import type {
-  FreeEndAttachment,
-  NearestLineAttachment,
-  OnLineAttachment,
+import type { LineClipboardEntry } from '../core/clipboard'
+import {
+  expandMoveSelection,
+  type FreeEndAttachment,
+  type NearestLineAttachment,
+  type OnLineAttachment,
 } from '../core/elementAttach'
 import type {
   InstallationConnection,
@@ -63,11 +65,24 @@ export type PlumbingSlice = {
   addElement: (input: AddElementInput) => Id
   /** Yapıştırmanın tek adımlık hâli; üretilen id'ler döner (kopya hemen seçilebilsin). */
   addElements: (inputs: readonly AddElementInput[]) => Id[]
+  /**
+   * Pano yapıştırması: eleman + hat TEK adımda yaratılır (bir Ctrl+V = bir
+   * Ctrl+Z). Yapıştırılan hat bağlantısız/serbest kopyadır — bkz. `LineClipboardEntry`.
+   */
+  pasteEntries: (
+    elementInputs: readonly AddElementInput[],
+    lineInputs: readonly LineClipboardEntry[],
+  ) => { elementIds: Id[]; lineIds: Id[] }
   removeElements: (elementIds: readonly Id[]) => void
   /** Eleman + hat aynı jestte siliniyorsa TEK adım: bir silme, bir Ctrl+Z. */
   removeSelection: (elementIds: readonly Id[], lineIds: readonly Id[]) => void
-  /** Seçimin TAMAMI aynı kaymayla taşınır — tek geçmiş adımı, tek Ctrl+Z. */
-  moveElements: (elementIds: readonly Id[], deltaCm: PlanPoint) => void
+  /**
+   * Seçimin TAMAMI aynı kaymayla taşınır — tek geçmiş adımı, tek Ctrl+Z. Hat
+   * seçiliyse TÜM köşeleri kaymayla gelir; üstündeki armatürler ve bağlı uçtaki
+   * elemanlar (sayaç, cihaz) hat seçili olmasa bile GERİDE KALMASIN diye
+   * otomatik eklenir (K-W3/K-W).
+   */
+  moveElements: (elementIds: readonly Id[], lineIds: readonly Id[], deltaCm: PlanPoint) => void
   /**
    * Boruya oturan (`onLine`) elemanı KAYDIRIR: düğüm + eleman konumu MUTLAK
    * yazılır (kayma değil) — bkz. `core/elementAttach.ts` → `resolveOnLineSlide`.
@@ -332,34 +347,93 @@ export const createPlumbingSlice: StateCreator<
       return createdIds
     },
 
+    pasteEntries: (elementInputs, lineInputs) => {
+      if (elementInputs.length === 0 && lineInputs.length === 0) return { elementIds: [], lineIds: [] }
+
+      const elementIds: Id[] = []
+      const lineIds: Id[] = []
+      set((draft) => {
+        for (const input of elementInputs) {
+          elementIds.push(pushElement(draft, input))
+        }
+        for (const input of lineInputs) {
+          lineIds.push(pushLine(draft, input))
+        }
+        markDirty(draft)
+      })
+      record()
+      return { elementIds, lineIds }
+    },
+
     removeElements: (elementIds) => applyRemoval(elementIds, NO_IDS),
 
     removeSelection: (elementIds, lineIds) => applyRemoval(elementIds, lineIds),
 
-    moveElements: (elementIds, deltaCm) => {
+    moveElements: (elementIds, lineIds, deltaCm) => {
       let isMoved = false
+      const shift = (point: PlanPoint): PlanPoint => ({
+        x: point.x + deltaCm.x,
+        y: point.y + deltaCm.y,
+      })
 
       set((draft) => {
-        for (const element of draft.installationElements) {
-          if (!elementIds.includes(element.id)) continue
+        const lineIdSet = new Set(lineIds)
+        // Seçili hat bütünüyle taşınırken üstündeki armatürler (K-W3) ve bağlı
+        // uçtaki eleman (sayaç, cihaz) GERİDE KALMASIN diye seçime eklenir —
+        // aksi hâlde hat kayar, üstündeki sembol eski yerinde asılı kalırdı.
+        // Aynı genişletme sürükleme önizlemesinde de kullanılır (useSelectionTool).
+        const elementIdSet = new Set(
+          expandMoveSelection(
+            draft.installationLines,
+            draft.installationConnections,
+            elementIds,
+            lineIds,
+          ),
+        )
 
-          element.position = {
-            x: element.position.x + deltaCm.x,
-            y: element.position.y + deltaCm.y,
+        for (const element of draft.installationElements) {
+          if (!elementIdSet.has(element.id)) continue
+          element.position = shift(element.position)
+          isMoved = true
+        }
+
+        // Seçili hattın ucu BAŞKA bir hattın (dal/branşman) üstündeki bir
+        // noktaya `line` bağlantısıyla değiyorsa VE o karşı hat seçili
+        // DEĞİLSE, uç SABİT kalır — aksi hâlde tüm hat aynı kaymayla
+        // kayarken bu tek uç, sabit duran karşı noktadan KOPARDI (hat +
+        // dal birlikte seçiliyse ikisi zaten aynı kaymayla gider, pime
+        // gerek yok).
+        const pinnedLineEndPointIds = new Set<Id>()
+        for (const connection of draft.installationConnections) {
+          if (connection.target.kind !== 'line') continue
+          if (!lineIdSet.has(connection.lineId)) continue
+          if (lineIdSet.has(connection.target.lineId)) continue
+
+          const ownerLine = draft.installationLines.find(
+            (candidate) => candidate.id === connection.lineId,
+          )
+          const ownPoint =
+            connection.end === 'start' ? ownerLine?.points[0] : ownerLine?.points.at(-1)
+          if (ownPoint) pinnedLineEndPointIds.add(ownPoint.id)
+        }
+
+        for (const line of draft.installationLines) {
+          if (!lineIdSet.has(line.id)) continue
+          for (const point of line.points) {
+            if (pinnedLineEndPointIds.has(point.id)) continue
+            point.position = shift(point.position)
           }
           isMoved = true
         }
 
         if (!isMoved) return
 
-        // Bağlı hat ucu elemanla BİRLİKTE gelir. Port dünya konumu yeniden
-        // hesaplanmaz, aynı kayma uygulanır: taşımada açı ve ölçek değişmediği
-        // için sonuç birebir aynıdır ve store'un sembol metadata'sına ihtiyacı
-        // olmaz. Döndürme/ölçekleme eklenirse burası getPortWorldPosition ile
-        // yeniden türetmeye çevrilmeli.
+        // Bağlı hat ucu elemanla BİRLİKTE gelir — yalnız hattın KENDİSİ zaten
+        // bütünüyle taşınmadıysa (öyleyse köşe iki kez kaymasın).
         for (const connection of draft.installationConnections) {
           if (connection.target.kind !== 'port') continue
-          if (!elementIds.includes(connection.target.elementId)) continue
+          if (!elementIdSet.has(connection.target.elementId)) continue
+          if (lineIdSet.has(connection.lineId)) continue
 
           const line = draft.installationLines.find(
             (candidate) => candidate.id === connection.lineId,
@@ -368,25 +442,24 @@ export const createPlumbingSlice: StateCreator<
             connection.end === 'start' ? line?.points[0] : line?.points[line.points.length - 1]
           if (!endPoint) continue
 
-          endPoint.position = {
-            x: endPoint.position.x + deltaCm.x,
-            y: endPoint.position.y + deltaCm.y,
-          }
+          endPoint.position = shift(endPoint.position)
         }
 
         // Boruya oturan armatür taşınınca oturduğu DÜĞÜM de aynı kaymayla gelir:
         // armatür bir düğümdür (K-W3); ikisi ayrılsaydı vana borunun dışında
-        // asılı kalır ve boru o noktada boşuna bölünmüş görünürdü.
+        // asılı kalır ve boru o noktada boşuna bölünmüş görünürdü. Hat zaten
+        // bütünüyle taşındıysa düğüm iki kez kaymasın diye atlanır.
         const movedInlinePointIds = new Set<Id>()
         for (const line of draft.installationLines) {
           for (const point of line.points) {
-            if (point.inlineElementId === undefined) continue
-            if (!elementIds.includes(point.inlineElementId)) continue
-
-            point.position = {
-              x: point.position.x + deltaCm.x,
-              y: point.position.y + deltaCm.y,
+            if (lineIdSet.has(line.id)) {
+              if (!pinnedLineEndPointIds.has(point.id)) movedInlinePointIds.add(point.id)
+              continue
             }
+            if (point.inlineElementId === undefined) continue
+            if (!elementIdSet.has(point.inlineElementId)) continue
+
+            point.position = shift(point.position)
             movedInlinePointIds.add(point.id)
           }
         }
@@ -394,10 +467,11 @@ export const createPlumbingSlice: StateCreator<
         // Cihaz kolu (applianceStub) ana borudaki düğüme AYRI bir nokta nesnesiyle
         // değil `line` bağlantı kaydıyla değiyor (K-W). O düğüm taşınınca kolun
         // ucu kendiliğinden gelmez — burada elle taşınmazsa kol görsel olarak
-        // vanadan KOPUK kalır.
+        // vanadan KOPUK kalır. Kolun kendi hattı zaten seçiliyse atlanır.
         for (const connection of draft.installationConnections) {
           if (connection.target.kind !== 'line') continue
           if (!movedInlinePointIds.has(connection.target.pointId)) continue
+          if (lineIdSet.has(connection.lineId)) continue
 
           const stubLine = draft.installationLines.find(
             (candidate) => candidate.id === connection.lineId,
@@ -406,10 +480,7 @@ export const createPlumbingSlice: StateCreator<
             connection.end === 'start' ? stubLine?.points[0] : stubLine?.points.at(-1)
           if (!stubPoint) continue
 
-          stubPoint.position = {
-            x: stubPoint.position.x + deltaCm.x,
-            y: stubPoint.position.y + deltaCm.y,
-          }
+          stubPoint.position = shift(stubPoint.position)
         }
 
         markDirty(draft)

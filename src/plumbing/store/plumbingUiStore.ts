@@ -4,7 +4,7 @@ import { immer } from 'zustand/middleware/immer'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import type { PlanRect } from '../../core/selection'
-import type { ClipboardEntry } from '../core/clipboard'
+import type { ClipboardEntry, LineClipboardEntry } from '../core/clipboard'
 import { mergeElementIds, toggleElementId } from '../core/elementSelection'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
@@ -30,6 +30,7 @@ type PlumbingUiState = {
   addSelectedElements: (elementIds: readonly Id[]) => void
   toggleSelectedElement: (elementId: Id) => void
   setSelectedLines: (lineIds: readonly Id[]) => void
+  addSelectedLines: (lineIds: readonly Id[]) => void
   toggleSelectedLine: (lineId: Id) => void
   clearSelection: () => void
   /** Sürüklenen seçim çerçevesi; null = çerçeve çizilmiyor. */
@@ -41,10 +42,15 @@ type PlumbingUiState = {
   /** Bundan sonra çizilecek hatların çapı. Araç ayarıdır: kaydedilmez, geçmişe girmez. */
   activePipeTypeName: PipeTypeName
   setActivePipeType: (name: PipeTypeName) => void
-  clipboard: ClipboardEntry[]
+  elementClipboard: ClipboardEntry[]
+  /** Hatlar ayrı listede: yapıştırma ikisini de tek adımda yaratır. */
+  lineClipboard: LineClipboardEntry[]
   /** Aynı panodan kaçıncı yapıştırma — kopyalar üst üste binmesin diye pay bundan gelir. */
   pasteStepCount: number
-  copyToClipboard: (entries: readonly ClipboardEntry[]) => void
+  copyToClipboard: (
+    elementEntries: readonly ClipboardEntry[],
+    lineEntries: readonly LineClipboardEntry[],
+  ) => void
   advancePasteStep: () => void
   /** symbolLoader.ts'in doldurduğu asset hataları — sessiz catch yerine görünür durum. */
   assetErrors: Partial<Record<InstallationElementType, string>>
@@ -69,7 +75,8 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     marquee: null,
     draftLine: null,
     activePipeTypeName: DEFAULT_PIPE_TYPE_NAME,
-    clipboard: [],
+    elementClipboard: [],
+    lineClipboard: [],
     pasteStepCount: 0,
     assetErrors: {},
 
@@ -91,6 +98,11 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     setSelectedLines: (lineIds) =>
       set((draft) => {
         draft.selectedLineIds = [...lineIds]
+      }),
+
+    addSelectedLines: (lineIds) =>
+      set((draft) => {
+        draft.selectedLineIds = mergeElementIds(draft.selectedLineIds, lineIds)
       }),
 
     toggleSelectedLine: (lineId) =>
@@ -123,9 +135,10 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
 
     // Yeni kopyalama pay sayacını sıfırlar: pay, o panonun kaçıncı kez
     // yapıştırıldığını sayar, uygulama açıldığından beri kaç kopyalama olduğunu değil.
-    copyToClipboard: (entries) =>
+    copyToClipboard: (elementEntries, lineEntries) =>
       set((draft) => {
-        draft.clipboard = [...entries]
+        draft.elementClipboard = [...elementEntries]
+        draft.lineClipboard = [...lineEntries]
         draft.pasteStepCount = 0
       }),
 
