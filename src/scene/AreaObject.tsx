@@ -10,6 +10,7 @@ import {
 } from '../core/areaObjectGeometry'
 import { planToThree } from '../core/coords'
 import type { AreaObject as AreaObjectData } from '../core/model'
+import { DEFAULT_WALL_THICKNESS_CM } from '../core/wall'
 
 export type AreaObjectTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
@@ -17,11 +18,19 @@ export type AreaObjectTone = 'normal' | 'hovered' | 'selected' | 'preview'
  * Gövde (dış hat) KALIN, ayrıntı (basamak/ok/çember) İNCE. Birim CM —
  * `worldUnits` (aşağıda) sayesinde `Wall.tsx`'teki gibi zoom'dan bağımsız
  * SABİT fiziksel kalınlık: piksel-bazlı olsaydı (worldUnits YOK) uzaklaşınca
- * nesneye göre orantısız kalınlaşırdı (kullanıcı bunu fark etti).
+ * nesneye göre orantısız kalınlaşırdı.
+ *
+ * Kalınlıklar duvardan TÜRETİLİR ki varsayılan duvar değişince oran korunsun.
+ * İlk değerler (2.5 / 1.2 cm) uzaklaşınca piksel altına düşüp GÖRÜNMEZ
+ * oluyordu — zoom 1'de 1 cm = 1 px, en uzak zoom'da (ZOOM_MIN = 0.1) 2.5 cm
+ * yalnız 0.25 px eder. Önce duvarın yarısına (10 cm) çıkarıldı ama o da
+ * AŞIRI KALIN göründü; şimdiki değer ikisinin ortası (5 cm) — en uzak zoom'da
+ * 0.5 px eder, yani orada hâlâ solabilir. Tümüyle kaybolursa çözüm kalınlığı
+ * artırmak değil, `Wall.tsx`'teki `alphaToCoverage` (bkz. docs/kararlar.md K43).
  */
 const STROKE_WIDTHS: Record<AreaObjectStrokeRole, number> = {
-  body: 2.5,
-  detail: 1.2,
+  body: DEFAULT_WALL_THICKNESS_CM / 4,
+  detail: DEFAULT_WALL_THICKNESS_CM / 8,
 }
 
 const STROKE_COLORS: Record<AreaObjectTone, string> = {
