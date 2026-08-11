@@ -23,6 +23,15 @@ tıklanan noktaya `DEFAULT_AREA_OBJECT_SIZE_CM[type]` boyutunda yerleştirir;
 düzenler (yalnız TEK nesne seçiliyken — PointSymbolProperties'in açı alanıyla
 aynı kısıt).
 
+**Jesti SAĞ TIK bitirir (K42).** Araç yerleştirdikten sonra aktif kalır (arka
+arkaya ekleme), sağ tık hem önizlemeyi siler hem paleti `SELECTION_TOOL_ID`'ye
+döndürür — tesisattaki `useEscapeToSelectionTool` ile aynı gerekçe. Sağ tık
+yerleştirme yapmaz (`onPointerUp` zaten sol tuş dışını eliyor; tarayıcıda
+`contextmenu`, `pointerup`'tan sonra gelir). Duvar/oda araçlarında sağ tık
+zinciri bitirir ama araç AKTİF KALIR — zincir çizimi arka arkaya sürüyor,
+bilinçli fark. Nokta sembolü araçlarında sağ tık hâlâ hiçbir şey yapmıyor
+(kapsam dışı bırakıldı).
+
 ## K35/K36 açıklık koruması — İKİ kontrol gerekti (biri sonradan eklendi)
 
 `core/areaObject.ts` → `findBlockingOpeningForAreaObject` ÖNCE nesnenin dört
