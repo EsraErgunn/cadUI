@@ -51,8 +51,8 @@ Yeni bir stil gerekiyorsa oraya varyant ekle — bileşenin içine sınıf gömm
 - Filtre / arama / sıralama / sayfa durumunun tek sahibi **URL query string**'dir.
   Bileşende kopya state tutulmaz.
 - Anahtarlar `src/ui/admin/adminUrlParams.ts` içindeki `ADMIN_PARAM_KEYS`'ten
-  gelir; üst bardaki bölge seçimi `useRegionParam` ile aynı `region` anahtarını
-  yazar.
+  gelir; üst bardaki bölge kapsamı `useRegionParam` ile liste filtresiyle aynı
+  `group` anahtarını yazar (kapsam = gaz dağıtım grup firması, bkz. K43).
 - Varsayılan değerler URL'e YAZILMAZ (adres temiz kalır), okurken hesaplanır.
 - Filtre veya sıralama değişince sayfa 1'e döner.
 - Sayfalama sunucu taraflı; istemci gelen diziyi dilimlemez.

@@ -37,7 +37,10 @@ export const firmDetailDtoSchema = z.object({
 export type FirmDetailDto = z.infer<typeof firmDetailDtoSchema>
 
 /**
- * Liste satırı. Tekil yanıttan DAR: açıklama, telefon ve adres taşımıyor.
+ * Liste satırı. Tekil yanıttan DAR: açıklama, telefon, adres ve yetkili kişi
+ * taşımıyor — bunlar yalnız detay ucunda. `contactPerson` sunucu tarafında
+ * liste DTO'sundan çıkarıldı; şemada zorunlu kalırsa `safeParse` patlar ve
+ * liste hiç render olmaz, o yüzden burada da yok.
  * Uç filtresiz/sayfalamasız DÜZ DİZİ döndürüyor.
  */
 export const firmListItemDtoSchema = z.object({
@@ -46,20 +49,13 @@ export const firmListItemDtoSchema = z.object({
   companyNumber: z.number().int(),
   groupId: z.number().int().nullable(),
   groupName: nullableText,
-  contactPerson: nullableText,
 })
 
 export const firmListDtoSchema = z.array(firmListItemDtoSchema)
 
 export type FirmListItemDto = z.infer<typeof firmListItemDtoSchema>
 
-/**
- * Sunucudan gelen liste satırı → arayüzün alan adları.
- *
- * `region` SUNUCUDA YOK ama alan korunuyor: bölge filtresi bu turda devre dışı,
- * backend "bugün geçerli bölge yetkileri" alanını ekleyince geri açılacak.
- * Değer yokken `null` — arayüz "-" gösterir, grup sütunundaki desenin aynısı.
- */
+/** Sunucudan gelen liste satırı → arayüzün alan adları. */
 export function toFirmListItem(dto: FirmListItemDto) {
   return {
     id: dto.id,
@@ -67,7 +63,6 @@ export function toFirmListItem(dto: FirmListItemDto) {
     name: dto.title,
     groupId: dto.groupId,
     groupName: dto.groupName,
-    region: null,
   }
 }
 

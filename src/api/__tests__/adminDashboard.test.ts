@@ -12,7 +12,6 @@ import {
   publishAnnouncement,
   truncateAnnouncementSummary,
 } from '../adminDashboard'
-import { MOCK_REGIONS } from '../adminFirmsMock'
 import { toDayKey } from '../dayKey'
 import { ApiError } from '../http'
 
@@ -125,7 +124,7 @@ describe('getDashboardSummary', () => {
   it('özet ucuna gider', async () => {
     const fetchMock = stubFetch(RAW_SUMMARY)
 
-    await getDashboardSummary(null, TODAY_KEY)
+    await getDashboardSummary(TODAY_KEY, null)
 
     // Sunucuda `/api/admin/` öneki hiç yok; yol buna göre düzeltildi.
     expect(String(fetchMock.mock.calls[0][0])).toContain('/api/dashboard/summary')
@@ -136,28 +135,33 @@ describe('getDashboardSummary', () => {
   it('gün anahtarını sorguya ekler', async () => {
     const fetchMock = stubFetch(RAW_SUMMARY)
 
-    await getDashboardSummary(null, TODAY_KEY)
+    await getDashboardSummary(TODAY_KEY, null)
 
     expect(String(fetchMock.mock.calls[0][0])).toContain(`date=${TODAY_KEY}`)
   })
 
-  // KK-2: bölge seçimi sunucuya taşınır, tüm değerler ona göre hesaplanır.
-  it('seçili bölgeyi sorguya ekler, "Hepsi" seçiliyken eklemez', async () => {
-    const withRegion = stubFetch(RAW_SUMMARY)
-    await getDashboardSummary('İç Anadolu', TODAY_KEY)
-    expect(String(withRegion.mock.calls[0][0])).toContain('region=')
+  // Kapsam yalnız SEÇİLİYSE gider; "tüm bölgeler" adrese de sorguya da yazılmaz.
+  it('kapsam yokken sorguya bölge eklemez', async () => {
+    const fetchMock = stubFetch(RAW_SUMMARY)
 
-    vi.unstubAllGlobals()
-    const withoutRegion = stubFetch(RAW_SUMMARY)
-    await getDashboardSummary(null, TODAY_KEY)
-    expect(String(withoutRegion.mock.calls[0][0])).not.toContain('region=')
+    await getDashboardSummary(TODAY_KEY, null)
+
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain('group=')
+  })
+
+  it('kapsam seçiliyken grup kimliğini sorguya ekler', async () => {
+    const fetchMock = stubFetch(RAW_SUMMARY)
+
+    await getDashboardSummary(TODAY_KEY, 2)
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('group=2')
   })
 
   // KK-5: en fazla beş bölge, büyükten küçüğe. Sunucu sırasız dönse de garanti.
   it('yoğunluğu büyükten küçüğe sıralar ve beş satıra indirir', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { regionDensity } = await getDashboardSummary(null, TODAY_KEY)
+    const { regionDensity } = await getDashboardSummary(TODAY_KEY, null)
     const counts = regionDensity.map((row) => row.count)
 
     expect(regionDensity).toHaveLength(MAX_REGION_ROWS)
@@ -168,7 +172,7 @@ describe('getDashboardSummary', () => {
   it('duyuruları yeniden eskiye sıralar ve ikiye indirir', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { announcements } = await getDashboardSummary(null, TODAY_KEY)
+    const { announcements } = await getDashboardSummary(TODAY_KEY, null)
 
     expect(announcements).toHaveLength(MAX_ANNOUNCEMENTS)
     expect(announcements.map((item) => item.id)).toEqual([2, 1])
@@ -177,7 +181,7 @@ describe('getDashboardSummary', () => {
   it('duyuru özetlerini kısaltır', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { announcements } = await getDashboardSummary(null, TODAY_KEY)
+    const { announcements } = await getDashboardSummary(TODAY_KEY, null)
 
     expect(announcements[0].summary.length).toBeLessThanOrEqual(
       ANNOUNCEMENT_SUMMARY_MAX_LENGTH + 1,
@@ -188,7 +192,7 @@ describe('getDashboardSummary', () => {
   it('sistem kaynağını olduğu gibi taşır — amber kenarlık buna bağlı', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { announcements } = await getDashboardSummary(null, TODAY_KEY)
+    const { announcements } = await getDashboardSummary(TODAY_KEY, null)
 
     expect(announcements[0].source).toBe(SYSTEM_ANNOUNCEMENT_SOURCE)
   })
@@ -197,13 +201,13 @@ describe('getDashboardSummary', () => {
   it('sıfır sayacı düşürmez', async () => {
     stubFetch(RAW_SUMMARY)
 
-    expect((await getDashboardSummary(null, TODAY_KEY)).today.rejected).toBe(0)
+    expect((await getDashboardSummary(TODAY_KEY, null)).today.rejected).toBe(0)
   })
 
   it('sözleşme bozulursa sınırda patlar', async () => {
     stubFetch({ counts: { gasDistributionUsers: 1 } })
 
-    await expect(getDashboardSummary(null, TODAY_KEY)).rejects.toThrow()
+    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toThrow()
   })
 })
 
@@ -216,7 +220,7 @@ describe('uç yokken mock’a düşme', () => {
   it('404 dönerse mock veriyle çözülür, hata fırlatmaz', async () => {
     stubStatus(404)
 
-    const summary = await getDashboardSummary(null, TODAY_KEY)
+    const summary = await getDashboardSummary(TODAY_KEY, null)
 
     expect(summary.regionDensity.length).toBeGreaterThan(0)
     expect(summary.counts.projectFirms).toBeGreaterThan(0)
@@ -225,22 +229,22 @@ describe('uç yokken mock’a düşme', () => {
   it('501 dönerse de mock veriyle çözülür', async () => {
     stubStatus(501)
 
-    await expect(getDashboardSummary(null, TODAY_KEY)).resolves.toHaveProperty('counts')
+    await expect(getDashboardSummary(TODAY_KEY, null)).resolves.toHaveProperty('counts')
   })
 
   it('API’ye hiç ulaşılamazsa mock veriyle çözülür', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
-    await expect(getDashboardSummary(null, TODAY_KEY)).resolves.toHaveProperty('counts')
+    await expect(getDashboardSummary(TODAY_KEY, null)).resolves.toHaveProperty('counts')
   })
 
-  it('mock’a düşerken de bölge süzgeci çalışır', async () => {
+  // Kalkan şey SÜZGEÇ; "Bölge Bazlı Yoğunluk" kartının verisi duruyor (KK-5).
+  it('mock’a düşerken bölge yoğunluğu birden çok bölge verir', async () => {
     stubStatus(404)
 
-    const summary = await getDashboardSummary(MOCK_REGIONS[1], TODAY_KEY)
+    const summary = await getDashboardSummary(TODAY_KEY, null)
 
-    expect(summary.regionDensity).toHaveLength(1)
-    expect(summary.regionDensity[0].region).toBe(MOCK_REGIONS[1])
+    expect(summary.regionDensity.length).toBeGreaterThan(1)
   })
 
   /**
@@ -251,7 +255,7 @@ describe('uç yokken mock’a düşme', () => {
   it('başka bir gün sorulduğunda bugün sayaçları sıfırlanır', async () => {
     stubStatus(404)
 
-    const summary = await getDashboardSummary(null, OTHER_DAY_KEY)
+    const summary = await getDashboardSummary(OTHER_DAY_KEY, null)
 
     expect(summary.today).toEqual({ newProjects: 0, approved: 0, rejected: 0 })
     expect(summary.regionDensity).toHaveLength(0)
@@ -260,7 +264,7 @@ describe('uç yokken mock’a düşme', () => {
   it('gün değişse de birikimli sayılar sıfırlanmaz', async () => {
     stubStatus(404)
 
-    const summary = await getDashboardSummary(null, OTHER_DAY_KEY)
+    const summary = await getDashboardSummary(OTHER_DAY_KEY, null)
 
     // Kullanıcı/firma adetleri devreden toplamlar; güne bağlı değiller.
     expect(summary.counts.projectFirms).toBeGreaterThan(0)
@@ -269,19 +273,19 @@ describe('uç yokken mock’a düşme', () => {
   it('401 mock’a YUTULMAZ — oturum düşmüşken sahte veri gösterilmez', async () => {
     stubStatus(401)
 
-    await expect(getDashboardSummary(null, TODAY_KEY)).rejects.toBeInstanceOf(ApiError)
+    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toBeInstanceOf(ApiError)
   })
 
   it('403 mock’a YUTULMAZ', async () => {
     stubStatus(403)
 
-    await expect(getDashboardSummary(null, TODAY_KEY)).rejects.toBeInstanceOf(ApiError)
+    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toBeInstanceOf(ApiError)
   })
 
   it('500 mock’a YUTULMAZ — gerçek hata ekranı görünmeli', async () => {
     stubStatus(500)
 
-    await expect(getDashboardSummary(null, TODAY_KEY)).rejects.toBeInstanceOf(ApiError)
+    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toBeInstanceOf(ApiError)
   })
 })
 
@@ -317,7 +321,7 @@ describe('publishAnnouncement', () => {
     const title = `Yeni Duyuru ${Date.now()}`
 
     const published = await publishAnnouncement({ ...DRAFT, title })
-    const summary = await getDashboardSummary(null, TODAY_KEY)
+    const summary = await getDashboardSummary(TODAY_KEY, null)
 
     expect(published.title).toBe(title)
     // En yeni duyuru listenin başında: sıralama yeniden eskiye (KK-6).
@@ -357,7 +361,12 @@ describe('publishAnnouncement', () => {
 
 /** Duyuru listesi ucu da yok; mock'a düşen yol aynı sözleşmeyi sağlamalı. */
 describe('getAnnouncements', () => {
-  const QUERY = { textQuery: '', region: null, page: 1, pageSize: ANNOUNCEMENT_PAGE_SIZE }
+  const QUERY = {
+    textQuery: '',
+    groupId: null,
+    page: 1,
+    pageSize: ANNOUNCEMENT_PAGE_SIZE,
+  }
 
   it('liste ucuna sayfa parametreleriyle gider', async () => {
     const fetchMock = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
@@ -370,17 +379,17 @@ describe('getAnnouncements', () => {
     expect(url).toContain('pageSize=10')
   })
 
-  it('arama ve bölge yalnız doluyken sorguya girer', async () => {
+  it('arama ve kapsam yalnız doluyken sorguya girer', async () => {
     const withFilters = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
-    await getAnnouncements({ ...QUERY, textQuery: 'bakım', region: MOCK_REGIONS[0] })
+    await getAnnouncements({ ...QUERY, textQuery: 'bakım', groupId: 2 })
     expect(String(withFilters.mock.calls[0][0])).toContain('q=bak')
-    expect(String(withFilters.mock.calls[0][0])).toContain('region=')
+    expect(String(withFilters.mock.calls[0][0])).toContain('group=2')
 
     vi.unstubAllGlobals()
     const withoutFilters = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
     await getAnnouncements(QUERY)
     expect(String(withoutFilters.mock.calls[0][0])).not.toContain('q=')
-    expect(String(withoutFilters.mock.calls[0][0])).not.toContain('region=')
+    expect(String(withoutFilters.mock.calls[0][0])).not.toContain('group=')
   })
 
   // Sunucu sırasız dönerse liste sessizce karışmasın (özet ucuyla aynı gerekçe).
@@ -428,15 +437,15 @@ describe('getAnnouncements', () => {
     expect(page.totalCount).toBeGreaterThan(1)
   })
 
-  it('bölgesiz duyuru her kapsamda görünür', async () => {
+  // Süzgeç kalktı ama duyurunun KENDİ bölgesi duruyor: kartta rozet olarak
+  // görünüyor, listede hepsi bir arada.
+  it('bölgeli ve bölgesiz duyuruların hepsi listelenir', async () => {
     stubStatus(404)
 
-    const page = await getAnnouncements({ ...QUERY, region: MOCK_REGIONS[1] })
+    const page = await getAnnouncements(QUERY)
 
     expect(page.items.some((item) => item.region === null)).toBe(true)
-    expect(page.items.every((item) => item.region === null || item.region === MOCK_REGIONS[1])).toBe(
-      true,
-    )
+    expect(page.items.some((item) => item.region !== null)).toBe(true)
   })
 
   it('500 mock’a YUTULMAZ', async () => {

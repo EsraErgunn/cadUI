@@ -8,8 +8,7 @@ Bileşenlerde kopya state tutulmaz.
 | Alan | Anahtar | Varsayılan (URL'e YAZILMAZ) |
 |------|---------|------------------------------|
 | firma adı araması | `q` | boş |
-| grup firması | `group` | yok |
-| bölge | `region` | yok (= "Hepsi") |
+| grup firması / bölge kapsamı | `group` | yok (= "Tüm bölgeler") |
 | sıralama sütunu | `sort` | `dfirmNo` |
 | sıralama yönü | `dir` | `asc` |
 | sayfa | `page` | 1 |
@@ -18,10 +17,15 @@ Neden: bağlantı paylaşılabilir olur, tarayıcı geri tuşu kendiliğinden do
 çalışır, iki bileşen aynı filtre için farklı değer gösteremez. Varsayılanlar
 URL'e yazılmadığı için adres temiz kalır.
 
-**Üst bardaki "Bölge" ile sayfa içindeki filtre paneli AYNI `region` anahtarını
+**Üst bardaki "Bölge" ile sayfa içindeki filtre paneli AYNI `group` anahtarını
 kullanır.** İki ayrı param olsaydı kullanıcıya iki bölge alanı görünür ve
-çelişebilirlerdi. Yer: `ui/admin/adminUrlParams.ts` (anahtarlar + `useRegionParam`),
-`ui/admin/useFirmListParams.ts` (liste durumu).
+çelişebilirlerdi. Kapsam coğrafi bölge değil gaz dağıtım GRUP firmasıdır
+(AKSA, ENERYA…) ve TÜM yönetici ekranlarında etkindir; satırında bölge bilgisi
+olmayan kayıt elenmez, o ekranda kapsam bugün sonucu değiştirmez
+(docs/kararlar.md K43 + K44). Yer: `ui/admin/adminUrlParams.ts`
+(anahtarlar + `parseGroupId`), `ui/admin/useRegionParam.ts` (kapsam),
+`ui/admin/useFirmListParams.ts` ve `announcements/useAnnouncementListParams.ts`
+(liste durumu).
 
 Sayfalama **sunucu taraflı**: arama, filtre, sıralama, sayfa hepsi API parametresi
 olarak gider; istemci gelen diziyi dilimlemez. Filtre/sıra değişince `page` silinir

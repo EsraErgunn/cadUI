@@ -8,6 +8,7 @@ import { EditorPage } from '../pages/EditorPage'
 import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
+import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
 import { ProjectFirmsPage } from '../pages/ProjectFirmsPage'
 import { ProjectListPage } from '../pages/ProjectListPage'
@@ -78,16 +79,15 @@ export function AppRouter() {
           <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
 
           <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new güncelleme rotasına "new" kimliğiyle düşerdi. */}
+          <Route path={PROJECT_FIRM_CREATE_PATH} element={<NewProjectFirmPage />} />
 
           <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
 
           {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
               hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
               kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
-          <Route
-            path={PROJECT_FIRM_CREATE_PATH}
-            element={<ComingSoonPage title="Proje Firması Ekle" section="Firmalar" />}
-          />
           {/* Firma adının hedefi; güncelleme ekranı kendi issue'sunda gelecek.
               Rota olmasaydı tıklama yakalayıcı route'a düşüp kullanıcıyı proje
               listesine atardı. */}

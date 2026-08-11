@@ -4,13 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { FIRM_SAVED_MESSAGE } from '../../ui/admin/firms/useSavedFirmNotice'
+import { FIRM_SAVED_MESSAGE } from '../../ui/admin/useSavedFirmNotice'
 import { GasDistributionFirmsPage } from '../GasDistributionFirmsPage'
 
 const listApi = vi.hoisted(() => ({
   getGasDistributionFirms: vi.fn(),
   getFirmGroups: vi.fn(),
-  getRegions: vi.fn(),
 }))
 
 vi.mock('../../api/adminFirms', async (importOriginal) => ({
@@ -24,13 +23,12 @@ const LIST_PATH = '/admin/gas-distribution-firms'
 
 function renderList(state?: { savedFirmId: number }) {
   listApi.getGasDistributionFirms.mockResolvedValue({
-    items: [{ id: 1, dfirmNo: 1204, groupName: null, name: 'ADANA DOĞALGAZ', region: 'Akdeniz' }],
+    items: [{ id: 1, dfirmNo: 1204, groupName: null, name: 'ADANA DOĞALGAZ' }],
     totalCount: 1,
     page: 1,
     pageSize: 30,
   })
   listApi.getFirmGroups.mockResolvedValue([])
-  listApi.getRegions.mockResolvedValue([])
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 

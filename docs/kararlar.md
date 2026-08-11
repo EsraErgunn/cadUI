@@ -2166,3 +2166,115 @@ istemcide düzleştirilecek yetki verisi de yok; başlıktaki adet bu yüzden
 **tekil firma sayısı**. Filtre paneli (G.D. firması / bölge / yeterlilik) açılıyor
 ama üç kutu da pasif — süzülselerdi ilk seçimde liste boşalır, kullanıcı veri
 kaybettiğini sanardı (K27'deki bölge kararının aynısı).
+
+---
+
+## 2026-08 · Yeni proje firması ekle ekranı
+
+### K30 — Benzersizlik ön kontrolü bu ekranda İSTEMCİDE
+
+Gaz dağıtım firma formunda karar "benzersizliğe **sunucu** karar verir, istemci
+ön kontrolü yok" idi (bkz. knowledge/gas-firm-form.md). Proje firması formunda
+tersi yapıldı. Tutarsızlık değil: o kararın iki gerekçesi de burada geçersiz.
+
+| Gerekçe (gaz dağıtım firması) | Proje firmasında durum |
+|---|---|
+| "Tüm numaraları çekmek 30'ar kayıtlık sayfalarda dolaşmayı gerektirir" | Uç sayfalamasız **düz dizi** döndürüyor; liste zaten tümüyle elde (K29) |
+| "Yapılsa bile yarış durumunu istemci kapatamaz" | Doğru, ama sunucu bu kuralı **hiç denetlemiyor** — 409 yok |
+
+`ProjectFirmCreateValidator` vergi/seri numarası benzersizliğine bakmıyor. Ön
+kontrol olmasaydı kullanıcı aynı vergi numarasını ikinci kez kaydeder ve bunu
+hiç öğrenemezdi. Kontrol `ui/admin/projectFirms/projectFirmUniqueness.ts`'te,
+liste ekranıyla **aynı önbellek anahtarını** (`['projectFirmList']`) okuyor —
+ekstra istek doğurmuyor.
+
+Sınırları açıkça yazılı: yarış durumunu KAPATMAZ ve sunucu kuralı geldiğinde
+kaldırılmaz, ikinci savunma hattına düşer. Bugün yalnız **vergi numarası** gerçek
+veriyle karşılaştırılabiliyor; `serialNumber` liste DTO'sunda yok (yalnız detay
+yanıtında), `accountingCode` hiçbir uçta yok — cari kod benzersizliği (belge
+madde 23) bu yüzden **uygulanmıyor**.
+
+`ProjectFirm` satırına yalnız bu kontrol için `taxNumber` eklendi; tabloda
+sütunu yok.
+
+### K31 — Üst bardaki bölge filtresi KALDIRILDI, "bölge" = gaz dağıtım firması
+
+İki ayrı "bölge" kavramı aynı arayüzde çakışıyordu:
+
+- üst bardaki **coğrafi bölge** kapsam seçicisi (Akdeniz, Ege, İç Anadolu…),
+- yetkilendirmedeki **bölge lisanslı gaz dağıtım firması** (AKSA-GEMLİK).
+
+Ürün kararı: kapsam seçicisi kalktı. Sunucuda karşılığı olan tek bir uç da yoktu
+(`getRegions` mock'tu, liste satırı bölge taşımıyordu, filtre zaten `disabled`
+duruyordu).
+
+**Kaldırılanlar:** `AdminTopBar`'daki seçici, `region` URL anahtarı,
+`useRegionParam`, `ALL_REGIONS_LABEL`, `getRegions`, gaz dağıtım firma satırındaki
+`region` alanı, iki filtre panelindeki pasif "Bölge" kutuları ve uçlara giden
+`region` parametreleri (`getDashboardSummary`, `getAnnouncements`, `listProjects`,
+`getProjectFirms`, `getGasFirmsForProjectFirm`). Hiçbir yüzey onu yazamadığı için
+okuyan her yer ölü koda dönüşüyordu.
+
+**Korunanlar (coğrafi bölge VERİSİ duruyor, süzgeci kalktı):** "Bölge Bazlı
+Yoğunluk" kartı, "Sistem geneli durum — …, tüm bölgeler" ve "Tüm bölgeler için"
+metinleri, duyurunun kendi `region` alanı (kart rozeti + yayınlama kutusu).
+`MOCK_REGIONS` `adminFirmsMock`'tan `adminDashboardMock`'a taşındı: gaz dağıtım
+firma mock'unun bölgeyle işi kalmadı.
+
+**Adlandırma:** yetkilendirme tarafındaki kod artık gerçeği söylüyor —
+`RegionCheckboxGrid` → `GasDistributionFirmPicker`, `AuthorizationRegion` →
+`AuthorizationGasFirm`, `regionId` → `gasDistributionFirmId`. **Kullanıcıya
+görünen metinler DEĞİŞMEDİ**: "G.D Firması Bölgeleri" etiketi gereksinim
+belgesinden geliyor (madde 14/17) ve orada kalıyor; üst bardaki çakışma
+kalktığı için arayüzde belirsizlik doğurmuyor.
+
+### K43 — Bölge kapsamı üst bara GERİ GELDİ, ama kapsam = grup firması
+
+K31 coğrafi bölge seçicisini kaldırmıştı. Talep, üst barda yine bir "Bölge"
+seçicisi olması ve seçimin listeleri süzmesi yönünde. Kavram çakışması
+tekrarlanmasın diye kapsam **coğrafi bölge değil, gaz dağıtım GRUP firması**
+(AKSA, ENERYA…): seçenekler `/api/gasdistributiongroups`'tan geliyor, yani
+sunucuda gerçek karşılığı olan tek kaynak. Bölgeleri listeleyen uç hâlâ yok
+(`/api/regions`, `/api/projectfirmregions` → 404).
+
+**Ayrı `region` anahtarı YOK.** Üst bar, liste ekranının grup filtresiyle aynı
+`group` anahtarını yazar. İki anahtar olsaydı aynı ekranda üst bar "AKSA",
+sayfa içi filtre "ENERYA" diyebilir ve hangisinin kazandığı belirsiz kalırdı;
+tek anahtarla ikisi birbirini kendiliğinden yansıtıyor.
+
+**Kapsam sadece uygulanabildiği ekranda açık.** Bugün yalnız gaz dağıtım
+firmaları listesi grup kimliği taşıyor. Proje firması satırında bölge/G.D.
+firması alanı hiç yok; proje satırındaki `gasFirm` gerçek uçta her zaman `null`
+geliyor. O ekranlarda seçici PASİF ve yanında sebebi yazılı ("Bu ekranda bölge
+filtresi yok.") — seçim yapılabilseydi liste sessizce boşalır, kullanıcı "bu
+bölgede kayıt yok" sanırdı. Uygulanabilir yolların listesi tek yerde:
+`ui/admin/adminRegionScope.ts`. Backend proje/proje firması satırına bölge bağını
+ekleyince oraya yol eklemek yeterli; üst bar ve hook değişmez.
+
+### K44 — Bölge kapsamı TÜM ekranlarda etkin; bilgisi olmayan satır ELENMEZ
+
+K43 kapsamı yalnız gaz dağıtım firmaları listesinde açmıştı, diğer ekranlarda
+seçici pasifti. Talep üzerine kapsam **her yönetici ekranında etkin**.
+`adminRegionScope.ts` (yol beyaz listesi) ve pasif hâl kalktı.
+
+Kapsamın hiçbir listeyi sessizce boşaltmaması, ekran başına değil **kural
+olarak** garanti ediliyor: satırında bölge bilgisi OLMAYAN kayıt elenmez
+(`api/projects.ts` `matchesQuery`'de zaten uygulanan kural). Bugünkü sonuç:
+
+| Ekran | Kapsam sonucu değiştiriyor mu |
+|---|---|
+| G.D. Firmaları | Evet — satır `groupId` taşıyor |
+| Anasayfa | Evet — mock bölge kırılımı süzülüyor, kartlar birlikte dönüyor |
+| Duyurular | Evet — bölgesi null olan duyuru "tüm bölgeler" sayılıp görünür kalır |
+| Projeler | Hayır — `gasFirm` gerçek uçta hep null, kayıtlar elenmiyor |
+| Proje Firmaları | Hayır — satırda bölge/G.D. firması alanı yok |
+
+Uca giden ad `region` değil **`group`**: kapsam coğrafi bölge değil grup
+firması kimliği (K43). `getDashboardSummary(dayKey, groupId)` ve
+`AnnouncementQuery.groupId` bu yüzden kimlik alıyor; mock tarafı kimliği
+`mockRegionNameOf` ile ada çeviriyor — eşleme tek yerde.
+
+Gösterge panelindeki "Sistem geneli durum — …, tüm bölgeler" ve kart altındaki
+"Tüm bölgeler için" metinleri kapsam seçiliyken bölgenin ADINI yazıyor
+(`buildScopeDescription`, `buildCardScopeLabel`): sayılar süzülmüşken "tüm
+bölgeler" demek yanlış bilgi olurdu.

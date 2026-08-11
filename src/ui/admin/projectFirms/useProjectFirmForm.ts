@@ -1,0 +1,234 @@
+import { useCallback, useState } from 'react'
+
+import {
+  removeAuthorization,
+  toAuthorizationPayloads,
+  type ProjectFirmAuthorization,
+} from './projectFirmAuthorizations'
+import {
+  PROJECT_FIRM_ERRORS,
+  buildEmptyProjectFirmValues,
+  firstProjectFirmErrorField,
+  normalizeProjectFirmValue,
+  toProjectFirmPayload,
+  validateProjectFirm,
+  type ProjectFirmErrors,
+  type ProjectFirmField,
+  type ProjectFirmFormValues,
+} from './projectFirmSchema'
+import { findTakenProjectFirmErrors } from './projectFirmUniqueness'
+import { ApiError } from '../../../api/http'
+import type { ProjectFirm } from '../../../api/projectFirmDto'
+import { createProjectFirm, saveProjectFirmAuthorizations } from '../../../api/projectFirmForm'
+
+const SUBMIT_ERROR_MESSAGE = 'Firma kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
+
+const BAD_REQUEST = 400
+
+/**
+ * Şahıs şirketi seçiliyken gelen 400, sunucunun `companyType == 2` kuralıdır
+ * (bkz. api/projectFirmForm.ts sözleşme notu).
+ *
+ * Eşleşme DURUM KODU + form durumuyla yapılıyor, sunucunun mesaj METNİYLE
+ * değil: metin değişirse eşleştirme sessizce kırılırdı — gaz dağıtım
+ * formundaki 409 kararının aynı gerekçesi.
+ */
+function isSoleProprietorshipRejection(
+  error: unknown,
+  isSoleProprietorship: boolean,
+): boolean {
+  return isSoleProprietorship && error instanceof ApiError && error.status === BAD_REQUEST
+}
+
+/**
+ * Sunucunun kendi Türkçe metni KORUNUYOR: genel bir cümleyle örtülseydi
+ * kullanıcı neyi düzelteceğini bilemezdi. Şahıs şirketi yolunda önüne
+ * sebebi söyleyen cümle ekleniyor.
+ */
+function buildSubmitError(error: unknown, isSoleProprietorship: boolean): string {
+  if (!(error instanceof ApiError)) return SUBMIT_ERROR_MESSAGE
+
+  return isSoleProprietorshipRejection(error, isSoleProprietorship)
+    ? `${PROJECT_FIRM_ERRORS.soleProprietorshipUnsupported} (Sunucu yanıtı: ${error.message})`
+    : error.message
+}
+
+/** Metin alanları; boolean alan ayrı bir çağrıdan geçiyor. */
+type ProjectFirmTextField = Exclude<ProjectFirmField, 'isSoleProprietorship'>
+
+export interface ProjectFirmSaveResult {
+  firmId: number
+  /**
+   * Firma kaydedildi ama yetkilendirmeler sunucuya yazılamadı (uç yok).
+   * Liste ekranı bunu uyarı şeridine çeviriyor — kullanıcı "kaydedildi" deyip
+   * yarısı kaybolmuş bir kayıtla baş başa kalmasın.
+   */
+  arePendingAuthorizations: boolean
+}
+
+export interface UseProjectFirmFormOptions {
+  /**
+   * Benzersizlik ön kontrolünün karşılaştırdığı kayıtlar (liste ucundan).
+   * Boş gelirse kontrol sessizce atlanır: bu bir kolaylık, kritik yol DEĞİL —
+   * liste çekilemediğinde kaydetmek engellenmemeli.
+   */
+  existingFirms: readonly ProjectFirm[]
+}
+
+export interface ProjectFirmForm {
+  values: ProjectFirmFormValues
+  errors: ProjectFirmErrors
+  authorizations: ProjectFirmAuthorization[]
+  /** Yetkilendirme listesi boşken kaydetmeye çalışılırsa dolar (belge madde 28). */
+  authorizationError: string | null
+  /** Kullanıcı en az bir alana dokundu mu — İptal'de onay sorulmasını belirler. */
+  isDirty: boolean
+  isSubmitting: boolean
+  /** Sunucu hatası; form verisi korunur, yalnız bu mesaj gösterilir. */
+  submitError: string | null
+  /** Odak taşınacak alan; doğrulama başarısız olunca dolar, okununca temizlenir. */
+  focusField: ProjectFirmField | null
+  setValue: (field: ProjectFirmTextField, value: string) => void
+  setSoleProprietorship: (isSoleProprietorship: boolean) => void
+  addAuthorizations: (added: ProjectFirmAuthorization[]) => void
+  removeAuthorizationGasFirm: (gasDistributionFirmId: number) => void
+  /** Başarısızsa `null`; başarılıysa kimlik + yetkilendirmelerin durumu. */
+  submit: () => Promise<ProjectFirmSaveResult | null>
+  clearFocusRequest: () => void
+  clearSubmitError: () => void
+}
+
+/**
+ * Yeni proje firması formunun durumu. Doğrulama `projectFirmSchema`'da,
+ * yetkilendirme listesinin kuralları `projectFirmAuthorizations`'ta; burada
+ * yalnız durum yönetimi var.
+ */
+export function useProjectFirmForm({
+  existingFirms,
+}: UseProjectFirmFormOptions): ProjectFirmForm {
+  const [values, setValues] = useState<ProjectFirmFormValues>(buildEmptyProjectFirmValues)
+  const [errors, setErrors] = useState<ProjectFirmErrors>({})
+  const [authorizations, setAuthorizations] = useState<ProjectFirmAuthorization[]>([])
+  const [authorizationError, setAuthorizationError] = useState<string | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [focusField, setFocusField] = useState<ProjectFirmField | null>(null)
+
+  /** Kullanıcı alanı düzeltirken eski hata mesajı ANINDA kalkar. */
+  const clearFieldError = useCallback((field: ProjectFirmField) => {
+    setErrors((current) => {
+      if (current[field] === undefined) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }, [])
+
+  const setValue = useCallback(
+    (field: ProjectFirmTextField, value: string) => {
+      setIsDirty(true)
+      setValues((current) => ({ ...current, [field]: normalizeProjectFirmValue(field, value) }))
+      clearFieldError(field)
+    },
+    [clearFieldError],
+  )
+
+  /**
+   * Belge madde 26: işaret kaldırılınca T.C. kimlik alanı TEMİZLENİR ve yeniden
+   * pasifleşir. İki alanın zorunluluğu da yer değiştirdiği için eski hataları
+   * burada düşüyor — kullanıcı, artık geçerli olmayan bir kuralın mesajını
+   * ekranda görmemeli.
+   */
+  const setSoleProprietorship = useCallback(
+    (isSoleProprietorship: boolean) => {
+      setIsDirty(true)
+      setValues((current) => ({
+        ...current,
+        isSoleProprietorship,
+        nationalId: isSoleProprietorship ? current.nationalId : '',
+      }))
+      clearFieldError('taxNumber')
+      clearFieldError('nationalId')
+    },
+    [clearFieldError],
+  )
+
+  const addAuthorizations = useCallback((added: ProjectFirmAuthorization[]) => {
+    if (added.length === 0) return
+
+    setIsDirty(true)
+    setAuthorizations((current) => [...current, ...added])
+    setAuthorizationError(null)
+  }, [])
+
+  const removeAuthorizationGasFirm = useCallback((gasDistributionFirmId: number) => {
+    setIsDirty(true)
+    setAuthorizations((current) => removeAuthorization(current, gasDistributionFirmId))
+  }, [])
+
+  const submit = useCallback(async (): Promise<ProjectFirmSaveResult | null> => {
+    setSubmitError(null)
+
+    const { errors: fieldErrors, data } = validateProjectFirm(values)
+    // Benzersizlik yalnız alan kuralları geçtiğinde bakılır: yarım girilmiş bir
+    // numaranın "kullanımda" denmesi kullanıcıyı yanlış yere bakmaya iterdi.
+    const takenErrors = data === null ? {} : findTakenProjectFirmErrors(existingFirms, data)
+    const nextErrors = { ...fieldErrors, ...takenErrors }
+    const nextAuthorizationError =
+      authorizations.length === 0 ? PROJECT_FIRM_ERRORS.noAuthorization : null
+
+    setErrors(nextErrors)
+    setAuthorizationError(nextAuthorizationError)
+
+    const firstInvalid = firstProjectFirmErrorField(nextErrors)
+    if (data === null || firstInvalid !== null || nextAuthorizationError !== null) {
+      setFocusField(firstInvalid)
+      return null
+    }
+
+    setIsSubmitting(true)
+    try {
+      const firmId = await createProjectFirm(toProjectFirmPayload(data))
+      // Firma kaydı BAŞARILI olduktan sonra çalışır; buradaki bir hata firmayı
+      // geri almaz, bu yüzden kullanıcıyı listeye götürmeyi engellemiyor.
+      const { arePersisted } = await saveProjectFirmAuthorizations(
+        firmId,
+        toAuthorizationPayloads(authorizations),
+      )
+
+      return { firmId, arePendingAuthorizations: !arePersisted }
+    } catch (error) {
+      setSubmitError(buildSubmitError(error, values.isSoleProprietorship))
+      // Sunucunun reddettiği ayar onay kutusunda: odak oraya taşınır ki
+      // kullanıcı mesajı okuyup hemen düzeltebilsin.
+      if (isSoleProprietorshipRejection(error, values.isSoleProprietorship)) {
+        setFocusField('isSoleProprietorship')
+      }
+      return null
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [authorizations, existingFirms, values])
+
+  const clearFocusRequest = useCallback(() => setFocusField(null), [])
+  const clearSubmitError = useCallback(() => setSubmitError(null), [])
+
+  return {
+    values,
+    errors,
+    authorizations,
+    authorizationError,
+    isDirty,
+    isSubmitting,
+    submitError,
+    focusField,
+    setValue,
+    setSoleProprietorship,
+    addAuthorizations,
+    removeAuthorizationGasFirm,
+    submit,
+    clearFocusRequest,
+    clearSubmitError,
+  }
+}

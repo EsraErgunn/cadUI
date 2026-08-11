@@ -268,11 +268,12 @@ describe('NewProjectPage — rol bazlı alanlar', () => {
     expect(screen.getByLabelText('Gaz Dağıtım Firması')).toHaveValue('')
   })
 
-  it('üst bardaki bölge firma listelerini sınırlar', async () => {
+  // Bölge kapsamı kaldırıldı (K31): firma listesi hiçbir zaman süzülmez.
+  it('firma listesini bölgeyle sınırlamaz', async () => {
     renderPage({ route: '/projects/new?region=Ege' })
 
     await waitFor(() => expect(api.getProjectFirms).toHaveBeenCalled())
-    expect(api.getProjectFirms.mock.calls[0][0]).toBe('Ege')
+    expect(api.getProjectFirms.mock.calls[0][0]).not.toBe('Ege')
   })
 })
 

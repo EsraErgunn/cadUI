@@ -14,8 +14,8 @@ import { FirmFilterPanel } from '../ui/admin/firms/FirmFilterPanel'
 import { FirmTableToolbar } from '../ui/admin/firms/FirmTableToolbar'
 import { FIRM_COLUMNS, FIRM_TABLE_CAPTION } from '../ui/admin/firms/firmColumns'
 import { buildFirmFilterChips } from '../ui/admin/firms/firmFilterChips'
-import { useSavedFirmNotice } from '../ui/admin/firms/useSavedFirmNotice'
 import { useFirmListParams } from '../ui/admin/useFirmListParams'
+import { useSavedFirmNotice } from '../ui/admin/useSavedFirmNotice'
 
 const PAGE_TITLE = 'Gaz Dağıtım Firmaları'
 
@@ -26,7 +26,7 @@ const BREADCRUMB = [
 ]
 
 export function GasDistributionFirmsPage() {
-  const { query, setNameQuery, setGroupId, setRegion, toggleSort, setPage } = useFirmListParams()
+  const { query, setNameQuery, setGroupId, toggleSort, setPage } = useFirmListParams()
   const savedNotice = useSavedFirmNotice()
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => query.groupId !== null)
 
@@ -51,7 +51,11 @@ export function GasDistributionFirmsPage() {
   return (
     <div className="mx-auto flex max-w-320 flex-col gap-5">
       {savedNotice !== null && (
-        <NoticeBar tone="success" message={savedNotice.message} onDismiss={savedNotice.dismiss} />
+        <NoticeBar
+          tone={savedNotice.tone}
+          message={savedNotice.message}
+          onDismiss={savedNotice.dismiss}
+        />
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -71,9 +75,7 @@ export function GasDistributionFirmsPage() {
       {isFilterPanelOpen && (
         <FirmFilterPanel
           groupId={query.groupId}
-          region={query.region}
           onGroupIdChange={setGroupId}
-          onRegionChange={setRegion}
           onClose={() => setIsFilterPanelOpen(false)}
         />
       )}

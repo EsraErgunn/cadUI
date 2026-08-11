@@ -10,7 +10,6 @@ function buildFirm(overrides: Partial<GasDistributionFirm> = {}): GasDistributio
     groupId: null,
     groupName: null,
     name: 'FİRMA',
-    region: null,
     ...overrides,
   }
 }
@@ -19,7 +18,6 @@ function buildQuery(overrides: Partial<GasDistributionFirmQuery> = {}): GasDistr
   return {
     nameQuery: '',
     groupId: null,
-    region: null,
     sortKey: 'dfirmNo',
     sortDir: 'asc',
     page: 1,
@@ -73,15 +71,6 @@ describe('grup filtresi', () => {
 
   it('grup seçilmezse hepsini verir', () => {
     expect(queryFirmList(FIRMS, buildQuery()).totalCount).toBe(3)
-  })
-})
-
-/** Sunucu bölge taşımıyor; süzülseydi bölge seçili her aramada liste boşalırdı. */
-describe('bölge filtresi', () => {
-  it('uygulanmaz — bölge seçili olsa da kayıtlar düşmez', () => {
-    const firms = [buildFirm({ id: 1, region: null })]
-
-    expect(queryFirmList(firms, buildQuery({ region: 'Ege' })).totalCount).toBe(1)
   })
 })
 

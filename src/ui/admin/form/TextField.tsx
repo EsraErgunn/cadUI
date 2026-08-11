@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import { FieldControl } from './FieldControl'
 import { FieldFrame, type FieldLayout } from './FieldFrame'
@@ -24,6 +25,12 @@ interface TextFieldProps {
   layout?: FieldLayout
   /** Girdinin içinde solda duran alanı temsil eden ikon; verilmezse hiç render edilmez. */
   leftIcon?: LucideIcon
+  /**
+   * Girdinin SAĞINDA, aynı satırda duran ek denetim (proje firması formunda
+   * "Şahıs Şirketi" onay kutusu). Ayrı bir alan satırı açılsaydı mockup'taki
+   * "vergi no ↔ şahıs şirketi" bağı görsel olarak kopardı.
+   */
+  trailing?: ReactNode
   onChange: (value: string) => void
   onBlur?: () => void
 }
@@ -43,6 +50,7 @@ export function TextField({
   inputMode,
   layout,
   leftIcon,
+  trailing,
   onChange,
   onBlur,
 }: TextFieldProps) {
@@ -66,6 +74,8 @@ export function TextField({
     />
   )
 
+  const control = <FieldControl leftIcon={leftIcon}>{input}</FieldControl>
+
   return (
     <FieldFrame
       id={id}
@@ -76,7 +86,16 @@ export function TextField({
       error={error}
       layout={layout}
     >
-      <FieldControl leftIcon={leftIcon}>{input}</FieldControl>
+      {trailing === undefined ? (
+        control
+      ) : (
+        // `min-w-48`: dar ekranda girdi ile yanındaki denetim alt alta insin,
+        // yan yana sıkışıp okunmaz hâle gelmesin.
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-48 flex-1 flex-col">{control}</div>
+          {trailing}
+        </div>
+      )}
     </FieldFrame>
   )
 }

@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   ADMIN_PARAM_KEYS,
   FIRST_PAGE,
+  parseGroupId,
   parsePage,
   useAdminParamWriter,
 } from './adminUrlParams'
@@ -26,17 +27,10 @@ function parseSortDir(raw: string | null): SortDirection {
   return raw === 'desc' ? 'desc' : DEFAULT_SORT_DIR
 }
 
-/** Grup filtresi artık kimlik taşıyor; bozuk/eski değer filtresiz sayılır. */
-function parseGroupId(raw: string | null): number | null {
-  const parsed = Number(raw)
-  return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null
-}
-
 export interface FirmListControls {
   query: GasDistributionFirmQuery
   setNameQuery: (value: string) => void
   setGroupId: (value: number | null) => void
-  setRegion: (value: string | null) => void
   toggleSort: (key: GasFirmSortKey) => void
   setPage: (page: number) => void
 }
@@ -54,7 +48,6 @@ export function useFirmListParams(): FirmListControls {
     () => ({
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       groupId: parseGroupId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
-      region: searchParams.get(ADMIN_PARAM_KEYS.region),
       sortKey: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
@@ -88,14 +81,10 @@ export function useFirmListParams(): FirmListControls {
     (value: number | null) => updateParams({ groupName: value?.toString() ?? null }, true),
     [updateParams],
   )
-  const setRegion = useCallback(
-    (value: string | null) => updateParams({ region: value }, true),
-    [updateParams],
-  )
   const setPage = useCallback(
     (page: number) => updateParams({ page: page === FIRST_PAGE ? null : String(page) }, false),
     [updateParams],
   )
 
-  return { query, setNameQuery, setGroupId, setRegion, toggleSort, setPage }
+  return { query, setNameQuery, setGroupId, toggleSort, setPage }
 }

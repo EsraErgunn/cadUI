@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { GAS_FIRM_PAGE_SIZE, getFirmGroups, getGasDistributionFirms } from '../adminFirms'
+import {
+  GAS_FIRM_PAGE_SIZE,
+  getFirmGroups,
+  getGasDistributionFirms,
+  getGasDistributionFirmsByGroup,
+} from '../adminFirms'
 
 const LIST_DTO = [
   {
@@ -9,7 +14,6 @@ const LIST_DTO = [
     companyNumber: 1204,
     groupId: 1,
     groupName: 'AKSA',
-    contactPerson: 'Ahmet Yılmaz',
   },
   {
     id: 2,
@@ -17,7 +21,6 @@ const LIST_DTO = [
     companyNumber: 1206,
     groupId: null,
     groupName: null,
-    contactPerson: null,
   },
 ]
 
@@ -67,13 +70,6 @@ describe('getGasDistributionFirms', () => {
     expect(page.items[0].groupId).toBe(1)
   })
 
-  // Sunucu satırda bölge taşımıyor; alan korunuyor ama boş geliyor.
-  it('bölgeyi null taşır', async () => {
-    stubFetch(jsonResponse(LIST_DTO))
-
-    expect((await getGasDistributionFirms(LIST_QUERY)).items[0].region).toBeNull()
-  })
-
   it('sayfalamayı istemcide yapar — uca parametre GÖNDERMEZ', async () => {
     const fetchMock = stubFetch(jsonResponse(LIST_DTO))
 
@@ -96,6 +92,22 @@ describe('getGasDistributionFirms', () => {
     const page = await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
 
     expect(page.items.map((firm) => firm.name)).toEqual(['ÇORUMGAZ'])
+  })
+})
+
+describe('getGasDistributionFirmsByGroup', () => {
+  it('yalnız gruba bağlı kayıtları verir', async () => {
+    stubFetch(jsonResponse(LIST_DTO))
+
+    const firms = await getGasDistributionFirmsByGroup(1)
+
+    expect(firms.map((firm) => firm.name)).toEqual(['Adana Doğalgaz Dağıtım A.Ş.'])
+  })
+
+  it('gruba bağlı kayıt yoksa boş döner', async () => {
+    stubFetch(jsonResponse(LIST_DTO))
+
+    expect(await getGasDistributionFirmsByGroup(99)).toEqual([])
   })
 })
 

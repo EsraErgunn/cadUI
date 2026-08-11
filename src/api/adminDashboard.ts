@@ -1,10 +1,11 @@
 import { z } from 'zod'
 
 import {
+  allMockAnnouncements,
+  allMockRegionFacts,
+  mockRegionNameOf,
   publishMockAnnouncement,
-  queryMockAnnouncements,
   queryMockDayActivity,
-  queryMockRegionFacts,
   type MockAnnouncement,
   type RegionDayActivity,
   type RegionFacts,
@@ -17,7 +18,7 @@ import { includesTr } from './turkishText'
 /**
  * API SÖZLEŞMESİ — Yönetici anasayfası (Genel Bakış).
  *
- * GET  /api/dashboard/summary?date=&region= → DashboardSummary
+ * GET  /api/dashboard/summary?date= → DashboardSummary
  * POST /api/dashboard/announcements         → Announcement
  *
  * Özet TEK uçtan gelir: ekranın tüm sayıları (özet sayaçlar, bugün, bölge
@@ -123,8 +124,8 @@ export const ANNOUNCEMENT_PAGE_SIZE = 10
 export interface AnnouncementQuery {
   /** Başlıkta ve metinde aranan metin; boş dize = arama yok. */
   textQuery: string
-  /** Üst bardaki kapsam. Bölgesiz (genel) duyurular HER kapsamda görünür. */
-  region: string | null
+  /** Üst bardaki bölge kapsamı (grup firması kimliği); null = tüm bölgeler. */
+  groupId: number | null
   page: number
   pageSize: number
 }
@@ -212,22 +213,23 @@ function normalizeSummary(raw: DashboardSummary): DashboardSummary {
 }
 
 /** Mock ham veriyi üretir; sıralama/limit/kısaltma `normalizeSummary`'de. */
-function buildMockSummary(region: string | null, dayKey: string): DashboardSummary {
-  const facts = queryMockRegionFacts(region)
+function buildMockSummary(dayKey: string, groupId: number | null): DashboardSummary {
+  const region = mockRegionNameOf(groupId)
+  const facts = allMockRegionFacts(region)
   // Birikimli sayılar günden bağımsız; "bugün" ve yoğunluk YALNIZ o günün
   // hareketlerinden geliyor, gün dönünce ikisi de sıfırlanıyor.
-  const activity = queryMockDayActivity(region, dayKey)
+  const activity = queryMockDayActivity(dayKey, region)
 
   return {
     counts: sumFacts(facts),
     today: sumDayActivity(activity),
     regionDensity: activity.map((row) => ({ region: row.region, count: row.newProjects })),
-    announcements: queryMockAnnouncements(region).map(toAnnouncement),
+    announcements: allMockAnnouncements().map(toAnnouncement),
   }
 }
 
-function buildNormalizedMock(region: string | null, dayKey: string): DashboardSummary {
-  return normalizeSummary(dashboardSummarySchema.parse(buildMockSummary(region, dayKey)))
+function buildNormalizedMock(dayKey: string, groupId: number | null): DashboardSummary {
+  return normalizeSummary(dashboardSummarySchema.parse(buildMockSummary(dayKey, groupId)))
 }
 
 const NOT_FOUND = 404
@@ -268,25 +270,25 @@ function isMissingEndpoint(error: unknown): boolean {
 }
 
 /**
- * `region` null = "Hepsi". Bölge değişince TÜM değerler yeniden hesaplanır —
- * ekranın hiçbir yerinde ikinci bir veri kaynağı yok, bu yüzden KK-2 tek
- * çağrıyla karşılanıyor.
+ * Kapsam üst bardaki bölge seçicisinden geliyor (`groupId`, null = sistem
+ * geneli). Ekranın hiçbir yerinde ikinci bir veri kaynağı yok, tüm kartlar bu
+ * tek çağrıdan besleniyor — kapsam değişince hepsi birlikte döner.
  *
  * `dayKey` zorunlu ve YEREL takvim günü (`dayKey.ts`). Çağıran gün dönünce
  * anahtarı değiştirir; "bugün" sayaçları böyle sıfırlanır.
  */
 export async function getDashboardSummary(
-  region: string | null,
   dayKey: string,
+  groupId: number | null,
   signal?: AbortSignal,
 ): Promise<DashboardSummary> {
   if (!hasApiBaseUrl()) {
     await delay(MOCK_LATENCY_MS, signal)
-    return buildNormalizedMock(region, dayKey)
+    return buildNormalizedMock(dayKey, groupId)
   }
 
   const query = new URLSearchParams({ date: dayKey })
-  if (region !== null) query.set('region', region)
+  if (groupId !== null) query.set('group', String(groupId))
 
   try {
     const raw = await requestJson(
@@ -298,7 +300,7 @@ export async function getDashboardSummary(
     if (!isMissingEndpoint(error)) throw error
 
     warnOnceAboutMissingEndpoint()
-    return buildNormalizedMock(region, dayKey)
+    return buildNormalizedMock(dayKey, groupId)
   }
 }
 
@@ -355,12 +357,22 @@ export async function publishAnnouncement(
 /** Mock listeyi süzer, sıralar ve sayfalar. Sıralama/sayfalama gerçek uçta
     SUNUCUDA yapılacak; burada yalnız uç yokken aynı davranış taklit ediliyor. */
 function buildMockAnnouncementPage(query: AnnouncementQuery): AnnouncementPage {
-  const matching = queryMockAnnouncements(query.region)
+  const scopedRegion = mockRegionNameOf(query.groupId)
+
+  const matching = allMockAnnouncements()
     .filter(
       (announcement) =>
         query.textQuery === '' ||
         includesTr(announcement.title, query.textQuery) ||
         includesTr(announcement.body, query.textQuery),
+    )
+    // Bölgesi null olan duyuru TÜM bölgeleri ilgilendiriyor; kapsam seçilince de
+    // görünür kalır — elenseydi sistem duyuruları kapsamlı görünümde kaybolurdu.
+    .filter(
+      (announcement) =>
+        scopedRegion === null ||
+        announcement.region === null ||
+        announcement.region === scopedRegion,
     )
     .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))
     .map(toAnnouncementDetail)
@@ -397,7 +409,7 @@ export async function getAnnouncements(
     pageSize: String(query.pageSize),
   })
   if (query.textQuery !== '') search.set('q', query.textQuery)
-  if (query.region !== null) search.set('region', query.region)
+  if (query.groupId !== null) search.set('group', String(query.groupId))
 
   try {
     const raw = await requestJson(

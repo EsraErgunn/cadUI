@@ -53,7 +53,6 @@ export function ProjectListPage() {
       districtId: query.districtId,
       projectFirmId: query.projectFirmId,
       search: query.search,
-      region: query.region,
     }),
     [
       query.dateFrom,
@@ -61,7 +60,6 @@ export function ProjectListPage() {
       query.districtId,
       query.projectFirmId,
       query.search,
-      query.region,
     ],
   )
 
@@ -86,9 +84,7 @@ export function ProjectListPage() {
 
   const { data: projectFirms } = useQuery({
     queryKey: ['projectFirms'],
-    // Filtre kutusu bölgeden bağımsız TÜM firmaları listeler; bölge kısıtı yalnız
-    // yeni proje formunda geçerli.
-    queryFn: ({ signal }) => getProjectFirms(null, signal),
+    queryFn: ({ signal }) => getProjectFirms(signal),
     staleTime: LOOKUP_STALE_MS,
   })
 
