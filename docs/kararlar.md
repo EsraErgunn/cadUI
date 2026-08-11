@@ -1184,6 +1184,37 @@ Nerede: `core/model.ts`, `core/serialize.ts`, `core/areaObject.ts`,
 — ve ilgisiz düzeltmeler: `ui/floors/useFloorPlanDraft.ts`,
 `core/__tests__/floorContent.test.ts`, `docs/sample-project.json`.
 
+### K42 — Alan nesnesi aracında SAĞ TIK çizimi bitirir ve seçim aracına döner
+
+Dört alan nesnesi aracı (merdiven/kolon/baca şaftı/kolon havalandırması)
+yerleştirdikten sonra AKTİF KALIYOR (arka arkaya ekleme, `usePointSymbolTool`
+sözleşmesi). Kullanıcı geri bildirimi: jesti bitirmenin bir yolu yoktu —
+tıkladıkça çizmeye devam ediyordu, durdurmak için palete geri gidip Seçim
+Aracı'na basmak gerekiyordu.
+
+**Sağ tık artık hem önizlemeyi siler hem paleti `SELECTION_TOOL_ID`'ye
+döndürür.** Tesisat tarafındaki `useEscapeToSelectionTool` ile aynı gerekçe:
+"bu iş bitti" demek tek jest olmalı, kullanıcı eklediğini hemen seçip
+taşıyabilsin.
+
+Sağ tık yerleştirme YAPMAZ: `onPointerUp` zaten `button !== LEFT_BUTTON`
+kontrolüyle dönüyordu ve tarayıcıda `contextmenu` `pointerup`'tan SONRA
+geliyor — sıralama tesadüfen değil, `DrawSurface.tsx` orta tuş dışındaki her
+`pointerup`'ı yayınladığı için ikisi de aynı jestte görülüyor.
+
+**Duvar/oda araçları BİLEREK dokunulmadı.** Onlarda sağ tık zaten zinciri
+bitiriyor (`useWallTool` → `endChain`, `useRoomTool` → `endDrag`) ama araç
+aktif kalıyor — çok segmentli çizimde kullanıcı arka arkaya duvar zinciri
+çiziyor, palete dönmek istemez. Nokta sembolü araçları (pano, aydınlatma vb.)
+da aynı sorunu taşıyor ama kapsam dışı bırakıldı; kullanıcı yalnız alan
+nesnelerini istedi.
+
+**Test edilmedi (hook seviyesi).** `scene/` altında hiç test yok — hook'lar
+`useThree` üzerinden R3F/Canvas bağlamı istiyor (K36'dan beri aynı sınır).
+Tarayıcıda doğrulanmalı.
+
+Nerede: `scene/useAreaObjectTool.ts`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
