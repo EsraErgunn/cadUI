@@ -56,6 +56,8 @@ export function buildDefaultValues(today: Date): NewProjectFormValues {
     endDate: deriveEndDate(startDate),
     engineerUserId: null,
     connectionObject: '',
+    cityId: null,
+    districtId: null,
     address: '',
     apartmentCount: DEFAULT_COUNT,
     workplaceCount: DEFAULT_COUNT,

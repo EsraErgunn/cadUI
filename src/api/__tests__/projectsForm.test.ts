@@ -36,6 +36,8 @@ const VALID_PAYLOAD: CreateProjectPayload = {
   endDate: '2026-10-04',
   engineerUserId: 501,
   connectionObject: null,
+  cityId: 6,
+  districtId: 64,
   address: 'Test Mahallesi 1. Sokak No 2',
   apartmentCount: 4,
   workplaceCount: 0,
@@ -183,8 +185,14 @@ function apiCreatedResponse(id: number, name: string, code: string | null = null
     name,
     description: null,
     code,
-    projectFirmRegionId: 1,
+    projectFirmAuthorizationId: 1,
     gasDistributionFirmRegionId: 1,
+    cityId: 6,
+    cityName: 'Ankara',
+    districtId: 64,
+    districtName: 'Çankaya',
+    addressLine: null,
+    blockLotParcel: null,
     createdAt: '2026-08-04T06:32:11.8372008Z',
     updatedAt: '2026-08-04T06:32:11.8372008Z',
   }
@@ -227,15 +235,23 @@ describe('createProject', () => {
     expect((await createProject(VALID_PAYLOAD)).pId).toBe('PRJ-2026-007')
   })
 
-  it('yalnız ucun kabul ettiği üç alanı gönderir', async () => {
+  /**
+   * Sözleşme 2026-08'de DEĞİŞTİ: uç `projectFirmRegionId` +
+   * `gasDistributionFirmRegionId` yerine `projectFirmAuthorizationId` istiyor ve
+   * il/ilçe/adres alıyor. Eski gövde 400 alıyordu, proje ekleme hiç çalışmıyordu.
+   */
+  it('ucun beklediği alanları gönderir — yetki bağı ve il/ilçe dahil', async () => {
     const fetchMock = stubFetch(apiCreatedResponse(7, VALID_PAYLOAD.name))
 
     await createProject(VALID_PAYLOAD)
 
     expect(sentBody(fetchMock)).toEqual({
       name: VALID_PAYLOAD.name,
-      projectFirmRegionId: 1,
-      gasDistributionFirmRegionId: 1,
+      projectFirmAuthorizationId: 1,
+      cityId: 6,
+      districtId: 64,
+      addressLine: VALID_PAYLOAD.address,
+      blockLotParcel: VALID_PAYLOAD.parcelInfo,
     })
   })
 
@@ -247,12 +263,12 @@ describe('createProject', () => {
     // Bu alanlar description'a JSON olarak da gömülmüyor: sunucunun
     // sorgulayamadığı şemasız bir alan yaratırdı.
     const body = sentBody(fetchMock)
-    for (const field of ['address', 'startDate', 'engineerUserId', 'heatingType', 'description']) {
+    for (const field of ['startDate', 'engineerUserId', 'heatingType', 'apartmentCount']) {
       expect(body).not.toHaveProperty(field)
     }
   })
 
-  it('firma kimliği gövdeye hiç konmaz — uç firma×bölge bağı istiyor', async () => {
+  it('firma kimliği gövdeye hiç konmaz — uç YETKİ bağı istiyor', async () => {
     const payload: CreateProjectPayload = { ...VALID_PAYLOAD }
     delete payload.projectFirmId
     delete payload.gasDistributionFirmId
@@ -262,7 +278,7 @@ describe('createProject', () => {
 
     const body = sentBody(fetchMock)
     expect(body).not.toHaveProperty('projectFirmId')
-    expect(body.projectFirmRegionId).toBe(1)
+    expect(body.projectFirmAuthorizationId).toBe(1)
   })
 })
 

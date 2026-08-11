@@ -1,5 +1,6 @@
 import { Building2 } from 'lucide-react'
 
+import { CityDistrictFields } from './CityDistrictFields'
 import { newProjectFieldId } from './newProjectSchema'
 import type { NewProjectForm } from './useNewProjectForm'
 import { FormCard } from '../form/FormCard'
@@ -27,6 +28,10 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
         error={errors.connectionObject}
         onChange={(value) => setValue('connectionObject', value)}
       />
+
+      {/* İl/ilçe adresin ÜSTÜNDE: kullanıcı önce kaba konumu, sonra açık adresi
+          giriyor — uç da ikisini ayrı alanlarda saklıyor. */}
+      <CityDistrictFields form={form} />
 
       <TextAreaField
         id={newProjectFieldId('address')}
