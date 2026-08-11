@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { includesTr, normalizeTr } from '../turkishText'
+import { buildUsernameFromFullName, includesTr, normalizeTr } from '../turkishText'
 
 describe('normalizeTr', () => {
   it('büyük İ ile küçük i aynı anahtara iner (birleşen nokta bırakmaz)', () => {
@@ -42,5 +42,35 @@ describe('includesTr', () => {
 
   it('boş arama terimi her kaydı eşler', () => {
     expect(includesTr('Başkent Doğalgaz', '')).toBe(true)
+  })
+})
+
+// KK-15: kullanıcı adı ad soyaddan üretilir, Türkçe harfler ASCII'ye iner.
+describe('buildUsernameFromFullName', () => {
+  it('ad ve soyadı nokta ile birleştirir, küçük harfe indirir', () => {
+    expect(buildUsernameFromFullName('Tolga Ertek')).toBe('tolga.ertek')
+  })
+
+  it('Türkçe karakterleri ASCII karşılığına çevirir', () => {
+    expect(buildUsernameFromFullName('Bülent Sarıoğlu')).toBe('bulent.sarioglu')
+    expect(buildUsernameFromFullName('İbrahim Öztürk')).toBe('ibrahim.ozturk')
+    expect(buildUsernameFromFullName('Şeyma Çakır')).toBe('seyma.cakir')
+  })
+
+  // İkinci nokta konsaydı ad ile soyadı ayıran nokta hangisi belirsiz kalırdı.
+  it('ikinci addan sonrasını tek soyad sayar', () => {
+    expect(buildUsernameFromFullName('Ayşe Nur Demir')).toBe('ayse.nurdemir')
+  })
+
+  it('tek sözcükte nokta üretmez', () => {
+    expect(buildUsernameFromFullName('Neriman')).toBe('neriman')
+  })
+
+  it('harf ve rakam dışındaki işaretleri düşürür', () => {
+    expect(buildUsernameFromFullName("Ah'met  Yıl-maz")).toBe('ahmet.yilmaz')
+  })
+
+  it('boş ada boş kullanıcı adı verir', () => {
+    expect(buildUsernameFromFullName('   ')).toBe('')
   })
 })

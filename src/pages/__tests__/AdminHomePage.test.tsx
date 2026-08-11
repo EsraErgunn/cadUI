@@ -8,7 +8,7 @@ import { toDayKey } from '../../api/dayKey'
 import {
   ANNOUNCEMENTS_PATH,
   PROJECT_FIRM_CREATE_PATH,
-  USER_CREATE_PATH,
+  PROJECT_FIRM_USER_CREATE_PATH,
 } from '../../ui/admin/adminNavItems'
 import { AdminHomePage } from '../AdminHomePage'
 import { ComingSoonPage } from '../ComingSoonPage'
@@ -92,7 +92,7 @@ function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS } = {}) {
             path={PROJECT_FIRM_CREATE_PATH}
             element={<ComingSoonPage title="Proje Firması Ekle" />}
           />
-          <Route path={USER_CREATE_PATH} element={<ComingSoonPage title="Kullanıcı Oluştur" />} />
+          <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ComingSoonPage title="Kullanıcı Oluştur" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
