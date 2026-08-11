@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, type ComponentRef } from 'react'
 import { InterleavedBufferAttribute, type Group } from 'three'
 
 import { PipeLine } from './InstallationLineMesh'
+import { DraftLengthLabel } from './LengthLabels'
 import { getLineColor, getLineWidthPx } from './lineStyle'
 import { PREVIEW_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
@@ -236,6 +237,8 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
         widthPx={getLineWidthPx(activePipeTypeName, zoom)}
         renderOrder={RENDER_ORDER.linePreview}
       />
+      {/* Anlık uzunluk bandın ortasında; ölçü etiketleri kapalıyken de çıkar. */}
+      <DraftLengthLabel anchor={anchor} cursorRef={cursorRef} zoom={zoom} />
     </group>
   )
 }

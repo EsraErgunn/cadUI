@@ -23,7 +23,7 @@ export function threeToElevation(position: ThreePosition): number {
   return position[1]
 }
 
-const CM_PER_M = 100
+export const CM_PER_M = 100
 
 /** Model cm tutar, kullanıcıya metre gösterilir (issue 2.2). */
 export function formatLengthAsMeters(lengthCm: number, fractionDigits = 2): string {

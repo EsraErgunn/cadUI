@@ -18,4 +18,6 @@ export const PLUMBING_COLORS = {
    * kesikli — boru değil, cihazın kısa bağlantısı olduğu ayırt edilsin diye.
    */
   applianceStub: '#ef4444',
+  /** Ölçü yazısı: hattın hiçbir çap rengiyle karışmayan nötr ton (oda etiketiyle aynı). */
+  measurementLabel: '#5b6675',
 } as const

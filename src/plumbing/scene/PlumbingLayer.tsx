@@ -1,7 +1,9 @@
 import { DrawPreview, LineDraftPreview } from './DrawPreview'
 import { InstallationLines } from './InstallationLineMesh'
+import { LengthLabels } from './LengthLabels'
 import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
+import { SplitLengthLabels } from './SplitLengthLabels'
 import { SymbolInstance } from './SymbolInstance'
 import { useEscapeToSelectionTool } from './useEscapeToSelectionTool'
 import { useLineTool } from './useLineTool'
@@ -55,8 +57,13 @@ export function PlumbingLayer() {
         dragDeltaRef={selection.dragDeltaRef}
       />
       <InstallationElements {...selection} />
+      <LengthLabels
+        draggedLineIds={selection.draggedLineIds}
+        dragDeltaRef={selection.dragDeltaRef}
+      />
       <DrawPreview {...preview} />
       <DrawingPortMarkers {...line} />
+      <SplitLengthLabels {...line} />
       <LineDraftPreview {...line} />
       <SelectionMarquee />
     </group>

@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useCadStore } from '../../store/cadStore'
+import { useUiStore } from '../../store/uiStore'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
 
@@ -158,5 +159,25 @@ describe('MenuBar', () => {
   it('Katlar başlığında kat adedi rozeti gösterilir (issue 2.4)', () => {
     renderMenuBar()
     expect(screen.getByRole('button', { name: /^Katlar/ })).toHaveTextContent('Katlar1')
+  })
+
+  it('Görünüm > Ölçüleri Göster aktiftir ve işareti durumu yansıtır (KK-11)', async () => {
+    const user = userEvent.setup()
+    useUiStore.setState({ isDimensionsVisible: false })
+    renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Görünüm/ }))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Ölçüleri Göster' })
+    expect(item).toBeEnabled()
+    expect(item).toHaveAttribute('aria-checked', 'false')
+
+    await user.click(item)
+    expect(useUiStore.getState().isDimensionsVisible).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /^Görünüm/ }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Ölçüleri Göster' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
   })
 })

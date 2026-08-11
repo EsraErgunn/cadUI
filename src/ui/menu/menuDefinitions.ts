@@ -36,6 +36,8 @@ export const UNDO_ITEM_ID = 'undo'
 export const REDO_ITEM_ID = 'redo'
 export const FLOOR_MANAGEMENT_ITEM_ID = 'floorManagement'
 export const FLOOR_COPY_ITEM_ID = 'floorCopy'
+/** Madde id'si eski adını korur; etiket "Ölçüleri Göster"e genişledi (yalnız duvar değil). */
+export const SHOW_DIMENSIONS_ITEM_ID = 'showWallDimensions'
 
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -97,7 +99,12 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
             label: 'Sahne Değiştirme Düğmelerini Göster',
             ...DISABLED_CHECKBOX,
           },
-          { id: 'showWallDimensions', label: 'Duvar Ölçülerini Göster', ...DISABLED_CHECKBOX },
+          {
+            id: SHOW_DIMENSIONS_ITEM_ID,
+            label: 'Ölçüleri Göster',
+            kind: 'checkbox',
+            isEnabled: true,
+          },
         ],
       },
     ],

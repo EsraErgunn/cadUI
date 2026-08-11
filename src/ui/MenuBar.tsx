@@ -9,6 +9,7 @@ import {
   useCanRedo,
   useCanUndo,
 } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
 import { chromeButtonVariants } from './controls/buttonVariants'
 import { MenuDropdown } from './menu/MenuDropdown'
 import { ShortcutButtons } from './menu/ShortcutButtons'
@@ -22,6 +23,7 @@ import {
   FLOOR_MENU_ID,
   REDO_ITEM_ID,
   SAVE_ITEM_ID,
+  SHOW_DIMENSIONS_ITEM_ID,
   UNDO_ITEM_ID,
 } from './menu/menuDefinitions'
 
@@ -47,6 +49,8 @@ export function MenuBar({
   const isDirty = useCadStore(selectIsProjectDirty)
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
+  const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
+  const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
   const barRef = useRef<HTMLElement>(null)
 
   // Yapılamayacak komutlar pasif görünür ama menüden KALKMAZ: kullanıcı
@@ -54,6 +58,9 @@ export function MenuBar({
   const unavailableItemIds = new Set<string>()
   if (!canUndo) unavailableItemIds.add(UNDO_ITEM_ID)
   if (!canRedo) unavailableItemIds.add(REDO_ITEM_ID)
+
+  const checkedItemIds = new Set<string>()
+  if (isDimensionsVisible) checkedItemIds.add(SHOW_DIMENSIONS_ITEM_ID)
 
   useEffect(() => {
     if (openMenuId === null) return undefined
@@ -86,6 +93,7 @@ export function MenuBar({
     if (itemId === REDO_ITEM_ID) redoProject()
     if (itemId === FLOOR_MANAGEMENT_ITEM_ID) onOpenFloorManagement()
     if (itemId === FLOOR_COPY_ITEM_ID) onOpenFloorCopy()
+    if (itemId === SHOW_DIMENSIONS_ITEM_ID) toggleDimensionsVisible()
   }
 
   return (
@@ -128,6 +136,7 @@ export function MenuBar({
                 menu={menu}
                 onSelectItem={handleSelectItem}
                 unavailableItemIds={unavailableItemIds}
+                checkedItemIds={checkedItemIds}
               />
             )}
           </div>
