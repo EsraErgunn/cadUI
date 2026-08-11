@@ -1,4 +1,4 @@
-import type { ProjectFirm } from './projectFirmDto'
+import type { ProjectFirm, ProjectFirmPayload } from './projectFirmDto'
 
 /**
  * `VITE_API_URL` tanımlı değilken listeyi besleyen gövde.
@@ -48,6 +48,14 @@ function buildMockPhone(index: number): string {
   return `0${FIRST_MOCK_PHONE + index * MOCK_PHONE_STEP}`
 }
 
+/** Vergi numarası 10 hane; kayıt başına ayrı bir numara üretilir ki ekleme
+    ekranının benzersizlik ön kontrolü gerçek bir çakışmaya düşebilsin. */
+const FIRST_MOCK_TAX_NUMBER = 1_000_000_000
+
+function buildMockTaxNumber(index: number): string {
+  return String(FIRST_MOCK_TAX_NUMBER + index)
+}
+
 function toMockEmail(city: string, index: number): string | null {
   if (index % EMAIL_LESS_EVERY === 0) return null
 
@@ -83,6 +91,7 @@ function buildMockProjectFirms(): ProjectFirm[] {
         email: toMockEmail(city, index),
         phone: buildMockPhone(index),
         mobilePhone: null,
+        taxNumber: buildMockTaxNumber(index),
       })
     }
   }
@@ -90,7 +99,11 @@ function buildMockProjectFirms(): ProjectFirm[] {
   return firms
 }
 
-const mockProjectFirms = buildMockProjectFirms()
+/**
+ * `let`: ekleme bu diziyi değiştirir, böylece kaydedilen firma liste ekranında
+ * ve toplam kayıt adedinde görünür (KK-8). `adminFirmsMock` ile aynı desen.
+ */
+let mockProjectFirms = buildMockProjectFirms()
 
 /**
  * Mock kayıtların TAMAMI. Filtre/sıralama/sayfalama burada YAPILMAZ — gerçek uç
@@ -98,4 +111,45 @@ const mockProjectFirms = buildMockProjectFirms()
  */
 export function allMockProjectFirms(): ProjectFirm[] {
   return mockProjectFirms
+}
+
+function nextMockProjectFirmId(): number {
+  return mockProjectFirms.reduce((largest, firm) => Math.max(largest, firm.id), 0) + 1
+}
+
+/**
+ * Eklenen kayıt listeye girer. `serialNumber` BURADA DA `null` bırakılmıyor —
+ * gerçek liste ucu taşımasa da mock'un kendi içinde tutarlı olması, aynı
+ * oturumda ikinci kez aynı seri numarasının denenmesini yakalanabilir kılıyor.
+ */
+/**
+ * Yetkilendirme kayıtları. Sunucuda bunları yazan uç YOK; mock oturum boyunca
+ * bellekte tutuyor ki "kaydedildi" denen şey bir yere gitmiş olsun. Bugün
+ * okuyanı yok — uç açılınca bu harita silinecek.
+ */
+const mockAuthorizationsByFirm = new Map<number, unknown[]>()
+
+export function recordMockProjectFirmAuthorizations(
+  firmId: number,
+  authorizations: readonly unknown[],
+): void {
+  mockAuthorizationsByFirm.set(firmId, [...authorizations])
+}
+
+export function createMockProjectFirm(payload: ProjectFirmPayload): ProjectFirm {
+  const created: ProjectFirm = {
+    id: nextMockProjectFirmId(),
+    serialNumber: payload.serialNumber,
+    qualificationNumber: null,
+    name: payload.name,
+    gasFirm: null,
+    authorizedPerson: payload.authorizedPerson,
+    email: payload.email,
+    phone: payload.phone,
+    mobilePhone: payload.mobilePhone,
+    taxNumber: payload.taxNumber,
+  }
+
+  mockProjectFirms = [...mockProjectFirms, created]
+  return created
 }

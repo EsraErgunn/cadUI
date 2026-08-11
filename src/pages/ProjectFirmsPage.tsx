@@ -5,6 +5,7 @@ import { queryProjectFirmList } from '../api/projectFirmListQuery'
 import { getProjectFirmList, type ProjectFirm } from '../api/projectFirms'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
+import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
@@ -19,6 +20,7 @@ import {
 } from '../ui/admin/projectFirms/projectFirmColumns'
 import { buildProjectFirmFilterChips } from '../ui/admin/projectFirms/projectFirmFilterChips'
 import { useProjectFirmListParams } from '../ui/admin/projectFirms/useProjectFirmListParams'
+import { useSavedFirmNotice } from '../ui/admin/useSavedFirmNotice'
 
 const PAGE_TITLE = 'Proje Firmaları'
 
@@ -37,6 +39,7 @@ const EMPTY_LIST: ProjectFirm[] = []
 
 export function ProjectFirmsPage() {
   const { query, setNameQuery, toggleSort, setPage } = useProjectFirmListParams()
+  const savedNotice = useSavedFirmNotice()
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
 
   // Sorgu `queryKey`'in parçası DEĞİL: uç filtre/sayfalama parametresi almıyor,
@@ -55,6 +58,14 @@ export function ProjectFirmsPage() {
 
   return (
     <div className="mx-auto flex max-w-320 flex-col gap-5">
+      {savedNotice !== null && (
+        <NoticeBar
+          tone={savedNotice.tone}
+          message={savedNotice.message}
+          onDismiss={savedNotice.dismiss}
+        />
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={BREADCRUMB}

@@ -79,8 +79,7 @@ export interface ProjectListControls {
 
 /**
  * Proje listesi durumunun TEK sahibi: URL — `useFirmListParams` ile aynı desen.
- * Bölge de buradan okunuyor: üst bardaki kapsam seçimi aynı `region` anahtarını
- * yazıyor, iki ayrı kaynaktan okumak ikisini çeliştirebilirdi.
+ * Bölge kapsamı YOK: üst bardaki seçici kaldırıldı (docs/kararlar.md K31).
  */
 export function useProjectListParams(): ProjectListControls {
   const [searchParams] = useSearchParams()
@@ -96,7 +95,6 @@ export function useProjectListParams(): ProjectListControls {
       districtId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.district)),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
       search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
-      region: searchParams.get(ADMIN_PARAM_KEYS.region),
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: PROJECT_PAGE_SIZE,
       sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),

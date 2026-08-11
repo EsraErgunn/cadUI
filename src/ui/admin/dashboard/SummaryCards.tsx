@@ -10,7 +10,8 @@ import { ADMIN_FOCUS_RING, formCardVariants } from '../adminVariants'
 
 interface SummaryCardsProps {
   counts: DashboardSummary['counts']
-  region: string | null
+  /** Seçili bölge adı; null = tüm bölgeler. Kart altındaki kapsam satırı buradan. */
+  regionName: string | null
 }
 
 interface SummaryCardModel {
@@ -77,8 +78,8 @@ function CardBody({ card, scopeLabel }: { card: SummaryCardModel; scopeLabel: st
 }
 
 /** Üç özet kartı: geniş ekranda yan yana, tablette iki, telefonda tek sütun. */
-export function SummaryCards({ counts, region }: SummaryCardsProps) {
-  const scopeLabel = buildCardScopeLabel(region)
+export function SummaryCards({ counts, regionName }: SummaryCardsProps) {
+  const scopeLabel = buildCardScopeLabel(regionName)
 
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

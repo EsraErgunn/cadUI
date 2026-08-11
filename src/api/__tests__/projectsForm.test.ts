@@ -22,7 +22,6 @@ const TASLAK_QUERY: ProjectListQuery = {
   districtId: null,
   projectFirmId: null,
   search: '',
-  region: null,
   page: 1,
   pageSize: PROJECT_PAGE_SIZE,
   sortBy: 'updatedAt',
@@ -126,32 +125,25 @@ describe('getHeatingTypes', () => {
 })
 
 describe('getProjectFirms', () => {
-  it('bölge verilmezse tüm firmaları döndürür', async () => {
+  // Bölge kapsamı kaldırıldı (K31): uç her zaman tüm firmaları veriyor.
+  it('tüm firmaları döndürür', async () => {
     const firms = await getProjectFirms()
 
     expect(firms.length).toBeGreaterThan(1)
-  })
-
-  it('bölge verilirse listeyi o bölgeyle sınırlar', async () => {
-    const all = await getProjectFirms()
-    const scoped = await getProjectFirms('Akdeniz')
-
-    expect(scoped.length).toBeGreaterThan(0)
-    expect(scoped.length).toBeLessThan(all.length)
   })
 })
 
 describe('getGasFirmsForProjectFirm', () => {
   it('yalnız seçili proje firmasının çalıştığı GD firmalarını döndürür', async () => {
-    const forFirst = await getGasFirmsForProjectFirm({ projectFirmId: 12, region: null })
-    const forSecond = await getGasFirmsForProjectFirm({ projectFirmId: 13, region: null })
+    const forFirst = await getGasFirmsForProjectFirm(12)
+    const forSecond = await getGasFirmsForProjectFirm(13)
 
     expect(forFirst.map((firm) => firm.id)).toEqual([101])
     expect(forSecond.map((firm) => firm.id)).toEqual([102, 103])
   })
 
   it('bağlı GD firması olmayan proje firmasında boş liste döner', async () => {
-    const firms = await getGasFirmsForProjectFirm({ projectFirmId: 999, region: null })
+    const firms = await getGasFirmsForProjectFirm(999)
 
     expect(firms).toEqual([])
   })

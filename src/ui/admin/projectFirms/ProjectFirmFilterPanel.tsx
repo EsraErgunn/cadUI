@@ -1,11 +1,10 @@
 import { X } from 'lucide-react'
 
 import { FilterSelect } from '../FilterSelect'
-import { ALL_REGIONS_LABEL } from '../adminUrlParams'
 import { ADMIN_FOCUS_RING } from '../adminVariants'
 
 /**
- * Üç kriterin de pasif olmasının sebebi AYNI: liste satırı bu bilgilerin
+ * İki kriterin de pasif olmasının sebebi AYNI: liste satırı bu bilgilerin
  * hiçbirini taşımıyor (`GET /api/projectfirms` yalnız firma alanlarını
  * döndürüyor). Seçim uygulanabilseydi liste ilk seçimde boşalır ve kullanıcı
  * veri kaybettiğini sanardı — gaz dağıtım firmaları ekranında bölge süzgeci
@@ -38,16 +37,6 @@ export function ProjectFirmFilterPanel({ onClose }: ProjectFirmFilterPanelProps)
         id="project-firm-filter-gas-firm"
         label="G.D. Firması"
         emptyLabel={ANY_GAS_FIRM_LABEL}
-        value={null}
-        options={NO_OPTIONS}
-        isDisabled
-        hint={DISABLED_HINT}
-        onChange={() => {}}
-      />
-      <FilterSelect
-        id="project-firm-filter-region"
-        label="Bölge"
-        emptyLabel={ALL_REGIONS_LABEL}
         value={null}
         options={NO_OPTIONS}
         isDisabled

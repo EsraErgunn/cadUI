@@ -26,8 +26,6 @@ import { parseProjectJson, serializeProjectData } from '../core/serialize'
  * - firm: Proje firması kimliği
  * - q: Serbest arama — proje adı, P_ID VE tesisat numarası üzerinde çalışır
  *      (büyük/küçük harf ve Türkçe karakter duyarsız)
- * - region: Bölge adı (üst bardaki kapsam seçimi, tam eşleşme). Firma ekranıyla
- *           AYNI anahtar ve aynı değer kümesi kullanılır.
  * - sort: updatedAt | createdAt | name (varsayılan: updatedAt)
  * - dir: asc | desc (varsayılan: desc)
  * - page: 1 tabanlı
@@ -171,9 +169,6 @@ export interface ProjectListQuery {
   districtId: number | null
   projectFirmId: number | null
   search: string
-  /** Bölge ADI. İlçe/firma kimlikle gelirken bunun ad olması bilinçli: üst bardaki
-      kapsam seçimi (`useRegionParam`) ve firma ekranı da adla çalışıyor. */
-  region: string | null
   page: number
   pageSize: number
   sortBy: ProjectSortKey
@@ -372,15 +367,12 @@ export async function getDistricts(signal?: AbortSignal): Promise<Lookup[]> {
 /**
  * gerçek `GET /api/admin/project-firms`.
  *
- * `region` opsiyonel: liste ekranının filtre kutusu TÜM firmaları ister, yeni
- * proje formu ise üst bardaki bölge seçimiyle sınırlı olanları. İki ayrı fonksiyon
- * açmak aynı ucu iki yerden tarif etmek olurdu.
+ * Bölge süzgeci YOK: üst bardaki kapsam seçicisi kaldırıldığı için hem liste
+ * ekranının filtre kutusu hem yeni proje formu TÜM firmaları istiyor
+ * (docs/kararlar.md K31).
  */
-export async function getProjectFirms(
-  region?: string | null,
-  signal?: AbortSignal,
-): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockProjectFirms(region ?? null, signal))
+export async function getProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
+  return lookupListSchema.parse(await queryMockProjectFirms(signal))
 }
 
 /**
@@ -399,9 +391,9 @@ export async function getProjectFirms(
  *   kullanıcısı kendi firma kimliğini taşımıyor (bkz. getFirmEngineers).
  *   200 → RawFirmEngineer[]
  *
- * GET /api/admin/gas-distribution-firms/for-project-firm?projectFirmId=&region=
+ * GET /api/admin/gas-distribution-firms/for-project-firm?projectFirmId=
  *   Seçili proje firmasının ÇALIŞTIĞI GD firmaları (bir proje firması birden
- *   fazla GD firmasıyla çalışabilir), bölgeyle ayrıca sınırlanır.
+ *   fazla GD firmasıyla çalışabilir).
  *   200 → Lookup[]
  *
  * TODO(api): uçların yolları ve alan adları backend'le doğrulanacak.
@@ -548,18 +540,12 @@ export async function getFirmEngineers(
   return raw.filter((engineer) => engineer.isActive).map(mapFirmEngineer)
 }
 
-export interface GasFirmsForProjectFirmQuery {
-  projectFirmId: number
-  /** Üst bardaki kapsam seçimi; "Hepsi" ise null. */
-  region: string | null
-}
-
 /** gerçek `GET /api/admin/gas-distribution-firms/for-project-firm`. */
 export async function getGasFirmsForProjectFirm(
-  query: GasFirmsForProjectFirmQuery,
+  projectFirmId: number,
   signal?: AbortSignal,
 ): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(query, signal))
+  return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(projectFirmId, signal))
 }
 
 const apiCreatedProjectSchema = z.object({

@@ -18,6 +18,7 @@ function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
     email: null,
     phone: null,
     mobilePhone: null,
+    taxNumber: null,
     ...overrides,
   }
 }

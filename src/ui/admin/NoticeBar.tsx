@@ -1,8 +1,14 @@
-import { CircleAlert, CircleCheck, X } from 'lucide-react'
+import { CircleAlert, CircleCheck, TriangleAlert, X } from 'lucide-react'
 
 import { ADMIN_FOCUS_RING } from './adminVariants'
 
-export type NoticeTone = 'success' | 'error'
+/**
+ * `warning`: işlem BAŞARILI ama yarım — hata değil, o yüzden `danger` tonu
+ * kullanılmıyor ve `role="alert"` verilmiyor. Ton, duyuru kartındaki bakım
+ * şeridiyle aynı amber token'ından geliyor (bkz. knowledge/theming.md: `warning`
+ * yalnız ikon/kenarlık, metin rengi olarak sınanmadı).
+ */
+export type NoticeTone = 'success' | 'error' | 'warning'
 
 interface NoticeBarProps {
   tone: NoticeTone
@@ -12,20 +18,44 @@ interface NoticeBarProps {
   onDismiss: () => void
 }
 
+const NOTICE_ICONS = {
+  success: CircleCheck,
+  error: CircleAlert,
+  warning: TriangleAlert,
+} as const
+
+const NOTICE_ICON_COLORS = {
+  success: 'size-5 shrink-0 text-success',
+  error: 'size-5 shrink-0 text-danger',
+  warning: 'size-5 shrink-0 text-warning',
+} as const
+
+const NOTICE_BASE =
+  'flex items-start gap-3 rounded-xl border border-edge bg-surface px-4 py-3 text-sm text-ink'
+
+/** Yarım başarı yalnız SOL KENARLIKLA ayrışır: amber token'ı zemin ya da metin
+    rengi olarak sınanmadı (knowledge/theming.md). `cva` ile `adminVariants`'a
+    çıkarılmadı — tek bileşende, tek kullanımda. */
+const NOTICE_TONE_CLASSES = {
+  success: '',
+  error: '',
+  warning: 'border-l-4 border-l-warning',
+} as const
+
 /**
  * Sayfa üstündeki tek uyarı şeridi. Hata `role="alert"` ile hemen okunur,
- * olumlu bildirim `role="status"` ile kullanıcının işini bölmeden duyurulur.
+ * olumlu bildirim ve yarım-başarı uyarısı `role="status"` ile kullanıcının
+ * işini bölmeden duyurulur.
  */
 export function NoticeBar({ tone, message, details, onDismiss }: NoticeBarProps) {
-  const isError = tone === 'error'
-  const Icon = isError ? CircleAlert : CircleCheck
+  const Icon = NOTICE_ICONS[tone]
 
   return (
     <div
-      role={isError ? 'alert' : 'status'}
-      className="flex items-start gap-3 rounded-xl border border-edge bg-surface px-4 py-3 text-sm text-ink"
+      role={tone === 'error' ? 'alert' : 'status'}
+      className={`${NOTICE_BASE} ${NOTICE_TONE_CLASSES[tone]}`.trim()}
     >
-      <Icon aria-hidden className={isError ? 'size-5 text-danger' : 'size-5 text-success'} />
+      <Icon aria-hidden className={NOTICE_ICON_COLORS[tone]} />
 
       <div className="flex-1">
         <p>{message}</p>

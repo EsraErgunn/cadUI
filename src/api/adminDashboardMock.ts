@@ -1,4 +1,4 @@
-import { MOCK_REGIONS } from './adminFirmsMock'
+import { MOCK_FIRM_GROUPS } from './adminFirmsMock'
 import { toDayKey } from './dayKey'
 
 /**
@@ -6,9 +6,13 @@ import { toDayKey } from './dayKey'
  * kayıt bölge taşıyor: üst bardan seçim değişince sayılar yeniden hesaplanır
  * (KK-2). Gerçek uç gelince yalnız `adminDashboard.ts` değişir, bileşenler değil.
  *
- * Bölge adları `MOCK_REGIONS`'tan geliyor — üst bardaki seçim kutusu da o listeyi
- * kullanıyor, ayrı bir liste tutulsaydı seçilen bölge hiçbir kayıtla eşleşmezdi.
+ * Adlar coğrafi bölge DEĞİL, gaz dağıtım grup firması (K43). Liste burada
+ * yeniden yazılmıyor, grup mock'undan TÜRETİLİYOR: iki kopya olsaydı üst bardaki
+ * seçenekler ile "Bölge Bazlı Yoğunluk" satırları birbirini tutmaz, kullanıcı
+ * seçtiği bölgeyi kartta bulamazdı. Duyuru yayınlama kutusu da bunu kullanıyor.
  */
+
+export const MOCK_REGIONS = MOCK_FIRM_GROUPS.map((group) => group.name)
 
 /** Bölge başına BİRİKİMLİ sayılar (kullanıcı/firma adedi). Güne bağlı değil:
     dünden bugüne devreden toplamlar, gün dönünce sıfırlanmazlar. */
@@ -146,32 +150,38 @@ export function publishMockAnnouncement(input: MockAnnouncementInput): MockAnnou
   return created
 }
 
-function selectFacts(region: string | null): RegionFacts[] {
-  if (region === null) return REGION_FACTS
-  return REGION_FACTS.filter((facts) => facts.region === region)
+/**
+ * Kapsam kimliği → bölge adı. Üst bar grup KİMLİĞİ yazıyor, mock kayıtlar bölge
+ * ADI taşıyor; çeviri tek yerde durur ki her çağıran kendi eşlemesini kurmasın.
+ * Bilinmeyen kimlik null döner = kapsam yok sayılır (liste boşalmaz).
+ */
+export function mockRegionNameOf(groupId: number | null): string | null {
+  if (groupId === null) return null
+  return MOCK_FIRM_GROUPS.find((group) => group.id === groupId)?.name ?? null
 }
 
-export function queryMockRegionFacts(region: string | null): RegionFacts[] {
-  return selectFacts(region)
+/** Kapsam seçiliyse yalnız o bölgenin birikimli sayıları; değilse sistem geneli. */
+export function allMockRegionFacts(region: string | null = null): RegionFacts[] {
+  if (region === null) return REGION_FACTS
+  return REGION_FACTS.filter((facts) => facts.region === region)
 }
 
 /**
  * YALNIZ istenen güne ait hareketler. Gün eşleşmiyorsa boş dizi döner: gün
  * değişince "Bugün" sayaçları ve bölge yoğunluğu sıfırdan başlar.
  */
-export function queryMockDayActivity(region: string | null, dayKey: string): RegionDayActivity[] {
-  const ofDay = TODAY_ACTIVITY.filter((activity) => activity.dayKey === dayKey)
-
-  if (region === null) return ofDay
-  return ofDay.filter((activity) => activity.region === region)
+export function queryMockDayActivity(
+  dayKey: string,
+  region: string | null = null,
+): RegionDayActivity[] {
+  return TODAY_ACTIVITY.filter(
+    (activity) =>
+      activity.dayKey === dayKey && (region === null || activity.region === region),
+  )
 }
 
-/** Bölgesi olmayan duyuru her kapsamda görünür; bölgeli olan yalnız o bölgede. */
-export function queryMockAnnouncements(region: string | null): MockAnnouncement[] {
-  if (region === null) return announcements
-  return announcements.filter(
-    (announcement) => announcement.region === null || announcement.region === region,
-  )
+export function allMockAnnouncements(): MockAnnouncement[] {
+  return announcements
 }
 
 export type { RegionDayActivity, RegionFacts, MockAnnouncement }

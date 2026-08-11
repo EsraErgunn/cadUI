@@ -18,29 +18,27 @@ const MOCK_CITIES = [
 
 const NAME_SUFFIXES = ['Doğalgaz Dağıtım A.Ş.', 'Gaz Dağıtım A.Ş.', 'Şehiriçi Doğalgaz A.Ş.']
 
-/** Gerçek uç `{ id, name }` döndürüyor; mock da aynı biçimi taklit ediyor. */
+/**
+ * Gerçek uç `{ id, name }` döndürüyor; mock da aynı biçimi taklit ediyor.
+ *
+ * Adlar KISA ve büyük harf — gerçek `/api/gasdistributiongroups` yanıtı da böyle.
+ * Bu liste aynı zamanda üst bardaki bölge kapsamının seçenekleri ve gösterge
+ * panelindeki bölge adları: K43 ile "bölge" = gaz dağıtım grup firması, tek
+ * kaynak burası (bkz. adminDashboardMock → MOCK_REGIONS).
+ */
 export const MOCK_FIRM_GROUPS: FirmGroup[] = [
-  { id: 1, name: 'Aksa Enerji Grubu' },
-  { id: 2, name: 'Çalık Enerji Grubu' },
-  { id: 3, name: 'Enerya Grubu' },
-  { id: 4, name: 'Kalyon Enerji Grubu' },
-  { id: 5, name: 'Palen Enerji Grubu' },
-  { id: 6, name: 'Torunlar Enerji Grubu' },
+  { id: 1, name: 'AKMERCAN' },
+  { id: 2, name: 'AKSA' },
+  { id: 3, name: 'ÇEDAŞ' },
+  { id: 4, name: 'DOĞUGAZ' },
+  { id: 5, name: 'ENERYA' },
+  { id: 6, name: 'GAZDAŞ' },
+  { id: 7, name: 'TOROSGAZ' },
 ]
 
 function findMockGroup(groupId: number | null): FirmGroup | null {
   return MOCK_FIRM_GROUPS.find((group) => group.id === groupId) ?? null
 }
-
-export const MOCK_REGIONS = [
-  'Akdeniz',
-  'Doğu Anadolu',
-  'Ege',
-  'Güneydoğu Anadolu',
-  'İç Anadolu',
-  'Karadeniz',
-  'Marmara',
-]
 
 /** Silinen kayıtları taklit eden düzensiz artışlar — DFirm No bilerek aralıklı. */
 const DFIRM_NO_GAPS = [1, 2, 1, 4, 1, 3, 2, 1]
@@ -85,7 +83,6 @@ function buildMockFirms(): MockFirm[] {
         groupId: group?.id ?? null,
         groupName: group?.name ?? null,
         name: `${city} ${suffix}`,
-        region: MOCK_REGIONS[index % MOCK_REGIONS.length],
         description:
           index % UNDESCRIBED_EVERY === 0 ? null : `${city} bölgesi dağıtım firması.`,
         contactPerson: MOCK_CONTACT_PEOPLE[index % MOCK_CONTACT_PEOPLE.length],
@@ -130,14 +127,6 @@ export function isMockDfirmNoTaken(dfirmNo: number, exceptFirmId: number | null)
   return mockFirms.some((firm) => firm.dfirmNo === dfirmNo && firm.id !== exceptFirmId)
 }
 
-/**
- * Bölge SUNUCUDA YOK: gerçek sözleşmede ne liste satırı ne istek gövdesi bölge
- * taşıyor. Alan yalnız mock listesinin filtresini besliyor; yeni kayda sabit
- * bir değer veriliyor ki liste şeması dolsun. Liste gerçek uca bağlanınca
- * `region` tümüyle düşecek.
- */
-const MOCK_CREATED_FIRM_REGION = MOCK_REGIONS[0]
-
 function nextMockFirmId(): number {
   return mockFirms.reduce((largest, firm) => Math.max(largest, firm.id), 0) + 1
 }
@@ -152,7 +141,6 @@ export function createMockFirm(payload: GasDistributionFirmPayload): MockFirm {
     ...payload,
     ...toMockGroupFields(payload.groupId),
     id: nextMockFirmId(),
-    region: MOCK_CREATED_FIRM_REGION,
   }
 
   mockFirms = [...mockFirms, created]

@@ -96,7 +96,6 @@ export function useGasFirmForm({ firmId, initialValues }: UseGasFirmFormOptions)
       const page = await getGasDistributionFirms({
         nameQuery: name,
         groupId: null,
-        region: null,
         sortKey: 'name',
         sortDir: 'asc',
         page: 1,

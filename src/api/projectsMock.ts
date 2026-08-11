@@ -1,8 +1,7 @@
-import { MOCK_REGIONS } from './adminFirmsMock'
+import { MOCK_REGIONS } from './adminDashboardMock'
 import type {
   CreatedProject,
   CreateProjectPayload,
-  GasFirmsForProjectFirmQuery,
   Lookup,
   ProjectListQuery,
   ProjectStatus,
@@ -170,7 +169,6 @@ function matchesFilters(project: MockProject, query: ProjectStatusCountsQuery): 
   if (query.dateTo !== null && updatedDate > query.dateTo) return false
   if (query.districtId !== null && project.districtId !== query.districtId) return false
   if (query.projectFirmId !== null && project.projectFirmId !== query.projectFirmId) return false
-  if (query.region !== null && project.region !== query.region) return false
 
   if (query.search !== '') {
     const matchesSearch =
@@ -271,19 +269,13 @@ export async function queryMockDistricts(signal?: AbortSignal): Promise<Lookup[]
   return MOCK_DISTRICTS
 }
 
-export async function queryMockProjectFirms(
-  region: string | null,
-  signal?: AbortSignal,
-): Promise<Lookup[]> {
+export async function queryMockProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
   await sleep(MOCK_LATENCY_MS, signal)
-  if (region === null) return MOCK_PROJECT_FIRMS
-
-  return MOCK_PROJECT_FIRMS.filter((firm) => MOCK_PROJECT_FIRM_REGIONS.get(firm.id) === region)
+  return MOCK_PROJECT_FIRMS
 }
 
-/** Proje firmasının bölgesi. Değerler MOCK_PROJECT_REGIONS'tan türetiliyor:
-    elle yazılsaydı üst bardaki bölge listesinde karşılığı olmayan bir ad
-    firmaları görünmez yapardı. */
+/** Proje firmasının bölgesi. Süzgeç olarak KULLANILMIYOR (bölge kapsamı kalktı);
+    yeni kaydın bölge alanını doldurmak için duruyor. */
 const MOCK_PROJECT_FIRM_REGIONS = new Map<number, string>(
   MOCK_PROJECT_FIRMS.map((firm, index) => [
     firm.id,
@@ -301,34 +293,14 @@ const MOCK_GAS_FIRM_LINKS = new Map<number, number[]>([
   [15, [101, 103]],
 ])
 
-/** GD firmasının bölgeleri, bağlı olduğu proje firmalarından türetilir: elle
-    yazılsaydı "firma seçili ama bölgede GD firması yok" gibi çıkmaz bir kombinasyon
-    üretilebilirdi. */
-function gasFirmRegions(gasFirmId: number): string[] {
-  const regions: string[] = []
-
-  for (const [projectFirmId, gasFirmIds] of MOCK_GAS_FIRM_LINKS) {
-    if (!gasFirmIds.includes(gasFirmId)) continue
-
-    const region = MOCK_PROJECT_FIRM_REGIONS.get(projectFirmId)
-    if (region !== undefined && !regions.includes(region)) regions.push(region)
-  }
-
-  return regions
-}
-
 export async function queryMockGasFirmsForProjectFirm(
-  query: GasFirmsForProjectFirmQuery,
+  projectFirmId: number,
   signal?: AbortSignal,
 ): Promise<Lookup[]> {
   await sleep(MOCK_LATENCY_MS, signal)
-  const linkedIds = MOCK_GAS_FIRM_LINKS.get(query.projectFirmId) ?? []
+  const linkedIds = MOCK_GAS_FIRM_LINKS.get(projectFirmId) ?? []
 
-  return MOCK_GAS_FIRMS.filter(
-    (firm) =>
-      linkedIds.includes(firm.id) &&
-      (query.region === null || gasFirmRegions(firm.id).includes(query.region)),
-  )
+  return MOCK_GAS_FIRMS.filter((firm) => linkedIds.includes(firm.id))
 }
 
 const MOCK_ENGINEER_NAMES: [string, string][] = [

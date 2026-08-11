@@ -30,8 +30,6 @@ export interface AnnouncementForm {
 }
 
 export interface UseAnnouncementFormOptions {
-  /** Üst bardaki bölge; form o kapsamla açılır, kullanıcı değiştirebilir. */
-  defaultRegion: string | null
   /** Doğrulama hatasında odak taşınacak alanın kimliğini üretir. */
   fieldElementId: (field: AnnouncementField) => string
 }
@@ -42,13 +40,11 @@ export interface UseAnnouncementFormOptions {
  * formundaki (`useGasFirmForm`) ayrımın aynısı.
  */
 export function useAnnouncementForm({
-  defaultRegion,
   fieldElementId,
 }: UseAnnouncementFormOptions): AnnouncementForm {
-  const [values, setValues] = useState<AnnouncementFormValues>(() => ({
-    ...EMPTY_ANNOUNCEMENT,
-    region: defaultRegion ?? '',
-  }))
+  // Form "tüm bölgeler" ile açılır: üst bardaki kapsam seçicisi kaldırıldığı
+  // için önceden doldurulacak bir bölge kalmadı (docs/kararlar.md K31).
+  const [values, setValues] = useState<AnnouncementFormValues>(EMPTY_ANNOUNCEMENT)
   const [errors, setErrors] = useState<AnnouncementErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
