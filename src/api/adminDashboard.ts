@@ -18,8 +18,11 @@ import { includesTr } from './turkishText'
 /**
  * API SÖZLEŞMESİ — Yönetici anasayfası (Genel Bakış).
  *
- * GET  /api/dashboard/summary?date= → DashboardSummary
- * POST /api/dashboard/announcements         → Announcement
+ * Ekran İKİ kaynaktan besleniyor ve bu bilinçli (docs/kararlar.md K48):
+ *
+ * - **Sayaçlar, bugün, bölge yoğunluğu → GERÇEK uç** `GET /api/admin/dashboard`
+ * - **Duyurular → YEREL depo** (`announcementStore.ts`); duyuru varlığı
+ *   sunucuda hiç yazılmadı (entity, tablo, controller, migration yok)
  *
  * Özet TEK uçtan gelir: ekranın tüm sayıları (özet sayaçlar, bugün, bölge
  * yoğunluğu, duyuru önizlemeleri) aynı yanıtta. Liste uçlarının toplamı ALINMAZ
@@ -39,7 +42,7 @@ import { includesTr } from './turkishText'
  */
 
 /** TODO(esra): nihai yolu backend doğrulayacak — sunucuda `/api/admin/` öneki yok. */
-const DASHBOARD_SUMMARY_PATH = '/api/dashboard/summary'
+const ADMIN_DASHBOARD_PATH = '/api/admin/dashboard'
 
 /** TODO(esra): duyuru varlığı sunucuda yok; yol uç açılınca doğrulanacak. */
 const ANNOUNCEMENTS_PATH = '/api/dashboard/announcements'
@@ -212,6 +215,61 @@ function normalizeSummary(raw: DashboardSummary): DashboardSummary {
   }
 }
 
+/**
+ * Sunucunun gövdesi. `AdminDashboardDto` alanları arayüzünkilerle aynı DEĞİL
+ * (`gasDistributionUserCount` ↔ `gasDistributionUsers`, `projectCount` ↔ `count`);
+ * dönüşüm tek yerde, `toDashboardSummary`'de.
+ */
+const adminDashboardDtoSchema = z.object({
+  summary: z.object({
+    gasDistributionUserCount: z.number().int().nonnegative(),
+    projectFirmCount: z.number().int().nonnegative(),
+    projectFirmUserCount: z.number().int().nonnegative(),
+  }),
+  today: z.object({
+    newProjectCount: z.number().int().nonnegative(),
+    approvedCount: z.number().int().nonnegative(),
+    rejectedCount: z.number().int().nonnegative(),
+  }),
+  /** Sunucuda COĞRAFİ bölge başına PROJE adedi; kartın üç sayacı değil. */
+  regionDensity: z.array(
+    z.object({
+      regionId: z.number().int(),
+      regionName: z.string(),
+      projectCount: z.number().int().nonnegative(),
+    }),
+  ),
+  generatedAt: z.string(),
+})
+
+/**
+ * Sunucu gövdesi → ekranın sözleşmesi. Duyurular yanıtta olmadığı için AYRI
+ * kaynaktan geçiliyor: tek bir `DashboardSummary` üretmek, kartların iki ayrı
+ * yükleme durumu yönetmesine gerek bırakmıyor.
+ */
+function toDashboardSummary(
+  dto: z.infer<typeof adminDashboardDtoSchema>,
+  announcements: Announcement[],
+): DashboardSummary {
+  return {
+    counts: {
+      gasDistributionUsers: dto.summary.gasDistributionUserCount,
+      projectFirms: dto.summary.projectFirmCount,
+      projectFirmUsers: dto.summary.projectFirmUserCount,
+    },
+    today: {
+      newProjects: dto.today.newProjectCount,
+      approved: dto.today.approvedCount,
+      rejected: dto.today.rejectedCount,
+    },
+    regionDensity: dto.regionDensity.map((row) => ({
+      region: row.regionName,
+      count: row.projectCount,
+    })),
+    announcements,
+  }
+}
+
 /** Mock ham veriyi üretir; sıralama/limit/kısaltma `normalizeSummary`'de. */
 function buildMockSummary(dayKey: string, groupId: number | null): DashboardSummary {
   const region = mockRegionNameOf(groupId)
@@ -287,15 +345,19 @@ export async function getDashboardSummary(
     return buildNormalizedMock(dayKey, groupId)
   }
 
-  const query = new URLSearchParams({ date: dayKey })
-  if (groupId !== null) query.set('group', String(groupId))
-
   try {
-    const raw = await requestJson(
-      { method: 'GET', path: `${DASHBOARD_SUMMARY_PATH}?${query.toString()}`, signal },
-      dashboardSummarySchema,
+    // Kapsam UCA GÖNDERİLMİYOR: uç coğrafi `regionId` alıyor, üst bardaki kapsam
+    // ise gaz dağıtım GRUP firması (K43). İkisi farklı kavram; grup kimliğini
+    // `regionId` diye göndermek sunucuya yanlış soru sormak olurdu. Mock yolunda
+    // kapsam çalışmaya devam ediyor.
+    const dto = await requestJson(
+      { method: 'GET', path: ADMIN_DASHBOARD_PATH, signal },
+      adminDashboardDtoSchema,
     )
-    return normalizeSummary(raw)
+
+    // Duyurular yanıtta yok; kartın verisi yerel depodan geliyor.
+    const announcements = buildMockSummary(dayKey, groupId).announcements
+    return normalizeSummary(toDashboardSummary(dto, announcements))
   } catch (error) {
     if (!isMissingEndpoint(error)) throw error
 
