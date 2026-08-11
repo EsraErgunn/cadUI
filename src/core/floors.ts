@@ -181,6 +181,22 @@ export function reorderFloorInList<T extends Floor>(
   return isFloorOrderValid(reordered) ? reordered : floors
 }
 
+/**
+ * Bir üstteki / bir alttaki kat (madde 20: "Üst Kata Geç", Page Up/Down). Uçta
+ * undefined döner — döngüsel geçiş YOK: en üst kattayken Page Up ile bodruma
+ * düşmek kullanıcının bina içindeki yerini kaybettirir.
+ */
+export function getFloorIdInDirection(
+  floors: readonly Floor[],
+  floorId: Id,
+  direction: FloorDirection,
+): Id | undefined {
+  const index = getFloorIndex(floors, floorId)
+  if (index < 0) return undefined
+
+  return floors[direction === 'up' ? index + 1 : index - 1]?.id
+}
+
 /** Bir sıra yukarı/aşağı — klavyeyle sıralama. Kısıtlar reorder ile ortak. */
 export function moveFloorInList<T extends Floor>(
   floors: readonly T[],

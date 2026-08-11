@@ -8,29 +8,38 @@ import { useCadStore } from '../../store/cadStore'
 import { FloorCopyDialog } from '../FloorCopyDialog'
 
 const UPPER_FLOOR_ID = 14
+const TOP_FLOOR_ID = 15
 
+/** Zemin katta kapalı bir çizim; 1. Kat DOLU, 2. Kat boş. */
 beforeEach(() => {
   useCadStore.setState({
     floors: [
       createGroundFloor(),
       { id: UPPER_FLOOR_ID, name: '1. Kat', heightCm: DEFAULT_FLOOR_HEIGHT_CM, isBasement: false },
+      { id: TOP_FLOOR_ID, name: '2. Kat', heightCm: DEFAULT_FLOOR_HEIGHT_CM, isBasement: false },
     ],
     activeFloorId: DEFAULT_FLOOR_ID,
     points: [
       { id: 2, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
       { id: 3, floorId: DEFAULT_FLOOR_ID, x: 500, y: 0 },
+      { id: 20, floorId: UPPER_FLOOR_ID, x: 0, y: 0 },
+      { id: 21, floorId: UPPER_FLOOR_ID, x: 300, y: 0 },
     ],
     walls: [
       { id: 6, floorId: DEFAULT_FLOOR_ID, p1Id: 2, p2Id: 3, thickness: 20, height: 280 },
+      { id: 22, floorId: UPPER_FLOOR_ID, p1Id: 20, p2Id: 21, thickness: 20, height: 280 },
     ],
-    openings: [],
+    openings: [{ id: 10, wallId: 6, offsetCm: 250, widthCm: 90, type: 'door' }],
     rooms: [],
     symbols: [],
     installationElements: [],
+    installationLines: [],
+    installationConnections: [],
     nextUniqueId: 100,
     revision: 0,
     savedRevision: 0,
   })
+  useCadStore.temporal.getState().clear()
 })
 
 function renderDialog(onClose = vi.fn()) {
@@ -38,93 +47,140 @@ function renderDialog(onClose = vi.fn()) {
   return { onClose }
 }
 
-describe('FloorCopyDialog', () => {
-  it('hedef listesinde yalnız BOŞ katlar görünür', () => {
+function wallCountOn(floorId: number): number {
+  return useCadStore.getState().walls.filter((wall) => wall.floorId === floorId).length
+}
+
+describe('FloorCopyDialog — kaynak ve içerik (KK-15)', () => {
+  it('kaynak katın içeriğini sayılarla özetler', () => {
     renderDialog()
 
-    const target = screen.getByLabelText('Hedef kat')
-    const options = [...target.querySelectorAll('option')].map((option) => option.textContent)
-    // Zemin Kat kaynak ve dolu; yalnız 1. Kat seçilebilir.
-    expect(options).toEqual(['Seçiniz…', '1. Kat'])
+    expect(screen.getByText('1 duvar · 1 kapı')).toBeInTheDocument()
   })
 
-  it('kopyalar, hedef kata geçer ve kapanır', async () => {
-    const { onClose } = renderDialog()
+  it('kaynak kat hedef listesinde PASİFTİR', () => {
+    renderDialog()
 
-    await userEvent.selectOptions(screen.getByLabelText('Hedef kat'), String(UPPER_FLOOR_ID))
-    await userEvent.click(screen.getByRole('button', { name: 'Kopyala' }))
-
-    const state = useCadStore.getState()
-    expect(state.walls.filter((wall) => wall.floorId === UPPER_FLOOR_ID)).toHaveLength(1)
-    expect(state.activeFloorId).toBe(UPPER_FLOOR_ID)
-    expect(onClose).toHaveBeenCalled()
+    expect(screen.getByRole('checkbox', { name: /Zemin Kat/ })).toBeDisabled()
   })
 
   it('hedef seçilmeden Kopyala pasiftir', () => {
     renderDialog()
 
-    expect(screen.getByRole('button', { name: 'Kopyala' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Kopyala/ })).toBeDisabled()
   })
 
-  it('iki kutu da işaretsizken Kopyala pasiftir', async () => {
+  it('düğmede işlem görecek kat adedi yazar', async () => {
     renderDialog()
 
-    await userEvent.selectOptions(screen.getByLabelText('Hedef kat'), String(UPPER_FLOOR_ID))
-    await userEvent.click(screen.getByLabelText('Mimari'))
-    await userEvent.click(screen.getByLabelText('Tesisat'))
+    await userEvent.click(screen.getByRole('checkbox', { name: /2\. Kat/ }))
 
-    expect(screen.getByRole('button', { name: 'Kopyala' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Kopyala · 1 kat' })).toBeEnabled()
   })
+})
 
-  it('yalnız mimari seçilince tesisat kopyalanmaz', async () => {
-    useCadStore.setState({
-      installationElements: [
-        {
-          id: 50,
-          floorId: DEFAULT_FLOOR_ID,
-          type: 'boiler',
-          position: { x: 0, y: 0 },
-          angleDeg: 0,
-          scale: 1,
-        },
-      ],
-    })
+describe('FloorCopyDialog — tesisatın mimariye bağlılığı (KK-18)', () => {
+  it('tesisat işaretlenince mimari de işaretlenir', async () => {
     renderDialog()
 
-    await userEvent.selectOptions(screen.getByLabelText('Hedef kat'), String(UPPER_FLOOR_ID))
-    await userEvent.click(screen.getByLabelText('Tesisat'))
-    await userEvent.click(screen.getByRole('button', { name: 'Kopyala' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /Tesisat Tasarımı/ }))
 
-    const elements = useCadStore.getState().installationElements
-    expect(elements.filter((element) => element.floorId === UPPER_FLOOR_ID)).toHaveLength(0)
-    expect(useCadStore.getState().walls.filter((w) => w.floorId === UPPER_FLOOR_ID)).toHaveLength(1)
+    expect(screen.getByRole('checkbox', { name: /Mimari Tasarım/ })).toBeChecked()
   })
 
-  it('boş kat yoksa açıklama gösterilir ve hedef seçilemez', () => {
-    // İki kat da dolu: üst kata da duvar koy.
-    useCadStore.setState({
-      points: [
-        { id: 2, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
-        { id: 3, floorId: DEFAULT_FLOOR_ID, x: 500, y: 0 },
-        { id: 20, floorId: UPPER_FLOOR_ID, x: 0, y: 0 },
-        { id: 21, floorId: UPPER_FLOOR_ID, x: 100, y: 0 },
-      ],
-      walls: [
-        { id: 6, floorId: DEFAULT_FLOOR_ID, p1Id: 2, p2Id: 3, thickness: 20, height: 280 },
-        { id: 22, floorId: UPPER_FLOOR_ID, p1Id: 20, p2Id: 21, thickness: 20, height: 280 },
-      ],
-    })
+  it('mimarinin işareti kalkınca tesisatınki de kalkar', async () => {
     renderDialog()
 
-    expect(screen.getByText(/Kopyalanacak boş kat yok/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Hedef kat')).toBeDisabled()
+    await userEvent.click(screen.getByRole('checkbox', { name: /Tesisat Tasarımı/ }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /Mimari Tasarım/ }))
+
+    expect(screen.getByRole('checkbox', { name: /Tesisat Tasarımı/ })).not.toBeChecked()
   })
 
-  it('Esc kapatır', async () => {
+  it('hiçbiri işaretli değilken Kopyala pasiftir (KK-15)', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /2\. Kat/ }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /Mimari Tasarım/ }))
+
+    expect(screen.getByRole('button', { name: /Kopyala/ })).toBeDisabled()
+  })
+})
+
+describe('FloorCopyDialog — hedef seçimi (KK-16)', () => {
+  it('"Tümünü seç" kaynak dışındaki katları işaretler', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tümünü seç' }))
+
+    expect(screen.getByRole('button', { name: 'Kopyala · 2 kat' })).toBeInTheDocument()
+  })
+
+  it('"Temizle" hiçbirini seçili bırakmaz', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tümünü seç' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Temizle' }))
+
+    expect(screen.getByRole('button', { name: /Kopyala/ })).toBeDisabled()
+  })
+
+  it('aralık seçimi aradaki katların tamamını işaretler', async () => {
+    renderDialog()
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Aralık başlangıcı' }), '14')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Aralık bitişi' }), '15')
+    await userEvent.click(screen.getByRole('button', { name: 'Seç' }))
+
+    expect(screen.getByRole('button', { name: 'Kopyala · 2 kat' })).toBeInTheDocument()
+  })
+})
+
+describe('FloorCopyDialog — hedefte içerik (KK-17)', () => {
+  it('içerik taşıyan hedef "İçerik var" rozetiyle ayrılır', () => {
+    renderDialog()
+
+    expect(screen.getByText('İçerik var')).toBeInTheDocument()
+  })
+
+  it('"Üzerine yaz" seçiliyken silinecek katlar adlarıyla uyarılır', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /1\. Kat/ }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('1. Kat')
+    expect(screen.getByRole('alert')).toHaveTextContent('silinip yerine kaynak katın çizimi')
+  })
+
+  it('"Bu katları atla" seçilince dolu kat işlem dışında kalır', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tümünü seç' }))
+    await userEvent.click(screen.getByRole('radio', { name: /Bu katları atla/ }))
+
+    expect(screen.getByRole('button', { name: 'Kopyala · 1 kat' })).toBeInTheDocument()
+    expect(screen.getByText(/işlem dışında kalacak/)).toBeInTheDocument()
+  })
+
+  it('"Üzerine yaz" hedefteki çizimi değiştirir, biriktirmez', async () => {
     const { onClose } = renderDialog()
 
-    await userEvent.keyboard('{Escape}')
+    await userEvent.click(screen.getByRole('checkbox', { name: /1\. Kat/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Kopyala/ }))
 
+    // Kaynakta 1 duvar vardı; hedefteki 1 duvar silinip yerine 1 duvar yazıldı.
+    expect(wallCountOn(UPPER_FLOOR_ID)).toBe(1)
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('birden çok hedefe kopyalama TEK geri alma adımıdır (madde 19)', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tümünü seç' }))
+    await userEvent.click(screen.getByRole('button', { name: /Kopyala/ }))
+
+    expect(wallCountOn(UPPER_FLOOR_ID)).toBe(1)
+    expect(wallCountOn(TOP_FLOOR_ID)).toBe(1)
+    expect(useCadStore.temporal.getState().pastStates).toHaveLength(1)
   })
 })

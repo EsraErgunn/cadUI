@@ -11,9 +11,27 @@ değişiyor ve `moveFloorInList` tek yerde yapıyor.
 **Sonucu:** "Alt kat gölgesi" (KK-13) `index - 1`'dir — `getFloorBelowId`.
 En alt katın altı yoktur, `undefined` döner.
 
-**Görüntü ters:** Hem Kat Yönetimi diyaloğu hem sekme şeridi listeyi EN ÜST kat
-başta gösterir (kullanıcı binayı kesitten görüyor). Çeviri yalnız görüntü
-katmanındadır (`[...floors].reverse()`); veri yapısı görüntü için çevrilmez.
+**İki görüntü yönü, ikisi de bilerek:**
+
+- **"Katlar" penceresi** listeyi EN ÜST kat başta gösterir (`reverse()`):
+  kullanıcı binayı kesitten okuyor.
+- **Kat şeridi** (çizim alanının sol üstü) soldan sağa AŞAĞIDAN YUKARIYA dizer,
+  yani dizinin KENDİ sırası — çevirmez. Şeritte kat bir eksen üzerinde okunuyor.
+
+Yani şerit ile pencere birbirinin tersidir; pencerede en üstteki kat listenin
+başında, şeritte sağ uçtadır (madde 20). Veri yapısı hiçbiri için çevrilmez.
+
+Şeritte çizimi olmayan kat içi BOŞ halka işaretiyle ayrılır ve aktif kat DOLU
+biçimde vurgulanır — ikisi de renkten bağımsız okunur. Kat sayısı sığmadığında
+şerit yatay kayar ve aktif kat `scrollIntoView` ile görünür konuma getirilir.
+
+Geçiş ANINDA uygulanır (şerit, menü, Page Up/Down); yalnız "Katlar" penceresi
+içindeki aktif kat değişikliği "Uygula"yı bekler — pencere taslak üzerinde
+çalışıyor, bkz. [floor-plan-draft](./floor-plan-draft.md).
+
+Kat geçişi DÖNGÜSEL DEĞİL (`getFloorIdInDirection` uçta `undefined` döner): en
+üst kattayken Page Up ile bodruma düşmek kullanıcının bina içindeki yerini
+kaybettirir.
 
 ## Bodrum ayrımı sıranın KISITIDIR, etiket değil
 
@@ -94,4 +112,4 @@ olduğu için sayıya bakmak numarayı hemen kaydırırdı.
 
 **Dosya:** core/floors.ts + core/floorElevation.ts (saf) · store/floorOps.ts
 (draft) · store/floorSlice.ts (action) · ui/FloorManagementDialog.tsx ·
-ui/FloorTabs.tsx · scene/FloorBelowGhost.tsx
+ui/FloorStrip.tsx · scene/FloorBelowGhost.tsx

@@ -21,6 +21,7 @@ beforeEach(() => {
     openings: [],
     rooms: [],
     symbols: [],
+    areaObjects: [],
     installationElements: [],
     installationLines: [],
     revision: 0,
@@ -205,7 +206,12 @@ describe('FloorManagementDialog — seçim ve aktif kat (KK-9)', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: '1. Kat seç' }))
 
     expect(screen.getByText('Seçili 1 kat:')).toBeInTheDocument()
+
     await userEvent.click(screen.getByRole('button', { name: 'Sil' }))
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Kat içeriğinin silineceğini anladım' }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Katı Sil' }))
     await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
 
     expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME])
@@ -252,5 +258,158 @@ describe('FloorManagementDialog — sıralama ve ekleme', () => {
     renderDialog()
 
     expect(screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} sil` })).toBeDisabled()
+  })
+})
+
+describe('FloorManagementDialog — kat silme onayı (KK-12, KK-14)', () => {
+  it('satırdaki silme aksiyonu onay penceresi açar, doğrudan silmez', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    expect(screen.getByRole('heading', { name: 'Kat Silme Onayı' })).toBeInTheDocument()
+    expect(screen.getByText(/silinecek\. Kata ait mimari/)).toBeInTheDocument()
+    // Onay açılmışken kat hâlâ taslakta duruyor.
+    expect(screen.getByRole('textbox', { name: '1. Kat adı' })).toBeInTheDocument()
+  })
+
+  it('onay kutusu işaretlenmeden "Katı Sil" pasiftir', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+    const confirm = screen.getByRole('button', { name: 'Katı Sil' })
+    expect(confirm).toBeDisabled()
+
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Kat içeriğinin silineceğini anladım' }),
+    )
+    expect(confirm).toBeEnabled()
+  })
+
+  it('onaylanan silme taslaktan düşer, "Uygula" ile yazılır', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Kat içeriğinin silineceğini anladım' }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Katı Sil' }))
+
+    // Onay taslağı değiştirir; store hâlâ eski hâlde.
+    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME])
+  })
+
+  it('"Vazgeç" katı silmez', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Vazgeç' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+
+    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
+  })
+
+  it('silme sonrası üstteki katın kot değişimi önceden gösterilir', async () => {
+    useCadStore.setState({
+      floors: [
+        createGroundFloor(),
+        { id: UPPER_FLOOR_ID, name: '1. Kat', heightCm: 300, isBasement: false },
+        { id: 101, name: '2. Kat', heightCm: 300, isBasement: false },
+      ],
+    })
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    expect(screen.getByText(/2\. Kat \+6,00 → \+3,00/)).toBeInTheDocument()
+  })
+
+  it('tüm katlar seçiliyken silme yapılmaz ve en az bir kat gerektiği bildirilir', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: `${DEFAULT_FLOOR_NAME} seç` }))
+    await userEvent.click(screen.getByRole('checkbox', { name: '1. Kat seç' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sil' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('En az bir katın kalması gerekir')
+    expect(screen.queryByRole('button', { name: 'Katı Sil' })).not.toBeInTheDocument()
+  })
+})
+
+describe('FloorManagementDialog — düşey eksen uyarısı (KK-13)', () => {
+  function putVerticalAxisOnUpperFloor() {
+    useCadStore.setState({
+      areaObjects: [
+        {
+          id: 70,
+          type: 'flueShaft',
+          floorId: UPPER_FLOOR_ID,
+          x: 0,
+          y: 0,
+          widthCm: 60,
+          lengthCm: 60,
+          angleDeg: 0,
+          label: 'BŞ-01',
+        },
+        {
+          id: 71,
+          type: 'columnVentilation',
+          floorId: UPPER_FLOOR_ID,
+          x: 100,
+          y: 0,
+          widthCm: 40,
+          lengthCm: 40,
+          angleDeg: 0,
+          label: 'KH-01',
+        },
+      ],
+    })
+  }
+
+  it('baca şaftı ve kolon havalandırması adedi uyarıda görünür', async () => {
+    putVerticalAxisOnUpperFloor()
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('1 baca şaftı ve 1 kolon havalandırması')
+    expect(alert).toHaveTextContent('aynı düşey eksende kalmaz')
+  })
+
+  it('düşey eksen nesnesi yoksa uyarı ÇIKMAZ', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    expect(screen.queryByText(/düşey eksende kalmaz/)).not.toBeInTheDocument()
+  })
+
+  it('merdiven düşey eksen uyarısı üretmez', async () => {
+    useCadStore.setState({
+      areaObjects: [
+        {
+          id: 72,
+          type: 'stairs',
+          floorId: UPPER_FLOOR_ID,
+          x: 0,
+          y: 0,
+          widthCm: 120,
+          lengthCm: 200,
+          angleDeg: 0,
+          label: 'M-01',
+        },
+      ],
+    })
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    expect(screen.queryByText(/düşey eksende kalmaz/)).not.toBeInTheDocument()
+    // Alan nesnesi mimari dökümünde yine de sayılır.
+    expect(screen.getByText(/1 alan nesnesi/)).toBeInTheDocument()
   })
 })

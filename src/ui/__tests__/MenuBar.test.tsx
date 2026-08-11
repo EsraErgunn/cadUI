@@ -13,6 +13,7 @@ function renderMenuBar(
   onExport = vi.fn(),
   onOpenFloorManagement = vi.fn(),
   onOpenFloorCopy = vi.fn(),
+  onGoToFloor = vi.fn(),
 ) {
   render(
     <MemoryRouter>
@@ -22,11 +23,12 @@ function renderMenuBar(
         onExport={onExport}
         onOpenFloorManagement={onOpenFloorManagement}
         onOpenFloorCopy={onOpenFloorCopy}
+        onGoToFloor={onGoToFloor}
         isSaving={false}
       />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave, onExport, onOpenFloorManagement, onOpenFloorCopy }
+  return { onCloseEditor, onSave, onExport, onOpenFloorManagement, onOpenFloorCopy, onGoToFloor }
 }
 
 describe('MenuBar', () => {
@@ -45,7 +47,11 @@ describe('MenuBar', () => {
 
       await user.click(screen.getByRole('button', { name: new RegExp(`^${label}`) }))
 
-      const expectedLabels = menu.groups.flatMap((group) => group.items.map((item) => item.label))
+      // Kısayol etiketi maddenin İÇİNDE duruyor (sağa yaslı), bu yüzden beklenen
+      // metin "etiket + kısayol" olarak kuruluyor.
+      const expectedLabels = menu.groups.flatMap((group) =>
+        group.items.map((item) => `${item.label}${item.shortcut ?? ''}`),
+      )
       // menuitem ve menuitemcheckbox karışık sırada geliyor; RTL role sorgusu
       // tek rol aldığı için sırayı korumak adına DOM sırasından okuyoruz.
       const dropdown = screen.getByRole('menu', { name: label })

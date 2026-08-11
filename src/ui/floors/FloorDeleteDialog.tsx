@@ -1,0 +1,148 @@
+import { useState } from 'react'
+
+import { formatArchitectureCounts, formatInstallationCounts } from './floorCountText'
+import { FLOOR_FOCUS_RING } from './floorVariants'
+import { getVerticalAxisCount, isContentCountEmpty } from '../../core/floorContent'
+import type { FloorContentCounts } from '../../core/floorContent'
+import type { FloorDeletionSummary } from '../../core/floorDeletion'
+import { formatElevationM } from '../../core/floorElevation'
+import { DialogShell } from '../controls/DialogShell'
+import { chromeButtonVariants } from '../controls/buttonVariants'
+
+type FloorDeleteDialogProps = {
+  summary: FloorDeletionSummary
+  onCancel: () => void
+  onConfirm: () => void
+}
+
+const CONFIRM_LABEL = 'Kat içeriğinin silineceğini anladım'
+
+function SummaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-3 text-sm">
+      <span className="w-16 shrink-0 text-ink-muted">{label}</span>
+      <span className="text-ink">{value}</span>
+    </div>
+  )
+}
+
+/** "1 baca şaftı ve 1 kolon havalandırması" — sıfır olan tür yazılmaz. */
+function describeVerticalAxis(counts: FloorContentCounts): string {
+  return [
+    counts.flueShaftCount > 0 && `${counts.flueShaftCount} baca şaftı`,
+    counts.columnVentilationCount > 0 && `${counts.columnVentilationCount} kolon havalandırması`,
+  ]
+    .filter(Boolean)
+    .join(' ve ')
+}
+
+/**
+ * Kat Silme Onayı (KK-12, KK-13, KK-14). Silme burada YAPILMAZ, yalnız onaylanır:
+ * pencere taslağı bilmiyor, çağıran onaylanan silmeyi kendi taslağına uyguluyor.
+ */
+export function FloorDeleteDialog({ summary, onCancel, onConfirm }: FloorDeleteDialogProps) {
+  const [isConfirmed, setIsConfirmed] = useState(false)
+
+  const names = summary.floors.map((floor) => floor.name)
+  const { counts } = summary
+
+  if (summary.isBlocked) {
+    return (
+      <DialogShell title="Kat Silme Onayı" onClose={onCancel}>
+        <div className="px-5 py-4">
+          <p role="alert" className="text-sm text-ink">
+            Projedeki katların tamamı seçili. En az bir katın kalması gerekir; seçimden bir kat
+            çıkarıp yeniden deneyin.
+          </p>
+        </div>
+        <div className="flex shrink-0 justify-end border-t border-edge px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
+          >
+            Kapat
+          </button>
+        </div>
+      </DialogShell>
+    )
+  }
+
+  return (
+    <DialogShell title="Kat Silme Onayı" onClose={onCancel}>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        <p className="text-sm text-ink">
+          <b>{names.join(', ')}</b> silinecek. Kata ait mimari ve tesisat çizimi birlikte
+          kaldırılır.
+        </p>
+
+        <div className="space-y-1 rounded-md border border-dashed border-edge px-3 py-2">
+          <SummaryLine label="Mimari" value={formatArchitectureCounts(counts)} />
+          <SummaryLine label="Tesisat" value={formatInstallationCounts(counts)} />
+          {summary.elevationChanges.length > 0 && (
+            <SummaryLine
+              label="Kot"
+              value={summary.elevationChanges
+                .map(
+                  (change) =>
+                    `${change.name} ${formatElevationM(change.beforeCm)} → ${formatElevationM(
+                      change.afterCm,
+                    )}`,
+                )
+                .join(' · ')}
+            />
+          )}
+        </div>
+
+        {getVerticalAxisCount(counts) > 0 && (
+          <p
+            role="alert"
+            className="rounded-md border-l-4 border-danger px-3 py-2 text-xs text-ink"
+          >
+            Bu katta <b className="text-danger">{describeVerticalAxis(counts)}</b> bulunuyor.
+            Silinmesi durumunda alt ve üst kattaki karşılıkları aynı düşey eksende kalmaz; durum
+            hata kontrollerinde listelenir.
+          </p>
+        )}
+
+        {isContentCountEmpty(counts) && (
+          <p className="text-xs text-ink-muted">Seçilen katlarda çizim yok.</p>
+        )}
+
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={isConfirmed}
+            onChange={(event) => setIsConfirmed(event.target.checked)}
+            className={FLOOR_FOCUS_RING}
+          />
+          {CONFIRM_LABEL}
+        </label>
+
+        <p className="text-xs text-ink-muted">
+          &quot;Katı Sil&quot; düğmesi, bu kutu işaretlenene kadar pasiftir. Silme işlemi
+          &quot;Geri Al&quot; ile tek adımda geri alınır; çizim ekranı kapatıldıktan sonra geri
+          alınamaz.
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-end gap-2 border-t border-edge px-5 py-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
+        >
+          Vazgeç
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={!isConfirmed}
+          className={`${chromeButtonVariants()} bg-danger text-surface disabled:bg-surface-sunken ${FLOOR_FOCUS_RING}`}
+        >
+          Katı Sil
+        </button>
+      </div>
+    </DialogShell>
+  )
+}

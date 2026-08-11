@@ -90,7 +90,9 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
 - Hatalı giriş: hesabın var olup olmadığını ele vermeyen GENEL hata mesajı.
 - Borular duvarlara paralel (yatay/dikey), hat üzerinden başlar. Duvar+boru üst üste binmez.
 - Cihaza bağlanmamış boru ucu UYARIYLA gösterilir ama çalışmayı ENGELLEMEZ (severity: warning).
-- Bir kat mimarisi boş kata bağımsız kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
+- Bir kat mimarisi başka katlara kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
+  Hedefte içerik varsa kullanıcı seçer: üzerine yaz (aynı TÜRDEN çizim silinir) ya da o katı
+  atla — "hedef boş olmalı" kuralı kalktı, bkz. knowledge/floor-clone.md.
 - İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
 - Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
 - Renk: marka sarısı #FFC107 çizim alanına GİRMEZ. Seçim rengi mavi. Gaz hattının rengi

@@ -8,15 +8,39 @@ import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { useEditorShortcuts } from '../useEditorShortcuts'
 
-function Harness({ onSave }: { onSave: () => void }) {
-  useEditorShortcuts({ onSave })
+type HarnessHandlers = {
+  onSave: () => void
+  onOpenFloorManagement: () => void
+  onOpenFloorCopy: () => void
+  onGoToFloor: (direction: 'up' | 'down') => void
+}
+
+function Harness(handlers: HarnessHandlers) {
+  useEditorShortcuts(handlers)
   // Kısayolun metin kutusunda susmasını sınamak için bir giriş alanı da var.
   return <input aria-label="not" />
 }
 
 function renderHarness(onSave = vi.fn()) {
-  render(<Harness onSave={onSave} />)
+  const handlers: HarnessHandlers = {
+    onSave,
+    onOpenFloorManagement: vi.fn(),
+    onOpenFloorCopy: vi.fn(),
+    onGoToFloor: vi.fn(),
+  }
+  render(<Harness {...handlers} />)
   return onSave
+}
+
+function renderFloorHarness() {
+  const handlers: HarnessHandlers = {
+    onSave: vi.fn(),
+    onOpenFloorManagement: vi.fn(),
+    onOpenFloorCopy: vi.fn(),
+    onGoToFloor: vi.fn(),
+  }
+  render(<Harness {...handlers} />)
+  return handlers
 }
 
 beforeEach(() => {
@@ -142,5 +166,38 @@ describe('useEditorShortcuts', () => {
     await user.keyboard('s')
 
     expect(onSave).not.toHaveBeenCalled()
+  })
+})
+
+describe('kat kısayolları (madde 1)', () => {
+  it('Ctrl+K kat yönetimini, Ctrl+Shift+K kopyalamayı açar', async () => {
+    const handlers = renderFloorHarness()
+
+    await userEvent.keyboard('{Control>}k{/Control}')
+    expect(handlers.onOpenFloorManagement).toHaveBeenCalledTimes(1)
+
+    await userEvent.keyboard('{Control>}{Shift>}k{/Shift}{/Control}')
+    expect(handlers.onOpenFloorCopy).toHaveBeenCalledTimes(1)
+  })
+
+  it('Page Up / Page Down aktif katı değiştirir — değiştirici tuş İSTEMEZ', async () => {
+    const handlers = renderFloorHarness()
+
+    await userEvent.keyboard('{PageUp}')
+    await userEvent.keyboard('{PageDown}')
+
+    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(1, 'up')
+    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(2, 'down')
+  })
+
+  it('metin kutusunda kat kısayolu ÇALIŞMAZ', async () => {
+    const handlers = renderFloorHarness()
+
+    await userEvent.click(screen.getByRole('textbox', { name: 'not' }))
+    await userEvent.keyboard('{PageUp}')
+    await userEvent.keyboard('{Control>}k{/Control}')
+
+    expect(handlers.onGoToFloor).not.toHaveBeenCalled()
+    expect(handlers.onOpenFloorManagement).not.toHaveBeenCalled()
   })
 })

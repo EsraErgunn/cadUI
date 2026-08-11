@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 
+import { useFloorContentSource } from './useFloorContentSource'
 import { getFloorContent, isFloorContentEmpty, type FloorContent } from '../../core/floorContent'
+import { getFloorDeletionSummary, type FloorDeletionSummary } from '../../core/floorDeletion'
 import { getFloorElevationsCm } from '../../core/floorElevation'
 import {
   addDraftFloor,
@@ -30,33 +32,10 @@ export function useFloorPlanDraft() {
   const storedActiveFloorId = useCadStore((state) => state.activeFloorId)
   const applyFloorPlan = useCadStore((state) => state.applyFloorPlan)
 
-  // Her diziye AYRI abone olunur: tek selector'da nesne döndürmek her çağrıda
-  // yeni referans üretir ve bileşen sonsuz render olur (snap-contract.md).
-  const points = useCadStore((state) => state.points)
-  const walls = useCadStore((state) => state.walls)
-  const openings = useCadStore((state) => state.openings)
-  const rooms = useCadStore((state) => state.rooms)
-  const symbols = useCadStore((state) => state.symbols)
-  const areaObjects = useCadStore((state) => state.areaObjects)
-  const installationElements = useCadStore((state) => state.installationElements)
-  const installationLines = useCadStore((state) => state.installationLines)
+  const contentSource = useFloorContentSource()
 
   const [draft, setDraft] = useState<FloorPlanDraft>(() =>
     createFloorPlanDraft(storedFloors, storedActiveFloorId),
-  )
-
-  const contentSource = useMemo(
-    () => ({
-      points,
-      walls,
-      openings,
-      rooms,
-      symbols,
-      areaObjects,
-      installationElements,
-      installationLines,
-    }),
-    [points, walls, openings, rooms, symbols, areaObjects, installationElements, installationLines],
   )
 
   /**
@@ -70,6 +49,17 @@ export function useFloorPlanDraft() {
       const sourceId = floor?.copyFromFloorId ?? floorId
       return getFloorContent(contentSource, sourceId)
     },
+    [contentSource, draft.floors],
+  )
+
+  /**
+   * Silme dökümü TASLAKTAKİ kat listesine bakar (store'a değil): aynı pencerede
+   * eklenmiş bir katı silmek de onay isteyebilmeli ve "en az bir kat kalmalı"
+   * kuralı kullanıcının gördüğü listeye göre işlemeli.
+   */
+  const deletionSummaryOf = useCallback(
+    (floorIds: readonly Id[]): FloorDeletionSummary =>
+      getFloorDeletionSummary(contentSource, draft.floors, floorIds),
     [contentSource, draft.floors],
   )
 
@@ -120,6 +110,7 @@ export function useFloorPlanDraft() {
     elevationsCm,
     emptyFloors,
     contentOf,
+    deletionSummaryOf,
     canAddFloor: canAddFloor(draft.floors),
     canAddBasement: canAddBasement(draft.floors),
     actions,
