@@ -9,13 +9,13 @@ import { INSTALLATION_GHOST_ELEVATION_CM, LINE_ELEVATION_CM } from './plumbingLa
 import { PLUMBING_COLORS } from './plumbingTheme'
 import { GHOST_OPACITY } from './symbolLoader'
 import { useCameraZoom } from './useCameraZoom'
+import { useDraggedCorners, type DraggedCorner } from './useDraggedCorners'
 import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
 import type { InstallationConnection, InstallationLine, InstallationLinePoint } from '../core/installationModel'
-import { getLinkedLinePoints } from '../core/lineCornerLink'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Hat tıklanabilir değil: tesisat tutması ışınla değil saf geometriyle yapılıyor. */
@@ -93,9 +93,6 @@ export function PipeLine({
   )
 }
 
-/** Bir hattın sürükleme sırasında geçici konuma taşınan köşesi. */
-export type DraggedCorner = { pointId: Id; position: PlanPoint }
-
 type DragOffsetGroupProps = {
   deltaRef: RefObject<PlanPoint | null>
   children: ReactNode
@@ -111,7 +108,7 @@ type DragOffsetGroupProps = {
  * lineStyle.ts'teki zoom okumasında da var). Sürükleme bitince bu sarmalayıcı
  * unmount olur, ofset kendiliğinden sıfırlanır.
  */
-function DragOffsetGroup({ deltaRef, children }: DragOffsetGroupProps) {
+export function DragOffsetGroup({ deltaRef, children }: DragOffsetGroupProps) {
   const groupRef = useRef<Group>(null)
 
   useFrame(() => {
@@ -234,34 +231,6 @@ type InstallationLinesProps = {
   /** Sürüklenen hatlar; canlı kayma YALNIZ bunlara uygulanır (bkz. useSelectionTool). */
   draggedLineIds?: readonly Id[]
   dragDeltaRef?: RefObject<PlanPoint | null>
-}
-
-/** Sürükleme yokken paylaşılan boş harita: her render'da yeni Map ayırmamak için. */
-const NO_DRAGGED_CORNERS: ReadonlyMap<Id, DraggedCorner> = new Map()
-
-/**
- * Sürüklenen köşe + ONUNLA BİRLİKTE giden komşu hat uçları, hat başına
- * indekslenmiş. Kapsayıcıda BİR kez hesaplanır: her hat kendi payına düşeni
- * prop olarak alır, hepsi ayrı ayrı bağlantı listesini taramaz.
- *
- * Bir hattın iki ucu aynı köşede buluşamayacağı için (sıfır boy adım yazılmaz)
- * hat başına tek kayıt yeterli.
- */
-function useDraggedCorners(
-  lines: readonly InstallationLine[],
-  connections: readonly InstallationConnection[],
-): ReadonlyMap<Id, DraggedCorner> {
-  const drag = usePlumbingUiStore((state) => state.draggingLineCorner)
-
-  return useMemo(() => {
-    if (!drag) return NO_DRAGGED_CORNERS
-
-    const corners = new Map<Id, DraggedCorner>()
-    for (const link of getLinkedLinePoints(lines, connections, drag.lineId, drag.pointId)) {
-      corners.set(link.lineId, { pointId: link.pointId, position: drag.position })
-    }
-    return corners
-  }, [drag, lines, connections])
 }
 
 /** Aktif kattaki hatlar. Store dizilerine olduğu gibi abone olunur (türetilmiş dizi

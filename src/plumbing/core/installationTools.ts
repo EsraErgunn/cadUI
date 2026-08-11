@@ -75,6 +75,15 @@ export function getPlacementElementType(toolId: string): InstallationElementType
   return tool.elementType ?? null
 }
 
+/**
+ * Araç iki noktalı ölçüm aracı mı? Karşılaştırma `behavior` alanından yapılır,
+ * id metninden değil: aynı anda tek araç mantığı aktif olsun diye her hook kendi
+ * DAVRANIŞINI sorar (seçim aracıyla karışma riskinin panzehiri).
+ */
+export function isMeasurementTool(toolId: string): boolean {
+  return toolDefinitions.find((candidate) => candidate.id === toolId)?.behavior === 'measurement'
+}
+
 /** Araç hat çiziyorsa hangi türü, değilse null. */
 export function getLineKind(toolId: string): InstallationLineKind | null {
   const tool = toolDefinitions.find((candidate) => candidate.id === toolId)

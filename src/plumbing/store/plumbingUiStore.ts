@@ -34,6 +34,17 @@ export type LineDraft = LineChain & {
   kind: InstallationLineKind
 }
 
+/**
+ * Kalıcı OLMAYAN iki noktalı ölçüm. `end` null iken ölçüm sürüyor: ikinci nokta
+ * imleçte, sahnenin ref'inde taşınır — her pointermove store'a yazılsaydı ölçüm
+ * boyunca kare başına render olurdu (lastik bantla aynı gerekçe). İkinci tık
+ * `end`i sabitler.
+ *
+ * cadStore'a DEĞİL buraya yazılır: ölçüm çizimin parçası değil, geçici bir
+ * okuma. Kaydedilen JSON'a girmez, `markDirty` çağırmaz, Ctrl+Z'ye takılmaz.
+ */
+export type Measurement = { start: PlanPoint; end: PlanPoint | null }
+
 type PlumbingUiState = {
   selectedElementIds: Id[]
   /** Hatlar ayrı listede: eleman ve hat id'leri aynı evrende ama iki farklı
@@ -68,6 +79,11 @@ type PlumbingUiState = {
   pasteStepCount: number
   copyToClipboard: (payload: ClipboardPayload) => void
   advancePasteStep: () => void
+  /** Ekrandaki ölçüm; null = ölçüm yok. Tek temizleme kapısı `clearMeasurement`. */
+  measurement: Measurement | null
+  startMeasurement: (start: PlanPoint) => void
+  finishMeasurement: (end: PlanPoint) => void
+  clearMeasurement: () => void
   /** symbolLoader.ts'in doldurduğu asset hataları — sessiz catch yerine görünür durum. */
   assetErrors: Partial<Record<InstallationElementType, string>>
   setAssetError: (type: InstallationElementType, message: string) => void
@@ -81,8 +97,10 @@ type PlumbingUiState = {
  * parçası DEĞİL, oturum boyu süren bir ara bellek. cadStore'a konsaydı
  * kaydedilen JSON'a sızar ve Ctrl+Z panoyu da geri alırdı.
  *
- * TODO(tesisat): hover'lanan port ve aktif ölçüm ilgili aşamalarda buraya
- * eklenecek; imleç konumu store'a değil useRef/useFrame'e yazılır.
+ * Ölçüm de burada: iki noktalı ölçü çizimin parçası değil, geçici bir okuma.
+ *
+ * TODO(tesisat): hover'lanan port ilgili aşamada buraya eklenecek; imleç konumu
+ * store'a değil useRef/useFrame'e yazılır.
  */
 export const usePlumbingUiStore = create<PlumbingUiState>()(
   immer((set) => ({
@@ -96,6 +114,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     lineClipboard: [],
     connectionClipboard: [],
     pasteStepCount: 0,
+    measurement: null,
     assetErrors: {},
 
     setSelectedElements: (elementIds) =>
@@ -169,6 +188,22 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     advancePasteStep: () =>
       set((draft) => {
         draft.pasteStepCount += 1
+      }),
+
+    startMeasurement: (start) =>
+      set((draft) => {
+        draft.measurement = { start, end: null }
+      }),
+
+    // Başlamamış ölçüm bitmez: ikinci nokta her zaman bir ilk noktadan sonra gelir.
+    finishMeasurement: (end) =>
+      set((draft) => {
+        if (draft.measurement) draft.measurement.end = end
+      }),
+
+    clearMeasurement: () =>
+      set((draft) => {
+        draft.measurement = null
       }),
 
     setAssetError: (type, message) =>

@@ -11,8 +11,11 @@ import {
 type UiState = {
   activeToolId: ToolId | InstallationToolId
   activeViewId: ViewId
+  /** Görünüm ▸ Ölçüleri Göster. Görüntüleme tercihi: kaydedilmez, geçmişe girmez. */
+  isDimensionsVisible: boolean
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
+  toggleDimensionsVisible: () => void
 }
 
 /**
@@ -25,6 +28,7 @@ export const useUiStore = create<UiState>()(
   immer((set) => ({
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
+    isDimensionsVisible: false,
 
     setActiveTool: (toolId) =>
       set((draft) => {
@@ -38,6 +42,11 @@ export const useUiStore = create<UiState>()(
         // aracı yeni palette geçersiz kalmasın. isometric'te palet yok, dokunulmaz.
         if (viewId === 'architecture') draft.activeToolId = DEFAULT_TOOL_ID
         if (viewId === 'installation') draft.activeToolId = DEFAULT_INSTALLATION_TOOL_ID
+      }),
+
+    toggleDimensionsVisible: () =>
+      set((draft) => {
+        draft.isDimensionsVisible = !draft.isDimensionsVisible
       }),
   })),
 )

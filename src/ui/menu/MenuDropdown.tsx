@@ -10,12 +10,16 @@ type MenuDropdownProps = {
    * Tanımdaki isEnabled "bu komut var mı" der, bu küme "şu an yapılabilir mi".
    */
   unavailableItemIds?: ReadonlySet<string>
+  /** İşaretli checkbox maddeleri. Tanım "bu madde işaretlenebilir" der, bu küme
+   *  "şu an işaretli mi" — durum uiStore'da, menü tanımında değil. */
+  checkedItemIds?: ReadonlySet<string>
 }
 
 export function MenuDropdown({
   menu,
   onSelectItem,
   unavailableItemIds,
+  checkedItemIds,
 }: MenuDropdownProps) {
   return (
     <div
@@ -36,7 +40,9 @@ export function MenuDropdown({
               key={item.id}
               type="button"
               role={item.kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitem'}
-              aria-checked={item.kind === 'checkbox' ? false : undefined}
+              aria-checked={
+                item.kind === 'checkbox' ? checkedItemIds?.has(item.id) === true : undefined
+              }
               disabled={!item.isEnabled || unavailableItemIds?.has(item.id) === true}
               onClick={() => onSelectItem(item.id)}
               className={menuItemVariants()}

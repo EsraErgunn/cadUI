@@ -2,6 +2,9 @@
  * Tesisat katmanının renkleri. Seçim rengi buraya kopyalanmaz —
  * src/scene/sceneTheme.ts → SCENE_COLORS.selection kullanılır.
  */
+/** Ölçünün nötr tonu: hattın hiçbir çap rengiyle karışmaz (oda etiketiyle aynı). */
+const MEASUREMENT_INK = '#5b6675'
+
 export const PLUMBING_COLORS = {
   /**
    * Soluk mimari referans — seçilemez, salt görsel bağlam. Izgaradan (gridMajor
@@ -18,4 +21,11 @@ export const PLUMBING_COLORS = {
    * kesikli — boru değil, cihazın kısa bağlantısı olduğu ayırt edilsin diye.
    */
   applianceStub: '#ef4444',
+  measurementLabel: MEASUREMENT_INK,
+  /**
+   * Geçici ölçüm çizgisi yazısıyla AYNI ton: ikisi tek bir işaret. Boru
+   * OLMADIĞI kesikli çizilmesinden anlaşılır — renk körlüğü ve gri baskıda
+   * renk tek başına ayırt edici değildir.
+   */
+  measurementLine: MEASUREMENT_INK,
 } as const
