@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { getFloorContent, isFloorContentEmpty, type FloorContentSource } from '../floorContent'
+import {
+  getFloorContent,
+  getFloorContentCounts,
+  getVerticalAxisCount,
+  isFloorContentEmpty,
+  type FloorContentSource,
+} from '../floorContent'
 
 const GROUND_ID = 1
 const UPPER_ID = 2
@@ -87,5 +93,69 @@ describe('isFloorContentEmpty', () => {
   it('iki tür de yoksa boştur', () => {
     expect(isFloorContentEmpty({ hasArchitecture: false, hasInstallation: false })).toBe(true)
     expect(isFloorContentEmpty({ hasArchitecture: false, hasInstallation: true })).toBe(false)
+  })
+})
+
+describe('alan nesneleri (merdiven/kolon/baca şaftı)', () => {
+  const withAreaObjects: FloorContentSource = {
+    ...emptySource,
+    areaObjects: [
+      {
+        id: 60,
+        type: 'flueShaft',
+        floorId: GROUND_ID,
+        x: 0,
+        y: 0,
+        widthCm: 60,
+        lengthCm: 60,
+        angleDeg: 0,
+        label: 'BŞ-01',
+      },
+      {
+        id: 61,
+        type: 'columnVentilation',
+        floorId: GROUND_ID,
+        x: 100,
+        y: 0,
+        widthCm: 40,
+        lengthCm: 40,
+        angleDeg: 0,
+        label: 'KH-01',
+      },
+      {
+        id: 62,
+        type: 'stairs',
+        floorId: GROUND_ID,
+        x: 200,
+        y: 0,
+        widthCm: 120,
+        lengthCm: 200,
+        angleDeg: 0,
+        label: 'M-01',
+      },
+    ],
+  }
+
+  it('duvarı olmayan ama merdiveni olan kat BOŞ sayılmaz', () => {
+    expect(getFloorContent(withAreaObjects, GROUND_ID).hasArchitecture).toBe(true)
+    expect(getFloorContent(withAreaObjects, UPPER_ID).hasArchitecture).toBe(false)
+  })
+
+  it('düşey eksen türlerini AYRI sayar — uyarı ikisini adıyla söylüyor (KK-13)', () => {
+    const counts = getFloorContentCounts(withAreaObjects, new Set([GROUND_ID]))
+
+    expect(counts.areaObjectCount).toBe(3)
+    expect(counts.flueShaftCount).toBe(1)
+    expect(counts.columnVentilationCount).toBe(1)
+    expect(getVerticalAxisCount(counts)).toBe(2)
+  })
+
+  it('merdiven düşey eksen sayılmaz', () => {
+    const onlyStairs: FloorContentSource = {
+      ...emptySource,
+      areaObjects: [withAreaObjects.areaObjects[2]],
+    }
+
+    expect(getVerticalAxisCount(getFloorContentCounts(onlyStairs, new Set([GROUND_ID])))).toBe(0)
   })
 })

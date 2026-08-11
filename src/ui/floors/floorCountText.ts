@@ -13,6 +13,10 @@ export function formatArchitectureCounts(counts: FloorContentCounts): string {
     [counts.doorCount, 'kapı'],
     [counts.windowCount, 'pencere'],
     [counts.symbolCount, 'sembol'],
+    // Merdiven/kolon/baca şaftı/kolon havalandırması tek kalemde: dört türü ayrı
+    // yazmak satırı kullanılamaz hale getiriyordu. Düşey eksen olanlar ayrıca
+    // kendi uyarısında adıyla anılıyor (KK-13).
+    [counts.areaObjectCount, 'alan nesnesi'],
   ])
 }
 

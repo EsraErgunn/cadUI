@@ -21,6 +21,7 @@ beforeEach(() => {
     openings: [],
     rooms: [],
     symbols: [],
+    areaObjects: [],
     installationElements: [],
     installationLines: [],
     revision: 0,
@@ -335,5 +336,80 @@ describe('FloorManagementDialog — kat silme onayı (KK-12, KK-14)', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('En az bir katın kalması gerekir')
     expect(screen.queryByRole('button', { name: 'Katı Sil' })).not.toBeInTheDocument()
+  })
+})
+
+describe('FloorManagementDialog — düşey eksen uyarısı (KK-13)', () => {
+  function putVerticalAxisOnUpperFloor() {
+    useCadStore.setState({
+      areaObjects: [
+        {
+          id: 70,
+          type: 'flueShaft',
+          floorId: UPPER_FLOOR_ID,
+          x: 0,
+          y: 0,
+          widthCm: 60,
+          lengthCm: 60,
+          angleDeg: 0,
+          label: 'BŞ-01',
+        },
+        {
+          id: 71,
+          type: 'columnVentilation',
+          floorId: UPPER_FLOOR_ID,
+          x: 100,
+          y: 0,
+          widthCm: 40,
+          lengthCm: 40,
+          angleDeg: 0,
+          label: 'KH-01',
+        },
+      ],
+    })
+  }
+
+  it('baca şaftı ve kolon havalandırması adedi uyarıda görünür', async () => {
+    putVerticalAxisOnUpperFloor()
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('1 baca şaftı ve 1 kolon havalandırması')
+    expect(alert).toHaveTextContent('aynı düşey eksende kalmaz')
+  })
+
+  it('düşey eksen nesnesi yoksa uyarı ÇIKMAZ', async () => {
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    expect(screen.queryByText(/düşey eksende kalmaz/)).not.toBeInTheDocument()
+  })
+
+  it('merdiven düşey eksen uyarısı üretmez', async () => {
+    useCadStore.setState({
+      areaObjects: [
+        {
+          id: 72,
+          type: 'stairs',
+          floorId: UPPER_FLOOR_ID,
+          x: 0,
+          y: 0,
+          widthCm: 120,
+          lengthCm: 200,
+          angleDeg: 0,
+          label: 'M-01',
+        },
+      ],
+    })
+    renderDialog()
+
+    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    expect(screen.queryByText(/düşey eksende kalmaz/)).not.toBeInTheDocument()
+    // Alan nesnesi mimari dökümünde yine de sayılır.
+    expect(screen.getByText(/1 alan nesnesi/)).toBeInTheDocument()
   })
 })

@@ -2,7 +2,8 @@ import { useState } from 'react'
 
 import { formatArchitectureCounts, formatInstallationCounts } from './floorCountText'
 import { FLOOR_FOCUS_RING } from './floorVariants'
-import { isContentCountEmpty } from '../../core/floorContent'
+import { getVerticalAxisCount, isContentCountEmpty } from '../../core/floorContent'
+import type { FloorContentCounts } from '../../core/floorContent'
 import type { FloorDeletionSummary } from '../../core/floorDeletion'
 import { formatElevationM } from '../../core/floorElevation'
 import { DialogShell } from '../controls/DialogShell'
@@ -25,13 +26,19 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
   )
 }
 
+/** "1 baca şaftı ve 1 kolon havalandırması" — sıfır olan tür yazılmaz. */
+function describeVerticalAxis(counts: FloorContentCounts): string {
+  return [
+    counts.flueShaftCount > 0 && `${counts.flueShaftCount} baca şaftı`,
+    counts.columnVentilationCount > 0 && `${counts.columnVentilationCount} kolon havalandırması`,
+  ]
+    .filter(Boolean)
+    .join(' ve ')
+}
+
 /**
- * Kat Silme Onayı (KK-12, KK-14). Silme burada YAPILMAZ, yalnız onaylanır:
+ * Kat Silme Onayı (KK-12, KK-13, KK-14). Silme burada YAPILMAZ, yalnız onaylanır:
  * pencere taslağı bilmiyor, çağıran onaylanan silmeyi kendi taslağına uyguluyor.
- *
- * Not: KK-13'ün istediği düşey eksen (baca şaftı / kolon havalandırması) uyarısı
- * YOK — o nesneler henüz core/model.ts'te tanımlı değil ve varsayım kodlanmıyor
- * (CLAUDE.md). Model gelince bu pencereye bir uyarı bloğu eklenecek.
  */
 export function FloorDeleteDialog({ summary, onCancel, onConfirm }: FloorDeleteDialogProps) {
   const [isConfirmed, setIsConfirmed] = useState(false)
@@ -86,6 +93,17 @@ export function FloorDeleteDialog({ summary, onCancel, onConfirm }: FloorDeleteD
             />
           )}
         </div>
+
+        {getVerticalAxisCount(counts) > 0 && (
+          <p
+            role="alert"
+            className="rounded-md border-l-4 border-danger px-3 py-2 text-xs text-ink"
+          >
+            Bu katta <b className="text-danger">{describeVerticalAxis(counts)}</b> bulunuyor.
+            Silinmesi durumunda alt ve üst kattaki karşılıkları aynı düşey eksende kalmaz; durum
+            hata kontrollerinde listelenir.
+          </p>
+        )}
 
         {isContentCountEmpty(counts) && (
           <p className="text-xs text-ink-muted">Seçilen katlarda çizim yok.</p>

@@ -54,6 +54,10 @@ Döküm ve kot etkisi TASLAK listesine bakar, store'a değil: aynı pencerede
 eklenmiş bir katı silmek de onay isteyebilmeli ve "en az bir kat kalmalı" kuralı
 kullanıcının gördüğü listeye göre işlemeli.
 
+Alan nesnesi (merdiven/kolon/baca şaftı) MİMARİ sayılır: hem `hasArchitecture`
+hem `removeFloorArchitectureInDraft` onu kapsar — duvarı olmayan ama merdiveni
+olan kat "boş" gösterilmemeli, ve yalnız tesisat kopyalanırken silinmemeli.
+
 Sayım, kat silme temizliğiyle **aynı ölçütü** kullanır: açıklık ve oda `floorId`
 taşımadığı için ikisi de DUVARINDAN türetilir (K9, K31). Kata göre süzülselerdi
 gösterilen sayı silinenden şaşardı. "Boru bölümü" hat değil SEGMENT sayar —
@@ -63,9 +67,17 @@ Kot etkisi iki kez hesaplanarak bulunuyor (önce/sonra): kot saklanmadığı iç
 başka yolu yok, ama asıl kazanç şu — birden çok kat farklı seviyelerden silinince
 düşüş miktarı katlara göre DEĞİŞİR, tek bir "X m iner" cümlesi yanlış olurdu.
 
-⚠️ KK-13'ün istediği düşey eksen (baca şaftı / kolon havalandırması) uyarısı
-YOK: o nesneler `core/model.ts`'te tanımlı değil, varsayım kodlanmadı. Model
-gelince bu pencereye bir uyarı bloğu eklenecek.
+**Düşey eksen uyarısı (KK-13) BAĞLANDI.** Baca şaftı ve kolon havalandırması
+`AreaObject` olarak modele girince (bkz. [area-objects](./area-objects.md))
+uyarı yazıldı: iki tür AYRI sayılıyor çünkü uyarı ikisini adıyla söylüyor
+(`flueShaftCount` / `columnVentilationCount`). Merdiven ve yapısal kolon aynı
+tipte ama düşey eksende SÜRMEZ, uyarı üretmez.
+
+⚠️ KK-19 (kopyalamada eksen kimliğinin korunması) hâlâ YAPILAMAZ: `AreaObject`
+kat başına modellendi, katlar arası bir eksen kimliği YOK — ekip bunu bilinçli
+olarak erteledi ("kat-bağımsız kimlik gerekirse ayrı karar"). Kopyalanan alan
+nesnesi hedef katta aynı koordinatta doğuyor, yani geometrik olarak hizalı
+kalıyor; korunan bir KİMLİK yok, hizayı sonradan bozan bir taşıma denetlenemez.
 
 ## İçerik rozeti anlık türetilir
 

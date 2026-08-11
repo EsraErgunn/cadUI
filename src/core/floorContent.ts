@@ -1,5 +1,5 @@
 import type { FloorCloneSource } from './floorClone'
-import { type AreaObjectType, type Id } from './model'
+import type { Id } from './model'
 import { isSymbolOnFloor } from './symbolPlacement'
 
 /**
@@ -11,8 +11,10 @@ export type FloorContent = {
   hasInstallation: boolean
 }
 
-/** Katlar arası düşey eksende süren alan nesnesi türleri (talep madde 14/19). */
-export const VERTICAL_AXIS_AREA_TYPES: readonly AreaObjectType[] = ['flueShaft', 'columnVentilation']
+/** Düşey eksende süren alan nesnesi var mı (KK-13 uyarısı). */
+export function getVerticalAxisCount(counts: FloorContentCounts): number {
+  return counts.flueShaftCount + counts.columnVentilationCount
+}
 
 export type FloorContentSource = FloorCloneSource & {
   installationElements: readonly { floorId: Id }[]
@@ -32,7 +34,8 @@ export type FloorContentCounts = {
   symbolCount: number
   areaObjectCount: number
   /** Düşey eksende süren alan nesneleri — silme uyarısı bunlara bakar (KK-13). */
-  verticalAxisCount: number
+  flueShaftCount: number
+  columnVentilationCount: number
   pipeSegmentCount: number
   installationElementCount: number
 }
@@ -44,7 +47,8 @@ export const EMPTY_FLOOR_CONTENT_COUNTS: FloorContentCounts = {
   windowCount: 0,
   symbolCount: 0,
   areaObjectCount: 0,
-  verticalAxisCount: 0,
+  flueShaftCount: 0,
+  columnVentilationCount: 0,
   pipeSegmentCount: 0,
   installationElementCount: 0,
 }
@@ -76,9 +80,11 @@ export function getFloorContentCounts(
     ).length,
     areaObjectCount: areaObjects.length,
     // Baca şaftı ve kolon havalandırması düşey eksende sürer; katı silinince
-    // alt/üst kattaki karşılıkları aynı eksende kalmaz (KK-13).
-    verticalAxisCount: areaObjects.filter((areaObject) =>
-      VERTICAL_AXIS_AREA_TYPES.includes(areaObject.type),
+    // alt/üst kattaki karşılıkları aynı eksende kalmaz (KK-13). İki tür AYRI
+    // sayılıyor çünkü uyarı ikisini adıyla söylüyor.
+    flueShaftCount: areaObjects.filter((areaObject) => areaObject.type === 'flueShaft').length,
+    columnVentilationCount: areaObjects.filter(
+      (areaObject) => areaObject.type === 'columnVentilation',
     ).length,
     // Boru "bölümü" hat değil SEGMENT: kullanıcı kırıklı bir hattı tek boru
     // saymıyor, her kenarı ayrı bir parça olarak görüyor.
