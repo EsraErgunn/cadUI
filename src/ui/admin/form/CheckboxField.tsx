@@ -1,7 +1,7 @@
 import { FieldError } from './FieldError'
 import { FieldHint } from './FieldHint'
 import { buildFieldAria, errorId, hintId } from './fieldAria'
-import { ADMIN_FOCUS_RING, fieldLabelVariants } from '../adminVariants'
+import { ADMIN_CHECKBOX, fieldLabelVariants } from '../adminVariants'
 
 interface CheckboxFieldProps {
   id: string
@@ -39,7 +39,7 @@ export function CheckboxField({
           disabled={isDisabled}
           onChange={(event) => onChange(event.target.checked)}
           {...buildFieldAria(id, { hint, error })}
-          className={`size-4 shrink-0 accent-admin-primary ${ADMIN_FOCUS_RING}`}
+          className={ADMIN_CHECKBOX}
         />
         <label htmlFor={id} className={fieldLabelVariants()}>
           {label}

@@ -14,6 +14,15 @@ export const PLUMBING_SHORTCUTS = [
   { id: 'delete', keys: ['Delete', 'Backspace'], label: 'Seçili elemanları sil' },
   { id: 'marquee', keys: ['Sol tuşla sürükle'], label: 'Çerçeveyle çoklu seç' },
   { id: 'add-to-selection', keys: ['Shift+tık', 'Shift+sürükle'], label: 'Seçime ekle / çıkar' },
+  {
+    id: 'free-position',
+    keys: ['Ctrl+tık', 'Ctrl+sürükle'],
+    // Ctrl YALNIZ ızgarayı kapatır: porta/boruya/duvar eksenine yakalama sürer,
+    // çünkü bağlantı kurmak serbest konumlandırmadan güçlü bir niyettir
+    // (useLineTool.resolveSnap). Metin bunu söylemezse kullanıcı Ctrl'ün tüm
+    // yakalamayı kapattığını sanıyor.
+    label: 'Izgarayı kapat (port/boru yakalaması kalır)',
+  },
   { id: 'copy', keys: ['Ctrl+C'], label: 'Seçimi kopyala' },
   { id: 'cut', keys: ['Ctrl+X'], label: 'Seçimi kes' },
   { id: 'paste', keys: ['Ctrl+V'], label: 'Yapıştır' },

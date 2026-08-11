@@ -2,14 +2,17 @@ import { useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 /**
- * Yönetici listelerinin URL query anahtarları. Üst bardaki "Bölge" ile sayfa
- * içindeki filtre paneli AYNI `region` anahtarını yazar/okur — ikisi tek kaynağa
- * baktığı için birbiriyle çelişemez.
+ * Yönetici listelerinin URL query anahtarları.
+ *
+ * Ayrı bir `region` anahtarı YOK: üst bardaki bölge kapsamı da gaz dağıtım
+ * GRUBUNU seçiyor ve aynı `group` anahtarını yazıyor. İki anahtar olsaydı aynı
+ * ekranda üst bar "AKSA", sayfa içi filtre "ENERYA" diyebilirdi — hangisinin
+ * kazandığı belirsiz kalırdı (docs/kararlar.md K31'in kaldırdığı coğrafi bölge
+ * kavramı geri gelmiyor, kapsam grup firması).
  */
 export const ADMIN_PARAM_KEYS = {
   nameQuery: 'q',
   groupName: 'group',
-  region: 'region',
   sortKey: 'sort',
   sortDir: 'dir',
   page: 'page',
@@ -18,19 +21,29 @@ export const ADMIN_PARAM_KEYS = {
   dateTo: 'to',
   district: 'district',
   projectFirm: 'firm',
+  /** Proje firması kullanıcılarının "Yetki" süzgeci; "Tümü" hâlinde yazılmaz. */
+  authorityType: 'type',
+  /** Yalnız aktif kayıtlar; işaretsiz hâl (varsayılan) adrese yazılmaz. */
+  onlyActive: 'active',
 } as const
 
 export type AdminParamField = keyof typeof ADMIN_PARAM_KEYS
 export type AdminParamPatch = Partial<Record<AdminParamField, string | null>>
-
-/** Bölge seçilmemiş hâli: "Hepsi". URL'de anahtar hiç bulunmaz. */
-export const ALL_REGIONS_LABEL = 'Hepsi'
 
 export const FIRST_PAGE = 1
 
 export function parsePage(raw: string | null): number {
   const parsed = Number(raw)
   return Number.isInteger(parsed) && parsed >= FIRST_PAGE ? parsed : FIRST_PAGE
+}
+
+/**
+ * Grup filtresi KİMLİK taşıyor; bozuk/eski değer filtresiz sayılır. Üst bardaki
+ * bölge kapsamı ile liste filtresi aynı anahtarı okuduğu için tek yerde.
+ */
+export function parseGroupId(raw: string | null): number | null {
+  const parsed = Number(raw)
+  return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
 /**
@@ -81,21 +94,4 @@ export function useAdminParamWriter(): (
     },
     [setSearchParams],
   )
-}
-
-/** Üst bardaki genel kapsam filtresi. Kabuk tüm yönetici ekranlarında ortak. */
-export function useRegionParam(): {
-  region: string | null
-  setRegion: (value: string | null) => void
-} {
-  const [searchParams] = useSearchParams()
-  const updateParams = useAdminParamWriter()
-
-  const setRegion = useCallback(
-    // Kapsam daralınca eski sayfa numarası anlamını yitirir → ilk sayfaya dön.
-    (value: string | null) => updateParams({ region: value }, true),
-    [updateParams],
-  )
-
-  return { region: searchParams.get(ADMIN_PARAM_KEYS.region), setRegion }
 }

@@ -1,12 +1,14 @@
 import { DrawPreview, LineDraftPreview } from './DrawPreview'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
+import { MeasurementOverlay } from './MeasurementOverlay'
 import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
 import { SplitLengthLabels } from './SplitLengthLabels'
 import { SymbolInstance } from './SymbolInstance'
 import { useEscapeToSelectionTool } from './useEscapeToSelectionTool'
 import { useLineTool } from './useLineTool'
+import { useMeasurementTool } from './useMeasurementTool'
 import { usePlacementTool } from './usePlacementTool'
 import { useSelectionTool, type SelectionToolState } from './useSelectionTool'
 import { useCadStore } from '../../store/cadStore'
@@ -47,6 +49,7 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
 export function PlumbingLayer() {
   const preview = usePlacementTool()
   const line = useLineTool()
+  const measurement = useMeasurementTool()
   const selection = useSelectionTool()
   useEscapeToSelectionTool()
 
@@ -65,6 +68,7 @@ export function PlumbingLayer() {
       <DrawingPortMarkers {...line} />
       <SplitLengthLabels {...line} />
       <LineDraftPreview {...line} />
+      <MeasurementOverlay {...measurement} />
       <SelectionMarquee />
     </group>
   )

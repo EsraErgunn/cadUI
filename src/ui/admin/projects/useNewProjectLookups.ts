@@ -23,8 +23,6 @@ interface UseNewProjectLookupsOptions {
   isAdmin: boolean
   /** Seçili proje firması; admin olmayanda her zaman null (sunucu token'dan türetir). */
   projectFirmId: number | null
-  /** Üst bardaki kapsam seçimi. Değişince firma listeleri yeniden çekilir. */
-  region: string | null
 }
 
 export interface NewProjectLookups {
@@ -38,30 +36,27 @@ export interface NewProjectLookups {
 }
 
 /**
- * Formun bağımlı listeleri. Bölge ve proje firması `queryKey`'in parçası:
- * ikisi de değişince React Query yeni bir sorgu çalıştırır, elle "yeniden çek"
- * çağrısı gerekmez.
+ * Formun bağımlı listeleri. Proje firması `queryKey`'in parçası: değişince
+ * React Query yeni bir sorgu çalıştırır, elle "yeniden çek" çağrısı gerekmez.
  */
 export function useNewProjectLookups({
   isAdmin,
   projectFirmId,
-  region,
 }: UseNewProjectLookupsOptions): NewProjectLookups {
   // Firma seçilmeden mühendis listesi YALNIZ admin'de anlamsız; proje firması
   // kullanıcısının firması zaten belli, alan ilk render'da açık gelir.
   const isEngineerDisabled = isAdmin && projectFirmId === null
 
   const projectFirmsQuery = useQuery({
-    queryKey: ['projectFirms', region],
-    queryFn: ({ signal }) => getProjectFirms(region, signal),
+    queryKey: ['projectFirms'],
+    queryFn: ({ signal }) => getProjectFirms(signal),
     enabled: isAdmin,
     staleTime: LOOKUP_STALE_MS,
   })
 
   const gasFirmsQuery = useQuery({
-    queryKey: ['gasFirmsForProjectFirm', projectFirmId, region],
-    queryFn: ({ signal }) =>
-      getGasFirmsForProjectFirm({ projectFirmId: projectFirmId ?? 0, region }, signal),
+    queryKey: ['gasFirmsForProjectFirm', projectFirmId],
+    queryFn: ({ signal }) => getGasFirmsForProjectFirm(projectFirmId ?? 0, signal),
     enabled: isAdmin && projectFirmId !== null,
     staleTime: LOOKUP_STALE_MS,
   })

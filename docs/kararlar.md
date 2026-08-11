@@ -1184,6 +1184,64 @@ Nerede: `core/model.ts`, `core/serialize.ts`, `core/areaObject.ts`,
 — ve ilgisiz düzeltmeler: `ui/floors/useFloorPlanDraft.ts`,
 `core/__tests__/floorContent.test.ts`, `docs/sample-project.json`.
 
+### K42 — Alan nesnesi aracında SAĞ TIK çizimi bitirir ve seçim aracına döner
+
+Dört alan nesnesi aracı (merdiven/kolon/baca şaftı/kolon havalandırması)
+yerleştirdikten sonra AKTİF KALIYOR (arka arkaya ekleme, `usePointSymbolTool`
+sözleşmesi). Kullanıcı geri bildirimi: jesti bitirmenin bir yolu yoktu —
+tıkladıkça çizmeye devam ediyordu, durdurmak için palete geri gidip Seçim
+Aracı'na basmak gerekiyordu.
+
+**Sağ tık artık hem önizlemeyi siler hem paleti `SELECTION_TOOL_ID`'ye
+döndürür.** Tesisat tarafındaki `useEscapeToSelectionTool` ile aynı gerekçe:
+"bu iş bitti" demek tek jest olmalı, kullanıcı eklediğini hemen seçip
+taşıyabilsin.
+
+Sağ tık yerleştirme YAPMAZ: `onPointerUp` zaten `button !== LEFT_BUTTON`
+kontrolüyle dönüyordu ve tarayıcıda `contextmenu` `pointerup`'tan SONRA
+geliyor — sıralama tesadüfen değil, `DrawSurface.tsx` orta tuş dışındaki her
+`pointerup`'ı yayınladığı için ikisi de aynı jestte görülüyor.
+
+**Duvar/oda araçları BİLEREK dokunulmadı.** Onlarda sağ tık zaten zinciri
+bitiriyor (`useWallTool` → `endChain`, `useRoomTool` → `endDrag`) ama araç
+aktif kalıyor — çok segmentli çizimde kullanıcı arka arkaya duvar zinciri
+çiziyor, palete dönmek istemez. Nokta sembolü araçları (pano, aydınlatma vb.)
+da aynı sorunu taşıyor ama kapsam dışı bırakıldı; kullanıcı yalnız alan
+nesnelerini istedi.
+
+**Test edilmedi (hook seviyesi).** `scene/` altında hiç test yok — hook'lar
+`useThree` üzerinden R3F/Canvas bağlamı istiyor (K36'dan beri aynı sınır).
+Tarayıcıda doğrulanmalı.
+
+Nerede: `scene/useAreaObjectTool.ts`.
+
+### K43 — Alan nesnesi çizgisi duvarın YARISI kalınlığında; ince değer uzakta görünmez oluyordu
+
+K40 çizgi kalınlığını `worldUnits`'e çevirmişti (cm cinsinden, zoom'la
+ölçeklenen) ama değerleri küçük bırakmıştı: gövde 2.5 cm, ayrıntı 1.2 cm.
+Zoom 1'de 1 cm = 1 px olduğu için bu, uzaklaşınca PİKSEL ALTINA düşüyordu —
+en uzak zoom'da (`ZOOM_MIN = 0.1`) gövde yalnız 0.25 px eder ve nesne
+ekrandan kaybolur. Kullanıcı "zoom out yaptıkça görüntüleri kayboluyor" dedi.
+
+Duvar aynı `worldUnits` yolunu kullanıyor ama 20 cm ile çiziliyor ve bu sorunu
+yaşamıyor (en uzak zoom'da bile 2 px).
+
+**İki turda ayarlandı.** Önce duvarın yarısına (10 cm) çıkarıldı — kullanıcı
+"aşırı kalın" dedi; sonra yarıya indirildi. Son değerler: **gövde
+`DEFAULT_WALL_THICKNESS_CM / 4` = 5 cm, ayrıntı `/ 8` = 2.5 cm.** Sabit sayı
+yazmak yerine duvar kalınlığından TÜRETİLDİ — varsayılan duvar değişirse
+çizgiler onunla orantılı kalsın, ilişki kodda görünsün.
+
+**Bilinen sınır:** en uzak zoom'da (0.1) gövde 0.5 px, ayrıntı 0.25 px eder —
+orada solma devam edebilir. Kalınlığı artırmak çözüm değil (kullanıcı zaten
+kalın buldu); gerekirse `Wall.tsx`'teki `alphaToCoverage` bu dosyaya da
+eklenmeli (sert `discard` yerine kısmi örtme verir). Önizlemedeki `transparent`
+malzemeyle etkileşimi doğrulanmadığı için bugün eklenmedi.
+
+Nerede: `scene/AreaObject.tsx`. Test yok (scene/ altı R3F gerektiriyor).
+Tarayıcıda ORTA zoom seviyelerinde doğrulandı (nesneler görünür, kalınlık
+makul); en uzak zoom ayrıca denenmedi.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
@@ -2166,3 +2224,252 @@ istemcide düzleştirilecek yetki verisi de yok; başlıktaki adet bu yüzden
 **tekil firma sayısı**. Filtre paneli (G.D. firması / bölge / yeterlilik) açılıyor
 ama üç kutu da pasif — süzülselerdi ilk seçimde liste boşalır, kullanıcı veri
 kaybettiğini sanardı (K27'deki bölge kararının aynısı).
+
+---
+
+## 2026-08 · Yeni proje firması ekle ekranı
+
+### K30 — Benzersizlik ön kontrolü bu ekranda İSTEMCİDE
+
+Gaz dağıtım firma formunda karar "benzersizliğe **sunucu** karar verir, istemci
+ön kontrolü yok" idi (bkz. knowledge/gas-firm-form.md). Proje firması formunda
+tersi yapıldı. Tutarsızlık değil: o kararın iki gerekçesi de burada geçersiz.
+
+| Gerekçe (gaz dağıtım firması) | Proje firmasında durum |
+|---|---|
+| "Tüm numaraları çekmek 30'ar kayıtlık sayfalarda dolaşmayı gerektirir" | Uç sayfalamasız **düz dizi** döndürüyor; liste zaten tümüyle elde (K29) |
+| "Yapılsa bile yarış durumunu istemci kapatamaz" | Doğru, ama sunucu bu kuralı **hiç denetlemiyor** — 409 yok |
+
+`ProjectFirmCreateValidator` vergi/seri numarası benzersizliğine bakmıyor. Ön
+kontrol olmasaydı kullanıcı aynı vergi numarasını ikinci kez kaydeder ve bunu
+hiç öğrenemezdi. Kontrol `ui/admin/projectFirms/projectFirmUniqueness.ts`'te,
+liste ekranıyla **aynı önbellek anahtarını** (`['projectFirmList']`) okuyor —
+ekstra istek doğurmuyor.
+
+Sınırları açıkça yazılı: yarış durumunu KAPATMAZ ve sunucu kuralı geldiğinde
+kaldırılmaz, ikinci savunma hattına düşer. Bugün yalnız **vergi numarası** gerçek
+veriyle karşılaştırılabiliyor; `serialNumber` liste DTO'sunda yok (yalnız detay
+yanıtında), `accountingCode` hiçbir uçta yok — cari kod benzersizliği (belge
+madde 23) bu yüzden **uygulanmıyor**.
+
+`ProjectFirm` satırına yalnız bu kontrol için `taxNumber` eklendi; tabloda
+sütunu yok.
+
+### K31 — Üst bardaki bölge filtresi KALDIRILDI, "bölge" = gaz dağıtım firması
+
+İki ayrı "bölge" kavramı aynı arayüzde çakışıyordu:
+
+- üst bardaki **coğrafi bölge** kapsam seçicisi (Akdeniz, Ege, İç Anadolu…),
+- yetkilendirmedeki **bölge lisanslı gaz dağıtım firması** (AKSA-GEMLİK).
+
+Ürün kararı: kapsam seçicisi kalktı. Sunucuda karşılığı olan tek bir uç da yoktu
+(`getRegions` mock'tu, liste satırı bölge taşımıyordu, filtre zaten `disabled`
+duruyordu).
+
+**Kaldırılanlar:** `AdminTopBar`'daki seçici, `region` URL anahtarı,
+`useRegionParam`, `ALL_REGIONS_LABEL`, `getRegions`, gaz dağıtım firma satırındaki
+`region` alanı, iki filtre panelindeki pasif "Bölge" kutuları ve uçlara giden
+`region` parametreleri (`getDashboardSummary`, `getAnnouncements`, `listProjects`,
+`getProjectFirms`, `getGasFirmsForProjectFirm`). Hiçbir yüzey onu yazamadığı için
+okuyan her yer ölü koda dönüşüyordu.
+
+**Korunanlar (coğrafi bölge VERİSİ duruyor, süzgeci kalktı):** "Bölge Bazlı
+Yoğunluk" kartı, "Sistem geneli durum — …, tüm bölgeler" ve "Tüm bölgeler için"
+metinleri, duyurunun kendi `region` alanı (kart rozeti + yayınlama kutusu).
+`MOCK_REGIONS` `adminFirmsMock`'tan `adminDashboardMock`'a taşındı: gaz dağıtım
+firma mock'unun bölgeyle işi kalmadı.
+
+**Adlandırma:** yetkilendirme tarafındaki kod artık gerçeği söylüyor —
+`RegionCheckboxGrid` → `GasDistributionFirmPicker`, `AuthorizationRegion` →
+`AuthorizationGasFirm`, `regionId` → `gasDistributionFirmId`. **Kullanıcıya
+görünen metinler DEĞİŞMEDİ**: "G.D Firması Bölgeleri" etiketi gereksinim
+belgesinden geliyor (madde 14/17) ve orada kalıyor; üst bardaki çakışma
+kalktığı için arayüzde belirsizlik doğurmuyor.
+
+### K43 — Bölge kapsamı üst bara GERİ GELDİ, ama kapsam = grup firması
+
+K31 coğrafi bölge seçicisini kaldırmıştı. Talep, üst barda yine bir "Bölge"
+seçicisi olması ve seçimin listeleri süzmesi yönünde. Kavram çakışması
+tekrarlanmasın diye kapsam **coğrafi bölge değil, gaz dağıtım GRUP firması**
+(AKSA, ENERYA…): seçenekler `/api/gasdistributiongroups`'tan geliyor, yani
+sunucuda gerçek karşılığı olan tek kaynak. Bölgeleri listeleyen uç hâlâ yok
+(`/api/regions`, `/api/projectfirmregions` → 404).
+
+**Ayrı `region` anahtarı YOK.** Üst bar, liste ekranının grup filtresiyle aynı
+`group` anahtarını yazar. İki anahtar olsaydı aynı ekranda üst bar "AKSA",
+sayfa içi filtre "ENERYA" diyebilir ve hangisinin kazandığı belirsiz kalırdı;
+tek anahtarla ikisi birbirini kendiliğinden yansıtıyor.
+
+**Kapsam sadece uygulanabildiği ekranda açık.** Bugün yalnız gaz dağıtım
+firmaları listesi grup kimliği taşıyor. Proje firması satırında bölge/G.D.
+firması alanı hiç yok; proje satırındaki `gasFirm` gerçek uçta her zaman `null`
+geliyor. O ekranlarda seçici PASİF ve yanında sebebi yazılı ("Bu ekranda bölge
+filtresi yok.") — seçim yapılabilseydi liste sessizce boşalır, kullanıcı "bu
+bölgede kayıt yok" sanırdı. Uygulanabilir yolların listesi tek yerde:
+`ui/admin/adminRegionScope.ts`. Backend proje/proje firması satırına bölge bağını
+ekleyince oraya yol eklemek yeterli; üst bar ve hook değişmez.
+
+### K44 — Bölge kapsamı TÜM ekranlarda etkin; bilgisi olmayan satır ELENMEZ
+
+K43 kapsamı yalnız gaz dağıtım firmaları listesinde açmıştı, diğer ekranlarda
+seçici pasifti. Talep üzerine kapsam **her yönetici ekranında etkin**.
+`adminRegionScope.ts` (yol beyaz listesi) ve pasif hâl kalktı.
+
+Kapsamın hiçbir listeyi sessizce boşaltmaması, ekran başına değil **kural
+olarak** garanti ediliyor: satırında bölge bilgisi OLMAYAN kayıt elenmez
+(`api/projects.ts` `matchesQuery`'de zaten uygulanan kural). Bugünkü sonuç:
+
+| Ekran | Kapsam sonucu değiştiriyor mu |
+|---|---|
+| G.D. Firmaları | Evet — satır `groupId` taşıyor |
+| Anasayfa | Evet — mock bölge kırılımı süzülüyor, kartlar birlikte dönüyor |
+| Duyurular | Evet — bölgesi null olan duyuru "tüm bölgeler" sayılıp görünür kalır |
+| Projeler | Hayır — `gasFirm` gerçek uçta hep null, kayıtlar elenmiyor |
+| Proje Firmaları | Hayır — satırda bölge/G.D. firması alanı yok |
+
+Uca giden ad `region` değil **`group`**: kapsam coğrafi bölge değil grup
+firması kimliği (K43). `getDashboardSummary(dayKey, groupId)` ve
+`AnnouncementQuery.groupId` bu yüzden kimlik alıyor; mock tarafı kimliği
+`mockRegionNameOf` ile ada çeviriyor — eşleme tek yerde.
+
+Gösterge panelindeki "Sistem geneli durum — …, tüm bölgeler" ve kart altındaki
+"Tüm bölgeler için" metinleri kapsam seçiliyken bölgenin ADINI yazıyor
+(`buildScopeDescription`, `buildCardScopeLabel`): sayılar süzülmüşken "tüm
+bölgeler" demek yanlış bilgi olurdu.
+
+### K45 — "Yetki" bir ROL değil, yetki satırının alanı
+
+Proje firması kullanıcıları ekranındaki "Firma Mühendisi / Firma Yetkilisi"
+seçimi rol modeline BAĞLANMADI. Rol modeli kesinleşti: üç kod
+(`Admin`/`GasDistributionUser`/`ProjectFirmUser`) ve kullanıcı başına TEK rol
+(knowledge/access-control.md). Oysa gereksinim yetkiyi KULLANICI başına değil
+YETKİ SATIRI başına tanımlıyor: aynı kişi bir firmada mühendis, diğerinde
+yetkili olabiliyor (KK-11).
+
+İki yeni rol kodu açılsaydı tek-rol kuralı bu ekranı taşıyamazdı. Bu yüzden
+`authorityType` yetki satırının bir alanı; kullanıcının rolü her zaman
+`ProjectFirmUser`. Değerler `api/projectFirmUserDto.ts` → `AUTHORITY_TYPES`.
+
+Belgenin "Yetki" sözcüğü arayüzde korunuyor (kullanıcı onu böyle tanıyor),
+adlandırma ise gerçeği söylüyor — K31'deki bölge/grup ayrımıyla aynı yaklaşım.
+
+### K46 — Mock, sunucu sözleşmesini TAKLİT eder; mock anahtarı uç bazlıdır
+
+Proje firması kullanıcılarının hiçbir ucu yok (docs/api-eksikleri-kullanicilar.md).
+İki karar:
+
+**1. Mock sunucunun işini yapar.** `getProjectFirmUserList(query)` sorguyu
+parametre olarak alır ve `{ items, totalCount, page, pageSize }` döndürür;
+süzme, sıralama ve dilimleme mock'un İÇİNDE. Sayfa ve tablo kodu bugünden
+sunucu taraflı davranıyor. İstemcide dilimleyen bir ara katman
+(`…ListQuery.ts`) bilerek YAZILMADI: K27/K29'daki istemci taraflı çözüm sayfalı
+uç olmadığı için katlanılan bir zorunluluktu, izlenecek desen değil. Uç
+gelince yalnız `src/api/` altındaki gövdeler değişecek.
+
+**2. Mock'a düşme kararı `hasApiBaseUrl()`e bağlanmaz.** Doğru soru
+"`VITE_API_URL` var mı" değil, "bu UÇ var mı": API kökü tanımlıyken de bu
+yollar 404 döner ve ekran sessizce boşalırdı. Uygulanmamış uçlar tek yerde:
+`api/unimplementedEndpoints.ts`. Uç açılınca oradaki satır silinir ve
+`isEndpointImplemented('…')` çağrısı DERLEME HATASI verir — bayrağı kaldırmayı
+unutmak mümkün değil.
+
+**Mock yalnız KULLANICIYI uyduruyor, firmaları DEĞİL.** Yetki satırındaki iki
+seçim kutusu gerçek uçlardan besleniyor (`GET /api/gasdistributionfirms`,
+`GET /api/projectfirms`) ve mock kullanıcı satırları da bu listelerden
+tohumlanıyor (`seedProjectFirmUsers`). Sabit bir firma listesi tutulsaydı
+formdaki seçenekler gerçek, listedeki kayıtlar sahte olur; güncelleme ekranında
+kullanıcının kayıtlı firması seçeneklerde bulunmaz ve kutu boş açılırdı.
+
+KK-20'nin daraltması (proje firmasını seçilen G.D. firmasına göre süzme) uç
+olmadığı için YAPILMIYOR; kutu yine de firma seçilmeden pasif kalıyor —
+uydurma bir daraltma yerine eksik olan açıkça eksik duruyor.
+
+Kayıt da mock'ta kalıyor; kullanıcıya "kaydedildi ama sunucuya yazılmıyor"
+uyarısı gösteriliyor (`isPersisted`, proje firması yetkilendirmelerindeki
+`arePersisted` deseninin aynısı). `POST /api/auth/register`'a bağlanılmadı:
+gövdesi `Aktif`, `GDF Kayıt No` ve çoklu yetki satırı taşımıyor, yarım
+bağlansaydı listelenemeyen ve güncellenemeyen kayıt üretirdik.
+
+### K47 — Proje firması kullanıcıları listesinde filtre "Filtrele" ile uygulanır
+
+Bu ekranda arama/yetki/aktif kriterleri kutular değiştikçe DEĞİL, "Filtrele"
+düğmesine (ya da arama alanında Enter'a) basılınca uygulanıyor. Gereksinim
+bunu açıkça istiyor (KK-3, KK-5, KK-6) ve sayfalama sunucu taraflı olduğu için
+her tuş vuruşu bir sayfa isteği doğururdu; düğmeli akışta üç kriter tek istekte
+gidiyor.
+
+**Proje firmaları ekranındaki "Filtrele" BAŞKA iş yapıyor** (orada arama 300 ms
+debounce ile yazarken uygulanır, düğme yalnız kriter panelini açar,
+bkz. knowledge/project-firm-list.md). İkisini eşitlemeye kalkan olursa bağlam
+burada: fark bilinçli, kaynağı iki ekranın gereksinim metinleri.
+
+Ortak kural değişmedi: durumun tek sahibi URL. Kutular yalnız TASLAK tutar,
+uygulanınca adrese yazılır; adres dışarıdan değişirse (geri/ileri, paylaşılan
+bağlantı, çipin kaldırılması) taslak URL'den yeniden kurulur.
+
+### K48 — Gösterge panosu GERÇEK uca bağlandı; duyurular tarayıcıda kalıcı
+
+Anasayfa artık iki kaynaktan besleniyor ve bu bilinçli.
+
+**Sayaçlar, "bugün" ve bölge yoğunluğu → gerçek uç.** `GET /api/admin/dashboard`
+sunucuda VAR (doğrulandı) ve bağlandı. Frontend'in tahmin ettiği
+`/api/dashboard/summary` yolu yanlıştı. Alan adları da farklı
+(`gasDistributionUserCount` ↔ `gasDistributionUsers`, `projectCount` ↔ `count`);
+eşleme `adminDashboard.ts` içinde tek yerde.
+
+İki parametre GÖNDERİLMİYOR:
+- `date` — uç almıyor, "bugün" sayaçlarını sunucu kendi gününe göre hesaplıyor.
+  Gün anahtarı istemcide yalnız sorgu anahtarı olarak kalıyor (gün dönünce veri
+  tazelensin).
+- bölge — uç sayısal `regionId` istiyor, elimizdeki değer bölge ADI. Coğrafi
+  bölge tablosu da bugün tek kayıt taşıyor, eşleme kurmak sayıları
+  değiştirmezdi.
+
+**Bölge yoğunluğu bugün BOŞ görünüyor** ve bu gerçeğin kendisi: uç
+`regionDensity: []` döndürüyor. Sunucudaki yoğunluk COĞRAFİ bölge başına PROJE
+adedi (`{ regionId, regionName, projectCount }`), karttaki üç sayaç değil; grup
+firması (AKSA, ENERYA…) bazlı yoğunluk sunucuda hiç yok. Mock sayılarla
+doldurmak yerine boş bırakıldı — sahte sayı, eksik veriden kötüdür.
+
+**Duyurular → tarayıcı deposu.** Duyuru varlığı sunucuda HİÇ yazılmadı (entity,
+tablo, controller, migration; üçü de kontrol edildi ve backend de doğruladı).
+Yayınlanan duyuru artık `localStorage`'da tutuluyor (`announcementStore.ts`),
+yani sekme yenilenince kaybolmuyor.
+
+Sahte kalıcılık GİZLENMİYOR: kayıt yalnız o tarayıcıda durur, başka makinede ve
+başka kullanıcıda görünmez; ekran bunu söyleyen uyarıyı göstermeye devam eder.
+Depodan okunan veri dış kaynak sayılıp şemadan geçiyor (kullanıcı depoyu elle
+düzenleyebilir); bozuk içerik sessizce yok sayılıyor — duyuru listesi uğruna
+anasayfa çökertilmiyor.
+
+Duyuru uçları ağa HİÇ çıkmıyor: karar `hasApiBaseUrl`'e değil uç bazlı bayrağa
+bağlı (`unimplementedEndpoints.ts`, K46). Eskiden her yayınlamada bir 404 gidip
+mock'a düşülüyordu; şimdi gereksiz istek yok.
+
+### K49 — `POST /api/projects` sözleşmesi değişti; il/ilçe zorunlu alan oldu
+
+Proje ekleme HİÇ ÇALIŞMIYORDU. Sebep sunucu sözleşmesinin değişmesi: uç artık
+`projectFirmRegionId` + `gasDistributionFirmRegionId` DEĞİL,
+**`projectFirmAuthorizationId`** istiyor. Eski gövde 400 alıyordu:
+"Proje firması yetkisi (ProjectFirmAuthorizationId) zorunludur."
+
+Yeni gövde: `name`, `projectFirmAuthorizationId`, `description`, `code`,
+`cityId`, `districtId`, `addressLine`, `blockLotParcel`.
+
+**İl ve ilçe forma eklendi ve ZORUNLU.** Uç ikisini de alıyor ve adres onlarsız
+eksik kalıyor. Kaynak gerçek uçlar: `GET /api/cities` (81 il) ve
+`GET /api/cities/{cityId}/districts`.
+
+İlçe kutusu il seçilene kadar PASİF: ilçeleri veren uç il kimliği istiyor,
+ilsiz bir ilçe listesi yok. İl değişince ilçe seçimi TEMİZLENİR — eski ilçe yeni
+ilin listesinde bulunmaz, ekranda geçerliymiş gibi durup sessizce yanlış kayıt
+üretirdi (aynı kural yetki satırındaki firma ikilisinde de var, K45).
+
+`projectFirmAuthorizationId` hâlâ SABİT (1): bu kimlikleri listeleyen uç yok,
+`/api/projectfirms` yalnız firmayı döndürüyor, yetki bağını değil. Sabit tahmin
+değil — veritabanında bugün tek kayıt var. Uç açılınca form değeri seçilen
+firmadan türetecek.
+
+Yanıt şeması yalnız çağıranın ihtiyacı olan alanları zorunlu tutuyor: sunucu
+`cityName`/`districtName` de türetip döndürüyor ama form onları kullanmıyor,
+zorunlu kılınsalardı uç bir alanı kaldırdığında kayıt sınırda sessizce patlardı.

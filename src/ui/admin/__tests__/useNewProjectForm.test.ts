@@ -18,6 +18,8 @@ function fillValidValues(form: { setValue: ReturnType<typeof useNewProjectForm>[
   form.setValue('projectFirmId', 11)
   form.setValue('gasDistributionFirmId', 101)
   form.setValue('engineerUserId', 501)
+  form.setValue('cityId', 6)
+  form.setValue('districtId', 64)
   form.setValue('address', 'Çankaya 12. Sokak No 5')
   form.setValue('projectType', 'ILAVE')
   form.setValue('heatingType', 'bireysel')
@@ -230,6 +232,8 @@ describe('useNewProjectForm', () => {
     act(() => {
       result.current.setValue('name', 'Yıldız Apartmanı')
       result.current.setValue('engineerUserId', 501)
+      result.current.setValue('cityId', 6)
+      result.current.setValue('districtId', 64)
       result.current.setValue('address', 'Çankaya 12. Sokak No 5')
       result.current.setValue('projectType', 'ILAVE')
       result.current.setValue('heatingType', 'bireysel')

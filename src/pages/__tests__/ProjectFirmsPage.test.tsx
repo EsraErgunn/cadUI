@@ -30,6 +30,7 @@ function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
     email: 'bilgi@adana.com.tr',
     phone: '05321000000',
     mobilePhone: null,
+    taxNumber: '1234567890',
     ...overrides,
   }
 }
@@ -254,10 +255,11 @@ describe('filtre alanı', () => {
 
     await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
+    // "Bölge" kutusu kaldırıldı (K31); kalan iki kriter hâlâ pasif.
     const panel = screen.getByRole('region', { name: 'Ek filtre kriterleri' })
     expect(within(panel).getByLabelText('G.D. Firması')).toBeDisabled()
-    expect(within(panel).getByLabelText('Bölge')).toBeDisabled()
     expect(within(panel).getByLabelText('Yeterlilik Durumu')).toBeDisabled()
+    expect(within(panel).queryByLabelText('Bölge')).not.toBeInTheDocument()
   })
 
   it('kriter alanı kapatılabilir', async () => {

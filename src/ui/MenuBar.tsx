@@ -1,6 +1,7 @@
 import { ArrowLeft, Save } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
+import type { FloorDirection } from '../core/floors'
 import {
   redoProject,
   selectIsProjectDirty,
@@ -19,8 +20,10 @@ import {
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   FLOOR_COPY_ITEM_ID,
+  FLOOR_DOWN_ITEM_ID,
   FLOOR_MANAGEMENT_ITEM_ID,
   FLOOR_MENU_ID,
+  FLOOR_UP_ITEM_ID,
   REDO_ITEM_ID,
   SAVE_ITEM_ID,
   SHOW_DIMENSIONS_ITEM_ID,
@@ -33,6 +36,8 @@ type MenuBarProps = {
   onExport: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
+  /** Pencere açmaz, aktif katı değiştirir (madde 1). */
+  onGoToFloor: (direction: FloorDirection) => void
   isSaving: boolean
 }
 
@@ -42,6 +47,7 @@ export function MenuBar({
   onExport,
   onOpenFloorManagement,
   onOpenFloorCopy,
+  onGoToFloor,
   isSaving,
 }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -93,6 +99,8 @@ export function MenuBar({
     if (itemId === REDO_ITEM_ID) redoProject()
     if (itemId === FLOOR_MANAGEMENT_ITEM_ID) onOpenFloorManagement()
     if (itemId === FLOOR_COPY_ITEM_ID) onOpenFloorCopy()
+    if (itemId === FLOOR_UP_ITEM_ID) onGoToFloor('up')
+    if (itemId === FLOOR_DOWN_ITEM_ID) onGoToFloor('down')
     if (itemId === SHOW_DIMENSIONS_ITEM_ID) toggleDimensionsVisible()
   }
 

@@ -39,8 +39,19 @@ export function projectFirmUpdatePath(firmId: number): string {
   return `${PROJECT_FIRMS_PATH}/${firmId}`
 }
 
-export const FIRM_USERS_PATH = `${ADMIN_HOME_PATH}/firm-users`
-export const USER_CREATE_PATH = `${ADMIN_HOME_PATH}/users/new`
+/**
+ * Sistemde gaz dağıtım firması kullanıcıları da olduğu için ekran hem yolda hem
+ * menüde "proje firması" der (belge madde 1): "firm-users" hangi firmanın
+ * kullanıcısı olduğunu söylemiyordu.
+ */
+export const PROJECT_FIRM_USERS_PATH = `${ADMIN_HOME_PATH}/project-firm-users`
+export const PROJECT_FIRM_USER_CREATE_PATH = `${PROJECT_FIRM_USERS_PATH}/new`
+
+/** Oluşturma ile AYNI ekran; kimlik varsa form güncelleme modunda açılır (KK-25). */
+export function projectFirmUserUpdatePath(userId: number): string {
+  return `${PROJECT_FIRM_USERS_PATH}/${userId}`
+}
+
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
 
@@ -88,11 +99,10 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   { key: 'projectFirms', label: 'Proje Firmaları', icon: Building2, path: PROJECT_FIRMS_PATH },
   {
-    key: 'firmUsers',
-    label: 'Firma Kullanıcıları',
+    key: 'projectFirmUsers',
+    label: 'Proje Firması Kullanıcıları',
     icon: Users,
-    path: FIRM_USERS_PATH,
-    isComingSoon: true,
+    path: PROJECT_FIRM_USERS_PATH,
   },
   { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
   {

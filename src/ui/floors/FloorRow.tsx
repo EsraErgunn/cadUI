@@ -1,4 +1,4 @@
-import { GripVertical, Trash2 } from 'lucide-react'
+import { Copy, GripVertical, Trash2 } from 'lucide-react'
 
 import { FloorHeightField } from './FloorHeightField'
 import { FLOOR_FOCUS_RING, floorBadgeVariants, floorRowVariants } from './floorVariants'
@@ -23,6 +23,7 @@ type FloorRowProps = {
   onHeightCommit: (heightCm: number) => boolean
   onToggleSelected: () => void
   onMakeActive: () => void
+  onCopy: () => void
   onRemove: () => void
   onDragStart: () => void
   onDragEnd: () => void
@@ -58,6 +59,7 @@ export function FloorRow({
   onHeightCommit,
   onToggleSelected,
   onMakeActive,
+  onCopy,
   onRemove,
   onDragStart,
   onDragEnd,
@@ -153,6 +155,14 @@ export function FloorRow({
       </td>
 
       <td className="px-1 py-1.5 text-right">
+        <button
+          type="button"
+          onClick={onCopy}
+          aria-label={`${floor.name} kopyala`}
+          className={chromeButtonVariants({ shape: 'icon' })}
+        >
+          <Copy size={16} strokeWidth={1.8} aria-hidden />
+        </button>
         <button
           type="button"
           onClick={onRemove}

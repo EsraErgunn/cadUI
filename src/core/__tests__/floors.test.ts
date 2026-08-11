@@ -15,6 +15,7 @@ import {
   getFloorById,
   getFloorIdAfterRemoval,
   getFloorIndex,
+  getFloorIdInDirection,
   getFloorInsertIndex,
   getNextFloorName,
   isFloorNameTaken,
@@ -134,6 +135,22 @@ describe('moveFloorInList', () => {
   it('bodrum/normal ayrımını bozan komşu takasını reddeder', () => {
     expect(moveFloorInList(floors, basement.id, 'up')).toBe(floors)
     expect(moveFloorInList(floors, ground.id, 'down')).toBe(floors)
+  })
+})
+
+describe('getFloorIdInDirection', () => {
+  it('bir üstteki ve bir alttaki katı verir', () => {
+    expect(getFloorIdInDirection(floors, ground.id, 'up')).toBe(first.id)
+    expect(getFloorIdInDirection(floors, ground.id, 'down')).toBe(basement.id)
+  })
+
+  it('uçta undefined döner — geçiş DÖNGÜSEL değil', () => {
+    expect(getFloorIdInDirection(floors, first.id, 'up')).toBeUndefined()
+    expect(getFloorIdInDirection(floors, basement.id, 'down')).toBeUndefined()
+  })
+
+  it('tanınmayan kat için undefined döner', () => {
+    expect(getFloorIdInDirection(floors, 404, 'up')).toBeUndefined()
   })
 })
 

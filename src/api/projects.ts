@@ -26,8 +26,6 @@ import { parseProjectJson, serializeProjectData } from '../core/serialize'
  * - firm: Proje firması kimliği
  * - q: Serbest arama — proje adı, P_ID VE tesisat numarası üzerinde çalışır
  *      (büyük/küçük harf ve Türkçe karakter duyarsız)
- * - region: Bölge adı (üst bardaki kapsam seçimi, tam eşleşme). Firma ekranıyla
- *           AYNI anahtar ve aynı değer kümesi kullanılır.
  * - sort: updatedAt | createdAt | name (varsayılan: updatedAt)
  * - dir: asc | desc (varsayılan: desc)
  * - page: 1 tabanlı
@@ -171,9 +169,6 @@ export interface ProjectListQuery {
   districtId: number | null
   projectFirmId: number | null
   search: string
-  /** Bölge ADI. İlçe/firma kimlikle gelirken bunun ad olması bilinçli: üst bardaki
-      kapsam seçimi (`useRegionParam`) ve firma ekranı da adla çalışıyor. */
-  region: string | null
   page: number
   pageSize: number
   sortBy: ProjectSortKey
@@ -191,6 +186,15 @@ export type SubmitProjectResult = { ok: true } | { ok: false; missingDocuments: 
 const projectPageSchema = pagedResultSchema(projectListItemSchema)
 const statusCountsSchema = z.record(z.enum(PROJECT_STATUSES), z.number().int().nonnegative())
 const lookupListSchema = z.array(lookupSchema)
+
+/** `GET /api/cities` satırı; `plateCode` arayüze taşınmıyor. */
+const cityListDtoSchema = z.array(
+  z.object({
+    id: z.number().int().positive(),
+    name: z.string(),
+    plateCode: z.string().nullable(),
+  }),
+)
 const submitProjectResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true) }),
   z.object({ ok: z.literal(false), missingDocuments: z.array(z.string()) }),
@@ -370,17 +374,45 @@ export async function getDistricts(signal?: AbortSignal): Promise<Lookup[]> {
 }
 
 /**
- * gerçek `GET /api/admin/project-firms`.
+ * `GET /api/cities` → 81 il (seeder ile dolu gelir). GERÇEK uç.
  *
- * `region` opsiyonel: liste ekranının filtre kutusu TÜM firmaları ister, yeni
- * proje formu ise üst bardaki bölge seçimiyle sınırlı olanları. İki ayrı fonksiyon
- * açmak aynı ucu iki yerden tarif etmek olurdu.
+ * `plateCode` alanı da geliyor ama arayüze taşınmıyor: seçim kutusunda plaka
+ * göstermek istenmedi, taşınsaydı kullanılmayan bir alan olurdu.
  */
-export async function getProjectFirms(
-  region?: string | null,
+export async function getCities(signal?: AbortSignal): Promise<Lookup[]> {
+  const dtos = await requestJson(
+    { method: 'GET', path: '/api/cities', signal },
+    cityListDtoSchema,
+  )
+
+  return dtos.map((city) => ({ id: city.id, name: city.name }))
+}
+
+/**
+ * `GET /api/cities/{cityId}/districts` → seçilen ilin ilçeleri. GERÇEK uç.
+ *
+ * İl KİMLİĞİ zorunlu: ilçeler ile bağımsız listelenemiyor. Form bu yüzden
+ * ilçe kutusunu il seçilene kadar pasif tutuyor.
+ */
+export async function getCityDistricts(
+  cityId: number,
   signal?: AbortSignal,
 ): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockProjectFirms(region ?? null, signal))
+  return requestJson(
+    { method: 'GET', path: `/api/cities/${cityId}/districts`, signal },
+    lookupListSchema,
+  )
+}
+
+/**
+ * gerçek `GET /api/admin/project-firms`.
+ *
+ * Bölge süzgeci YOK: üst bardaki kapsam seçicisi kaldırıldığı için hem liste
+ * ekranının filtre kutusu hem yeni proje formu TÜM firmaları istiyor
+ * (docs/kararlar.md K31).
+ */
+export async function getProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
+  return lookupListSchema.parse(await queryMockProjectFirms(signal))
 }
 
 /**
@@ -399,9 +431,9 @@ export async function getProjectFirms(
  *   kullanıcısı kendi firma kimliğini taşımıyor (bkz. getFirmEngineers).
  *   200 → RawFirmEngineer[]
  *
- * GET /api/admin/gas-distribution-firms/for-project-firm?projectFirmId=&region=
+ * GET /api/admin/gas-distribution-firms/for-project-firm?projectFirmId=
  *   Seçili proje firmasının ÇALIŞTIĞI GD firmaları (bir proje firması birden
- *   fazla GD firmasıyla çalışabilir), bölgeyle ayrıca sınırlanır.
+ *   fazla GD firmasıyla çalışabilir).
  *   200 → Lookup[]
  *
  * TODO(api): uçların yolları ve alan adları backend'le doğrulanacak.
@@ -432,6 +464,10 @@ export interface CreateProjectPayload {
   name: string
   projectFirmId?: number
   gasDistributionFirmId?: number
+  /** İl kimliği — uca `cityId` olarak gider (zorunlu alan). */
+  cityId: number
+  /** İlçe kimliği — uca `districtId` olarak gider (zorunlu alan). */
+  districtId: number
   /** yyyy-aa-gg; saat dilimi kaymasın diye ISO damgası değil, düz tarih. */
   startDate: string
   endDate: string
@@ -548,57 +584,61 @@ export async function getFirmEngineers(
   return raw.filter((engineer) => engineer.isActive).map(mapFirmEngineer)
 }
 
-export interface GasFirmsForProjectFirmQuery {
-  projectFirmId: number
-  /** Üst bardaki kapsam seçimi; "Hepsi" ise null. */
-  region: string | null
-}
-
 /** gerçek `GET /api/admin/gas-distribution-firms/for-project-firm`. */
 export async function getGasFirmsForProjectFirm(
-  query: GasFirmsForProjectFirmQuery,
+  projectFirmId: number,
   signal?: AbortSignal,
 ): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(query, signal))
+  return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(projectFirmId, signal))
 }
 
+/**
+ * `POST /api/projects` yanıtı (2026-08 sözleşmesi). Şema YALNIZ çağıranın
+ * ihtiyaç duyduğu alanları zorunlu tutuyor: sunucu il/ilçe adlarını da türetip
+ * döndürüyor ama form onları kullanmıyor, zorunlu kılınsalardı uç bir alanı
+ * kaldırdığında kayıt sınırda sessizce patlardı.
+ */
 const apiCreatedProjectSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   description: z.string().nullish(),
   code: z.string().nullish(),
-  projectFirmRegionId: z.number().int(),
-  gasDistributionFirmRegionId: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
 
 /**
- * Uç `projectFirmRegionId`/`gasDistributionFirmRegionId` istiyor: bunlar firma
- * kimliği DEĞİL, firma×bölge bağ kaydının kimliği. Formdaki `projectFirmId`
- * (11, 12…) buraya konulamaz — uç "bölgesi bulunamadı" der.
+ * Uç `projectFirmAuthorizationId` istiyor: bu firma kimliği DEĞİL, proje
+ * firmasının belirli bir GDF-bölgesindeki YETKİ kaydının kimliği. Formdaki
+ * `projectFirmId` (11, 12…) buraya konulamaz — uç 400 döner.
  *
- * Bu kimlikleri listeleyen bir uç YOK (`/api/regions`, `/api/projectfirmregions`
- * → 404; `/api/projectfirms` yalnız firmayı döndürüyor, bölge bağını değil) ve
- * bugün veritabanında yalnız 1 numaralı bağ kayıtlı — 2..6 denendi, hepsi
- * reddedildi. Sabit bu yüzden, tahmin olduğu için değil.
+ * Bu kimlikleri listeleyen bir uç YOK: `/api/projectfirms` yalnız firmayı
+ * döndürüyor, yetki bağını değil. Bugün veritabanında 1 numaralı kayıt var.
+ * Sabit bu yüzden, tahmin olduğu için değil.
  *
- * TODO(api): firma×bölge bağlarını listeleyen bir uç açılınca form bu değeri
+ * TODO(api): proje firması yetkilerini listeleyen uç açılınca form bu değeri
  * seçilen firmadan türetecek ve sabit kalkacak.
  */
-const SEEDED_PROJECT_FIRM_REGION_ID = 1
-const SEEDED_GAS_FIRM_REGION_ID = 1
+const SEEDED_PROJECT_FIRM_AUTHORIZATION_ID = 1
 
 /**
- * `POST /api/projects`. Uç bugün yalnız `name`, `description`, `code` ve iki
- * bölge bağını saklıyor; formun geri kalan alanları GÖNDERİLMİYOR.
+ * `POST /api/projects`.
  *
- * TODO(api): adres, iş başlama/bitiş tarihi, yetkili mühendis, bağlantı nesnesi,
- * daire/işyeri sayısı, alan, ada/pafta/parsel, proje tipi, ruhsat bayrağı, ısınma
- * tipi, bina kullanımı tipi, kapasite, S.K. basıncı ve kapak açıklaması uçta
- * karşılığı olmadığı için kaydedilmiyor. Bunları `description` içine JSON olarak
- * gömmek sunucunun sorgulayamadığı, şemasız bir alan yaratırdı — bilinçli olarak
- * yapılmadı, uç genişleyince tek tek eklenecek.
+ * SÖZLEŞME DEĞİŞTİ (2026-08): uç artık `projectFirmRegionId` +
+ * `gasDistributionFirmRegionId` DEĞİL, `projectFirmAuthorizationId` istiyor ve
+ * ayrıca `cityId`/`districtId`/`addressLine`/`blockLotParcel` kabul ediyor.
+ * Eski gövde 400 alıyordu ("Proje firması yetkisi zorunludur") — proje ekleme
+ * bu yüzden hiç çalışmıyordu.
+ *
+ * Uç bugün `name`, `description`, `code`, yetki bağı, il/ilçe, adres ve
+ * ada/pafta/parsel saklıyor.
+ *
+ * TODO(api): iş başlama/bitiş tarihi, yetkili mühendis, bağlantı nesnesi,
+ * daire/işyeri sayısı, alan, proje tipi, ruhsat bayrağı, ısınma tipi, bina
+ * kullanımı tipi, kapasite, S.K. basıncı ve kapak açıklaması uçta karşılığı
+ * olmadığı için hâlâ kaydedilmiyor. Bunları `description` içine JSON olarak
+ * gömmek sunucunun sorgulayamadığı, şemasız bir alan yaratırdı — bilinçli
+ * olarak yapılmadı, uç genişleyince tek tek eklenecek.
  */
 export async function createProject(payload: CreateProjectPayload): Promise<CreatedProject> {
   const created = await requestJson(
@@ -607,8 +647,11 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
       path: '/api/projects',
       rawJsonBody: JSON.stringify({
         name: payload.name,
-        projectFirmRegionId: SEEDED_PROJECT_FIRM_REGION_ID,
-        gasDistributionFirmRegionId: SEEDED_GAS_FIRM_REGION_ID,
+        projectFirmAuthorizationId: SEEDED_PROJECT_FIRM_AUTHORIZATION_ID,
+        cityId: payload.cityId,
+        districtId: payload.districtId,
+        addressLine: payload.address,
+        blockLotParcel: payload.parcelInfo,
       }),
     },
     apiCreatedProjectSchema,

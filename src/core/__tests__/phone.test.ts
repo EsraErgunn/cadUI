@@ -6,6 +6,7 @@ import {
   countDigits,
   formatPhone,
   isValidPhone,
+  toNormalizedPhoneDigits,
   toPhoneDigits,
 } from '../phone'
 
@@ -112,5 +113,40 @@ describe('caretIndexAfterDigits', () => {
 
   it('boş metinde sıfır verir', () => {
     expect(caretIndexAfterDigits('', 3)).toBe(0)
+  })
+})
+
+// KK-9: telefon kayıtta hangi biçimde durursa dursun listede "0xxx xxx xx xx".
+describe('toNormalizedPhoneDigits', () => {
+  it('başında 0 olmayan 10 haneli numaraya 0 ekler', () => {
+    expect(toNormalizedPhoneDigits('5312753592')).toBe('05312753592')
+  })
+
+  it('araya konmuş boşluk, parantez ve tireyi temizler', () => {
+    expect(toNormalizedPhoneDigits('0(533) 210-4477')).toBe('05332104477')
+    expect(toNormalizedPhoneDigits('0545 473 36 88')).toBe('05454733688')
+  })
+
+  // toPhoneDigits 11 haneye kırptığı için ülke kodlu numarayı bozuyordu.
+  it('ülke kodunu düşürüp 0 ile başlatır', () => {
+    expect(toNormalizedPhoneDigits('+90 532 118 08 80')).toBe('05321180880')
+  })
+
+  it('zaten normal olan numarayı olduğu gibi bırakır', () => {
+    expect(toNormalizedPhoneDigits('02164021000')).toBe('02164021000')
+  })
+
+  // Uydurma biçim dayatmak yerine çağıran ham metni gösterir.
+  it('hiçbir kalıba uymayan numaraya null döner', () => {
+    expect(toNormalizedPhoneDigits('1180')).toBeNull()
+    expect(toNormalizedPhoneDigits('')).toBeNull()
+    expect(toNormalizedPhoneDigits('0532118088012345')).toBeNull()
+  })
+
+  it('normalize edilen numara maskeye uyar', () => {
+    const digits = toNormalizedPhoneDigits('5051234567')
+    expect(digits).not.toBeNull()
+    expect(isValidPhone(digits ?? '')).toBe(true)
+    expect(formatPhone(digits ?? '')).toBe('0505 123 45 67')
   })
 })

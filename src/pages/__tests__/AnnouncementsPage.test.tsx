@@ -118,15 +118,17 @@ describe('duyuru listesi', () => {
     expect(await screen.findByText(/11\.07\.2026/)).toBeInTheDocument()
   })
 
-  it('üst bardaki bölge kapsamı uca taşınır', async () => {
+  // Kapsam seçicisi kaldırıldı (K31): liste her zaman tüm duyuruları gösterir,
+  // adres çubuğuna elle `?region=` yazılsa bile uca bölge gitmez.
+  it('uca bölge kapsamı taşımaz', async () => {
     renderPage({ route: `${ANNOUNCEMENTS_PATH}?region=Ege` })
 
     await screen.findByRole('heading', { name: /Duyurular/ })
     expect(dashboardApi.getAnnouncements).toHaveBeenCalledWith(
-      expect.objectContaining({ region: 'Ege' }),
+      expect.not.objectContaining({ region: expect.anything() }),
       expect.anything(),
     )
-    expect(screen.getByText(/Ege bölgesinde görünen duyurular/)).toBeInTheDocument()
+    expect(screen.getByText(/tüm bölgelerde görünen duyurular/)).toBeInTheDocument()
   })
 
   it('hiç duyuru yokken boş durum mesajı çıkar', async () => {

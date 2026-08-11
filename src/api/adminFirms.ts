@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { MOCK_FIRM_GROUPS, MOCK_REGIONS, allMockFirms } from './adminFirmsMock'
+import { MOCK_FIRM_GROUPS, allMockFirms } from './adminFirmsMock'
 import {
   firmGroupListDtoSchema,
   firmListDtoSchema,
@@ -25,14 +25,13 @@ export { SORT_DIRECTIONS, type SortDirection } from './listQuery'
  * - Filtresiz, sayfalamasız DÜZ DİZİ. `q`/`page`/`pageSize`/`sort` YOK.
  * - Arama, sıralama ve sayfalama bu yüzden İSTEMCİDE (`gasFirmListQuery.ts`).
  *   Geçici: backend sayfalı uç açınca kaldırılacak (docs/kararlar.md K27).
- * - Satır bölge TAŞIMAZ; `region` alanı `null` gelir, arayüz "-" gösterir.
  * - `groupName` null ise arayüz "-" gösterir.
  * - `dfirmNo` olduğu gibi gösterilir, yeniden numaralandırılmaz.
  *
  * GET /api/gasdistributiongroups → [{ id, name }]
  *
- * Bölge listesi (`getRegions`) HÂLÂ MOCK: sunucuda karşılığı yok, bölge filtresi
- * bu turda devre dışı.
+ * Bölge alanı ve bölge listesi ucu KALDIRILDI: sunucu satırda bölge taşımıyordu,
+ * onu okuyan tek yüzey de üst bardaki kapsam seçicisiydi (docs/kararlar.md K31).
  *
  * Ekle/güncelle ekranının uçları ayrı dosyada: `adminFirmForm.ts`.
  * `VITE_API_URL` tanımlı değilse liste de mock gövdeye düşer.
@@ -43,25 +42,16 @@ export const GAS_FIRM_PAGE_SIZE = 30
 export const GAS_FIRM_SORT_KEYS = ['dfirmNo', 'groupName', 'name'] as const
 export type GasFirmSortKey = (typeof GAS_FIRM_SORT_KEYS)[number]
 
-/**
- * Liste satırı.
- *
- * `region` NULLABLE: sunucu bu alanı taşımıyor. Alan silinmedi — bölge filtresi
- * bu turda devre dışı, backend "bugün geçerli bölge yetkileri" alanını ekleyince
- * geri açılacak. Değer yokken arayüz "-" gösterir (grup sütunuyla aynı desen).
- */
+/** Liste satırı. */
 export const gasDistributionFirmSchema = z.object({
   id: z.number().int().positive(),
   dfirmNo: z.number().int(),
   groupId: z.number().int().nullable(),
   groupName: z.string().nullable(),
   name: z.string(),
-  region: z.string().nullable(),
 })
 
 const gasDistributionFirmPageSchema = pagedResultSchema(gasDistributionFirmSchema)
-
-const nameListSchema = z.array(z.string())
 
 export type GasDistributionFirm = z.infer<typeof gasDistributionFirmSchema>
 export type GasDistributionFirmPage = PagedResult<GasDistributionFirm>
@@ -70,11 +60,6 @@ export interface GasDistributionFirmQuery {
   nameQuery: string
   /** Grup artık ADLA değil KİMLİKLE süzülüyor — gerçek veri kimlik taşıyor. */
   groupId: number | null
-  /**
-   * Bölge şu an UYGULANMIYOR: sunucu bu alanı taşımıyor, filtre devre dışı.
-   * Alan korunuyor ki uç gelince yalnız süzgeç geri açılsın (bkz. K27).
-   */
-  region: string | null
   sortKey: GasFirmSortKey
   sortDir: SortDirection
   page: number
@@ -121,7 +106,7 @@ export async function getGasDistributionFirms(
  * yüzden arama, sıralama ve sayfalama istemcide yapılıyor — CLAUDE.md
  * "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası (K27).
  */
-async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[]> {
+export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[]> {
   if (!hasApiBaseUrl()) {
     await delay(MOCK_LATENCY_MS, signal)
     return allMockFirms()
@@ -133,6 +118,27 @@ async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[
   )
 
   return dtos.map(toFirmListItem)
+}
+
+/**
+ * Bir grup firmasına bağlı gaz dağıtım firmaları ("AKSA-GEMLİK" gibi).
+ *
+ * Proje firması ekleme ekranındaki "G.D Firması Bölgeleri" listesinin kaynağı:
+ * gereksinim bölgeleri "seçilen gruba bağlı gaz dağıtım firmaları" olarak
+ * tanımlıyor. Uçta grup süzgeci YOK, bu yüzden liste tümüyle çekilip burada
+ * süzülüyor — sayfalı liste ekranıyla aynı geçici çözüm (K27).
+ *
+ * Sıralama İSTEMCİDE ve Türkçe: sunucu 'Ç'yi 'D'den sonra veriyor.
+ */
+export async function getGasDistributionFirmsByGroup(
+  groupId: number,
+  signal?: AbortSignal,
+): Promise<GasDistributionFirm[]> {
+  const firms = await fetchAllFirms(signal)
+
+  return firms
+    .filter((firm) => firm.groupId === groupId)
+    .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
 }
 
 /**
@@ -156,8 +162,3 @@ export async function getFirmGroups(signal?: AbortSignal): Promise<FirmGroup[]> 
   return toSortedFirmGroups(dtos)
 }
 
-/**  gerçek `GET /api/admin/regions`. */
-export async function getRegions(signal?: AbortSignal): Promise<string[]> {
-  await delay(MOCK_LATENCY_MS, signal)
-  return nameListSchema.parse(MOCK_REGIONS)
-}

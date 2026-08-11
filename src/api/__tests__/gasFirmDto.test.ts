@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   firmDetailDtoSchema,
+  firmListItemDtoSchema,
   toFirmDetail,
   toFirmListItem,
   toFirmPayloadDto,
@@ -73,7 +74,6 @@ const LIST_DTO = {
   companyNumber: 1206,
   groupId: 2,
   groupName: 'ÇEDAŞ',
-  contactPerson: 'Ayşe Demir',
 }
 
 describe('toFirmListItem', () => {
@@ -85,16 +85,25 @@ describe('toFirmListItem', () => {
     expect(item.groupId).toBe(2)
   })
 
-  // Sunucu satırda bölge taşımıyor; alan silinmedi, boş taşınıyor (K27).
-  it('bölgeyi null verir', () => {
-    expect(toFirmListItem(LIST_DTO).region).toBeNull()
-  })
-
   it('grubu olmayan satırı null taşır', () => {
     const item = toFirmListItem({ ...LIST_DTO, groupId: null, groupName: null })
 
     expect(item.groupId).toBeNull()
     expect(item.groupName).toBeNull()
+  })
+})
+
+describe('firmListItemDtoSchema', () => {
+  // Sunucu liste DTO'sundan yetkili kişiyi çıkardı; şema bunu ZORUNLU
+  // beklerse liste hiç render olmuyordu.
+  it('yetkili kişi alanı olmadan geçer', () => {
+    expect(firmListItemDtoSchema.safeParse(LIST_DTO).success).toBe(true)
+  })
+
+  it('alan yine de gelirse yanıtı reddetmez', () => {
+    expect(
+      firmListItemDtoSchema.safeParse({ ...LIST_DTO, contactPerson: 'Ayşe Demir' }).success,
+    ).toBe(true)
   })
 })
 

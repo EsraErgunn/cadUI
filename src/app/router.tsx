@@ -8,7 +8,10 @@ import { EditorPage } from '../pages/EditorPage'
 import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
+import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
+import { ProjectFirmUserFormPage } from '../pages/ProjectFirmUserFormPage'
+import { ProjectFirmUsersPage } from '../pages/ProjectFirmUsersPage'
 import { ProjectFirmsPage } from '../pages/ProjectFirmsPage'
 import { ProjectListPage } from '../pages/ProjectListPage'
 import { RegisterPage } from '../pages/RegisterPage'
@@ -17,12 +20,12 @@ import { AdminLayout } from '../ui/admin/AdminLayout'
 import {
   ANNOUNCEMENTS_PATH,
   DOCUMENTS_PATH,
-  FIRM_USERS_PATH,
   POLICIES_PATH,
   PROJECT_CREATE_PATH,
   PROJECT_FIRMS_PATH,
   PROJECT_FIRM_CREATE_PATH,
-  USER_CREATE_PATH,
+  PROJECT_FIRM_USERS_PATH,
+  PROJECT_FIRM_USER_CREATE_PATH,
 } from '../ui/admin/adminNavItems'
 
 export function AppRouter() {
@@ -78,30 +81,30 @@ export function AppRouter() {
           <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
 
           <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new güncelleme rotasına "new" kimliğiyle düşerdi. */}
+          <Route path={PROJECT_FIRM_CREATE_PATH} element={<NewProjectFirmPage />} />
+
+          <Route path={PROJECT_FIRM_USERS_PATH} element={<ProjectFirmUsersPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
+          <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ProjectFirmUserFormPage />} />
+          <Route
+            path={`${PROJECT_FIRM_USERS_PATH}/:userId`}
+            element={<ProjectFirmUserFormPage />}
+          />
 
           <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
 
           {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
               hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
               kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
-          <Route
-            path={PROJECT_FIRM_CREATE_PATH}
-            element={<ComingSoonPage title="Proje Firması Ekle" section="Firmalar" />}
-          />
           {/* Firma adının hedefi; güncelleme ekranı kendi issue'sunda gelecek.
               Rota olmasaydı tıklama yakalayıcı route'a düşüp kullanıcıyı proje
               listesine atardı. */}
           <Route
             path={`${PROJECT_FIRMS_PATH}/:firmId`}
             element={<ComingSoonPage title="Proje Firması Güncelle" section="Firmalar" />}
-          />
-          <Route
-            path={FIRM_USERS_PATH}
-            element={<ComingSoonPage title="Firma Kullanıcıları" section="Kullanıcılar" />}
-          />
-          <Route
-            path={USER_CREATE_PATH}
-            element={<ComingSoonPage title="Kullanıcı Oluştur" section="Kullanıcılar" />}
           />
           <Route path={DOCUMENTS_PATH} element={<ComingSoonPage title="Evraklar" />} />
           <Route path={POLICIES_PATH} element={<ComingSoonPage title="Poliçeler" />} />

@@ -44,6 +44,41 @@ kurduğu için kaydı kendi yazıyor, ama temizliği aynı fonksiyondan geçiriy
 iki ayrı temizlik yazılsaydı biri (yine) bir diziyi atlar ve sahipsiz duvar
 bırakırdı, bkz. [floor-ordering](./floor-ordering.md) uyarısı.
 
+## Silme onayı taslağı SİLMEZ, onaylar
+
+`FloorDeleteDialog` yalnız dökümü gösterip onay alır; silmeyi çağıran kendi
+taslağına uygular. Pencere taslağı hiç tanımıyor — aynı bileşen ileride başka bir
+silme yolundan da açılabilsin diye.
+
+Döküm ve kot etkisi TASLAK listesine bakar, store'a değil: aynı pencerede
+eklenmiş bir katı silmek de onay isteyebilmeli ve "en az bir kat kalmalı" kuralı
+kullanıcının gördüğü listeye göre işlemeli.
+
+Alan nesnesi (merdiven/kolon/baca şaftı) MİMARİ sayılır: hem `hasArchitecture`
+hem `removeFloorArchitectureInDraft` onu kapsar — duvarı olmayan ama merdiveni
+olan kat "boş" gösterilmemeli, ve yalnız tesisat kopyalanırken silinmemeli.
+
+Sayım, kat silme temizliğiyle **aynı ölçütü** kullanır: açıklık ve oda `floorId`
+taşımadığı için ikisi de DUVARINDAN türetilir (K9, K31). Kata göre süzülselerdi
+gösterilen sayı silinenden şaşardı. "Boru bölümü" hat değil SEGMENT sayar —
+kullanıcı kırıklı bir hattı tek boru saymıyor.
+
+Kot etkisi iki kez hesaplanarak bulunuyor (önce/sonra): kot saklanmadığı için
+başka yolu yok, ama asıl kazanç şu — birden çok kat farklı seviyelerden silinince
+düşüş miktarı katlara göre DEĞİŞİR, tek bir "X m iner" cümlesi yanlış olurdu.
+
+**Düşey eksen uyarısı (KK-13) BAĞLANDI.** Baca şaftı ve kolon havalandırması
+`AreaObject` olarak modele girince (bkz. [area-objects](./area-objects.md))
+uyarı yazıldı: iki tür AYRI sayılıyor çünkü uyarı ikisini adıyla söylüyor
+(`flueShaftCount` / `columnVentilationCount`). Merdiven ve yapısal kolon aynı
+tipte ama düşey eksende SÜRMEZ, uyarı üretmez.
+
+⚠️ KK-19 (kopyalamada eksen kimliğinin korunması) hâlâ YAPILAMAZ: `AreaObject`
+kat başına modellendi, katlar arası bir eksen kimliği YOK — ekip bunu bilinçli
+olarak erteledi ("kat-bağımsız kimlik gerekirse ayrı karar"). Kopyalanan alan
+nesnesi hedef katta aynı koordinatta doğuyor, yani geometrik olarak hizalı
+kalıyor; korunan bir KİMLİK yok, hizayı sonradan bozan bir taşıma denetlenemez.
+
 ## İçerik rozeti anlık türetilir
 
 `core/floorContent.ts` katta mimari/tesisat var mı sorusunu her gösterimde

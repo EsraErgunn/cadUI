@@ -8,7 +8,6 @@ import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
-import { useRegionParam } from '../ui/admin/adminUrlParams'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import { NewProjectBuildingCard } from '../ui/admin/projects/NewProjectBuildingCard'
 import { NewProjectInfoCard } from '../ui/admin/projects/NewProjectInfoCard'
@@ -28,7 +27,6 @@ export function NewProjectPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isAdmin = useIsAdmin()
-  const { region } = useRegionParam()
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false)
 
   const form = useNewProjectForm({ isAdmin })
@@ -38,7 +36,6 @@ export function NewProjectPage() {
     isAdmin,
     // Admin olmayanda firma sunucuda belli; kimlik gönderilmez.
     projectFirmId: isAdmin ? form.values.projectFirmId : null,
-    region,
   })
 
   // Sunucudan gelen tip listesi değişince varsayılan/geçersiz seçim tazelenir.

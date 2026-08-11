@@ -8,6 +8,7 @@ import { getAreaObjectTypeForTool } from '../core/areaObject'
 import type { PlanPoint } from '../core/coords'
 import type { AreaObjectType } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
+import { SELECTION_TOOL_ID } from '../core/tools'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
@@ -24,7 +25,10 @@ export type AreaObjectPreview = {
  * (tutamaçla sürükleyerek boyutlandırma henüz yok, bkz. docs/kararlar.md).
  *
  * `usePointSymbolTool` ile aynı sözleşme: yerleştirme pointer UP'ta, araç
- * yerleştirdikten SONRA aktif kalır (arka arkaya ekleme).
+ * yerleştirdikten SONRA aktif kalır (arka arkaya ekleme). Jesti bitiren şey
+ * SAĞ TIK: hem önizlemeyi siler hem paleti seçim aracına döndürür (K42) —
+ * tesisat tarafındaki `useEscapeToSelectionTool` ile aynı gerekçe, kullanıcı
+ * "bu iş bitti" demek için palete geri gitmek zorunda kalmasın.
  *
  * PointSymbol'den farklı olarak duvara bağlanma YOK — her zaman serbest,
  * yalnız ızgaraya oturur. Kapı/pencere üstüne düşen yerleştirme K35/K36
@@ -68,6 +72,14 @@ export function useAreaObjectTool(): AreaObjectPreview | undefined {
         if (event.button !== LEFT_BUTTON) return
         const position = readPosition(event)
         useCadStore.getState().addAreaObject({ type: areaObjectType, x: position.x, y: position.y })
+      },
+
+      // Sağ tık çizimi bitirir: önizleme silinir ve palet seçim aracına döner.
+      // Araç değişimi bu hook'un effect'ini söker, temizlik zaten orada —
+      // setPreview yine de çağrılıyor çünkü sökülme bir sonraki render'da olur.
+      onContextMenu: () => {
+        setPreview(undefined)
+        useUiStore.getState().setActiveTool(SELECTION_TOOL_ID)
       },
 
       onCancel: () => setPreview(undefined),

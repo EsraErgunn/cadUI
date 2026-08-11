@@ -2,41 +2,58 @@ import { useQuery } from '@tanstack/react-query'
 import { Bell, Search } from 'lucide-react'
 import { useState } from 'react'
 
-import { ALL_REGIONS_LABEL, useRegionParam } from './adminUrlParams'
 import { adminFieldVariants, adminIconButtonVariants } from './adminVariants'
-import { getRegions } from '../../api/adminFirms'
-
-const REGION_STALE_MS = 5 * 60 * 1000
+import { useRegionParam } from './useRegionParam'
+import { getFirmGroups } from '../../api/adminFirms'
 
 // okunmamış bildirim sayısı endpoint'i bağlanınca sabit kaldırılacak.
 const HAS_UNREAD_NOTIFICATIONS = true
 
-export function AdminTopBar() {
-  const { region, setRegion } = useRegionParam()
-  const [globalQuery, setGlobalQuery] = useState('')
+const REGION_SELECT_ID = 'admin-region-scope'
 
-  const { data: regions } = useQuery({
-    queryKey: ['regions'],
-    queryFn: ({ signal }) => getRegions(signal),
-    staleTime: REGION_STALE_MS,
+/** Kapsam seçilmemiş hâl. Boş dize `<option>` değeri; null'ın DOM karşılığı yok. */
+const ALL_REGIONS_VALUE = ''
+
+/**
+ * Kabuk üst barı.
+ *
+ * "Bölge" kapsamı gaz dağıtım GRUP firmasıdır (AKSA, ENERYA…) — K31 ile kalkan
+ * coğrafi bölge değil. Seçenekler `/api/gasdistributiongroups`'tan geliyor;
+ * bölgeleri listeleyen ayrı bir uç yok (`/api/regions` → 404).
+ *
+ * Seçici HER ekranda etkin (docs/kararlar.md K44). Satırında bölge bilgisi
+ * olmayan kayıt elenmez, o ekranda kapsam bugün sonucu değiştirmez — böylece
+ * seçim hiçbir listeyi sessizce boşaltmıyor.
+ */
+export function AdminTopBar() {
+  const [globalQuery, setGlobalQuery] = useState('')
+  const region = useRegionParam()
+
+  const { data: groups } = useQuery({
+    queryKey: ['firmGroups'],
+    queryFn: ({ signal }) => getFirmGroups(signal),
   })
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-4 border-b border-edge bg-surface px-6">
       <div className="flex shrink-0 items-center gap-2">
-        <label htmlFor="admin-region" className="text-sm text-ink-muted">
-          Bölge:
+        <label htmlFor={REGION_SELECT_ID} className="text-sm font-medium text-ink">
+          Bölge
         </label>
         <select
-          id="admin-region"
-          value={region ?? ''}
-          onChange={(event) => setRegion(event.target.value === '' ? null : event.target.value)}
-          className={adminFieldVariants({ className: 'min-w-40 pr-8' })}
+          id={REGION_SELECT_ID}
+          value={region.groupId === null ? ALL_REGIONS_VALUE : String(region.groupId)}
+          onChange={(event) =>
+            region.setGroupId(
+              event.target.value === ALL_REGIONS_VALUE ? null : Number(event.target.value),
+            )
+          }
+          className={adminFieldVariants({ className: 'w-44' })}
         >
-          <option value="">{ALL_REGIONS_LABEL}</option>
-          {(regions ?? []).map((name) => (
-            <option key={name} value={name}>
-              {name}
+          <option value={ALL_REGIONS_VALUE}>Tüm bölgeler</option>
+          {(groups ?? []).map((group) => (
+            <option key={group.id} value={group.id}>
+              {group.name}
             </option>
           ))}
         </select>

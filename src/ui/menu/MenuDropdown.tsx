@@ -48,6 +48,9 @@ export function MenuDropdown({
               className={menuItemVariants()}
             >
               {item.label}
+              {item.shortcut && (
+                <span className="ml-auto pl-6 text-xs text-ink-disabled">{item.shortcut}</span>
+              )}
             </button>
           ))}
         </div>

@@ -24,12 +24,8 @@ const EMPTY_MESSAGE = 'Henüz yayınlanmış duyuru yok. "Duyuru Yayınla" ile i
 const EMPTY_SEARCH_MESSAGE =
   'Aramaya uyan duyuru bulunamadı. Aramayı değiştirip tekrar deneyin.'
 
-/** Kapsam açıklaması üst bardaki bölge seçimini yansıtır. */
-function buildDescription(region: string | null): string {
-  const scope = region === null ? 'tüm bölgelerde' : `${region} bölgesinde`
-
-  return `Kullanıcı ekranlarında ${scope} görünen duyurular`
-}
+/** Kapsam sabit: üst bardaki bölge seçicisi kaldırıldı (docs/kararlar.md K31). */
+const PAGE_DESCRIPTION = 'Kullanıcı ekranlarında tüm bölgelerde görünen duyurular'
 
 /**
  * Duyuru listesi. Anasayfadaki kart en yeni iki duyuruyu gösteriyor, bu ekran
@@ -75,7 +71,7 @@ export function AnnouncementsPage() {
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={data === undefined ? '…' : String(data.totalCount)}
-          description={buildDescription(query.region)}
+          description={PAGE_DESCRIPTION}
         />
         <AnnouncementsToolbar
           textQuery={query.textQuery}
@@ -131,7 +127,6 @@ export function AnnouncementsPage() {
 
       {isDialogOpen && (
         <AnnouncementDialog
-          defaultRegion={query.region}
           onClose={() => setIsDialogOpen(false)}
           onPublished={handlePublished}
         />

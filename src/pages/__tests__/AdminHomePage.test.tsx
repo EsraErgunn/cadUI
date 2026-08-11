@@ -8,7 +8,7 @@ import { toDayKey } from '../../api/dayKey'
 import {
   ANNOUNCEMENTS_PATH,
   PROJECT_FIRM_CREATE_PATH,
-  USER_CREATE_PATH,
+  PROJECT_FIRM_USER_CREATE_PATH,
 } from '../../ui/admin/adminNavItems'
 import { AdminHomePage } from '../AdminHomePage'
 import { ComingSoonPage } from '../ComingSoonPage'
@@ -18,6 +18,8 @@ const dashboardApi = vi.hoisted(() => ({
   publishAnnouncement: vi.fn(),
 }))
 const permissionsApi = vi.hoisted(() => ({ getMyPermissions: vi.fn() }))
+/** Kapsam kimliğini ADA çeviren liste; başlıktaki bölge adı buradan geliyor. */
+const firmsApi = vi.hoisted(() => ({ getFirmGroups: vi.fn() }))
 
 vi.mock('../../api/adminDashboard', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/adminDashboard')>()),
@@ -25,6 +27,11 @@ vi.mock('../../api/adminDashboard', async (importOriginal) => ({
 }))
 
 vi.mock('../../api/permissions', () => permissionsApi)
+
+vi.mock('../../api/adminFirms', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/adminFirms')>()),
+  ...firmsApi,
+}))
 
 const SUMMARY = {
   counts: { gasDistributionUsers: 2926, projectFirms: 11838, projectFirmUsers: 24804 },
@@ -68,6 +75,10 @@ function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS } = {}) {
   dashboardApi.getDashboardSummary.mockResolvedValue(SUMMARY)
   dashboardApi.publishAnnouncement.mockResolvedValue(PUBLISHED)
   permissionsApi.getMyPermissions.mockResolvedValue(permissions)
+  firmsApi.getFirmGroups.mockResolvedValue([
+    { id: 1, name: 'AKMERCAN' },
+    { id: 2, name: 'AKSA' },
+  ])
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -81,7 +92,7 @@ function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS } = {}) {
             path={PROJECT_FIRM_CREATE_PATH}
             element={<ComingSoonPage title="Proje Firması Ekle" />}
           />
-          <Route path={USER_CREATE_PATH} element={<ComingSoonPage title="Kullanıcı Oluştur" />} />
+          <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ComingSoonPage title="Kullanıcı Oluştur" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -130,28 +141,51 @@ describe('KK-1 ekran açılışı', () => {
   })
 })
 
-// KK-2 — Bölge değişimi
-describe('KK-2 bölge değişimi', () => {
-  it('seçili bölge açıklamaya yansır ve veri o bölge için istenir', async () => {
-    renderPage({ route: '/admin?region=Ege' })
+/**
+ * KK-2 — bölge kapsamı üst bardan geliyor ve `group` anahtarında duruyor
+ * (docs/kararlar.md K44). Eski `region` anahtarı artık okunmuyor.
+ */
+describe('bölge kapsamı', () => {
+  it('kapsam yokken sistem genelini ister ve öyle yazar', async () => {
+    renderPage()
 
-    expect(await screen.findByText(/Sistem geneli durum —/)).toHaveTextContent('Ege')
+    await screen.findByRole('heading', { name: 'Genel Bakış' })
+
     expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
-      'Ege',
       expect.any(String),
+      null,
+      expect.anything(),
+    )
+    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent('tüm bölgeler')
+  })
+
+  it('kapsam seçiliyken grup kimliğini uca geçirir', async () => {
+    renderPage({ route: '/admin?group=2' })
+
+    await screen.findByRole('heading', { name: 'Genel Bakış' })
+
+    expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
+      expect.any(String),
+      2,
       expect.anything(),
     )
   })
 
-  it('bölge seçilmemişken uca null geçer', async () => {
-    renderPage()
+  // Sayılar süzülmüşken "tüm bölgeler" demek yanlış olurdu.
+  it('seçili bölgenin adını başlığa yazar', async () => {
+    renderPage({ route: '/admin?group=2' })
+
+    // Grup listesi sonra çözülüyor; ilk kare hâlâ "tüm bölgeler" diyor.
+    expect(await screen.findByText(/Sistem geneli durum —.*AKSA/)).toBeInTheDocument()
+  })
+
+  // Eski anahtar sessizce kapsam kurmasın: adres çubuğunda kalmış olabilir.
+  it('eski `region` anahtarını yok sayar', async () => {
+    renderPage({ route: '/admin?region=Ege' })
 
     await screen.findByRole('heading', { name: 'Genel Bakış' })
-    expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
-      null,
-      expect.any(String),
-      expect.anything(),
-    )
+
+    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent('tüm bölgeler')
   })
 })
 
@@ -176,10 +210,10 @@ describe('KK-3 özet kartları', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('kapsam bilgisi seçili bölgeyi yansıtır', async () => {
-    renderPage({ route: '/admin?region=Ege' })
+  it('kapsam bilgisi her kartta "Tüm bölgeler için" yazar', async () => {
+    renderPage()
 
-    expect((await screen.findAllByText('Ege için')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Tüm bölgeler için')).length).toBeGreaterThan(0)
   })
 })
 
@@ -220,8 +254,8 @@ describe('KK-4 bugün kartı', () => {
 
     await screen.findByRole('region', { name: 'Bugün' })
     expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
-      null,
       toDayKey(new Date()),
+      null,
       expect.anything(),
     )
   })
@@ -365,13 +399,15 @@ describe('duyuru yayınlama', () => {
     expect(dashboardApi.publishAnnouncement).not.toHaveBeenCalled()
   })
 
-  it('üst bardaki bölge forma kapsam olarak taşınır', async () => {
+  // Kapsam seçicisi kalktığı için form "tüm bölgeler" ile açılır (K31);
+  // duyurunun KENDİ bölgesi kutuda seçilmeye devam ediyor.
+  it('form tüm bölgeler kapsamıyla açılır', async () => {
     const user = userEvent.setup()
-    renderPage({ route: '/admin?region=Ege' })
+    renderPage()
 
     await user.click(await screen.findByRole('button', { name: 'Duyuru Yayınla' }))
 
-    expect(screen.getByLabelText('Kapsam')).toHaveValue('Ege')
+    expect(screen.getByLabelText('Kapsam')).toHaveValue('')
   })
 
   it('geçerli form yayınlanır ve sonuç bildirilir', async () => {

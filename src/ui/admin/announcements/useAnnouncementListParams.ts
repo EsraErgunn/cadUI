@@ -5,7 +5,13 @@ import {
   ANNOUNCEMENT_PAGE_SIZE,
   type AnnouncementQuery,
 } from '../../../api/adminDashboard'
-import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
+import {
+  ADMIN_PARAM_KEYS,
+  FIRST_PAGE,
+  parseGroupId,
+  parsePage,
+  useAdminParamWriter,
+} from '../adminUrlParams'
 
 export interface AnnouncementListControls {
   query: AnnouncementQuery
@@ -15,9 +21,9 @@ export interface AnnouncementListControls {
 
 /**
  * Arama ve sayfa durumunun TEK sahibi URL (`useFirmListParams` deseni). Bölge
- * için ayrı bir süzgeç YOK: kapsam üst bardaki seçimden geliyor ve aynı `region`
- * anahtarını okuyor — anasayfayla duyuru listesi arasında gezinirken kapsam
- * korunsun diye.
+ * kapsamı üst bardan geliyor ama AYNI query string'de duruyor (`group`), bu
+ * yüzden burada ayrıca okunuyor: sorgu anahtarı kapsamı içermeseydi bölge
+ * değişince liste tazelenmezdi (docs/kararlar.md K44).
  */
 export function useAnnouncementListParams(): AnnouncementListControls {
   const [searchParams] = useSearchParams()
@@ -26,7 +32,7 @@ export function useAnnouncementListParams(): AnnouncementListControls {
   const query = useMemo<AnnouncementQuery>(
     () => ({
       textQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
-      region: searchParams.get(ADMIN_PARAM_KEYS.region),
+      groupId: parseGroupId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: ANNOUNCEMENT_PAGE_SIZE,
     }),

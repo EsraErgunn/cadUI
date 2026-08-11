@@ -9,7 +9,7 @@ import {
   ANNOUNCEMENT_TITLE_MAX_LENGTH,
   type Announcement,
 } from '../../../api/adminDashboard'
-import { MOCK_REGIONS } from '../../../api/adminFirmsMock'
+import { MOCK_REGIONS } from '../../../api/adminDashboardMock'
 import { AdminDialog } from '../AdminDialog'
 import { NoticeBar } from '../NoticeBar'
 import { adminButtonVariants } from '../adminVariants'
@@ -22,12 +22,10 @@ const DIALOG_TITLE = 'Duyuru Yayınla'
 
 const ALL_REGIONS_OPTION_LABEL = 'Tüm bölgeler'
 
-/** TODO(esra): bölge listesi K27'deki bölge alanı gelince gerçek uçtan gelecek. */
+/** TODO(esra): duyurunun bölge listesi gerçek uçtan gelecek; bugün mock. */
 const REGION_OPTIONS = MOCK_REGIONS.map((region) => ({ value: region, label: region }))
 
 interface AnnouncementDialogProps {
-  /** Üst bardaki bölge; form aynı kapsamla açılır. */
-  defaultRegion: string | null
   onClose: () => void
   onPublished: (announcement: Announcement) => void
 }
@@ -40,15 +38,11 @@ interface AnnouncementDialogProps {
  * Alanların yanında canlı önizleme var — duyurunun kullanıcı ekranında nasıl
  * görüneceği (kısaltma dahil) yayınlamadan önce görülüyor.
  */
-export function AnnouncementDialog({
-  defaultRegion,
-  onClose,
-  onPublished,
-}: AnnouncementDialogProps) {
+export function AnnouncementDialog({ onClose, onPublished }: AnnouncementDialogProps) {
   const fieldPrefix = useId()
   const fieldElementId = (field: AnnouncementField) => `${fieldPrefix}-${field}`
 
-  const form = useAnnouncementForm({ defaultRegion, fieldElementId })
+  const form = useAnnouncementForm({ fieldElementId })
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

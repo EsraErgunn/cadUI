@@ -4,6 +4,11 @@ import { cva } from 'class-variance-authority'
 export const ADMIN_FOCUS_RING =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
+/** Onay kutusu: işaret birincil renkte, odak halkası her yerdeki gibi aksan.
+    `CheckboxField` ile filtre çubuğu aynı kutuyu çiziyor — sınıf dizesi iki
+    yerde kopyalanmasın. */
+export const ADMIN_CHECKBOX = `size-4 shrink-0 accent-admin-primary ${ADMIN_FOCUS_RING}`
+
 /** Tablo hücresi ve konum izi içindeki bağlantılar. Seçim mavisi + hover'da altı çizili. */
 export const ADMIN_CELL_LINK = `rounded text-selection hover:underline ${ADMIN_FOCUS_RING}`
 

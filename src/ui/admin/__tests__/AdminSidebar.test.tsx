@@ -36,7 +36,7 @@ describe('AdminSidebar', () => {
   it('ekranı hazır olmayan madde "Yakında" rozetiyle işaretlenir', () => {
     renderSidebar()
 
-    const comingSoon = screen.getByRole('link', { name: /Firma Kullanıcıları/ })
+    const comingSoon = screen.getByRole('link', { name: /Evraklar/ })
     expect(comingSoon).toHaveTextContent('Yakında')
     expect(screen.getByRole('link', { name: /Anasayfa/ })).not.toHaveTextContent('Yakında')
   })
@@ -47,6 +47,11 @@ describe('AdminSidebar', () => {
     renderSidebar()
 
     expect(screen.getByRole('link', { name: /Proje Firmaları/ })).not.toHaveTextContent('Yakında')
+    // Belge madde 1: menü etiketi "Firma Kullanıcıları" değil "Proje Firması
+    // Kullanıcıları" — sistemde gaz dağıtım firması kullanıcıları da var.
+    expect(
+      screen.getByRole('link', { name: /Proje Firması Kullanıcıları/ }),
+    ).not.toHaveTextContent('Yakında')
   })
 
   it('bulunulan sayfanın maddesi işaretlenir', () => {

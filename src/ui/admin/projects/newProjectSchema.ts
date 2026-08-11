@@ -38,6 +38,8 @@ export const NEW_PROJECT_ERRORS = {
   endBeforeStart: 'İş bitiş tarihi, başlama tarihinden önce olamaz.',
   engineer: 'Yetkili mühendis zorunludur.',
   address: 'Adres zorunludur.',
+  city: 'İl seçiniz.',
+  district: 'İlçe seçiniz.',
   negative: 'Negatif değer girilemez.',
   integer: 'Tam sayı giriniz.',
   maxCapacity: `Kapasite en çok ${capacityLimitLabel} m³/h olabilir.`,
@@ -59,6 +61,8 @@ export interface NewProjectFormValues {
   endDate: string
   engineerUserId: number | null
   connectionObject: string
+  cityId: number | null
+  districtId: number | null
   address: string
   apartmentCount: number
   workplaceCount: number
@@ -95,6 +99,8 @@ export const NEW_PROJECT_FIELD_ORDER: NewProjectField[] = [
   'endDate',
   'engineerUserId',
   'connectionObject',
+  'cityId',
+  'districtId',
   'address',
   'apartmentCount',
   'workplaceCount',
@@ -168,6 +174,10 @@ export function createNewProjectSchema({ isAdmin }: NewProjectSchemaOptions) {
       endDate: requiredText(NEW_PROJECT_ERRORS.endDate),
       engineerUserId: requiredId(NEW_PROJECT_ERRORS.engineer),
       connectionObject: z.string(),
+      // İl ve ilçe ZORUNLU: uç ikisini de alıyor ve adres bunlar olmadan
+      // eksik kalıyor. `requiredId` null'ı reddedip tipi daraltıyor.
+      cityId: requiredId(NEW_PROJECT_ERRORS.city),
+      districtId: requiredId(NEW_PROJECT_ERRORS.district),
       address: requiredText(NEW_PROJECT_ERRORS.address),
       apartmentCount: nonNegativeInteger,
       workplaceCount: nonNegativeInteger,
@@ -267,6 +277,8 @@ export function toCreateProjectPayload(
     endDate: values.endDate,
     engineerUserId: values.engineerUserId,
     connectionObject: optionalText(values.connectionObject),
+    cityId: values.cityId,
+    districtId: values.districtId,
     address: values.address.trim(),
     apartmentCount: values.apartmentCount,
     workplaceCount: values.workplaceCount,

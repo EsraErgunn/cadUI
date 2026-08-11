@@ -8,7 +8,7 @@ import { ComingSoonBadge } from '../ComingSoonBadge'
 import {
   GAS_FIRM_CREATE_PATH,
   PROJECT_FIRM_CREATE_PATH,
-  USER_CREATE_PATH,
+  PROJECT_FIRM_USER_CREATE_PATH,
 } from '../adminNavItems'
 import { ADMIN_FOCUS_RING } from '../adminVariants'
 import { useArePermissionsLoading, usePermission } from '../usePermission'
@@ -45,8 +45,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     label: 'Kullanıcı Oluştur',
     icon: UserPlus,
     permission: 'user.create',
-    to: USER_CREATE_PATH,
-    isComingSoon: true,
+    to: PROJECT_FIRM_USER_CREATE_PATH,
   },
   {
     key: 'viewProjects',
