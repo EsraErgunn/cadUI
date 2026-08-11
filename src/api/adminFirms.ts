@@ -106,7 +106,7 @@ export async function getGasDistributionFirms(
  * yüzden arama, sıralama ve sayfalama istemcide yapılıyor — CLAUDE.md
  * "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası (K27).
  */
-async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[]> {
+export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[]> {
   if (!hasApiBaseUrl()) {
     await delay(MOCK_LATENCY_MS, signal)
     return allMockFirms()

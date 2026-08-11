@@ -20,6 +20,8 @@ function validValues(): NewProjectFormValues {
     projectFirmId: 11,
     gasDistributionFirmId: 101,
     engineerUserId: 501,
+    cityId: 6,
+    districtId: 64,
     address: 'Çankaya Mahallesi 12. Sokak No 5',
     projectType: 'ILAVE',
     heatingType: 'bireysel',

@@ -20,6 +20,12 @@ interface TextFieldProps {
   /** Salt okunur alan odaklanabilir ve kopyalanabilir kalır — `isDisabled` ikisini de alır. */
   isReadOnly?: boolean
   maxLength?: number
+  /**
+   * Tarayıcının kendi biçim denetimi ve mobil klavyesi için. Doğrulamanın SON
+   * sözünü hâlâ zod söylüyor (`noValidate` form): buradaki tip yalnız girdiyi
+   * kolaylaştırır, kuralın ikinci kopyası değildir.
+   */
+  type?: 'text' | 'email'
   /** Mobil klavyeyi doğru açar; sayısal alanlarda 'numeric'. */
   inputMode?: 'text' | 'numeric' | 'tel'
   layout?: FieldLayout
@@ -47,6 +53,7 @@ export function TextField({
   isDisabled = false,
   isReadOnly = false,
   maxLength,
+  type = 'text',
   inputMode,
   layout,
   leftIcon,
@@ -57,7 +64,7 @@ export function TextField({
   const input = (
     <input
       id={id}
-      type="text"
+      type={type}
       value={value}
       placeholder={placeholder}
       disabled={isDisabled}

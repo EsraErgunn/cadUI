@@ -49,6 +49,39 @@ export function isValidPhone(digits: string): boolean {
   return VALID_PHONE_PATTERN.test(digits)
 }
 
+/** Alan kodu dahil hane sayısı; baştaki 0 bunun dışında. */
+const NATIONAL_DIGIT_COUNT = PHONE_DIGIT_COUNT - 1
+
+const COUNTRY_CODE = '90'
+
+/**
+ * Kayıtta hangi biçimde durursa dursun numarayı maskenin beklediği ham hâle
+ * getirir: "5312753592", "0545 473 36 88", "+90 532 118 08 80" → "05312753592".
+ *
+ * Eski kayıtlar tek biçimde tutulmuyor (gereksinim KK-9). `toPhoneDigits`
+ * bu iş için YETMEZ: o, girdi alanı için yazıldığı ve 11 haneye kırptığı için
+ * ülke kodlu numaranın sonundaki iki haneyi atardı ("905321180880" →
+ * "90532118088"), yani sessizce yanlış numara gösterirdi.
+ *
+ * Hiçbir kalıba uymayan numara için `null` döner — dahili hat ya da bozuk kayda
+ * uydurma bir biçim dayatmak, ham hâlini göstermekten kötüdür.
+ */
+export function toNormalizedPhoneDigits(raw: string): string | null {
+  const digits = raw.replace(NON_DIGIT_PATTERN, '')
+
+  const national = trimPhonePrefix(digits)
+  if (national.length !== NATIONAL_DIGIT_COUNT) return null
+
+  return `0${national}`
+}
+
+function trimPhonePrefix(digits: string): string {
+  if (digits.startsWith(COUNTRY_CODE) && digits.length === COUNTRY_CODE.length + NATIONAL_DIGIT_COUNT) {
+    return digits.slice(COUNTRY_CODE.length)
+  }
+  return digits.startsWith('0') ? digits.slice(1) : digits
+}
+
 export function countDigits(text: string): number {
   return text.replace(NON_DIGIT_PATTERN, '').length
 }

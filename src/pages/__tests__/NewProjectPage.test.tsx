@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   getFirmEngineers: vi.fn(),
   getProjectTypes: vi.fn(),
   getHeatingTypes: vi.fn(),
+  getCities: vi.fn(),
+  getCityDistricts: vi.fn(),
 }))
 
 const useIsAdmin = vi.hoisted(() => vi.fn())
@@ -29,6 +31,14 @@ const FIRMS = [
   { id: 12, name: 'Beyaz Tesisat' },
 ]
 const GAS_FIRMS = [{ id: 101, name: 'Başkent Doğalgaz' }]
+const CITIES = [
+  { id: 6, name: 'Ankara' },
+  { id: 34, name: 'İstanbul' },
+]
+const DISTRICTS = [
+  { id: 64, name: 'Çankaya' },
+  { id: 59, name: 'Altındağ' },
+]
 const ENGINEERS = [
   { id: 501, fullName: 'Ayşe Yıldırım' },
   { id: 502, fullName: 'Mehmet Kaya' },
@@ -76,6 +86,17 @@ async function selectProjectFirm(user: ReturnType<typeof userEvent.setup>, firmI
   await user.selectOptions(select, firmId)
 }
 
+/** İlçe kutusu il seçilene kadar pasif; seçenekler de il seçilince yükleniyor. */
+async function selectCityAndDistrict(user: ReturnType<typeof userEvent.setup>) {
+  const city = screen.getByLabelText(/^İl \*$/)
+  await waitFor(() => expect(within(city).getAllByRole('option').length).toBeGreaterThan(1))
+  await user.selectOptions(city, '6')
+
+  const district = screen.getByLabelText(/^İlçe \*$/)
+  await waitFor(() => expect(district).not.toBeDisabled())
+  await user.selectOptions(district, '64')
+}
+
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Proje Adı'), 'Yıldız Apartmanı')
   await selectProjectFirm(user, '11')
@@ -89,6 +110,7 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
     ).toBeGreaterThan(1),
   )
   await user.selectOptions(screen.getByLabelText(/Yetkili Mühendis/), '501')
+  await selectCityAndDistrict(user)
   await user.type(screen.getByLabelText('Adres'), 'Çankaya 12. Sokak No 5')
   await user.selectOptions(screen.getByLabelText(/Isınma Tipi/), 'bireysel')
   await user.selectOptions(screen.getByLabelText('Bina Kullanımı Tipi'), 'coklu')
@@ -98,6 +120,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   api.getProjectFirms.mockResolvedValue(FIRMS)
   api.getGasFirmsForProjectFirm.mockResolvedValue(GAS_FIRMS)
+  api.getCities.mockResolvedValue(CITIES)
+  api.getCityDistricts.mockResolvedValue(DISTRICTS)
   api.getFirmEngineers.mockResolvedValue(ENGINEERS)
   api.getProjectTypes.mockResolvedValue(PROJECT_TYPES)
   api.getHeatingTypes.mockResolvedValue(HEATING_TYPES)
@@ -290,9 +314,45 @@ describe('NewProjectPage — gönderim', () => {
     expect(screen.getByText('Gaz dağıtım firması zorunludur.')).toBeInTheDocument()
     expect(screen.getByText('Yetkili mühendis zorunludur.')).toBeInTheDocument()
     expect(screen.getByText('Adres zorunludur.')).toBeInTheDocument()
+    // İl ve ilçe ZORUNLU: uç ikisini de istiyor.
+    expect(screen.getByText('İl seçiniz.')).toBeInTheDocument()
+    expect(screen.getByText('İlçe seçiniz.')).toBeInTheDocument()
     expect(screen.getByText('Isınma tipi zorunludur.')).toBeInTheDocument()
     expect(screen.getByText('Bina kullanımı tipi zorunludur.')).toBeInTheDocument()
     expect(screen.getByLabelText('Proje Adı')).toHaveFocus()
+  })
+
+  /**
+   * İlçeleri veren uç il kimliği istiyor (`GET /api/cities/{cityId}/districts`);
+   * ilsiz bir ilçe listesi yok, kutu bu yüzden pasif açılıyor.
+   */
+  it('ilçe kutusu il seçilene kadar pasiftir', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const district = await screen.findByLabelText(/^İlçe \*$/)
+    expect(district).toBeDisabled()
+
+    const city = screen.getByLabelText(/^İl \*$/)
+    await waitFor(() => expect(within(city).getAllByRole('option').length).toBeGreaterThan(1))
+    await user.selectOptions(city, '6')
+
+    await waitFor(() => expect(district).not.toBeDisabled())
+    expect(api.getCityDistricts).toHaveBeenCalledWith(6, expect.anything())
+  })
+
+  // İl değişince eski ilçe yeni ilin listesinde bulunmayabilir; ekranda
+  // geçerliymiş gibi durup sessizce yanlış kayıt üretirdi.
+  it('il değişince ilçe seçimi temizlenir', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await selectCityAndDistrict(user)
+    expect(screen.getByLabelText(/^İlçe \*$/)).toHaveValue('64')
+
+    await user.selectOptions(screen.getByLabelText(/^İl \*$/), '34')
+
+    await waitFor(() => expect(screen.getByLabelText(/^İlçe \*$/)).toHaveValue(''))
   })
 
   it('hata mesajı alana aria-describedby ile bağlanır', async () => {

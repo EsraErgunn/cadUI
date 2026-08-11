@@ -1,0 +1,132 @@
+import { Funnel, Search, UserPlus } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+
+import type { ProjectFirmUserFilters } from './useProjectFirmUserListParams'
+import {
+  AUTHORITY_TYPES,
+  AUTHORITY_TYPE_LABELS,
+  parseAuthorityType,
+} from '../../../api/projectFirmUserDto'
+import { PROJECT_FIRM_USER_CREATE_PATH } from '../adminNavItems'
+import { ADMIN_CHECKBOX, adminButtonVariants, adminFieldVariants } from '../adminVariants'
+import { useIsAdmin } from '../useIsAdmin'
+
+const AUTHORITY_FIELD_ID = 'project-firm-user-authority'
+const ACTIVE_FIELD_ID = 'project-firm-user-only-active'
+const SEARCH_FIELD_ID = 'project-firm-user-search'
+
+/** Seçim yapılmamış hâl: "Tümü" (KK-2). Boş dize `<option>` değeri, null'ın DOM karşılığı yok. */
+const ALL_AUTHORITIES_VALUE = ''
+
+interface ProjectFirmUserFilterBarProps {
+  /** Adrese YAZILMIŞ kriterler; taslağın başlangıcı ve senkron kaynağı. */
+  filters: ProjectFirmUserFilters
+  onApply: (filters: ProjectFirmUserFilters) => void
+}
+
+function areFiltersEqual(left: ProjectFirmUserFilters, right: ProjectFirmUserFilters): boolean {
+  return (
+    left.nameQuery === right.nameQuery &&
+    left.authorityType === right.authorityType &&
+    left.onlyActive === right.onlyActive
+  )
+}
+
+/**
+ * Kriterler burada TASLAK olarak durur; "Filtrele" ya da arama alanında Enter
+ * hepsini birlikte uygular (KK-3/5/6). Sarmalayıcı `form`: Enter'ın gönderimi
+ * tarayıcının kendi davranışı, ayrı bir tuş dinleyicisi yazmaya gerek yok.
+ */
+export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFilterBarProps) {
+  const isAdmin = useIsAdmin()
+  const [draft, setDraft] = useState(filters)
+  const [appliedFilters, setAppliedFilters] = useState(filters)
+
+  // Adres dışarıdan değişince (geri/ileri, paylaşılan bağlantı, çip kaldırma)
+  // taslak yeniden kurulur; yoksa kutularda uygulanmamış eski değerler kalırdı.
+  // Efekt DEĞİL, render sırasında düzeltme: fazladan bir boyama turu olmuyor.
+  if (!areFiltersEqual(filters, appliedFilters)) {
+    setAppliedFilters(filters)
+    setDraft(filters)
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onApply(draft)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3">
+        <select
+          id={AUTHORITY_FIELD_ID}
+          value={draft.authorityType ?? ALL_AUTHORITIES_VALUE}
+          onChange={(event) =>
+            setDraft((current) => ({
+              ...current,
+              authorityType: parseAuthorityType(event.target.value),
+            }))
+          }
+          aria-label="Yetki"
+          className={adminFieldVariants({ className: 'w-44 pr-8' })}
+        >
+          <option value={ALL_AUTHORITIES_VALUE}>Tümü</option>
+          {AUTHORITY_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {AUTHORITY_TYPE_LABELS[type]}
+            </option>
+          ))}
+        </select>
+
+        <div className="flex items-center gap-2">
+          <input
+            id={ACTIVE_FIELD_ID}
+            type="checkbox"
+            checked={draft.onlyActive}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, onlyActive: event.target.checked }))
+            }
+            className={ADMIN_CHECKBOX}
+          />
+          <label htmlFor={ACTIVE_FIELD_ID} className="text-sm text-ink">
+            Aktif
+          </label>
+        </div>
+
+        <div className="relative">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled"
+          />
+          <input
+            id={SEARCH_FIELD_ID}
+            type="search"
+            value={draft.nameQuery}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, nameQuery: event.target.value }))
+            }
+            aria-label="Kullanıcı adı, ad soyad veya e-postada ara"
+            placeholder="Kullanıcı Adı"
+            className={adminFieldVariants({ className: 'w-56 pl-9' })}
+          />
+        </div>
+
+        <button type="submit" className={adminButtonVariants({ tone: 'secondary' })}>
+          <Funnel aria-hidden className="size-4" />
+          Filtrele
+        </button>
+      </form>
+
+      {isAdmin && (
+        <Link
+          to={PROJECT_FIRM_USER_CREATE_PATH}
+          className={adminButtonVariants({ tone: 'primary' })}
+        >
+          <UserPlus aria-hidden className="size-4" />
+          Yeni Kullanıcı
+        </Link>
+      )}
+    </div>
+  )
+}

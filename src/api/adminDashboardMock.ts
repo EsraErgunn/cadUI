@@ -1,4 +1,5 @@
 import { MOCK_FIRM_GROUPS } from './adminFirmsMock'
+import { appendStoredAnnouncement, readStoredAnnouncements } from './announcementStore'
 import { toDayKey } from './dayKey'
 
 /**
@@ -117,14 +118,18 @@ const SEED_ANNOUNCEMENTS: MockAnnouncement[] = [
 ]
 
 /**
- * Yayınlanan duyurular oturum boyunca burada birikir — sekme yenilenince gider.
- * Uç açılınca bu dizi de `publishMockAnnouncement` de silinecek; formun gerçekten
- * çalıştığını göstermenin uç olmadan tek yolu bu.
+ * Tohum duyurular + kullanıcının YAYINLADIKLARI. Yayınlananlar `localStorage`'da
+ * duruyor (`announcementStore.ts`), yani sekme yenilenince kaybolmuyor — duyuru
+ * ucu sunucuda hiç yazılmadığı için tek kalıcılık yolu bu (docs/kararlar.md K48).
+ * Depo her okumada taranıyor: aynı tarayıcının başka sekmesinde yayınlanan
+ * duyuru burada da görünsün.
  */
-const announcements: MockAnnouncement[] = [...SEED_ANNOUNCEMENTS]
+function allAnnouncements(): MockAnnouncement[] {
+  return [...SEED_ANNOUNCEMENTS, ...readStoredAnnouncements()]
+}
 
 function nextAnnouncementId(): number {
-  return announcements.reduce((largest, item) => Math.max(largest, item.id), 0) + 1
+  return allAnnouncements().reduce((largest, item) => Math.max(largest, item.id), 0) + 1
 }
 
 export interface MockAnnouncementInput {
@@ -146,7 +151,7 @@ export function publishMockAnnouncement(input: MockAnnouncementInput): MockAnnou
     region: input.region,
   }
 
-  announcements.push(created)
+  appendStoredAnnouncement(created)
   return created
 }
 
@@ -181,7 +186,7 @@ export function queryMockDayActivity(
 }
 
 export function allMockAnnouncements(): MockAnnouncement[] {
-  return announcements
+  return allAnnouncements()
 }
 
 export type { RegionDayActivity, RegionFacts, MockAnnouncement }

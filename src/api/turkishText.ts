@@ -31,3 +31,27 @@ export function normalizeTr(value: string): string {
 export function includesTr(haystack: string, needle: string): boolean {
   return normalizeTr(haystack).includes(normalizeTr(needle))
 }
+
+/** Kullanıcı adında harf, rakam ve nokta dışında hiçbir şey kalmaz. */
+const NON_USERNAME_CHARS = /[^a-z0-9.]/g
+
+/**
+ * Ad soyaddan kullanıcı adı: "Bülent Sarıoğlu" → "bulent.sarioglu" (KK-15).
+ *
+ * Türkçe harfler `normalizeTr` ile ASCII'ye iner — kullanıcı adı adres ve giriş
+ * alanı olarak kullanıldığı için 'ğ'/'İ' gibi harflerin taşınması güvenilmez.
+ * İlk sözcük ad, GERİ KALANIN TAMAMI soyad sayılır ve aralarındaki boşluklar
+ * düşer: "Ayşe Nur Demir" → "ayse.nurdemir". İkinci noktayı koymak, ad ile
+ * soyadı ayıran nokta hangisi belirsiz bırakırdı.
+ */
+export function buildUsernameFromFullName(fullName: string): string {
+  const words = normalizeTr(fullName)
+    .split(/\s+/)
+    .map((word) => word.replace(NON_USERNAME_CHARS, ''))
+    .filter((word) => word !== '')
+
+  if (words.length === 0) return ''
+  const [first, ...rest] = words
+
+  return rest.length === 0 ? first : `${first}.${rest.join('')}`
+}

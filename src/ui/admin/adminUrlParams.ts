@@ -21,6 +21,10 @@ export const ADMIN_PARAM_KEYS = {
   dateTo: 'to',
   district: 'district',
   projectFirm: 'firm',
+  /** Proje firması kullanıcılarının "Yetki" süzgeci; "Tümü" hâlinde yazılmaz. */
+  authorityType: 'type',
+  /** Yalnız aktif kayıtlar; işaretsiz hâl (varsayılan) adrese yazılmaz. */
+  onlyActive: 'active',
 } as const
 
 export type AdminParamField = keyof typeof ADMIN_PARAM_KEYS
