@@ -1215,6 +1215,33 @@ Tarayıcıda doğrulanmalı.
 
 Nerede: `scene/useAreaObjectTool.ts`.
 
+### K43 — Alan nesnesi çizgisi duvarın YARISI kalınlığında; ince değer uzakta görünmez oluyordu
+
+K40 çizgi kalınlığını `worldUnits`'e çevirmişti (cm cinsinden, zoom'la
+ölçeklenen) ama değerleri küçük bırakmıştı: gövde 2.5 cm, ayrıntı 1.2 cm.
+Zoom 1'de 1 cm = 1 px olduğu için bu, uzaklaşınca PİKSEL ALTINA düşüyordu —
+en uzak zoom'da (`ZOOM_MIN = 0.1`) gövde yalnız 0.25 px eder ve nesne
+ekrandan kaybolur. Kullanıcı "zoom out yaptıkça görüntüleri kayboluyor" dedi.
+
+Duvar aynı `worldUnits` yolunu kullanıyor ama 20 cm ile çiziliyor ve bu sorunu
+yaşamıyor (en uzak zoom'da bile 2 px).
+
+**İki turda ayarlandı.** Önce duvarın yarısına (10 cm) çıkarıldı — kullanıcı
+"aşırı kalın" dedi; sonra yarıya indirildi. Son değerler: **gövde
+`DEFAULT_WALL_THICKNESS_CM / 4` = 5 cm, ayrıntı `/ 8` = 2.5 cm.** Sabit sayı
+yazmak yerine duvar kalınlığından TÜRETİLDİ — varsayılan duvar değişirse
+çizgiler onunla orantılı kalsın, ilişki kodda görünsün.
+
+**Bilinen sınır:** en uzak zoom'da (0.1) gövde 0.5 px, ayrıntı 0.25 px eder —
+orada solma devam edebilir. Kalınlığı artırmak çözüm değil (kullanıcı zaten
+kalın buldu); gerekirse `Wall.tsx`'teki `alphaToCoverage` bu dosyaya da
+eklenmeli (sert `discard` yerine kısmi örtme verir). Önizlemedeki `transparent`
+malzemeyle etkileşimi doğrulanmadığı için bugün eklenmedi.
+
+Nerede: `scene/AreaObject.tsx`. Test yok (scene/ altı R3F gerektiriyor).
+Tarayıcıda ORTA zoom seviyelerinde doğrulandı (nesneler görünür, kalınlık
+makul); en uzak zoom ayrıca denenmedi.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

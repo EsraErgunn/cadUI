@@ -117,8 +117,24 @@ aynı `areaObjectStroke` rengiyle.
 `<Line>` piksel-bazlı (worldUnits YOK) kalınlık kullanıyordu: ekranda SABİT
 piksel genişlik, yani uzaklaşınca (zoom out) nesneye göre ORANTISIZ
 kalınlaşıyordu — kullanıcı "garip gözüküyor" dedi. `Wall.tsx`'teki desen
-kopyalandı: `worldUnits` + cm cinsinden `lineWidth` (gövde 2.5cm, ayrıntı
-1.2cm) — artık fiziksel kalınlık zoom'dan BAĞIMSIZ sabit.
+kopyalandı: `worldUnits` + cm cinsinden `lineWidth` — artık fiziksel kalınlık
+zoom'dan BAĞIMSIZ sabit.
+
+⚠️ **Ama ilk değerler (2.5 / 1.2 cm) ÇOK İNCEYDİ ve uzakta kayboluyordu (K43).**
+Zoom 1'de 1 cm = 1 px; en uzak zoom'da (`ZOOM_MIN = 0.1`) 2.5 cm yalnız
+0.25 px eder → nesne ekrandan silinir. Duvar aynı yolu 20 cm ile kullandığı
+için bu sorunu yaşamıyordu. Değerler duvardan TÜRETİLDİ (sabit sayı yazılmadı
+ki ilişki kodda görünsün): gövde `DEFAULT_WALL_THICKNESS_CM / 4` (5 cm),
+ayrıntı `/ 8` (2.5 cm). **`worldUnits` kullanan her yeni çizgide bu hesabı
+yap:** en uzak zoom'da kaç piksel eder? 1 px'in altına düşen çizgi görünmez.
+
+⚠️ **Doğru değeri bulmak İKİ TUR sürdü — kalınlık tek başına çözüm değil.**
+Önce duvarın yarısı (10 cm) denendi, kullanıcı "aşırı kalın" dedi; yarıya
+indirildi. Yani "kaybolmasın" ile "kalın durmasın" arasında dar bir bant var
+ve 5 cm en uzak zoom'da yine 0.5 px eder. Bir daha aynı şikâyet gelirse
+kalınlığı ARTIRMA — `Wall.tsx`'teki `alphaToCoverage` ekle (sert `discard`
+yerine kısmi örtme); önizlemenin `transparent` malzemesiyle etkileşimi
+doğrulanmadığı için bugün eklenmedi.
 
 **Ctrl ile ızgara kapatma İLK yerleştirmede de çalışıyor.** Taşırken zaten
 vardı (`useAreaObjectSelectionTool.ts`); `useAreaObjectTool.ts`'te YOKTU —
