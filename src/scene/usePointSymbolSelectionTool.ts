@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -71,7 +72,12 @@ export function usePointSymbolSelectionTool(): void {
       const isEraser = toolId === ERASER_TOOL_ID
       if (toolId !== SELECTION_TOOL_ID && !isEraser) return
 
-      const target = resolveArchitectureTarget(event.planPoint, readContext())
+      const context = readContext()
+      // Alan nesnesi tutamacı bir sembolün üstüne denk gelebilir; o basış
+      // tutamacın, yoksa aynı jestte sembol de taşınırdı (K44).
+      if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
+
+      const target = resolveArchitectureTarget(event.planPoint, context)
       if (!target || target.kind !== 'symbol') return
 
       const ui = useArchitectureUiStore.getState()

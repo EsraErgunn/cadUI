@@ -131,6 +131,53 @@ describe('setAreaObjectSize', () => {
   })
 })
 
+describe('resizeAreaObject', () => {
+  it('konum ve boyutu TEK adımda yazar — tek Ctrl+Z (K44)', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+    const revisionBefore = useCadStore.getState().revision
+
+    const isResized = useCadStore
+      .getState()
+      .resizeAreaObject(id!, { x: 25, y: -25, widthCm: 150, lengthCm: 150 })
+
+    expect(isResized).toBe(true)
+    expect(findAreaObject(id!)).toMatchObject({ x: 25, y: -25, widthCm: 150, lengthCm: 150 })
+    // Tek markDirty: merkez ve boyut ayrı action'lara bölünseydi revision iki artardı.
+    expect(useCadStore.getState().revision).toBe(revisionBefore + 1)
+  })
+
+  it('sıfır boyut reddedilir, nesne DEĞİŞMEZ', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })
+
+    const isResized = useCadStore
+      .getState()
+      .resizeAreaObject(id!, { x: 10, y: 10, widthCm: 0, lengthCm: 100 })
+
+    expect(isResized).toBe(false)
+    expect(findAreaObject(id!)).toMatchObject({ x: 0, y: 0, widthCm: 100 })
+  })
+
+  it('sonuç bir kapının üstüne düşerse reddedilir (K35/K36)', () => {
+    useCadStore.setState({
+      points: [
+        { id: 1, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
+        { id: 2, floorId: DEFAULT_FLOOR_ID, x: 400, y: 0 },
+      ],
+      walls: [{ id: 1, floorId: DEFAULT_FLOOR_ID, p1Id: 1, p2Id: 2, thickness: 20, height: 280 }],
+      openings: [{ id: 1, wallId: 1, offsetCm: 200, widthCm: 90, type: 'door' }],
+    })
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 200, y: 300 })
+
+    // Büyüterek kapının üstüne uzatmaya çalışıyoruz.
+    const isResized = useCadStore
+      .getState()
+      .resizeAreaObject(id!, { x: 200, y: 150, widthCm: 100, lengthCm: 400 })
+
+    expect(isResized).toBe(false)
+    expect(findAreaObject(id!)).toMatchObject({ y: 300, lengthCm: 100 })
+  })
+})
+
 describe('rotateAreaObject', () => {
   it('açıyı 15° adımına yakalar', () => {
     const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })

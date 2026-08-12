@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import type { ArchitectureTarget } from '../core/architectureHover'
+import type { AreaObjectShape } from '../core/areaObject'
+import type { AreaObjectHandleKind } from '../core/areaObjectHandles'
 import type { PlanPoint } from '../core/coords'
 import type { Id, OpeningType } from '../core/model'
 import { DEFAULT_OPENING_WIDTH_CM } from '../core/opening'
@@ -58,6 +60,20 @@ type AreaObjectDrag = {
   dyCm: number
 }
 
+/**
+ * Tutamaçla boyutlandırma/döndürme sırasında ÖNİZLENEN şekil (K44). Öteleme
+ * değil ŞEKLİN tamamı tutuluyor: resize hem merkezi hem boyutu, rotate açıyı
+ * değiştiriyor — "dx/dy" gibi tek bir fark bunu ifade edemezdi.
+ *
+ * draggingAreaObjects ile aynı gerekçe: sürükleme boyunca cadStore'a yazılmaz,
+ * tek yazım bırakma anında olur (tek markDirty, tek Ctrl+Z).
+ */
+type AreaObjectHandleDrag = {
+  areaObjectId: Id
+  kind: AreaObjectHandleKind
+  shape: AreaObjectShape
+}
+
 type ArchitectureUiState = {
   /**
    * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
@@ -72,6 +88,12 @@ type ArchitectureUiState = {
   draggingWall: WallDrag | null
   draggingSymbols: SymbolDrag | null
   draggingAreaObjects: AreaObjectDrag | null
+  areaObjectHandleDrag: AreaObjectHandleDrag | null
+  /**
+   * İmlecin altındaki tutamaç. Overlay `pointer-events: none` olduğu için
+   * hover'ı kendisi ANLAYAMAZ — tuval tarafındaki hook yayınlar (K45).
+   */
+  areaObjectHandleHover: AreaObjectHandleKind | null
   /** İmlecin altındaki nesne. Yalnız vurgu için; hiçbir şeyi seçmez. */
   hover: ArchitectureTarget | null
   /**
@@ -96,6 +118,8 @@ type ArchitectureUiState = {
   setDraggingWall: (drag: WallDrag | null) => void
   setDraggingSymbols: (drag: SymbolDrag | null) => void
   setDraggingAreaObjects: (drag: AreaObjectDrag | null) => void
+  setAreaObjectHandleDrag: (drag: AreaObjectHandleDrag | null) => void
+  setAreaObjectHandleHover: (kind: AreaObjectHandleKind | null) => void
   setHover: (hover: ArchitectureTarget | null) => void
   setEditingRoom: (roomId: Id | null) => void
 }
@@ -117,6 +141,8 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingWall: null,
     draggingSymbols: null,
     draggingAreaObjects: null,
+    areaObjectHandleDrag: null,
+    areaObjectHandleHover: null,
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
     editingRoomId: null,
@@ -166,6 +192,19 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingAreaObjects: (drag) =>
       set((draft) => {
         draft.draggingAreaObjects = drag
+      }),
+
+    setAreaObjectHandleDrag: (drag) =>
+      set((draft) => {
+        draft.areaObjectHandleDrag = drag
+      }),
+
+    setAreaObjectHandleHover: (kind) =>
+      set((draft) => {
+        // Aynı değerde yazma: pointermove her karede geliyor, overlay boşuna
+        // render olmasın (setHover ile aynı gerekçe).
+        if (draft.areaObjectHandleHover === kind) return
+        draft.areaObjectHandleHover = kind
       }),
 
     setHover: (hover) =>

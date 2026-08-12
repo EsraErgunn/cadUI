@@ -23,9 +23,12 @@ export const AREA_OBJECT_TYPE_LABELS: Record<AreaObjectType, string> = {
   columnVentilation: 'Kolon Havalandırması',
 }
 
+/** Sıfır/negatif boyut görünmez nesne üretir; akıl sağlığı sınırı (duvar kalınlığıyla aynı gerekçe). */
+export const MIN_AREA_OBJECT_SIZE_CM = 1
+
 /**
- * Tıkla-yerleştirmede kullanılan başlangıç boyutu. Kullanıcı sağ panelden
- * değiştirir (v1 kapsamı — sürükleyerek boyutlandırma henüz yok).
+ * Tıkla-yerleştirmede kullanılan başlangıç boyutu; sürükleyerek boyutlandırma
+ * (tutamaç) bunu sonradan değiştirir.
  */
 export const DEFAULT_AREA_OBJECT_SIZE_CM: Record<AreaObjectType, { widthCm: number; lengthCm: number }> = {
   // Tek kol merdiven varsayımı — tam kat yüksekliği (300+) yerine kısa bir kol.

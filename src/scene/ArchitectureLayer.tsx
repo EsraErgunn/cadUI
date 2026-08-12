@@ -1,4 +1,5 @@
 import { AreaObject, type AreaObjectTone } from './AreaObject'
+import { AreaObjectHandles } from './AreaObjectHandles'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
@@ -139,6 +140,7 @@ function AreaObjects() {
   const hover = useArchitectureUiStore((state) => state.hover)
   const selection = useArchitectureUiStore((state) => state.selection)
   const draggingAreaObjects = useArchitectureUiStore((state) => state.draggingAreaObjects)
+  const handleDrag = useArchitectureUiStore((state) => state.areaObjectHandleDrag)
 
   const hoveredAreaObjectId = hover?.kind === 'area' ? hover.areaObjectId : undefined
 
@@ -158,9 +160,15 @@ function AreaObjects() {
           const drag = draggingAreaObjects?.areaObjectIds.includes(areaObject.id)
             ? draggingAreaObjects
             : undefined
-          const drawn = drag
-            ? { ...areaObject, x: areaObject.x + drag.dxCm, y: areaObject.y + drag.dyCm }
-            : areaObject
+          // Tutamaç sürüklemesi önizlenen ŞEKLİ verir (konum + boyut + açı);
+          // taşımanınki yalnız öteleme. İkisi aynı anda olamaz — taşıma
+          // tutamaç üstündeyken hiç başlamıyor (K44).
+          const drawn =
+            handleDrag?.areaObjectId === areaObject.id
+              ? { ...areaObject, ...handleDrag.shape }
+              : drag
+                ? { ...areaObject, x: areaObject.x + drag.dxCm, y: areaObject.y + drag.dyCm }
+                : areaObject
 
           // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
           return (
@@ -218,6 +226,7 @@ export function ArchitectureLayer() {
       <SelectionTool />
       {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
+      <AreaObjectHandles />
       <SelectionMarquee />
     </group>
   )

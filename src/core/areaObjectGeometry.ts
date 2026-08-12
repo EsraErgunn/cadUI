@@ -12,12 +12,13 @@ export type AreaObjectStroke = {
 }
 
 /**
- * İçi tamamen ŞEFFAF (tasarım referansı) — hiçbir tip dolgu taşımaz, yalnız
- * çizgi. `fills` alanı bilerek YOK: renderer (`scene/AreaObject.tsx`) tek bir
- * mesh bile üretmiyor.
+ * `fill` = gövdenin saydam dolgu poligonu (plan noktaları, kapatılmamış çevrim).
+ * Tek poligon yeter: her tipin gövdesi tek dışbükey kapalı biçim (dikdörtgen ya
+ * da çember), ayrıntı çizgilerinin (basamak/ok) dolgusu yok.
  */
 export type AreaObjectGeometry = {
   strokes: AreaObjectStroke[]
+  fill: PlanPoint[]
 }
 
 /** Basamak aralığı (cm) — tipik rıht/basamak derinliği yaklaşık değeri, salt görsel. */
@@ -99,10 +100,14 @@ function buildStairArrowLines(widthCm: number, lengthCm: number): PlanPoint[][] 
 }
 
 /**
- * Tipe göre çizim — üçü de İÇİ ŞEFFAF, yalnız çizgi (tasarım referansı):
- * kolon sade dikdörtgen, baca şaftı + iç çember, merdiven + basamak + iniş
- * oku. Sahne (`scene/AreaObject.tsx`) yalnız bu geometriyi çizer, trigonometri
- * yok (CLAUDE.md kural 3).
+ * Tipe göre çizim: kolon sade dikdörtgen, baca şaftı + iç çember, merdiven +
+ * basamak + iniş oku, kolon havalandırması yalnız çember. Sahne
+ * (`scene/AreaObject.tsx`) yalnız bu geometriyi çizer, trigonometri yok
+ * (CLAUDE.md kural 3).
+ *
+ * Dolgu gövdenin dış hattını izler — kolon havalandırmasında ÇEMBER, diğerlerinde
+ * dikdörtgen: dolgu, tıklanabilir alanla (`isPointInAreaObject`) değil GÖRÜNEN
+ * gövdeyle aynı olmalı.
  */
 export function getAreaObjectPlanGeometry(
   type: AreaObjectType,
@@ -117,7 +122,9 @@ export function getAreaObjectPlanGeometry(
       role: 'body',
       points: toAreaObjectPlanPoints(areaObject, buildCirclePoints(radiusCm)),
     }
-    return { strokes: [circle] }
+    // Son nokta ilkinin tekrarı (çember kapansın diye); üçgenleştirme yinelenen
+    // köşede dejenere üçgen üretir, bu yüzden dolguya kapanış noktası girmez.
+    return { strokes: [circle], fill: circle.points.slice(0, -1) }
   }
 
   const corners = getAreaObjectCorners(areaObject)
@@ -132,11 +139,11 @@ export function getAreaObjectPlanGeometry(
       role: 'body',
       points: toAreaObjectPlanPoints(areaObject, buildCirclePoints(radiusCm)),
     }
-    return { strokes: [outline, circle] }
+    return { strokes: [outline, circle], fill: corners }
   }
 
   if (type === 'structuralColumn') {
-    return { strokes: [outline] }
+    return { strokes: [outline], fill: corners }
   }
 
   // stairs
@@ -157,5 +164,5 @@ export function getAreaObjectPlanGeometry(
     points: toAreaObjectPlanPoints(areaObject, points),
   }))
 
-  return { strokes: [outline, ...treadStrokes, ...arrowStrokes] }
+  return { strokes: [outline, ...treadStrokes, ...arrowStrokes], fill: corners }
 }

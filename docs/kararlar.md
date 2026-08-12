@@ -1242,6 +1242,174 @@ Nerede: `scene/AreaObject.tsx`. Test yok (scene/ altı R3F gerektiriyor).
 Tarayıcıda ORTA zoom seviyelerinde doğrulandı (nesneler görünür, kalınlık
 makul); en uzak zoom ayrıca denenmedi.
 
+### K44 — Alan nesnesine tutamaç: saplı daire DÖNDÜRÜR, köşedeki kare BOYUTLANDIRIR
+
+K38'den beri ertelenen tutamaç (gizmo) eklendi — kod tabanında böyle bir desen
+hiç yoktu, sıfırdan kuruldu. Tasarım kullanıcının gönderdiği referans
+görselden: üst kenardan çıkan SAPLI DAİRE döndürür, ekranda SAĞ-ALT köşedeki
+KARE boyutlandırır. Tutamaçlar yalnız Seçim Aracı'nda ve TEK alan nesnesi
+seçiliyken görünür; çoklu seçimde hangi nesnenin boyutlanacağı belirsiz olurdu.
+
+**Boyutlandırmada KARŞI KÖŞE sabit kalır** (kullanıcı seçti; klasik CAD
+davranışı). Bunun sonucu şu: merkez de kayar, yani konum ve boyut BİRLİKTE
+değişir. Bu yüzden yeni bir `resizeAreaObject(id, {x, y, widthCm, lengthCm})`
+action'ı eklendi — var olan `setAreaObjectSize` (panelin kullandığı, merkezi
+sabit tutan) yetmezdi: ikisi ayrı ayrı çağrılsaydı tek sürükleme için iki
+`markDirty`, yani iki Ctrl+Z adımı olurdu.
+
+Matematik `core/areaObjectHandles.ts` → `resizeAreaObjectFromCorner`: sabit
+köşeden imlece giden vektör nesnenin KENDİ eksenine (yerel +x/+y birim
+vektörleri) izdüşürülür, böylece döndürülmüş nesnede de kullanıcı kenara
+paralel büyütür. Testte döndürülmüş nesnede sabit köşenin gerçekten yerinde
+kaldığı doğrulanıyor.
+
+**Tutamaç boyu DÜNYA biriminde (cm), ekran pikselinde değil.** Ekran-sabit
+tutamaç daha alışıldık olurdu ama zoom kamerada duruyor (K3), store'da değil —
+React bileşeni zoom değişince yeniden RENDER OLMAZ, dolayısıyla ekran-sabit boy
+her karede hesaplanamaz. `PointHandle.tsx`'teki köşe vurgusu da aynı sebeple
+dünya ölçüsünde. Bedeli: çok uzakta tutamaçlar küçülür (erişim yarıçapı
+`getSnapToleranceCm` ile telafi ediliyor), çok küçük nesnede orantısız büyük durur.
+
+**Jest çakışması BEŞ hook'ta ayrı ayrı kapatılmak zorunda kaldı.** Tutamaçlar
+gövdenin DIŞINA taşıyor (sap tepede, kare köşede yarı dışarıda) ve aynı
+pointerdown'ı bütün mimari araçlar görüyor. Ortak çözüm: `findSelectedAreaObjectHandle`
+helper'ı — isabet varsa diğer araç jesti hiç başlatmıyor
+(knowledge/gesture-bus-precedence.md deseni: karar geometriyle verilir).
+
+Hangi hook, neden:
+- `useAreaObjectSelectionTool` — kare köşede, yarısı gövdenin içinde: aynı
+  basışta hem taşıma hem boyutlandırma başlıyordu.
+- `useSelectionTool` — döndürme sapı gövdenin DIŞINDA olduğu için hedef
+  çözümlemesi "boşluk" diyor ve ÇERÇEVE SEÇİMİ başlıyordu; kullanıcı
+  döndürürken ekranda lastik dikdörtgen gördü, bu yüzden fark edildi.
+- `useWallSelectionTool`, `usePointSymbolSelectionTool`, `usePointDragTool` —
+  tutamaç bir duvarın/sembolün/köşenin üstüne denk gelirse o nesne de aynı
+  jestte taşınırdı. Bunlar kullanıcı tarafından bildirilmedi, aynı hata
+  sınıfının kalan üyeleri olarak kapatıldı.
+
+⚠️ **Ders:** yeni bir "gövdenin dışına taşan" etkileşim eklerken tek bir
+sahiplenme kontrolü yetmez — o pointerdown'ı dinleyen HER hook gözden
+geçirilmeli. Tersi sessiz değil ama garip: iki jest aynı anda çalışır.
+
+**Bilinen sınırlar.** (1) Döndürme HER ZAMAN 15°'lik adıma yakalanır —
+`rotateAreaObject` panelden de bu kuralla yazıyor, Ctrl burada snap'i
+KAPATMIYOR (boyutlandırmada kapatıyor). (2) Tek tutamaç var (sağ-alt);
+kullanıcı dört köşe/kenar ortası istemedi. (3) Tarayıcıda tutamaçların
+ÇİZİMİ doğrulandı (daire+sap+kare görünüyor, nesne dönünce onlar da dönüyor)
+ama sürükleme etkileşimi izole edilemedi — editör aynı anda kullanıcı
+tarafından da kullanılıyordu.
+
+Nerede: `core/areaObjectHandles.ts` (yeni), `core/areaObject.ts`
+(`MIN_AREA_OBJECT_SIZE_CM` store'dan buraya taşındı — iki taraf da okuyor),
+`store/areaObjectOps.ts`, `store/architectureUiStore.ts`,
+`scene/useAreaObjectHandleTool.ts` (yeni), `scene/AreaObjectHandles.tsx` (yeni),
+`scene/ArchitectureLayer.tsx` ve sahiplenme kontrolü eklenen beş hook:
+`useAreaObjectSelectionTool`, `useSelectionTool`, `useWallSelectionTool`,
+`usePointSymbolSelectionTool`, `usePointDragTool`.
+Testler `core/__tests__/areaObjectHandles.test.ts`,
+`store/__tests__/areaObjectActions.test.ts`.
+
+### K45 — Transform kontrolleri WebGL çiziminden DOM overlay'ine taşındı
+
+K44'ün tutamaçları WebGL ile çiziliyordu: büyük mavi daire + kare, dünya
+biriminde (zoom'la ölçeklenen). Kullanıcı Figma/CAD tarzı sade bir overlay
+istedi: küçük `↻` / `↘` ikonları, hover'da belirginleşme, uygun imleç,
+sürüklerken `45°` / `120 × 80 cm` balonu ve **zoom'dan bağımsız sabit piksel
+boyu**.
+
+**Neden DOM (drei `<Html>`), neden WebGL değil.** İkon glyph'i, imleç biçimi ve
+tooltip WebGL'de ya imkânsız ya da elle çizim işi; DOM'da bedava. `RoomNameEditor`
+zaten aynı gerekçeyle `<Html>` kullanıyor (kural 2 orada da esnetilmiş).
+Sahne tarafında `<Text>` seçeneği vardı ama repo fontunda `↻`/`↘` glyph'i
+garanti değil ve imleç/tooltip yine çözülmezdi.
+
+⚠️ **Overlay `pointer-events: none` — bu ŞART, süs değil.** Tıklama tuvale
+ulaşmalı: tutma kararını `useAreaObjectHandleTool` saf geometriyle veriyor
+(`findAreaObjectHandleAt`). Overlay olayı yeseydi (a) sürükleme hiç başlamazdı,
+(b) drei `<Html>`'in AYRI react-dom kökünden yapılan store yazımı R3F ağacını
+tazelemezdi — RoomNameEditor'ın native dinleyiciye kaçmasına sebep olan tuzağın
+ta kendisi. Sonuç: hover'ı da overlay kendisi anlayamaz, tuval tarafı
+`areaObjectHandleHover` ile yayınlar.
+
+**Konum artık BOUNDING BOX'tan, modelin width/length'inden değil.**
+`getAreaObjectLocalBounds` kutuyu `getAreaObjectPlanGeometry`'nin ÜRETTİĞİ
+noktalardan okur — tip başına elle yazılmaz, yeni şekil eklendiğinde tutamaçlar
+kendiliğinden doğru yere gelir. Kolon havalandırması için gerekliydi: daire
+çapı `min(width, length)`, kutuyu modelden türetmek ikonları dairenin görünür
+kenarından uzağa düşürüyordu (kullanıcının istediği düzeltme). Kutu nesneyle
+birlikte DÖNER (eksen hizalı değil).
+
+**Ekran-sabit boy.** `useCameraZoom` (tepkili zoom) + `px / zoom` çevrimi;
+ikon 14 px, görünmez tutma alanı 28 px, kutuya uzaklık 18 px — hepsi zoom'dan
+bağımsız. Hook `plumbing/scene/`'den `scene/`'e TAŞINDI (kamera altyapısı
+ortak, `cameraViewport.ts` ile aynı yer); tesisattaki eski yol 5 dosyanın
+import'unu değiştirmemek için yeniden dışa aktarım olarak bırakıldı.
+
+⚠️ **Bilinen davranış değişikliği:** boyutlandırma artık KUTUYU ölçüyor. Kolon
+havalandırmasında genişlik≠uzunluk ise (daire zaten `min`'i kullanıyor) resize
+nesneyi kareye indirger — dairenin kullanmadığı fazlalık düşer. Diğer tiplerde
+kutu = width×length, davranış birebir aynı.
+
+🐞 **`pointer-events: none` İÇ div'e yazılınca YETMEDİ — tutamaçlar tümüyle
+çalışmadı.** drei `<Html>` iki div üretiyor: portala eklenen SARMALAYICI (`el`)
+ve içindeki içerik div'i. `transform` propu KAPALIYKEN sarmalayıcının
+`cssText`'ine pointer-events hiç yazılmıyor (yalnız `transform` modunda `none`
+oluyor) — yani sarmalayıcı varsayılan `auto` ile basışı yutuyor, DrawSurface
+pointerdown'ı hiç görmüyordu. Çözüm: `<Html wrapperClass="pointer-events-none">`
+— sınıf sarmalayıcıya gider, içerik ondan miras alır. **Ders:** drei `<Html>`
+ile olay geçirgenliği isteniyorsa `className` DEĞİL `wrapperClass` kullanılır.
+
+**Tarayıcıda doğrulandı** (yukarıdaki hata düzeltildikten sonra): kesik çizgili
+kutu, ikon yerleşimi, ↘ ile boyutlandırma (140×330 → 201×488) ve ↻ ile döndürme
+(0° → 270°, 15°'ye yakalanarak) çalışıyor, Ctrl+Z tek adımda geri alıyor.
+Sınanmadı: sağ paneli örten konumdaki tutamaç (panel overlay'i çizim alanının
+üstüne biniyor, K37 — nesne panelin altında kalırsa ikonlar erişilemez oluyor).
+
+Nerede: `core/areaObjectHandles.ts` (baştan yazıldı),
+`scene/AreaObjectHandles.tsx` (baştan yazıldı), `scene/useAreaObjectHandleTool.ts`,
+`scene/useCameraZoom.ts` (taşındı), `plumbing/scene/useCameraZoom.ts` (re-export),
+`store/architectureUiStore.ts` (`areaObjectHandleHover`) ve `findSelectedAreaObjectHandle`
+imzası zoom'a döndüğü için K44'teki beş hook.
+Testler `core/__tests__/areaObjectHandles.test.ts` (kutu türetimi ve
+piksel-sabit tutma alanı dahil).
+
+### K46 — Alan nesnesinin içi artık ŞEFFAF değil, çok soluk DOLGULU
+
+K39'un "içi tamamen şeffaf" tasarımı kalktı. Sebep kullanıcının bildirdiği
+durum: bir kolon duvar KÖŞESİNİN üstüne oturtulduğunda nesnenin tam ortasına
+tıklamak kolonu değil altındaki köşeyi tutuyor — içi boş bir nesne "burada bir
+şey yok" gibi okunuyordu. Dolgu, gövdenin sahiplendiği alanı görünür kılıyor.
+
+Dolgu gövdenin DIŞ HATTINI izler, tıklanabilir alanı değil: kolon
+havalandırmasında ÇEMBER, diğerlerinde dikdörtgen. Geometri
+(`getAreaObjectPlanGeometry`) artık `strokes` yanında tek bir `fill` poligonu
+döndürüyor — her tipin gövdesi tek dışbükey kapalı biçim olduğu için bir poligon
+yetiyor. Üçgenleştirme odadan devralınıyor (`core/roomFill.ts` →
+`triangulatePolygon`), ikinci bir kopya yazılmadı. Çemberin kapanış noktası
+dolguya girmiyor: yinelenen köşe dejenere üçgen üretirdi.
+
+Renk konturla aynı (`areaObjectStroke` = `areaObjectFill`), opaklık 0.12 —
+oda dolgusundan (0.22) belirgin biçimde soluk, altındaki duvar ve ızgara
+okunmaya devam ediyor. Hover/seçim tonunda dolgu da o rengi alır. Önizlemede
+opaklık ayrıca `PREVIEW_OPACITY` ile çarpılır, yoksa önizleme yerleştirilmiş
+nesneden ağır görünürdü.
+
+**Dolgu ayrı bir `renderOrder` katmanı istedi** (`areaObjectFill: 31`,
+önizlemede `areaObjectPreviewFill: 69`): konturla aynı sırada kalsaydı OPAK
+çizgiler saydam mesh'ten önce çizilir ve dolgu konturun üstünü boyardı — üçünün
+de `depthWrite`'ı kapalı, sıralamayı yalnız `renderOrder` belirliyor.
+
+⚠️ **Bu bir görsel düzeltme; asıl şikâyeti (ortadan tutunca köşe tutuluyor)
+TAM ÇÖZMEZ.** Hedef çözümlemesinde (`core/architectureHover.ts`) köşe hâlâ alan
+nesnesinin ÜSTÜNDE: nesnenin merkezi bir köşeye denk gelirse jest yine köşenin.
+Önceliği çevirmek büyük bir merdivenin altında kalan köşeleri erişilemez
+yapacağı için karara bağlanmadı — açık soru.
+
+Nerede: `core/areaObjectGeometry.ts` (`fill` alanı), `scene/AreaObject.tsx`,
+`scene/architectureTheme.ts`, `scene/layers.ts`.
+Testler `core/__tests__/areaObjectGeometry.test.ts`.
+Tarayıcıda doğrulandı (merdivenin dolgusu, seçili tonu ve döndürülmüş hâli).
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

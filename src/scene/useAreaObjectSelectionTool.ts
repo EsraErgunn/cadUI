@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -67,6 +68,11 @@ export function useAreaObjectSelectionTool(): void {
       const toolId = useUiStore.getState().activeToolId
       const isEraser = toolId === ERASER_TOOL_ID
       if (toolId !== SELECTION_TOOL_ID && !isEraser) return
+
+      // Tutamacın üstündeyse jest `useAreaObjectHandleTool`'un: boyutlandırma
+      // karesi köşede durduğu için yarısı gövdenin içinde kalıyor, kontrol
+      // olmasa aynı basışta hem taşıma hem boyutlandırma başlardı (K44).
+      if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
 
       const target = resolveArchitectureTarget(event.planPoint, readContext())
       if (!target || target.kind !== 'area') return

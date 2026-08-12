@@ -18,11 +18,19 @@ export const ARCHITECTURE_COLORS = {
    */
   pointSymbol: '#2f3a49',
   /**
-   * Alan nesnesi (merdiven/kolon/baca şaftı) — içi ŞEFFAF (tasarım referansı,
-   * hiçbiri dolgu taşımaz), yalnız kontur. Duvar renginden bir tık daha KOYU:
-   * plan üstünde "bu bir yapı elemanı, duvardan da katı" okunsun.
+   * Alan nesnesi (merdiven/kolon/baca şaftı) konturu. Duvar renginden bir tık
+   * daha KOYU: plan üstünde "bu bir yapı elemanı, duvardan da katı" okunsun.
    */
-  areaObjectStroke: '#232a34',
+  areaObjectStroke: '#4e5661',
+  /**
+   * Gövdenin içi ARTIK saydam dolgulu (eski "tümüyle şeffaf" tasarımı kalktı):
+   * nesne bir duvar köşesinin üstüne oturduğunda içinin boş kalması "burada bir
+   * şey yok" izlenimi veriyordu. Oda dolgusundan (roomFill) belirgin biçimde
+   * SOLUK — altındaki duvar/ızgara okunmaya devam etmeli, dolgu yalnız nesnenin
+   * gövdesini işaret eder.
+   */
+  areaObjectFill: '#4e5661',
+  areaObjectFillOpacity: 0.12,
   /**
    * Alt kat gölgesi (KK-13). Duvar renginden belirgin biçimde soluk: hizalama
    * referansı okunabilmeli ama aktif katın duvarıyla karıştırılmamalı.

@@ -28,6 +28,12 @@ export const RENDER_ORDER = {
    * altına düşerse duvar kütlesi onu yutar. Tutamakların altında kalır.
    */
   pointSymbol: 32,
+  /**
+   * Alan nesnesinin saydam dolgusu, KENDİ konturunun altında ayrı sırada: aynı
+   * sırada kalsaydı opak çizgiler saydam mesh'ten ÖNCE çizilir ve dolgu konturu
+   * boyardı (üçü de depthWrite kapalı, karar renderOrder'ın).
+   */
+  areaObjectFill: 31,
   /** Alan nesnesi (merdiven/kolon/baca şaftı) nokta sembolünün ÜSTÜNDE — ikisi çakışabilir. */
   areaObject: 33,
   /**
@@ -40,6 +46,8 @@ export const RENDER_ORDER = {
   insulation: 45,
   fitting: 50,
   equipment: 60,
+  /** Önizlemedeki alan nesnesinin dolgusu — areaObjectFill ile aynı gerekçe. */
+  areaObjectPreviewFill: 69,
   linePreview: 70,
   portMarker: 80,
   warning: 90,
