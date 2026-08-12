@@ -74,7 +74,6 @@ export interface ProjectFirmInfo {
   competencyNo: string | null
   taxOffice: string | null
   taxNumber: string | null
-  note: string | null
 }
 
 export interface ProjectApprovalInfo {
@@ -101,8 +100,6 @@ export interface ProjectSpecs {
   renovationNote: string | null
   orderNumber: string | null
   connectionObject: string | null
-  workStartDate: string | null
-  workEndDate: string | null
 }
 
 export interface ProjectDetailExtras {

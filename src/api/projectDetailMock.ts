@@ -59,7 +59,6 @@ function buildFirmInfo(projectId: number): ProjectFirmInfo {
     competencyNo: String(110 + seed),
     taxOffice: '30 Ağustos',
     taxNumber: '2222222222',
-    note: null,
   }
 }
 
@@ -102,8 +101,6 @@ function buildSpecs(projectId: number): ProjectSpecs {
     renovationNote: null,
     orderNumber: null,
     connectionObject: null,
-    workStartDate: '2026-01-17',
-    workEndDate: '2026-04-17',
   }
 }
 

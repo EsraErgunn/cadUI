@@ -6,7 +6,6 @@ import {
   formatAreaSquareMeters,
   formatDecimal,
   formatInteger,
-  formatPlainDate,
   formatPressureMbar,
 } from './projectDetailFormat'
 import type { ProjectSpecs } from '../../../api/projectDetail'
@@ -62,16 +61,6 @@ export function ProjectSpecsCard({ specs }: { specs: ProjectSpecs | null }) {
       <InfoRow label="Tadilat Açıklama" value={specs?.renovationNote ?? null} isMock={isMock} />
       <InfoRow label="Sipariş Numarası" value={specs?.orderNumber ?? null} isMock={isMock} />
       <InfoRow label="Bağlantı Nesnesi" value={specs?.connectionObject ?? null} isMock={isMock} />
-      <InfoRow
-        label="İş Başlangıç Tarihi"
-        value={formatPlainDate(specs?.workStartDate ?? null)}
-        isMock={isMock}
-      />
-      <InfoRow
-        label="İş Bitiş Tarihi"
-        value={formatPlainDate(specs?.workEndDate ?? null)}
-        isMock={isMock}
-      />
     </InfoCard>
   )
 }

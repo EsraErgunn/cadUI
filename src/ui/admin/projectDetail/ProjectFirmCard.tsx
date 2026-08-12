@@ -39,7 +39,6 @@ export function ProjectFirmCard({ firm }: { firm: ProjectFirmInfo | null }) {
         value={firm === null ? null : joinTaxInfo(firm.taxOffice, firm.taxNumber)}
         isMock={isMock}
       />
-      <InfoRow label="Firma Açıklama" value={firm?.note ?? null} isMock={isMock} />
     </InfoCard>
   )
 }
