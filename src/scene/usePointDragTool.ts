@@ -12,7 +12,7 @@ import type { Id } from '../core/model'
 import { getSnapToleranceCm, resolveSnap } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { getPointMoveImpact } from '../core/wall'
-import { findBlockingOpeningInSegments } from '../core/wallGraph'
+import { findBlockingOpeningForMove } from '../core/wallGraph'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -131,7 +131,10 @@ export function usePointDragTool(): void {
         // REDDEDİLİR — `drag` state KORUNUR, `endDrag()` çağrılmaz. Köşe
         // imlece yapışık kalır, kullanıcı geçerli bir yere gelip TEKRAR
         // tıklayana kadar sürükleme sürer (K36).
-        const blocking = findBlockingOpeningInSegments(
+        //
+        // Kontrol İKİ YÖNLÜ (K48): taşınan duvarın KENDİ kapısı sabit bir
+        // duvarın üstüne gelirse de reddedilir.
+        const blocking = findBlockingOpeningForMove(
           segments,
           stationaryWalls,
           cad.points,

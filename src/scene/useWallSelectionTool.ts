@@ -17,7 +17,7 @@ import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { getWallMoveImpact } from '../core/wall'
-import { findBlockingOpeningInSegments } from '../core/wallGraph'
+import { findBlockingOpeningForMove } from '../core/wallGraph'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -182,7 +182,10 @@ export function useWallSelectionTool(): void {
       // REDDEDİLİR — `grab` KORUNUR, `endDrag()` çağrılmaz. Duvar imlece
       // yapışık kalır, kullanıcı geçerli bir yere gelip TEKRAR tıklayana kadar
       // sürükleme sürer (K36).
-      const blocking = findBlockingOpeningInSegments(
+      //
+      // Kontrol İKİ YÖNLÜ (K48): taşınan duvarın KENDİ kapısı sabit bir duvarın
+      // üstüne gelirse de reddedilir — eskiden yalnız ters yön bakılıyordu.
+      const blocking = findBlockingOpeningForMove(
         segments,
         stationaryWalls,
         cad.points,
