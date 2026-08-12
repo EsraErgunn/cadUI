@@ -1,4 +1,5 @@
 import { getElementWorldCorners, type SymbolMetadataLookup } from './elementPicking'
+import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationElement } from './installationModel'
 import { getPortWorldPosition } from './ports'
 import type { PlanPoint } from '../../core/coords'
@@ -113,6 +114,6 @@ export function isLineEndOnPort(
     (connection) =>
       connection.lineId === lineId &&
       connection.end === end &&
-      connection.target.kind === 'port',
+      getTargetElementId(connection.target) !== null,
   )
 }

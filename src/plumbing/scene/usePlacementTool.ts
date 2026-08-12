@@ -25,6 +25,7 @@ import {
   getPlacementElementType,
   INSTALLATION_PIPE_TOOL_ID,
 } from '../core/installationTools'
+import { isGasCarryingKind } from '../core/lineKinds'
 import { getSeedPort } from '../core/lineSeed'
 import { DEFAULT_ELEMENT_ANGLE_DEG } from '../core/placement'
 import { getPortWorldPosition } from '../core/ports'
@@ -94,9 +95,17 @@ export function usePlacementTool(): PlacementPreviewState {
 
     const mode = getElementAttachMode(elementType)
 
+    /**
+     * Yalnız GAZ hatları hedef: armatür bacaya oturmamalı, sayaç kanalın ucuna
+     * takılmamalı, cihaz koluyla kanala bağlanmamalı. Özellikle `nearestLine`
+     * yarıçapsız çalışıyor ("en yakın açık uca yapışır") — süzülmeseydi yeni
+     * konan bir cihaz planın öbür ucundaki bacaya kol atardı.
+     */
     const readFloorLines = () => {
       const cad = useCadStore.getState()
-      return cad.installationLines.filter((line) => line.floorId === cad.activeFloorId)
+      return cad.installationLines.filter(
+        (line) => line.floorId === cad.activeFloorId && isGasCarryingKind(line.kind),
+      )
     }
 
     /**

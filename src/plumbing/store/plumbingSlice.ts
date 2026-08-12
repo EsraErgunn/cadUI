@@ -13,11 +13,13 @@ import type { Id } from '../../core/model'
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
 import type { ClipboardConnection, LineClipboardEntry } from '../core/clipboard'
+import { collectDischargeLineIdsForElements } from '../core/dischargeLinks'
 import {
   type FreeEndAttachment,
   type NearestLineAttachment,
   type OnLineAttachment,
 } from '../core/elementAttach'
+import { getTargetElementId } from '../core/installationModel'
 import type {
   InstallationConnection,
   InstallationElement,
@@ -30,6 +32,7 @@ import type {
 } from '../core/installationModel'
 import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
 import { hasEnoughPoints } from '../core/lineGeometry'
+import { isGasCarryingKind } from '../core/lineKinds'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
 import { resolveMoveTargets } from '../core/moveTargets'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
@@ -185,6 +188,22 @@ export const createPlumbingSlice: StateCreator<
       return { kind: 'port', elementId: attachment.elementId, portId: attachment.portId }
     }
 
+    if (attachment.kind === 'outlet') {
+      // Ağız serbest bir noktadır, "dolu port" diye bir durumu yok; kotayı tür
+      // bazında araç denetliyor (canAttachDischarge). Burada yalnız cihazın hâlâ
+      // durduğuna bakılır — araya giren bir Ctrl+Z onu silmiş olabilir.
+      const element = draft.installationElements.find(
+        (candidate) => candidate.id === attachment.elementId,
+      )
+      if (!element) return null
+      return {
+        kind: 'outlet',
+        elementId: attachment.elementId,
+        position: attachment.position,
+        direction: attachment.direction,
+      }
+    }
+
     if (attachment.kind === 'linePoint') {
       // Hedef gerçekten duruyor mu: zincir çizilirken araya giren bir Ctrl+Z
       // bir önceki adımı silmiş olabilir; körlemesine yazılsaydı kayıt artık
@@ -226,7 +245,18 @@ export const createPlumbingSlice: StateCreator<
     let isRemoved = false
 
     set((draft) => {
-      const removedLines = draft.installationLines.filter((line) => lineIds.includes(line.id))
+      // Cihaz silinince bacası da gider; kanal cihazın eklentisidir ve sahipsiz
+      // kalırsa yeniden bağlanamaz (bkz. core/dischargeLinks.ts).
+      const allLineIds = [
+        ...lineIds,
+        ...collectDischargeLineIdsForElements(
+          draft.installationLines,
+          draft.installationConnections,
+          elementIds,
+        ).filter((id) => !lineIds.includes(id)),
+      ]
+
+      const removedLines = draft.installationLines.filter((line) => allLineIds.includes(line.id))
       const removedElementIds = [
         ...elementIds,
         ...removedLines.flatMap((line) =>
@@ -239,7 +269,9 @@ export const createPlumbingSlice: StateCreator<
       const remainingElements = draft.installationElements.filter(
         (element) => !removedElementIds.includes(element.id),
       )
-      const remainingLines = draft.installationLines.filter((line) => !lineIds.includes(line.id))
+      const remainingLines = draft.installationLines.filter(
+        (line) => !allLineIds.includes(line.id),
+      )
       if (
         remainingElements.length === draft.installationElements.length &&
         remainingLines.length === draft.installationLines.length
@@ -249,13 +281,14 @@ export const createPlumbingSlice: StateCreator<
 
       draft.installationElements = remainingElements
       draft.installationLines = remainingLines
-      draft.installationConnections = draft.installationConnections.filter(
-        (connection) =>
-          !lineIds.includes(connection.lineId) &&
-          (connection.target.kind !== 'port' ||
-            !removedElementIds.includes(connection.target.elementId)) &&
-          (connection.target.kind !== 'line' || !lineIds.includes(connection.target.lineId)),
-      )
+      draft.installationConnections = draft.installationConnections.filter((connection) => {
+        if (allLineIds.includes(connection.lineId)) return false
+
+        const targetElementId = getTargetElementId(connection.target)
+        if (targetElementId !== null && removedElementIds.includes(targetElementId)) return false
+
+        return connection.target.kind !== 'line' || !allLineIds.includes(connection.target.lineId)
+      })
 
       // Kalan hatlarda silinen armatüre işaret eden düğüm boşa çıkar; boru
       // bölünmüş kalır ama düğüm artık serbest bir köşedir.
@@ -417,6 +450,23 @@ export const createPlumbingSlice: StateCreator<
               lineId,
               end: connection.end,
               target: { kind: 'port', elementId, portId: connection.portId },
+            })
+            continue
+          }
+
+          if (connection.kind === 'outlet') {
+            const elementId = elementIds[connection.elementIndex]
+            if (elementId === undefined) continue
+
+            draft.installationConnections.push({
+              lineId,
+              end: connection.end,
+              target: {
+                kind: 'outlet',
+                elementId,
+                position: connection.position,
+                direction: connection.direction,
+              },
             })
             continue
           }
@@ -718,6 +768,9 @@ export const createPlumbingSlice: StateCreator<
       set((draft) => {
         for (const line of draft.installationLines) {
           if (!lineIds.includes(line.id) || line.pipeTypeName === pipeTypeName) continue
+          // Baca/havalandırma çapsızdır: seçimde boruyla birlikte olsa bile
+          // kaydı kirletilmez (alan yazılır ama okunmaz).
+          if (!isGasCarryingKind(line.kind)) continue
 
           line.pipeTypeName = pipeTypeName
           isChanged = true

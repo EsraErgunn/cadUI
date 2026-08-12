@@ -16,6 +16,7 @@ import {
 } from './attachGeometry'
 import { ATTACHED_VALVE_TYPE, getInlineSpecs } from './attachModes'
 import type { SymbolMetadataLookup } from './elementPicking'
+import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
 import { getSegmentLengthCm } from './lineGeometry'
 import { rotatePlanOffset } from './ports'
@@ -345,7 +346,7 @@ export function isFixedCompanionValve(
         (connection) =>
           connection.lineId === line.id &&
           connection.end === end &&
-          connection.target.kind === 'port',
+          getTargetElementId(connection.target) !== null,
       )
     if (index === 1 && isPortConnectedEnd('start')) return true
     if (index === lastIndex - 1 && isPortConnectedEnd('end')) return true
@@ -384,9 +385,10 @@ export function expandMoveSelection(
     }
   }
   for (const connection of connections) {
-    if (connection.target.kind !== 'port') continue
+    const elementId = getTargetElementId(connection.target)
+    if (elementId === null) continue
     if (!lineIdSet.has(connection.lineId)) continue
-    elementIdSet.add(connection.target.elementId)
+    elementIdSet.add(elementId)
   }
 
   return [...elementIdSet]

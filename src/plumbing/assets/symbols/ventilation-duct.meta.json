@@ -1,9 +1,0 @@
-{
-  "id": "ventilationDuct",
-  "label": "Havalandırma Kanalı",
-  "asset": "ventilation-duct.svg",
-  "viewBox": [0, 0, 60, 40],
-  "origin": [30, 20],
-  "ports": [],
-  "bounds": { "min": [0, 0], "max": [60, 40] }
-}

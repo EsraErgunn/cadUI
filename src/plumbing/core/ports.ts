@@ -35,10 +35,15 @@ export function rotatePlanOffset(offset: PlanPoint, angleDeg: number): PlanPoint
   }
 }
 
-/** Bir portun plan koordinatı: ölçek → dönme → öteleme sırası (Bölüm 7). */
+/**
+ * Bir portun plan koordinatı: ölçek → dönme → öteleme sırası (Bölüm 7).
+ * Parametre yapısal: gaz portu (`SymbolPortDefinition`) da deşarj portu
+ * (`SymbolDischargePort`) da aynı yerel uzayı kullanıyor, ikisi için ayrı bir
+ * kopya yazılmaz.
+ */
 export function getPortWorldPosition(
   element: InstallationElement,
-  port: SymbolPortDefinition,
+  port: Pick<SymbolPortDefinition, 'position'>,
   metadata: SymbolMetadata,
 ): PlanPoint {
   const offset = rotatePlanOffset(
@@ -49,4 +54,38 @@ export function getPortWorldPosition(
     x: element.position.x + offset.x,
     y: element.position.y + offset.y,
   }
+}
+
+/**
+ * Portun plandaki çıkış yönü. İşaret çevrimi konum ofsetiyle AYNI (SVG +Y aşağı,
+ * plan +Y yukarı); ölçek uygulanmaz — pozitif ve tekdüze olduğu için birim
+ * vektörün yönünü değiştirmez, boyunu bozmasın diye dışarıda bırakılır.
+ */
+export function getPortWorldDirection(
+  element: Pick<InstallationElement, 'angleDeg'>,
+  port: { direction: readonly [number, number] },
+): PlanPoint {
+  return rotatePlanOffset({ x: port.direction[0], y: -port.direction[1] }, element.angleDeg)
+}
+
+/**
+ * `svgLocalToPlanOffset` + yerleştirmenin TERSİ: plan noktasını sembolün yerel
+ * (SVG) uzayına geri götürür. Serbest deşarj ağzı buna dayanır — imleç planda
+ * gelir, ağız yerel koordinatta saklanır.
+ *
+ * Sıra ileri yönün tam tersi: öteleme → −açı ile dönme → ölçek → +Y işareti.
+ */
+export function planToSvgLocal(
+  element: Pick<InstallationElement, 'position' | 'angleDeg' | 'scale'>,
+  metadata: Pick<SymbolMetadata, 'origin'>,
+  point: PlanPoint,
+): readonly [number, number] {
+  const offset = rotatePlanOffset(
+    { x: point.x - element.position.x, y: point.y - element.position.y },
+    -element.angleDeg,
+  )
+  return [
+    offset.x / element.scale + metadata.origin[0],
+    -(offset.y / element.scale) + metadata.origin[1],
+  ]
 }

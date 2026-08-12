@@ -10,6 +10,7 @@ import type {
   ClipboardPayload,
   LineClipboardEntry,
 } from '../core/clipboard'
+import type { DischargeDraft } from '../core/dischargeDraft'
 import { mergeElementIds, toggleElementId } from '../core/elementSelection'
 import type { InstallationLineKind } from '../core/installationModel'
 import type { LineChain } from '../core/lineChain'
@@ -63,6 +64,13 @@ type PlumbingUiState = {
   /** Devam eden çizim; her adım plumbingSlice.addLine'a ayrı ayrı geçer. */
   draftLine: LineDraft | null
   setDraftLine: (draft: LineDraft | null) => void
+  /**
+   * Devam eden baca/havalandırma güzergâhı. `draftLine`'dan AYRI alan: kanal
+   * bitişte TEK hat olarak yazılıyor, yani taslak köşelerin TAMAMINI taşıyor —
+   * boru zincirinin "sıradaki adım nereden başlayacak" durumuyla aynı şey değil.
+   */
+  dischargeDraft: DischargeDraft | null
+  setDischargeDraft: (draft: DischargeDraft | null) => void
   /** Sürüklenen hat köşesi; boş = sürükleme yok. Sahne bunu okuyup ilgili
    *  hattı geçici konumuyla çizer (bkz. `InstallationLineMesh`). */
   draggingLineCorner: LineCornerDrag | null
@@ -108,6 +116,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     selectedLineIds: [],
     marquee: null,
     draftLine: null,
+    dischargeDraft: null,
     draggingLineCorner: null,
     activePipeTypeName: DEFAULT_PIPE_TYPE_NAME,
     elementClipboard: [],
@@ -160,6 +169,11 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
 
     // Taslağın nasıl ilerleyeceğine araç hook'u karar verir; store yalnız
     // sonucu tutar (kural 7: araç mantığı sahnede, durum burada).
+    setDischargeDraft: (draft) =>
+      set((state) => {
+        state.dischargeDraft = draft
+      }),
+
     setDraftLine: (line) =>
       set((draft) => {
         draft.draftLine = line

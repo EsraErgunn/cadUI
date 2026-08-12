@@ -17,6 +17,7 @@ import {
   type FloorDirection,
 } from '../core/floors'
 import { DEFAULT_FLOOR_HEIGHT_CM, type Id } from '../core/model'
+import { getTargetElementId } from '../plumbing/core/installationModel'
 
 export type AddFloorInput = {
   /** Verilmezse sıradaki "N. Kat" (bodrumda "Bodrum Kat") adı üretilir. */
@@ -160,11 +161,11 @@ export function removeFloorInstallationInDraft(draft: CadState, floorId: Id): vo
   const removedLineIds = new Set(
     draft.installationLines.filter((line) => line.floorId === floorId).map((line) => line.id),
   )
-  draft.installationConnections = draft.installationConnections.filter(
-    (connection) =>
-      !removedLineIds.has(connection.lineId) &&
-      (connection.target.kind !== 'port' || !removedElementIds.has(connection.target.elementId)),
-  )
+  draft.installationConnections = draft.installationConnections.filter((connection) => {
+    if (removedLineIds.has(connection.lineId)) return false
+    const targetElementId = getTargetElementId(connection.target)
+    return targetElementId === null || !removedElementIds.has(targetElementId)
+  })
   draft.installationElements = draft.installationElements.filter(
     (element) => element.floorId !== floorId,
   )

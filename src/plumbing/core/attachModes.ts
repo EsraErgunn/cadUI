@@ -8,14 +8,15 @@ import type { InstallationElementType, SymbolId } from './symbolMetadata'
  * - `lineEnd`     : boş (bağlantısız) bir boru ucuna eklenir; araya vana girer.
  * - `nearestLine` : imlecin bıraktığı yerde durur, en yakın boruya kısa bir kolla
  *                   bağlanır; kolun boruya değdiği düğüme vana oturur.
- * - `free`        : herhangi bir yere bırakılır (servis kutusu, baca, havalandırma).
+ * - `free`        : herhangi bir yere bırakılır (servis kutusu).
+ *
+ * Baca ve havalandırma kanalı bu tabloda YOK: onlar eleman değil, yakıcı cihazın
+ * deşarj portundan çizilen birer GÜZERGÂH (`InstallationLineKind`).
  */
 export type ElementAttachMode = 'onLine' | 'lineEnd' | 'nearestLine' | 'free'
 
 export const ELEMENT_ATTACH_MODES: Record<InstallationElementType, ElementAttachMode> = {
   serviceBox: 'free',
-  chimney: 'free',
-  ventilationDuct: 'free',
 
   regulator: 'onLine',
   strainerMeter: 'onLine',

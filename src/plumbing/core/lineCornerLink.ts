@@ -1,3 +1,4 @@
+import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
 import { isLineEndOnPort } from './portSnap'
 import type { Id } from '../../core/model'
@@ -114,8 +115,9 @@ export function getPortAnchoredPointIds(
   const anchored = new Set<Id>()
 
   for (const connection of connections) {
-    if (connection.target.kind !== 'port') continue
-    if (movedElementIds.has(connection.target.elementId)) continue
+    const targetElementId = getTargetElementId(connection.target)
+    if (targetElementId === null) continue
+    if (movedElementIds.has(targetElementId)) continue
 
     const pointId = getLineEndPointId(lines, connection.lineId, connection.end)
     if (pointId !== undefined) anchored.add(pointId)

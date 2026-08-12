@@ -17,7 +17,12 @@ export type InstallationElement = {
   scale: number
 }
 
-export type InstallationLineKind = 'pipe' | 'branch' | 'applianceStub'
+export type InstallationLineKind =
+  | 'pipe'
+  | 'branch'
+  | 'applianceStub'
+  | 'chimney'
+  | 'ventilationDuct'
 
 export type InstallationLinePoint = {
   id: Id
@@ -42,12 +47,37 @@ export type InstallationLineSegment = {
 }
 
 /**
- * Bir hat ucunun bağlanabileceği İKİ hedef türü: bir elemanın portu, ya da başka
- * bir hattın bir noktası (branşmanın ana hatta bağlanması gibi). Opsiyonel alanlı
- * tek tip yerine ayrık birleşim: geçersiz kombinasyonlar derlemede engellenir.
+ * Cihazın kenarı üzerinde, kullanıcının ÇİZİM ANINDA seçtiği baca/havalandırma
+ * ağzı. Metadata'da ilan edilmiş bir port değildir — bu yüzden `portId` yerine
+ * konumu kendisi taşır.
+ *
+ * Konum sembolün YEREL koordinatında (SVG uzayı) saklanır, plan koordinatında
+ * değil: cihaz taşınınca/döndürülünce ağız port'larla AYNI dönüşümden geçip
+ * kendiliğinden yerinde kalır (`getPortWorldPosition`/`getPortWorldDirection`
+ * bu tipi de olduğu gibi kabul eder). Plan koordinatı saklansaydı her taşımada
+ * ayrıca güncellenmesi gerekir, bir yerde unutulunca ağız cihazdan kopardı.
+ */
+export type ApplianceOutlet = {
+  elementId: Id
+  /**
+   * Sembol yerel koordinatı — `SymbolPortDefinition.position` ile aynı uzay.
+   * Metadata'daki kardeşinin aksine `readonly` DEĞİL: bu tip store'da yaşıyor ve
+   * immer draft'ı readonly tuple'ı yazılabilir taslağa çeviremiyor.
+   */
+  position: [number, number]
+  /** Kenardan dışarı bakan birim normal (SVG yerel). */
+  direction: [number, number]
+}
+
+/**
+ * Bir hat ucunun bağlanabileceği hedef türleri: bir elemanın ilan edilmiş portu,
+ * cihaz kenarındaki serbest deşarj ağzı, ya da başka bir hattın bir noktası
+ * (branşmanın ana hatta bağlanması gibi). Opsiyonel alanlı tek tip yerine ayrık
+ * birleşim: geçersiz kombinasyonlar derlemede engellenir.
  */
 export type InstallationEndpointTarget =
   | { kind: 'port'; elementId: Id; portId: string }
+  | ({ kind: 'outlet' } & ApplianceOutlet)
   | { kind: 'line'; lineId: Id; pointId: Id }
 
 /**
@@ -58,8 +88,20 @@ export type InstallationEndpointTarget =
  */
 export type LineEndAttachment =
   | { kind: 'port'; elementId: Id; portId: string }
+  | ({ kind: 'outlet' } & ApplianceOutlet)
   | { kind: 'linePoint'; lineId: Id; pointId: Id }
   | { kind: 'lineSplit'; lineId: Id; segmentIndex: number; position: PlanPoint }
+
+/**
+ * Hat ucunun tutunduğu eleman; hatta tutunuyorsa null. Elemana bağlı UCU arayan
+ * her yer (taşıma yayılımı, silme, kat temizliği, pano) bunu sorar — iki eleman
+ * hedefi olduğu için `kind === 'port'` denetimi tek başına artık eksik kalır ve
+ * unutulan bir yer ağzı sessizce kopuk bırakırdı.
+ */
+export function getTargetElementId(target: InstallationEndpointTarget): Id | null {
+  if (target.kind === 'port' || target.kind === 'outlet') return target.elementId
+  return null
+}
 
 /** Hat ucunun bağlantısı. Uç serbestse kayıt YOKTUR (boş alan yerine kaydın yokluğu). */
 export type InstallationConnection = {
@@ -76,6 +118,10 @@ export type InstallationLine = {
   /**
    * Çap hat başına tutulur; WebCAD de çapı boruya gömüyor (K-W1). Hat içinde çap
    * değişmesi gerekirse hat BÖLÜNÜR.
+   *
+   * Gaz TAŞIMAYAN hatta (baca, havalandırma kanalı) ANLAMSIZDIR: alan yazılır
+   * ama okunmaz. Genişlik türden gelir — `lineKinds.ts` → `getLineOuterWidthCm`
+   * dışında bu alanı okuyan yeni kod yazma.
    */
   pipeTypeName: PipeTypeName
   /** Sıralı köşe listesi; en az 2 nokta. */
