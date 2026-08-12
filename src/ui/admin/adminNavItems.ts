@@ -55,18 +55,34 @@ export function projectFirmUserUpdatePath(userId: number): string {
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
 
+/**
+ * Proje detayındaki "Evrak Ekle" ve "Poliçelendir" hedefleri (KK-9). Ekranları
+ * HENÜZ YOK; yollar şimdiden gerçek yerlerine konuldu ve karşılama sayfasına
+ * bağlandı (router.tsx) — pasif düğme yerine çalışan bağlantı, sol menüdeki
+ * kararla aynı gerekçe.
+ */
+export const DOCUMENT_CREATE_PATH = `${DOCUMENTS_PATH}/new`
+export const POLICY_CREATE_PATH = `${POLICIES_PATH}/new`
+
 /** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
 export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
 
 export const PROJECT_CREATE_PATH = `${PROJECT_LIST_PATH}/new`
 
 /**
- * Tablodaki proje adının hedefi. Proje DETAY ekranı henüz yok; bugün doğrudan
- * çizim editörü açılıyor — editöre başka giriş noktası kalmasın diye.
- * TODO(esra): detay ekranı gelince bu fonksiyon detay yolunu döndürecek.
+ * Tablodaki proje adının hedefi: artık proje DETAY ekranı (K50). Eskiden
+ * doğrudan çizim editörü açılıyordu ve buradaki TODO detay ekranını bekliyordu.
+ */
+export function projectDetailPath(projectId: number): string {
+  return `${PROJECT_LIST_PATH}/${projectId}`
+}
+
+/**
+ * Çizim editörü. Detay ekranı `/projects/:id` adresini devraldığı için editör
+ * alt yola taşındı; editöre giriş artık detay ekranından.
  */
 export function projectEditorPath(projectId: number): string {
-  return `${PROJECT_LIST_PATH}/${projectId}`
+  return `${PROJECT_LIST_PATH}/${projectId}/editor`
 }
 
 export interface AdminNavItem {

@@ -2713,3 +2713,166 @@ firmadan türetecek.
 Yanıt şeması yalnız çağıranın ihtiyacı olan alanları zorunlu tutuyor: sunucu
 `cityName`/`districtName` de türetip döndürüyor ama form onları kullanmıyor,
 zorunlu kılınsalardı uç bir alanı kaldırdığında kayıt sınırda sessizce patlardı.
+
+## 2026-08 · Proje detayı ekranı
+
+### K50 — Sekme listesi: içeriği olan altı sekme, mockup'ın sekizi korunarak
+
+Gereksinim dört ayrı liste veriyordu: belge metni "sekiz sekme" deyip beş isim
+sayıyor, KK-3 altı isim sayıyor, mockup görseli sekiz sekme gösteriyor, mockup
+HTML'i altı (ama Evraklar yok, Katı Model var).
+
+Karar: **içeriği yazılan altı sekme KK-3'ün listesi** (Proje Bilgileri, Proje
+Planı, Proje İşlem Geçmişi, Proje Evrakları, Poliçe Bilgileri, Proje İşlemleri).
+Mockup'taki "Katı Model" ve "Gaz Açma" şeritte kendi yerlerinde DURUYOR ama
+seçilemiyor: `aria-disabled` + "Yakında" rozeti. Böylece tasarımın sekiz
+sekmelik ritmi bozulmuyor, olmayan içerik de uydurulmuyor.
+
+`disabled` DEĞİL `aria-disabled` kullanıldı — pasif düğme odaklanamadığı için
+klavye ve ekran okuyucu kullanıcısına hiç görünmezdi (sol menüdeki aynı karar).
+Ok tuşu bu sekmelere de uğrar, yalnız seçim değişmez.
+
+Aktif sekme birincil renkte ALT ÇİZGİ ile vurgulanıyor: belgedeki "yeşil alt
+çizgi" kuralının mavi paletteki karşılığı.
+
+### K51 — Karma veri: mock yalnız GELİŞTİRMEDE, uyarı kalıcı, örnek değer işaretli
+
+Ekranın istediği alanların yalnız onunun karşılığı var (`GET /api/projects/{id}`);
+geri kalan her şey — durum, tesisat no, onay bilgileri, teknik değerler,
+birim/cihaz, işlem geçmişi, evrak, poliçe, onay/ret/revizyon, .zpd/DWG/PDF —
+sunucuda YOK. Dört ayrı karar:
+
+**1. Mock ÜRETİM derlemesinde çalışmaz** (`api/mockGate.ts` → `isMockDataAllowed`
+= `import.meta.env.DEV`). Üretimde ilgili bölüm veri yerine "bu bölümün veri
+kaynağı henüz yok" kutusu gösterir. Karma verinin bilinen başarısızlığı sahte
+kaydın bir demoda gerçek sanılmasıdır; boş bölüm, sahte dolu bölümden iyidir.
+
+**2. Uyarı KAPATILAMAZ ve bölümleri sayar.** `NoticeBar` kullanılmadı (onun
+kapatma düğmesi zorunlu). "Bazı veriler eksik" gibi genel bir cümle değil,
+hangi kartın uydurma olduğu tek tek yazılıyor.
+
+**3. Örnek değerin kendisi de işaretli** (`MockValue`): kesikli alt çizgi +
+`sr-only` açıklama. Renk token'ı BİLEREK kullanılmadı — amber bu ekranda zaten
+olağan bir renk ("Proje Güncelleme" etiketi, onay kartı kenarlığı) ve mock
+işareti o üçlüye girseydi arka plana karışırdı. Kesikli çizgi renkten ve temadan
+bağımsız.
+
+**4. Gerçek/uydurma ayrımı TİPTE duruyor.** `ProjectDetail` düz bir nesne değil,
+`{ server, extras }`: `server` gerçek uçtan, `extras` mock ve üretimde `null`.
+Tek nesnede birleştirilseydi arayüz hangi değerin gerçek olduğunu bilemez ve
+işareti koyamazdı.
+
+**Mock DTO'ları uydurma değil:** cadapi'de `ProjectUnit`, `Device`,
+`OperationHistory`, `Doc`/`ProjectDoc`, `Policy` entity'leri VAR — eksik olan
+yalnız controller. Mock bu tabloların alan adlarını ve tiplerini taklit ediyor.
+
+**Bayrak mekanizması SINANDI.** `unimplementedEndpoints.ts`'ten bir anahtar
+silinince çağıran dosya derlenmiyor; ölçüldü: `firmUserList` silindiğinde
+`api/projectFirmUsers.ts:99`, `firmUserCreate` silindiğinde
+`api/projectFirmUserForm.ts:48` TS2345 veriyor (ternary değişkeninden geçen
+çağrı da yakalanıyor). Çalışmasının sebebi `as const` + `isEndpointImplemented`
+imzasının dar birleşim olması. TEK boşluk: bir bayrağın hiç çağrısı yoksa
+hiçbir şey patlamaz — bu yüzden her yeni bayrağın en az bir
+`isEndpointImplemented('…')` çağrısı var.
+
+### K52 — Onay yetkisi tek yüklemin arkasında: `useCanApproveProject`
+
+Gereksinimdeki "onay yetkisi bulunan kontrol mühendisi" üç rollü modelde
+`GasDistributionUser`'a karşılık geliyor (projeyi onaylayan taraf dağıtım
+firması); `Admin` de görüyor. Proje firması kullanıcısı kendi projesini
+onaylayamaz.
+
+Karar `ui/admin/useCanApproveProject.ts` içinde TEK bir fonksiyonun arkasında:
+backend ayrı bir yetki alanı (`canApproveProject` gibi) açtığında yalnız o gövde
+değişecek, çağıranların hiçbiri değişmeyecek. `usePermission` KULLANILMADI — o
+hâlâ mock izin listesine bakıyor ve ikinci bir yetki kaynağı istemiyoruz.
+
+Görünürlük ile ZAMANLAMA ayrıldı: yetkisi olmayana karar aksiyonları HİÇ
+render edilmiyor (KK-10 "listelenmez"), taslak durumundaki proje için ise
+görünüyor ama pasif ve sebebi yazıyor (KK-2) — yetki sorunu değil, sıra sorunu.
+
+### K53 — `/projects/:id` detaya devredildi, editör `/editor` alt yoluna taşındı
+
+`adminNavItems.ts`'teki TODO tam bunu bekliyordu: proje adına tıklayınca detay
+açılmalı. Yol devri yapıldı, editör `/projects/:id/editor` oldu.
+`projectEditorPath` duruyor (editöre giriş artık detaydan), yanına
+`projectDetailPath` eklendi. Detay ekranı yönetici kabuğunun İÇİNDE (sol menü ve
+üst bar duruyor); editör kabuk dışında, tam ekran kalmaya devam ediyor.
+
+### K54 — Durum sözlüğü TÜRETİLDİ; `revizyonIstendi` sunucuda YOK, geçici
+
+Belge "Revizyon İstendi" durumundan söz ediyor, repodaki `PROJECT_STATUSES` ise
+dört değer taşıyor. İkinci bir sözlük yazılmadı, mevcut olan GENİŞLETİLDİ:
+`PROJECT_DETAIL_STATUSES = [...PROJECT_STATUSES, REVISION_REQUESTED_STATUS]` ve
+etiketler de aynı biçimde `PROJECT_STATUS_LABELS`'tan türüyor.
+
+Liste ekranı `PROJECT_STATUSES`'ı kullanmaya devam ediyor: sekmesi artmadı,
+testleri bozulmadı, kapsam korundu. Ortak dördün etiketi ve rengi tek yerde.
+
+**Sunucu doğrulandı:** `ProjeDurumu` kod grubu (id 6) tam DÖRT kayıt taşıyor —
+`Draft`(6001) / `PendingApproval`(6002) / `Approved`(6003) / `Rejected`(6004).
+Revizyon karşılığı YOK. Yani `revizyonIstendi` bugün bir İSTEMCİ UYDURMASIDIR ve
+geçicidir; onay/revizyon ucu açıldığında sunucunun döndüreceği `CodeValue` onun
+yerini alacak. Backend'den istenecekler listesine girdi.
+
+Durum çipinde renk yalnız NOKTADA; metin her durumda `ink` tonunda. Nokta bir
+kontrast eşiğine tabi değil ve durumu söyleyen asıl kanal zaten yazının kendisi.
+
+### K55 — Plan görüntüleyici `ui/` içinde bağımsız SVG; "sayfa" = KAT
+
+`scene/` yeniden KULLANILMADI: oradaki bileşenler `<Canvas>` içi (R3F) ve global
+`cadStore`'dan besleniyor. Detay ekranı için store'u doldurmak, editörün
+durumunu ekran dışından yazmak olurdu (proje değişince store sıfırlanıyor,
+knowledge/persistence.md) ve `scene/` başkasının sahiplik alanı. Bunun yerine
+AYNI veri okunup `ui/admin/projectDetail/planGeometry.ts` + `PlanViewer.tsx` ile
+etkileşimsiz bir SVG üretiliyor; yeni bağımlılık yok.
+
+Yakınlaştırma `viewBox` DARALTILARAK yapılıyor, CSS transform ile değil: inline
+stil yasak ve dinamik ölçek Tailwind sınıfıyla verilemiyor. viewBox bir SVG
+özniteliği — kısıtı da çözüyor, çizgi kalınlıklarını da ölçekliyor.
+
+**"Sayfa" = kat.** Belge çok sayfalı projelerden söz ediyor; kaydedilen çizimde
+sayfaya karşılık gelen tek anlamlı eksen kat listesi. Uydurma bir sayfalama
+yerine gerçek bir eksen kullanıldı.
+
+**BİLİNEN SINIR: kaydedilen çizimde tesisat YOK.** `saveProjectVersion` yalnız
+`selectProjectData`'yı yazıyor ve `ProjectData` =
+`floors/points/walls/openings/rooms/symbols/areaObjects`. Boru, servis kutusu,
+sayaç ve cihazlar (`plumbing/`, `installationSlice`) hiç sunucuya kaydedilmiyor
+— `docs/sample-project.json` de bunu doğruluyor. Bu yüzden görüntüleyici mimari
+katmanı çiziyor ve bunu ekranda SÖYLÜYOR. Gereksinim 3.5'in "servis kutusu,
+sayaç ve cihaz etiketleriyle" kısmı karşılanmıyor; önce tesisatın kalıcılığı
+çözülmeli.
+
+İki küçük tuzak burada yakalandı ve düzeltildi: `document.fullscreenElement`
+Fullscreen API'si olmayan ortamda `undefined` geliyor (`!== null` kontrolü
+"zaten tam ekrandayız" sanıyordu) ve `loadLatestProjectVersion` kaydı olmayan
+projede `undefined` döndürüyor — react-query `undefined`'ı geçersiz sayıp
+sorguyu hiç çözmüyordu, `?? null` ile meşru bir "kayıt yok" cevabına çevrildi.
+
+### K56 — Yeni renk token'ı YOK; rozet rengi kenarlıkta
+
+Belgedeki renk adları mevcut token'lara eşlendi: "Proje Kayıt" → `success`,
+"Proje Güncelleme" ve onay kartı sol kenarlığı → `warning`, "PDF" rozeti →
+`danger`, "ZPD" rozeti → `selection`, aktif sekme alt çizgisi → `admin-primary`.
+`--color-info` AÇILMADI: tek bir rozet için palet büyütmek erken. İncelemede
+rozetin tıklanabilir sanılması sorunu çıkarsa o zaman eklenir — token eklemek
+geri döndürülebilir, palet kirliliği daha zor geri alınır.
+
+Rozetlerde renk KENARLIK + soluk zeminde, METİN her tonda `ink`. Dolgu üstüne
+renkli yazı denenmedi çünkü iki temada birden güvenli bir mavi/amber metin
+token'ı yok (`admin-primary` koyu temada ~2.9:1, `warning` metin olarak hiç
+sınanmadı). Rozetin anlamını yazının kendisi taşıyor; renk ikinci kanal.
+
+Ekrana özel üç varyant (`detailBadgeVariants`, `quickActionVariants`,
+`viewerButtonVariants`) `adminVariants.ts`'e değil
+`projectDetail/projectDetailVariants.ts`'e kondu: o dosyayı 200 satır sınırının
+üstüne çıkarıyorlardı ve üçü de tek ekrana ait. İkinci bir ekran isterse aynı
+kuralla `admin/` köküne taşınır.
+
+### Ortak parçaya çıkanlar
+
+`EmptyValue` ve `DateTimeCell` ikinci ekranda gerekti; kopyalanmadı,
+`projects/` altından `admin/` köküne TAŞINDI (klasör sözleşmesi). Konum izi
+`PageHeader`'ın içinden `Breadcrumb` olarak çıkarıldı: detay başlığı kendi
+düzenini kuruyor (başlık yanında çip, altında künye) ama aynı izi gösteriyor.

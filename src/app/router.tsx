@@ -10,6 +10,7 @@ import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
 import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
+import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { ProjectFirmUserFormPage } from '../pages/ProjectFirmUserFormPage'
 import { ProjectFirmUsersPage } from '../pages/ProjectFirmUsersPage'
 import { ProjectFirmsPage } from '../pages/ProjectFirmsPage'
@@ -20,7 +21,9 @@ import { AdminLayout } from '../ui/admin/AdminLayout'
 import {
   ANNOUNCEMENTS_PATH,
   DOCUMENTS_PATH,
+  DOCUMENT_CREATE_PATH,
   POLICIES_PATH,
+  POLICY_CREATE_PATH,
   PROJECT_CREATE_PATH,
   PROJECT_FIRMS_PATH,
   PROJECT_FIRM_CREATE_PATH,
@@ -49,13 +52,17 @@ export function AppRouter() {
         >
           <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
           {/* Statik parça dinamik olandan önce eşleşir (React Router sıralaması),
-              yoksa /projects/new editörü "new" kimliğiyle açmaya çalışırdı. */}
+              yoksa /projects/new detayı "new" kimliğiyle açmaya çalışırdı. */}
           <Route path={PROJECT_CREATE_PATH} element={<NewProjectPage />} />
+          {/* Proje detayı kabuğun İÇİNDE: sol menü ve üst bar duruyor, kırılım
+              "Anasayfa / Projeler / Proje Detay" (KK-1). */}
+          <Route path={`${PROJECT_LIST_PATH}/:projectId`} element={<ProjectDetailPage />} />
         </Route>
 
-        {/* Editör kabuk dışında: tam ekran çizim alanı. */}
+        {/* Editör kabuk dışında: tam ekran çizim alanı. Detay ekranı
+            /projects/:projectId adresini devraldığı için editör alt yolda (K50). */}
         <Route
-          path="/projects/:projectId"
+          path="/projects/:projectId/editor"
           element={
             <RequireAuth>
               <EditorPage />
@@ -108,6 +115,17 @@ export function AppRouter() {
           />
           <Route path={DOCUMENTS_PATH} element={<ComingSoonPage title="Evraklar" />} />
           <Route path={POLICIES_PATH} element={<ComingSoonPage title="Poliçeler" />} />
+          {/* Proje detayındaki "Evrak Ekle" / "Poliçelendir" hedefleri (KK-9).
+              Statik parça dinamik olandan önce gelmeli kuralı burada geçerli
+              değil: iki yolun da dinamik kardeşi yok. */}
+          <Route
+            path={DOCUMENT_CREATE_PATH}
+            element={<ComingSoonPage title="Evrak Ekle" section="Evraklar" />}
+          />
+          <Route
+            path={POLICY_CREATE_PATH}
+            element={<ComingSoonPage title="Poliçe Oluşturma" section="Poliçeler" />}
+          />
         </Route>
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
