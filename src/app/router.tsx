@@ -60,7 +60,7 @@ export function AppRouter() {
         </Route>
 
         {/* Editör kabuk dışında: tam ekran çizim alanı. Detay ekranı
-            /projects/:projectId adresini devraldığı için editör alt yolda (K50). */}
+            /projects/:projectId adresini devraldığı için editör alt yolda (K53). */}
         <Route
           path="/projects/:projectId/editor"
           element={
