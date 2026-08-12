@@ -55,6 +55,31 @@ duvarsız açıklık temsil edilemez (K16).
 Çoğaltmadan sonra **seçim kopyaya geçer**, kullanıcı çoğalttığı şeyi hemen
 sürükleyebilsin.
 
+## Hangi türler kapsamda (K49)
+
+Duvar, nokta sembolü, **alan nesnesi** ve **kiriş**. Açıklık kapsam DIŞI: kendi
+koordinatını taşımıyor (duvarına `offsetCm` ile bağlı), duvarıyla birlikte
+geliyor — panel düğmeleri de bu yüzden "açıklık dışında bir şey seçili" koşuluna
+bakıyor, eskiden `hasWall`'a bakıyordu.
+
+Dayanak (pivot) HER türü sayar; yalnız kolon seçiliyken kutu onun merkezinden
+kurulur, yoksa dayanak bulunamaz ve döndürme hiç çalışmaz. Kirişin İKİ ucu da
+girer (merkezi almak kapladığı alanı küçük gösterirdi).
+
+Açı işi türe göre değişir: alan nesnesi serbest sembolle aynı
+(`applyTransformToAngleDeg`), **kirişin açı ALANI YOK** — yönü uçlarından türür,
+uçları dönüştürmek yeter.
+
+⚠️ **Grup dönüşümünde açıklık koruması ÇALIŞMIYOR** (ne duvar ne alan nesnesi
+için). Tek nesne sürüklemede var (K35/K36/K48), burada yok: duvarın kendisi de
+oynayabildiği için "hangi duvara göre" sorusunun tek cevabı yok ve kısmi
+uygulama tek-Ctrl+Z sözleşmesini bozardı. Kapatılırsa DÖRT tür için birden.
+
+⚠️ Çoğaltma `store/duplicateOps.ts`'e AYRILDI (dosya 200 satır sınırını
+aşıyordu). Ortak yardımcı `collectWallPointIds` `core/wall.ts`'te: `store/`
+içinde bırakılsaydı transformOps ↔ duplicateOps karşılıklı import eder ve
+çalışma zamanı döngüsü oluşurdu (K17 tuzağı).
+
 ## Henüz yapılmadı
 
 Talep "yapıştırma sırasında kopyalanan grup imleci takip eden bir önizleme
@@ -64,5 +89,6 @@ olarak gösterilecek, uygun konuma tıklanarak bırakılacaktır" diyor. Bugünk
 **Katlar arası kopyala-yapıştır** da bununla birlikte gelecek — bugün çoğaltma
 kopyayı kaynağın katına koyuyor.
 
-**Dosya:** core/transform.ts · core/idRemap.ts · store/transformOps.ts ·
+**Dosya:** core/transform.ts · core/idRemap.ts · core/wall.ts
+(`collectWallPointIds`) · store/transformOps.ts · store/duplicateOps.ts ·
 ui/properties/SelectionActions.tsx · scene/useWallSelectionTool.ts

@@ -4,60 +4,55 @@ import { recomputeRoomsInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
-import { markDirty, takeNextId } from './projectMeta'
+import { duplicateSelectionInDraft } from './duplicateOps'
+import { markDirty } from './projectMeta'
 import type { PlanPoint } from '../core/coords'
-import { createIdRemap, remapId } from '../core/idRemap'
-import type { SymbolAttachment } from '../core/model'
-import type { Id } from '../core/model'
-import { getNextSymbolLabel } from '../core/pointSymbol'
-import { getSelectedIds, type Selection, type SelectionItem } from '../core/selection'
-import { getSymbolFloorId, getSymbolPose } from '../core/symbolPlacement'
+import { getSelectedIds, type Selection } from '../core/selection'
+import { getSymbolPose } from '../core/symbolPlacement'
 import {
   applyTransform,
   applyTransformToAngleDeg,
   getPointsCenter,
   type PlanTransform,
 } from '../core/transform'
-
-/**
- * Dönüşümün dokunduğu köşeler: seçili duvarların uçları. Açıklık kendi
- * koordinatını taşımıyor (duvarına `offsetCm` ile bağlı), bu yüzden ayrıca
- * taşınmaz — duvarıyla birlikte gelir.
- *
- * Set: bir köşeyi iki duvar paylaşabilir, öteleme iki kez uygulanmasın.
- */
-function collectMovingPointIds(draft: CadState, wallIds: readonly Id[]): Set<Id> {
-  const targets = new Set(wallIds)
-  const pointIds = new Set<Id>()
-
-  for (const wall of draft.walls) {
-    if (!targets.has(wall.id)) continue
-    pointIds.add(wall.p1Id)
-    pointIds.add(wall.p2Id)
-  }
-
-  return pointIds
-}
+import { collectWallPointIds } from '../core/wall'
 
 /**
  * Seçimin dayanak noktası: taşınan köşelerin sınır kutusu merkezi. Döndürme ve
  * aynalama bunun etrafında yapılır.
  */
 export function getSelectionPivot(draft: CadState, selection: Selection): PlanPoint | undefined {
-  const pointIds = collectMovingPointIds(draft, getSelectedIds(selection, 'wall'))
+  const pointIds = collectWallPointIds(draft.walls, getSelectedIds(selection, 'wall'))
   const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
+  const areaObjectIds = new Set(getSelectedIds(selection, 'area'))
+  const beamIds = new Set(getSelectedIds(selection, 'beam'))
 
-  // Sembol de dayanağa girer: yalnız sembol seçiliyken kutu onun etrafındadır,
-  // yoksa dayanak bulunamaz ve döndürme hiç çalışmaz. Duvara bağlı sembolün
-  // konumu duvarından türediği için pozundan okunur.
+  // Her tür dayanağa girer: yalnız o türden nesne seçiliyken kutu onun
+  // etrafındadır, yoksa dayanak bulunamaz ve döndürme hiç çalışmaz. Duvara bağlı
+  // sembolün konumu duvarından türediği için pozundan okunur.
   const symbolPositions = draft.symbols
     .filter((symbol) => symbolIds.has(symbol.id))
     .map((symbol) => getSymbolPose(symbol, draft.walls, draft.points)?.position)
     .filter((position): position is PlanPoint => position !== undefined)
 
+  const areaObjectPositions = draft.areaObjects
+    .filter((areaObject) => areaObjectIds.has(areaObject.id))
+    .map((areaObject): PlanPoint => ({ x: areaObject.x, y: areaObject.y }))
+
+  // Kirişin İKİ ucu da girer: merkezini almak, uzun bir kirişin sınır kutusunu
+  // gerçekte kapladığı alandan küçük gösterirdi.
+  const beamPositions = draft.beams
+    .filter((beam) => beamIds.has(beam.id))
+    .flatMap((beam): PlanPoint[] => [
+      { x: beam.x1, y: beam.y1 },
+      { x: beam.x2, y: beam.y2 },
+    ])
+
   return getPointsCenter([
     ...draft.points.filter((point) => pointIds.has(point.id)),
     ...symbolPositions,
+    ...areaObjectPositions,
+    ...beamPositions,
   ])
 }
 
@@ -68,6 +63,13 @@ export function getSelectionPivot(draft: CadState, selection: Selection): PlanPo
  * oynatır. Bu, tek duvar taşımanın (`moveWall`) bugünkü davranışının aynısı —
  * seçimi komşusundan koparmak duvar grafını yırtardı.
  *
+ * ⚠️ **Açıklık koruması (K35/K36/K48) burada ÇALIŞMAZ** — ne duvarlar ne de alan
+ * nesneleri için. Tek nesne sürüklemede kontrol var (`useWallSelectionTool`,
+ * `moveAreaObject`), grup dönüşümünde yok: bu yolda duvarın kendisi de
+ * oynayabildiği için "hangi duvara göre" sorusunun cevabı tek değil, ve
+ * kısmen uygulanan bir grup dönüşümü tek Ctrl+Z sözleşmesini bozardı. Bilinen
+ * sınır, K49'da yazılı — kapatılırsa DÖRT tür için birden kapatılmalı.
+ *
  * Çağıranın set()'i İÇİNDE çalışır. Değişiklik yoksa false döner.
  */
 export function transformSelectionInDraft(
@@ -75,9 +77,18 @@ export function transformSelectionInDraft(
   selection: Selection,
   transform: PlanTransform,
 ): boolean {
-  const pointIds = collectMovingPointIds(draft, getSelectedIds(selection, 'wall'))
+  const pointIds = collectWallPointIds(draft.walls, getSelectedIds(selection, 'wall'))
   const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
-  if (pointIds.size === 0 && symbolIds.size === 0) return false
+  const areaObjectIds = new Set(getSelectedIds(selection, 'area'))
+  const beamIds = new Set(getSelectedIds(selection, 'beam'))
+  if (
+    pointIds.size === 0 &&
+    symbolIds.size === 0 &&
+    areaObjectIds.size === 0 &&
+    beamIds.size === 0
+  ) {
+    return false
+  }
 
   let isChanged = false
   for (const point of draft.points) {
@@ -108,6 +119,40 @@ export function transformSelectionInDraft(
     isChanged = true
   }
 
+  // Alan nesnesi her zaman serbest (kimseye bağlı değil): merkezi dönüşümden,
+  // açısı `applyTransformToAngleDeg`'den geçer — serbest sembolle aynı kural,
+  // yoksa 90° dönen grubun içinde nesne yer değiştirir ama dik kalır.
+  for (const areaObject of draft.areaObjects) {
+    if (!areaObjectIds.has(areaObject.id)) continue
+
+    const moved = applyTransform({ x: areaObject.x, y: areaObject.y }, transform)
+    const angleDeg = applyTransformToAngleDeg(areaObject.angleDeg, transform)
+    if (moved.x === areaObject.x && moved.y === areaObject.y && angleDeg === areaObject.angleDeg) {
+      continue
+    }
+
+    areaObject.x = moved.x
+    areaObject.y = moved.y
+    areaObject.angleDeg = angleDeg
+    isChanged = true
+  }
+
+  // Kirişin açı alanı YOK: yönü iki ucundan türüyor, dolayısıyla uçları
+  // dönüştürmek açıyı da kendiliğinden döndürür.
+  for (const beam of draft.beams) {
+    if (!beamIds.has(beam.id)) continue
+
+    const p1 = applyTransform({ x: beam.x1, y: beam.y1 }, transform)
+    const p2 = applyTransform({ x: beam.x2, y: beam.y2 }, transform)
+    if (p1.x === beam.x1 && p1.y === beam.y1 && p2.x === beam.x2 && p2.y === beam.y2) continue
+
+    beam.x1 = p1.x
+    beam.y1 = p1.y
+    beam.x2 = p2.x
+    beam.y2 = p2.y
+    isChanged = true
+  }
+
   if (!isChanged) return false
 
   // Komşu duvar kısalmış olabilir; sığmayan açıklık aynı adımda düşer (K16).
@@ -117,124 +162,6 @@ export function transformSelectionInDraft(
   // Bölmeden SONRA: bölünen duvarın id kümesi değişti, oda kimliği ona bakıyor (K31).
   recomputeRoomsInDraft(draft)
   return true
-}
-
-/**
- * Seçimi çoğaltır (KK-11): duvarlar, köşeleri ve o duvarların ÜSTÜNDEKİ
- * açıklıklar yeni id'lerle kopyalanır, kopya `offset` kadar ötelenir.
- *
- * Ögeler birbirine göre konumunu korur: tek bir öteleme tüm kopyaya uygulanıyor,
- * her nesne ayrı hesaplanmıyor.
- *
- * Açıklık seçimi tek başına çoğaltılmaz — duvarsız açıklık temsil edilemez (K16).
- * Seçili duvarın üstündeki açıklık ise seçili olmasa DA kopyalanır: kapısız bir
- * duvar kopyası kullanıcının istediği şey değil.
- *
- * Döndürülen Selection kopyaların kendisidir; çağıran seçimi ona taşır ki
- * kullanıcı çoğalttığı şeyi hemen sürükleyebilsin.
- */
-export function duplicateSelectionInDraft(
-  draft: CadState,
-  selection: Selection,
-  offset: { dxCm: number; dyCm: number },
-): Selection {
-  const wallIds = getSelectedIds(selection, 'wall')
-  const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
-  const sourceWalls = draft.walls.filter((wall) => wallIds.includes(wall.id))
-  const sourceSymbols = draft.symbols.filter((symbol) => symbolIds.has(symbol.id))
-  if (sourceWalls.length === 0 && sourceSymbols.length === 0) return []
-
-  const pointIds = collectMovingPointIds(draft, wallIds)
-  const takeId = () => takeNextId(draft)
-
-  // Köşeler ÖNCE: duvarın p1Id/p2Id'si onların yeni id'lerini isteyecek.
-  const pointRemap = createIdRemap(pointIds, takeId)
-  for (const point of draft.points.filter((candidate) => pointIds.has(candidate.id))) {
-    const moved = applyTransform(
-      { x: point.x, y: point.y },
-      { kind: 'translate', ...offset },
-    )
-    draft.points.push({
-      id: remapId(pointRemap, point.id),
-      floorId: point.floorId,
-      x: moved.x,
-      y: moved.y,
-    })
-  }
-
-  const wallRemap = createIdRemap(
-    sourceWalls.map((wall) => wall.id),
-    takeId,
-  )
-  for (const wall of sourceWalls) {
-    draft.walls.push({
-      id: remapId(wallRemap, wall.id),
-      floorId: wall.floorId,
-      p1Id: remapId(pointRemap, wall.p1Id),
-      p2Id: remapId(pointRemap, wall.p2Id),
-      thickness: wall.thickness,
-      height: wall.height,
-    })
-  }
-
-  const sourceOpenings = draft.openings.filter((opening) => wallIds.includes(opening.wallId))
-  for (const opening of sourceOpenings) {
-    draft.openings.push({
-      id: takeId(),
-      // Kopya, kopyanın duvarına bağlanır. Remap atlanırsa açıklık KAYNAK duvarda
-      // kalır ve hata VERMEZ — knowledge/floor-clone.md'deki sessiz tuzağın aynısı.
-      wallId: remapId(wallRemap, opening.wallId),
-      offsetCm: opening.offsetCm,
-      widthCm: opening.widthCm,
-      type: opening.type,
-    })
-  }
-
-  // Sembol kimseye bağlı değil: remap gerekmez, yeni id yeter. Etiket YENİDEN
-  // üretilir — kopya kaynağın adını taşısaydı aynı katta iki "P-01" olurdu (KK-10).
-  const copiedSymbols = sourceSymbols.flatMap((symbol) => {
-    const floorId = getSymbolFloorId(symbol, draft.walls)
-    if (floorId === undefined) return []
-
-    // Duvara bağlı sembolün kopyası AYNI duvarda, offset kadar kaydırılmış
-    // durur: serbest x/y'ye çevirmek onu duvarından koparırdı.
-    //
-    // Alanlar TEK TEK yazılıyor, `...symbol` ile değil: spread sembolün id ve
-    // label'ını da taşır, aşağıdaki yeni id/etiket sessizce ezilirdi.
-    const attachment: SymbolAttachment =
-      symbol.attachment === 'wall'
-        ? {
-            attachment: 'wall',
-            wallId: symbol.wallId,
-            offsetCm: symbol.offsetCm + offset.dxCm,
-            isMountedOnFarFace: symbol.isMountedOnFarFace,
-          }
-        : {
-            attachment: 'free',
-            floorId: symbol.floorId,
-            x: symbol.x + offset.dxCm,
-            y: symbol.y + offset.dyCm,
-            rotationDeg: symbol.rotationDeg,
-          }
-
-    const copy = {
-      id: takeId(),
-      type: symbol.type,
-      label: getNextSymbolLabel(draft.symbols, symbol.type, floorId, draft.walls),
-      note: symbol.note,
-      ...attachment,
-    }
-    // Sıradaki etiket bir ÖNCEKİ kopyayı da görsün diye tek tek eklenir.
-    draft.symbols.push(copy)
-    return [copy]
-  })
-
-  return [
-    ...sourceWalls.map(
-      (wall): SelectionItem => ({ kind: 'wall', id: remapId(wallRemap, wall.id) }),
-    ),
-    ...copiedSymbols.map((symbol): SelectionItem => ({ kind: 'symbol', id: symbol.id })),
-  ]
 }
 
 export function createTransformActions(set: DraftSetter) {

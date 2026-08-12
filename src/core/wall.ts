@@ -191,6 +191,29 @@ export function getPlacementRange(
 }
 
 /**
+ * Verilen duvarların uçlarındaki köşe id'leri. Grup dönüşümü ve çoğaltma
+ * ikisi de bunu istiyor; `store/` tarafında dursaydı iki dosya birbirini
+ * import eder ve çalışma zamanı döngüsü oluşurdu (K17'nin aynı tuzağı).
+ *
+ * Set: bir köşeyi iki duvar paylaşabilir, dönüşüm iki kez uygulanmasın.
+ */
+export function collectWallPointIds(
+  walls: readonly Wall[],
+  wallIds: readonly Id[],
+): Set<Id> {
+  const targets = new Set(wallIds)
+  const pointIds = new Set<Id>()
+
+  for (const wall of walls) {
+    if (!targets.has(wall.id)) continue
+    pointIds.add(wall.p1Id)
+    pointIds.add(wall.p2Id)
+  }
+
+  return pointIds
+}
+
+/**
  * Taşınan bir duvarın YENİ segmenti, KİMLİĞİYLE birlikte.
  *
  * `wallId` şart: duvarın kendi açıklıkları da kontrol ediliyor (sabit bir duvar

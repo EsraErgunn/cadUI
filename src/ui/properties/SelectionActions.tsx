@@ -23,9 +23,10 @@ export function SelectionActions() {
   const transformSelection = useCadStore((state) => state.transformSelection)
   const duplicateSelection = useCadStore((state) => state.duplicateSelection)
 
-  // Açıklık kendi koordinatını taşımıyor: yalnız açıklık seçiliyken dönüşümün
-  // uygulanacağı köşe yok, düğmeler pasif.
-  const hasWall = selection.some((item) => item.kind === 'wall')
+  // Açıklık kendi koordinatını taşımıyor (duvarına offset'le bağlı): YALNIZ
+  // açıklık seçiliyken dönüşümün uygulanacağı bir koordinat yok, düğmeler pasif.
+  // Diğer dört tür kendi konumunu taşıyor, hepsi dönüştürülebilir (K49).
+  const isTransformable = selection.some((item) => item.kind !== 'opening')
 
   const runTransform = (build: (pivot: { x: number; y: number }) => void) => {
     const pivot = getSelectionPivot(useCadStore.getState(), selection)
@@ -55,7 +56,7 @@ export function SelectionActions() {
       <button
         type="button"
         onClick={rotate}
-        disabled={!hasWall}
+        disabled={!isTransformable}
         title={`${QUARTER_TURN_DEG}° döndür`}
         aria-label={`${QUARTER_TURN_DEG} derece döndür`}
         className={chromeButtonVariants({ shape: 'icon' })}
@@ -65,7 +66,7 @@ export function SelectionActions() {
       <button
         type="button"
         onClick={() => mirror('vertical')}
-        disabled={!hasWall}
+        disabled={!isTransformable}
         title="Dikey eksende aynala"
         aria-label="Dikey eksende aynala"
         className={chromeButtonVariants({ shape: 'icon' })}
@@ -75,7 +76,7 @@ export function SelectionActions() {
       <button
         type="button"
         onClick={() => mirror('horizontal')}
-        disabled={!hasWall}
+        disabled={!isTransformable}
         title="Yatay eksende aynala"
         aria-label="Yatay eksende aynala"
         className={chromeButtonVariants({ shape: 'icon' })}
@@ -85,7 +86,7 @@ export function SelectionActions() {
       <button
         type="button"
         onClick={duplicate}
-        disabled={!hasWall}
+        disabled={!isTransformable}
         title="Çoğalt (Ctrl+D)"
         aria-label="Çoğalt"
         className={chromeButtonVariants({ shape: 'icon' })}
