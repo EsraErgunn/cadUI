@@ -14,6 +14,7 @@ const emptyProject: ProjectData = {
   rooms: [],
   symbols: [],
   areaObjects: [],
+  beams: [],
 }
 
 describe('serializeProjectData', () => {
@@ -22,12 +23,13 @@ describe('serializeProjectData', () => {
 
       '{"nextUniqueId":2,"activeFloorId":1,' +
         '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
-        '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],"areaObjects":[]}',
+        '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],"areaObjects":[],' +
+        '"beams":[]}',
 
     )
   })
 
-  it('rooms/symbols/areaObjects alanı OLMAYAN eski dosyayı açar', () => {
+  it('rooms/symbols/areaObjects/beams alanı OLMAYAN eski dosyayı açar', () => {
     // Depodaki çizimler bu diziler modele girmeden önce kaydedildi. Zorunlu
     // tutulursa kullanıcının verisi elimizde ama erişilemez olur.
     const legacy =
@@ -39,6 +41,7 @@ describe('serializeProjectData', () => {
     expect(parsed.rooms).toEqual([])
     expect(parsed.symbols).toEqual([])
     expect(parsed.areaObjects).toEqual([])
+    expect(parsed.beams).toEqual([])
   })
 
   it('eski dosya bir kez kaydedilince alanlar dosyaya yazılır', () => {

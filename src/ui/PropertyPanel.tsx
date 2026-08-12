@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { AreaObjectProperties } from './properties/AreaObjectProperties'
+import { BeamProperties } from './properties/BeamProperties'
 import { OpeningProperties } from './properties/OpeningProperties'
 import { PointSymbolProperties } from './properties/PointSymbolProperties'
 import { SelectionActions } from './properties/SelectionActions'
@@ -36,6 +37,7 @@ export function PropertyPanel() {
   const openingIds = getSelectedIds(selection, 'opening')
   const symbolIds = getSelectedIds(selection, 'symbol')
   const areaObjectIds = getSelectedIds(selection, 'area')
+  const beamIds = getSelectedIds(selection, 'beam')
 
   // Başlıktaki "Kapı/Pencere" ayrımı tek açıklık seçiliyken anlamlı.
   const soleOpening = useCadStore((state) =>
@@ -97,6 +99,7 @@ export function PropertyPanel() {
             {kind === 'opening' && <OpeningProperties openingIds={openingIds} />}
             {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
             {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
+            {kind === 'beam' && <BeamProperties beamIds={beamIds} />}
             {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
                 genişliği aynı şey değil. Silme yine de çalışır. */}
             {kind === 'mixed' && (

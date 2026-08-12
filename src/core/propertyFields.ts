@@ -5,7 +5,14 @@ import type { SelectionItem } from './selection'
  * bakar, sayıya değil: aynı türden beş duvar da tek duvar da "wall"dır, fark
  * alanların tekil mi toplu mu yazıldığındadır.
  */
-export type PropertySelectionKind = 'none' | 'wall' | 'opening' | 'symbol' | 'area' | 'mixed'
+export type PropertySelectionKind =
+  | 'none'
+  | 'wall'
+  | 'opening'
+  | 'symbol'
+  | 'area'
+  | 'beam'
+  | 'mixed'
 
 export function getPropertySelectionKind(
   selection: readonly SelectionItem[],
@@ -45,6 +52,7 @@ export function getPropertyPanelTitle(
   }
   if (kind === 'symbol') return count > 1 ? `${count} Sembol` : symbolTypeLabel
   if (kind === 'area') return count > 1 ? `${count} Alan Nesnesi` : areaObjectTypeLabel
+  if (kind === 'beam') return count > 1 ? `${count} Kiriş` : 'Kiriş Özellikleri'
   if (kind === 'mixed') return `${count} Nesne`
   return ''
 }

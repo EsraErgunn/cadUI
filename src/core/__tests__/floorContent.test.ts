@@ -19,6 +19,7 @@ const emptySource: FloorContentSource = {
   rooms: [],
   symbols: [],
   areaObjects: [],
+  beams: [],
   installationElements: [],
   installationLines: [],
 }

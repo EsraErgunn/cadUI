@@ -39,6 +39,7 @@ function makeContext(symbols: PointSymbol[]) {
     openings: [] as Opening[],
     symbols,
     areaObjects: [] as AreaObject[],
+    beams: [],
     floorId: FLOOR_ID,
     toleranceCm: TOLERANCE_CM,
   }

@@ -14,6 +14,10 @@ export const OPENING_PREVIEW_ELEVATION_CM = 0.2
  */
 export const OPENING_SYMBOL_LIFT_CM = 0.02
 
+/** Kiriş açıklığın üstünde, nokta sembolünün altında (bkz. RENDER_ORDER.beam). */
+export const BEAM_ELEVATION_CM = 0.14
+export const BEAM_PREVIEW_ELEVATION_CM = 0.24
+
 /** Nokta sembolü açıklık simgesinin bir tık üstünde; ikisi de opak çiziliyor. */
 export const POINT_SYMBOL_ELEVATION_CM = 0.15
 export const POINT_SYMBOL_PREVIEW_ELEVATION_CM = 0.25

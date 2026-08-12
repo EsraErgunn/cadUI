@@ -5,6 +5,7 @@ import { OrthographicCamera } from 'three'
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
+import { findSelectedBeamHandle } from './useBeamHandleTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -52,6 +53,7 @@ export function useSelectionTool(): void {
         openings: cad.openings,
         symbols: cad.symbols,
         areaObjects: cad.areaObjects,
+        beams: cad.beams,
         floorId: cad.activeFloorId,
         toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       }
@@ -74,6 +76,8 @@ export function useSelectionTool(): void {
       // çözümlemesi "boşluk" diyor ve çerçeve seçimi başlıyordu — tutamacı
       // sürüklerken ekrana lastik dikdörtgen çiziliyordu (K44).
       if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Kirişin uç tutamacı da aynı gerekçeyle jesti sahipleniyor (K44 dersi).
+      if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
 
       anchor = event.planPoint
       isAdditive = event.shiftKey
@@ -108,6 +112,7 @@ export function useSelectionTool(): void {
       const floorAreaObjects = cad.areaObjects.filter(
         (areaObject) => areaObject.floorId === cad.activeFloorId,
       )
+      const floorBeams = cad.beams.filter((beam) => beam.floorId === cad.activeFloorId)
       const framed = getSelectionInRect(
         rect,
         floorWalls,
@@ -115,6 +120,7 @@ export function useSelectionTool(): void {
         cad.points,
         floorSymbols,
         floorAreaObjects,
+        floorBeams,
       )
 
       ui.setSelection(wasAdditive ? mergeSelection(ui.selection, framed) : framed)
@@ -188,6 +194,7 @@ export function useSelectionTool(): void {
           state.openings,
           state.symbols,
           state.areaObjects,
+          state.beams,
         )
         // pruneSelection değişiklik yoksa AYNI diziyi döndürür; kontrol bu yüzden
         // referans karşılaştırması ve her store değişiminde yeni dizi yazılmaz.

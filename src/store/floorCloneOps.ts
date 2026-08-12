@@ -44,13 +44,19 @@ export function cloneFloorContentInDraft(draft: CadState, input: CopyFloorInput)
     const clone = cloneFloorArchitecture(draft, sourceFloorId, targetFloorId, () =>
       takeNextId(draft),
     )
-    if (clone.points.length > 0 || clone.symbols.length > 0 || clone.areaObjects.length > 0) {
+    if (
+      clone.points.length > 0 ||
+      clone.symbols.length > 0 ||
+      clone.areaObjects.length > 0 ||
+      clone.beams.length > 0
+    ) {
       draft.points.push(...clone.points)
       draft.walls.push(...clone.walls)
       draft.openings.push(...clone.openings)
       draft.rooms.push(...clone.rooms)
       draft.symbols.push(...clone.symbols)
       draft.areaObjects.push(...clone.areaObjects)
+      draft.beams.push(...clone.beams)
       isChanged = true
     }
   }

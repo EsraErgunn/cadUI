@@ -4,7 +4,6 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
-import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
 import {
   resolveArchitectureTarget,
@@ -22,28 +21,28 @@ import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
 
-type AreaObjectGrab = {
-  areaObjectId: Id
+type BeamGrab = {
+  beamId: Id
   /** Basış anındaki ham imleç noktası; öteleme buna göre ölçülür. */
   grabPoint: PlanPoint
-  /** Tutulan nesnenin basış anındaki konumu — ızgara yapışması bunun üzerinden. */
+  /** Tutulan kirişin p1 ucu — ızgara yapışması bunun üzerinden hesaplanır. */
   origin: PlanPoint
 }
 
 /**
- * Alan nesnesi seçme, taşıma ve silme — `usePointSymbolSelectionTool` ile aynı
- * sözleşme (tek yazım bırakma anında, tek Ctrl+Z). Tek fark: `moveAreaObject`
- * K35/K36 gerekçesiyle REDDEDEBİLİR (kapının üstüne taşıma) — reddedilirse
- * sürükleme sırasında GÖSTERİLEN konum store'a hiç yazılmaz, nesne eski
- * yerinde kalır (K13 deseni: kaydırılmaz, sessizce reddedilir).
+ * Kiriş seçme, taşıma ve silme — `useAreaObjectSelectionTool` ile aynı
+ * sözleşme (tek yazım bırakma anında, tek Ctrl+Z).
+ *
+ * Izgara yapışması p1 ucundan hesaplanıyor, imleçten değil: kullanıcı kirişi
+ * ortasından tutsa bile uçları ızgaraya oturmalı — duvarların ucu da orada.
  */
-export function useAreaObjectSelectionTool(): void {
+export function useBeamSelectionTool(): void {
   const camera = useThree((state) => state.camera)
 
   useEffect(() => {
     if (!(camera instanceof OrthographicCamera)) return undefined
 
-    let grab: AreaObjectGrab | undefined
+    let grab: BeamGrab | undefined
 
     const readContext = (): ArchitectureTargetContext => {
       const cad = useCadStore.getState()
@@ -61,7 +60,7 @@ export function useAreaObjectSelectionTool(): void {
 
     const endDrag = () => {
       grab = undefined
-      useArchitectureUiStore.getState().setDraggingAreaObjects(null)
+      useArchitectureUiStore.getState().setDraggingBeams(null)
     }
 
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
@@ -71,18 +70,16 @@ export function useAreaObjectSelectionTool(): void {
       const isEraser = toolId === ERASER_TOOL_ID
       if (toolId !== SELECTION_TOOL_ID && !isEraser) return
 
-      // Tutamacın üstündeyse jest `useAreaObjectHandleTool`'un: boyutlandırma
-      // karesi köşede durduğu için yarısı gövdenin içinde kalıyor, kontrol
-      // olmasa aynı basışta hem taşıma hem boyutlandırma başlardı (K44).
-      if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
-      // Kirişin uç tutamacı da aynı gerekçeyle jesti sahipleniyor (K44 dersi).
+      // Uç tutamacının üstündeyse jest `useBeamHandleTool`'un: tutamaç kirişin
+      // ucunda, yani gövdenin İÇİNDE — kontrol olmasa aynı basışta hem uzatma
+      // hem taşıma başlardı (K44'ün aynı dersi).
       if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
 
       const target = resolveArchitectureTarget(event.planPoint, readContext())
-      if (!target || target.kind !== 'area') return
+      if (!target || target.kind !== 'beam') return
 
       const ui = useArchitectureUiStore.getState()
-      const item = { kind: 'area', id: target.areaObjectId } as const
+      const item = { kind: 'beam', id: target.beamId } as const
 
       if (isEraser) {
         useCadStore.getState().deleteSelection([item])
@@ -90,21 +87,20 @@ export function useAreaObjectSelectionTool(): void {
       }
 
       // Shift seçime ekler/çıkarır; düz tıklama seçimi değiştirir ama ZATEN
-      // seçiliyse korur — usePointSymbolSelectionTool ile aynı gerekçe (KK-10).
+      // seçiliyse korur (KK-10, alan nesnesiyle aynı gerekçe).
       if (event.shiftKey) {
         ui.toggleSelected(item)
         return
       }
       if (!isItemSelected(ui.selection, item)) ui.setSelection([item])
 
-      const cad = useCadStore.getState()
-      const areaObject = cad.areaObjects.find((candidate) => candidate.id === target.areaObjectId)
-      if (!areaObject) return
+      const beam = useCadStore.getState().beams.find((candidate) => candidate.id === target.beamId)
+      if (!beam) return
 
       grab = {
-        areaObjectId: areaObject.id,
+        beamId: beam.id,
         grabPoint: event.planPoint,
-        origin: { x: areaObject.x, y: areaObject.y },
+        origin: { x: beam.x1, y: beam.y1 },
       }
     }
 
@@ -116,11 +112,11 @@ export function useAreaObjectSelectionTool(): void {
         y: grab.origin.y + (event.planPoint.y - grab.grabPoint.y),
       }
       const { zoom } = readCameraViewport(camera)
-      // Ctrl ızgarayı kapatır — köşe ve sembol sürüklemesiyle aynı jest.
+      // Ctrl ızgarayı kapatır — köşe/sembol/alan nesnesi sürüklemesiyle aynı jest.
       const next = event.ctrlKey ? raw : getPlacementPosition(raw, zoom)
 
-      useArchitectureUiStore.getState().setDraggingAreaObjects({
-        areaObjectIds: [grab.areaObjectId],
+      useArchitectureUiStore.getState().setDraggingBeams({
+        beamIds: [grab.beamId],
         dxCm: next.x - grab.origin.x,
         dyCm: next.y - grab.origin.y,
       })
@@ -129,25 +125,17 @@ export function useAreaObjectSelectionTool(): void {
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
-      const { areaObjectId } = grab
-      const drag = useArchitectureUiStore.getState().draggingAreaObjects
+      const { beamId } = grab
+      const drag = useArchitectureUiStore.getState().draggingBeams
       endDrag()
 
       // Yer değişmediyse (yalnız seçmek için tıklama) store'a hiç yazılmaz.
       if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
 
-      const cad = useCadStore.getState()
-      const areaObject = cad.areaObjects.find((candidate) => candidate.id === areaObjectId)
-      if (!areaObject) return
-
-      // Reddedilirse (kapının üstüne düşerse) hiçbir şey yazılmaz, nesne
-      // görsel olarak da eski yerine döner — draggingAreaObjects zaten temizlendi.
-      useCadStore
-        .getState()
-        .moveAreaObject(areaObjectId, areaObject.x + drag.dxCm, areaObject.y + drag.dyCm)
+      useCadStore.getState().moveBeam(beamId, drag.dxCm, drag.dyCm)
     }
 
-    // Esc taşımayı iptal eder: nesne eski yerinde kalır çünkü store'a yazılmadı.
+    // Esc taşımayı iptal eder: kiriş eski yerinde kalır çünkü store'a yazılmadı.
     const handleCancel = () => endDrag()
 
     const unsubscribe = subscribeDrawSurface({

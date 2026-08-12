@@ -175,6 +175,31 @@ export type AreaObject = {
 }
 
 /**
+ * Kiriş — ÇİZGİSEL taşıyıcı, `AreaObject`'e girmez (o merkez+açılı dikdörtgen
+ * alan). Referans formattaki `Beam{x1,y1,x2,y2,width,height}` ile aynı aile.
+ *
+ * Duvarın aksine ortak `Point` havuzunu KULLANMAZ, uçlarını kendi taşır. Havuza
+ * girseydi duvar bakımının tamamı (sahipsiz köşe temizliği, kesişimde bölme, oda
+ * çevrimi) kirişleri de görürdü — kirişe açıklık takılmıyor, oda çevirmiyor,
+ * duvar gibi bölünmesi de istenmiyor.
+ *
+ * Yükseklik alanı YOK: duvarın `height`'ı 3B için gerekiyordu, kiriş 3B'de
+ * henüz yok. Gerektiğinde ayrı karar.
+ */
+export type Beam = {
+  id: Id
+  floorId: Id
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  /** Duvar `thickness` ile aynı eksen: kirişin plan üstündeki genişliği (cm). */
+  thicknessCm: number
+  /** PointSymbol.label ile aynı gerekçe: otomatik üretilir, düzenlenebilir. */
+  label: string
+}
+
+/**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
  * Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
  * kendi issue'larında ekip onayıyla eklenecek.
@@ -189,4 +214,5 @@ export type ProjectData = {
   rooms: Room[]
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
+  beams: Beam[]
 }

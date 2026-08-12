@@ -1,5 +1,7 @@
 import { AreaObject, type AreaObjectTone } from './AreaObject'
 import { AreaObjectHandles } from './AreaObjectHandles'
+import { Beam, type BeamTone } from './Beam'
+import { BeamHandles } from './BeamHandles'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
@@ -11,12 +13,15 @@ import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
 import { useAreaObjectTool } from './useAreaObjectTool'
+import { useBeamSelectionTool } from './useBeamSelectionTool'
+import { useBeamTool } from './useBeamTool'
 import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
 import { DEFAULT_AREA_OBJECT_SIZE_CM } from '../core/areaObject'
+import { DEFAULT_BEAM_THICKNESS_CM } from '../core/beam'
 import { getOpeningOutline } from '../core/opening'
 import { isSelected } from '../core/selection'
 import { getSymbolPose, getSymbolsOnFloor } from '../core/symbolPlacement'
@@ -199,6 +204,74 @@ function AreaObjects() {
   )
 }
 
+/**
+ * Kirişleri çizer, çizim ve seçim/taşıma araçlarını çalıştırır. AreaObjects ile
+ * aynı desen.
+ */
+function Beams() {
+  const preview = useBeamTool()
+  useBeamSelectionTool()
+  const beams = useCadStore((state) => state.beams)
+  const activeFloorId = useCadStore((state) => state.activeFloorId)
+  const hover = useArchitectureUiStore((state) => state.hover)
+  const selection = useArchitectureUiStore((state) => state.selection)
+  const draggingBeams = useArchitectureUiStore((state) => state.draggingBeams)
+  const handleDrag = useArchitectureUiStore((state) => state.beamHandleDrag)
+
+  const hoveredBeamId = hover?.kind === 'beam' ? hover.beamId : undefined
+
+  return (
+    <>
+      {beams
+        .filter((beam) => beam.floorId === activeFloorId)
+        .map((beam) => {
+          // Seçim vurgudan baskın — AreaObjects ile aynı gerekçe.
+          const tone: BeamTone = isSelected(selection, 'beam', beam.id)
+            ? 'selected'
+            : beam.id === hoveredBeamId
+              ? 'hovered'
+              : 'normal'
+
+          // Uç sürüklemesi tek UCU, taşıma ise iki ucu birlikte oynatır. İkisi
+          // aynı anda olamaz: taşıma tutamaç üstündeyken hiç başlamıyor.
+          const drag = draggingBeams?.beamIds.includes(beam.id) ? draggingBeams : undefined
+          const drawn =
+            handleDrag?.beamId === beam.id
+              ? handleDrag.end === 'p1'
+                ? { ...beam, x1: handleDrag.position.x, y1: handleDrag.position.y }
+                : { ...beam, x2: handleDrag.position.x, y2: handleDrag.position.y }
+              : drag
+                ? {
+                    ...beam,
+                    x1: beam.x1 + drag.dxCm,
+                    y1: beam.y1 + drag.dyCm,
+                    x2: beam.x2 + drag.dxCm,
+                    y2: beam.y2 + drag.dyCm,
+                  }
+                : beam
+
+          // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
+          return <Beam key={beam.id} beamId={beam.id} beam={drawn} tone={tone} />
+        })}
+
+      {/* Önizleme yalnız birinci uç konduktan SONRA çizilir: tek nokta bir
+          dikdörtgen tanımlamıyor, kullanıcı o ana kadar yalnız imleci görür. */}
+      {preview?.start && (
+        <Beam
+          beam={{
+            x1: preview.start.x,
+            y1: preview.start.y,
+            x2: preview.cursor.x,
+            y2: preview.cursor.y,
+            thicknessCm: DEFAULT_BEAM_THICKNESS_CM,
+          }}
+          tone="preview"
+        />
+      )}
+    </>
+  )
+}
+
 /** Çerçeve seçimi hook'u; <Canvas> içinde çalışmak zorunda (Openings ile aynı desen). */
 function SelectionTool() {
   useSelectionTool()
@@ -217,6 +290,8 @@ export function ArchitectureLayer() {
       <Walls />
       {/* Açıklık duvarın ÜSTÜNE boyanıyor (RENDER_ORDER.opening > wall), sırası önemli. */}
       <Openings />
+      {/* Kiriş açıklığın üstünde, sembolün altında (RENDER_ORDER.beam). */}
+      <Beams />
       {/* Sembol açıklığın da üstünde (RENDER_ORDER.pointSymbol > opening). */}
       <PointSymbols />
       {/* Alan nesnesi sembolün de üstünde (RENDER_ORDER.areaObject > pointSymbol). */}
@@ -227,6 +302,7 @@ export function ArchitectureLayer() {
       {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
       <AreaObjectHandles />
+      <BeamHandles />
       <SelectionMarquee />
     </group>
   )

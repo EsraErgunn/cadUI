@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { isSameTarget, resolveArchitectureTarget } from '../architectureHover'
-import type { AreaObject, Opening, Point, PointSymbol, Wall } from '../model'
+import type { AreaObject, Beam, Opening, Point, PointSymbol, Wall } from '../model'
 import { isCornerHandleAtPoint } from '../openingTool'
 
 const FLOOR_ID = 1
@@ -24,6 +24,7 @@ const context = {
   openings: [] as Opening[],
   symbols: [] as PointSymbol[],
   areaObjects: [] as AreaObject[],
+  beams: [] as Beam[],
   floorId: FLOOR_ID,
   toleranceCm: TOLERANCE_CM,
 }
