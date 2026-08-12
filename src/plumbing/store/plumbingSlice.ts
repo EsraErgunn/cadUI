@@ -130,6 +130,8 @@ export type PlumbingSlice = {
   ) => void
   /** Seçili hatların çapını değiştirir — tek adım, tek Ctrl+Z. */
   setLinesPipeType: (lineIds: readonly Id[], pipeTypeName: PipeTypeName) => void
+  /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
+  setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
   undoPlumbing: () => void
   redoPlumbing: () => void
 }
@@ -777,6 +779,29 @@ export const createPlumbingSlice: StateCreator<
         }
 
         if (isChanged) markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setElementLabelOffset: (elementId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const element = draft.installationElements.find(
+          (candidate) => candidate.id === elementId,
+        )
+        if (!element) return
+        if (
+          element.labelOffsetCm?.x === offsetCm.x &&
+          element.labelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        element.labelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
       })
 
       if (isChanged) record()

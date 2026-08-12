@@ -35,6 +35,13 @@ export const PLUMBING_COLORS = {
    * de ayrılsın diye, ölçüm çizgisiyle aynı gerekçe).
    */
   ventilationStroke: '#0f766e',
+  /** Eleman ad etiketi: nötr koyu mürekkep — hattın çap renkleriyle karışmaz. */
+  elementLabelInk: '#374151',
+  /**
+   * Etiketi elemana bağlayan kesikli kılavuz: sarı istendi ama MARKA sarısı
+   * (#FFC107) tuvale giremez (K27) ve açık zeminde okunmaz — koyu amber seçildi.
+   */
+  elementLabelLeader: '#d97706',
   measurementLabel: MEASUREMENT_INK,
   /**
    * Geçici ölçüm çizgisi yazısıyla AYNI ton: ikisi tek bir işaret. Boru

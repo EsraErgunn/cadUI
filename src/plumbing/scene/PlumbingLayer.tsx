@@ -1,5 +1,6 @@
 import { DischargePreview } from './DischargePreview'
 import { DrawPreview, LineDraftPreview } from './DrawPreview'
+import { ElementNameLabels } from './ElementNameLabels'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
@@ -65,6 +66,10 @@ export function PlumbingLayer() {
       <InstallationElements {...selection} />
       <LengthLabels
         draggedLineIds={selection.draggedLineIds}
+        dragDeltaRef={selection.dragDeltaRef}
+      />
+      <ElementNameLabels
+        draggedElementIds={selection.draggedElementIds}
         dragDeltaRef={selection.dragDeltaRef}
       />
       <DrawPreview {...preview} />

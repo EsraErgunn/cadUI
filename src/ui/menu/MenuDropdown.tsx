@@ -1,3 +1,5 @@
+import { Check } from 'lucide-react'
+
 import type { MenuDefinition } from './menuDefinitions'
 import { menuItemVariants } from '../controls/buttonVariants'
 
@@ -47,6 +49,18 @@ export function MenuDropdown({
               onClick={() => onSelectItem(item.id)}
               className={menuItemVariants()}
             >
+              {/* Tik salt görsel (durum makineye aria-checked ile gidiyor).
+                  İşaretsizken görünmez ama YER TUTAR: etiketler hizalı kalsın. */}
+              {item.kind === 'checkbox' && (
+                <Check
+                  size={14}
+                  strokeWidth={2.2}
+                  aria-hidden
+                  className={
+                    checkedItemIds?.has(item.id) === true ? 'shrink-0' : 'invisible shrink-0'
+                  }
+                />
+              )}
               {item.label}
               {item.shortcut && (
                 <span className="ml-auto pl-6 text-xs text-ink-disabled">{item.shortcut}</span>

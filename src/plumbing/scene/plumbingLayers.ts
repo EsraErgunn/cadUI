@@ -19,6 +19,8 @@ export const PREVIEW_ELEVATION_CM = 0.3
 /** Seçim çerçevesi port işaretlerinin ALTINDA: ikisi kutunun kenarında kesişiyor. */
 export const SELECTION_OUTLINE_ELEVATION_CM = 0.35
 export const PORT_MARKER_ELEVATION_CM = 0.4
+/** Eleman ad etiketi sembollerin üstünde, ölçü yazısının altında. */
+export const ELEMENT_LABEL_ELEVATION_CM = 0.45
 export const MEASUREMENT_ELEVATION_CM = 0.5
 /** Seçim çerçevesi en üstte: altındaki her şeyin üzerinde okunmalı. */
 export const SELECTION_MARQUEE_ELEVATION_CM = 0.6

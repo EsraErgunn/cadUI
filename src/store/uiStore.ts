@@ -13,9 +13,12 @@ type UiState = {
   activeViewId: ViewId
   /** Görünüm ▸ Ölçüleri Göster. Görüntüleme tercihi: kaydedilmez, geçmişe girmez. */
   isDimensionsVisible: boolean
+  /** Görünüm ▸ Etiketleri Göster (tesisat eleman adları). Ölçülerle aynı gerekçe. */
+  isElementLabelsVisible: boolean
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
+  toggleElementLabelsVisible: () => void
 }
 
 /**
@@ -29,6 +32,9 @@ export const useUiStore = create<UiState>()(
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
     isDimensionsVisible: false,
+    // Ölçülerin aksine varsayılan AÇIK: eleman adı çizimin okunmasına gerekli,
+    // ölçü ise isteğe bağlı bir kotalama katmanı.
+    isElementLabelsVisible: true,
 
     setActiveTool: (toolId) =>
       set((draft) => {
@@ -47,6 +53,11 @@ export const useUiStore = create<UiState>()(
     toggleDimensionsVisible: () =>
       set((draft) => {
         draft.isDimensionsVisible = !draft.isDimensionsVisible
+      }),
+
+    toggleElementLabelsVisible: () =>
+      set((draft) => {
+        draft.isElementLabelsVisible = !draft.isElementLabelsVisible
       }),
   })),
 )
