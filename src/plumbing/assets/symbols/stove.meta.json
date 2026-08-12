@@ -7,5 +7,6 @@
   "ports": [
     { "id": "in", "type": "input", "position": [0, 30], "direction": [1, 0] }
   ],
+  "dischargeBox": { "min": [8, 8], "max": [52, 52] },
   "bounds": { "min": [0, 0], "max": [60, 60] }
 }

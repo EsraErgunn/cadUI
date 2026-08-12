@@ -1,3 +1,4 @@
+import { DischargePreview } from './DischargePreview'
 import { DrawPreview, LineDraftPreview } from './DrawPreview'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
@@ -6,6 +7,7 @@ import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
 import { SplitLengthLabels } from './SplitLengthLabels'
 import { SymbolInstance } from './SymbolInstance'
+import { useDischargeTool } from './useDischargeTool'
 import { useEscapeToSelectionTool } from './useEscapeToSelectionTool'
 import { useLineTool } from './useLineTool'
 import { useMeasurementTool } from './useMeasurementTool'
@@ -49,6 +51,7 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
 export function PlumbingLayer() {
   const preview = usePlacementTool()
   const line = useLineTool()
+  const discharge = useDischargeTool()
   const measurement = useMeasurementTool()
   const selection = useSelectionTool()
   useEscapeToSelectionTool()
@@ -68,6 +71,7 @@ export function PlumbingLayer() {
       <DrawingPortMarkers {...line} />
       <SplitLengthLabels {...line} />
       <LineDraftPreview {...line} />
+      <DischargePreview {...discharge} />
       <MeasurementOverlay {...measurement} />
       <SelectionMarquee />
     </group>

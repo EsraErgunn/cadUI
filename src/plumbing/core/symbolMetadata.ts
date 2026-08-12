@@ -15,8 +15,8 @@ export const INSTALLATION_ELEMENT_TYPES = [
   'combiBoiler',
   'boiler',
   'otherAppliance',
-  'chimney',
-  'ventilationDuct',
+  // Baca ve havalandırma kanalı burada DEĞİL: damga değil GÜZERGÂH oldular
+  // (`InstallationLineKind`), yakıcı cihazın deşarj portundan çizilirler.
   // İzolasyon segment boolean'ı değil, boruya oturan bir NESNEDİR (K-W4).
   'insulation',
 ] as const
@@ -50,6 +50,8 @@ export type SymbolPortDefinition = {
   direction: readonly [number, number]
 }
 
+export type SymbolBox = { min: readonly [number, number]; max: readonly [number, number] }
+
 export type SymbolMetadata = {
   id: SymbolId
   /** Kullanıcıya görünen Türkçe ad (id/dosya adı teknik sözleşme olarak İngilizce kalır). */
@@ -59,8 +61,34 @@ export type SymbolMetadata = {
   origin: readonly [number, number]
   flowDirection?: 'left-to-right'
   ports: readonly SymbolPortDefinition[]
-  bounds: { min: readonly [number, number]; max: readonly [number, number] }
+  /**
+   * Yalnız yakıcı cihazlarda: baca/havalandırma ağzının üzerinde kayabildiği
+   * GÖVDE dikdörtgeni. `bounds` kullanılamaz — o, gaz giriş çıkıntısını ve diğer
+   * ayrıntıları da kapsayan tutma kutusu; ağız oraya oturtulsaydı çizilmiş
+   * gövdenin dışında, boşlukta dururdu.
+   */
+  dischargeBox?: SymbolBox
+  bounds: SymbolBox
 }
+
+/**
+ * Baca/havalandırma alabilen cihazlar. `ELEMENT_ATTACH_MODES`'taki `nearestLine`
+ * kümesiyle AYNI olmalı — ikisinin ayrışmadığı testte kilitli (o Record buraya
+ * import edilseydi import döngüsü doğardı).
+ */
+export const BURNER_APPLIANCE_TYPES = [
+  'stove',
+  'spaceHeater',
+  'waterHeater',
+  'combiBoiler',
+  'boiler',
+  'otherAppliance',
+] as const satisfies readonly InstallationElementType[]
+
+export function isBurnerAppliance(type: InstallationElementType): boolean {
+  return (BURNER_APPLIANCE_TYPES as readonly string[]).includes(type)
+}
+
 
 /** Plan Bölüm 10 port tablosu — şema port sayılarını buradan doğrular.
  *  Toolbar-only araçlar sahneye portla yerleşmediği için 0/0'dır. */
@@ -79,8 +107,6 @@ export const SYMBOL_PORT_COUNTS: Record<SymbolId, { input: number; output: numbe
   combiBoiler: { input: 1, output: 0 },
   boiler: { input: 1, output: 0 },
   otherAppliance: { input: 1, output: 0 },
-  chimney: { input: 0, output: 0 },
-  ventilationDuct: { input: 0, output: 0 },
   // İzolasyon boruyu kesmez, üstüne oturur: portu yoktur, çapası merkezidir.
   insulation: { input: 0, output: 0 },
   selection: { input: 0, output: 0 },
@@ -100,6 +126,8 @@ const portSchema = z.object({
   direction: vec2Schema,
 })
 
+const boxSchema = z.object({ min: vec2Schema, max: vec2Schema })
+
 const baseSchema = z.object({
   id: z.enum(SYMBOL_IDS),
   label: z.string().min(1),
@@ -108,7 +136,8 @@ const baseSchema = z.object({
   origin: vec2Schema,
   flowDirection: z.literal('left-to-right').optional(),
   ports: z.array(portSchema),
-  bounds: z.object({ min: vec2Schema, max: vec2Schema }),
+  dischargeBox: boxSchema.optional(),
+  bounds: boxSchema,
 })
 
 type ParsedSymbolMetadata = z.infer<typeof baseSchema>
@@ -121,7 +150,101 @@ function isInsideBounds(
   return x >= bounds.min[0] && x <= bounds.max[0] && y >= bounds.min[1] && y <= bounds.max[1]
 }
 
-function validatePorts(meta: ParsedSymbolMetadata, ctx: z.RefinementCtx): void {
+type AnyPort = {
+  id: string
+  position: readonly [number, number]
+  direction: readonly [number, number]
+}
+
+function validatePortShape(
+  port: AnyPort,
+  field: 'ports',
+  index: number,
+  meta: ParsedSymbolMetadata,
+  ctx: z.RefinementCtx,
+  seenIds: Set<string>,
+): void {
+  if (seenIds.has(port.id)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [field, index, 'id'],
+      message: `port id sembol içinde tekil olmalı: ${port.id}`,
+    })
+  }
+  seenIds.add(port.id)
+
+  if (!isInsideBounds(port.position, meta.bounds)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [field, index, 'position'],
+      message: `port ${port.id} bounds dışında`,
+    })
+  }
+
+  const directionLength = Math.hypot(port.direction[0], port.direction[1])
+  if (Math.abs(directionLength - 1) > UNIT_LENGTH_TOLERANCE) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [field, index, 'direction'],
+      message: `port ${port.id} direction birim vektör olmalı`,
+    })
+  }
+}
+
+/**
+ * Deşarj kutusu YAKICI CİHAZLA birebir: araç güzergâhı yalnız yakıcı cihazdan
+ * başlatıyor, metadata bunun tersini söyleyebilseydi ikisi ayrışırdı — yakıcıda
+ * kutu YOKSA o cihazdan hiç baca çıkmaz, yakıcı olmayanda VARSA hiç kullanılmaz.
+ */
+function validateDischargeBox(meta: ParsedSymbolMetadata, ctx: z.RefinementCtx): void {
+  const isBurner = isBurnerAppliance(meta.id as InstallationElementType)
+
+  if (!meta.dischargeBox) {
+    if (isBurner) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['dischargeBox'],
+        message: `${meta.id} yakıcı cihaz, dischargeBox tanımlamalı`,
+      })
+    }
+    return
+  }
+
+  if (!isBurner) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['dischargeBox'],
+      message: `${meta.id} yakıcı cihaz değil, dischargeBox taşıyamaz`,
+    })
+    return
+  }
+
+  const { min, max } = meta.dischargeBox
+  if (min[0] >= max[0] || min[1] >= max[1]) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['dischargeBox'],
+      message: 'dischargeBox.min her eksende max değerinden küçük olmalı',
+    })
+    return
+  }
+
+  // Gövde tutma kutusunu aşamaz: aşsaydı ağız cihazın tıklama alanının dışına
+  // düşer, kullanıcı kanalı başlatamadığı bir yere yerleştirmiş olurdu.
+  if (!isInsideBounds(min, meta.bounds) || !isInsideBounds(max, meta.bounds)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['dischargeBox'],
+      message: `${meta.id} dischargeBox bounds dışına taşıyor`,
+    })
+  }
+}
+
+function validatePorts(
+  meta: ParsedSymbolMetadata,
+  ctx: z.RefinementCtx,
+  seenIds: Set<string>,
+): void {
   const expected = SYMBOL_PORT_COUNTS[meta.id]
   const inputCount = meta.ports.filter((port) => port.type === 'input').length
   const outputCount = meta.ports.length - inputCount
@@ -133,33 +256,8 @@ function validatePorts(meta: ParsedSymbolMetadata, ctx: z.RefinementCtx): void {
     })
   }
 
-  const seenIds = new Set<string>()
   meta.ports.forEach((port, index) => {
-    if (seenIds.has(port.id)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['ports', index, 'id'],
-        message: `port id sembol içinde tekil olmalı: ${port.id}`,
-      })
-    }
-    seenIds.add(port.id)
-
-    if (!isInsideBounds(port.position, meta.bounds)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['ports', index, 'position'],
-        message: `port ${port.id} bounds dışında`,
-      })
-    }
-
-    const directionLength = Math.hypot(port.direction[0], port.direction[1])
-    if (Math.abs(directionLength - 1) > UNIT_LENGTH_TOLERANCE) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['ports', index, 'direction'],
-        message: `port ${port.id} direction birim vektör olmalı`,
-      })
-    }
+    validatePortShape(port, 'ports', index, meta, ctx, seenIds)
   })
 }
 
@@ -190,7 +288,8 @@ export const symbolMetadataSchema: z.ZodType<SymbolMetadata> = baseSchema.superR
       })
       return
     }
-    validatePorts(meta, ctx)
+    validatePorts(meta, ctx, new Set<string>())
+    validateDischargeBox(meta, ctx)
     validateFlowDirection(meta, ctx)
   },
 )

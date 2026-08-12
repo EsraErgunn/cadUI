@@ -1,4 +1,5 @@
 import { expandMoveSelection } from './elementAttach'
+import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
 import { getLineEndPointId, getPortAnchoredPointIds } from './lineCornerLink'
 import type { Id } from '../../core/model'
@@ -62,8 +63,9 @@ export function resolveMoveTargets(
   }
 
   for (const connection of connections) {
-    if (connection.target.kind !== 'port') continue
-    if (!elementIds.has(connection.target.elementId)) continue
+    const targetElementId = getTargetElementId(connection.target)
+    if (targetElementId === null) continue
+    if (!elementIds.has(targetElementId)) continue
 
     addPoint(getLineEndPointId(lines, connection.lineId, connection.end))
   }

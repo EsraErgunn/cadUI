@@ -1,3 +1,5 @@
+import type { DischargeLineKind } from '../core/lineKinds'
+
 /**
  * Tesisat katmanının renkleri. Seçim rengi buraya kopyalanmaz —
  * src/scene/sceneTheme.ts → SCENE_COLORS.selection kullanılır.
@@ -21,6 +23,18 @@ export const PLUMBING_COLORS = {
    * kesikli — boru değil, cihazın kısa bağlantısı olduğu ayırt edilsin diye.
    */
   applianceStub: '#ef4444',
+  /**
+   * Baca kanalı: koyu nötr. Çap paletiyle, applianceStub kırmızısıyla (#ef4444),
+   * seçim mavisiyle (#2d7ff9), snap yeşiliyle (#0aa06e) ve marka sarısıyla
+   * çakışmaz. Kanal planın ALTYAPISI — gaz hattı kadar bağırmamalı.
+   */
+  chimneyStroke: '#4b5563',
+  /**
+   * Havalandırma kanalı: bacayla aynı biçim, farklı ton. Renk TEK ayırt edici
+   * değil — havalandırma ayrıca KESİKLİ çizilir (gri baskıda ve renk körlüğünde
+   * de ayrılsın diye, ölçüm çizgisiyle aynı gerekçe).
+   */
+  ventilationStroke: '#0f766e',
   measurementLabel: MEASUREMENT_INK,
   /**
    * Geçici ölçüm çizgisi yazısıyla AYNI ton: ikisi tek bir işaret. Boru
@@ -29,3 +43,9 @@ export const PLUMBING_COLORS = {
    */
   measurementLine: MEASUREMENT_INK,
 } as const
+
+/** Deşarj türü → kontur rengi. Tek kaynak: kanal ve önizlemesi aynı tablodan okur. */
+export const DISCHARGE_STROKE_COLORS: Record<DischargeLineKind, string> = {
+  chimney: PLUMBING_COLORS.chimneyStroke,
+  ventilationDuct: PLUMBING_COLORS.ventilationStroke,
+}

@@ -52,7 +52,9 @@ export const RENDER_ORDER = {
    * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı
    * (oda dolgusu geldiğinde) tamamen kaybolurdu.
    */
-  installationGhost: 36,
+  installationGhost: 35,
+  /** Baca/havalandırma kanalı borunun ALTINDA: ikisi kesiştiğinde gaz hattı okunmalı. */
+  discharge: 38,
   pipe: 40,
   insulation: 45,
   fitting: 50,
