@@ -1,7 +1,9 @@
 import { getNextAreaObjectLabel } from './areaObject'
+import { getNextBeamLabel } from './beam'
 import { createIdRemap, remapId } from './idRemap'
 import type {
   AreaObject,
+  Beam,
   Id,
   Opening,
   Point,
@@ -25,6 +27,7 @@ export type FloorArchitecture = {
   rooms: Room[]
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
+  beams: Beam[]
 }
 
 export type FloorCloneSource = {
@@ -34,6 +37,7 @@ export type FloorCloneSource = {
   rooms: readonly Room[]
   symbols: readonly PointSymbol[]
   areaObjects: readonly AreaObject[]
+  beams: readonly Beam[]
 }
 
 /** Katta çizim var mı? Kopya yalnız BOŞ kata aktarılır (CLAUDE.md ürün kuralı). */
@@ -42,7 +46,8 @@ export function isFloorEmpty(source: FloorCloneSource, floorId: Id): boolean {
     !source.points.some((point) => point.floorId === floorId) &&
     !source.walls.some((wall) => wall.floorId === floorId) &&
     !source.symbols.some((symbol) => isSymbolOnFloor(symbol, floorId, source.walls)) &&
-    !source.areaObjects.some((areaObject) => areaObject.floorId === floorId)
+    !source.areaObjects.some((areaObject) => areaObject.floorId === floorId) &&
+    !source.beams.some((beam) => beam.floorId === floorId)
   )
 }
 
@@ -87,6 +92,7 @@ export function cloneFloorArchitecture(
   const sourceAreaObjects = source.areaObjects.filter(
     (areaObject) => areaObject.floorId === sourceFloorId,
   )
+  const sourceBeams = source.beams.filter((beam) => beam.floorId === sourceFloorId)
 
   // Köşeler ÖNCE: duvarın uçları onların yeni id'lerini isteyecek.
   const pointRemap = createIdRemap(
@@ -184,5 +190,21 @@ export function cloneFloorArchitecture(
     })
   }
 
-  return { points, walls, openings, rooms, symbols, areaObjects }
+  // Kiriş de kimseye bağlı değil (uçlarını kendi taşıyor) — alan nesnesiyle
+  // aynı gerekçeyle yeni id + YENİ ETİKET alır.
+  const beams: Beam[] = []
+  for (const beam of sourceBeams) {
+    beams.push({
+      id: takeId(),
+      floorId: targetFloorId,
+      x1: beam.x1,
+      y1: beam.y1,
+      x2: beam.x2,
+      y2: beam.y2,
+      thicknessCm: beam.thicknessCm,
+      label: getNextBeamLabel(beams, targetFloorId),
+    })
+  }
+
+  return { points, walls, openings, rooms, symbols, areaObjects, beams }
 }

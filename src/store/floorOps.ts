@@ -146,6 +146,8 @@ export function removeFloorArchitectureInDraft(draft: CadState, floorId: Id): vo
   // Alan nesnesi her zaman serbest, floorId'yi kendi taşır (sembolün free dalıyla aynı gerekçe).
   // Mimari tarafta: merdiven/kolon/baca şaftı çizimin yapısal parçası, tesisat değil.
   draft.areaObjects = draft.areaObjects.filter((areaObject) => areaObject.floorId !== floorId)
+  // Kiriş de kat taşır ve mimarinin parçası — alan nesnesiyle aynı gerekçe.
+  draft.beams = draft.beams.filter((beam) => beam.floorId !== floorId)
 }
 
 /** Katın TESİSAT çizimini siler. Gerekçesi için bkz. removeFloorArchitectureInDraft. */

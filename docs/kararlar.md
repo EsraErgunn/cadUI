@@ -1410,6 +1410,78 @@ Nerede: `core/areaObjectGeometry.ts` (`fill` alanı), `scene/AreaObject.tsx`,
 Testler `core/__tests__/areaObjectGeometry.test.ts`.
 Tarayıcıda doğrulandı (merdivenin dolgusu, seçili tonu ve döndürülmüş hâli).
 
+### K47 — Kiriş: çizgisel yeni model, kesik konturlu dikdörtgen, uç tutamaçları
+
+K38'den beri ertelenen kiriş eklendi. Alan nesnesine (`AreaObject`) GİRMEDİ,
+söz verildiği gibi ayrı bir model: `Beam { id, floorId, x1,y1,x2,y2,
+thicknessCm, label }` — referans formattaki `Beam{x1,y1,x2,y2,width,height}`
+ile aynı aile.
+
+**Duvarın `Point` havuzunu KULLANMIYOR, uçlarını kendi taşıyor.** Havuza
+girseydi duvar bakımının tamamı kirişleri de görürdü: sahipsiz köşe temizliği
+(`getOrphanPointIds`), kesişimde bölme (`splitWallsAtIntersections`), oda çevrimi
+(`recomputeRoomsInDraft`). Kirişe açıklık takılmıyor, oda çevirmiyor ve
+bölünmesi de istenmiyor — üçü de kirişi sessizce bozardı. Yükseklik alanı da
+YOK: duvarın `height`'ı 3B içindi, kiriş 3B'de henüz yok.
+
+**Görünüm: KESİK konturlu dikdörtgen + alan nesnesiyle aynı soluk dolgu**
+(kullanıcı isteği). Duvarın kapsülünden (yuvarlak uçlu tek kalın `<Line>`, K23)
+bilerek ayrıldı: kesikli bir kontur ancak gerçek bir dikdörtgen çevrimi
+çizilerek elde edilir, dolayısıyla kirişin uçları DÜZ. Kalınlık duvarın
+varsayılanıyla doğar (`DEFAULT_WALL_THICKNESS_CM`) ama sabit bağlı değil,
+panelden değişir. Renk duvarla aynı; kirişi duvardan ayıran tek şey konturun
+kesik olması — plan çizimi geleneğinde kiriş kesitin dışında kalan, üstteki
+elemandır.
+
+**Katman sırası yeniden numaralandı.** Kiriş açıklığın ÜSTÜNDE (altına düşerse
+duvar kütlesi onu yutar ve duvara oturan bir kiriş seçilemez hâle gelir),
+sembol ve alan nesnesinin ALTINDA (ikisi de kirişten küçük). Dolgu yine kendi
+sırasında (K46'daki gerekçe). Yeni sıra: `opening 30 → beamFill 31 → beam 32 →
+pointSymbol 33 → areaObjectFill 34 → areaObject 35 → installationGhost 36`.
+Hedef çözümlemesi (`architectureHover`) AYNI sırayı izliyor — ikisi ayrışırsa
+vurgu "şunu tutarsın" der, basış başka şeyi tutar.
+
+**Çizim jesti duvarınkiyle aynı ama ZİNCİRSİZ.** İlk sol tık başlangıcı koyar,
+ikinci tık kirişi yazar, sonra yeni bir başlangıç gerekir: kirişler duvarlar
+gibi kapalı çevrim kurmuyor, zincir kullanıcıya istemediği ikinci kirişi
+kazayla çizdirirdi. Sağ tık yarım jesti atıp paleti Seçim Aracı'na döndürür
+(K42 sözleşmesi). Snap duvar aracıyla aynı (`resolveSnap`): uç duvar köşesine
+ve gövdesine yapışır, Ctrl ızgarayı kapatır.
+
+**Uç tutamaçları K44'ün dersini tekrarladı.** İki uçtaki tutamaç kirişin
+gövdesinin İÇİNDE duruyor, yani aynı pointerdown'ı kiriş taşıma da görüyor;
+`findSelectedBeamHandle` isabet ederse diğer hook'lar jesti hiç başlatmıyor.
+Kontrol yine BEŞ hook'a eklendi (`useAreaObjectSelectionTool`,
+`useSelectionTool`, `useWallSelectionTool`, `usePointSymbolSelectionTool`,
+`usePointDragTool`) — alan nesnesi tutamacının yanına. Tutamaç boyu ekran
+pikselinde sabit (`useCameraZoom`, K45 kuralı).
+
+**Kapsam dışı bırakılanlar.** (1) Grup dönüşümü (KK-11 döndür/aynala) ve Ctrl+D
+çoğaltma kirişi KAPSAMIYOR — alan nesnesi de kapsamıyor (`transformOps.ts`
+yalnız duvar ve sembol biliyor), yeni tür oraya eklenirken ikisi birlikte
+düşünülmeli. (2) Panelde uzunluk SALT OKUNUR: bir sayı hangi ucun oynayacağını
+söylemiyor, uzatma tuvalde yapılır. (3) K35/K36 açıklık koruması kirişe
+UYGULANMADI: kiriş tavan seviyesinde, kapının üstünden geçmesi normal — o kural
+düşey elemanlar (kolon, merdiven) içindi.
+
+Nerede: `core/model.ts` (`Beam`), `core/beam.ts` + `core/beamHandles.ts` (yeni),
+`core/serialize.ts`, `core/selection.ts`, `core/architectureHover.ts`,
+`core/floorClone.ts`, `core/floorContent.ts`, `core/propertyFields.ts`,
+`core/tools.ts`, `store/beamOps.ts` (yeni), `store/architectureSlice.ts`,
+`store/architectureData.ts`, `store/architectureUiStore.ts`, `store/cadStore.ts`,
+`store/history.ts`, `store/selectionOps.ts`, `store/floorOps.ts`,
+`store/floorCloneOps.ts`, `scene/Beam.tsx` + `scene/BeamHandles.tsx` +
+`scene/useBeamTool.ts` + `scene/useBeamSelectionTool.ts` +
+`scene/useBeamHandleTool.ts` (yeni), `scene/ArchitectureLayer.tsx`,
+`scene/layers.ts`, `scene/architectureLayers.ts`,
+`ui/properties/BeamProperties.tsx` (yeni), `ui/PropertyPanel.tsx`,
+`ui/floors/floorCountText.ts`, `ui/floors/useFloorContentSource.ts`.
+Testler `core/__tests__/beam.test.ts`, `core/__tests__/beamHandles.test.ts`,
+`store/__tests__/beamActions.test.ts`.
+
+**Tarayıcıda doğrulandı** (kullanıcı tarafından): kesik kontur, dolgu, iki
+tıklı çizim ve uçtan uzatma çalışıyor.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

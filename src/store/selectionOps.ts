@@ -29,7 +29,14 @@ export function deleteSelectionFromDraft(draft: CadState, selection: Selection):
   const wallIds = new Set(getSelectedIds(selection, 'wall'))
   const symbolIds = new Set(getSelectedIds(selection, 'symbol'))
   const areaObjectIds = new Set(getSelectedIds(selection, 'area'))
-  if (openingIds.size === 0 && wallIds.size === 0 && symbolIds.size === 0 && areaObjectIds.size === 0) {
+  const beamIds = new Set(getSelectedIds(selection, 'beam'))
+  if (
+    openingIds.size === 0 &&
+    wallIds.size === 0 &&
+    symbolIds.size === 0 &&
+    areaObjectIds.size === 0 &&
+    beamIds.size === 0
+  ) {
     return false
   }
 
@@ -40,17 +47,21 @@ export function deleteSelectionFromDraft(draft: CadState, selection: Selection):
     (areaObject) => !areaObjectIds.has(areaObject.id),
   )
 
+  const remainingBeams = draft.beams.filter((beam) => !beamIds.has(beam.id))
+
   const isChanged =
     remainingOpenings.length !== draft.openings.length ||
     remainingWalls.length !== draft.walls.length ||
     remainingSymbols.length !== draft.symbols.length ||
-    remainingAreaObjects.length !== draft.areaObjects.length
+    remainingAreaObjects.length !== draft.areaObjects.length ||
+    remainingBeams.length !== draft.beams.length
   if (!isChanged) return false
 
   draft.openings = remainingOpenings
   draft.walls = remainingWalls
   draft.symbols = remainingSymbols
   draft.areaObjects = remainingAreaObjects
+  draft.beams = remainingBeams
 
   // Duvarı gidince sahipsiz kalan köşe ve açıklıklar aynı adımda temizlenir.
   const orphanIds = new Set(getOrphanPointIds(draft.points, draft.walls))

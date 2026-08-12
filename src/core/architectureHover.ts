@@ -1,7 +1,8 @@
 import { isPointInSymbol } from './architectureSymbol'
 import { isPointInAreaObject } from './areaObject'
+import { findBeamUnderPoint } from './beam'
 import type { PlanPoint } from './coords'
-import type { AreaObject, Id, Opening, Point, PointSymbol, Wall } from './model'
+import type { AreaObject, Beam, Id, Opening, Point, PointSymbol, Wall } from './model'
 import { findOpeningUnderPoint } from './openingTool'
 import { findCornerPointIdAt } from './snap'
 import { getSymbolPose, isSymbolOnFloor } from './symbolPlacement'
@@ -12,6 +13,7 @@ export type ArchitectureTarget =
   | { kind: 'point'; pointId: Id }
   | { kind: 'symbol'; symbolId: Id }
   | { kind: 'area'; areaObjectId: Id }
+  | { kind: 'beam'; beamId: Id }
   | { kind: 'opening'; openingId: Id }
   | { kind: 'wall'; wallId: Id }
 
@@ -21,6 +23,7 @@ export type ArchitectureTargetContext = {
   openings: readonly Opening[]
   symbols: readonly PointSymbol[]
   areaObjects: readonly AreaObject[]
+  beams: readonly Beam[]
   floorId: Id
   toleranceCm: number
 }
@@ -68,6 +71,13 @@ export function resolveArchitectureTarget(
     )
   if (areaObject) return { kind: 'area', areaObjectId: areaObject.id }
 
+  // Kiriş alan nesnesinin ALTINDA, açıklığın ÜSTÜNDE: çizim sırası da öyle
+  // (RENDER_ORDER.beam, opening ile pointSymbol arasında). Kiriş plan üstünde
+  // duvarları KESEREK geçen bir taşıyıcı; altındaki duvar/açıklığa erişim
+  // gerekirse kullanıcı kirişin dışına tıklar.
+  const beam = findBeamUnderPoint(target, context.beams, context.floorId)
+  if (beam) return { kind: 'beam', beamId: beam.id }
+
   const opening = findOpeningUnderPoint(target, context)
   if (opening) return { kind: 'opening', openingId: opening.id }
 
@@ -88,6 +98,7 @@ export function isSameTarget(
   if (a.kind === 'point' && b.kind === 'point') return a.pointId === b.pointId
   if (a.kind === 'symbol' && b.kind === 'symbol') return a.symbolId === b.symbolId
   if (a.kind === 'area' && b.kind === 'area') return a.areaObjectId === b.areaObjectId
+  if (a.kind === 'beam' && b.kind === 'beam') return a.beamId === b.beamId
   if (a.kind === 'opening' && b.kind === 'opening') return a.openingId === b.openingId
   if (a.kind === 'wall' && b.kind === 'wall') return a.wallId === b.wallId
   return false

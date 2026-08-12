@@ -202,6 +202,7 @@ describe('kalıcılık', () => {
       rooms: [],
       symbols: saved,
       areaObjects: [],
+      beams: [],
     }
     useCadStore.getState().resetProject()
     expect(useCadStore.getState().symbols).toHaveLength(0)

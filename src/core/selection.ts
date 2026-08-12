@@ -1,7 +1,8 @@
 import type { ArchitectureTarget } from './architectureHover'
 import { getAreaObjectCorners } from './areaObject'
+import { getBeamEnds } from './beam'
 import type { PlanPoint } from './coords'
-import type { AreaObject, Id, Opening, Point, PointSymbol, Wall } from './model'
+import type { AreaObject, Beam, Id, Opening, Point, PointSymbol, Wall } from './model'
 import { getSymbolPose } from './symbolPlacement'
 import { getWallEnds } from './wall'
 import { getWallFrameAtOffsetCm } from './wallPath'
@@ -11,7 +12,7 @@ import { getWallFrameAtOffsetCm } from './wallPath'
  * kendi başına taşınması `usePointDragTool`'un işi ve grup dönüşümünde duvarıyla
  * birlikte gelir. Vurgu hedefi (`ArchitectureTarget`) köşeyi de içerir, seçim içermez.
  */
-export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area'
+export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area' | 'beam'
 
 export type SelectionItem = {
   kind: SelectableKind
@@ -79,6 +80,7 @@ export function toSelectionItem(target: ArchitectureTarget): SelectionItem | und
   if (target.kind === 'opening') return { kind: 'opening', id: target.openingId }
   if (target.kind === 'symbol') return { kind: 'symbol', id: target.symbolId }
   if (target.kind === 'area') return { kind: 'area', id: target.areaObjectId }
+  if (target.kind === 'beam') return { kind: 'beam', id: target.beamId }
   return undefined
 }
 
@@ -95,11 +97,13 @@ export function pruneSelection(
   openings: readonly Opening[],
   symbols: readonly PointSymbol[],
   areaObjects: readonly AreaObject[],
+  beams: readonly Beam[],
 ): Selection {
   const pruned = selection.filter((item) => {
     if (item.kind === 'wall') return walls.some((wall) => wall.id === item.id)
     if (item.kind === 'opening') return openings.some((opening) => opening.id === item.id)
     if (item.kind === 'area') return areaObjects.some((areaObject) => areaObject.id === item.id)
+    if (item.kind === 'beam') return beams.some((beam) => beam.id === item.id)
     return symbols.some((symbol) => symbol.id === item.id)
   })
   return pruned.length === selection.length ? selection : pruned
@@ -201,6 +205,20 @@ export function getAreaObjectsInRect(rect: PlanRect, areaObjects: readonly AreaO
     .map((areaObject) => areaObject.id)
 }
 
+/**
+ * Kiriş, İKİ UCU da çerçevede kalıyorsa seçilir — `getWallsInRect` ile aynı
+ * kural. Köşeler değil uçlar ölçülüyor: uçlar kalınlığın dışına taşmaz, uzun
+ * ince bir kirişte köşe testiyle aynı sonucu verir ve hesabı daha ucuz.
+ */
+export function getBeamsInRect(rect: PlanRect, beams: readonly Beam[]): Id[] {
+  return beams
+    .filter((beam) => {
+      const ends = getBeamEnds(beam)
+      return isPointInRect(ends.p1, rect) && isPointInRect(ends.p2, rect)
+    })
+    .map((beam) => beam.id)
+}
+
 /** Çerçevenin kapsadığı her şey — tek geçişte, çağıran üç fonksiyonu ayrı sarmasın. */
 export function getSelectionInRect(
   rect: PlanRect,
@@ -209,6 +227,7 @@ export function getSelectionInRect(
   points: readonly Point[],
   symbols: readonly PointSymbol[],
   areaObjects: readonly AreaObject[],
+  beams: readonly Beam[],
 ): Selection {
   return [
     ...getWallsInRect(rect, walls, points).map((id): SelectionItem => ({ kind: 'wall', id })),
@@ -219,6 +238,7 @@ export function getSelectionInRect(
       (id): SelectionItem => ({ kind: 'symbol', id }),
     ),
     ...getAreaObjectsInRect(rect, areaObjects).map((id): SelectionItem => ({ kind: 'area', id })),
+    ...getBeamsInRect(rect, beams).map((id): SelectionItem => ({ kind: 'beam', id })),
   ]
 }
 

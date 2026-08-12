@@ -35,6 +35,7 @@ function projectWithWall(): ProjectData {
     rooms: [],
     symbols: [],
     areaObjects: [],
+    beams: [],
   }
 }
 

@@ -6,7 +6,7 @@ import { FIRST_FREE_ID, type Id, type ProjectData } from '../core/model'
  */
 export type ArchitectureData = Pick<
   ProjectData,
-  'points' | 'walls' | 'openings' | 'rooms' | 'symbols' | 'areaObjects'
+  'points' | 'walls' | 'openings' | 'rooms' | 'symbols' | 'areaObjects' | 'beams'
 >
 
 export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
@@ -16,6 +16,7 @@ export const INITIAL_ARCHITECTURE_DATA: ArchitectureData = {
   rooms: [],
   symbols: [],
   areaObjects: [],
+  beams: [],
 }
 
 /**
@@ -36,6 +37,7 @@ export function deriveNextUniqueId(data: ArchitectureData): Id {
       ...data.rooms.map((room) => room.id),
       ...data.symbols.map((symbol) => symbol.id),
       ...data.areaObjects.map((areaObject) => areaObject.id),
+      ...data.beams.map((beam) => beam.id),
     ) + 1
   )
 }

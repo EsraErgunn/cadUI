@@ -15,6 +15,7 @@ import {
   type AddWallInput,
 } from './architectureWallOps'
 import { createAreaObjectActions, type AreaObjectActions } from './areaObjectOps'
+import { createBeamActions, type BeamActions } from './beamOps'
 // cadStore ↔ architectureSlice karşılıklı import eder; bu taraf tip-only olduğu
 // için derlemede silinir ve çalışma zamanında döngü oluşmaz (floorSlice ile aynı).
 import type { CadState } from './cadStore'
@@ -39,7 +40,10 @@ export type { ArchitectureData } from './architectureData'
 export type { AddOpeningInput, OpeningTarget } from './architectureOpeningOps'
 export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './architectureWallOps'
 
-export type ArchitectureSlice = ArchitectureData & PointSymbolActions & AreaObjectActions & {
+export type ArchitectureSlice = ArchitectureData &
+  PointSymbolActions &
+  AreaObjectActions &
+  BeamActions & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
@@ -176,6 +180,7 @@ export const createArchitectureSlice: StateCreator<
   ...createTransformActions(set),
   ...createPointSymbolActions(set),
   ...createAreaObjectActions(set),
+  ...createBeamActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {

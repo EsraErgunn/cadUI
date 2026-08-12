@@ -2,7 +2,17 @@ import { z } from 'zod'
 
 
 import { DEFAULT_FLOOR_HEIGHT_CM } from './model'
-import type { AreaObject, Floor, Opening, Point, PointSymbol, ProjectData, Room, Wall } from './model'
+import type {
+  AreaObject,
+  Beam,
+  Floor,
+  Opening,
+  Point,
+  PointSymbol,
+  ProjectData,
+  Room,
+  Wall,
+} from './model'
 
 
 /**
@@ -123,6 +133,17 @@ const areaObjectSchema = z.object({
   label: z.string(),
 })
 
+const beamSchema = z.object({
+  id: idSchema,
+  floorId: idSchema,
+  x1: z.number(),
+  y1: z.number(),
+  x2: z.number(),
+  y2: z.number(),
+  thicknessCm: z.number(),
+  label: z.string(),
+})
+
 /**
  * Modele SONRADAN eklenen diziler `.default([])` taşır: depodaki çizimler o
  * alanlar yokken kaydedildi ve zorunlu tutulursa "expected array, received
@@ -143,6 +164,7 @@ export const projectDataSchema = z.object({
   rooms: z.array(roomSchema).default([]),
   symbols: z.array(pointSymbolSchema).default([]),
   areaObjects: z.array(areaObjectSchema).default([]),
+  beams: z.array(beamSchema).default([]),
 })
 
 export class ProjectDataParseError extends Error {
@@ -200,6 +222,7 @@ export function serializeProjectData(data: ProjectData): string {
     rooms: data.rooms.map(toRoomJson),
     symbols: data.symbols.map(toPointSymbolJson),
     areaObjects: data.areaObjects.map(toAreaObjectJson),
+    beams: data.beams.map(toBeamJson),
   })
 }
 
@@ -268,6 +291,19 @@ function toPointSymbolJson(symbol: PointSymbol) {
     x: symbol.x,
     y: symbol.y,
     rotationDeg: symbol.rotationDeg,
+  }
+}
+
+function toBeamJson(beam: Beam) {
+  return {
+    id: beam.id,
+    floorId: beam.floorId,
+    x1: beam.x1,
+    y1: beam.y1,
+    x2: beam.x2,
+    y2: beam.y2,
+    thicknessCm: beam.thicknessCm,
+    label: beam.label,
   }
 }
 

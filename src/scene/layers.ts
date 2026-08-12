@@ -24,18 +24,29 @@ export const RENDER_ORDER = {
   wall: 20,
   opening: 30,
   /**
+   * Kirişin saydam dolgusu, KENDİ konturunun altında ayrı sırada — gerekçesi
+   * areaObjectFill ile aynı.
+   */
+  beamFill: 31,
+  /**
+   * Kiriş duvarın ve açıklığın ÜSTÜNDE: kiriş plan üstünde onları keserek geçen
+   * bir taşıyıcı, altlarına düşerse duvar kütlesi onu yutar. Sembolün ve alan
+   * nesnesinin ALTINDA kalır — ikisi de kirişten küçük, üstte durmalılar.
+   */
+  beam: 32,
+  /**
    * Nokta sembolü açıklığın ve duvarın ÜSTÜNDE: damga plandan okunabilmeli,
    * altına düşerse duvar kütlesi onu yutar. Tutamakların altında kalır.
    */
-  pointSymbol: 32,
+  pointSymbol: 33,
   /**
    * Alan nesnesinin saydam dolgusu, KENDİ konturunun altında ayrı sırada: aynı
    * sırada kalsaydı opak çizgiler saydam mesh'ten ÖNCE çizilir ve dolgu konturu
    * boyardı (üçü de depthWrite kapalı, karar renderOrder'ın).
    */
-  areaObjectFill: 31,
+  areaObjectFill: 34,
   /** Alan nesnesi (merdiven/kolon/baca şaftı) nokta sembolünün ÜSTÜNDE — ikisi çakışabilir. */
-  areaObject: 33,
+  areaObject: 35,
   /**
    * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
    * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı
@@ -48,7 +59,7 @@ export const RENDER_ORDER = {
   insulation: 45,
   fitting: 50,
   equipment: 60,
-  /** Önizlemedeki alan nesnesinin dolgusu — areaObjectFill ile aynı gerekçe. */
+  /** Önizlemedeki alan nesnesi/kiriş dolgusu — areaObjectFill ile aynı gerekçe. */
   areaObjectPreviewFill: 69,
   linePreview: 70,
   portMarker: 80,

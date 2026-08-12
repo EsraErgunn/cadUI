@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer'
 import type { ArchitectureTarget } from '../core/architectureHover'
 import type { AreaObjectShape } from '../core/areaObject'
 import type { AreaObjectHandleKind } from '../core/areaObjectHandles'
+import type { BeamEndKey } from '../core/beam'
 import type { PlanPoint } from '../core/coords'
 import type { Id, OpeningType } from '../core/model'
 import { DEFAULT_OPENING_WIDTH_CM } from '../core/opening'
@@ -74,6 +75,25 @@ type AreaObjectHandleDrag = {
   shape: AreaObjectShape
 }
 
+/**
+ * Taşınan kirişlerin GEÇİCİ ötelemesi — draggingAreaObjects ile aynı gerekçe.
+ */
+type BeamDrag = {
+  beamIds: Id[]
+  dxCm: number
+  dyCm: number
+}
+
+/**
+ * Uçtan uzatma sırasında ÖNİZLENEN uç konumu. Öteleme değil KONUM tutuluyor:
+ * uzatmada yalnız bir uç oynuyor, diğeri çakılı — "dx/dy" ikisini de taşırdı.
+ */
+type BeamHandleDrag = {
+  beamId: Id
+  end: BeamEndKey
+  position: PlanPoint
+}
+
 type ArchitectureUiState = {
   /**
    * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
@@ -88,6 +108,10 @@ type ArchitectureUiState = {
   draggingWall: WallDrag | null
   draggingSymbols: SymbolDrag | null
   draggingAreaObjects: AreaObjectDrag | null
+  draggingBeams: BeamDrag | null
+  beamHandleDrag: BeamHandleDrag | null
+  /** İmleç kirişin bir ucunun üstünde mi? Tutamacın vurgusu bunu okur. */
+  isBeamHandleHovered: boolean
   areaObjectHandleDrag: AreaObjectHandleDrag | null
   /**
    * İmlecin altındaki tutamaç. Overlay `pointer-events: none` olduğu için
@@ -118,6 +142,9 @@ type ArchitectureUiState = {
   setDraggingWall: (drag: WallDrag | null) => void
   setDraggingSymbols: (drag: SymbolDrag | null) => void
   setDraggingAreaObjects: (drag: AreaObjectDrag | null) => void
+  setDraggingBeams: (drag: BeamDrag | null) => void
+  setBeamHandleDrag: (drag: BeamHandleDrag | null) => void
+  setBeamHandleHover: (isHovered: boolean) => void
   setAreaObjectHandleDrag: (drag: AreaObjectHandleDrag | null) => void
   setAreaObjectHandleHover: (kind: AreaObjectHandleKind | null) => void
   setHover: (hover: ArchitectureTarget | null) => void
@@ -141,6 +168,9 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingWall: null,
     draggingSymbols: null,
     draggingAreaObjects: null,
+    draggingBeams: null,
+    beamHandleDrag: null,
+    isBeamHandleHovered: false,
     areaObjectHandleDrag: null,
     areaObjectHandleHover: null,
     hover: null,
@@ -192,6 +222,23 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingAreaObjects: (drag) =>
       set((draft) => {
         draft.draggingAreaObjects = drag
+      }),
+
+    setDraggingBeams: (drag) =>
+      set((draft) => {
+        draft.draggingBeams = drag
+      }),
+
+    setBeamHandleDrag: (drag) =>
+      set((draft) => {
+        draft.beamHandleDrag = drag
+      }),
+
+    setBeamHandleHover: (isHovered) =>
+      set((draft) => {
+        // Aynı değerde yazma: pointermove her karede geliyor (setHover ile aynı gerekçe).
+        if (draft.isBeamHandleHovered === isHovered) return
+        draft.isBeamHandleHovered = isHovered
       }),
 
     setAreaObjectHandleDrag: (drag) =>

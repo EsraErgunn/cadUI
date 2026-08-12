@@ -46,6 +46,7 @@ export const FIXTURE_NEXT_FREE_ID = deriveNextUniqueId({
   rooms: [],
   symbols: [],
   areaObjects: [],
+  beams: [],
 })
 
 /** Her testin aynı sahneden başlaması için. beforeEach içinde çağrılır. */

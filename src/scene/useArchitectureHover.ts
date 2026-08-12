@@ -49,6 +49,7 @@ export function useArchitectureHover(): void {
           openings: cad.openings,
           symbols: cad.symbols,
           areaObjects: cad.areaObjects,
+          beams: cad.beams,
           floorId: cad.activeFloorId,
           toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
         })

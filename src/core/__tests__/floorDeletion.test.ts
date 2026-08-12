@@ -47,6 +47,7 @@ const source: FloorContentSource = {
     },
   ],
   areaObjects: [],
+  beams: [],
   installationElements: [{ floorId: FIRST_ID }, { floorId: FIRST_ID }, { floorId: GROUND_ID }],
   installationLines: [],
 }

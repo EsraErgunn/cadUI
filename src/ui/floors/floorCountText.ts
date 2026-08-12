@@ -17,6 +17,8 @@ export function formatArchitectureCounts(counts: FloorContentCounts): string {
     // yazmak satırı kullanılamaz hale getiriyordu. Düşey eksen olanlar ayrıca
     // kendi uyarısında adıyla anılıyor (KK-13).
     [counts.areaObjectCount, 'alan nesnesi'],
+    // Kiriş alan nesnesi DEĞİL (çizgisel, ayrı model) — kendi kalemi olarak yazılır.
+    [counts.beamCount, 'kiriş'],
   ])
 }
 

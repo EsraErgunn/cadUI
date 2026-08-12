@@ -1,7 +1,17 @@
 // cadStore ↔ history karşılıklı import eder; bu taraf TİP-ONLY olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (slice'larla aynı desen).
 import type { CadState } from './cadStore'
-import type { AreaObject, Floor, Id, Opening, Point, PointSymbol, Room, Wall } from '../core/model'
+import type {
+  AreaObject,
+  Beam,
+  Floor,
+  Id,
+  Opening,
+  Point,
+  PointSymbol,
+  Room,
+  Wall,
+} from '../core/model'
 
 /** Kaç adım geriye gidilebilir. Sınırsız geçmiş uzun oturumda belleği şişirir. */
 export const HISTORY_LIMIT = 100
@@ -22,6 +32,7 @@ export type TrackedProjectState = {
   rooms: Room[]
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
+  beams: Beam[]
 }
 
 /**
@@ -42,6 +53,7 @@ export function partializeProjectState(state: CadState): TrackedProjectState {
     rooms: state.rooms,
     symbols: state.symbols,
     areaObjects: state.areaObjects,
+    beams: state.beams,
   }
 }
 
@@ -70,6 +82,7 @@ export function areProjectStatesEqual(
     past.openings === next.openings &&
     past.rooms === next.rooms &&
     past.symbols === next.symbols &&
-    past.areaObjects === next.areaObjects
+    past.areaObjects === next.areaObjects &&
+    past.beams === next.beams
   )
 }

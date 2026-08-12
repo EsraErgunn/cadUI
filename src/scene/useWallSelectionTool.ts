@@ -5,6 +5,7 @@ import { OrthographicCamera } from 'three'
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
+import { findSelectedBeamHandle } from './useBeamHandleTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -61,6 +62,7 @@ export function useWallSelectionTool(): void {
         openings: cad.openings,
         symbols: cad.symbols,
         areaObjects: cad.areaObjects,
+        beams: cad.beams,
         floorId: cad.activeFloorId,
         toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       }
@@ -91,6 +93,8 @@ export function useWallSelectionTool(): void {
       // Alan nesnesi tutamacı bir duvarın üstüne denk gelebilir; o basış
       // tutamacın, yoksa aynı jestte duvar da taşınırdı (K44).
       if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Kirişin uç tutamacı da aynı gerekçeyle jesti sahipleniyor (K44 dersi).
+      if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
 
       const target = resolveArchitectureTarget(event.planPoint, context)
 
