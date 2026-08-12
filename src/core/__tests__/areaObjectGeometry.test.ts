@@ -21,14 +21,45 @@ function makeAreaObject(overrides: Partial<AreaObject> = {}): AreaObject {
 }
 
 describe('getAreaObjectPlanGeometry', () => {
-  it('kolon: yalnız dış hat, ayrıntı yok, dolgu YOK (içi şeffaf)', () => {
+  it('kolon: yalnız dış hat, ayrıntı yok; dolgu dört köşeli gövde', () => {
     const geometry = getAreaObjectPlanGeometry(
       'structuralColumn',
       makeAreaObject({ x: 0, y: 0, widthCm: 100, lengthCm: 100, angleDeg: 0 }),
     )
 
     expect(geometry.strokes.map((stroke) => stroke.name)).toEqual(['outline'])
-    expect(geometry).not.toHaveProperty('fills')
+    expect(geometry.fill).toHaveLength(4)
+  })
+
+  it('dolgu nesneyle birlikte DÖNER ve merkezine oturur', () => {
+    const geometry = getAreaObjectPlanGeometry(
+      'structuralColumn',
+      makeAreaObject({ x: 300, y: -50, widthCm: 100, lengthCm: 40, angleDeg: 30 }),
+    )
+
+    const centerX = geometry.fill.reduce((sum, point) => sum + point.x, 0) / geometry.fill.length
+    const centerY = geometry.fill.reduce((sum, point) => sum + point.y, 0) / geometry.fill.length
+    expect(centerX).toBeCloseTo(300, 6)
+    expect(centerY).toBeCloseTo(-50, 6)
+    // Döndürülmüş dikdörtgende hiçbir köşe eksen hizalı kalamaz.
+    expect(geometry.fill.every((point) => point.x !== 300 && point.y !== -50)).toBe(true)
+  })
+
+  it('kolon havalandırmasının dolgusu ÇEMBERİ izler, kareyi değil', () => {
+    const geometry = getAreaObjectPlanGeometry(
+      'columnVentilation',
+      makeAreaObject({ x: 0, y: 0, widthCm: 30, lengthCm: 30, angleDeg: 0 }),
+    )
+
+    expect(geometry.fill.length).toBeGreaterThan(4)
+    for (const point of geometry.fill) {
+      expect(Math.hypot(point.x, point.y)).toBeCloseTo(15, 6)
+    }
+    // Çemberin kapanış noktası dolguya girmez: üçgenleştirme yinelenen köşede
+    // dejenere üçgen üretirdi.
+    const [first] = geometry.fill
+    const last = geometry.fill[geometry.fill.length - 1]
+    expect(last).not.toEqual(first)
   })
 
   it('baca şaftı: dış hat + iç çember, kareye yakın yarıçapta, İKİSİ DE gövde kalınlığında', () => {

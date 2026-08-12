@@ -13,15 +13,17 @@ kimliği" diye ayrı, Riser gibi kat-bağımsız bir modele koyuyordu. İkisi de
 burada, basit KAT-BAŞI `AreaObject` olarak modellendi — bilinçli sadeleştirme,
 kat-bağımsız kimlik gerekirse ayrı karar.
 
-## Çizim etkileşimi v1: tıkla-yerleştir + panelden ayarla
+## Çizim etkileşimi: tıkla-yerleştir + tutamaç + panel
 
-Tuvalde sürükleyerek boyutlandırma/döndürme (gizmo) YOK — kod tabanında hiçbir
-yerde böyle bir tutamaç deseni yok (PointSymbol'ün döndürmesi bile panelde bir
-sayısal alan, sahnede değil), sıfırdan inşa etmek ayrı bir iş. `scene/useAreaObjectTool.ts`
-tıklanan noktaya `DEFAULT_AREA_OBJECT_SIZE_CM[type]` boyutunda yerleştirir;
-`ui/properties/AreaObjectProperties.tsx` width/length/angle'ı SONRADAN
-düzenler (yalnız TEK nesne seçiliyken — PointSymbolProperties'in açı alanıyla
-aynı kısıt).
+`scene/useAreaObjectTool.ts` tıklanan noktaya `DEFAULT_AREA_OBJECT_SIZE_CM[type]`
+boyutunda yerleştirir; `ui/properties/AreaObjectProperties.tsx` width/length/angle'ı
+sayısal olarak düzenler (yalnız TEK nesne seçiliyken — PointSymbolProperties'in
+açı alanıyla aynı kısıt).
+
+**Tutamaç (K44):** seçili TEK nesnede üst kenardan çıkan saplı daire DÖNDÜRÜR,
+sağ-alt köşedeki kare BOYUTLANDIRIR. Kod tabanındaki İLK gizmo — öncesinde
+böyle bir desen yoktu, sıfırdan kuruldu. Ayrıntı için aşağıdaki "Tutamaç"
+bölümü.
 
 **Jesti SAĞ TIK bitirir (K42).** Araç yerleştirdikten sonra aktif kalır (arka
 arkaya ekleme), sağ tık hem önizlemeyi siler hem paleti `SELECTION_TOOL_ID`'ye
@@ -79,12 +81,25 @@ kaybederdi — kod derlenir, testler geçer, ama üretimde kayıp fark edilmezdi
 `"areaObjects":[]` eklenmesi ZORUNLU, yoksa kabul testi ("bit bit aynı") kırılır
 (bkz. point-symbols.md'deki aynı tuzak).
 
-## Tipe göre farklı çizim, İÇİ ŞEFFAF (K39, iki tur revize edildi)
+## Tipe göre farklı çizim (K39, üç tur revize edildi)
 
-**İçi TAMAMEN ŞEFFAF — hiçbir tip dolgu taşımaz.** İlk taslakta açık gri
-dolgu vardı; kullanıcı "hepsinin içi şeffaf olsun" dedi.
-`AreaObjectGeometry.fills` alanı YOK — `scene/AreaObject.tsx` mesh üretmiyor,
-yalnız `<Line>`. Renk: `ARCHITECTURE_COLORS.areaObjectStroke` duvar renginden
+**İçi ÇOK SOLUK DOLGULU (K46).** K39'un "tamamen şeffaf" kararı KALKTI: bir
+kolon duvar köşesinin üstüne oturunca içi boş nesne "burada bir şey yok" gibi
+okunuyor, kullanıcı ortasına tıklayınca altındaki köşeyi tutuyordu.
+`AreaObjectGeometry.fill` gövdenin DIŞ HATTINI izleyen tek poligon (kolon
+havalandırmasında ÇEMBER, diğerlerinde dikdörtgen); üçgenleştirme odadan
+devralınıyor (`core/roomFill.ts` → `triangulatePolygon`). Opaklık 0.12 (oda
+dolgusu 0.22'den soluk), renk konturla aynı.
+
+⚠️ Dolgunun KENDİ `renderOrder`'ı var (`areaObjectFill: 31`, önizlemede 69):
+konturla aynı sırada opak çizgiler önce çizilir, saydam mesh sonradan onların
+ÜSTÜNÜ boyardı (hepsinde `depthWrite` kapalı).
+
+⚠️ Dolgu şikâyeti tam çözmez: `architectureHover.ts`'te köşe hâlâ alan
+nesnesinin ÜSTÜNDE, nesnenin merkezi bir köşeye denk gelirse jest yine köşenin.
+Önceliği çevirmek merdiven altındaki köşeleri erişilemez yapar — AÇIK SORU.
+
+Renk: `ARCHITECTURE_COLORS.areaObjectStroke` duvar renginden
 (`wall: '#3e4a5a'`) bir tık koyu (`#232a34`); gövde çizgisi kalın (3),
 ayrıntı ince (1.5) — "daha soft" istendi.
 
@@ -145,9 +160,75 @@ tıklama da dahil.
 `core/areaObjectGeometry.ts`'de; `core/areaObject.ts` etiket + geometri
 yardımcıları + K35/K36 çarpışma mantığında kaldı.
 
-**Tutamaç (resize/rotate gizmo) hâlâ v1 dışı** — kullanıcı bunu K38'de
-onaylanan kapsam daraltmasının DIŞINDA bir şey olarak değil, aynı kararın
-devamı olarak İKİ KEZ teyit etti ("tutamaçları sonra halledelim").
+## Tutamaç — kod tabanındaki İLK gizmo (K44/K45)
+
+Kesik çizgili sınır kutusu + iki küçük ikon: kutunun üst-ortasının dışında `↻`
+DÖNDÜRÜR, sağ-alt köşesinin dışında `↘` BOYUTLANDIRIR. Yalnız Seçim Aracı'nda
+ve TEK alan nesnesi seçiliyken görünür.
+
+**İkonlar DOM (drei `<Html>`), WebGL değil (K45).** Glyph + imleç + tooltip
+WebGL'de pahalı/imkânsız, DOM'da bedava — `RoomNameEditor` de aynı gerekçeyle
+`<Html>` kullanıyor.
+
+⚠️ **Overlay `pointer-events: none` olmak ZORUNDA.** Tıklama tuvale ulaşmalı:
+tutma kararı `findAreaObjectHandleAt` ile saf geometriden veriliyor. Overlay
+olayı yeseydi sürükleme hiç başlamaz, üstelik `<Html>`'in AYRI react-dom
+kökünden yapılan store yazımı R3F ağacını tazelemezdi (RoomNameEditor'ı native
+dinleyiciye iten tuzak). Bunun sonucu: **hover'ı overlay kendi anlayamaz**,
+tuval tarafı `areaObjectHandleHover` ile yayınlar; imleç biçimi de oradan
+`gl.domElement.style.cursor`'a yazılır (elle yazıldığı için temizlikte elle
+geri alınır).
+
+🐞 **`pointer-events: none` `wrapperClass` ile verilir, `className` ile DEĞİL.**
+drei `<Html>` iki div üretir: portala eklenen SARMALAYICI + içerik div'i.
+`transform` propu kapalıyken sarmalayıcıya pointer-events HİÇ yazılmıyor
+(yalnız `transform` modunda `none`), yani sarmalayıcı `auto` kalıp basışı
+yutuyor — tutamaçlar tümüyle çalışmaz hâle gelmişti. `className` içerik div'ine
+gider ve sarmalayıcıyı kurtarmaz. Doğrusu: `<Html wrapperClass="pointer-events-none">`.
+
+**Konum BOUNDING BOX'tan gelir, modelin width/length'inden değil (K45).**
+`getAreaObjectLocalBounds` kutuyu `getAreaObjectPlanGeometry`'nin ürettiği
+noktalardan okur — tip başına elle yazılmaz, yeni şekilde kendiliğinden doğru
+çalışır. Kolon havalandırması (daire, çap `min(w,l)`) için şarttı: modelden
+türetilen kutu ikonları dairenin görünür kenarından uzağa düşürüyordu.
+
+**Ekran-sabit boy:** `useCameraZoom` + `px / zoom`. İkon 14 px, görünmez tutma
+alanı 28 px, kutuya uzaklık 18 px. Hook `scene/useCameraZoom.ts`'te (ortak
+kamera altyapısı); `plumbing/scene/useCameraZoom.ts` yalnız yeniden dışa
+aktarım — tesisatın 5 dosyasının import yolu değişmesin diye.
+
+**Boyutlandırmada KARŞI KÖŞE sabit** (kullanıcı seçti). Bunun sonucu: merkez de
+kayar → konum ve boyut BİRLİKTE değişir → ayrı action'lar tek sürükleme için
+iki Ctrl+Z adımı üretirdi. Bu yüzden `resizeAreaObject(id, {x,y,widthCm,lengthCm})`
+eklendi; panelin kullandığı `setAreaObjectSize` (merkezi sabit tutan) ayrı kaldı.
+Matematik `resizeAreaObjectFromCorner`: sabit köşeden imlece giden vektör
+nesnenin YEREL eksenine izdüşürülür, böylece döndürülmüş nesnede de kenara
+paralel büyür.
+
+(K44'te tutamaç boyu DÜNYA birimindeydi — "zoom kamerada duruyor, bileşen
+yeniden render olmaz" gerekçesiyle. K45 bunu `useCameraZoom` ile çözdü ve boy
+ekran-sabite geçti; `PointHandle.tsx` hâlâ dünya ölçüsünde.)
+
+⚠️ **Gövdenin DIŞINA taşan etkileşim: sahiplenme kontrolü BEŞ hook'a gerekti.**
+Sap tepede, kare köşede yarı dışarıda; aynı pointerdown'ı bütün mimari araçlar
+görüyor. `findSelectedAreaObjectHandle` isabet ederse şu hook'ların hepsi jesti
+hiç başlatmıyor: `useAreaObjectSelectionTool` (taşıma), `useSelectionTool`
+(ÇERÇEVE seçimi — sap gövdenin dışında olduğu için "boşluk" sayılıyordu,
+kullanıcı döndürürken lastik dikdörtgen görünce fark edildi),
+`useWallSelectionTool`, `usePointSymbolSelectionTool`, `usePointDragTool`.
+**Yeni bir dışa taşan etkileşimde bu listeyi yeniden gözden geçir** — tek
+kontrol yetmiyor, hata sessiz değil ama garip: iki jest aynı anda çalışıyor.
+
+Bilinen sınırlar: döndürme HER ZAMAN 15°'ye yakalanır (Ctrl kapatmaz; panelle
+aynı kural, ama boyutlandırmada Ctrl ızgarayı kapatıyor — tutarsızlık bilinçli
+değil, henüz gerekmedi); tek tutamaç var (dört köşe/kenar ortası istenmedi);
+boyutlandırma KUTUYU ölçtüğü için kolon havalandırmasında genişlik≠uzunluk ise
+nesneyi kareye indirger (daire zaten `min`'i kullanıyordu).
+
+**Tarayıcıda doğrulandı** (yukarıdaki `wrapperClass` hatası düzeltildikten
+sonra): kesik çizgili kutu, ikon yerleşimi, ↘ ile boyutlandırma, ↻ ile
+döndürme (15°'ye yakalanarak) ve tek adımlık Ctrl+Z. Sınanmadı: nesne sağ
+panelin (K37 overlay) altında kalınca ikonlara erişilemiyor.
 
 ## Kolon Havalandırması (K41): Baca Şaftı'nın karesiz hâli
 

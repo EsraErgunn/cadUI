@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
 import type { Id } from '../core/model'
@@ -74,6 +75,10 @@ export function usePointDragTool(): void {
         // bir grab başlatılmasını engellemek yeterli, `onPointerMove` zaten
         // buton durumundan bağımsız çalışıp imleci takip ettiriyor.
         if (drag) return
+
+        // Alan nesnesi tutamacı bir duvar köşesinin üstüne denk gelebilir; o
+        // basış tutamacın, yoksa aynı jestte köşe de sürüklenirdi (K44).
+        if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
 
         // Tutulan köşeyi bulmak snap'in kendisidir: yalnız 'point' sayılır,
         // duvar gövdesine basmak köşe tutmaz.

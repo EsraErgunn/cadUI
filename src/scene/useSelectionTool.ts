@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -68,6 +69,11 @@ export function useSelectionTool(): void {
 
       // Nesnenin üstündeyse jest onun; çerçeve yalnız boşlukta başlar.
       if (resolveArchitectureTarget(event.planPoint, readContext())) return
+      // Alan nesnesinin tutamacı gövdenin DIŞINDA duruyor (döndürme sapı
+      // tepede, boyutlandırma karesi köşede taşıyor), bu yüzden hedef
+      // çözümlemesi "boşluk" diyor ve çerçeve seçimi başlıyordu — tutamacı
+      // sürüklerken ekrana lastik dikdörtgen çiziliyordu (K44).
+      if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
 
       anchor = event.planPoint
       isAdditive = event.shiftKey

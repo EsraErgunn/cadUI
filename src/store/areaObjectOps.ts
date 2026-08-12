@@ -8,6 +8,7 @@ import {
   getNextAreaObjectLabel,
   isAreaObjectLabelTaken,
   isAreaObjectLabelValid,
+  MIN_AREA_OBJECT_SIZE_CM,
 } from '../core/areaObject'
 import type { AreaObjectType, Id } from '../core/model'
 import { snapAngleDeg } from '../core/transform'
@@ -59,12 +60,23 @@ export type AreaObjectActions = {
   /** Reddedilirse false döner, konum DEĞİŞMEZ (K36 ile aynı davranış). */
   moveAreaObject: (areaObjectId: Id, x: number, y: number) => boolean
   setAreaObjectSize: (areaObjectId: Id, widthCm: number, lengthCm: number) => boolean
+  /**
+   * Tutamaçla boyutlandırma: KARŞI KÖŞE sabit kaldığı için merkez de kayar,
+   * dolayısıyla konum ve boyut TEK yazımda gider — ayrı action'lara bölünseydi
+   * kullanıcı bir sürükleme için iki kez Ctrl+Z'ye basardı (K44).
+   */
+  resizeAreaObject: (areaObjectId: Id, next: AreaObjectResize) => boolean
   /** Açı KK-3'ün 15° adımına yakalanır. */
   rotateAreaObject: (areaObjectId: Id, angleDeg: number) => boolean
   setAreaObjectLabel: (areaObjectId: Id, label: string) => boolean
 }
 
-const MIN_AREA_OBJECT_SIZE_CM = 1
+export type AreaObjectResize = {
+  x: number
+  y: number
+  widthCm: number
+  lengthCm: number
+}
 
 export function createAreaObjectActions(set: DraftSetter): AreaObjectActions {
   return {
@@ -108,6 +120,28 @@ export function createAreaObjectActions(set: DraftSetter): AreaObjectActions {
 
         areaObject.widthCm = widthCm
         areaObject.lengthCm = lengthCm
+        isResized = true
+        markDirty(draft)
+      })
+      return isResized
+    },
+
+    resizeAreaObject: (areaObjectId: Id, next: AreaObjectResize): boolean => {
+      let isResized = false
+      set((draft) => {
+        const areaObject = draft.areaObjects.find((candidate) => candidate.id === areaObjectId)
+        if (!areaObject) return
+        if (next.widthCm < MIN_AREA_OBJECT_SIZE_CM || next.lengthCm < MIN_AREA_OBJECT_SIZE_CM) return
+
+        const resized = { ...areaObject, ...next }
+        if (findBlockingOpeningForAreaObject(resized, draft.walls, draft.points, draft.openings)) {
+          return
+        }
+
+        areaObject.x = next.x
+        areaObject.y = next.y
+        areaObject.widthCm = next.widthCm
+        areaObject.lengthCm = next.lengthCm
         isResized = true
         markDirty(draft)
       })

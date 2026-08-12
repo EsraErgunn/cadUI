@@ -8,8 +8,9 @@ import {
   getAreaObjectPlanGeometry,
   type AreaObjectStrokeRole,
 } from '../core/areaObjectGeometry'
-import { planToThree } from '../core/coords'
+import { planToThree, type PlanPoint } from '../core/coords'
 import type { AreaObject as AreaObjectData } from '../core/model'
+import { triangulatePolygon } from '../core/roomFill'
 import { DEFAULT_WALL_THICKNESS_CM } from '../core/wall'
 
 export type AreaObjectTone = 'normal' | 'hovered' | 'selected' | 'preview'
@@ -42,8 +43,26 @@ const STROKE_COLORS: Record<AreaObjectTone, string> = {
   preview: ARCHITECTURE_COLORS.areaObjectStroke,
 }
 
-/** Yalnız önizlemede saydamlık uygulanır; yerleştirilmiş nesne tam opak. */
+/** Yalnız önizlemede saydamlık uygulanır; yerleştirilmiş nesnenin KONTURU tam opak. */
 const PREVIEW_OPACITY = 0.45
+
+const FILL_COLORS: Record<AreaObjectTone, string> = {
+  normal: ARCHITECTURE_COLORS.areaObjectFill,
+  hovered: SCENE_COLORS.wallHover,
+  selected: SCENE_COLORS.selection,
+  preview: ARCHITECTURE_COLORS.areaObjectFill,
+}
+
+function toFillPositions(corners: readonly PlanPoint[], elevationCm: number): Float32Array {
+  const triangleCorners = triangulatePolygon(corners)
+  const positions = new Float32Array(triangleCorners.length * 3)
+
+  triangleCorners.forEach((corner, index) => {
+    positions.set(planToThree(corner, elevationCm), index * 3)
+  })
+
+  return positions
+}
 
 type AreaObjectProps = {
   type: AreaObjectData['type']
@@ -59,17 +78,42 @@ type AreaObjectProps = {
  * `core/areaObject.ts` → `getAreaObjectPlanGeometry`'den PLAN noktası olarak
  * gelir — burada trigonometri yok, `scene/PointSymbol.tsx` ile aynı ayrım.
  *
- * İçi tamamen ŞEFFAF (tasarım referansı) — dolgu meshi YOK, yalnız çizgi.
+ * Gövdenin içi ÇOK SOLUK dolgulu: tümüyle boş bırakıldığında nesne bir duvar
+ * köşesinin üstüne oturunca altındaki köşe "boşluktan" görünüyordu. Dolgu salt
+ * görsel — tıklama kararını `isPointInAreaObject` veriyor, raycast değil.
  */
 export function AreaObject({ type, areaObject, tone, areaObjectId }: AreaObjectProps) {
   const isPreview = tone === 'preview'
   const elevationCm = isPreview ? AREA_OBJECT_PREVIEW_ELEVATION_CM : AREA_OBJECT_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.areaObject
+  const fillRenderOrder = isPreview
+    ? RENDER_ORDER.areaObjectPreviewFill
+    : RENDER_ORDER.areaObjectFill
   const strokeColor = STROKE_COLORS[tone]
   const geometry = getAreaObjectPlanGeometry(type, areaObject)
 
   return (
     <group userData={areaObjectId === undefined ? undefined : { id: areaObjectId }}>
+      <mesh frustumCulled={false} renderOrder={fillRenderOrder} raycast={() => null}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[toFillPositions(geometry.fill, elevationCm), 3]}
+          />
+        </bufferGeometry>
+        {/* Önizlemede dolgu bir kat daha soluk: kontur zaten PREVIEW_OPACITY ile
+            soluyor, dolgu ondan koyu kalırsa önizleme yerleştirilmişten ağır görünür. */}
+        <meshBasicMaterial
+          color={FILL_COLORS[tone]}
+          transparent
+          opacity={
+            ARCHITECTURE_COLORS.areaObjectFillOpacity * (isPreview ? PREVIEW_OPACITY : 1)
+          }
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+
       {geometry.strokes.map((stroke) => (
         <Line
           key={stroke.name}
