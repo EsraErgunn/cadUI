@@ -1,0 +1,10 @@
+services:
+  - docker:dind
+
+docker_build:
+  stage: build
+  image: docker:latest
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY  
+    - docker build -t registry.tekhnelogos.com/tekhnestars2026/cadui .
+    - docker push registry.tekhnelogos.com/tekhnestars2026/cadui
