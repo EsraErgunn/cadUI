@@ -42,8 +42,6 @@ export const UNIMPLEMENTED_ENDPOINTS = {
   projectDecision: 'POST /api/projects/{id}/decision',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
-  /** TODO(esra): GET /api/projects/{id}/plan.dwg — sunucuda DWG üretimi yok. */
-  projectPlanDwg: 'GET /api/projects/{id}/plan.dwg',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */
   projectPdfReport: 'GET /api/projects/{id}/report.pdf',
 } as const

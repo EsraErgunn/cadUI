@@ -87,16 +87,13 @@ describe('sekmeler (KK-3)', () => {
     const tablist = await screen.findByRole('tablist', { name: 'Proje detayı bölümleri' })
     const labels = within(tablist)
       .getAllByRole('tab')
-      .map((tab) => tab.textContent?.replace('Yakında', '').trim())
+      .map((tab) => tab.textContent?.trim())
 
     expect(labels).toEqual([
       'Proje Bilgileri',
-      'Proje Planı',
-      'Katı Model',
       'Proje İşlem Geçmişi',
       'Proje Evrakları',
       'Poliçe Bilgileri',
-      'Gaz Açma',
       'Proje İşlemleri',
     ])
 
@@ -139,27 +136,48 @@ describe('sekmeler (KK-3)', () => {
     await user.keyboard('{ArrowRight}')
 
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Proje Planı' })).toHaveAttribute(
+      expect(screen.getByRole('tab', { name: 'Proje İşlem Geçmişi' })).toHaveAttribute(
         'aria-selected',
         'true',
       ),
     )
   })
 
-  // Katı Model ve Gaz Açma şeritte DURUR ama seçilemez (K50).
-  it('içeriği olmayan sekmeler pasif ve "Yakında" rozetlidir', async () => {
-    const user = userEvent.setup()
+  // Plan / Katı Model / Gaz Açma kapsam dışı (K50); şeritte hiç görünmezler.
+  it('kapsam dışı sekmeler hiç render edilmez', async () => {
     renderDetail()
 
-    const solidModel = await screen.findByRole('tab', { name: /Katı Model/ })
-    expect(solidModel).toHaveAttribute('aria-disabled', 'true')
-    expect(solidModel).toHaveTextContent('Yakında')
+    await screen.findByRole('tab', { name: 'Proje Bilgileri' })
 
-    await user.click(solidModel)
+    expect(screen.queryByRole('tab', { name: /Proje Planı/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Katı Model/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Gaz Açma/ })).not.toBeInTheDocument()
+  })
+})
 
-    expect(screen.getByRole('tab', { name: 'Proje Bilgileri' })).toHaveAttribute(
-      'aria-selected',
-      'true',
+// K53: proje listesindeki ad detaya geliyor; editöre TEK giriş burası.
+describe('çizim editörüne geçiş', () => {
+  it('başlıkta çizim editörü bağlantısı bulunur', async () => {
+    renderDetail()
+
+    expect(await screen.findByRole('link', { name: /Çizim Editöründe Aç/ })).toHaveAttribute(
+      'href',
+      '/projects/42/editor',
     )
+  })
+
+  it('yetkisi olmayan kullanıcıya da görünür', async () => {
+    canApprove.mockReturnValue(false)
+    renderDetail()
+
+    expect(await screen.findByRole('link', { name: /Çizim Editöründe Aç/ })).toBeInTheDocument()
+  })
+
+  it('taslak projede de etkindir', async () => {
+    renderDetail()
+
+    const link = await screen.findByRole('link', { name: /Çizim Editöründe Aç/ })
+    // Bağlantı; pasif edilebilir bir düğme değil — çizimi olmayan proje de açılmalı.
+    expect(link).not.toHaveAttribute('aria-disabled')
   })
 })

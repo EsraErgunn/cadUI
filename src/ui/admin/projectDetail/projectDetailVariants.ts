@@ -44,10 +44,3 @@ export const quickActionVariants = cva(
    disabled:cursor-not-allowed disabled:opacity-60 ${ADMIN_FOCUS_RING}`,
 )
 
-/** Plan görüntüleyicisinin araç çubuğundaki küçük ikon düğmeleri. */
-export const viewerButtonVariants = cva(
-  `inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-edge
-   bg-surface text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink
-   disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-surface
-   ${ADMIN_FOCUS_RING}`,
-)

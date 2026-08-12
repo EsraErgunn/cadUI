@@ -1,11 +1,12 @@
-import { Check, FileDown, X } from 'lucide-react'
+import { Check, FileDown, PencilRuler, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import { MockValue } from './MockValue'
 import { ProjectStatusChip } from './ProjectStatusChip'
 import type { ProjectDetail, ProjectDetailStatus } from '../../../api/projectDetail'
 import { PROJECT_LIST_PATH } from '../../../pages/useCloseEditor'
 import { Breadcrumb } from '../Breadcrumb'
-import { ADMIN_HOME_PATH } from '../adminNavItems'
+import { ADMIN_HOME_PATH, projectEditorPath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
 
 const DRAFT_ACTION_HINT = 'Taslak proje işleme alınamaz; firma tarafından gönderilmesi gerekir.'
@@ -81,42 +82,61 @@ export function ProjectDetailHeader({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onDownloadPdf}
+      <div className="flex flex-col items-stretch gap-2 sm:items-end">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            className={adminButtonVariants({ tone: 'secondary' })}
+          >
+            <FileDown aria-hidden className="size-4" />
+            PDF İndir
+          </button>
+
+          {/* Onay/ret YALNIZ yetkili kontrol mühendisine (KK-2); yetkisizde hiç
+              render edilmiyor, pasif de gösterilmiyor. */}
+          {canApprove && (
+            <>
+              <button
+                type="button"
+                onClick={onReject}
+                disabled={isDraft || isSubmitting}
+                title={isDraft ? DRAFT_ACTION_HINT : undefined}
+                className={adminButtonVariants({ tone: 'danger' })}
+              >
+                <X aria-hidden className="size-4" />
+                Reddet
+              </button>
+              <button
+                type="button"
+                onClick={onApprove}
+                disabled={isDraft || isSubmitting}
+                title={isDraft ? DRAFT_ACTION_HINT : undefined}
+                className={adminButtonVariants({ tone: 'primary' })}
+              >
+                <Check aria-hidden className="size-4" />
+                Onayla
+              </button>
+            </>
+          )}
+        </div>
+
+        {/*
+          Çizim editörüne TEK giriş noktası (K53): proje listesindeki ad artık
+          detaya geliyor, editöre buradan giriliyor.
+
+          Projenin durumundan BAĞIMSIZ ve her zaman görünür — yeni projenin
+          henüz çizimi yok ve ilk çizim de buradan yapılacak. `secondary` tonda:
+          gereksinim "Onayla (birincil)" diyor, ikinci bir birincil düğme o
+          vurguyu böler.
+        */}
+        <Link
+          to={projectEditorPath(server.id)}
           className={adminButtonVariants({ tone: 'secondary' })}
         >
-          <FileDown aria-hidden className="size-4" />
-          PDF İndir
-        </button>
-
-        {/* Onay/ret YALNIZ yetkili kontrol mühendisine (KK-2); yetkisizde hiç
-            render edilmiyor, pasif de gösterilmiyor. */}
-        {canApprove && (
-          <>
-            <button
-              type="button"
-              onClick={onReject}
-              disabled={isDraft || isSubmitting}
-              title={isDraft ? DRAFT_ACTION_HINT : undefined}
-              className={adminButtonVariants({ tone: 'danger' })}
-            >
-              <X aria-hidden className="size-4" />
-              Reddet
-            </button>
-            <button
-              type="button"
-              onClick={onApprove}
-              disabled={isDraft || isSubmitting}
-              title={isDraft ? DRAFT_ACTION_HINT : undefined}
-              className={adminButtonVariants({ tone: 'primary' })}
-            >
-              <Check aria-hidden className="size-4" />
-              Onayla
-            </button>
-          </>
-        )}
+          <PencilRuler aria-hidden className="size-4" />
+          Çizim Editöründe Aç
+        </Link>
       </div>
     </div>
   )

@@ -42,7 +42,6 @@ const REASON_DIALOG_COPY = {
 
 const FILE_UNAVAILABLE_MESSAGES: Record<ProjectFileKind, string> = {
   zpd: 'ZetaCAD proje dosyasını (.zpd) veren uç sunucuda henüz yok.',
-  planDwg: 'Planı DWG olarak üreten uç sunucuda henüz yok.',
   pdfReport: 'PDF raporu üreten uç sunucuda henüz yok.',
 }
 
@@ -178,7 +177,6 @@ export function ProjectDetailPage() {
       <div id={PANEL_ID} role="tabpanel" aria-label="Proje detayı içeriği">
         <ProjectDetailPanels
           tab={tab}
-          projectId={projectId}
           detail={detail}
           units={units}
           history={history}

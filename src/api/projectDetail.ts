@@ -209,11 +209,10 @@ export function submitProjectDecision(
   return Promise.resolve(simulated.data)
 }
 
-export type ProjectFileKind = 'zpd' | 'planDwg' | 'pdfReport'
+export type ProjectFileKind = 'zpd' | 'pdfReport'
 
 const FILE_KIND_ENDPOINTS = {
   zpd: 'projectZpdFile',
-  planDwg: 'projectPlanDwg',
   pdfReport: 'projectPdfReport',
 } as const
 

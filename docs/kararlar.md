@@ -2716,21 +2716,25 @@ zorunlu kılınsalardı uç bir alanı kaldırdığında kayıt sınırda sessiz
 
 ## 2026-08 · Proje detayı ekranı
 
-### K50 — Sekme listesi: içeriği olan altı sekme, mockup'ın sekizi korunarak
+### K50 — Sekmeler: belge metnindeki BEŞ sekme; plan/katı model/gaz açma kapsam dışı
 
-Gereksinim dört ayrı liste veriyordu: belge metni "sekiz sekme" deyip beş isim
-sayıyor, KK-3 altı isim sayıyor, mockup görseli sekiz sekme gösteriyor, mockup
-HTML'i altı (ama Evraklar yok, Katı Model var).
+Gereksinim dört ayrı liste veriyordu: belge metni "sekiz sekme" deyip BEŞ isim
+sayıyor, KK-3 altı isim sayıyor (Proje Planı dahil), mockup görseli sekiz sekme
+gösteriyor (+ Katı Model, Gaz Açma), mockup HTML'i altı.
 
-Karar: **içeriği yazılan altı sekme KK-3'ün listesi** (Proje Bilgileri, Proje
-Planı, Proje İşlem Geçmişi, Proje Evrakları, Poliçe Bilgileri, Proje İşlemleri).
-Mockup'taki "Katı Model" ve "Gaz Açma" şeritte kendi yerlerinde DURUYOR ama
-seçilemiyor: `aria-disabled` + "Yakında" rozeti. Böylece tasarımın sekiz
-sekmelik ritmi bozulmuyor, olmayan içerik de uydurulmuyor.
+Karar: ekran **belge metnindeki beş sekmeden** oluşuyor — Proje Bilgileri,
+Proje İşlem Geçmişi, Proje Evrakları, Poliçe Bilgileri, Proje İşlemleri.
 
-`disabled` DEĞİL `aria-disabled` kullanıldı — pasif düğme odaklanamadığı için
-klavye ve ekran okuyucu kullanıcısına hiç görünmezdi (sol menüdeki aynı karar).
-Ok tuşu bu sekmelere de uğrar, yalnız seçim değişmez.
+"Proje Planı", "Katı Model" ve "Gaz Açma" KAPSAM DIŞI ve şeritte hiç
+görünmüyorlar (pasif madde olarak da durmuyorlar). Çizime detay ekranından
+değil, başlıktaki "Çizim Editöründe Aç" bağlantısıyla giriliyor: aynı çizimin
+ikinci bir görüntüleyicisini bakımda tutmak, editörün kendisi zaten o işi
+yaparken maliyetliydi. Bu, ilk sürümde yazılan salt okunur SVG plan
+görüntüleyicisinin (eski K55) GERİ ALINMASI demek.
+
+Bedeli açık: **KK-7 karşılanmıyor.** Plan görüntüleyici, yakınlaştırma, sayfa
+geçişi ve "Planı İndir (DWG)" bu sürümde yok; DWG uç bayrağı da kaldırıldı
+(bayrağın çağrısı kalmayınca sessizleşirdi, bkz. K51).
 
 Aktif sekme birincil renkte ALT ÇİZGİ ile vurgulanıyor: belgedeki "yeşil alt
 çizgi" kuralının mavi paletteki karşılığı.
@@ -2818,37 +2822,32 @@ yerini alacak. Backend'den istenecekler listesine girdi.
 Durum çipinde renk yalnız NOKTADA; metin her durumda `ink` tonunda. Nokta bir
 kontrast eşiğine tabi değil ve durumu söyleyen asıl kanal zaten yazının kendisi.
 
-### K55 — Plan görüntüleyici `ui/` içinde bağımsız SVG; "sayfa" = KAT
+### K55 — Plan görüntüleyici YAZILDI ve AYNI GÜN GERİ ALINDI
 
-`scene/` yeniden KULLANILMADI: oradaki bileşenler `<Canvas>` içi (R3F) ve global
-`cadStore`'dan besleniyor. Detay ekranı için store'u doldurmak, editörün
-durumunu ekran dışından yazmak olurdu (proje değişince store sıfırlanıyor,
-knowledge/persistence.md) ve `scene/` başkasının sahiplik alanı. Bunun yerine
-AYNI veri okunup `ui/admin/projectDetail/planGeometry.ts` + `PlanViewer.tsx` ile
-etkileşimsiz bir SVG üretiliyor; yeni bağımlılık yok.
+İlk sürümde "Proje Planı" sekmesi için `ui/` altında bağımsız, salt okunur bir
+SVG çizici yazıldı (`planGeometry.ts` + `PlanViewer.tsx`): `scene/` yeniden
+kullanılmadı çünkü oradaki bileşenler `<Canvas>` içi (R3F) ve global `cadStore`
+tarafından besleniyor; detay ekranından o store'u doldurmak editörün durumunu
+ekran dışından yazmak olurdu.
 
-Yakınlaştırma `viewBox` DARALTILARAK yapılıyor, CSS transform ile değil: inline
-stil yasak ve dinamik ölçek Tailwind sınıfıyla verilemiyor. viewBox bir SVG
-özniteliği — kısıtı da çözüyor, çizgi kalınlıklarını da ölçekliyor.
+Sekme kapsamdan çıkınca (K50) bu dosyaların hepsi SİLİNDİ. Karar burada
+duruyor çünkü gerekçesi hâlâ geçerli: proje detayında çizim göstermek gerekirse
+`scene/` gömülmemeli, aynı veriyi okuyan ayrı bir çizici yazılmalı.
 
-**"Sayfa" = kat.** Belge çok sayfalı projelerden söz ediyor; kaydedilen çizimde
-sayfaya karşılık gelen tek anlamlı eksen kat listesi. Uydurma bir sayfalama
-yerine gerçek bir eksen kullanıldı.
+**Silinirken kayda değer iki bulgu:**
 
-**BİLİNEN SINIR: kaydedilen çizimde tesisat YOK.** `saveProjectVersion` yalnız
+**1. Kaydedilen çizimde TESİSAT YOK.** `saveProjectVersion` yalnız
 `selectProjectData`'yı yazıyor ve `ProjectData` =
 `floors/points/walls/openings/rooms/symbols/areaObjects`. Boru, servis kutusu,
-sayaç ve cihazlar (`plumbing/`, `installationSlice`) hiç sunucuya kaydedilmiyor
-— `docs/sample-project.json` de bunu doğruluyor. Bu yüzden görüntüleyici mimari
-katmanı çiziyor ve bunu ekranda SÖYLÜYOR. Gereksinim 3.5'in "servis kutusu,
-sayaç ve cihaz etiketleriyle" kısmı karşılanmıyor; önce tesisatın kalıcılığı
-çözülmeli.
+sayaç ve cihazlar (`plumbing/`, `installationSlice`) hiç sunucuya
+kaydedilmiyor; `docs/sample-project.json` de bunu doğruluyor. Yani proje
+detayında "tesisat planı" göstermek bugün veri olarak MÜMKÜN DEĞİL — sekme
+kalsaydı bile yarım kalacaktı.
 
-İki küçük tuzak burada yakalandı ve düzeltildi: `document.fullscreenElement`
-Fullscreen API'si olmayan ortamda `undefined` geliyor (`!== null` kontrolü
-"zaten tam ekrandayız" sanıyordu) ve `loadLatestProjectVersion` kaydı olmayan
-projede `undefined` döndürüyor — react-query `undefined`'ı geçersiz sayıp
-sorguyu hiç çözmüyordu, `?? null` ile meşru bir "kayıt yok" cevabına çevrildi.
+**2. `loadLatestProjectVersion` kaydı olmayan projede `undefined` döndürüyor**
+ve react-query `undefined`'ı geçersiz sayıp sorguyu HİÇ çözmüyor (sekme sonsuza
+kadar "yükleniyor" kalıyordu). Bu uç başka bir yerden tüketilirse `?? null`
+şart.
 
 ### K56 — Yeni renk token'ı YOK; rozet rengi kenarlıkta
 

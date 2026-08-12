@@ -28,8 +28,7 @@ K49'daki sabitin de sebebi).
 | 5 | `GET /api/projects/{id}/policies` | Poliçe listesi | `Policy` (ProjectUnit'e bağlı) — **tablo var** |
 | 6 | `POST /api/projects/{id}/decision` | Onay / ret / revizyon; onay kodu üretir, durumu günceller, geçmişe kayıt düşer, firmaya bildirim gönderir | — |
 | 7 | `GET /api/projects/{id}/zpd` | "Zetacad Proje Dosyası" indirme | — |
-| 8 | `GET /api/projects/{id}/plan.dwg` | "Planı İndir (DWG)" | — |
-| 9 | `GET /api/projects/{id}/report.pdf` | "PDF İndir" / "PDF Rapor Al" | — |
+| 8 | `GET /api/projects/{id}/report.pdf` | "PDF İndir" / "PDF Rapor Al" | — |
 
 Frontend'deki bayraklar: `src/api/unimplementedEndpoints.ts`. Uç açılınca
 oradaki satır silinir ve çağıran dosya derleme hatası verir.

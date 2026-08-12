@@ -37,16 +37,14 @@ olmayan bayraktır — yeni bayrak eklerken en az bir `isEndpointImplemented('�
 - **Kaydedilen çizimde TESİSAT YOK.** `saveProjectVersion` yalnız
   `selectProjectData`'yı yazar; `ProjectData` mimari alanlardan ibaret. Boru,
   servis kutusu, sayaç ve cihaz `plumbing/` tarafında ve hiç kaydedilmiyor.
-  Plan görüntüleyicisi bu yüzden mimari katmanı çiziyor ve bunu ekranda
-  söylüyor — "tesisat planı" beklentisiyle koda bakan biri buraya düşer.
+  Detayda "tesisat planı" göstermek bu yüzden bugün veri olarak mümkün değil.
 - **`loadLatestProjectVersion` kaydı olmayan projede `undefined` döner** ve
-  react-query `undefined`'ı geçersiz sayıp sorguyu ÇÖZMEZ (sekme sonsuza kadar
-  "yükleniyor" kalır). `?? null` ile çevrilmeli.
-- **`document.fullscreenElement` Fullscreen API'si olmayan ortamda `undefined`**;
-  `!== null` kontrolü "zaten tam ekrandayız" sanır. Doğruluk kontrolü kullan.
-- **Plan `scene/`'i kullanmaz.** Aynı veriyi okuyan bağımsız bir SVG çizici
-  (`planGeometry.ts`). `scene/` bileşenleri global `cadStore`'a bağlı; detay
-  ekranından o store'u doldurmak editörün durumunu dışarıdan yazmak olurdu.
+  react-query `undefined`'ı geçersiz sayıp sorguyu ÇÖZMEZ (bileşen sonsuza kadar
+  "yükleniyor" kalır). Bu uç tüketilecekse `?? null` şart.
+- **Detayda çizim göstermek gerekirse `scene/` GÖMÜLMEZ.** O bileşenler
+  `<Canvas>` içi ve global `cadStore`'a bağlı; detay ekranından o store'u
+  doldurmak editörün durumunu dışarıdan yazmak olur. Aynı veriyi okuyan ayrı bir
+  çizici yazılmalı (bir kez yazıldı, sekme kapsamdan çıkınca silindi — K55).
 
 ## Yetki
 
@@ -57,9 +55,15 @@ gövde değişir. `usePermission` kullanılmaz (bkz. access-control.md).
 Görünürlük ile zamanlama ayrı: yetkisi olmayana aksiyon HİÇ render edilmez
 (KK-10), taslak projede görünür ama pasiftir (KK-2).
 
-## Sekmeler
+## Sekmeler ve editöre giriş
 
-İçeriği olan altı sekme + şeritte pasif duran "Katı Model" ve "Gaz Açma"
-(`aria-disabled` + "Yakında"). `disabled` kullanılmaz: odaklanamayan madde
-klavye ve ekran okuyucu kullanıcısına hiç görünmez. Aktif sekmenin tek sahibi
-URL (`?tab=`), varsayılan adrese yazılmaz.
+BEŞ sekme: Proje Bilgileri, Proje İşlem Geçmişi, Proje Evrakları, Poliçe
+Bilgileri, Proje İşlemleri. "Proje Planı", "Katı Model" ve "Gaz Açma" KAPSAM
+DIŞI — şeritte pasif madde olarak da durmuyorlar (K50). Aktif sekmenin tek
+sahibi URL (`?tab=`), varsayılan adrese yazılmaz.
+
+**Çizim editörüne TEK giriş noktası detay başlığındaki "Çizim Editöründe Aç"
+bağlantısı** (`projectEditorPath`, `/projects/:id/editor`). Proje listesindeki
+ad artık detaya geliyor. Bu bağlantı yetkiden ve proje durumundan BAĞIMSIZ
+olarak her zaman görünür: yeni projenin henüz çizimi yok ve ilk çizim de
+buradan yapılıyor — koşullu hâle getirilirse boş proje hiç çizilemez.

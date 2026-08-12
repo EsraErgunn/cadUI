@@ -2,7 +2,6 @@ import { ProjectDocumentsTab } from './ProjectDocumentsTab'
 import { ProjectHistoryTab } from './ProjectHistoryTab'
 import { ProjectInfoTab } from './ProjectInfoTab'
 import { ProjectOperationsTab } from './ProjectOperationsTab'
-import { ProjectPlanTab } from './ProjectPlanTab'
 import { ProjectPolicyTab } from './ProjectPolicyTab'
 import type { ProjectDetailTabKey } from './tabItems'
 import type { Sourced } from '../../../api/mockGate'
@@ -18,7 +17,6 @@ import type {
 
 interface ProjectDetailPanelsProps {
   tab: ProjectDetailTabKey
-  projectId: number
   detail: ProjectDetail
   units: Sourced<ProjectUnitRow[]> | undefined
   history: Sourced<ProjectHistoryRow[]> | undefined
@@ -41,7 +39,6 @@ interface ProjectDetailPanelsProps {
  */
 export function ProjectDetailPanels({
   tab,
-  projectId,
   detail,
   units,
   history,
@@ -62,10 +59,6 @@ export function ProjectDetailPanels({
         onDownloadZpd={() => onDownload('zpd')}
       />
     )
-  }
-
-  if (tab === 'plan') {
-    return <ProjectPlanTab projectId={projectId} onDownloadDwg={() => onDownload('planDwg')} />
   }
 
   if (tab === 'gecmis') {
