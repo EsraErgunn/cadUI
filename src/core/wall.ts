@@ -190,10 +190,21 @@ export function getPlacementRange(
   }
 }
 
+/**
+ * Taşınan bir duvarın YENİ segmenti, KİMLİĞİYLE birlikte.
+ *
+ * `wallId` şart: duvarın kendi açıklıkları da kontrol ediliyor (sabit bir duvar
+ * taşınan duvarın kapısının içine girebilir) ve o açıklıkları bulmanın tek yolu
+ * kimlik. Uçların sırası duvarın `p1Id → p2Id` sırasıyla AYNI olmak zorunda:
+ * `Opening.offsetCm` p1 ucundan ölçülüyor, ters çevrilmiş bir segmentte açıklık
+ * duvarın öbür ucunda aranırdı.
+ */
+export type MovedWallSegment = WallEnds & { wallId: Id }
+
 /** Bir köşenin taşınmasından etkilenen (hareket eden) duvarlar ile hareket ETMEYENLER. */
 export type PointMoveImpact = {
   /** Etkilenen her duvarın YENİ (önerilen) segmenti. */
-  segments: WallEnds[]
+  segments: MovedWallSegment[]
   /** Etkilenmeyen duvarlar — açıklık çakışması bunlara karşı kontrol edilir. */
   stationaryWalls: Wall[]
 }
@@ -214,10 +225,22 @@ export function getPointMoveImpact(
   const movingWalls = getWallsAtPoint(pointId, walls)
   const movingWallIds = new Set(movingWalls.map((wall) => wall.id))
 
-  const segments = movingWalls.flatMap((wall): WallEnds[] => {
-    const otherPointId = wall.p1Id === pointId ? wall.p2Id : wall.p1Id
+  const segments = movingWalls.flatMap((wall): MovedWallSegment[] => {
+    const isMovingP1 = wall.p1Id === pointId
+    const otherPointId = isMovingP1 ? wall.p2Id : wall.p1Id
     const otherPoint = points.find((point) => point.id === otherPointId)
-    return otherPoint ? [{ p1: { x: otherPoint.x, y: otherPoint.y }, p2: targetPosition }] : []
+    if (!otherPoint) return []
+
+    // Uçlar duvarın p1 → p2 sırasında yazılır (taşınan uç hangisiyse oraya):
+    // açıklığın offset'i p1'den ölçülüyor, ters segmentte yanlış uçtan aranırdı.
+    const other = { x: otherPoint.x, y: otherPoint.y }
+    return [
+      {
+        wallId: wall.id,
+        p1: isMovingP1 ? targetPosition : other,
+        p2: isMovingP1 ? other : targetPosition,
+      },
+    ]
   })
 
   return {
@@ -240,13 +263,14 @@ export function getWallMoveImpact(
 ): PointMoveImpact {
   const movingWallIds = new Set(wallIds)
 
-  const segments = wallIds.flatMap((wallId): WallEnds[] => {
+  const segments = wallIds.flatMap((wallId): MovedWallSegment[] => {
     const wall = walls.find((candidate) => candidate.id === wallId)
     if (!wall) return []
     const ends = getWallEnds(wall, points)
     if (!ends) return []
     return [
       {
+        wallId,
         p1: { x: ends.p1.x + dxCm, y: ends.p1.y + dyCm },
         p2: { x: ends.p2.x + dxCm, y: ends.p2.y + dyCm },
       },

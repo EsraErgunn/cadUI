@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import type { Opening, Point, Wall } from '../model'
 import { getPointMoveImpact, getWallMoveImpact } from '../wall'
-import { findBlockingOpeningInSegments } from '../wallGraph'
+import {
+  findBlockingOpeningForMove,
+  findBlockingOpeningInSegments,
+  findBlockingOpeningOnMovedWalls,
+} from '../wallGraph'
 
 const FLOOR_ID = 1
 
@@ -23,8 +27,17 @@ describe('getPointMoveImpact', () => {
     const impact = getPointMoveImpact(2, { x: 500, y: 500 }, walls, points)
 
     expect(impact.segments).toHaveLength(2)
-    expect(impact.segments).toContainEqual({ p1: { x: 0, y: 0 }, p2: { x: 500, y: 500 } })
-    expect(impact.segments).toContainEqual({ p1: { x: 200, y: 300 }, p2: { x: 500, y: 500 } })
+    // Uçlar duvarın p1 → p2 sırasında: duvar 10'da taşınan uç p2, duvar 11'de p1.
+    expect(impact.segments).toContainEqual({
+      wallId: 10,
+      p1: { x: 0, y: 0 },
+      p2: { x: 500, y: 500 },
+    })
+    expect(impact.segments).toContainEqual({
+      wallId: 11,
+      p1: { x: 500, y: 500 },
+      p2: { x: 200, y: 300 },
+    })
   })
 
   it('köşeye bağlı duvarları stationaryWalls listesinden ÇIKARIR', () => {
@@ -55,7 +68,9 @@ describe('getWallMoveImpact', () => {
   it('duvarı KATI olarak öteler — iki ucu da aynı dx/dy alır', () => {
     const impact = getWallMoveImpact([10], 50, -20, [wall], points)
 
-    expect(impact.segments).toEqual([{ p1: { x: 50, y: -20 }, p2: { x: 450, y: -20 } }])
+    expect(impact.segments).toEqual([
+      { wallId: 10, p1: { x: 50, y: -20 }, p2: { x: 450, y: -20 } },
+    ])
   })
 
   it('taşınan duvarı stationaryWalls listesinden ÇIKARIR', () => {
@@ -110,5 +125,123 @@ describe('findBlockingOpeningInSegments', () => {
 
   it('boş segment listesinde undefined döner', () => {
     expect(findBlockingOpeningInSegments([], [wall], points, [door], FLOOR_ID)).toBeUndefined()
+  })
+})
+
+/**
+ * K48: taşınan duvarın KENDİ açıklığı sabit bir duvarın üstüne geldiğinde de
+ * reddedilmeli. Eskiden yalnız ters yön kontrol ediliyordu ve bu vaka SESSİZCE
+ * geçiyordu — kullanıcı kapıyı duvarın içine gömebiliyordu.
+ */
+describe('findBlockingOpeningOnMovedWalls', () => {
+  function makeOpening(id: number, wallId: number, offsetCm: number, widthCm: number): Opening {
+    return { id, wallId, offsetCm, widthCm, type: 'door' }
+  }
+
+  // Sabit duvar: x=250'de düşey bir engel, (250,-100)-(250,100).
+  const stationaryPoints = [makePoint(1, 250, -100), makePoint(2, 250, 100)]
+  const stationaryWall = makeWall(10, 1, 2)
+  // Taşınan duvar 11 yatay; kapısı p1 ucundan 200-300 cm aralığında.
+  const movedDoor = makeOpening(20, 11, 250, 100)
+
+  it('taşınan duvarın kapısı sabit duvarın üstüne gelirse o açıklığı döner', () => {
+    const moved = [{ wallId: 11, p1: { x: 0, y: 0 }, p2: { x: 400, y: 0 } }]
+
+    expect(
+      findBlockingOpeningOnMovedWalls(
+        moved,
+        [stationaryWall],
+        stationaryPoints,
+        [movedDoor],
+        FLOOR_ID,
+      ),
+    ).toBe(movedDoor)
+  })
+
+  it('kesişim kapının DIŞINDA kalıyorsa engel yok', () => {
+    // Duvar sağa kayınca kesişim p1'den 50 cm'de kalıyor; kapı 200-300 aralığında.
+    const moved = [{ wallId: 11, p1: { x: 200, y: 0 }, p2: { x: 600, y: 0 } }]
+
+    expect(
+      findBlockingOpeningOnMovedWalls(
+        moved,
+        [stationaryWall],
+        stationaryPoints,
+        [movedDoor],
+        FLOOR_ID,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('açıklığı olmayan taşınan duvar hiçbir şeyi bloklamaz', () => {
+    const moved = [{ wallId: 12, p1: { x: 0, y: 0 }, p2: { x: 400, y: 0 } }]
+
+    expect(
+      findBlockingOpeningOnMovedWalls(
+        moved,
+        [stationaryWall],
+        stationaryPoints,
+        [movedDoor],
+        FLOOR_ID,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('başka kattaki sabit duvar görülmez', () => {
+    const moved = [{ wallId: 11, p1: { x: 0, y: 0 }, p2: { x: 400, y: 0 } }]
+
+    expect(
+      findBlockingOpeningOnMovedWalls(
+        moved,
+        [{ ...stationaryWall, floorId: 99 }],
+        stationaryPoints,
+        [movedDoor],
+        FLOOR_ID,
+      ),
+    ).toBeUndefined()
+  })
+})
+
+describe('findBlockingOpeningForMove', () => {
+  function makeOpening(id: number, wallId: number, offsetCm: number, widthCm: number): Opening {
+    return { id, wallId, offsetCm, widthCm, type: 'door' }
+  }
+
+  const stationaryPoints = [makePoint(1, 250, -100), makePoint(2, 250, 100)]
+  const stationaryWall = makeWall(10, 1, 2)
+  const stationaryDoor = makeOpening(21, 10, 100, 60)
+  const movedDoor = makeOpening(20, 11, 250, 100)
+  const moved = [{ wallId: 11, p1: { x: 0, y: 0 }, p2: { x: 400, y: 0 } }]
+
+  it('SABİT duvarın açıklığını kesen taşımayı yakalar (eski yön)', () => {
+    expect(
+      findBlockingOpeningForMove(
+        moved,
+        [stationaryWall],
+        stationaryPoints,
+        [stationaryDoor],
+        FLOOR_ID,
+      ),
+    ).toBe(stationaryDoor)
+  })
+
+  it('TAŞINAN duvarın açıklığına giren sabit duvarı da yakalar (yeni yön)', () => {
+    expect(
+      findBlockingOpeningForMove(moved, [stationaryWall], stationaryPoints, [movedDoor], FLOOR_ID),
+    ).toBe(movedDoor)
+  })
+
+  it('iki yön de temizse undefined döner', () => {
+    const away = [{ wallId: 11, p1: { x: 0, y: 900 }, p2: { x: 400, y: 900 } }]
+
+    expect(
+      findBlockingOpeningForMove(
+        away,
+        [stationaryWall],
+        stationaryPoints,
+        [movedDoor, stationaryDoor],
+        FLOOR_ID,
+      ),
+    ).toBeUndefined()
   })
 })

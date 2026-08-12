@@ -1482,6 +1482,43 @@ Testler `core/__tests__/beam.test.ts`, `core/__tests__/beamHandles.test.ts`,
 **Tarayıcıda doğrulandı** (kullanıcı tarafından): kesik kontur, dolgu, iki
 tıklı çizim ve uçtan uzatma çalışıyor.
 
+### K48 — Taşımanın açıklık koruması İKİ YÖNLÜ oldu (K35/K36'nın sessiz boşluğu)
+
+Kapısı olan bir duvarı sürükleyip kapıyı BAŞKA bir duvarın üstüne bindirmek
+engellenmiyordu. Fizik aynı fizik (bir kapı boşluğunun ortasında duvar
+duramaz), yalnız roller ters — ve o ters hâli hiç kontrol edilmiyordu.
+
+**Sebep asimetri.** `findBlockingOpeningInSegments` yalnız şunu soruyor: "hareket
+eden segment, SABİT bir duvarın açıklığını kesiyor mu". Taşınan duvarın kendisi
+`stationaryWalls` listesinden zaten çıkarılmış (haklı olarak — kendi eski
+hâliyle kıyaslamak anlamsız), dolayısıyla ONUN açıklıkları hiçbir zaman
+sorulmuyordu. Hata sessizdi: kullanıcı kapıyı duvarın içine gömüyor, hiçbir
+uyarı çıkmıyordu.
+
+**Çözüm ters yönü de sormak.** `findBlockingOpeningOnMovedWalls` taşınan duvarı
+"açıklığı taşıyan" taraf, sabit duvarları "aday" taraf sayıyor —
+`getInteriorCrossing`'in argümanları yer değiştirmiş hâli, aynı matematik.
+İkisini `findBlockingOpeningForMove` birleştiriyor ve çağıranlar YALNIZ onu
+kullanıyor: iki ayrı çağrı bırakılsaydı biri unutulur ve hata yine sessiz olurdu.
+
+⚠️ **Segmentin uç sırası artık anlamlı.** `Opening.offsetCm` duvarın p1 ucundan
+ölçülüyor, dolayısıyla taşınan segmentin uçları duvarın `p1Id → p2Id` sırasında
+gelmek zorunda. `getPointMoveImpact` eskiden "diğer uç önce" yazıyordu (taşınan
+köşe her zaman p2 oluyordu) — ters çevrilmiş bir duvarda açıklık öbür uçta
+aranırdı. Tip de bunu söylüyor: `WallEnds` yerine `MovedWallSegment`
+(`wallId` + p1/p2), yani açıklığı bulmak için gereken kimlik de segmentle
+birlikte taşınıyor.
+
+**Bilinen sınır (K36'dan miras, değişmedi):** köşe taşımada yalnız o köşeye
+BAĞLI duvarlar kontrol ediliyor; seçili olmayan ama paylaşılan köşe yüzünden
+ESNEYEN komşu duvarlar hâlâ kapsam dışı.
+
+Nerede: `core/wallGraph.ts` (`findBlockingOpeningOnMovedWalls`,
+`findBlockingOpeningForMove`), `core/wall.ts` (`MovedWallSegment`,
+`getPointMoveImpact` uç sırası), `scene/usePointDragTool.ts`,
+`scene/useWallSelectionTool.ts`.
+Testler `core/__tests__/wallMoveImpact.test.ts`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

@@ -95,6 +95,18 @@ saf kısmı test edilebilir kalsın diye. Bilinen sınır: duvar taşımada esne
 komşular (paylaşılan köşeyi taşıyan ama seçili olmayan duvarlar) kontrol
 edilmiyor, yalnız doğrudan taşınan nesne. Detay: `docs/kararlar.md` K36.
 
+⚠️ **Kontrol İKİ YÖNLÜ olmak zorunda (K48).** `findBlockingOpeningInSegments`
+yalnız "hareket eden segment SABİT bir açıklığı kesiyor mu" diye sorar; taşınan
+duvar `stationaryWalls`'tan çıkarıldığı için ONUN açıklığı hiç sorulmuyordu ve
+kapısı olan bir duvar başka duvarın üstüne sürüklenebiliyordu — hata SESSİZDİ.
+Ters yön `findBlockingOpeningOnMovedWalls`'ta; çağıranlar ikisini birleştiren
+`findBlockingOpeningForMove`'u kullanır, ayrı ayrı çağırmaz (biri unutulursa
+hata yine sessiz olur).
+
+⚠️ Taşınan segmentin uçları duvarın `p1Id → p2Id` sırasında olmak ZORUNDA
+(`MovedWallSegment`): `Opening.offsetCm` p1'den ölçülüyor, ters segmentte
+açıklık öbür uçta aranır.
+
 ## Bilinen sınırlar
 
 - **Uca MIN_WALL_LENGTH_CM'den yakın değme bölme üretmez** — güdük duvar

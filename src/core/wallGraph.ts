@@ -1,7 +1,12 @@
 import type { PlanPoint } from './coords'
 import type { Id, Opening, Point, Wall } from './model'
 import { getOpeningSpan } from './opening'
-import { getSegmentLength, getWallEnds, MIN_WALL_LENGTH_CM } from './wall'
+import {
+  getSegmentLength,
+  getWallEnds,
+  MIN_WALL_LENGTH_CM,
+  type MovedWallSegment,
+} from './wall'
 
 /** Kayan nokta payı: snap noktayı zaten doğrunun ÜSTÜNE koyuyor, eşik dar olmalı. */
 const EPSILON_CM = 1e-6
@@ -220,10 +225,11 @@ export function findWallSplits(
  * yasak. `getInteriorCrossing` uç değerlerini (0 veya 1) zaten kesişim
  * sayıyor, ekstra bir eleme gerekmiyor.
  *
- * Bu, YENİ duvar YERLEŞTİRMEYİ kapsar (`appendWall`, dolayısıyla duvar ve oda
- * aracı). Var olan bir duvarı TAŞIYARAK aynı noktaya getirmek (`movePoint`/
- * `moveWall`) ayrı bir yoldan geçiyor ve K24'ün "bölme reddedilir, duvar
- * silinmez" davranışında kalıyor — kapsam dışı, dokunulmadı.
+ * ⚠️ Bu kontrol TEK YÖNLÜ: "aday segment, SABİT bir duvarın açıklığını kesiyor
+ * mu". Taşıma senaryosunda ters yön de gerekiyor (taşınan duvarın KENDİ
+ * açıklığı sabit bir duvarın üstüne gelebilir) — bkz.
+ * `findBlockingOpeningOnMovedWalls`. İkisini birden isteyen çağıran
+ * `findBlockingOpeningForMove` kullanır.
  */
 export function findBlockingOpening(
   candidate: { p1: PlanPoint; p2: PlanPoint },
@@ -278,4 +284,75 @@ export function findBlockingOpeningInSegments(
   }
 
   return undefined
+}
+
+/**
+ * `findBlockingOpening`'in TERS yönü: TAŞINAN duvarın KENDİ açıklığı, sabit bir
+ * duvarın gövdesinin üstüne mi geliyor?
+ *
+ * Bu kontrol eksikti ve hata sessizdi (K48): kapısı olan bir duvarı sürükleyip
+ * kapıyı başka bir duvarın üstüne bindirmek engellenmiyordu. Diğer yön
+ * (`findBlockingOpeningInSegments`) yalnız "hareket eden segment, SABİT bir
+ * açıklığı kesiyor mu" diye soruyor — taşınan duvarın açıklığını hiç görmüyor,
+ * çünkü o duvar `stationaryWalls` listesinden zaten çıkarılmış.
+ *
+ * Fiziksel gerekçe K35/K36'nın aynısı, yalnız rolleri değişmiş: bir kapı
+ * boşluğunun ortasında duvar duramaz — duvarın mı kapıya, kapının mı duvara
+ * getirildiği fark etmez.
+ *
+ * Segmentin uçları duvarın `p1 → p2` sırasında gelmek zorunda (`MovedWallSegment`
+ * bunu şart koşuyor): açıklığın aralığı p1 ucundan ölçülüyor.
+ */
+export function findBlockingOpeningOnMovedWalls(
+  movedSegments: readonly MovedWallSegment[],
+  stationaryWalls: readonly Wall[],
+  points: readonly Point[],
+  openings: readonly Opening[],
+  floorId: Id,
+): Opening | undefined {
+  for (const moved of movedSegments) {
+    const movedOpenings = openings.filter((opening) => opening.wallId === moved.wallId)
+    if (movedOpenings.length === 0) continue
+
+    const lengthCm = getSegmentLength(moved.p1, moved.p2)
+    if (lengthCm < MIN_WALL_LENGTH_CM) continue
+    const movedSegment: Segment = { p1: moved.p1, p2: moved.p2, lengthCm }
+
+    for (const wall of stationaryWalls) {
+      if (wall.floorId !== floorId) continue
+
+      const wallSegment = readSegment(wall, points)
+      if (!wallSegment) continue
+
+      // Roller ters: aday SABİT duvar, açıklığı taşıyan (B) ise TAŞINAN duvar.
+      const crossing = getInteriorCrossing(wallSegment, movedSegment)
+      if (!crossing) continue
+
+      const blocking = movedOpenings.find((opening) => {
+        const [startCm, endCm] = getOpeningSpan(opening)
+        return crossing.onB > startCm && crossing.onB < endCm
+      })
+      if (blocking) return blocking
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Taşımanın açıklık kontrolünün TEK kapısı: iki yönü birden sorar. Çağıranlar
+ * bunu kullanır ki biri ters yönü yazmayı unutamasın — hata sessiz olurdu
+ * (kullanıcı kapıyı duvarın içine gömer, hiçbir uyarı çıkmaz).
+ */
+export function findBlockingOpeningForMove(
+  movedSegments: readonly MovedWallSegment[],
+  stationaryWalls: readonly Wall[],
+  points: readonly Point[],
+  openings: readonly Opening[],
+  floorId: Id,
+): Opening | undefined {
+  return (
+    findBlockingOpeningInSegments(movedSegments, stationaryWalls, points, openings, floorId) ??
+    findBlockingOpeningOnMovedWalls(movedSegments, stationaryWalls, points, openings, floorId)
+  )
 }
