@@ -1,5 +1,5 @@
 import type { InstallationLine } from './installationModel'
-import { PIPE_TYPES } from './pipeTypes'
+import { getLineOuterWidthCm } from './lineKinds'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { isPointInRect, type PlanRect } from '../../core/selection'
@@ -18,7 +18,7 @@ export function pickLineAt(
 ): Id | null {
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index]
-    const bandCm = PIPE_TYPES[line.pipeTypeName].outerDiameterCm / 2 + toleranceCm
+    const bandCm = getLineOuterWidthCm(line) / 2 + toleranceCm
 
     for (let segment = 0; segment + 1 < line.points.length; segment += 1) {
       const projection = projectOntoSegment(

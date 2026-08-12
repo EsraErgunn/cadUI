@@ -1,8 +1,10 @@
+import { getTargetElementId } from './installationModel'
 import type {
   InstallationConnection,
   InstallationElement,
   InstallationLine,
 } from './installationModel'
+import { isDischargeKind } from './lineKinds'
 import type { PlanPoint } from '../../core/coords'
 import { snapPointToGrid } from '../../core/grid'
 import type { Id } from '../../core/model'
@@ -26,6 +28,15 @@ export type LineClipboardEntry = Pick<InstallationLine, 'kind' | 'pipeTypeName'>
  */
 export type ClipboardConnection =
   | { kind: 'port'; lineIndex: number; end: 'start' | 'end'; elementIndex: number; portId: string }
+  /** Cihaz kenarındaki serbest deşarj ağzı: yerel konumu kopyayla birlikte gelir. */
+  | {
+      kind: 'outlet'
+      lineIndex: number
+      end: 'start' | 'end'
+      elementIndex: number
+      position: [number, number]
+      direction: [number, number]
+    }
   | {
       kind: 'line'
       lineIndex: number
@@ -63,7 +74,22 @@ export function toClipboardPayload(
   lineIds: readonly Id[],
 ): ClipboardPayload {
   const copiedElements = elements.filter((element) => elementIds.includes(element.id))
-  const copiedLines = lines.filter((line) => lineIds.includes(line.id))
+  const copiedElementIds = new Set(copiedElements.map((element) => element.id))
+  /**
+   * Cihazı seçimde OLMAYAN bir baca/havalandırma kopyalanmaz: yapıştırılsaydı
+   * hiçbir cihaza bağlı olmayan, serbest duran bir kanal doğardı — oysa kanal
+   * yalnız cihazdan çizilebiliyor, yani elle üretilemeyecek bir durum.
+   */
+  const copiedLines = lines.filter(
+    (line) =>
+      lineIds.includes(line.id) &&
+      (!isDischargeKind(line.kind) ||
+        connections.some((connection) => {
+          if (connection.lineId !== line.id) return false
+          const elementId = getTargetElementId(connection.target)
+          return elementId !== null && copiedElementIds.has(elementId)
+        })),
+  )
 
   const elementIndexById = new Map(copiedElements.map((element, index) => [element.id, index]))
   const lineIndexById = new Map(copiedLines.map((line, index) => [line.id, index]))
@@ -87,6 +113,21 @@ export function toClipboardPayload(
         end: connection.end,
         elementIndex,
         portId: target.portId,
+      })
+      continue
+    }
+
+    if (target.kind === 'outlet') {
+      const elementIndex = elementIndexById.get(target.elementId)
+      if (elementIndex === undefined) continue
+
+      copiedConnections.push({
+        kind: 'outlet',
+        lineIndex,
+        end: connection.end,
+        elementIndex,
+        position: target.position,
+        direction: target.direction,
       })
       continue
     }

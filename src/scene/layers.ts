@@ -36,6 +36,8 @@ export const RENDER_ORDER = {
    * (oda dolgusu geldiğinde) tamamen kaybolurdu.
    */
   installationGhost: 35,
+  /** Baca/havalandırma kanalı borunun ALTINDA: ikisi kesiştiğinde gaz hattı okunmalı. */
+  discharge: 38,
   pipe: 40,
   insulation: 45,
   fitting: 50,

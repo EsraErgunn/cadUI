@@ -7,6 +7,8 @@ export const ARCHITECTURE_GHOST_ELEVATION_CM = -0.5
 export const ARCHITECTURE_GHOST_SYMBOL_LIFT_CM = 0.02
 /** Tesisatın mimari görünümdeki izi; sıra renderOrder ile belirlenir (bkz. layers.ts). */
 export const INSTALLATION_GHOST_ELEVATION_CM = 0.15
+/** Baca/havalandırma borunun bir tık ALTINDA: konu gaz hattı, kanalın üstünden geçmeli. */
+export const DISCHARGE_ELEVATION_CM = -0.05
 export const LINE_ELEVATION_CM = 0
 /** Uç işareti hattın bir tık üstünde: ikisi de opak, hat işareti örtmesin. */
 export const LINE_END_MARKER_LIFT_CM = 0.05

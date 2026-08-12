@@ -11,9 +11,10 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
-import { getLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
+import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { advanceChain, rewindChain, startChain } from '../core/lineChain'
 import { isSamePoint } from '../core/lineGeometry'
+import { isGasCarryingKind } from '../core/lineKinds'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
 import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSnap'
 import { resolveRightClick, type RightClickInput } from '../core/pointerGestures'
@@ -79,7 +80,7 @@ export function useLineTool(): LineToolState {
   const camera = useThree((state) => state.camera)
   const cursorRef = useRef<PlanPoint | null>(null)
   const snapRef = useRef<LineToolSnap | null>(null)
-  const kind = getLineKind(activeToolId)
+  const kind = getGasLineKind(activeToolId)
 
   useEffect(() => {
     if (!kind || !(camera instanceof OrthographicCamera)) return undefined
@@ -131,8 +132,13 @@ export function useLineTool(): LineToolState {
       // yarıçapına düşürür ve adım, az önce yazdığı boruyu AYIRARAK biterdi.
       const anchorLineId =
         draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
+      // Baca/havalandırma aday DEĞİL: gaz borusu onlara yapışsaydı `lineSplit`
+      // kanalı ortasından ayırır ve içine bir gaz düğümü açardı.
       const floorLines = cad.installationLines.filter(
-        (line) => line.floorId === cad.activeFloorId && line.id !== anchorLineId,
+        (line) =>
+          line.floorId === cad.activeFloorId &&
+          line.id !== anchorLineId &&
+          isGasCarryingKind(line.kind),
       )
       const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
       if (line) return { point: line.position, snap: { kind: 'line', position: line.position, line } }

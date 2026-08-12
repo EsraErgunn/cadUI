@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Fragment, useMemo, useRef, type ComponentRef, type ReactNode, type RefObject } from 'react'
 import type { Group } from 'three'
 
+import { DischargeRunMesh } from './DischargeRunMesh'
 import { LineTerminal, CornerMarker } from './LineMarkers'
 import { getLineColor, getLineWidthPx, toWidthCm } from './lineStyle'
 import { INSTALLATION_GHOST_ELEVATION_CM, LINE_ELEVATION_CM } from './plumbingLayers'
@@ -16,6 +17,7 @@ import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
 import type { InstallationConnection, InstallationLine, InstallationLinePoint } from '../core/installationModel'
+import { isDischargeKind } from '../core/lineKinds'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Hat tıklanabilir değil: tesisat tutması ışınla değil saf geometriyle yapılıyor. */
@@ -142,8 +144,29 @@ function useDraggedLinePoints(
   }, [line.points, corner])
 }
 
+/**
+ * Baca/havalandırma boru DEĞİL: çapı, uç işareti ve köşe noktası yoktur; sabit
+ * genişlikte çift çizgili bir kanal olarak çizilir. Ayrı bileşen, çünkü boru
+ * yolundaki hook'ların (zoom kalınlığı, konum belleklemesi) hiçbiri burada
+ * anlamlı değil — tek bileşende koşullu dönüş hook sırasını bozardı.
+ */
+function DischargeLineMesh({ line, isSelected, tone, draggedCorner }: InstallationLineMeshProps) {
+  const points = useDraggedLinePoints(line, draggedCorner)
+  const centerline = useMemo(() => points.map((point) => point.position), [points])
+  if (!isDischargeKind(line.kind)) return null
+
+  return (
+    <DischargeRunMesh
+      kind={line.kind}
+      centerline={centerline}
+      isSelected={isSelected}
+      tone={tone === 'ghost' ? 'ghost' : 'normal'}
+    />
+  )
+}
+
 /** Renk ÇAPTAN gelir (K-W2); seçiliyken maviye döner — seçim rengi tek yerden. */
-export function InstallationLineMesh({
+function PipeLineMesh({
   line,
   zoom,
   connections = [],
@@ -224,6 +247,16 @@ export function InstallationLineMesh({
       )}
     </group>
   )
+}
+
+/**
+ * Hat türüne göre çizim yolunu seçer. Dallanma burada, `InstallationLines`
+ * map'inde DEĞİL: hayalet (Ghosts) ve önizleme de bu bileşenden geçiyor, dal
+ * map'e konsaydı her çağıranda tekrar yazılması gerekirdi.
+ */
+export function InstallationLineMesh(props: InstallationLineMeshProps) {
+  if (isDischargeKind(props.line.kind)) return <DischargeLineMesh {...props} />
+  return <PipeLineMesh {...props} />
 }
 
 type InstallationLinesProps = {
