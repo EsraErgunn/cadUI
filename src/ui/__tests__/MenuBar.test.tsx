@@ -186,4 +186,18 @@ describe('MenuBar', () => {
       'true',
     )
   })
+
+  it('Görünüm > Etiketleri Göster varsayılan açıktır ve tıklayınca kapanır', async () => {
+    const user = userEvent.setup()
+    useUiStore.setState({ isElementLabelsVisible: true })
+    renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Görünüm/ }))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Etiketleri Göster' })
+    expect(item).toBeEnabled()
+    expect(item).toHaveAttribute('aria-checked', 'true')
+
+    await user.click(item)
+    expect(useUiStore.getState().isElementLabelsVisible).toBe(false)
+  })
 })

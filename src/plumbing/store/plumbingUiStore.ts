@@ -27,6 +27,13 @@ import type { InstallationElementType } from '../core/symbolMetadata'
 export type LineCornerDrag = { lineId: Id; pointId: Id; position: PlanPoint }
 
 /**
+ * Sürüklenen ad etiketi. `offsetCm` CANLI kayma (eleman konumuna göre) —
+ * `draggingLineCorner` ile aynı desen: bırakılana kadar cadStore yazılmaz,
+ * sahne etiketi geçici kaymasıyla çizer.
+ */
+export type LabelDrag = { elementId: Id; offsetCm: PlanPoint }
+
+/**
  * Devam eden çizim: hangi araçla + zincirin nerede kaldığı. Zincirin nasıl
  * ilerleyip geri alınacağı saf fonksiyonlarda (`core/lineChain.ts`), store
  * yalnız sonucu tutar. Noktaların id'si yok: id'ler boru kaydedilirken üretilir.
@@ -75,6 +82,9 @@ type PlumbingUiState = {
    *  hattı geçici konumuyla çizer (bkz. `InstallationLineMesh`). */
   draggingLineCorner: LineCornerDrag | null
   setDraggingLineCorner: (drag: LineCornerDrag | null) => void
+  /** Sürüklenen ad etiketi; boş = sürükleme yok (bkz. `ElementNameLabels`). */
+  draggingLabel: LabelDrag | null
+  setDraggingLabel: (drag: LabelDrag | null) => void
   /** Bundan sonra çizilecek hatların çapı. Araç ayarıdır: kaydedilmez, geçmişe girmez. */
   activePipeTypeName: PipeTypeName
   setActivePipeType: (name: PipeTypeName) => void
@@ -118,6 +128,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     draftLine: null,
     dischargeDraft: null,
     draggingLineCorner: null,
+    draggingLabel: null,
     activePipeTypeName: DEFAULT_PIPE_TYPE_NAME,
     elementClipboard: [],
     lineClipboard: [],
@@ -182,6 +193,11 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     setDraggingLineCorner: (drag) =>
       set((draft) => {
         draft.draggingLineCorner = drag
+      }),
+
+    setDraggingLabel: (drag) =>
+      set((draft) => {
+        draft.draggingLabel = drag
       }),
 
     setActivePipeType: (name) =>

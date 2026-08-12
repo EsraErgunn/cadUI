@@ -19,6 +19,7 @@ import {
   resolveOnLineSlide,
   type OnLineSlideTarget,
 } from '../core/elementAttach'
+import { getElementLabelOffsetCm, pickElementLabelAt } from '../core/elementLabel'
 import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
 import type { InstallationElement } from '../core/installationModel'
@@ -82,6 +83,20 @@ type CornerDragTracker = {
   isAdditive: boolean
 }
 
+/**
+ * Ad etiketi sürüklemesi. Canlı kayma `plumbingUiStore.draggingLabel`'da
+ * (köşe sürüklemesiyle aynı desen); bırakılınca TEK `setElementLabelOffset`
+ * yazımı olur. Kayma ızgaraya YAKALANMAZ: etiket bir açıklama notudur, çizim
+ * geometrisi değil.
+ */
+type LabelDragTracker = {
+  elementId: Id
+  startOffsetCm: PlanPoint
+  pointerOrigin: PlanPoint
+  /** Sürüklemeden bırakılırsa jest bir TIKLAMADIR; etiketin elemanı seçilir. */
+  isAdditive: boolean
+}
+
 export type SelectionToolState = {
   /** Sürüklenen elemanlar; sahne onları store konumu + kayma ile çizer. */
   draggedElementIds: readonly Id[]
@@ -119,6 +134,7 @@ export function useSelectionTool(): SelectionToolState {
 
     let grab: SelectionGrab | undefined
     let cornerDrag: CornerDragTracker | undefined
+    let labelDrag: LabelDragTracker | undefined
     let marqueeAnchor: PlanPoint | undefined
     let isAdditiveMarquee = false
     /** İmlecin tuvaldeki son yeri; yapıştırma buraya düşer. İmleç hiç girmediyse null. */
@@ -134,6 +150,11 @@ export function useSelectionTool(): SelectionToolState {
     const endCornerDrag = () => {
       cornerDrag = undefined
       usePlumbingUiStore.getState().setDraggingLineCorner(null)
+    }
+
+    const endLabelDrag = () => {
+      labelDrag = undefined
+      usePlumbingUiStore.getState().setDraggingLabel(null)
     }
 
     const endMarquee = () => {
@@ -345,6 +366,27 @@ export function useSelectionTool(): SelectionToolState {
       if (event.button !== PRIMARY_BUTTON) return
 
       const { zoom } = readCameraViewport(camera)
+
+      // Etiket elemanların ÜSTÜNDE çizilir; tutma sınavı da aynı sırayla —
+      // etiket isabeti eleman isabetinin önüne geçer. Gizli etiket TUTULMAZ:
+      // görünmeyen bir şeyi sürüklemek "boşluk seçim yapmıyor" hissi verirdi.
+      const labelTarget = useUiStore.getState().isElementLabelsVisible
+        ? pickElementLabelAt(event.planPoint, readFloorElements(), getMetadata, zoom)
+        : null
+      if (labelTarget) {
+        const startOffsetCm = getElementLabelOffsetCm(labelTarget, getMetadata(labelTarget.type), zoom)
+        labelDrag = {
+          elementId: labelTarget.id,
+          startOffsetCm,
+          pointerOrigin: event.planPoint,
+          isAdditive: event.shiftKey,
+        }
+        usePlumbingUiStore
+          .getState()
+          .setDraggingLabel({ elementId: labelTarget.id, offsetCm: startOffsetCm })
+        return
+      }
+
       const target = pickElementAt(
         event.planPoint,
         readFloorElements(),
@@ -370,6 +412,17 @@ export function useSelectionTool(): SelectionToolState {
       // Yapıştırma imlecin olduğu yere düşüyor; konum burada birikir (jest
       // sırasında React render'ı tetiklemesin diye state değil kapanış değişkeni).
       lastCursor = event.planPoint
+
+      if (labelDrag) {
+        usePlumbingUiStore.getState().setDraggingLabel({
+          elementId: labelDrag.elementId,
+          offsetCm: {
+            x: labelDrag.startOffsetCm.x + (event.planPoint.x - labelDrag.pointerOrigin.x),
+            y: labelDrag.startOffsetCm.y + (event.planPoint.y - labelDrag.pointerOrigin.y),
+          },
+        })
+        return
+      }
 
       if (marqueeAnchor) {
         usePlumbingUiStore.getState().setMarquee(toPlanRect(marqueeAnchor, event.planPoint))
@@ -450,6 +503,28 @@ export function useSelectionTool(): SelectionToolState {
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
       if (event.button !== PRIMARY_BUTTON) return
 
+      if (labelDrag) {
+        const drag = labelDrag
+        const offsetCm = usePlumbingUiStore.getState().draggingLabel?.offsetCm
+        endLabelDrag()
+        if (!offsetCm) return
+
+        // Yer değişmediyse jest bir TIKLAMADIR: store'a yazılmaz, etiketin
+        // elemanı seçilir (köşe tıklamasının kuralıyla aynı).
+        if (offsetCm.x === drag.startOffsetCm.x && offsetCm.y === drag.startOffsetCm.y) {
+          const ui = usePlumbingUiStore.getState()
+          if (drag.isAdditive) {
+            ui.toggleSelectedElement(drag.elementId)
+            return
+          }
+          ui.setSelectedElements([drag.elementId])
+          ui.setSelectedLines([])
+          return
+        }
+        useCadStore.getState().setElementLabelOffset(drag.elementId, offsetCm)
+        return
+      }
+
       if (marqueeAnchor) {
         finishMarquee(event)
         return
@@ -508,6 +583,7 @@ export function useSelectionTool(): SelectionToolState {
     const handleCancel = () => {
       endDrag()
       endCornerDrag()
+      endLabelDrag()
       endMarquee()
       usePlumbingUiStore.getState().clearSelection()
     }
@@ -576,6 +652,7 @@ export function useSelectionTool(): SelectionToolState {
       unsubscribe()
       window.removeEventListener('keydown', handleKeyDown)
       endDrag()
+      endLabelDrag()
       endMarquee()
       // Araç değişince veya görünümden çıkınca seçim vurgusu asılı kalmasın.
       usePlumbingUiStore.getState().clearSelection()

@@ -15,6 +15,13 @@ export type InstallationElement = {
   angleDeg: number
   /** 1 = metadata'daki doğal boy. Sembol başına hard-coded ölçek YOK. */
   scale: number
+  /**
+   * Ad etiketinin eleman konumuna göre kayması (cm). Alan YOKSA etiket
+   * varsayılan yerinde (sembol kutusunun üstünde) durur — mutlak konum değil
+   * kayma saklanır ki eleman taşınınca etiket kendiliğinden birlikte gelsin.
+   * Hesabın tek sahibi core/elementLabel.ts.
+   */
+  labelOffsetCm?: PlanPoint
 }
 
 export type InstallationLineKind =

@@ -21,7 +21,7 @@ import { getMeasurementAnchor, getSegmentLengthCm } from '../core/lineGeometry'
  * Font REPODAN gelir (RoomLabel ile aynı gerekçe): verilmezse troika varsayılanı
  * Google Fonts CDN'ine gidiyor ve istek düşünce hata vermeden 0 piksel çiziyor.
  */
-const FONT_URL = '/fonts/roboto-regular.woff'
+export const FONT_URL = '/fonts/roboto-regular.woff'
 
 /**
  * Yazı EKRAN boyunda sabit kalsın: zoom = piksel/cm olduğu için dünya boyu
