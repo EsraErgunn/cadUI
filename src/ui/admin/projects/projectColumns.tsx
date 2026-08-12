@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 
 import type { ProjectListItem, ProjectSortKey, ProjectStatus } from '../../../api/projects'
 import type { DataTableColumn } from '../DataTable'
-import { gasFirmUpdatePath, projectEditorPath } from '../adminNavItems'
+import { DateTimeCell } from '../DateTimeCell'
+import { EmptyValue } from '../EmptyValue'
+import { gasFirmUpdatePath, projectDetailPath } from '../adminNavItems'
 import { ADMIN_CELL_LINK } from '../adminVariants'
-import { DateTimeCell } from './DateTimeCell'
 import { DocumentIndicator } from './DocumentIndicator'
-import { EmptyValue } from './EmptyValue'
 import { HeatingTypeBadge } from './HeatingTypeBadge'
 import { ProjectRowActions } from './ProjectRowActions'
 import { ProjectTypeBadge } from './ProjectTypeBadge'
@@ -59,7 +59,7 @@ export function buildProjectColumns({
       label: 'Proje Adı',
       sortKey: 'name',
       cell: (project) => (
-        <Link to={projectEditorPath(project.id)} className={ADMIN_CELL_LINK}>
+        <Link to={projectDetailPath(project.id)} className={ADMIN_CELL_LINK}>
           {project.name}
         </Link>
       ),

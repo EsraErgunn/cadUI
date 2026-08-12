@@ -22,6 +22,28 @@ export const UNIMPLEMENTED_ENDPOINTS = {
   firmUserUpdate: 'PUT /api/projectfirmusers/{id}',
   /** TODO(esra): GET /api/projectfirmusers/availability?email&username&excludeUserId */
   firmUserAvailability: 'GET /api/projectfirmusers/availability',
+
+  /**
+   * Proje detayı — `GET /api/projects/{id}` VAR ama yalnız ad/kod/adres/tarih
+   * döndürüyor. Durum, tesisat no, proje/ısınma tipi, müstakil, ruhsat, firma
+   * mühendisi, onay bilgileri ve teknik değerler ayrı bir uç ister.
+   * TODO(esra): GET /api/projects/{id}/detail
+   */
+  projectDetailExtras: 'GET /api/projects/{id}/detail',
+  /** TODO(esra): GET /api/projects/{id}/units — ProjectUnit + Device entity'leri VAR, controller yok. */
+  projectUnits: 'GET /api/projects/{id}/units',
+  /** TODO(esra): GET /api/projects/{id}/operation-history — OperationHistory entity'si VAR. */
+  projectHistory: 'GET /api/projects/{id}/operation-history',
+  /** TODO(esra): GET /api/projects/{id}/docs — Doc + ProjectDoc entity'leri VAR. */
+  projectDocuments: 'GET /api/projects/{id}/docs',
+  /** TODO(esra): GET /api/projects/{id}/policies — Policy entity'si ProjectUnit'e bağlı. */
+  projectPolicies: 'GET /api/projects/{id}/policies',
+  /** TODO(esra): POST /api/projects/{id}/decision — onay/ret/revizyon; onay kodu üretir. */
+  projectDecision: 'POST /api/projects/{id}/decision',
+  /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
+  projectZpdFile: 'GET /api/projects/{id}/zpd',
+  /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */
+  projectPdfReport: 'GET /api/projects/{id}/report.pdf',
 } as const
 
 /**

@@ -69,7 +69,12 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   (login yanıtındaki `roleCode`); `usePermission` hâlâ mock izin listesine bakıyor, yeni
   kodda kullanılmaz. İkisi birleşene kadar tek yetki kaynağı rol kodudur — istemci tarafı
   yalnız GÖRÜNÜRLÜK içindir, denetim sunucuda.
-  (bkz. knowledge/access-control.md, knowledge/admin-list-state.md)
+  Proje DETAY ekranı `/projects/:id`'yi devraldı, çizim editörü
+  `/projects/:id/editor`'a taşındı (K53). Detayın verisinin çoğunun ucu YOK:
+  sahte veri yalnız geliştirme derlemesinde üretilir, üretimde bölüm boş kalır
+  ve gerçek/uydurma ayrımı tipte durur (K51) — varsayarak doldurma.
+  (bkz. knowledge/access-control.md, knowledge/admin-list-state.md,
+  knowledge/project-detail.md)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
