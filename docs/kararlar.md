@@ -1519,6 +1519,49 @@ Nerede: `core/wallGraph.ts` (`findBlockingOpeningOnMovedWalls`,
 `scene/useWallSelectionTool.ts`.
 Testler `core/__tests__/wallMoveImpact.test.ts`.
 
+### K49 — Grup dönüşümü ve çoğaltma artık alan nesnesini ve kirişi de kapsıyor
+
+`transformOps.ts` yalnız duvar ve nokta sembolü biliyordu: bir kolon ya da
+kiriş seçip döndür/aynala/Ctrl+D'ye basmak HİÇBİR ŞEY yapmıyordu (sessizce
+`false` dönüyordu) ve paneldeki düğmeler zaten `hasWall` koşuluyla pasifti.
+Kiriş eklenince (K47) borç ikiye katlandı; ikisi tek işte kapatıldı çünkü aynı
+dört noktaya (dayanak, dönüşüm, çoğaltma, düğme aktifliği) dokunuyorlar.
+
+**Dayanak (pivot) her türü sayar.** Yalnız kolon seçiliyken sınır kutusu onun
+merkezinden kuruluyor; yoksa `getPointsCenter` boş dizi alır, dayanak
+bulunamaz ve döndürme hiç çalışmazdı. Kirişin İKİ ucu da giriyor: merkezini
+almak uzun bir kirişin kapladığı alanı olduğundan küçük gösterirdi.
+
+**Açı işi türe göre farklı.** Alan nesnesi serbest sembolle aynı: merkez
+dönüşümden, `angleDeg` `applyTransformToAngleDeg`'den geçer — yoksa 90° dönen
+grubun içinde nesne yer değiştirir ama dik kalır. Kirişin açı ALANI YOK, yönü
+iki ucundan türüyor; uçları dönüştürmek açıyı kendiliğinden döndürüyor.
+
+**Çoğaltma ayrı dosyaya çıktı** (`store/duplicateOps.ts`): `transformOps.ts`
+dört türle birlikte 330 satırı geçiyordu. Bölme sırasında ortak yardımcı
+`collectMovingPointIds` iki dosyanın da işine yarıyordu ve `store/` içinde
+bırakılsaydı karşılıklı import → çalışma zamanı döngüsü olurdu (K17'nin aynı
+tuzağı); saf hâliyle `core/wall.ts`'e `collectWallPointIds` olarak taşındı.
+
+Etiket taşıyan üç tür (sembol, alan nesnesi, kiriş) kopyada etiketini YENİDEN
+üretir ve kopyalar TEK TEK diziye eklenir: sıradaki etiket bir önceki kopyayı
+da görmeli, yoksa iki kopya aynı adı alır (KK-10).
+
+**Panel düğmelerinin koşulu değişti:** `hasWall` → "açıklık DIŞINDA bir şey
+seçili". Açıklık kendi koordinatını taşımıyor (duvarına offset'le bağlı), yalnız
+o seçiliyken dönüşümün uygulanacağı bir koordinat yok — diğer dört tür taşıyor.
+
+⚠️ **Bilinen sınır (yeni değil, artık yazılı): grup dönüşümünde açıklık
+koruması ÇALIŞMIYOR.** Ne duvarlar (K35/K36/K48) ne alan nesneleri için. Tek
+nesne sürüklemede kontrol var, bu yolda yok: burada duvarın kendisi de
+oynayabildiği için "hangi duvara göre" sorusunun tek cevabı yok ve kısmen
+uygulanan bir grup dönüşümü tek-Ctrl+Z sözleşmesini bozardı. Kapatılırsa DÖRT
+tür için birden kapatılmalı.
+
+Nerede: `store/transformOps.ts`, `store/duplicateOps.ts` (yeni),
+`core/wall.ts` (`collectWallPointIds`), `ui/properties/SelectionActions.tsx`.
+Testler `store/__tests__/transformAreaObjectBeam.test.ts`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
