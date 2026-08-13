@@ -1,7 +1,8 @@
+import { resolveDocumentTypeLabel, type DocumentType } from '../../../api/documentTypes'
 import type { Lookup } from '../../../api/projects'
 import type { AppliedFilter } from '../FilterChips'
 import { lastMonthRange } from '../adminDateRange'
-import type { ProjectFilters } from './useProjectListParams'
+import type { DocumentFilters } from './useDocumentListParams'
 
 /** Seçim kutusu kaynağı henüz gelmediyse etiket kimliği değil bunu gösterir:
     kullanıcıya iç kimlik sızmasın, etiket yine de kaldırılabilir kalsın. */
@@ -16,27 +17,19 @@ function toDisplayDate(isoDate: string): string {
   return `${day}.${month}.${year}`
 }
 
-function findLookupName(lookups: Lookup[], id: number): string {
-  return lookups.find((lookup) => lookup.id === id)?.name ?? PENDING_LOOKUP_LABEL
-}
-
-interface ProjectFilterChipsOptions {
-  filters: ProjectFilters
-  districts: Lookup[]
+interface DocumentFilterChipsOptions {
+  filters: DocumentFilters
+  documentTypes: DocumentType[]
   projectFirms: Lookup[]
-  onApply: (filters: ProjectFilters) => void
+  onApply: (filters: DocumentFilters) => void
 }
 
-/**
- * Üst bardaki "Bölge" bilerek listelenmez: o, sayfanın filtre çubuğuna ait
- * değil — kapsam seçimi zaten üst barda görünür duruyor.
- */
-export function buildProjectFilterChips({
+export function buildDocumentFilterChips({
   filters,
-  districts,
+  documentTypes,
   projectFirms,
   onApply,
-}: ProjectFilterChipsOptions): AppliedFilter[] {
+}: DocumentFilterChipsOptions): AppliedFilter[] {
   const applied: AppliedFilter[] = []
   const defaultRange = lastMonthRange(new Date())
   const hasDateRange = filters.dateFrom !== '' && filters.dateTo !== ''
@@ -54,13 +47,13 @@ export function buildProjectFilterChips({
     })
   }
 
-  const districtId = filters.districtId
-  if (districtId !== null) {
+  const docTypeCode = filters.docTypeCode
+  if (docTypeCode !== null) {
     applied.push({
-      key: 'district',
-      label: 'İlçe',
-      value: findLookupName(districts, districtId),
-      onRemove: () => onApply({ ...filters, districtId: null }),
+      key: 'type',
+      label: 'Döküman Tipi',
+      value: resolveDocumentTypeLabel(docTypeCode, documentTypes),
+      onRemove: () => onApply({ ...filters, docTypeCode: null }),
     })
   }
 
@@ -69,7 +62,8 @@ export function buildProjectFilterChips({
     applied.push({
       key: 'firm',
       label: 'Proje Firması',
-      value: findLookupName(projectFirms, projectFirmId),
+      value:
+        projectFirms.find((firm) => firm.id === projectFirmId)?.name ?? PENDING_LOOKUP_LABEL,
       onRemove: () => onApply({ ...filters, projectFirmId: null }),
     })
   }

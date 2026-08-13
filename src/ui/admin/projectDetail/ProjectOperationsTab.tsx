@@ -2,12 +2,13 @@ import { CheckCheck, FileDown, Plus, RotateCcw, ShieldPlus, X } from 'lucide-rea
 import { Link } from 'react-router-dom'
 
 import type { ProjectDecision } from '../../../api/projectDetail'
-import { DOCUMENT_CREATE_PATH, POLICY_CREATE_PATH } from '../adminNavItems'
+import { POLICY_CREATE_PATH, documentCreatePath } from '../adminNavItems'
 import { quickActionVariants } from './projectDetailVariants'
 
 const DRAFT_HINT = 'Taslak proje işleme alınamaz; firma tarafından gönderilmesi gerekir.'
 
 interface ProjectOperationsTabProps {
+  projectId: number
   canApprove: boolean
   /** Taslak projede karar işlemleri pasif (KK-2). */
   isDraft: boolean
@@ -37,6 +38,7 @@ const DECISION_SHORTCUTS: DecisionShortcut[] = [
  * görünür ama pasif ve sebebi yazıyor.
  */
 export function ProjectOperationsTab({
+  projectId,
   canApprove,
   isDraft,
   isSubmitting,
@@ -79,7 +81,7 @@ export function ProjectOperationsTab({
           PDF Rapor Al
         </button>
 
-        <Link to={DOCUMENT_CREATE_PATH} className={quickActionVariants()}>
+        <Link to={documentCreatePath(projectId)} className={quickActionVariants()}>
           <Plus aria-hidden className="size-5 text-ink-muted" />
           Evrak Ekle
         </Link>

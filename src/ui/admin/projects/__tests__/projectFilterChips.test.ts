@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { Lookup } from '../../../../api/projects'
+import { lastMonthRange } from '../../adminDateRange'
 import { buildProjectFilterChips } from '../projectFilterChips'
-import { lastMonthRange, type ProjectFilters } from '../useProjectListParams'
+import type { ProjectFilters } from '../useProjectListParams'
 
 const DISTRICTS: Lookup[] = [
   { id: 1, name: 'Çankaya' },

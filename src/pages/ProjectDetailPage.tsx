@@ -13,9 +13,10 @@ import {
   type ProjectFileKind,
 } from '../api/projectDetail'
 import { useAuthSession } from '../api/useAuthSession'
+import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
-import { MockDataNotice } from '../ui/admin/projectDetail/MockDataNotice'
+import { useSavedDocumentNotice } from '../ui/admin/documents/useSavedDocumentNotice'
 import { ProjectDetailHeader } from '../ui/admin/projectDetail/ProjectDetailHeader'
 import { ProjectDetailPanels } from '../ui/admin/projectDetail/ProjectDetailPanels'
 import { ProjectDetailTabs } from '../ui/admin/projectDetail/ProjectDetailTabs'
@@ -73,6 +74,8 @@ export function ProjectDetailPage() {
   const canApprove = useCanApproveProject()
   const session = useAuthSession()
   const [fileNotice, setFileNotice] = useState<string | null>(null)
+  // Evrak Ekle ekranından dönüşteki başarı bildirimi (gereksinim 12).
+  const savedDocumentNotice = useSavedDocumentNotice()
 
   const detailQuery = useQuery({
     queryKey: ['projectDetail', projectId],
@@ -94,7 +97,7 @@ export function ProjectDetailPage() {
 
   const { data: documents } = useQuery({
     queryKey: ['projectDocuments', projectId],
-    queryFn: getProjectDocuments,
+    queryFn: () => getProjectDocuments(projectId ?? 0),
     enabled: projectId !== undefined,
   })
 
@@ -158,6 +161,17 @@ export function ProjectDetailPage() {
           units !== undefined && units.source === 'mock',
         )}
       />
+
+      {savedDocumentNotice !== null && (
+        // `warning`: işlem başarılı ama YARIM — kayıt sunucuya gitmedi
+        // (karar işlemlerindeki `isPersisted: false` deseninin aynısı).
+        <NoticeBar
+          tone="warning"
+          message={savedDocumentNotice.message}
+          details={savedDocumentNotice.details}
+          onDismiss={savedDocumentNotice.dismiss}
+        />
+      )}
 
       {decisions.notice !== null && (
         <NoticeBar

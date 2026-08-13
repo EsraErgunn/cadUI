@@ -26,6 +26,13 @@ olmayan bayraktır — yeni bayrak eklerken en az bir `isEndpointImplemented('�
 
 ## Sık düşülecek tuzaklar
 
+- **Evrak sekmesi artık BOŞ DEĞİL.** Eskiden `buildMockProjectDocuments` bilerek
+  `[]` dönüyordu ("dolu bir liste uydurmak, olmayan bir evrakın indirilebilir
+  sanılmasına yol açardı"). Evraklar ekranı yazılınca ortak bir bellek deposu
+  doğdu ve sekme oradan besleniyor — gereksinim 12 ("yüklenen evrak projenin
+  listesine de yansır") ancak tek depoyla doğru olur. Eski gerekçe karşılandı:
+  tohumlanan satırların arkasında dosya YOK (`url: null`), adları bağlantı değil.
+  Bkz. [documents-screens](./documents-screens.md), K57–K58.
 - **`revizyonIstendi` sunucuda YOK.** `ProjeDurumu` kod grubu tam dört kayıt
   taşıyor (`Draft`/`PendingApproval`/`Approved`/`Rejected`, cadapi seed
   6001–6004). Beşinci durum istemci uydurmasıdır ve geçicidir; entegrasyonda

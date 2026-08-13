@@ -3,7 +3,8 @@ import { createElement, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
-import { lastMonthRange, useProjectListParams } from '../useProjectListParams'
+import { lastMonthRange } from '../../adminDateRange'
+import { useProjectListParams } from '../useProjectListParams'
 
 /** Kontrollerin yanında query string'i de döndürür: "varsayılan URL'e yazılmaz"
     kuralı ancak adrese bakılarak doğrulanabilir. */

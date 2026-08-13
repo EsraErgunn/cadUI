@@ -132,12 +132,18 @@ export function getProjectHistory(projectId: number): Promise<Sourced<ProjectHis
   return Promise.resolve(mockedData(() => buildMockProjectHistory(projectId)))
 }
 
-export function getProjectDocuments(): Promise<Sourced<ProjectDocumentRow[]>> {
+/**
+ * Projenin evrakları. Kaynak, Evraklar ekranının BELLEKTEKİ deposuyla AYNI
+ * (`documentsMock`): "yüklenen evrak hem projenin evrak listesine hem genel
+ * Evraklar ekranına yansır" (gereksinim 12) ancak tek depo varsa doğru olur.
+ * İki ayrı mock tutulsaydı aynı evrak bir ekranda görünüp öbüründe kaybolurdu.
+ */
+export function getProjectDocuments(projectId: number): Promise<Sourced<ProjectDocumentRow[]>> {
   if (isEndpointImplemented('projectDocuments')) {
     throw new Error('getProjectDocuments: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  return Promise.resolve(mockedData(buildMockProjectDocuments))
+  return Promise.resolve(mockedData(() => buildMockProjectDocuments(projectId)))
 }
 
 export function getProjectPolicies(): Promise<Sourced<ProjectPolicyRow[]>> {

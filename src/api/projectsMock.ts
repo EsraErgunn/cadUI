@@ -158,6 +158,35 @@ function buildMockProjects(): MockProject[] {
 /** Sil/Gönder gerçekten listeyi değiştirsin diye değişebilir tutulur. */
 let mockProjects = buildMockProjects()
 
+/** Evrak satırlarının bağlanacağı proje künyesi; `MockProject`'in tamamı
+    dışarı açılmasın diye dar tutuldu. */
+export interface MockProjectSeed {
+  id: number
+  pId: string
+  name: string
+  firmName: string
+  projectFirmId: number
+  gasFirmName: string | null
+  installationNo: string
+}
+
+/**
+ * Evrak mock'u satırlarını BURADAN tohumluyor (`projectFirmUsersMock` deseni):
+ * kendi proje listesini uydursaydı evrak tablosundaki "Proje Adı" bağlantısı
+ * proje listesinde bulunmayan bir kimliğe giderdi.
+ */
+export function getMockProjectSeeds(): MockProjectSeed[] {
+  return mockProjects.map((project) => ({
+    id: project.id,
+    pId: project.pId,
+    name: project.name,
+    firmName: project.firmName,
+    projectFirmId: project.projectFirmId,
+    gasFirmName: project.gasFirmName ?? null,
+    installationNo: project.installationNo,
+  }))
+}
+
 /** ISO damgasının yalnız tarih parçası; aralık karşılaştırması gün bazlı. */
 function toIsoDate(timestamp: string): string {
   return timestamp.slice(0, 10)

@@ -1,10 +1,10 @@
 import { FileTypeBadge, OperationBadge } from './HistoryBadges'
-import { MissingSourceNotice } from './MissingSourceNotice'
 import type { Sourced } from '../../../api/mockGate'
 import type { ProjectHistoryRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
+import { MissingSourceNotice } from '../MissingSourceNotice'
 
 const TABLE_CAPTION =
   'Proje işlem geçmişi. Kayıtlar en yeniden eskiye sıralıdır ve düzenlenemez.'

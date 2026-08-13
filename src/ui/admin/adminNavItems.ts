@@ -56,13 +56,24 @@ export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
 
 /**
- * Proje detayındaki "Evrak Ekle" ve "Poliçelendir" hedefleri (KK-9). Ekranları
- * HENÜZ YOK; yollar şimdiden gerçek yerlerine konuldu ve karşılama sayfasına
- * bağlandı (router.tsx) — pasif düğme yerine çalışan bağlantı, sol menüdeki
- * kararla aynı gerekçe.
+ * Proje detayındaki "Evrak Ekle" ve "Poliçelendir" hedefleri (KK-9).
+ * Poliçe ekranı HENÜZ YOK; yolu karşılama sayfasına bağlı (router.tsx).
  */
 export const DOCUMENT_CREATE_PATH = `${DOCUMENTS_PATH}/new`
 export const POLICY_CREATE_PATH = `${POLICIES_PATH}/new`
+
+/** Evrak Ekle ekranının URL anahtarı: yüklenen evrak GELİNEN projeyle
+    ilişkilendiriliyor (gereksinim 6), ekran kimliksiz açılamaz. */
+export const DOCUMENT_PROJECT_PARAM = 'project'
+
+/**
+ * Kimlik yola değil query'ye konuldu: `/admin/documents/new` sabiti ve ona
+ * bağlı rota zaten vardı, proje kimliği için yolu `/projects/:id/documents/new`
+ * yapmak hem sabiti hem rotayı taşımak olurdu.
+ */
+export function documentCreatePath(projectId: number): string {
+  return `${DOCUMENT_CREATE_PATH}?${DOCUMENT_PROJECT_PARAM}=${projectId}`
+}
 
 /** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
 export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
@@ -121,13 +132,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: PROJECT_FIRM_USERS_PATH,
   },
   { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
-  {
-    key: 'documents',
-    label: 'Evraklar',
-    icon: FileText,
-    path: DOCUMENTS_PATH,
-    isComingSoon: true,
-  },
+  { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH },
   {
     key: 'policies',
     label: 'Poliçeler',

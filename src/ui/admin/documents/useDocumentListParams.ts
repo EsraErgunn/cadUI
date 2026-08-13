@@ -1,37 +1,24 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import {
+  DEFAULT_DOCUMENT_SORT_DIR,
+  DEFAULT_DOCUMENT_SORT_KEY,
+  DOCUMENT_PAGE_SIZE,
+  DOCUMENT_SORT_KEYS,
+  type DocumentListQuery,
+  type DocumentSortKey,
+} from '../../../api/documents'
 import type { SortDirection } from '../../../api/listQuery'
-import {
-  DEFAULT_PROJECT_SORT_DIR,
-  DEFAULT_PROJECT_SORT_KEY,
-  PROJECT_PAGE_SIZE,
-  PROJECT_SORT_KEYS,
-  PROJECT_STATUSES,
-  type ProjectListQuery,
-  type ProjectSortKey,
-  type ProjectStatus,
-} from '../../../api/projects'
 import { lastMonthRange } from '../adminDateRange'
-import {
-  ADMIN_PARAM_KEYS,
-  FIRST_PAGE,
-  parsePage,
-  useAdminParamWriter,
-} from '../adminUrlParams'
+import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
 
-const DEFAULT_STATUS: ProjectStatus = 'taslak'
-
-function parseStatus(raw: string | null): ProjectStatus {
-  return PROJECT_STATUSES.find((status) => status === raw) ?? DEFAULT_STATUS
-}
-
-function parseSortKey(raw: string | null): ProjectSortKey {
-  return PROJECT_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_PROJECT_SORT_KEY
+function parseSortKey(raw: string | null): DocumentSortKey {
+  return DOCUMENT_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_DOCUMENT_SORT_KEY
 }
 
 function parseSortDir(raw: string | null): SortDirection {
-  return raw === 'asc' ? 'asc' : DEFAULT_PROJECT_SORT_DIR
+  return raw === 'asc' ? 'asc' : DEFAULT_DOCUMENT_SORT_DIR
 }
 
 function parseLookupId(raw: string | null): number | null {
@@ -39,56 +26,47 @@ function parseLookupId(raw: string | null): number | null {
   return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
-export interface ProjectFilters {
+export interface DocumentFilters {
   dateFrom: string
   dateTo: string
-  districtId: number | null
+  docTypeCode: string | null
   projectFirmId: number | null
   search: string
 }
 
-export interface ProjectListControls {
-  query: ProjectListQuery
-  setStatus: (status: ProjectStatus) => void
-  applyFilters: (filters: ProjectFilters) => void
-  toggleSort: (key: ProjectSortKey) => void
+export interface DocumentListControls {
+  query: DocumentListQuery
+  applyFilters: (filters: DocumentFilters) => void
+  toggleSort: (key: DocumentSortKey) => void
   setPage: (page: number) => void
 }
 
 /**
- * Proje listesi durumunun TEK sahibi: URL — `useFirmListParams` ile aynı desen.
- * Bölge kapsamı YOK: üst bardaki seçici kaldırıldı (docs/kararlar.md K31).
+ * Evrak listesi durumunun TEK sahibi: URL — `useProjectListParams` deseni.
+ * Varsayılan değerler adrese YAZILMAZ, bağlantı temiz kalır.
  */
-export function useProjectListParams(): ProjectListControls {
+export function useDocumentListParams(): DocumentListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
 
-  const query = useMemo<ProjectListQuery>(() => {
+  const query = useMemo<DocumentListQuery>(() => {
     const defaultRange = lastMonthRange(new Date())
 
     return {
-      status: parseStatus(searchParams.get(ADMIN_PARAM_KEYS.tab)),
       dateFrom: searchParams.get(ADMIN_PARAM_KEYS.dateFrom) ?? defaultRange.from,
       dateTo: searchParams.get(ADMIN_PARAM_KEYS.dateTo) ?? defaultRange.to,
-      districtId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.district)),
+      docTypeCode: searchParams.get(ADMIN_PARAM_KEYS.documentType),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
       search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
-      pageSize: PROJECT_PAGE_SIZE,
+      pageSize: DOCUMENT_PAGE_SIZE,
       sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
     }
   }, [searchParams])
 
-  const setStatus = useCallback(
-    // Yalnız sekme ve sayfa değişir; tarih/ilçe/firma/arama olduğu gibi kalır.
-    (status: ProjectStatus) =>
-      updateParams({ tab: status === DEFAULT_STATUS ? null : status }, true),
-    [updateParams],
-  )
-
   const applyFilters = useCallback(
-    (filters: ProjectFilters) => {
+    (filters: DocumentFilters) => {
       // Varsayılan aralık URL'e yazılmaz: kullanıcı tam da son bir ayı seçtiyse
       // adres temiz kalsın ve aralık ertesi gün yine "son bir ay" olsun.
       const defaultRange = lastMonthRange(new Date())
@@ -97,7 +75,7 @@ export function useProjectListParams(): ProjectListControls {
         {
           dateFrom: filters.dateFrom === defaultRange.from ? null : filters.dateFrom,
           dateTo: filters.dateTo === defaultRange.to ? null : filters.dateTo,
-          district: filters.districtId === null ? null : String(filters.districtId),
+          documentType: filters.docTypeCode,
           projectFirm: filters.projectFirmId === null ? null : String(filters.projectFirmId),
           nameQuery: filters.search,
         },
@@ -108,14 +86,14 @@ export function useProjectListParams(): ProjectListControls {
   )
 
   const toggleSort = useCallback(
-    (key: ProjectSortKey) => {
+    (key: DocumentSortKey) => {
       const isSameColumn = key === query.sortBy
       const nextDir: SortDirection = isSameColumn && query.sortDir === 'desc' ? 'asc' : 'desc'
       // Sıra değişince sayfa 2'nin içeriği tamamen başkalaşır → ilk sayfaya dön.
       updateParams(
         {
-          sortKey: key === DEFAULT_PROJECT_SORT_KEY ? null : key,
-          sortDir: nextDir === DEFAULT_PROJECT_SORT_DIR ? null : nextDir,
+          sortKey: key === DEFAULT_DOCUMENT_SORT_KEY ? null : key,
+          sortDir: nextDir === DEFAULT_DOCUMENT_SORT_DIR ? null : nextDir,
         },
         true,
       )
@@ -128,5 +106,5 @@ export function useProjectListParams(): ProjectListControls {
     [updateParams],
   )
 
-  return { query, setStatus, applyFilters, toggleSort, setPage }
+  return { query, applyFilters, toggleSort, setPage }
 }

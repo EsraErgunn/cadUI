@@ -1,3 +1,5 @@
+import { getDocumentTypes, resolveDocumentTypeLabel } from './documentTypes'
+import { getMockDocuments } from './documentsMock'
 import type {
   ProjectApprovalInfo,
   ProjectDetailExtras,
@@ -207,12 +209,22 @@ export function buildMockProjectHistory(projectId: number): ProjectHistoryRow[] 
 }
 
 /**
- * Evrak ve poliçe listeleri BOŞ dönüyor: mockup'ta da boş durum gösteriliyor ve
- * KK-9'un asıl istediği bilgilendirme kutusu. Dolu bir liste uydurmak, olmayan
- * bir evrakın indirilebilir sanılmasına yol açardı.
+ * Projenin evrakları Evraklar ekranının deposundan geliyor; burada yalnız
+ * SÜTUN eşlemesi var. Bu liste eskiden boş dönüyordu — Evraklar ekranı
+ * yazılınca ortak bir depo doğdu ve yüklenen evrağın iki ekranda birden
+ * görünmesi (gereksinim 12) ancak öyle mümkün.
  */
-export function buildMockProjectDocuments(): ProjectDocumentRow[] {
-  return []
+export function buildMockProjectDocuments(projectId: number): ProjectDocumentRow[] {
+  return getMockDocuments()
+    .filter((document) => document.projectId === projectId)
+    .map((document) => ({
+      id: document.id,
+      fileName: document.fileName,
+      docType: resolveDocumentTypeLabel(document.docTypeCode, getDocumentTypes()),
+      sizeBytes: document.sizeBytes,
+      uploadedByName: document.uploadedByName,
+      receivedAt: document.receivedAt,
+    }))
 }
 
 export function buildMockProjectPolicies(): ProjectPolicyRow[] {

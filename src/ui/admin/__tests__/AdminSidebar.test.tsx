@@ -36,8 +36,16 @@ describe('AdminSidebar', () => {
   it('ekranı hazır olmayan madde "Yakında" rozetiyle işaretlenir', () => {
     renderSidebar()
 
-    const comingSoon = screen.getByRole('link', { name: /Evraklar/ })
-    expect(comingSoon).toHaveTextContent('Yakında')
+    // Hangi maddenin beklediği zamanla değişiyor (Evraklar yazılınca rozeti
+    // düştü); test etiketi sabitlemek yerine bayrağı okuyor.
+    const pending = ADMIN_NAV_ITEMS.filter((item) => item.isComingSoon === true)
+    expect(pending.length).toBeGreaterThan(0)
+
+    for (const item of pending) {
+      expect(screen.getByRole('link', { name: new RegExp(item.label) })).toHaveTextContent(
+        'Yakında',
+      )
+    }
     expect(screen.getByRole('link', { name: /Anasayfa/ })).not.toHaveTextContent('Yakında')
   })
 
