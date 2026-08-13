@@ -12,6 +12,22 @@ bileşenin içinden değil: dört mod var ve her biri farklı bir geometri çöz
 | `nearestLine` | ocak, soba, şofben, kombi, kazan, diğer yakıcı cihaz | İmleçte durur, en yakın AÇIK BORU UCUNA kısa kolla bağlanır |
 | `free` | servis kutusu, baca, havalandırma kanalı | Izgaraya oturur, serbest |
 
+## open-question: Serbest eleman döndürme tutamacı YARIM kaldı, DOĞRULANMADI (2026-08)
+
+Kullanıcı isteği "mimari çizimdeki döndürmeyi (AreaObject tutamacı)
+kullanabiliriz" üzerine `free` modlu VE hiçbir portu bağlı olmayan elemanlar
+için (kullanıcı kararı — `onLine`/`lineEnd`/`nearestLine` elemanların açısı
+port ekseninden TÜRER, elle döndürme onu ezerdi) bir döndürme tutamacı
+yazıldı: `core/elementRotateHandle.ts` (saf geometri, testli), `PlumbingSlice
+.rotateElement`, `scene/useElementRotateTool.ts` + `ElementRotateHandle.tsx`,
+`useSelectionTool.ts`'e K44 tipi bir sahiplenme kontrolü. Tarayıcıda
+DOĞRULANAMADI — geliştirme ortamındaki gerçek API'ye (`.env` → dahili IP)
+kimlik bilgisi yoktu, oturum açılamadı. Kullanıcı işi bu turda BIRAKTI
+("döndürme işini bıraktık") ama kod SİLİNMEDİ — bir sonraki oturumda önce
+tarayıcıda deneyip doğrulanmalı, özellikle: (1) tutamaç gerçekten görünüyor
+mu, (2) sürükleme AreaObject'teki gibi hissediyor mu, (3) servis kutusuna
+boru bağlandıktan SONRA tutamacın kaybolması beklendiği gibi mi davranıyor.
+
 ## nearestLine artık yalnız AÇIK UÇLARA bağlanır (2026-08 güncelleme)
 
 `resolveNearestLineAttachment` başlangıçta `findNearestSegment` ile borunun

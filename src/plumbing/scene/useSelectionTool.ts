@@ -5,6 +5,7 @@ import { OrthographicCamera } from 'three'
 import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm } from './snapRadius'
 import { getLoadedSymbol } from './symbolLoader'
+import { findSelectedElementRotateHandle } from './useElementRotateTool'
 import type { PlanPoint } from '../../core/coords'
 import { isTypingTarget } from '../../core/domEvents'
 import type { Id } from '../../core/model'
@@ -367,6 +368,11 @@ export function useSelectionTool(): SelectionToolState {
       if (event.button !== PRIMARY_BUTTON) return
 
       const { zoom } = readCameraViewport(camera)
+
+      // Döndürme tutamacı seçili elemanın gövdesinin DIŞINA taşıyor: bu basış
+      // yakalanmasa "boşluk" gibi görünüp çerçeve seçimi başlatırdı (mimari
+      // taraftaki K44 ile aynı tuzak, bkz. useElementRotateTool.ts).
+      if (findSelectedElementRotateHandle(event.planPoint, zoom)) return
 
       // Etiket elemanların ÜSTÜNDE çizilir; tutma sınavı da aynı sırayla —
       // etiket isabeti eleman isabetinin önüne geçer. Gizli etiket TUTULMAZ:

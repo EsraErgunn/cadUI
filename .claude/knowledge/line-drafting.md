@@ -328,6 +328,35 @@ başlangıç noktasının değil — ilk nokta düz ızgaraya düşer, `useLineT
 duvarın EKSENİNE (segment, uçlarda kelepçeli) dik uzaklığıyla ölçülür — "hangi
 duvarın açısı kullanılacak" sorusunun cevabı bu, sonucun konumuyla ilgisi yok.
 
+## Duvar kilidi SIKI + kalıcı, duvar hattı BİTİNCE de bırakmaz (2026-08)
+
+`core/wallParallelLock.ts` → `createWallParallelLock()`: bir duvara ayak
+uydurulunca (`useLineTool.ts`'in kapanışında tek bir `wallLock` nesnesi,
+adım başına değil ARAÇ ÖMRÜ boyunca yaşar) o duvarın açısı bu ADIMIN SONUNA
+kadar YARIÇAPSIZ uygulanır — kullanıcı isteği: "boru bitse (duvarın kendi
+uzunluğu tükense) bile aynı eksende düz çizmeye devam et, ben durdurana
+kadar". Eskiden yarıçaplı arama HER karede tekrarlanıyordu: imleç duvarın
+UCUNU geçince `projectOntoSegment`in kelepçelenmiş mesafesi büyüyüp kilidi
+kırıyordu. Kilit yalnız İKİ yolla açılır: **anchor değişir** (yeni adım —
+`findNearestWallParallel`/`getWallParallelPosition` ayrımı budur, ikincisi
+yarıçapsız) ya da araç değişir (`wallLock` effect'in kapanışında yeniden
+yaratılır). İlk histerezisli tasarım (`RELEASE_RADIUS_MULTIPLIER` ile geniş
+bir "bırakma" yarıçapı) DENENİP KALDIRILDI — kullanıcı "her ne olursa olsun
+durana kadar sürsün" dedi, mesafe tabanlı bir bırakma bunu hiç sağlamazdı.
+
+## Duvar YOKKEN genel 45°'lik açı yardımı (2026-08)
+
+`core/angleSnap.ts` → `snapToNearestAngle`: duvar kilidi devrede değilken
+(uzakta ya da hiç duvar yokken) yön en yakın 45°'lik hedefe (0/45/90/135…)
+YALNIZ yakınken (`ANGLE_SNAP_TOLERANCE_DEG`, 6°) yakalanır — kullanıcı isteği
+"her zaman dümdüz ilerlemesin, 45/90 derece de yapsın, biraz oynasın". Duvar
+kilidinin AKSİNE SIKI/toleranssız değil: hedefin dışındayken imleç serbest
+kalır, her karede yeniden hesaplanır (stickiness YOK) — kilit "gerçek bir
+duvara" bağlanıyor ve rijit olması doğru, bu ise duvar yokken genel bir
+yardımcı, rijit olsaydı serbest çizim hissini bozardı. Mesafe imleçten aynen
+gelir, ayrıca ızgaraya yuvarlanmaz. Öncelik: port > mevcut boru > duvara
+paralel (SIKI) > 45° açı yardımı (TOLERANSLI) > ızgara.
+
 ## Görünüm ▸ Izgarayı Göster (2026-08, tesisat için)
 
 Kullanıcı çizimin ızgara yüzünden zorlaştığını, kapatabilmek istediğini

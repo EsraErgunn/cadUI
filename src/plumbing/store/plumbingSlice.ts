@@ -133,6 +133,14 @@ export type PlumbingSlice = {
   setLinesPipeType: (lineIds: readonly Id[], pipeTypeName: PipeTypeName) => void
   /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
   setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
+  /**
+   * Serbest (`free` modlu, ör. servis kutusu) bir elemanın açısını yazar —
+   * döndürme tutamacıyla bir sürükleme = bir Ctrl+Z. Boruya/porta bağlı
+   * elemanlar buradan GEÇMEZ: onların açısı port ekseninden türer
+   * (`core/elementAttach.ts`), elle yazım o sözleşmeyi bozardı — kapsam
+   * denetimi çağıran tarafta (`useElementRotateTool.ts`).
+   */
+  rotateElement: (elementId: Id, angleDeg: number) => void
   undoPlumbing: () => void
   redoPlumbing: () => void
 }
@@ -829,6 +837,23 @@ export const createPlumbingSlice: StateCreator<
         }
 
         element.labelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    rotateElement: (elementId, angleDeg) => {
+      let isChanged = false
+
+      set((draft) => {
+        const element = draft.installationElements.find(
+          (candidate) => candidate.id === elementId,
+        )
+        if (!element || element.angleDeg === angleDeg) return
+
+        element.angleDeg = angleDeg
         isChanged = true
         markDirty(draft)
       })

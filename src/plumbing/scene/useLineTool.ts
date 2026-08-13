@@ -10,6 +10,7 @@ import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
+import { snapToNearestAngle } from '../core/angleSnap'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { advanceChain, rewindChain, startChain } from '../core/lineChain'
@@ -101,18 +102,23 @@ export function useLineTool(): LineToolState {
       usePlumbingUiStore.getState().setDraftLine(draft)
 
     /**
-     * Öncelik: port > mevcut boru > duvara paralel yön > ızgara. Ctrl ızgarayı
-     * kapatır (eleman sürüklemesiyle aynı jest) ama port/boru/duvar
-     * yakalamasını kapatmaz: bağlantı kurmak serbest konumlandırmadan daha
-     * güçlü bir niyettir.
+     * Öncelik: port > mevcut boru > duvara paralel yön > 45°'lik açı yardımı >
+     * ızgara. Ctrl ızgarayı kapatır (eleman sürüklemesiyle aynı jest) ama
+     * port/boru/duvar yakalamasını kapatmaz: bağlantı kurmak serbest
+     * konumlandırmadan daha güçlü bir niyettir.
      *
      * Duvar yakalaması BAĞLANTI KAYDI ÜRETMEZ (`snap: null`) ve BELİRLİ BİR
      * NOKTAYA da yapıştırmaz (kullanıcı isteği, 2026-08) — yalnız zincirin
      * ANCHOR'ından çıkan köşeyi en yakın duvarın AÇISINA paralel bir doğruya
-     * kelepçeler (`findNearestWallParallel`). Zincirin İLK noktasında (henüz
-     * anchor yokken, yani `draftLine` boşken) duvarın bu adımda hiç etkisi
-     * yok — "paralel" iki noktalı bir segmentin özelliği, tek bir başlangıç
-     * noktasının değil; ilk nokta düz ızgaraya düşer.
+     * kelepçeler (`findNearestWallParallel` + `wallParallelLock`, SIKI ve
+     * kalıcı). Duvar yokken (ya da yeterince yakın değilken) genel bir
+     * yardımcı devreye girer: yön en yakın 45°'lik hedefe YALNIZ yakınken
+     * yakalanır (`snapToNearestAngle`, TOLERANSLI ve her karede yeniden
+     * hesaplanır) — "her zaman dümdüz ilerlemesin, 45/90 de yapsın, biraz
+     * oynasın" (kullanıcı isteği). Zincirin İLK noktasında (henüz anchor
+     * yokken, yani `draftLine` boşken) ikisinin de bu adımda etkisi yok —
+     * yön iki noktalı bir segmentin özelliği, tek bir başlangıç noktasının
+     * değil; ilk nokta düz ızgaraya düşer.
      */
     const resolveSnap = (
       event: DrawSurfacePointerEvent,
@@ -154,6 +160,15 @@ export function useLineTool(): LineToolState {
         const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
         const wall = wallLock.resolve(floorWalls, cad.points, draftLine.anchor, event.planPoint, radiusCm)
         if (wall) return { point: wall.position, snap: null }
+
+        // Duvar YOKKEN de kullanıcı düzgün açılarla çizebilsin diye (kullanıcı
+        // isteği: "her zaman dümdüz ilerlemesin, 45/90 derece de yapsın, biraz
+        // oynasın") — bu, wallLock'un aksine SIKI DEĞİL: yalnız hedef açıya
+        // yakınken yakalar (`ANGLE_SNAP_TOLERANCE_DEG`), uzaktaysa imleç
+        // serbest kalır. Izgaraya değil AÇIYA yakalar; mesafe imleçten
+        // aynen gelir, ayrıca ızgaraya yuvarlanmaz.
+        const angled = snapToNearestAngle(draftLine.anchor, event.planPoint)
+        if (angled) return { point: angled, snap: null }
       }
 
       const point = event.ctrlKey ? event.planPoint : resolvePlacementPosition(event.planPoint, zoom)

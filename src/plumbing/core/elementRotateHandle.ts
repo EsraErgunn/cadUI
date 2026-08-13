@@ -1,8 +1,28 @@
 import { getSymbolLocalBounds } from './elementPicking'
-import type { InstallationElement } from './installationModel'
+import type { InstallationConnection, InstallationElement } from './installationModel'
 import type { SymbolMetadata } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
 import { getSegmentLength } from '../../core/wall'
+
+/**
+ * Elemanın herhangi bir portu bağlı mı — döndürme kapsamının kilidi bu
+ * (bkz. `PlumbingSlice.rotateElement` yorumu). Boruya/porta bağlı elemanın
+ * açısı port ekseninden türer (`element-attach.md` → "Sembol boruya PORT
+ * EKSENİNDEN hizalanır"); elle döndürme bunu ezerse sembol boruyla görsel
+ * olarak hizasız kalırdı — kullanıcı kararı: yalnız TAMAMEN serbest VE
+ * bağlanmamış elemanlar döndürülebilir. Hem tutamacın GÖRÜNÜRLÜĞÜ hem
+ * TUTULABİLİRLİĞİ aynı bu kontrolden geçer (`ElementRotateHandle.tsx` +
+ * `useElementRotateTool.ts`), ayrışsalardı görünmeyen bir tutamaç ya da
+ * görünüp tutulamayan bir tutamaç ortaya çıkardı.
+ */
+export function hasAnyPortConnection(
+  connections: readonly InstallationConnection[],
+  elementId: InstallationElement['id'],
+): boolean {
+  return connections.some(
+    (connection) => connection.target.kind === 'port' && connection.target.elementId === elementId,
+  )
+}
 
 /**
  * Mimari taraftaki `AreaObject` döndürme tutamacıyla AYNI ölçüler
