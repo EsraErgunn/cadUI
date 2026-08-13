@@ -33,6 +33,7 @@ import type {
 import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
+import { findCollapsiblePassThroughIndex } from '../core/lineSimplify'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
 import { resolveMoveTargets } from '../core/moveTargets'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
@@ -292,13 +293,41 @@ export const createPlumbingSlice: StateCreator<
         return connection.target.kind !== 'line' || !allLineIds.includes(connection.target.lineId)
       })
 
-      // Kalan hatlarda silinen armatüre işaret eden düğüm boşa çıkar; boru
-      // bölünmüş kalır ama düğüm artık serbest bir köşedir.
+      // Kalan hatlarda silinen armatüre işaret eden düğüm boşa çıkar. Komşu iki
+      // segmentle aynı doğru üzerindeyse (armatür zaten DÜZ bir boruyu ayırarak
+      // oraya oturmuştu) köşenin artık geometrik anlamı kalmaz — birleştirilir,
+      // yoksa silinen filtre kiti/vana gibi elemanların yerinde anlamsız bir
+      // köşe asılı kalırdı. Kullanıcı köşeyi sonradan sürükleyip açı verdiyse
+      // (artık kolinear değil) dokunulmaz — o zaman gerçek bir geometridir.
       for (const line of draft.installationLines) {
+        const freedPointIds: Id[] = []
         for (const point of line.points) {
           if (point.inlineElementId === undefined) continue
           if (!removedElementIds.includes(point.inlineElementId)) continue
           delete point.inlineElementId
+          freedPointIds.push(point.id)
+        }
+
+        for (const pointId of freedPointIds) {
+          const isAnchorForOtherLine = draft.installationConnections.some(
+            (connection) =>
+              connection.target.kind === 'line' &&
+              connection.target.lineId === line.id &&
+              connection.target.pointId === pointId,
+          )
+          if (isAnchorForOtherLine) continue
+
+          const collapsibleIndex = findCollapsiblePassThroughIndex(line.points, pointId)
+          if (collapsibleIndex === null) continue
+
+          const point = line.points[collapsibleIndex]
+          const beforeSegment = line.segments.find((segment) => segment.toPointId === point.id)
+          const afterSegment = line.segments.find((segment) => segment.fromPointId === point.id)
+          if (!beforeSegment || !afterSegment) continue
+
+          beforeSegment.toPointId = afterSegment.toPointId
+          line.segments = line.segments.filter((segment) => segment.id !== afterSegment.id)
+          line.points = line.points.filter((candidate) => candidate.id !== point.id)
         }
       }
 

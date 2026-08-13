@@ -43,6 +43,7 @@ export const FLOOR_DOWN_ITEM_ID = 'floorDown'
 /** Madde id'si eski adını korur; etiket "Ölçüleri Göster"e genişledi (yalnız duvar değil). */
 export const SHOW_DIMENSIONS_ITEM_ID = 'showWallDimensions'
 export const SHOW_ELEMENT_LABELS_ITEM_ID = 'showElementLabels'
+export const SHOW_GRID_ITEM_ID = 'showGrid'
 
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -113,6 +114,12 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
           {
             id: SHOW_ELEMENT_LABELS_ITEM_ID,
             label: 'Etiketleri Göster',
+            kind: 'checkbox',
+            isEnabled: true,
+          },
+          {
+            id: SHOW_GRID_ITEM_ID,
+            label: 'Izgarayı Göster',
             kind: 'checkbox',
             isEnabled: true,
           },

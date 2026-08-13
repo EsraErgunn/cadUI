@@ -2,8 +2,8 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
+import { resolvePlacementPosition } from './placementSnap'
 import type { PlanPoint } from '../../core/coords'
-import { getPlacementPosition } from '../../core/placement'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useUiStore } from '../../store/uiStore'
@@ -47,7 +47,7 @@ export function useMeasurementTool(): MeasurementToolState {
      */
     const resolvePoint = (event: DrawSurfacePointerEvent): PlanPoint => {
       if (event.ctrlKey) return event.planPoint
-      return getPlacementPosition(event.planPoint, readCameraViewport(camera).zoom)
+      return resolvePlacementPosition(event.planPoint, readCameraViewport(camera).zoom)
     }
 
     const unsubscribe = subscribeDrawSurface({

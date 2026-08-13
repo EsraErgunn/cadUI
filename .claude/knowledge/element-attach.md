@@ -169,8 +169,16 @@ Boruya oturan eleman `InstallationLinePoint.inlineElementId` ile o düğüme ba�
 yapıyor (`InstalmentPoint.inlineApplianceId`, K-W3).
 
 Sonuçları:
-- Eleman silinince düğüm boşa çıkar, **boru bölünmüş kalır** — bölme ayrı bir
-  düzenlemedir, armatürün eklentisi değil (hat silmedeki kuralla aynı).
+- Eleman silinince düğüm boşa çıkar. Komşu iki segmentle AYNI DOĞRU üzerindeyse
+  (armatür zaten DÜZ bir boruyu ayırarak oraya oturmuştu — `onLine` yerleşiminin
+  doğal sonucu) köşe artık geometrik anlam taşımaz ve **birleştirilir**
+  (`plumbingSlice.ts` → `applyRemoval`, saf karar `core/lineSimplify.ts` →
+  `findCollapsiblePassThroughIndex`, 2026-08 ürün isteği: "filtre kiti silinince
+  boru üzerinde nokta bırakmasın"). Kullanıcı köşeyi sonradan sürükleyip açı
+  verdiyse (artık kolinear değil) **dokunulmaz** — o zaman gerçek bir geometridir
+  ve silinmez; aynı şekilde köşe başka bir hattın ucuna `line` bağlantısıyla
+  ANKRAJ oluyorsa da (başka bir boru/branşman oraya tutunmuş) birleştirilmez,
+  yoksa o bağlı ucun hedefi kaybolurdu.
 - **Hat silinince üstündeki armatürler de gider**: düğümü kalmayan bir vana
   çizimde tutunacak yer bulamaz, sahipsiz bir sembol olarak asılı kalırdı.
 - Armatür taşınınca oturduğu düğüm **aynı kaymayla** gelir. İkisi ayrılsaydı vana
