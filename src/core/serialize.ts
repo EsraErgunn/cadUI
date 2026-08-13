@@ -134,6 +134,11 @@ const areaObjectSchema = z.object({
   // Etiket kayması SONRADAN eklendi ve yalnız kullanıcı etiketi taşıyınca yazılır:
   // opsiyonel, çünkü eski dosyalarda da hiç taşınmamış nesnelerde de YOK.
   labelOffsetCm: z.object({ x: z.number(), y: z.number() }).optional(),
+  // Düşey eksen kimliği (K63). Etiket kaymasıyla aynı gerekçeyle opsiyonel:
+  // yalnız baca şaftı/kolon havalandırması taşır ve K63 ÖNCESİ dosyalarda hiç
+  // yok. Varsayılan ATANMAZ — `.default(0)` gibi bir değer, kimliği olmayan
+  // nesneleri "hepsi aynı eksen" diye birbirine bağlardı.
+  axisId: idSchema.optional(),
 })
 
 const beamSchema = z.object({
@@ -324,5 +329,7 @@ function toAreaObjectJson(areaObject: AreaObject) {
     // undefined alanı JSON.stringify atlıyor: etiketi taşınmamış nesnede alan
     // dosyaya HİÇ yazılmaz, yani bit-bit tur eski çizimlerde de aynı kalır.
     labelOffsetCm: areaObject.labelOffsetCm,
+    // Aynı gerekçe: ekseni olmayan nesnede alan dosyaya hiç yazılmaz.
+    axisId: areaObject.axisId,
   }
 }

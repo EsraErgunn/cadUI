@@ -23,6 +23,23 @@ export const AREA_OBJECT_TYPE_LABELS: Record<AreaObjectType, string> = {
   columnVentilation: 'Kolon Havalandırması',
 }
 
+/**
+ * Katlar arasında SÜREN türler — yalnız bunlar `axisId` taşır (KK-19).
+ * Record olduğu için yeni bir tip eklenip burası unutulursa DERLEME kırılır;
+ * `flueShaft || columnVentilation` karşılaştırmasını üç ayrı dosyaya yazmak
+ * yerine tek yerde duruyor.
+ */
+const VERTICAL_AXIS_TYPES: Record<AreaObjectType, boolean> = {
+  stairs: false,
+  structuralColumn: false,
+  flueShaft: true,
+  columnVentilation: true,
+}
+
+export function isVerticalAxisType(type: AreaObjectType): boolean {
+  return VERTICAL_AXIS_TYPES[type]
+}
+
 /** Sıfır/negatif boyut görünmez nesne üretir; akıl sağlığı sınırı (duvar kalınlığıyla aynı gerekçe). */
 export const MIN_AREA_OBJECT_SIZE_CM = 1
 

@@ -3248,3 +3248,42 @@ yazdığını çağrı yerinde okunur kılıyor.
 `AdminSidebar` testi "Yakında" rozetini artık etiketle değil `isComingSoon`
 bayrağıyla arıyor: Evraklar ekranı yazılınca rozeti düştü ve sabitlenmiş etiket
 testi kırdı — sıradaki ekran aynı testi bir daha kırmasın.
+### K63 — Düşey eksen kimliği `AreaObject.axisId` ile geldi; nesne kattan KOPARILMADI
+
+KK-19 kopyalanan baca şaftı ve kolon havalandırmasının "kaynak katla aynı düşey
+eksende" kalmasını istiyor. K39/K40 bu türleri bilinçli olarak kat-başı alan
+nesnesi diye modellemiş ve kat-bağımsız kimliği "gerekirse ayrı karar" diye
+ertelemişti. Karar bu.
+
+**Nesne kattan koparılmadı.** `Riser` gibi kökte yaşayan ayrı bir tip açmak
+yerine `AreaObject`'e opsiyonel `axisId` eklendi. Ayrı tip, alan nesnesinin
+tamamını (tutamaç, etiket, açıklık koruması, kat silme temizliği, grup
+dönüşümü) ikinci bir kod yolunda tekrar yazmak demekti; kazanç yalnız
+"kimlik korunuyor" idi ve bunu tek alan da veriyor.
+
+**`id` bu işi göremez.** Kopya tanım gereği yeni id alır (kural 6), yani "aynı
+baca" bilgisi kopyalamada kaybolurdu. Kopya aynı koordinatta doğduğu için
+geometrik olarak hizalı GÖRÜNÜR — korunan bir kimlik olmadan kat sonradan
+taşınınca bağ sessizce kopar. Kimliğin ayrı bir alan olmasının tek sebebi, id
+ile kopyalamada ZIT yönde davranmak zorunda olması.
+
+**Üç yol, üç davranış:**
+
+- Yeni çizim (`addAreaObjectToDraft`) → kendi eksenini BAŞLATIR. Komşu katta
+  hizalı nesne aranmaz: "yakın duruyor" ile "aynı baca" aynı şey değil,
+  varsayılan bir bağ hata kontrollerinde uydurma hizasızlık uyarısı üretirdi.
+- Kat kopyalama (`cloneFloorArchitecture`) → kimliği KORUR. Eksenin ikinci bir
+  kata uzanabildiği tek yol burası.
+- Ctrl+D çoğaltma (`duplicateSelectionInDraft`) → YENİ eksen. Kopya aynı kata
+  düşüyor; düşey eksen kat başına bir tane, ötelenmiş kopya zaten hizalı değil.
+
+**Opsiyonel kaldı, göç YAZILMADI.** Alanın yokluğu "bilinen bir ekseni yok"
+demek, "ekseni sıfır" değil. Yükleme sırasında geriye dönük doldurmak
+(`axisId = id`) bit-bit turunu bozar: depodaki her çizim ilk açılışta değişmiş
+görünür ve kabul testi kırılır. Sonuç: K63 öncesi çizilmiş baca şaftları
+kopyalandığında eksen kimliği taşımaz — yeniden çizilene kadar KK-19 onlarda
+işlemez. Gerekirse ayrı bir göç kararı.
+
+`nextUniqueId` sayacından geliyor (kural 6) — nesne id'leriyle aynı evrende,
+çakışması yapı gereği imkânsız. Reddedilen yerleştirmede (K35/K36 açıklık
+koruması) kimlik de harcanmaz.
