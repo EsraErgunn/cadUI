@@ -6,6 +6,7 @@ import { markDirty, takeNextId } from './projectMeta'
 import { cloneFloorArchitecture } from '../core/floorClone'
 import { planFloorCopy, type FloorCopySelection } from '../core/floorCopyPlan'
 import type { Id } from '../core/model'
+import { cloneFloorInstallation } from '../plumbing/core/floorInstallationClone'
 
 export type CopyFloorInput = {
   sourceFloorId: Id
@@ -62,17 +63,19 @@ export function cloneFloorContentInDraft(draft: CadState, input: CopyFloorInput)
   }
 
   if (input.isInstallationIncluded) {
-    const sourceElements = draft.installationElements.filter(
-      (element) => element.floorId === sourceFloorId,
+    // Eleman TEK BAŞINA kopyalanmaz: hat ve bağlantı kaydı da gelmeli. Eskiden
+    // yalnız eleman kopyalanıyordu ve "üzerine yaz" kipinde hedefin boruları
+    // silinip yerine yenisi YAZILMIYORDU — kaynak özeti "3 boru bölümü" deyip
+    // hiçbirini taşımıyordu.
+    const clone = cloneFloorInstallation(draft, sourceFloorId, targetFloorId, () =>
+      takeNextId(draft),
     )
-    for (const element of sourceElements) {
-      draft.installationElements.push({
-        ...element,
-        id: takeNextId(draft),
-        floorId: targetFloorId,
-      })
+    if (clone.elements.length > 0 || clone.lines.length > 0) {
+      draft.installationElements.push(...clone.elements)
+      draft.installationLines.push(...clone.lines)
+      draft.installationConnections.push(...clone.connections)
+      isChanged = true
     }
-    if (sourceElements.length > 0) isChanged = true
   }
 
   return isChanged
