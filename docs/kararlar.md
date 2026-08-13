@@ -1619,6 +1619,86 @@ Nerede: `core/model.ts` (`labelOffsetCm`), `core/areaObjectLabel.ts` (yeni),
 Testler `core/__tests__/areaObjectLabel.test.ts`,
 `store/__tests__/areaObjectActions.test.ts`.
 
+### K51 — Alan nesnesi düzenlemesindeki üç tutarsızlık; köşe önceliği KARARA BAĞLANDI
+
+K44/K45/K46'dan kalan üç bilinen sınır ele alındı. İkisi düzeltildi, biri
+kullanıcı kararıyla OLDUĞU GİBİ bırakıldı.
+
+**1) Ctrl artık döndürmede de bir şey yapıyor.** Boyutlandırmada Ctrl ızgarayı
+kapatıyordu, döndürmede hiçbir etkisi yoktu — aynı tuş aynı jestte iki farklı
+anlama geliyordu. Artık Ctrl 15°'lik yakalamayı kapatıyor.
+
+`rotateAreaObject` üçüncü bir `isSnapEnabled` parametresi aldı (varsayılan
+`true`): panel ham değer gönderip yakalanmasını bekliyor (KK-3), tutamaç yolu
+ise açıyı önizlemede zaten yakalayıp `false` geçiyor. Bu şart — store ikinci kez
+yakalasaydı Ctrl'ün etkisi bırakma anında sessizce silinirdi.
+
+Yakalama kapalıyken açı yine 0-359'a indirgeniyor (`normalizeAngleDeg`,
+`core/transform.ts`): -30 ile 330 aynı açı, ikisi ayrı değer olarak saklanırsa
+panel farklı sayı gösterir ve "değişti mi" karşılaştırmaları boşuna true döner.
+
+**2) Kolon havalandırmasında panel artık tek "Çap" alanı gösteriyor.** Tip
+yalnız çember çiziyor ve çapı `min(genişlik, uzunluk)`; iki ayrı alan varken
+kullanıcının girdiği fazlalık HİÇ çizilmiyor, üstelik tutamaçla ilk dokunuşta
+sessizce siliniyordu (tutamaç kutusu çizilen geometriden türüyor, çemberde o
+kutu KARE — K45). Tek alan ikisine de aynı değeri yazıyor, dolayısıyla
+genişlik≠uzunluk durumu artık HİÇ oluşmuyor ve kaybolacak bir değer kalmıyor.
+
+Ayrım `core/areaObject.ts` → `hasAreaObjectRectangleSize`'da, panelde gömülü
+tip kontrolü değil. Baca şaftının da çemberi var ama KARE dış hattı da var:
+ölçüsü dikdörtgen kalıyor.
+
+**3) Köşe, alan nesnesinin ÜSTÜNDE kalıyor — artık bilinen sınır değil, KARAR.**
+Bir kolonun merkezi duvar köşesine denk gelirse tıklama kolonu değil köşeyi
+tutuyor. K46'da açık soru olarak bırakılmıştı; kullanıcı "köşe öncelikli kalsın"
+dedi. Gerekçe: önceliği çevirmek büyük bir merdivenin ya da kolonun altında
+kalan duvar köşelerini erişilemez yapardı — köşe duvar grafının düzenlenebilir
+tek yeri, alan nesnesi ise gövdesinin her yerinden tutulabiliyor. K46'nın
+dolgusu zaten "burada bir nesne var" sorusunu görsel olarak çözmüştü.
+
+Nerede: `core/transform.ts` (`normalizeAngleDeg`), `core/areaObject.ts`
+(`hasAreaObjectRectangleSize`), `store/areaObjectOps.ts`,
+`scene/useAreaObjectHandleTool.ts`, `ui/properties/AreaObjectProperties.tsx`.
+Testler `core/__tests__/areaObject.test.ts`,
+`store/__tests__/areaObjectActions.test.ts`.
+
+Tarayıcıda doğrulandı: panelde "Çap (cm)" alanı görünüyor.
+
+### K52 — K51'in iki eksiği: daire tutamaçla büyümüyordu, Ctrl bırakışta siliniyordu
+
+K51 iki sorunu yarım kapatmış; kullanıcı ikisini de bildirdi.
+
+**1) Kolon havalandırması aşağı çekilince BÜYÜMÜYOR, KAYIYORDU.** K51 paneli tek
+"Çap" alanına indirdi ama TUTAMAÇ yolu hâlâ iki ölçüyü ayrı yazıyordu: aşağı
+sürükleme yalnız `lengthCm`'i büyütüyor, çap `min(width, length)` olduğu için
+daire aynı boyda kalıyor, ama merkez kaydığı için aşağı yürüyordu — panelde
+uzunluk artıyor, ekranda daire kayıyordu.
+
+`resizeAreaObjectFromCorner` artık yalnız çap taşıyan tipte iki izdüşümün
+BÜYÜĞÜNÜ alıp ikisine de yazıyor: hangi yöne çekilirse çekilsin daire büyür ve
+sabit köşeye çapalı kalır. Ayrım yine `hasAreaObjectRectangleSize`'dan, panelle
+AYNI kaynaktan.
+
+**2) Bırakma anında değiştirici tuş yeniden okunuyordu.** `handlePointerUp`
+şekli `readShape(event)` ile YENİDEN hesaplıyordu, yani karar pointerup'ın
+`ctrlKey`'ine bakıyordu. Kullanıcı Ctrl'ü fareden ÖNCE bıraktığında — ki sık
+olan sıra bu — serbest döndürdüğü nesne son anda 15°'ye zıplıyordu; K51'in
+düzeltmesi ekranda çalışıp yazımda siliniyordu. Aynı şey ızgarasız
+boyutlandırmada da oluyordu.
+
+Artık store'a yazılan şey EKRANDA GÖRÜLEN önizlemenin ta kendisi
+(`areaObjectHandleDrag.shape`), pointerup'tan türetilen yeni bir hesap değil.
+Bu aynı zamanda "hiç hareket etmediyse yazma" kontrolünü de sadeleştirdi:
+önizleme yoksa yazacak bir şey de yok.
+
+⚠️ **Ders:** sürüklemeli bir jestte sonuç, son POINTERMOVE'dan gelmeli.
+Pointerup'ta yeniden hesaplamak, kullanıcının bıraktığı anda tuş durumu
+değişmişse ekranda gördüğünden başka bir sonuç yazar.
+
+Nerede: `core/areaObjectHandles.ts` (`resizeAreaObjectFromCorner`),
+`scene/useAreaObjectHandleTool.ts`.
+Testler `core/__tests__/areaObjectHandles.test.ts`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

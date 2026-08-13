@@ -1,4 +1,8 @@
-import { toAreaObjectPlanPoints, type AreaObjectShape } from './areaObject'
+import {
+  hasAreaObjectRectangleSize,
+  toAreaObjectPlanPoints,
+  type AreaObjectShape,
+} from './areaObject'
 import { getAreaObjectPlanGeometry } from './areaObjectGeometry'
 import type { PlanPoint } from './coords'
 import type { AreaObjectType } from './model'
@@ -169,10 +173,12 @@ export function getAreaObjectAngleFromPointer(target: PlanPoint, center: PlanPoi
  * +x (genişlik) ve +y (uzunluk) yönlerine izdüşürülür. Böylece döndürülmüş
  * nesnede de kullanıcı kenara paralel büyütür.
  *
- * ⚠️ Sonuç kutunun boyu olarak yazılır. Kutu geometriden türediği için kolon
- * havalandırmasında (daire, çapı `min(width, length)`) genişlik≠uzunluk ise
- * boyutlandırma nesneyi KAREYE indirger — dairenin zaten kullanmadığı fazlalık
- * düşer. Diğer tiplerde kutu = width×length, yani davranış birebir aynı.
+ * ⚠️ **Yalnız ÇAP taşıyan tipte (kolon havalandırması) iki ölçü EŞİTLENİR.**
+ * Ayrı yazıldıklarında, aşağı doğru sürükleme yalnız `lengthCm`'i büyütüyordu;
+ * çapı `min(width, length)` olduğu için daire BÜYÜMÜYOR, ama merkez kaydığı
+ * için aşağı KAYIYORDU — panelde uzunluk artıyor, ekranda daire aynı boyda
+ * yürüyordu (K52). Çap iki izdüşümün BÜYÜĞÜ: hangi yöne çekilirse çekilsin
+ * daire büyür, sabit köşeye çapalı kalır.
  */
 export function resizeAreaObjectFromCorner(
   type: AreaObjectType,
@@ -198,8 +204,14 @@ export function resizeAreaObjectFromCorner(
 
   // Sürüklenen köşe sabit köşeden +genişlik (u) ve −uzunluk (v) uzakta; uzunluk
   // izdüşümü bu yüzden ters işaretli okunur.
-  const widthCm = Math.max(minSizeCm, dx * uX + dy * uY)
-  const lengthCm = Math.max(minSizeCm, -(dx * vX + dy * vY))
+  const projectedWidthCm = Math.max(minSizeCm, dx * uX + dy * uY)
+  const projectedLengthCm = Math.max(minSizeCm, -(dx * vX + dy * vY))
+
+  // Daire tek ölçü taşır: iki izdüşümün büyüğü çap olur (bkz. yukarıdaki uyarı).
+  const isDiameterOnly = !hasAreaObjectRectangleSize(type)
+  const diameterCm = Math.max(projectedWidthCm, projectedLengthCm)
+  const widthCm = isDiameterOnly ? diameterCm : projectedWidthCm
+  const lengthCm = isDiameterOnly ? diameterCm : projectedLengthCm
 
   // Merkez = sabit köşe + yarım genişlik (+u) + yarım uzunluk (−v).
   return {

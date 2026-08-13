@@ -241,3 +241,29 @@ describe('setAreaObjectLabelOffset', () => {
     expect(findAreaObject(id)?.labelOffsetCm).toEqual({ x: 0, y: 90 })
   })
 })
+
+describe('rotateAreaObject — yakalama anahtarı (K51)', () => {
+  it('varsayılan olarak 15° adımına yakalar (panel yolu)', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })!
+
+    useCadStore.getState().rotateAreaObject(id, 37)
+
+    expect(findAreaObject(id)?.angleDeg).toBe(30)
+  })
+
+  it('isSnapEnabled=false ham açıyı yazar (Ctrl ile döndürme)', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })!
+
+    useCadStore.getState().rotateAreaObject(id, 37, false)
+
+    expect(findAreaObject(id)?.angleDeg).toBe(37)
+  })
+
+  it('yakalama kapalıyken de açı 0-359 aralığına indirgenir', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })!
+
+    useCadStore.getState().rotateAreaObject(id, -30, false)
+
+    expect(findAreaObject(id)?.angleDeg).toBe(330)
+  })
+})

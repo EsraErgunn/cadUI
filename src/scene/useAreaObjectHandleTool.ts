@@ -16,7 +16,7 @@ import type { AreaObject, Id } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { getSoleSelectedId } from '../core/selection'
 import { SELECTION_TOOL_ID } from '../core/tools'
-import { snapAngleDeg } from '../core/transform'
+import { normalizeAngleDeg, snapAngleDeg } from '../core/transform'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -113,9 +113,13 @@ export function useAreaObjectHandleTool(): void {
           x: grab.origin.x,
           y: grab.origin.y,
         })
-        // Açı KK-3'ün 15° adımına yakalanır — panelden yazmakla aynı kural, bu
-        // yüzden Ctrl burada bir şey kapatmıyor (bilinen sınır).
-        return { ...grab.origin, angleDeg: snapAngleDeg(raw) }
+        // Açı KK-3'ün 15° adımına yakalanır; Ctrl bunu KAPATIR — boyutlandırmada
+        // Ctrl ızgarayı kapatıyor, döndürmede hiçbir şey yapmıyordu, yani aynı
+        // tuş aynı jestte iki farklı anlama geliyordu (K51).
+        return {
+          ...grab.origin,
+          angleDeg: event.ctrlKey ? normalizeAngleDeg(raw) : snapAngleDeg(raw),
+        }
       }
 
       // Ctrl ızgarayı kapatır — taşıma/yerleştirmeyle aynı jest.
@@ -175,15 +179,22 @@ export function useAreaObjectHandleTool(): void {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
       const { areaObjectId, kind } = grab
-      // Hiç hareket etmediyse (yalnız tutamaca tıklama) store'a yazılmaz.
-      const hasPreview = useArchitectureUiStore.getState().areaObjectHandleDrag !== null
-      const shape = readShape(event)
+      // Yazılan şey EKRANDA GÖRÜLEN önizlemenin ta kendisi; pointerup'tan
+      // yeniden hesaplanmaz. Yeniden hesaplansaydı bırakma anındaki değiştirici
+      // tuş durumu kazanırdı: kullanıcı Ctrl'ü fareden ÖNCE bırakınca serbest
+      // döndürdüğü nesne 15°'ye, ızgarasız boyutlandırdığı nesne ızgaraya
+      // zıplardı — ekranda gördüğünden başka bir sonuç (K52).
+      //
+      // Hiç hareket etmediyse (yalnız tutamaca tıklama) önizleme yok, yazılmaz.
+      const shape = useArchitectureUiStore.getState().areaObjectHandleDrag?.shape
       endDrag()
-      if (!hasPreview || !shape) return
+      if (!shape) return
 
       const cad = useCadStore.getState()
       if (kind === 'rotate') {
-        cad.rotateAreaObject(areaObjectId, shape.angleDeg)
+        // Açı önizlemede zaten yakalandı (ya da Ctrl ile yakalanmadı); store
+        // ikinci kez yakalamasın, yoksa Ctrl'ün etkisi bırakma anında silinirdi.
+        cad.rotateAreaObject(areaObjectId, shape.angleDeg, false)
         return
       }
       cad.resizeAreaObject(areaObjectId, {
