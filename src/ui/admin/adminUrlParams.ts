@@ -23,6 +23,13 @@ export const ADMIN_PARAM_KEYS = {
   projectFirm: 'firm',
   /** Proje firması kullanıcılarının "Yetki" süzgeci; "Tümü" hâlinde yazılmaz. */
   authorityType: 'type',
+  /**
+   * Evrak listesinin "Döküman Tipi" süzgeci. `authorityType` ile AYNI adresi
+   * (`type`) kullanıyor: ikisi de "bu listedeki tür süzgeci" demek ve iki liste
+   * asla aynı adreste açılmıyor. Ayrı bir alan adı taşıması, hangi ekranın
+   * hangi süzgeci yazdığını çağrı yerinde okunur kılıyor.
+   */
+  documentType: 'type',
   /** Yalnız aktif kayıtlar; işaretsiz hâl (varsayılan) adrese yazılmaz. */
   onlyActive: 'active',
 } as const

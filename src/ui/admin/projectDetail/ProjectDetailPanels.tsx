@@ -73,12 +73,17 @@ export function ProjectDetailPanels({
     )
   }
 
-  if (tab === 'evrak') return <ProjectDocumentsTab documents={documents} />
+  // Proje kimliği "Evrak Ekle" bağlantısına gidiyor: yüklenen evrak GELİNEN
+  // projeyle ilişkilendiriliyor, ekran kimliksiz açılamaz (gereksinim 6).
+  if (tab === 'evrak') {
+    return <ProjectDocumentsTab projectId={detail.server.id} documents={documents} />
+  }
 
   if (tab === 'police') return <ProjectPolicyTab policies={policies} />
 
   return (
     <ProjectOperationsTab
+      projectId={detail.server.id}
       canApprove={canApprove}
       isDraft={isDraft}
       isSubmitting={isSubmitting}

@@ -2,7 +2,7 @@ import { ShieldPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { InfoBanner } from './InfoBanner'
-import { MissingSourceNotice } from './MissingSourceNotice'
+import { MissingSourceNotice } from '../MissingSourceNotice'
 import { formatCurrency, formatPlainDate } from './projectDetailFormat'
 import type { Sourced } from '../../../api/mockGate'
 import type { ProjectPolicyRow } from '../../../api/projectDetail'

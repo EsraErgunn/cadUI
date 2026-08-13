@@ -1,4 +1,4 @@
-import { MissingSourceNotice } from './MissingSourceNotice'
+import { MissingSourceNotice } from '../MissingSourceNotice'
 import { ProjectApprovalCard } from './ProjectApprovalCard'
 import { ProjectFirmCard } from './ProjectFirmCard'
 import { ProjectGeneralCard } from './ProjectGeneralCard'

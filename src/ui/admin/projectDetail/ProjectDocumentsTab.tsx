@@ -2,14 +2,14 @@ import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { InfoBanner } from './InfoBanner'
-import { MissingSourceNotice } from './MissingSourceNotice'
+import { MissingSourceNotice } from '../MissingSourceNotice'
 import { formatFileSize } from './projectDetailFormat'
 import type { Sourced } from '../../../api/mockGate'
 import type { ProjectDocumentRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
-import { DOCUMENT_CREATE_PATH } from '../adminNavItems'
+import { documentCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
 
 const EMPTY_MESSAGE = 'Projeye ait döküman bulunamamıştır.'
@@ -38,14 +38,19 @@ const COLUMNS: DataTableColumn<ProjectDocumentRow>[] = [
 ]
 
 export function ProjectDocumentsTab({
+  projectId,
   documents,
 }: {
+  projectId: number
   documents: Sourced<ProjectDocumentRow[]> | undefined
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Link to={DOCUMENT_CREATE_PATH} className={adminButtonVariants({ tone: 'primary' })}>
+        <Link
+          to={documentCreatePath(projectId)}
+          className={adminButtonVariants({ tone: 'primary' })}
+        >
           <Plus aria-hidden className="size-4" />
           Evrak Ekle
         </Link>

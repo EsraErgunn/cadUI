@@ -4,10 +4,12 @@ import { LOGIN_PATH, RequireAuth } from './RequireAuth'
 import { AdminHomePage } from '../pages/AdminHomePage'
 import { AnnouncementsPage } from '../pages/AnnouncementsPage'
 import { ComingSoonPage } from '../pages/ComingSoonPage'
+import { DocumentListPage } from '../pages/DocumentListPage'
 import { EditorPage } from '../pages/EditorPage'
 import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
+import { NewDocumentPage } from '../pages/NewDocumentPage'
 import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
@@ -113,15 +115,16 @@ export function AppRouter() {
             path={`${PROJECT_FIRMS_PATH}/:firmId`}
             element={<ComingSoonPage title="Proje Firması Güncelle" section="Firmalar" />}
           />
-          <Route path={DOCUMENTS_PATH} element={<ComingSoonPage title="Evraklar" />} />
+          <Route path={DOCUMENTS_PATH} element={<DocumentListPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir kuralı burada gerekmiyor:
+              /new'in dinamik kardeşi yok. Proje kimliği yolda değil query'de
+              (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor. */}
+          <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
+
           <Route path={POLICIES_PATH} element={<ComingSoonPage title="Poliçeler" />} />
-          {/* Proje detayındaki "Evrak Ekle" / "Poliçelendir" hedefleri (KK-9).
-              Statik parça dinamik olandan önce gelmeli kuralı burada geçerli
-              değil: iki yolun da dinamik kardeşi yok. */}
-          <Route
-            path={DOCUMENT_CREATE_PATH}
-            element={<ComingSoonPage title="Evrak Ekle" section="Evraklar" />}
-          />
+          {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Statik parça
+              dinamik olandan önce gelmeli kuralı burada geçerli değil: yolun
+              dinamik kardeşi yok. */}
           <Route
             path={POLICY_CREATE_PATH}
             element={<ComingSoonPage title="Poliçe Oluşturma" section="Poliçeler" />}
