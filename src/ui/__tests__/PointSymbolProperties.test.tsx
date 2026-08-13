@@ -38,7 +38,7 @@ describe('PropertyPanel — nokta sembolü', () => {
     useArchitectureUiStore.setState({ selection: [{ kind: 'symbol', id }] })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /Pano Özellikleri/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Pano Özellikleri/ })).toBeInTheDocument()
   })
 
   it('tür, etiket ve açı gösterilir', () => {
@@ -117,7 +117,7 @@ describe('PropertyPanel — nokta sembolü', () => {
     })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /2 Sembol/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /2 Sembol/ })).toBeInTheDocument()
     expect(screen.getByLabelText('Etiket')).toHaveAttribute('readonly')
   })
 

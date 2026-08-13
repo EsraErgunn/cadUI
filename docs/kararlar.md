@@ -1699,6 +1699,40 @@ Nerede: `core/areaObjectHandles.ts` (`resizeAreaObjectFromCorner`),
 `scene/useAreaObjectHandleTool.ts`.
 Testler `core/__tests__/areaObjectHandles.test.ts`.
 
+### K53 — Sağ panelin aç/kapa oku kalktı; görünüm değişince panel kapanıyor
+
+**Aç/kapa oku kaldırıldı.** Başlık bir düğmeydi ve içeriği katlıyordu; artık düz
+bir `<h2>`. Panel zaten seçim varken açılıp seçim bitince kapanıyor (K37), ikinci
+bir aç/kapa durumu kullanıcıya iki farklı "kapalı" hâli öğretiyordu: biri
+nesneyi bırakınca, öteki oka basınca. Kullanıcı gereksiz buldu.
+
+**Görünüm değişince panel KAPANIR.** Mimari ↔ tesisat geçişinde açık kalıyordu:
+duvar seçiliyken tesisata geçen kullanıcı, o görünümde anlamı olmayan bir duvar
+panelini görmeye devam ediyordu.
+
+Kapanma SEÇİMİ BIRAKARAK yapılıyor, paneli ayrıca gizleyerek değil. Panel
+seçimin saf bir türevi (K37); "kapalı ama seçim duruyor" gibi ikinci bir durum
+iki ayrı doğruluk kaynağı olurdu ve kullanıcı geri döndüğünde panel
+kendiliğinden yeniden açılırdı.
+
+⚠️ **Önceki görünüm bir ref'te tutuluyor.** İlk yazımda effect yalnız bağımlılık
+dizisine güveniyordu, yani MOUNT anında da seçimi siliyordu. Bugünkü akışta
+zararsız görünürdü (editör boş seçimle açılıyor) ama panelin her yeniden
+bağlanmasında kullanıcının seçimi sessizce giderdi — mevcut testler bunu
+yakaladı.
+
+Tesisat tarafında ayrı bir özellik paneli YOK (`src/plumbing/ui/` yalnız
+palet), dolayısıyla "iki yönde de kapansın" tek panelin temizlenmesiyle
+karşılanıyor. Tesisatın kendi seçimi (`plumbingUiStore`) C'nin dosyası ve
+görünür bir panel açmadığı için dokunulmadı — tesisata bir panel eklenirse aynı
+kural oraya da yazılmalı.
+
+Nerede: `ui/PropertyPanel.tsx`.
+Testler `ui/__tests__/PropertyPanel.test.tsx` (başlık artık `heading` rolüyle
+sorgulanıyor; katlama testi silindi, görünüm değişimi için üç test eklendi),
+`ui/__tests__/AreaObjectProperties.test.tsx`,
+`ui/__tests__/PointSymbolProperties.test.tsx`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

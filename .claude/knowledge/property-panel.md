@@ -14,6 +14,18 @@ kabuğu artık `EditorPage.tsx`'teki `relative` satırın altında `absolute
 inset-y-0 right-0`, `translate-x-full` ↔ `translate-x-0` ile kayıyor
 (`transition-transform`).
 
+**Aç/kapa oku YOK, başlık düğme DEĞİL (K53).** Başlık içeriği katlayan bir
+düğmeydi; kaldırıldı, artık düz `<h2>`. Panel zaten seçim varken açılıp seçim
+bitince kapandığı için ikinci bir aç/kapa durumu kullanıcıya iki farklı "kapalı"
+hâli öğretiyordu. Testler başlığı `getByRole('heading')` ile sorgular.
+
+**Görünüm değişince panel kapanır (K53)** — kapanma SEÇİMİ BIRAKARAK yapılır,
+paneli ayrıca gizleyerek değil: panel seçimin saf türevi, "kapalı ama seçim
+duruyor" ikinci bir doğruluk kaynağı olurdu. ⚠️ Önceki görünüm bir ref'te
+tutulur; yalnız bağımlılık dizisine güvenen effect MOUNT anında da seçimi siler
+(ilk yazımda öyleydi, mevcut testler yakaladı). Tesisatta ayrı bir panel YOK,
+eklenirse aynı kural oraya da yazılmalı.
+
 **Seçim yokken de DOM'da kalır ama erişilemez.** Animasyonun oynayabilmesi
 için `kind === 'none'` artık `return null` DEMİYOR — `aria-hidden` +
 `inert` + `pointer-events-none` ile hem ekran okuyuculardan hem

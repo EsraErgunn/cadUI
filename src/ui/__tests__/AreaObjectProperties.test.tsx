@@ -35,7 +35,7 @@ describe('PropertyPanel — alan nesnesi', () => {
     useArchitectureUiStore.setState({ selection: [{ kind: 'area', id }] })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /Kolon Özellikleri/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Kolon Özellikleri/ })).toBeInTheDocument()
   })
 
   it('tür, etiket, genişlik, uzunluk ve açı gösterilir', () => {
@@ -117,7 +117,7 @@ describe('PropertyPanel — alan nesnesi', () => {
     })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /2 Alan Nesnesi/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /2 Alan Nesnesi/ })).toBeInTheDocument()
     expect(screen.getByLabelText('Etiket')).toHaveAttribute('readonly')
   })
 
