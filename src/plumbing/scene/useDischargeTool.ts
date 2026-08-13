@@ -2,10 +2,10 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
+import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm } from './snapRadius'
 import { getSymbolMetadata } from './symbolLoader'
 import type { PlanPoint } from '../../core/coords'
-import { getPlacementPosition } from '../../core/placement'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
@@ -99,7 +99,7 @@ export function useDischargeTool(): DischargeToolState {
     const readCornerPosition = (planPoint: PlanPoint, isCtrlPressed: boolean): PlanPoint => {
       if (isCtrlPressed) return planPoint
       const { zoom } = readCameraViewport(camera)
-      return getPlacementPosition(planPoint, zoom)
+      return resolvePlacementPosition(planPoint, zoom)
     }
 
     /**

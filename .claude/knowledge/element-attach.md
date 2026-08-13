@@ -12,6 +12,22 @@ bileşenin içinden değil: dört mod var ve her biri farklı bir geometri çöz
 | `nearestLine` | ocak, soba, şofben, kombi, kazan, diğer yakıcı cihaz | İmleçte durur, en yakın AÇIK BORU UCUNA kısa kolla bağlanır |
 | `free` | servis kutusu, baca, havalandırma kanalı | Izgaraya oturur, serbest |
 
+## open-question: Serbest eleman döndürme tutamacı YARIM kaldı, DOĞRULANMADI (2026-08)
+
+Kullanıcı isteği "mimari çizimdeki döndürmeyi (AreaObject tutamacı)
+kullanabiliriz" üzerine `free` modlu VE hiçbir portu bağlı olmayan elemanlar
+için (kullanıcı kararı — `onLine`/`lineEnd`/`nearestLine` elemanların açısı
+port ekseninden TÜRER, elle döndürme onu ezerdi) bir döndürme tutamacı
+yazıldı: `core/elementRotateHandle.ts` (saf geometri, testli), `PlumbingSlice
+.rotateElement`, `scene/useElementRotateTool.ts` + `ElementRotateHandle.tsx`,
+`useSelectionTool.ts`'e K44 tipi bir sahiplenme kontrolü. Tarayıcıda
+DOĞRULANAMADI — geliştirme ortamındaki gerçek API'ye (`.env` → dahili IP)
+kimlik bilgisi yoktu, oturum açılamadı. Kullanıcı işi bu turda BIRAKTI
+("döndürme işini bıraktık") ama kod SİLİNMEDİ — bir sonraki oturumda önce
+tarayıcıda deneyip doğrulanmalı, özellikle: (1) tutamaç gerçekten görünüyor
+mu, (2) sürükleme AreaObject'teki gibi hissediyor mu, (3) servis kutusuna
+boru bağlandıktan SONRA tutamacın kaybolması beklendiği gibi mi davranıyor.
+
 ## nearestLine artık yalnız AÇIK UÇLARA bağlanır (2026-08 güncelleme)
 
 `resolveNearestLineAttachment` başlangıçta `findNearestSegment` ile borunun
@@ -169,8 +185,16 @@ Boruya oturan eleman `InstallationLinePoint.inlineElementId` ile o düğüme ba�
 yapıyor (`InstalmentPoint.inlineApplianceId`, K-W3).
 
 Sonuçları:
-- Eleman silinince düğüm boşa çıkar, **boru bölünmüş kalır** — bölme ayrı bir
-  düzenlemedir, armatürün eklentisi değil (hat silmedeki kuralla aynı).
+- Eleman silinince düğüm boşa çıkar. Komşu iki segmentle AYNI DOĞRU üzerindeyse
+  (armatür zaten DÜZ bir boruyu ayırarak oraya oturmuştu — `onLine` yerleşiminin
+  doğal sonucu) köşe artık geometrik anlam taşımaz ve **birleştirilir**
+  (`plumbingSlice.ts` → `applyRemoval`, saf karar `core/lineSimplify.ts` →
+  `findCollapsiblePassThroughIndex`, 2026-08 ürün isteği: "filtre kiti silinince
+  boru üzerinde nokta bırakmasın"). Kullanıcı köşeyi sonradan sürükleyip açı
+  verdiyse (artık kolinear değil) **dokunulmaz** — o zaman gerçek bir geometridir
+  ve silinmez; aynı şekilde köşe başka bir hattın ucuna `line` bağlantısıyla
+  ANKRAJ oluyorsa da (başka bir boru/branşman oraya tutunmuş) birleştirilmez,
+  yoksa o bağlı ucun hedefi kaybolurdu.
 - **Hat silinince üstündeki armatürler de gider**: düğümü kalmayan bir vana
   çizimde tutunacak yer bulamaz, sahipsiz bir sembol olarak asılı kalırdı.
 - Armatür taşınınca oturduğu düğüm **aynı kaymayla** gelir. İkisi ayrılsaydı vana

@@ -19,6 +19,7 @@ function ViewportControls() {
 
 export function SceneRoot() {
   const activeViewId = useUiStore((state) => state.activeViewId)
+  const isGridVisible = useUiStore((state) => state.isGridVisible)
 
   return (
     // TEK <Canvas>: görünümler ikinci renderer/kamera kurmaz, alt ağaç değişir.
@@ -26,7 +27,7 @@ export function SceneRoot() {
       <color attach="background" args={[SCENE_COLORS.background]} />
       <Cameras />
       <ViewportControls />
-      <Grid />
+      {isGridVisible && <Grid />}
       {/* Her görünüm KARŞI katmanı soluk gösterir. İkisi de burada, görünüm
           anahtarının yanında: hayalet çizen katmanın parçası değil, görünümün
           bağlamı — ve ikisi de aktif katı kendi okuyor. */}

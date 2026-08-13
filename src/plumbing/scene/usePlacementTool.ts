@@ -2,11 +2,11 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
+import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm } from './snapRadius'
 import { getSymbolMetadata } from './symbolLoader'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
-import { getPlacementPosition } from '../../core/placement'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
@@ -117,7 +117,7 @@ export function usePlacementTool(): PlacementPreviewState {
       const { zoom } = readCameraViewport(camera)
 
       if (mode === 'free') {
-        const position = getPlacementPosition(planPoint, zoom)
+        const position = resolvePlacementPosition(planPoint, zoom)
         return {
           mode,
           placements: [{ type: elementType, position, angleDeg: DEFAULT_ELEMENT_ANGLE_DEG }],
@@ -156,7 +156,7 @@ export function usePlacementTool(): PlacementPreviewState {
         useCadStore.getState().installationConnections,
         getSymbolMetadata,
         elementType,
-        getPlacementPosition(planPoint, zoom),
+        resolvePlacementPosition(planPoint, zoom),
       )
       if (!attachment) return null
       return {
@@ -173,9 +173,10 @@ export function usePlacementTool(): PlacementPreviewState {
     }
 
     /**
-     * Sayaç konunca boru çizimi KENDİLİĞİNDEN başlar: araç boruya geçer ve taslak
-     * sayacın çıkış portundan açılır (gaz yönü sayaç → tüketim). Kullanıcı sayacı
-     * koyup paletten boruyu ayrıca seçmek zorunda kalmaz.
+     * Sayaç ya da servis kutusu konunca boru çizimi KENDİLİĞİNDEN başlar: araç
+     * boruya geçer ve taslak elemanın çıkış portundan açılır (gaz yönü eleman →
+     * tüketim). Kullanıcı elemanı koyup paletten boruyu ayrıca seçmek zorunda
+     * kalmaz.
      */
     const startPipeFrom = (elementId: Id | null) => {
       const element = useCadStore
@@ -200,8 +201,16 @@ export function usePlacementTool(): PlacementPreviewState {
       const cad = useCadStore.getState()
 
       if (resolved.mode === 'free') {
-        // Araç bilerek aktif kalır: arka arkaya eleman eklenebilsin.
-        cad.addElement({ type: elementType, position: resolved.placements[0].position })
+        const elementId = cad.addElement({
+          type: elementType,
+          position: resolved.placements[0].position,
+        })
+        // Servis kutusu konunca boru çizimi de sayaç gibi kendiliğinden başlar
+        // (2026-08 ürün isteği): ilk boru zaten kutuyu kendi koyduğu için
+        // kullanıcı burada elle koyduğunda da aynı akışı bulmalı. Baca/
+        // havalandırma bu davranışın DIŞINDA — onlar cihazın deşarj portundan
+        // ayrı bir güzergah aracıyla çizilir, bu akıştan geçmez.
+        if (elementType === 'serviceBox') startPipeFrom(elementId)
         return
       }
       if (resolved.mode === 'onLine') {

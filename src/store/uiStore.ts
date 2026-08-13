@@ -15,10 +15,18 @@ type UiState = {
   isDimensionsVisible: boolean
   /** Görünüm ▸ Etiketleri Göster (tesisat eleman adları). Ölçülerle aynı gerekçe. */
   isElementLabelsVisible: boolean
+  /**
+   * Görünüm ▸ Izgarayı Göster. Kapalıyken hem çizgiler kaybolur hem de tesisat
+   * araçlarının ızgara yakalaması devre dışı kalır (`plumbing/scene/
+   * placementSnap.ts`) — kullanıcı isteği, çizim ızgara yüzünden zorlaşıyordu.
+   * Mimari tarafın kendi ızgara yakalaması bu bayrağı OKUMAZ, kapsam dışı.
+   */
+  isGridVisible: boolean
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
   toggleElementLabelsVisible: () => void
+  toggleGridVisible: () => void
 }
 
 /**
@@ -35,6 +43,7 @@ export const useUiStore = create<UiState>()(
     // Ölçülerin aksine varsayılan AÇIK: eleman adı çizimin okunmasına gerekli,
     // ölçü ise isteğe bağlı bir kotalama katmanı.
     isElementLabelsVisible: true,
+    isGridVisible: true,
 
     setActiveTool: (toolId) =>
       set((draft) => {
@@ -58,6 +67,11 @@ export const useUiStore = create<UiState>()(
     toggleElementLabelsVisible: () =>
       set((draft) => {
         draft.isElementLabelsVisible = !draft.isElementLabelsVisible
+      }),
+
+    toggleGridVisible: () =>
+      set((draft) => {
+        draft.isGridVisible = !draft.isGridVisible
       }),
   })),
 )

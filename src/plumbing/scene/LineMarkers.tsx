@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CircleGeometry, DoubleSide, MeshBasicMaterial, RingGeometry } from 'three'
+import { CircleGeometry, DoubleSide, MeshBasicMaterial, PlaneGeometry, RingGeometry } from 'three'
 
 import { LINE_ELEVATION_CM, LINE_END_MARKER_LIFT_CM } from './plumbingLayers'
 import { planToThree, type PlanPoint } from '../../core/coords'
@@ -17,13 +17,26 @@ const CONNECTED_DISC_GEOMETRY = new CircleGeometry(1, END_MARKER_SEGMENTS)
 CONNECTED_DISC_GEOMETRY.rotateX(Math.PI / 2)
 const FREE_RING_GEOMETRY = new RingGeometry(0.55, 1, END_MARKER_SEGMENTS)
 FREE_RING_GEOMETRY.rotateX(Math.PI / 2)
+/** Kare = kenarı 1 birim düzlem; köşe işareti bunu kullanır (aşağıya bkz.). */
+const CORNER_SQUARE_GEOMETRY = new PlaneGeometry(1, 1)
+CORNER_SQUARE_GEOMETRY.rotateX(-Math.PI / 2)
 
 /** Bağlı uç dolu daire, serbest uç içi boş halka — ayrım yalnız renkle yapılmaz. */
 const CONNECTED_MARKER_SCALE = 0.55
 const FREE_MARKER_SCALE = 0.9
-/** Köşeler uç işaretinden küçük ama HÂLÂ belirgin: boru yalnız buralardan
- *  tutulup sürüklenebiliyor, görünür olmalı. */
-const CORNER_MARKER_SCALE = 0.6
+/**
+ * Köşe işareti KARE, daire DEĞİL (kullanıcı isteği, 2026-08): LineMaterial
+ * piksel modda her segmentin ucuna YUVARLAK cap çiziyor (three.js Line2/
+ * LineMaterial'in tek desteklediği şekil — worldUnits'te de aynı, cap seçimi
+ * yok), duvarın kapsül görünümüyle aynı — ama duvar BİLEREK yuvarlak
+ * (capsule-walls.md), boru öyle döşenmiyor. Mimariye dokunmadan yalnız boru
+ * tarafını düzeltmek için köşeye pipe genişliğini aşan bir kare yama konur,
+ * iki segmentin yuvarlak uçlarını örtüp köşeyi köşeli gösterir. Kare eksene
+ * hizalı: borular ürün kuralı gereği çoğunlukla dik açıyla döşendiği için
+ * (CLAUDE.md) tam bir gönye köşesi verir; dik olmayan nadir köşelerde tam
+ * miter değildir ama yine de yuvarlak bloba göre belirgin şekilde köşelidir.
+ */
+const CORNER_MARKER_SCALE = 1.15
 
 /**
  * Renk çaptan geldiği için material instance başına üretilir; geometri
@@ -77,14 +90,14 @@ type CornerMarkerProps = {
  * Kırılma noktası — boru yalnız köşelerinden tutulup sürüklenebiliyor, görünür
  * bir işaret olmadan kullanıcı nereyi tutacağını bilemezdi. Uç işaretinden
  * (bağlı/serbest ayrımı) kasıtlı olarak AYRI: köşede bağlantı durumu
- * gösterilmez, hep aynı dolu nokta.
+ * gösterilmez, hep aynı kare yama (bkz. `CORNER_SQUARE_GEOMETRY`).
  */
 export function CornerMarker({ position, widthCm, colorHex }: CornerMarkerProps) {
   const material = useMarkerMaterial(colorHex)
 
   return (
     <mesh
-      geometry={CONNECTED_DISC_GEOMETRY}
+      geometry={CORNER_SQUARE_GEOMETRY}
       material={material}
       position={planToThree(position, LINE_ELEVATION_CM + LINE_END_MARKER_LIFT_CM)}
       scale={widthCm * CORNER_MARKER_SCALE}

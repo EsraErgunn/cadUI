@@ -28,6 +28,7 @@ import {
   SAVE_ITEM_ID,
   SHOW_DIMENSIONS_ITEM_ID,
   SHOW_ELEMENT_LABELS_ITEM_ID,
+  SHOW_GRID_ITEM_ID,
   UNDO_ITEM_ID,
 } from './menu/menuDefinitions'
 
@@ -60,6 +61,8 @@ export function MenuBar({
   const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
   const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
   const toggleElementLabelsVisible = useUiStore((state) => state.toggleElementLabelsVisible)
+  const isGridVisible = useUiStore((state) => state.isGridVisible)
+  const toggleGridVisible = useUiStore((state) => state.toggleGridVisible)
   const barRef = useRef<HTMLElement>(null)
 
   // Yapılamayacak komutlar pasif görünür ama menüden KALKMAZ: kullanıcı
@@ -71,6 +74,7 @@ export function MenuBar({
   const checkedItemIds = new Set<string>()
   if (isDimensionsVisible) checkedItemIds.add(SHOW_DIMENSIONS_ITEM_ID)
   if (isElementLabelsVisible) checkedItemIds.add(SHOW_ELEMENT_LABELS_ITEM_ID)
+  if (isGridVisible) checkedItemIds.add(SHOW_GRID_ITEM_ID)
 
   useEffect(() => {
     if (openMenuId === null) return undefined
@@ -107,6 +111,7 @@ export function MenuBar({
     if (itemId === FLOOR_DOWN_ITEM_ID) onGoToFloor('down')
     if (itemId === SHOW_DIMENSIONS_ITEM_ID) toggleDimensionsVisible()
     if (itemId === SHOW_ELEMENT_LABELS_ITEM_ID) toggleElementLabelsVisible()
+    if (itemId === SHOW_GRID_ITEM_ID) toggleGridVisible()
   }
 
   return (

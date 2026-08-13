@@ -2,12 +2,14 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
+import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm } from './snapRadius'
 import { getLoadedSymbol } from './symbolLoader'
+import { findSelectedElementRotateHandle } from './useElementRotateTool'
 import type { PlanPoint } from '../../core/coords'
 import { isTypingTarget } from '../../core/domEvents'
 import type { Id } from '../../core/model'
-import { getPlacementPosition, getPlacementStepCm } from '../../core/placement'
+import { getPlacementStepCm } from '../../core/placement'
 import { toPlanRect } from '../../core/selection'
 import { getSnapToleranceCm } from '../../core/snap'
 import { readCameraViewport } from '../../scene/cameraViewport'
@@ -275,7 +277,7 @@ export function useSelectionTool(): SelectionToolState {
       if (lineId !== null && isGroupSelection && ui.selectedLineIds.includes(lineId)) {
         // Izgaraya yakalanan basış noktası dayanak: seçim kendi içindeki göreli
         // düzenini korur ve kayma ızgara katı olur (eleman sürüklemesiyle aynı).
-        const anchor = getPlacementPosition(event.planPoint, zoom)
+        const anchor = resolvePlacementPosition(event.planPoint, zoom)
         startElementDrag(ui.selectedElementIds, ui.selectedLineIds, anchor, event.planPoint)
         return
       }
@@ -367,6 +369,11 @@ export function useSelectionTool(): SelectionToolState {
 
       const { zoom } = readCameraViewport(camera)
 
+      // Döndürme tutamacı seçili elemanın gövdesinin DIŞINA taşıyor: bu basış
+      // yakalanmasa "boşluk" gibi görünüp çerçeve seçimi başlatırdı (mimari
+      // taraftaki K44 ile aynı tuzak, bkz. useElementRotateTool.ts).
+      if (findSelectedElementRotateHandle(event.planPoint, zoom)) return
+
       // Etiket elemanların ÜSTÜNDE çizilir; tutma sınavı da aynı sırayla —
       // etiket isabeti eleman isabetinin önüne geçer. Gizli etiket TUTULMAZ:
       // görünmeyen bir şeyi sürüklemek "boşluk seçim yapmıyor" hissi verirdi.
@@ -405,7 +412,7 @@ export function useSelectionTool(): SelectionToolState {
     /** Sürüklenen köşenin/yeni köşenin yeri — grid'e yapışır, Ctrl serbest bırakır. */
     const resolveCornerPosition = (event: DrawSurfacePointerEvent): PlanPoint => {
       const { zoom } = readCameraViewport(camera)
-      return event.ctrlKey ? event.planPoint : getPlacementPosition(event.planPoint, zoom)
+      return event.ctrlKey ? event.planPoint : resolvePlacementPosition(event.planPoint, zoom)
     }
 
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
@@ -464,7 +471,7 @@ export function useSelectionTool(): SelectionToolState {
       // Ctrl ızgarayı kapatır — duvar ve köşe sürüklemesiyle aynı jest. Izgaraya
       // BASILAN eleman yakalanır, kayma ondan türetilir: grup kendi içindeki
       // göreli düzenini korur, her eleman ayrı ayrı ızgaraya çekilmez.
-      const snappedAnchor = event.ctrlKey ? rawAnchor : getPlacementPosition(rawAnchor, zoom)
+      const snappedAnchor = event.ctrlKey ? rawAnchor : resolvePlacementPosition(rawAnchor, zoom)
       dragDeltaRef.current = {
         x: snappedAnchor.x - grab.anchorPosition.x,
         y: snappedAnchor.y - grab.anchorPosition.y,

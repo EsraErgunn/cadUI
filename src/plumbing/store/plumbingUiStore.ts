@@ -34,6 +34,13 @@ export type LineCornerDrag = { lineId: Id; pointId: Id; position: PlanPoint }
 export type LabelDrag = { elementId: Id; offsetCm: PlanPoint }
 
 /**
+ * Serbest (`free` modlu) bir elemanın döndürme tutamacıyla sürüklenen açısı.
+ * `architectureUiStore.areaObjectHandleDrag` ile AYNI desen: bırakılana kadar
+ * cadStore'a yazılmaz, sahne elemanı geçici açısıyla çizer.
+ */
+export type ElementRotateDrag = { elementId: Id; angleDeg: number }
+
+/**
  * Devam eden çizim: hangi araçla + zincirin nerede kaldığı. Zincirin nasıl
  * ilerleyip geri alınacağı saf fonksiyonlarda (`core/lineChain.ts`), store
  * yalnız sonucu tutar. Noktaların id'si yok: id'ler boru kaydedilirken üretilir.
@@ -85,6 +92,12 @@ type PlumbingUiState = {
   /** Sürüklenen ad etiketi; boş = sürükleme yok (bkz. `ElementNameLabels`). */
   draggingLabel: LabelDrag | null
   setDraggingLabel: (drag: LabelDrag | null) => void
+  /** Döndürme tutamacıyla sürüklenen serbest eleman; boş = sürükleme yok. */
+  elementRotateDrag: ElementRotateDrag | null
+  setElementRotateDrag: (drag: ElementRotateDrag | null) => void
+  /** İmleç döndürme tutamacının üstündeyken vurgu için; sürüklemeden AYRI. */
+  isElementRotateHandleHovered: boolean
+  setElementRotateHandleHovered: (isHovered: boolean) => void
   /** Bundan sonra çizilecek hatların çapı. Araç ayarıdır: kaydedilmez, geçmişe girmez. */
   activePipeTypeName: PipeTypeName
   setActivePipeType: (name: PipeTypeName) => void
@@ -129,6 +142,8 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     dischargeDraft: null,
     draggingLineCorner: null,
     draggingLabel: null,
+    elementRotateDrag: null,
+    isElementRotateHandleHovered: false,
     activePipeTypeName: DEFAULT_PIPE_TYPE_NAME,
     elementClipboard: [],
     lineClipboard: [],
@@ -198,6 +213,16 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     setDraggingLabel: (drag) =>
       set((draft) => {
         draft.draggingLabel = drag
+      }),
+
+    setElementRotateDrag: (drag) =>
+      set((draft) => {
+        draft.elementRotateDrag = drag
+      }),
+
+    setElementRotateHandleHovered: (isHovered) =>
+      set((draft) => {
+        draft.isElementRotateHandleHovered = isHovered
       }),
 
     setActivePipeType: (name) =>

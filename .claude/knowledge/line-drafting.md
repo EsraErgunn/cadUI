@@ -284,9 +284,120 @@ ara birleşimleri kaçırıyordu. Okunur senaryolar
   kendi nesnesidir (K-W4, Aşama 8).
 - Ortogonal (yatay/dikey) ZORUNLU kısıt bu aşamada **yok** — CLAUDE.md'deki
   "borular duvarlara paralel" kuralı hâlâ tam kodda değil. Yalnız YUMUŞAK bir
-  yardımcı var: imleç bir duvara yakınken hat çiziminin başlangıç noktası
-  duvarın eksenine yapışır (`core/wallSnap.ts` → `findNearestWallPoint`,
-  `useLineTool.ts`'teki `resolveSnap` sırası port > mevcut boru > duvar ekseni >
-  ızgara). Bu bir BAĞLANTI kaydı üretmez — boru grafiği duvarı tanımaz
-  (`core/model.ts` sözleşmesi), yalnız konumu çeker; paralellik ZORUNLU değildir.
+  yardımcı var: zincire devam ederken imleç bir duvara yakınsa yeni köşenin
+  YÖNÜ o duvara paralele kelepçelenir (`core/wallSnap.ts` →
+  `findNearestWallParallel`, `useLineTool.ts`'teki `resolveSnap` sırası port >
+  mevcut boru > duvara paralel yön > ızgara — aşağıdaki bölüme bkz.). Bu bir
+  BAĞLANTI kaydı üretmez — boru grafiği duvarı tanımaz (`core/model.ts`
+  sözleşmesi), yalnız YÖNÜ çeker, konumu değil; paralellik ZORUNLU değildir.
 - Porta yakalanma ve uç bağlantısı Aşama 6'da.
+
+## Duvar yakalaması KONUM değil YÖN kelepçeler (2026-08, iki aşamalı düzeltme)
+
+İlk denemede `findNearestWallPoint` imleci duvarın belirli bir NOKTASINA
+(önce eksene, sonra yüzden paylı bir noktaya) yapıştırıyordu. İkisi de
+kullanıcının asıl isteğini karşılamadı: eksene yapıştırma "duvar+boru üst üste
+binmez" kuralını çiğniyordu, yüze paylı nokta ise duvarın YUVARLAK (kapsül,
+`capsule-walls.md`) uçlarına yakınken "en yakın nokta" belirsizleşip
+zıplıyordu — kapsülün render'daki yuvarlak görünüşü ile altındaki düz segment
+geometrisi orada örtüşmüyor.
+
+Son karar: `findNearestWallPoint` kalktı, yerine `findNearestWallParallel`
+geldi. Konuma prensipte dokunmaz — yalnız zincirin devam eden bir ANCHOR'ı
+varken (`draftLine` doluyken) yeni köşeyi, imlece en yakın duvarın AÇISINA
+(`getSegmentAngleDeg`, sabit bir değer — kapsülün yuvarlak görünüşünden
+etkilenmez) paralel bir doğruya projekte eder: `anchor + yönVektörü ×
+((imleç−anchor)·yönVektörü)`. Sonucun duvara olan dik uzaklığı anchor'ın ZATEN
+sahip olduğu uzaklıkla AYNI kalır (izdüşüm anchor'ı içeren paralel doğru
+üzerinde) — ayrı bir "payı" hesaba katmaya gerek kalmadı, boru anchor nereden
+başladıysa o mesafede duvara paralel gider.
+
+**GÜVENCE — boru duvara hiçbir zaman değmez** (kullanıcı iki kez tekrarladı):
+paralel-doğru sonucu anchor'ın dik ofsetini miras aldığı için normalde zaten
+duvara değmez, ama anchor'ın KENDİSİ (ayrı bir jestle, ör. Ctrl'lu serbest
+tıklamayla) duvara `wall.thickness/2 + WALL_CLEARANCE_CM` (5 cm payla)'dan
+yakın konmuşsa, bu MİRAS da duvarın içine düşerdi. Bu yüzden sonuç ayrıca bu
+asgari paya KELEPÇELENİR: dik uzaklık payın altındaysa nokta duvardan uzağa
+DİK itilir (yön hâlâ paralel kalır). Ender bir köşe — anchor'ın kendisi zaten
+neredeyse hep bu payın dışındadır — ama garanti KOŞULSUZ olmalı.
+
+Zincirin İLK noktasında (henüz `draftLine` yokken) duvarın bu adımda HİÇ
+etkisi yok: "paralele" iki noktalı bir segmentin özelliğidir, tek bir
+başlangıç noktasının değil — ilk nokta düz ızgaraya düşer, `useLineTool.ts`
+→ `resolveSnap` bunu `draftLine` doluluğuyla ayırt eder. Yakınlık hâlâ imlecin
+duvarın EKSENİNE (segment, uçlarda kelepçeli) dik uzaklığıyla ölçülür — "hangi
+duvarın açısı kullanılacak" sorusunun cevabı bu, sonucun konumuyla ilgisi yok.
+
+## Duvar kilidi SIKI + kalıcı, duvar hattı BİTİNCE de bırakmaz (2026-08)
+
+`core/wallParallelLock.ts` → `createWallParallelLock()`: bir duvara ayak
+uydurulunca (`useLineTool.ts`'in kapanışında tek bir `wallLock` nesnesi,
+adım başına değil ARAÇ ÖMRÜ boyunca yaşar) o duvarın açısı bu ADIMIN SONUNA
+kadar YARIÇAPSIZ uygulanır — kullanıcı isteği: "boru bitse (duvarın kendi
+uzunluğu tükense) bile aynı eksende düz çizmeye devam et, ben durdurana
+kadar". Eskiden yarıçaplı arama HER karede tekrarlanıyordu: imleç duvarın
+UCUNU geçince `projectOntoSegment`in kelepçelenmiş mesafesi büyüyüp kilidi
+kırıyordu. Kilit yalnız İKİ yolla açılır: **anchor değişir** (yeni adım —
+`findNearestWallParallel`/`getWallParallelPosition` ayrımı budur, ikincisi
+yarıçapsız) ya da araç değişir (`wallLock` effect'in kapanışında yeniden
+yaratılır). İlk histerezisli tasarım (`RELEASE_RADIUS_MULTIPLIER` ile geniş
+bir "bırakma" yarıçapı) DENENİP KALDIRILDI — kullanıcı "her ne olursa olsun
+durana kadar sürsün" dedi, mesafe tabanlı bir bırakma bunu hiç sağlamazdı.
+
+## Duvar YOKKEN genel 45°'lik açı yardımı (2026-08)
+
+`core/angleSnap.ts` → `snapToNearestAngle`: duvar kilidi devrede değilken
+(uzakta ya da hiç duvar yokken) yön en yakın 45°'lik hedefe (0/45/90/135…)
+YALNIZ yakınken (`ANGLE_SNAP_TOLERANCE_DEG`, 6°) yakalanır — kullanıcı isteği
+"her zaman dümdüz ilerlemesin, 45/90 derece de yapsın, biraz oynasın". Duvar
+kilidinin AKSİNE SIKI/toleranssız değil: hedefin dışındayken imleç serbest
+kalır, her karede yeniden hesaplanır (stickiness YOK) — kilit "gerçek bir
+duvara" bağlanıyor ve rijit olması doğru, bu ise duvar yokken genel bir
+yardımcı, rijit olsaydı serbest çizim hissini bozardı. Mesafe imleçten aynen
+gelir, ayrıca ızgaraya yuvarlanmaz. Öncelik: port > mevcut boru > duvara
+paralel (SIKI) > 45° açı yardımı (TOLERANSLI) > ızgara.
+
+## Görünüm ▸ Izgarayı Göster (2026-08, tesisat için)
+
+Kullanıcı çizimin ızgara yüzünden zorlaştığını, kapatabilmek istediğini
+söyledi. Bayrak `uiStore.isGridVisible` (D'nin dosyası, `isDimensionsVisible`
+ile AYNI desen) — kapalıyken hem `scene/Grid.tsx` çizgileri kaybolur hem de
+`plumbing/scene/placementSnap.ts` → `resolvePlacementPosition` tesisat
+araçlarının ızgara yakalamasını (`getPlacementPosition`) devre dışı bırakır,
+ham imleç noktası kullanılır. Kapsam BİLEREK yalnız tesisat: mimari tarafın
+kendi araçları (`useWallTool.ts` vb.) hâlâ doğrudan `getPlacementPosition`
+çağırıyor, bu bayrağı hiç okumuyor — kullanıcı isteği "tesisat için" diye
+sınırlıydı, B'nin araçlarına dokunulmadı. Ctrl ile GEÇİCİ ızgara kapatmadan
+(`event.ctrlKey ? ... : ...`) ayrı bir mekanizma: ikisi de aynı "ham nokta"
+sonucuna varır ama biri anlık jest, öbürü Görünüm menüsünden kalıcı tercih.
+Testler: `core/__tests__/wallSnap.test.ts`.
+
+## Servis kutusu KONUNCA da boru çizimi kendiliğinden başlar (2026-08)
+
+`usePlacementTool.ts` → `startPipeFrom` eskiden yalnız `lineEnd` modundaki
+sayaç için çağrılıyordu. Artık `free` moddaki servis kutusu için de aynı
+yardımcı çağrılır (elemanın `out` portundan taslak hat açılır, araç boruya
+geçer) — "ilk boru servis kutusunu kendisi koyar" akışıyla simetrik: kullanıcı
+kutuyu PALETTEN kendi koyduğunda da elle boru aracına geçmek zorunda kalmaz.
+Baca/havalandırma kanalı (aynı `free` modun diğer türleri) bu davranışın
+DIŞINDA bırakıldı — onlar cihazın deşarj portundan ayrı bir güzergah aracıyla
+çizilir, bu akıştan hiç geçmez; `free` modda arka arkaya eleman eklenebilmesi
+(araç aktif kalması) onlar için hâlâ geçerli.
+
+## Köşe işareti KARE, cap'ler YUVARLAK (2026-08, görsel düzeltme)
+
+three.js `LineMaterial` (drei `<Line>`'ın altında) piksel modda her segmentin
+UCUNA yuvarlak bir cap çiziyor — kütüphanenin tek desteklediği şekil, `linecap`
+seçeneği yok. İki segment bir köşede buluşunca bu iki yuvarlak cap üst üste
+biner ve köşe duvarın kapsül görünümü gibi OVAL durur; ama duvar BİLEREK
+yuvarlak (`capsule-walls.md`), boru öyle döşenmez. Mimariye (duvar render'ına)
+dokunmadan yalnız boru köşesini düzeltmek için `scene/LineMarkers.tsx` →
+`CornerMarker` artık `CircleGeometry` değil `CORNER_SQUARE_GEOMETRY` (kenarı
+boru genişliğinin ~1.15 katı, eksene hizalı kare) kullanıyor — iki segmentin
+yuvarlak uçlarını örtüp köşeyi köşeli gösteriyor. Kare eksene hizalı olduğu
+için dik açılı (yatay/dikey) köşelerde tam gönye verir; dik olmayan nadir
+köşelerde tam miter değildir ama yuvarlak bloba göre yine de belirgin şekilde
+köşelidir — pipe segmentinin yönüne göre döndürülen gerçek bir miter şekli
+bilerek yapılmadı (kapsam dışı, karmaşıklığı haklı çıkarmıyor). Hat UCU
+işaretleri (`LineEndMarker`, bağlı/serbest) bu değişikliğin DIŞINDA — onlar
+"nereye tutunduğu" anlamını taşıyor, boru gövdesinin şeklini değil.

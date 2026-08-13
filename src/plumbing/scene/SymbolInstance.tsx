@@ -13,6 +13,7 @@ import { RENDER_ORDER } from '../../scene/layers'
 import { useCadStore } from '../../store/cadStore'
 import type { InstallationElement } from '../core/installationModel'
 import { isPortOccupied } from '../core/portSnap'
+import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 const DEG_TO_RAD = Math.PI / 180
 const MISSING_SYMBOL_SIZE_CM = 40
@@ -97,7 +98,14 @@ export function SymbolInstance({
       ),
     [element.position, isGhost],
   )
-  const rotationY = element.angleDeg * DEG_TO_RAD
+  // Döndürme tutamacıyla sürüklenirken ÖNİZLENEN açı kullanılır — bırakılana
+  // kadar cadStore'a yazılmaz (bkz. useElementRotateTool.ts), sahne bu tek
+  // kaynaktan (`elementRotateDrag`) okuyup canlı döner; ikon da AYNI kaynağı
+  // okuyor (`ElementRotateHandle.tsx`), ikisi ayrışmaz.
+  const rotateDragAngleDeg = usePlumbingUiStore((state) =>
+    state.elementRotateDrag?.elementId === element.id ? state.elementRotateDrag.angleDeg : undefined,
+  )
+  const rotationY = (rotateDragAngleDeg ?? element.angleDeg) * DEG_TO_RAD
   const renderOrder = isGhost ? RENDER_ORDER.installationGhost : RENDER_ORDER.equipment
 
   // Sürükleme konumu doğrudan object3D'ye yazılır: imleç her kıpırdadığında

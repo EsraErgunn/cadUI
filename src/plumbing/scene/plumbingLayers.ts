@@ -24,3 +24,5 @@ export const ELEMENT_LABEL_ELEVATION_CM = 0.45
 export const MEASUREMENT_ELEVATION_CM = 0.5
 /** Seçim çerçevesi en üstte: altındaki her şeyin üzerinde okunmalı. */
 export const SELECTION_MARQUEE_ELEVATION_CM = 0.6
+/** Serbest elemanın döndürme tutamacı — çerçevenin de üstünde, hiçbir şey onu örtmemeli. */
+export const ELEMENT_ROTATE_HANDLE_ELEVATION_CM = 0.65

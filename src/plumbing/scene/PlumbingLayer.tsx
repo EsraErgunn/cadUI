@@ -1,6 +1,7 @@
 import { DischargePreview } from './DischargePreview'
 import { DrawPreview, LineDraftPreview } from './DrawPreview'
 import { ElementNameLabels } from './ElementNameLabels'
+import { ElementRotateHandle } from './ElementRotateHandle'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
@@ -72,6 +73,7 @@ export function PlumbingLayer() {
         draggedElementIds={selection.draggedElementIds}
         dragDeltaRef={selection.dragDeltaRef}
       />
+      <ElementRotateHandle />
       <DrawPreview {...preview} />
       <DrawingPortMarkers {...line} />
       <SplitLengthLabels {...line} />
