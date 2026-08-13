@@ -32,6 +32,10 @@ beforeEach(() => {
     openings: [{ id: 10, wallId: 6, offsetCm: 250, widthCm: 90, type: 'door' }],
     rooms: [],
     symbols: [],
+    // Alan nesnesi/kiriş burada da sıfırlanır: "Düşey" satırı testi kaynağa
+    // baca şaftı ekliyor, sonraki testlere sızmasın.
+    areaObjects: [],
+    beams: [],
     installationElements: [],
     installationLines: [],
     installationConnections: [],
@@ -56,6 +60,48 @@ describe('FloorCopyDialog — kaynak ve içerik (KK-15)', () => {
     renderDialog()
 
     expect(screen.getByText('1 duvar · 1 kapı')).toBeInTheDocument()
+  })
+
+  it('kaynakta düşey eksen yoksa "Düşey" satırı yine durur', () => {
+    renderDialog()
+
+    // Satır koşullu değil: madde 15 kaynak özetini ÜÇ satır olarak tanımlıyor,
+    // "yok" da bir cevap — satırın kaybolması kullanıcıya soru bıraktırırdı.
+    expect(screen.getByText('Düşey')).toBeInTheDocument()
+    expect(screen.getByText('yok')).toBeInTheDocument()
+  })
+
+  it('baca şaftı ve kolon havalandırmasını "Düşey" satırında adıyla sayar', () => {
+    useCadStore.setState({
+      areaObjects: [
+        {
+          id: 30,
+          type: 'flueShaft',
+          floorId: DEFAULT_FLOOR_ID,
+          x: 100,
+          y: 100,
+          widthCm: 60,
+          lengthCm: 60,
+          angleDeg: 0,
+          label: 'BŞ-01',
+        },
+        {
+          id: 31,
+          type: 'columnVentilation',
+          floorId: DEFAULT_FLOOR_ID,
+          x: 200,
+          y: 100,
+          widthCm: 40,
+          lengthCm: 40,
+          angleDeg: 0,
+          label: 'KH-01',
+        },
+      ],
+    })
+
+    renderDialog()
+
+    expect(screen.getByText('1 baca şaftı · 1 kolon havalandırması')).toBeInTheDocument()
   })
 
   it('kaynak kat hedef listesinde PASİFTİR', () => {

@@ -1,7 +1,7 @@
 import type { FloorContentCounts } from '../../core/floorContent'
 
 /** "14 duvar · 4 mahal · 6 kapı" — sıfır olan tür hiç yazılmaz. */
-function joinCounts(entries: readonly [number, string][]): string {
+function joinCounts(entries: readonly (readonly [number, string])[]): string {
   const written = entries.filter(([count]) => count > 0).map(([count, noun]) => `${count} ${noun}`)
   return written.length > 0 ? written.join(' · ') : 'yok'
 }
@@ -20,6 +20,33 @@ export function formatArchitectureCounts(counts: FloorContentCounts): string {
     // Kiriş alan nesnesi DEĞİL (çizgisel, ayrı model) — kendi kalemi olarak yazılır.
     [counts.beamCount, 'kiriş'],
   ])
+}
+
+/**
+ * Düşey eksende süren alan nesneleri. İki sunum var çünkü iki yer farklı
+ * cümle kuruyor: kopyalama özeti kardeş satırlarla aynı ayracı ister ve
+ * boşken "yok" yazar, silme uyarısı ise cümlenin içinde geçer ("Bu katta …
+ * bulunuyor") ve yalnız sayı sıfırdan büyükken çağrılır. Kalemler tek yerde
+ * dursun diye ayrı değil, aynı listeden türüyorlar.
+ */
+function verticalAxisEntries(counts: FloorContentCounts): readonly [number, string][] {
+  return [
+    [counts.flueShaftCount, 'baca şaftı'],
+    [counts.columnVentilationCount, 'kolon havalandırması'],
+  ]
+}
+
+/** Kopyalama özetindeki "Düşey" satırı (madde 15). */
+export function formatVerticalAxisCounts(counts: FloorContentCounts): string {
+  return joinCounts(verticalAxisEntries(counts))
+}
+
+/** "1 baca şaftı ve 1 kolon havalandırması" — silme uyarısının içinde (KK-13). */
+export function describeVerticalAxis(counts: FloorContentCounts): string {
+  return verticalAxisEntries(counts)
+    .filter(([count]) => count > 0)
+    .map(([count, noun]) => `${count} ${noun}`)
+    .join(' ve ')
 }
 
 /**
