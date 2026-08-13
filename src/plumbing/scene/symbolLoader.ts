@@ -18,8 +18,10 @@ import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Soluk ama okunur: bu değerin altında koyu konturlu semboller ızgaraya karışıyor.
  *  Hat hayaleti de aynı değeri kullanır (InstallationLineMesh) — sembol ve boru
- *  aynı izde farklı solukluktaysa katman iki parçaya bölünmüş görünüyor. */
-export const GHOST_OPACITY = 0.35
+ *  aynı izde farklı solukluktaysa katman iki parçaya bölünmüş görünüyor.
+ *  0.35 çok soluktu (kullanıcı geri bildirimi); tek kaynak olduğu için burayı
+ *  değiştirmek hat/sembol/baca-havalandırma hayaletinin ÜÇÜNÜ birden etkiler. */
+export const GHOST_OPACITY = 0.55
 
 export type SymbolShape = { geometry: BufferGeometry; material: Material }
 export type LoadedSymbol = { shapes: readonly SymbolShape[]; metadata: SymbolMetadata }

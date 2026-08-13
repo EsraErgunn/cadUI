@@ -57,6 +57,13 @@ export const useUiStore = create<UiState>()(
         // aracı yeni palette geçersiz kalmasın. isometric'te palet yok, dokunulmaz.
         if (viewId === 'architecture') draft.activeToolId = DEFAULT_TOOL_ID
         if (viewId === 'installation') draft.activeToolId = DEFAULT_INSTALLATION_TOOL_ID
+        // Izgara her görünümün kendi varsayılanına döner: tesisatta arkadaki
+        // ızgara boru/sembol hayaletiyle karışıyordu, mimaride çizim için
+        // gerekli. İsteyen Görünüm ▸ Izgarayı Göster ile elle kapatır/açar —
+        // bu otomatik varsayım o manuel denetimin YERİNE geçmez, yalnız
+        // görünüm değişiminde başlangıç durumunu belirler.
+        if (viewId === 'installation') draft.isGridVisible = false
+        if (viewId === 'architecture') draft.isGridVisible = true
       }),
 
     toggleDimensionsVisible: () =>
