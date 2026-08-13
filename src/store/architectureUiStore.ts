@@ -94,6 +94,15 @@ type BeamHandleDrag = {
   position: PlanPoint
 }
 
+/**
+ * Sürüklenen ad etiketinin CANLI kayması. draggingAreaObjects ile aynı gerekçe:
+ * sürükleme boyunca cadStore'a yazılmaz, tek yazım bırakma anında olur.
+ */
+type AreaObjectLabelDrag = {
+  areaObjectId: Id
+  offsetCm: PlanPoint
+}
+
 type ArchitectureUiState = {
   /**
    * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
@@ -108,6 +117,7 @@ type ArchitectureUiState = {
   draggingWall: WallDrag | null
   draggingSymbols: SymbolDrag | null
   draggingAreaObjects: AreaObjectDrag | null
+  draggingAreaObjectLabel: AreaObjectLabelDrag | null
   draggingBeams: BeamDrag | null
   beamHandleDrag: BeamHandleDrag | null
   /** İmleç kirişin bir ucunun üstünde mi? Tutamacın vurgusu bunu okur. */
@@ -142,6 +152,7 @@ type ArchitectureUiState = {
   setDraggingWall: (drag: WallDrag | null) => void
   setDraggingSymbols: (drag: SymbolDrag | null) => void
   setDraggingAreaObjects: (drag: AreaObjectDrag | null) => void
+  setDraggingAreaObjectLabel: (drag: AreaObjectLabelDrag | null) => void
   setDraggingBeams: (drag: BeamDrag | null) => void
   setBeamHandleDrag: (drag: BeamHandleDrag | null) => void
   setBeamHandleHover: (isHovered: boolean) => void
@@ -168,6 +179,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingWall: null,
     draggingSymbols: null,
     draggingAreaObjects: null,
+    draggingAreaObjectLabel: null,
     draggingBeams: null,
     beamHandleDrag: null,
     isBeamHandleHovered: false,
@@ -222,6 +234,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingAreaObjects: (drag) =>
       set((draft) => {
         draft.draggingAreaObjects = drag
+      }),
+
+    setDraggingAreaObjectLabel: (drag) =>
+      set((draft) => {
+        draft.draggingAreaObjectLabel = drag
       }),
 
     setDraggingBeams: (drag) =>

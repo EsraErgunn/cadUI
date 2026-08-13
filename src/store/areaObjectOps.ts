@@ -10,6 +10,7 @@ import {
   isAreaObjectLabelValid,
   MIN_AREA_OBJECT_SIZE_CM,
 } from '../core/areaObject'
+import type { PlanPoint } from '../core/coords'
 import type { AreaObjectType, Id } from '../core/model'
 import { snapAngleDeg } from '../core/transform'
 
@@ -69,6 +70,11 @@ export type AreaObjectActions = {
   /** Açı KK-3'ün 15° adımına yakalanır. */
   rotateAreaObject: (areaObjectId: Id, angleDeg: number) => boolean
   setAreaObjectLabel: (areaObjectId: Id, label: string) => boolean
+  /**
+   * Ad etiketinin nesneye göre kayması. Etiket bir AÇIKLAMA notudur, çizim
+   * geometrisi değil: ızgaraya yakalanmaz ve açıklık kontrolünden geçmez.
+   */
+  setAreaObjectLabelOffset: (areaObjectId: Id, offsetCm: PlanPoint) => boolean
 }
 
 export type AreaObjectResize = {
@@ -187,6 +193,27 @@ export function createAreaObjectActions(set: DraftSetter): AreaObjectActions {
         if (areaObject.label === trimmed) return
 
         areaObject.label = trimmed
+        isApplied = true
+        markDirty(draft)
+      })
+      return isApplied
+    },
+
+    setAreaObjectLabelOffset: (areaObjectId: Id, offsetCm: PlanPoint): boolean => {
+      let isApplied = false
+      set((draft) => {
+        const areaObject = draft.areaObjects.find((candidate) => candidate.id === areaObjectId)
+        if (!areaObject) return
+        // Aynı değerde yazma: sürüklemeden bırakılan etiket geçmişe boş adım
+        // yazmasın (K13'ün "reddedilen action geçmişi kirletmez" kuralı).
+        if (
+          areaObject.labelOffsetCm?.x === offsetCm.x &&
+          areaObject.labelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        areaObject.labelOffsetCm = offsetCm
         isApplied = true
         markDirty(draft)
       })

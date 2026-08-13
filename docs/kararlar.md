@@ -1562,6 +1562,63 @@ Nerede: `store/transformOps.ts`, `store/duplicateOps.ts` (yeni),
 `core/wall.ts` (`collectWallPointIds`), `ui/properties/SelectionActions.tsx`.
 Testler `store/__tests__/transformAreaObjectBeam.test.ts`.
 
+### K50 — Alan nesnelerine sürüklenebilir AD etiketi (tesisatın desenini devraldı)
+
+Kullanıcı "planda ne olduğu anlaşılsın" dedi ve örnek olarak tesisattaki servis
+kutusu etiketini gösterdi. Aynı desen mimari tarafa taşındı: kesikli kılavuz
+çizgisiyle nesneye bağlı, sürüklenebilir bir ad etiketi.
+
+**Yazan şey TÜRÜN adı ("Kolon"), nesnenin `label` kodu ("K-01") DEĞİL.**
+Kullanıcı seçti; kod tek başına ne olduğunu söylemiyor. Kod panelde duruyor ve
+düzenlenebilir kalıyor — ikisi ayrı işler.
+
+**Kapsam üç tür: kolon, baca şaftı, kolon havalandırması.** Merdiven DIŞARIDA
+(kullanıcı seçti): iniş oku ve basamakları zaten ne olduğunu söylüyor, etiket
+çizimi kalabalıklaştırırdı. Kiriş de dışarıda — kesik konturu onu ayırıyor.
+Çizim de tutma sınavı da bu TEK kuraldan (`hasAreaObjectNameLabel`) okur;
+ayrışsalar görünmez bir etiket tutulabilir olurdu.
+
+**Kayma nesneye GÖRELİ saklanır** (`AreaObject.labelOffsetCm`, opsiyonel), mutlak
+konum değil: nesne taşınınca etiket kendiliğinden birlikte gelir.
+`InstallationElement.labelOffsetCm` ile birebir aynı gerekçe. Alan yoksa etiket
+varsayılan yerinde (kutunun üstünde) durur, yani eski çizimler ve hiç
+dokunulmamış nesneler alansız kalır — `JSON.stringify` undefined'ı atladığı için
+bit-bit tur da bozulmaz.
+
+**Varsayılan konum ÇİZİLEN geometrinin dünya kutusundan türer.** Yerel kutu
+döndürülüp eksen hizalı kutuya çevriliyor: nesne dönse de yazı dik duruyor,
+dolayısıyla payı dünya kutusundan ölçmek gerek. Kolon havalandırmasında kutu
+çemberden geliyor (K45'teki `getAreaObjectLocalBounds` yeniden kullanıldı), yani
+etiket dairenin görünür kenarına oturuyor.
+
+**Kılavuz kırpması `core/labelLeader.ts`'e TAŞINDI.** `clipLeaderEndToRectCm`
+tesisat tarafındaydı (`plumbing/core/elementLabel.ts`) ve mimari onu fay sınırı
+yüzünden import edemezdi; ikinci bir kopya yazmak yerine `core/`'a taşınıp eski
+yerinden yeniden dışa aktarıldı (`plumbing/scene/useCameraZoom.ts` deseni).
+Tesisat tarafındaki çağıranların yolu değişmedi.
+
+**Jest sahipliği yine BEŞ hook'a dokundu (K44 dersi, üçüncü kez).** Etiket
+gövdenin DIŞINDA ve kullanıcı onu istediği yere sürükleyebiliyor, dolayısıyla
+hedef çözümlemesi orayı "boşluk" sayıyor ve çerçeve seçimi başlıyordu.
+`findAreaObjectLabelAt` isabet ederse diğer hook'lar jesti hiç başlatmıyor.
+Silgi etikete DEĞMEZ: oradaki basış nesneyi silmek içindir.
+
+Kayma ızgaraya YAKALANMAZ — etiket bir açıklama notudur, çizim geometrisi değil.
+
+⚠️ **Tarayıcıda DOĞRULANMADI:** doğrulama sırasında oturum düştü (giriş ekranı),
+kimlik bilgisi girilmedi. Sınanacaklar: yazının okunabilirliği ve ekran-sabit
+boyu, kılavuzun yazının altına girmemesi, sürüklemenin akıcılığı, etiketin
+nesne taşınırken/boyutlanırken ona yapışık kalması.
+
+Nerede: `core/model.ts` (`labelOffsetCm`), `core/areaObjectLabel.ts` (yeni),
+`core/labelLeader.ts` (yeni, taşındı), `core/serialize.ts`,
+`plumbing/core/elementLabel.ts` (yeniden dışa aktarım),
+`store/areaObjectOps.ts`, `store/architectureUiStore.ts`,
+`scene/AreaObjectNameLabels.tsx` + `scene/useAreaObjectLabelTool.ts` (yeni),
+`scene/ArchitectureLayer.tsx` ve sahiplenme kontrolü eklenen beş hook.
+Testler `core/__tests__/areaObjectLabel.test.ts`,
+`store/__tests__/areaObjectActions.test.ts`.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

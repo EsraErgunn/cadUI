@@ -1,3 +1,6 @@
+// Tip-only ve coords.ts hiçbir şey import etmiyor: döngü oluşmaz.
+import type { PlanPoint } from './coords'
+
 /** Kalıcı id: proje bazlı artan tamsayı. Bkz. knowledge/id-scheme.md. */
 export type Id = number
 
@@ -172,6 +175,13 @@ export type AreaObject = {
   angleDeg: number
   /** PointSymbol.label ile aynı gerekçe: otomatik üretilir, düzenlenebilir. */
   label: string
+  /**
+   * Ad etiketinin nesne merkezine göre kayması (cm). Alan YOKSA etiket
+   * varsayılan yerinde (kutunun üstünde) durur. Mutlak konum değil KAYMA
+   * saklanır ki nesne taşınınca etiket kendiliğinden birlikte gelsin —
+   * `InstallationElement.labelOffsetCm` ile birebir aynı gerekçe.
+   */
+  labelOffsetCm?: PlanPoint
 }
 
 /**
