@@ -8,7 +8,7 @@ import type { Sourced } from '../../../api/mockGate'
 import type { ProjectPolicyRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
-import { POLICY_CREATE_PATH } from '../adminNavItems'
+import { policyCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
 import { detailBadgeVariants } from './projectDetailVariants'
 
@@ -60,14 +60,21 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
 ]
 
 export function ProjectPolicyTab({
+  projectId,
   policies,
 }: {
+  /** Oluşturulan poliçe GELİNEN projeyle ilişkilendirilir (KK-15); ekran
+      kimliksiz açılamaz, o yüzden bağlantı kimliği taşır. */
+  projectId: number
   policies: Sourced<ProjectPolicyRow[]> | undefined
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Link to={POLICY_CREATE_PATH} className={adminButtonVariants({ tone: 'primary' })}>
+        <Link
+          to={policyCreatePath(projectId)}
+          className={adminButtonVariants({ tone: 'primary' })}
+        >
           <ShieldPlus aria-hidden className="size-4" />
           Poliçelendir
         </Link>

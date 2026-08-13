@@ -1,7 +1,7 @@
 import { Check, FileDown, PencilRuler, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { MockValue } from './MockValue'
+import { MockValue } from '../MockValue'
 import { ProjectStatusChip } from './ProjectStatusChip'
 import type { ProjectDetail, ProjectDetailStatus } from '../../../api/projectDetail'
 import { PROJECT_LIST_PATH } from '../../../pages/useCloseEditor'

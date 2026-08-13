@@ -3251,3 +3251,114 @@ yazdığını çağrı yerinde okunur kılıyor.
 `AdminSidebar` testi "Yakında" rozetini artık etiketle değil `isComingSoon`
 bayrağıyla arıyor: Evraklar ekranı yazılınca rozeti düştü ve sabitlenmiş etiket
 testi kırdı — sıradaki ekran aynı testi bir daha kırmasın.
+
+## 2026-08 · Poliçe Oluşturma sihirbazı
+
+### K64 — Kayıt Adım 4'te yapılır, Adım 5 kayıt SONRASI sonuç ekranıdır
+
+Gereksinim belgesi kendisiyle çelişiyordu: bir yandan "son adımda İleri düğmesi
+Bitir olur", öte yandan "beşinci adımda onay ikonu görünür, Bitir'e tıklanınca
+poliçe kaydedilir" diyordu — yani başarı ekranı kayıttan ÖNCE gösterilecekti.
+
+Karar: **kayıt Adım 4'ün (Poliçe Özeti) "Bitir" düğmesiyle yapılır**, Adım 5
+yalnız sonucu gösterir. Sebep, kaydın başarısız olabilmesi: sunucu hatasında
+kullanıcı "Poliçe Tamamlandı" yazan bir ekrana bakıyor olurdu. Adım 5'te
+ileri/geri düğmesi de yok, tek düğme "Proje Detayına Dön" — kaydedilmiş bir
+poliçenin adımlarına dönmek düzeltme değil, ikinci bir kayıt izlenimi verirdi.
+
+Numara çakışması (`409`) gibi kayıt sırasında çıkan hata, hatanın AİT OLDUĞU
+adıma geri götürüyor ve odak ilk hatalı alana taşınıyor (`FIELD_STEPS`).
+
+### K65 — Sihirbazın durumu URL'de DEĞİL, bileşende
+
+CLAUDE.md "liste ekranlarının durumunun tek sahibi URL query string'dir" diyor.
+Sihirbaz liste değil ve kuralın gerekçesi burada tersine çalışıyor: adres
+paylaşılabilir/yer imlenebilir olsun diye tutulan durum, form verisi adreste
+taşınamadığı için yenilemede **adımı koruyup veriyi düşürürdü** — kullanıcı boş
+bir "Poliçe Bilgileri" adımına düşerdi.
+
+Bu yüzden adım ve form değerleri `usePolicyWizard` içinde yerel durumda; yenileme
+akışı baştan başlatır. Adreste yalnız `?project=<id>` var, o da ekranın hangi
+projeye bağlı açıldığını söylüyor (K61'in aynı gerekçesi).
+
+Doğrulama ADIM BAZLI: "İleri" yalnız bulunulan adımın alanlarını denetler,
+kullanıcı henüz görmediği alanın hatasını görmez. Kayıttan hemen önce iki veri
+adımı birden denetlenir (araya dönülüp bozulmuş alan olabilir).
+
+### K66 — Poliçe verisinin TEK deposu var; benzersizlik TEK kapıdan geçiyor
+
+Sunucuda ne sigorta şirketi, ne acente, ne poliçe kaydı ucu var (`Policy`
+entity'si tabloda VAR, controller'ı yok). K57'nin evrak deseni tekrarlandı:
+`src/api/policies.ts` sözleşmeyi tanımlıyor, gövdeyi `policiesMock.ts`
+besliyor, `mockGate` sahte veriyi yalnız geliştirme derlemesinde açıyor (K51).
+
+Proje detayının poliçe sekmesi AYNI depodan okuyor (`buildMockProjectPolicies`
+artık `getMockPolicies()`'i süzüyor): oluşturulan poliçenin sekmede görünmesi
+(KK-21) ancak tek depo varsa doğru olur. Depo tohumlanmıyor — poliçesi olmayan
+projede sekme dürüstçe boş kalır.
+
+Poliçe numarası benzersizliği (KK-19) bugün istemcide, `isPolicyNumberTaken`
+ile. Hem "İleri" doğrulaması hem kayıt bu tek fonksiyondan geçiyor: uç açılınca
+gövdesi 409 kontrolüne dönecek ve iki çağıran da değişmeden doğru davranacak.
+İki yere kopyalansaydı biri güncellenmeden kalırdı.
+
+Eksik uçların dökümü ve önerilen sözleşme: `docs/api-eksikleri-policeler.md`.
+
+### K67 — Kapsam: yalnız oluşturma akışı; "Poliçeler" menüsü hâlâ karşılama
+
+Poliçe LİSTESİ ekranı bu işin kapsamı değildi. Sol menüdeki "Poliçeler" öğesi
+"Yakında" rozetiyle duruyor ve `ComingSoonPage`'e gidiyor; sihirbaza yalnız
+proje detayındaki "Poliçe Bilgileri" sekmesinin "Poliçelendir" düğmesinden
+giriliyor. Kırılım yine de "Anasayfa / Poliçeler / Poliçe Oluşturma" (gereksinim
+13) — iz, ekranın kavramsal yerini gösteriyor.
+
+Yöntem adımında İKİNCİ seçenek EKLENMEDİ: sigorta şirketi servisleri üzerinden
+otomatik poliçe ileride gelecek ama bugün seçilebilen ama hiçbir şey yapmayan
+bir kart, olmayan bir özellik vaat ederdi (K60'ın "Favori Evrak" gerekçesi).
+Yapı yine de kapalı kurulmadı: `POLICY_METHODS` dar birleşim ve tek elemanlı bir
+radyo GRUBU — o gün ikinci bir `label` ve bir sözlük satırı yetecek.
+
+Ayrıca sihirbazda birim (`ProjectUnit`) ve ödeme sorulmuyor (gereksinimde yok):
+tablo sütunları ile form UYUŞMUYOR. "Birim" boş kalıyor (uydurulmadı), **"Ödeme:
+Bekliyor" ise istemci varsayımıdır** — `buildMockProjectPolicies` sabit
+`isPaid: false` yazıyor. İkisi de analiste soruldu
+(docs/api-eksikleri-policeler.md, madde 2).
+
+### Ortak parçaya çıkanlar
+
+`DOCUMENT_PROJECT_PARAM` → **`PROJECT_PARAM`**: "bu ekran hangi projeye bağlı
+açıldı" anahtarını iki ekran da (Evrak Ekle, Poliçe Oluşturma) kullanıyor; iki
+ayrı sabit aynı anahtarın iki adı olurdu. Adresteki kimliği çözen
+`parseProjectParam` de aynı yerde.
+
+`documents/DocumentProjectNotice` → **`admin/ProjectContextNotice`** (klasör
+sözleşmesi: ikinci ekranda gereken parça `admin/` köküne taşınır, ad öneki
+düşer). Ekran adını parametre aldı; "yükleniyor / kimlik yok / okunamadı" üç
+hâli aynen korundu.
+
+`getProjectSummary` (`api/projectDetail.ts`): künyeyi gerçek uçtan çözen K63
+mantığı Evrak Ekle'nin içinden ortak fonksiyona çıktı — 404 `null`, ağ hatası
+FIRLATIR, çünkü "proje yok" ile "sunucuya ulaşılamadı" farklı ekranlar.
+
+`TextField`'a `suffix` eklendi (girdinin İÇİNDE sağda duran "₺"); ikon slotuyla
+aynı mekanizma, karşı taraf. `aria-hidden`: birim etiketin işi, ekran okuyucu
+değeri iki kez okumasın.
+
+`AdminSidebar`'da `end` artık YALNIZ Anasayfa'da: `/admin` her yönetici yolunun
+ön eki olduğu için o madde hep etkin görünüyordu, diğer maddelerde ise alt yol
+(`/admin/policies/new`) açıkken hiçbir madde işaretli kalmıyordu.
+
+Sihirbaza özel `cva` varyantları `policies/policyVariants.ts`'te: `adminVariants.ts`
+zaten 200 satır sınırının başındaydı ve klasör sözleşmesi tek ekrana özel
+parçaları `<ekran>/` altında istiyor (`projectDetailVariants.ts` deseni).
+
+`projectDetail/InfoRow` (+ bağlı olduğu `MockValue`) → **`admin/InfoRow`**: poliçe
+özeti aynı etiket/değer satırını istedi. Özet kartı ilk yazımda satırın
+işaretlemesini KOPYALAMIŞTI; kopya silindi, parça köke taşındı (klasör
+sözleşmesi). Yan faydası: eksik değer artık iki ekranda da aynı soluk "—".
+
+Aynı kural `projectDetail/projectDetailFormat.ts` için HENÜZ uygulanmadı: poliçe
+özeti oradan yalnız `formatCurrency` ve `formatPlainDate` kullanıyor, kalan altı
+biçimleyici proje detayına özel. Dosyayı `admin/adminFormat.ts` yapmak altı
+dosyayı birden değiştireceği için ayrı bir adıma bırakıldı — bugünkü hâli
+klasörler arası bir import, ikinci bir KOPYA değil.

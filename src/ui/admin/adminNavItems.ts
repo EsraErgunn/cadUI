@@ -55,24 +55,38 @@ export function projectFirmUserUpdatePath(userId: number): string {
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
 
-/**
- * Proje detayındaki "Evrak Ekle" ve "Poliçelendir" hedefleri (KK-9).
- * Poliçe ekranı HENÜZ YOK; yolu karşılama sayfasına bağlı (router.tsx).
- */
+/** Proje detayındaki "Evrak Ekle" ve "Poliçelendir" hedefleri (KK-9). */
 export const DOCUMENT_CREATE_PATH = `${DOCUMENTS_PATH}/new`
 export const POLICY_CREATE_PATH = `${POLICIES_PATH}/new`
 
-/** Evrak Ekle ekranının URL anahtarı: yüklenen evrak GELİNEN projeyle
-    ilişkilendiriliyor (gereksinim 6), ekran kimliksiz açılamaz. */
-export const DOCUMENT_PROJECT_PARAM = 'project'
+/**
+ * "Bu ekran hangi projeye bağlı açıldı" anahtarı. İki ekran da (Evrak Ekle,
+ * Poliçe Oluşturma) GELİNEN projeyle ilişkilendiriliyor ve kimliksiz
+ * açılamıyor; iki ayrı sabit, aynı anahtarın iki adı olurdu.
+ */
+export const PROJECT_PARAM = 'project'
 
 /**
- * Kimlik yola değil query'ye konuldu: `/admin/documents/new` sabiti ve ona
+ * Kimlik yola değil query'ye konuldu (K61): `/admin/documents/new` sabiti ve ona
  * bağlı rota zaten vardı, proje kimliği için yolu `/projects/:id/documents/new`
  * yapmak hem sabiti hem rotayı taşımak olurdu.
  */
 export function documentCreatePath(projectId: number): string {
-  return `${DOCUMENT_CREATE_PATH}?${DOCUMENT_PROJECT_PARAM}=${projectId}`
+  return `${DOCUMENT_CREATE_PATH}?${PROJECT_PARAM}=${projectId}`
+}
+
+/** Poliçe Oluşturma ekranı; kimlik K61'in aynı gerekçesiyle query'de. */
+export function policyCreatePath(projectId: number): string {
+  return `${POLICY_CREATE_PATH}?${PROJECT_PARAM}=${projectId}`
+}
+
+/**
+ * Adresteki proje kimliği. Elle düzenlenmiş ya da eksik değer `undefined`
+ * döner; ekran o zaman veri çekmek yerine sebebini yazar.
+ */
+export function parseProjectParam(raw: string | null): number | undefined {
+  const parsed = Number(raw)
+  return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
 
 /** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */

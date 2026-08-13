@@ -10,6 +10,7 @@ import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPag
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
 import { NewDocumentPage } from '../pages/NewDocumentPage'
+import { NewPolicyPage } from '../pages/NewPolicyPage'
 import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
@@ -121,14 +122,14 @@ export function AppRouter() {
               (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor. */}
           <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
 
+          {/* Poliçe LİSTESİ hâlâ yok (kapsam dışı); yalnız oluşturma akışı yazıldı
+              ve ona proje detayından giriliyor. */}
           <Route path={POLICIES_PATH} element={<ComingSoonPage title="Poliçeler" />} />
           {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Statik parça
               dinamik olandan önce gelmeli kuralı burada geçerli değil: yolun
-              dinamik kardeşi yok. */}
-          <Route
-            path={POLICY_CREATE_PATH}
-            element={<ComingSoonPage title="Poliçe Oluşturma" section="Poliçeler" />}
-          />
+              dinamik kardeşi yok. Proje kimliği yolda değil query'de
+              (`?project=`), evrak ekranındaki gerekçeyle (K61). */}
+          <Route path={POLICY_CREATE_PATH} element={<NewPolicyPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />

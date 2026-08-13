@@ -79,7 +79,9 @@ export function ProjectDetailPanels({
     return <ProjectDocumentsTab projectId={detail.server.id} documents={documents} />
   }
 
-  if (tab === 'police') return <ProjectPolicyTab policies={policies} />
+  if (tab === 'police') {
+    return <ProjectPolicyTab projectId={detail.server.id} policies={policies} />
+  }
 
   return (
     <ProjectOperationsTab

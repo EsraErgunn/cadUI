@@ -1,7 +1,7 @@
 import { FileText } from 'lucide-react'
 
 import { InfoCard } from './InfoCard'
-import { InfoRow } from './InfoRow'
+import { InfoRow } from '../InfoRow'
 import { ProjectStatusChip } from './ProjectStatusChip'
 import { formatYesNo } from './projectDetailFormat'
 import type { ProjectDetail } from '../../../api/projectDetail'

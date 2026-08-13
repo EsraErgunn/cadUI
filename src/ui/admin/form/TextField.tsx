@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { FieldControl } from './FieldControl'
 import { FieldFrame, type FieldLayout } from './FieldFrame'
 import { buildFieldAria } from './fieldAria'
-import { adminFieldVariants, fieldIconPadding } from '../adminVariants'
+import { adminFieldVariants, fieldIconPadding, fieldSuffixPadding } from '../adminVariants'
 
 interface TextFieldProps {
   id: string
@@ -31,6 +31,8 @@ interface TextFieldProps {
   layout?: FieldLayout
   /** Girdinin içinde solda duran alanı temsil eden ikon; verilmezse hiç render edilmez. */
   leftIcon?: LucideIcon
+  /** Girdinin içinde sağda duran birim ("₺"); değere yazılmaz, yalnız gösterilir. */
+  suffix?: string
   /**
    * Girdinin SAĞINDA, aynı satırda duran ek denetim (proje firması formunda
    * "Şahıs Şirketi" onay kutusu). Ayrı bir alan satırı açılsaydı mockup'taki
@@ -57,6 +59,7 @@ export function TextField({
   inputMode,
   layout,
   leftIcon,
+  suffix,
   trailing,
   onChange,
   onBlur,
@@ -76,12 +79,18 @@ export function TextField({
       {...buildFieldAria(id, { hint, warning, error })}
       className={adminFieldVariants({
         tone: error === undefined ? 'plain' : 'invalid',
-        className: fieldIconPadding(leftIcon !== undefined),
+        className: [fieldIconPadding(leftIcon !== undefined), fieldSuffixPadding(suffix !== undefined)]
+          .filter((part) => part !== undefined)
+          .join(' '),
       })}
     />
   )
 
-  const control = <FieldControl leftIcon={leftIcon}>{input}</FieldControl>
+  const control = (
+    <FieldControl leftIcon={leftIcon} suffix={suffix}>
+      {input}
+    </FieldControl>
+  )
 
   return (
     <FieldFrame

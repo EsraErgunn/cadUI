@@ -67,4 +67,46 @@ describe('AdminSidebar', () => {
 
     expect(screen.getByRole('link', { name: /Evraklar/ })).toHaveTextContent('(bulunulan sayfa)')
   })
+
+  /**
+   * `end` YALNIZ Anasayfa'da: alt yolda açılan ekranlar (proje detayı, Evrak
+   * Ekle, Poliçe Oluşturma) menüde geldikleri maddeyi işaretli tutmalı — aksi
+   * hâlde kırılımda "Poliçeler / Poliçe Oluşturma" yazarken sol menüde hiçbir
+   * madde işaretli olmaz ve kullanıcı nerede olduğunu kaybeder.
+   */
+  const subRoutes: [route: string, label: string][] = [
+    ['/projects/123', 'Projeler'],
+    ['/projects/123/editor', 'Projeler'],
+    ['/admin/documents/new', 'Evraklar'],
+    ['/admin/policies/new', 'Poliçeler'],
+  ]
+
+  it.each(subRoutes)('%s adresinde "%s" maddesi işaretli kalır', (route, label) => {
+    renderSidebar(route)
+
+    expect(screen.getByRole('link', { name: new RegExp(label) })).toHaveTextContent(
+      '(bulunulan sayfa)',
+    )
+  })
+
+  /**
+   * Anasayfa'nın `end`'i KALMALI: `/admin` diğer yönetici yollarının ön eki,
+   * kaldırılsaydı her alt yolda İKİ madde birden işaretli görünürdü.
+   */
+  it.each(subRoutes)('%s adresinde Anasayfa işaretlenmez', (route) => {
+    renderSidebar(route)
+
+    expect(screen.getByRole('link', { name: /Anasayfa/ })).not.toHaveTextContent(
+      '(bulunulan sayfa)',
+    )
+    // Tek madde işaretli: menü iki yer birden göstermez.
+    expect(screen.getAllByText('(bulunulan sayfa)')).toHaveLength(1)
+  })
+
+  it('/admin adresinde yalnız Anasayfa işaretlidir', () => {
+    renderSidebar('/admin')
+
+    expect(screen.getByRole('link', { name: /Anasayfa/ })).toHaveTextContent('(bulunulan sayfa)')
+    expect(screen.getAllByText('(bulunulan sayfa)')).toHaveLength(1)
+  })
 })

@@ -2,7 +2,7 @@ import { Moon, Sun } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 import { ComingSoonBadge } from './ComingSoonBadge'
-import { ADMIN_NAV_ITEMS, type AdminNavItem } from './adminNavItems'
+import { ADMIN_HOME_PATH, ADMIN_NAV_ITEMS, type AdminNavItem } from './adminNavItems'
 import { adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
 import { useTheme } from './useTheme'
 import logo from '../../assets/brand/logo3.png'
@@ -18,7 +18,11 @@ function AdminNavEntry({ item }: { item: AdminNavItem }) {
   return (
     <NavLink
       to={item.path}
-      end
+      // `end` YALNIZ Anasayfa'da: `/admin` her yönetici yolunun ön eki olduğu
+      // için o madde hep etkin görünürdü. Diğer maddeler alt yollarını da
+      // kapsıyor — kırılımda "Poliçeler / Poliçe Oluşturma" yazarken sol menüde
+      // hiçbir maddenin işaretli olmaması kullanıcıyı yolunu kaybetmiş bırakır.
+      end={item.path === ADMIN_HOME_PATH}
       className={({ isActive }) => adminNavItemVariants({ tone: isActive ? 'active' : 'plain' })}
     >
       {({ isActive }) => (

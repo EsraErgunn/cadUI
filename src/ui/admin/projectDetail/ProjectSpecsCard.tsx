@@ -1,7 +1,7 @@
 import { Gauge } from 'lucide-react'
 
 import { InfoCard } from './InfoCard'
-import { InfoRow } from './InfoRow'
+import { InfoRow } from '../InfoRow'
 import {
   formatAreaSquareMeters,
   formatDecimal,

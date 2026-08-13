@@ -1,4 +1,5 @@
-import type { DocumentProject, DocumentRow, DocumentUpload } from './documents'
+import type { DocumentRow, DocumentUpload } from './documents'
+import type { ProjectSummary } from './projectDetailTypes'
 import { getMockProjectSeeds, type MockProjectSeed } from './projectsMock'
 
 /**
@@ -185,13 +186,13 @@ function nextDocumentId(documents: DocumentRow[]): number {
  * hem genel Evraklar ekranında görünür (gereksinim 12). Kalıcı DEĞİL —
  * depo bellekte, sayfa yenilenince tohum listesine dönülür.
  *
- * Proje künyesi GERÇEK uçtan geliyor (`DocumentProject`) ve o uç firma/tesisat
+ * Proje künyesi GERÇEK uçtan geliyor (`ProjectSummary`) ve o uç firma/tesisat
  * alanlarını döndürmüyor: satır bu alanları `null` bırakır. Kimliğe denk gelen
  * tohumdan doldurulsaydı gerçek bir projenin evrağı, uydurma bir firmanın adıyla
  * listelenirdi — düzeltilen tuzağın ta kendisi.
  */
 export function addMockDocuments(
-  project: DocumentProject,
+  project: ProjectSummary,
   uploads: DocumentUpload[],
   uploadedByName: string | null,
 ): DocumentRow[] {

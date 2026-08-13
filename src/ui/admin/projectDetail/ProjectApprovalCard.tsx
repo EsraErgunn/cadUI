@@ -1,8 +1,8 @@
 import { BadgeCheck } from 'lucide-react'
 
 import { InfoCard } from './InfoCard'
-import { InfoRow } from './InfoRow'
 import type { ProjectApprovalInfo } from '../../../api/projectDetail'
+import { InfoRow } from '../InfoRow'
 import { formatDateTime } from '../adminFormat'
 
 const CARD_TITLE = 'Proje Onay Bilgileri'

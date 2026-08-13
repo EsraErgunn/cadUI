@@ -1,10 +1,9 @@
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import { queryDocumentList } from './documentListQuery'
 import { addMockDocuments, getMockDocuments } from './documentsMock'
-import { ApiError } from './http'
 import type { PagedResult, SortDirection } from './listQuery'
 import { mockedData, type Sourced } from './mockGate'
-import { getProjectDetail } from './projectDetail'
+import type { ProjectSummary } from './projectDetailTypes'
 
 /**
  * Evrak ekranlarının veri şekilleri.
@@ -124,14 +123,6 @@ export type DocumentSaveResult =
   | { ok: true; savedCount: number }
   | { ok: false; reason: 'unavailable' }
 
-/** Evrak Ekle ekranının bağlandığı proje künyesi. */
-export interface DocumentProject {
-  id: number
-  name: string
-  /** Serbest biçimli proje numarası; kod boşsa kimliğe düşer (projects.ts kuralı). */
-  pId: string
-}
-
 /**
  * "Kaydet". Yüklenen evrak GERÇEKTEN listeye girer (gereksinim 12: hem projenin
  * evraklarına hem genel Evraklar ekranına yansır) ama depo bellekte: sayfa
@@ -144,7 +135,7 @@ export interface DocumentProject {
  * inen tek yol mock tohumlarıydı ve sunucudaki projeler orada yok.
  */
 export async function saveProjectDocuments(
-  project: DocumentProject,
+  project: ProjectSummary,
   uploads: DocumentUpload[],
   /** Oturumdaki kullanıcı; proje detayının "Yükleyen" sütununu besliyor. */
   uploadedByName: string | null,
@@ -158,30 +149,3 @@ export async function saveProjectDocuments(
   return { ok: true, savedCount: saved.data.length }
 }
 
-const NOT_FOUND = 404
-
-/**
- * Ekranın `?project=<id>` ile geldiği projenin künyesi. Kaynak, proje detayını
- * besleyen GERÇEK uç (`GET /api/projects/{id}`).
- *
- * Eskiden künye mock tohumlarından okunuyordu ve bu iki türlü yanlıştı:
- * sunucudaki proje tohum listesinde yoksa ekran "geçerli proje yok" deyip
- * açılmıyordu, kimlik tesadüfen bir tohuma denk gelirse de BAŞKA bir projenin
- * adı gösteriliyordu. Ad artık uydurulmuyor; uydurma olan tek şey evrağın
- * kendisi ve o zaten `mockedData` arkasında.
- *
- * 404 `null` döner (kimlik geçersiz — ekran sebebini yazar); ağ/sunucu hatası
- * FIRLATIR, çünkü "proje yok" ile "sunucuya ulaşılamadı" farklı sonuçlar.
- */
-export async function findDocumentProject(
-  projectId: number,
-  signal?: AbortSignal,
-): Promise<DocumentProject | null> {
-  try {
-    const { server } = await getProjectDetail(projectId, signal)
-    return { id: server.id, name: server.name, pId: server.pId }
-  } catch (error) {
-    if (error instanceof ApiError && error.status === NOT_FOUND) return null
-    throw error
-  }
-}

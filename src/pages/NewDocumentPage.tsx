@@ -5,19 +5,20 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { getDocumentTypes } from '../api/documentTypes'
-import { findDocumentProject, listProjectDocuments, saveProjectDocuments } from '../api/documents'
-import { getProjectUnits } from '../api/projectDetail'
+import { listProjectDocuments, saveProjectDocuments } from '../api/documents'
+import { getProjectSummary, getProjectUnits } from '../api/projectDetail'
 import { useAuthSession } from '../api/useAuthSession'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
+import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
 import {
   ADMIN_HOME_PATH,
-  DOCUMENT_PROJECT_PARAM,
+  PROJECT_PARAM,
+  parseProjectParam,
   projectDetailPath,
 } from '../ui/admin/adminNavItems'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import { DocumentDropzone } from '../ui/admin/documents/DocumentDropzone'
-import { DocumentProjectNotice } from '../ui/admin/documents/DocumentProjectNotice'
 import { DocumentSourceTabs } from '../ui/admin/documents/DocumentSourceTabs'
 import { ProjectDocumentPicker } from '../ui/admin/documents/ProjectDocumentPicker'
 import { UploadedDocumentRow } from '../ui/admin/documents/UploadedDocumentRow'
@@ -45,14 +46,9 @@ const BREADCRUMB = [
   { label: PAGE_TITLE },
 ]
 
-function parseProjectId(raw: string | null): number | undefined {
-  const parsed = Number(raw)
-  return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
-}
-
 export function NewDocumentPage() {
   const [searchParams] = useSearchParams()
-  const projectId = parseProjectId(searchParams.get(DOCUMENT_PROJECT_PARAM))
+  const projectId = parseProjectParam(searchParams.get(PROJECT_PARAM))
   const navigate = useNavigate()
   const session = useAuthSession()
 
@@ -69,8 +65,8 @@ export function NewDocumentPage() {
     isError: hasProjectFailed,
     refetch: refetchProject,
   } = useQuery({
-    queryKey: ['documentProject', projectId],
-    queryFn: ({ signal }) => findDocumentProject(projectId ?? 0, signal),
+    queryKey: ['projectSummary', projectId],
+    queryFn: ({ signal }) => getProjectSummary(projectId ?? 0, signal),
     enabled: projectId !== undefined,
   })
 
@@ -108,17 +104,20 @@ export function NewDocumentPage() {
   // yoksa, sunucuda yoksa ya da okunamadıysa ekran sebebini yazar.
   const goToProjectList = () => void navigate(PROJECT_LIST_PATH)
 
-  if (projectId === undefined) {
-    return <DocumentProjectNotice state="missing" onRetry={goToProjectList} />
+  if (projectId === undefined || project === null) {
+    return <ProjectContextNotice state="missing" screenName={PAGE_TITLE} onRetry={goToProjectList} />
   }
   if (isProjectPending) {
-    return <DocumentProjectNotice state="loading" onRetry={goToProjectList} />
+    return <ProjectContextNotice state="loading" screenName={PAGE_TITLE} onRetry={goToProjectList} />
   }
-  if (hasProjectFailed) {
-    return <DocumentProjectNotice state="failed" onRetry={() => void refetchProject()} />
-  }
-  if (project === null) {
-    return <DocumentProjectNotice state="missing" onRetry={goToProjectList} />
+  if (hasProjectFailed || project === undefined) {
+    return (
+      <ProjectContextNotice
+        state="failed"
+        screenName={PAGE_TITLE}
+        onRetry={() => void refetchProject()}
+      />
+    )
   }
 
   const handleSave = async () => {
