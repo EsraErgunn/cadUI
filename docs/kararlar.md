@@ -3199,6 +3199,43 @@ okunur ekran repoda yok:
 Yalnız "Proje Adı" bağlantılı (`projectDetailPath`). İkisi de
 `docs/api-eksikleri-evraklar.md`'deki eksik ekranlar notuna yazıldı.
 
+### K63 — Evrak Ekle'nin proje künyesi mock tohumundan değil, GERÇEK uçtan
+
+`findDocumentProject` projeyi `documentsMock.findMockProjectSeed` ile çözüyordu,
+yani `projectsMock`'un ürettiği 48 sahte kayıtta arıyordu. Proje LİSTESİ ise
+gerçek `GET /api/projects`'ten geliyor. İki liste birbirini tutmadığı için ekran
+iki türlü yanlış davranıyordu:
+
+- Sunucudaki projenin kimliği tohum aralığının dışındaysa (`id > 48`) ekran
+  "adreste geçerli bir proje yok" deyip hiç açılmıyordu — Evrak Ekle gerçek bir
+  projede kullanılamıyordu.
+- Kimlik tesadüfen bir tohuma denk gelirse (`id ≤ 48`) ekran BAŞKA bir projenin
+  adını gösteriyor ve evrağı o adla kaydediyordu. Sessiz olan ve daha kötü olan
+  hâl bu.
+
+Ayrıca künye `mockGate`'in dışındaydı: üretim derlemesinde de uydurma bir proje
+adı çiziliyordu (K51'in kapatmak için var olduğu boşluk).
+
+Künye artık proje detayını besleyen uçtan geliyor (`getProjectDetail` →
+`server`); `Sourced` zarfına gerek yok, çünkü bu alanlar sunucunun GERÇEKTEN
+döndürdüğü on alanın içinde. Uydurma olan tek şey evrağın kendisi ve o zaten
+`mockedData` arkasında.
+
+Sonuçları:
+
+- `saveProjectDocuments` artık kimlik değil künye nesnesi alıyor; `unknownProject`
+  hata dalı düştü (proje kaydetmeden önce zaten çözülmüş oluyor).
+- Yüklenen satırın firma/tesisat alanları `null`: gerçek uç döndürmüyor,
+  tohumdan doldurmak düzeltilen tuzağın kendisi olurdu.
+- Künye artık asenkron; ekranın "yükleniyor" ve "okunamadı" hâlleri de var
+  (`DocumentProjectNotice`). 404 "proje yok", diğer hatalar "tekrar dene" —
+  ikisini tek mesaja indirmek, sunucu çökmesini "böyle bir proje yok" diye
+  gösterirdi.
+- Test tuzağı: `vi.fn().mockResolvedValue(new Response(...))` TEK yanıt nesnesi
+  paylaştırıyor, gövde ilk okumada tükeniyor. Ekran artık aynı ucu iki kez
+  çağırdığı için (künye + yönlendirme sonrası detay) sahte `fetch` her çağrıda
+  yeni `Response` üretmek zorunda.
+
 ### Ortak parçaya çıkanlar
 
 `toIsoDate` ve `lastMonthRange` ikinci ekranda gerekti; kopyalanmadı,

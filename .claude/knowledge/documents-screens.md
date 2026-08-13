@@ -27,6 +27,14 @@ yapılmamış bir işi yapılmış gösterirdi. Bu satırları KALDIRMA.
 `MissingSourceNotice` gösterir, "Kaydet" hiç yazmadan `unavailable` döner.
 Geliştirmede kalıcı `MockDataNotice` şeridi duruyor — kapatılamaz.
 
+**Evrak Ekle'nin PROJE KÜNYESİ mock değil** (K63): `findDocumentProject` projeyi
+`GET /api/projects/{id}` ile çözer. Mock tohumundan (`findMockProjectSeed`)
+okuyan eski hâli, sunucudaki projeyi ya "yok" sayıyor ya da tohumdaki BAŞKA bir
+projenin adıyla açıyordu. Künye asenkron: ekranın yükleniyor/okunamadı hâlleri
+`DocumentProjectNotice`'ta. Yüklenen satırın `projectFirmId`/`installationNo`/
+`firmName`/`gasFirmName` alanları `null` — uç döndürmüyor, tohumdan doldurmak
+tuzağı geri getirir.
+
 **`unimplementedEndpoints.ts`'e bayrak EKLENMEDİ.** O mekanizma bayrağı gerçek
 bir `isEndpointImplemented` çağrısının yanında tutuyor; evrak tarafında hiç
 çağrı yok ve çağrısı olmayan bayrak sessiz kalır (K51'in tespit ettiği boşluk).
@@ -38,6 +46,10 @@ bir `isEndpointImplemented` çağrısının yanında tutuyor; evrak tarafında h
   doğrulama geçerli dosyayı reddederdi), uzantıya bakan açma kararı ise uzantısı
   yanlış yazılmış dosyada sessizce yanlış davranırdı. Uzantı→MIME türetmesi
   YALNIZ `documentsMock.contentTypeOf` içinde; bileşen uzantıyı hiç görmez.
+- **Sahte `fetch` her çağrıda YENİ `Response` üretmeli.** `mockResolvedValue(new
+  Response(...))` tek nesneyi paylaştırıyor ve gövde ilk okumada tükeniyor;
+  Evrak Ekle aynı ucu iki kez çağırdığı için (künye + yönlendirme sonrası proje
+  detayı) ikinci ekran sessizce "yüklenemedi" gösteriyordu.
 - **`user.upload` `accept` özniteliğini UYGULAR.** Desteklenmeyen biçimin
   reddini dosya seçiciyle test edemezsin — dosya handler'a hiç ulaşmaz. O yol
   ancak sürükle-bırakla (`fireEvent.drop`) sınanır; gerçekte de öyle.

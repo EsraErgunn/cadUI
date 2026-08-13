@@ -10,7 +10,6 @@ import { getProjectUnits } from '../api/projectDetail'
 import { useAuthSession } from '../api/useAuthSession'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
-import { QueryError } from '../ui/admin/QueryStates'
 import {
   ADMIN_HOME_PATH,
   DOCUMENT_PROJECT_PARAM,
@@ -18,6 +17,7 @@ import {
 } from '../ui/admin/adminNavItems'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import { DocumentDropzone } from '../ui/admin/documents/DocumentDropzone'
+import { DocumentProjectNotice } from '../ui/admin/documents/DocumentProjectNotice'
 import { DocumentSourceTabs } from '../ui/admin/documents/DocumentSourceTabs'
 import { ProjectDocumentPicker } from '../ui/admin/documents/ProjectDocumentPicker'
 import { UploadedDocumentRow } from '../ui/admin/documents/UploadedDocumentRow'
@@ -35,7 +35,6 @@ const UNITS_MISSING_HINT =
 
 /** Uç yokken kayıt yalnız geliştirme derlemesinde tutulabiliyor (K51). */
 const SAVE_ERROR_MESSAGES = {
-  unknownProject: 'Evrak kaydedilemedi: proje bulunamadı.',
   unavailable:
     'Evrak yükleme ucu sunucuda henüz yok; kayıt yapılamadı (POST /api/projects/{id}/docs).',
 } as const
@@ -62,22 +61,32 @@ export function NewDocumentPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const upload = useDocumentUpload()
 
-  const project = useMemo(
-    () => (projectId === undefined ? null : findDocumentProject(projectId)),
-    [projectId],
-  )
+  // Künye GERÇEK uçtan: mock tohumlarından okunduğu sürece sunucudaki projeler
+  // ya bulunamıyor ya başka bir projenin adıyla açılıyordu.
+  const {
+    data: project,
+    isPending: isProjectPending,
+    isError: hasProjectFailed,
+    refetch: refetchProject,
+  } = useQuery({
+    queryKey: ['documentProject', projectId],
+    queryFn: ({ signal }) => findDocumentProject(projectId ?? 0, signal),
+    enabled: projectId !== undefined,
+  })
+
+  const hasProject = project !== undefined && project !== null
 
   // Birimler proje detayıyla AYNI kaynaktan (karar 8): ikinci bir uç istenmedi.
   const { data: units } = useQuery({
     queryKey: ['projectUnits', projectId],
     queryFn: () => getProjectUnits(projectId ?? 0),
-    enabled: project !== null,
+    enabled: hasProject,
   })
 
   const { data: projectDocuments } = useQuery({
     queryKey: ['projectDocumentPicker', projectId],
     queryFn: ({ signal }) => listProjectDocuments(projectId ?? 0, signal),
-    enabled: project !== null,
+    enabled: hasProject,
   })
 
   // Üretim derlemesinde sahte evrak üretilmiyor (K51); sekme boş liste gösterir.
@@ -95,20 +104,21 @@ export function NewDocumentPage() {
       .filter((unitNumber): unitNumber is string => unitNumber !== null)
   }, [units])
 
-  // Kimliksiz gelinirse ekran boş kalmasın: evrak hangi projeye bağlanacağını
-  // bilmeden çalışamaz (gereksinim 6), kullanıcı listeye yönlendirilir.
+  // Evrak hangi projeye bağlanacağını bilmeden çalışamaz (gereksinim 6): kimlik
+  // yoksa, sunucuda yoksa ya da okunamadıysa ekran sebebini yazar.
+  const goToProjectList = () => void navigate(PROJECT_LIST_PATH)
+
+  if (projectId === undefined) {
+    return <DocumentProjectNotice state="missing" onRetry={goToProjectList} />
+  }
+  if (isProjectPending) {
+    return <DocumentProjectNotice state="loading" onRetry={goToProjectList} />
+  }
+  if (hasProjectFailed) {
+    return <DocumentProjectNotice state="failed" onRetry={() => void refetchProject()} />
+  }
   if (project === null) {
-    return (
-      <div className="mx-auto flex max-w-320 flex-col gap-4">
-        <QueryError
-          message="Evrak Ekle ekranı bir projeye bağlı açılır; adreste geçerli bir proje yok."
-          onRetry={() => void navigate(PROJECT_LIST_PATH)}
-        />
-        <Link to={PROJECT_LIST_PATH} className={adminButtonVariants({ tone: 'secondary' })}>
-          Projelere dön
-        </Link>
-      </div>
-    )
+    return <DocumentProjectNotice state="missing" onRetry={goToProjectList} />
   }
 
   const handleSave = async () => {
@@ -118,7 +128,7 @@ export function NewDocumentPage() {
     setIsSaving(true)
     setSaveError(null)
 
-    const result = await saveProjectDocuments(project.id, uploads, session?.fullName ?? null)
+    const result = await saveProjectDocuments(project, uploads, session?.fullName ?? null)
     setIsSaving(false)
 
     if (!result.ok) {

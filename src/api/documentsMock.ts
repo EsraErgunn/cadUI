@@ -1,4 +1,4 @@
-import type { DocumentRow, DocumentUpload } from './documents'
+import type { DocumentProject, DocumentRow, DocumentUpload } from './documents'
 import { getMockProjectSeeds, type MockProjectSeed } from './projectsMock'
 
 /**
@@ -184,9 +184,14 @@ function nextDocumentId(documents: DocumentRow[]): number {
  * "Kaydet" gerçekten listeye yazar: yüklenen evrak hem projenin evraklarında
  * hem genel Evraklar ekranında görünür (gereksinim 12). Kalıcı DEĞİL —
  * depo bellekte, sayfa yenilenince tohum listesine dönülür.
+ *
+ * Proje künyesi GERÇEK uçtan geliyor (`DocumentProject`) ve o uç firma/tesisat
+ * alanlarını döndürmüyor: satır bu alanları `null` bırakır. Kimliğe denk gelen
+ * tohumdan doldurulsaydı gerçek bir projenin evrağı, uydurma bir firmanın adıyla
+ * listelenirdi — düzeltilen tuzağın ta kendisi.
  */
 export function addMockDocuments(
-  project: MockProjectSeed,
+  project: DocumentProject,
   uploads: DocumentUpload[],
   uploadedByName: string | null,
 ): DocumentRow[] {
@@ -204,10 +209,10 @@ export function addMockDocuments(
       projectId: project.id,
       projectName: project.name,
       projectPId: project.pId,
-      projectFirmId: project.projectFirmId,
-      installationNo: project.installationNo,
-      firmName: project.firmName,
-      gasFirmName: project.gasFirmName,
+      projectFirmId: null,
+      installationNo: null,
+      firmName: null,
+      gasFirmName: null,
       uploadedByName,
     }
 
@@ -217,9 +222,4 @@ export function addMockDocuments(
 
   documents.unshift(...rows)
   return rows
-}
-
-/** Evrak Ekle ekranının bağlandığı proje künyesi; kimlik listede yoksa null. */
-export function findMockProjectSeed(projectId: number): MockProjectSeed | null {
-  return getMockProjectSeeds().find((project) => project.id === projectId) ?? null
 }

@@ -1,8 +1,10 @@
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import { queryDocumentList } from './documentListQuery'
-import { addMockDocuments, findMockProjectSeed, getMockDocuments } from './documentsMock'
+import { addMockDocuments, getMockDocuments } from './documentsMock'
+import { ApiError } from './http'
 import type { PagedResult, SortDirection } from './listQuery'
 import { mockedData, type Sourced } from './mockGate'
+import { getProjectDetail } from './projectDetail'
 
 /**
  * Evrak ekranlarının veri şekilleri.
@@ -120,7 +122,15 @@ export async function listProjectDocuments(
 
 export type DocumentSaveResult =
   | { ok: true; savedCount: number }
-  | { ok: false; reason: 'unknownProject' | 'unavailable' }
+  | { ok: false; reason: 'unavailable' }
+
+/** Evrak Ekle ekranının bağlandığı proje künyesi. */
+export interface DocumentProject {
+  id: number
+  name: string
+  /** Serbest biçimli proje numarası; kod boşsa kimliğe düşer (projects.ts kuralı). */
+  pId: string
+}
 
 /**
  * "Kaydet". Yüklenen evrak GERÇEKTEN listeye girer (gereksinim 12: hem projenin
@@ -129,17 +139,17 @@ export type DocumentSaveResult =
  *
  * Üretim derlemesinde hiç yazılmaz (`unavailable`): gösterilmeyecek bir depoya
  * kayıt atmak, kullanıcıya yapılmamış bir işi yapılmış göstermek olurdu.
+ *
+ * Proje künyesini KİMLİK olarak değil nesne olarak alıyor: kimlikten künyeye
+ * inen tek yol mock tohumlarıydı ve sunucudaki projeler orada yok.
  */
 export async function saveProjectDocuments(
-  projectId: number,
+  project: DocumentProject,
   uploads: DocumentUpload[],
   /** Oturumdaki kullanıcı; proje detayının "Yükleyen" sütununu besliyor. */
   uploadedByName: string | null,
   signal?: AbortSignal,
 ): Promise<DocumentSaveResult> {
-  const project = findMockProjectSeed(projectId)
-  if (project === null) return { ok: false, reason: 'unknownProject' }
-
   await delay(MOCK_LATENCY_MS, signal)
 
   const saved = mockedData(() => addMockDocuments(project, uploads, uploadedByName))
@@ -148,12 +158,30 @@ export async function saveProjectDocuments(
   return { ok: true, savedCount: saved.data.length }
 }
 
-/** Evrak Ekle ekranının başlığında gösterilecek proje künyesi. */
-export function findDocumentProject(
-  projectId: number,
-): { id: number; name: string; pId: string } | null {
-  const project = findMockProjectSeed(projectId)
-  if (project === null) return null
+const NOT_FOUND = 404
 
-  return { id: project.id, name: project.name, pId: project.pId }
+/**
+ * Ekranın `?project=<id>` ile geldiği projenin künyesi. Kaynak, proje detayını
+ * besleyen GERÇEK uç (`GET /api/projects/{id}`).
+ *
+ * Eskiden künye mock tohumlarından okunuyordu ve bu iki türlü yanlıştı:
+ * sunucudaki proje tohum listesinde yoksa ekran "geçerli proje yok" deyip
+ * açılmıyordu, kimlik tesadüfen bir tohuma denk gelirse de BAŞKA bir projenin
+ * adı gösteriliyordu. Ad artık uydurulmuyor; uydurma olan tek şey evrağın
+ * kendisi ve o zaten `mockedData` arkasında.
+ *
+ * 404 `null` döner (kimlik geçersiz — ekran sebebini yazar); ağ/sunucu hatası
+ * FIRLATIR, çünkü "proje yok" ile "sunucuya ulaşılamadı" farklı sonuçlar.
+ */
+export async function findDocumentProject(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<DocumentProject | null> {
+  try {
+    const { server } = await getProjectDetail(projectId, signal)
+    return { id: server.id, name: server.name, pId: server.pId }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === NOT_FOUND) return null
+    throw error
+  }
 }
