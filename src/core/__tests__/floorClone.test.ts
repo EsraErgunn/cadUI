@@ -225,3 +225,86 @@ describe('cloneFloorArchitecture', () => {
     expect(clone.walls).toHaveLength(0)
   })
 })
+
+const AXIS_ID = 77
+
+/** Zemin katta bir baca şaftı (ekseni var) + bir merdiven (ekseni yok). */
+const verticalAxisSource: FloorCloneSource = {
+  points: [],
+  walls: [],
+  openings: [],
+  rooms: [],
+  symbols: [],
+  beams: [],
+  areaObjects: [
+    {
+      id: 20,
+      type: 'flueShaft',
+      floorId: GROUND,
+      x: 200,
+      y: 200,
+      widthCm: 100,
+      lengthCm: 100,
+      angleDeg: 0,
+      label: 'BS-01',
+      axisId: AXIS_ID,
+    },
+    {
+      id: 21,
+      type: 'stairs',
+      floorId: GROUND,
+      x: 400,
+      y: 200,
+      widthCm: 120,
+      lengthCm: 200,
+      angleDeg: 0,
+      label: 'M-01',
+    },
+  ],
+}
+
+describe('cloneFloorArchitecture — düşey eksen kimliği (KK-19)', () => {
+  function cloneVerticalAxis() {
+    return cloneFloorArchitecture(verticalAxisSource, GROUND, UPPER, makeTakeId()).areaObjects
+  }
+
+  it('baca şaftının eksen kimliği KORUNUR', () => {
+    const [flueShaft] = cloneVerticalAxis()
+
+    expect(flueShaft.axisId).toBe(AXIS_ID)
+  })
+
+  it('kimlik korunurken id ve etiket yine de yenilenir', () => {
+    const [flueShaft] = cloneVerticalAxis()
+
+    // Eksen kimliğinin id'den AYRI bir alan olmasının tek sebebi bu: ikisi
+    // kopyalamada zıt yönde davranmak zorunda.
+    expect(flueShaft.id).not.toBe(20)
+    expect(flueShaft.axisId).not.toBe(flueShaft.id)
+    expect(flueShaft.floorId).toBe(UPPER)
+  })
+
+  it('düşey eksende sürmeyen türe kimlik UYDURULMAZ', () => {
+    const stairs = cloneVerticalAxis()[1]
+
+    expect(stairs.axisId).toBeUndefined()
+  })
+
+  it('kaynakta kimlik yoksa kopyada da yoktur — K63 öncesi çizimler', () => {
+    const legacy: FloorCloneSource = {
+      ...verticalAxisSource,
+      areaObjects: [{ ...verticalAxisSource.areaObjects[0], axisId: undefined }],
+    }
+
+    const [copied] = cloneFloorArchitecture(legacy, GROUND, UPPER, makeTakeId()).areaObjects
+
+    expect(copied.axisId).toBeUndefined()
+    expect('axisId' in copied).toBe(false)
+  })
+
+  it('kaynak nesneye DOKUNULMAZ', () => {
+    cloneVerticalAxis()
+
+    expect(verticalAxisSource.areaObjects[0]).toMatchObject({ id: 20, floorId: GROUND, axisId: AXIS_ID })
+  })
+})

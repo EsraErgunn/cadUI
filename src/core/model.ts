@@ -154,7 +154,10 @@ export type PointSymbol = {
  * `flueShaft`/`columnVentilation` satır 73 yorumunda aslında Desen C (katlar
  * arası eksen kimliği, Riser gibi kat-bağımsız) diye ayrılmıştı — bilinçli bir
  * sadeleştirmeyle burada, basit KAT-BAŞI alan nesnesi olarak modellendi
- * (bkz. docs/kararlar.md K39/K40). Kat-bağımsız kimlik gerekirse ayrı karar.
+ * (bkz. docs/kararlar.md K39/K40). O kararın ertelediği kat-bağımsız kimlik
+ * ARTIK VAR ama nesneyi kattan koparmadan: `AreaObject.axisId` (K63). Nesne
+ * kat başına durmaya devam ediyor, yalnız hangi düşey ekseni sürdürdüğünü
+ * söylüyor.
  */
 export type AreaObjectType = 'stairs' | 'structuralColumn' | 'flueShaft' | 'columnVentilation'
 
@@ -182,6 +185,25 @@ export type AreaObject = {
    * `InstallationElement.labelOffsetCm` ile birebir aynı gerekçe.
    */
   labelOffsetCm?: PlanPoint
+  /**
+   * Düşey eksen kimliği — YALNIZ `flueShaft` ve `columnVentilation` taşır
+   * (KK-19, madde 21). Baca şaftı ve kolon havalandırması katlar arasında
+   * SÜREN nesnelerdir: farklı katlardaki parçalar aynı bacanın parçasıdır ve
+   * hata kontrolleri onları aynı düşey hizada arar.
+   *
+   * `id` bu işi göremez: id kat içinde benzersizdir ve kopya yeni id alır, yani
+   * "aynı baca" bilgisi kopyalamada kaybolurdu. Kopya aynı koordinatta doğduğu
+   * için geometrik olarak hizalı GÖRÜNÜR ama korunan bir kimlik olmadan, kat
+   * sonradan taşınınca bağ sessizce kopardı.
+   *
+   * Proje genelinde benzersiz, `nextUniqueId`'den gelir (kural 6) — böylece
+   * nesne id'leriyle aynı evrende, çakışması yapı gereği imkânsız.
+   *
+   * OPSİYONEL, çünkü alan bu karardan (K63) ÖNCE çizilmiş nesnelerde yok ve
+   * `docs/sample-project.json` bit-bit turu bozulmamalı. Alanın yokluğu "bu
+   * nesnenin bilinen bir düşey ekseni yok" demektir, "ekseni sıfır" değil.
+   */
+  axisId?: Id
 }
 
 /**

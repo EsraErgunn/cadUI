@@ -8,6 +8,7 @@ import {
   getNextAreaObjectLabel,
   isAreaObjectLabelTaken,
   isAreaObjectLabelValid,
+  isVerticalAxisType,
   MIN_AREA_OBJECT_SIZE_CM,
 } from '../core/areaObject'
 import type { PlanPoint } from '../core/coords'
@@ -47,6 +48,12 @@ export function addAreaObjectToDraft(draft: CadState, input: AddAreaObjectInput)
     id,
     type: input.type,
     label: getNextAreaObjectLabel(draft.areaObjects, input.type, draft.activeFloorId),
+    // Yeni çizilen baca şaftı/kolon havalandırması KENDİ eksenini başlatır
+    // (KK-19). Eksen ancak kat kopyalamayla ikinci bir kata uzanır; burada
+    // komşu katta hizalı bir nesne aranmaz, çünkü "yakın duruyor" ile "aynı
+    // baca" aynı şey değil — kullanıcının kurmadığı bir bağ varsaymak, hata
+    // kontrollerinde uydurma hizasızlık uyarıları üretirdi.
+    ...(isVerticalAxisType(input.type) && { axisId: takeNextId(draft) }),
   })
   return id
 }

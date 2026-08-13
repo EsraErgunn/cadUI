@@ -10,6 +10,7 @@ import {
   isAreaObjectLabelTaken,
   isAreaObjectLabelValid,
   isPointInAreaObject,
+  isVerticalAxisType,
 } from '../areaObject'
 import type { AreaObject, Opening, Wall } from '../model'
 
@@ -183,5 +184,17 @@ describe('hasAreaObjectRectangleSize', () => {
     expect(hasAreaObjectRectangleSize('flueShaft')).toBe(true)
     expect(hasAreaObjectRectangleSize('structuralColumn')).toBe(true)
     expect(hasAreaObjectRectangleSize('stairs')).toBe(true)
+  })
+})
+
+describe('isVerticalAxisType', () => {
+  it('katlar arasında süren türleri tanır', () => {
+    expect(isVerticalAxisType('flueShaft')).toBe(true)
+    expect(isVerticalAxisType('columnVentilation')).toBe(true)
+  })
+
+  it('kat başına duran türleri ayırır', () => {
+    expect(isVerticalAxisType('stairs')).toBe(false)
+    expect(isVerticalAxisType('structuralColumn')).toBe(false)
   })
 })

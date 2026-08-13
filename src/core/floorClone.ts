@@ -187,6 +187,15 @@ export function cloneFloorArchitecture(
       lengthCm: areaObject.lengthCm,
       angleDeg: areaObject.angleDeg,
       label: getNextAreaObjectLabel(areaObjects, areaObject.type, targetFloorId),
+      /*
+       * Eksen kimliği KORUNUR — id ve etiketin aksine yeniden üretilmez (KK-19).
+       * Kopyalamanın tek yeri burası olduğu için düşey eksen ancak böyle ikinci
+       * bir kata uzanabiliyor: kopya kaynakla AYNI bacanın üst kattaki parçası.
+       *
+       * Kaynakta alan yoksa (K63 öncesi çizim) kopyada da yok; uydurulmuş bir
+       * kimlik, kullanıcının kurmadığı bir bağ demek olurdu.
+       */
+      ...(areaObject.axisId !== undefined && { axisId: areaObject.axisId }),
     })
   }
 
