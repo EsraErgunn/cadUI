@@ -66,6 +66,12 @@ function onFloor(floorId: number) {
       (symbol) => symbol.attachment === 'wall' && wallIds.has(symbol.wallId),
     ),
     elements: state.installationElements.filter((element) => element.floorId === floorId),
+    lines: state.installationLines.filter((line) => line.floorId === floorId),
+    connections: state.installationConnections.filter((connection) =>
+      state.installationLines.some(
+        (line) => line.id === connection.lineId && line.floorId === floorId,
+      ),
+    ),
   }
 }
 
@@ -315,5 +321,171 @@ describe('copyFloorToTargets', () => {
     useCadStore.getState().movePoint(2, { x: -300, y: -300 })
 
     expect(onFloor(UPPER_FLOOR_ID).points).toEqual(copiedBefore)
+  })
+})
+
+const VALVE_ID = 20
+const LINE_ID = 21
+const LINE_POINT_IDS = [22, 23, 24]
+
+/**
+ * Zemin kata üç köşeli bir boru: ortasında armatür (vana), son ucu kazandaki
+ * (id 13) giriş portuna bağlı. Hattın kendisi, üstündeki armatür ve bağlantı
+ * kaydı AYRI referans tipleri — üçü de remap'ten geçmezse kopya sessizce
+ * kaynağa bağlı kalır.
+ */
+function seedInstallationLine(): void {
+  useCadStore.setState({
+    installationElements: [
+      ...useCadStore.getState().installationElements,
+      {
+        id: VALVE_ID,
+        floorId: DEFAULT_FLOOR_ID,
+        type: 'valve',
+        position: { x: 250, y: 0 },
+        angleDeg: 0,
+        scale: 1,
+      },
+    ],
+    installationLines: [
+      {
+        id: LINE_ID,
+        floorId: DEFAULT_FLOOR_ID,
+        kind: 'pipe',
+        pipeTypeName: 'DN25',
+        points: [
+          { id: LINE_POINT_IDS[0], position: { x: 0, y: 0 } },
+          { id: LINE_POINT_IDS[1], position: { x: 250, y: 0 }, inlineElementId: VALVE_ID },
+          { id: LINE_POINT_IDS[2], position: { x: 500, y: 0 } },
+        ],
+        segments: [
+          { id: 25, fromPointId: LINE_POINT_IDS[0], toPointId: LINE_POINT_IDS[1] },
+          { id: 26, fromPointId: LINE_POINT_IDS[1], toPointId: LINE_POINT_IDS[2] },
+        ],
+      },
+    ],
+    installationConnections: [
+      { lineId: LINE_ID, end: 'end', target: { kind: 'port', elementId: 13, portId: 'in' } },
+    ],
+  })
+  useCadStore.temporal.getState().clear()
+}
+
+const installationOnly = { isArchitectureIncluded: false, isInstallationIncluded: true }
+
+function copyToUpperFloor(mode: 'overwrite' | 'skip' = 'overwrite') {
+  return useCadStore.getState().copyFloorToTargets({
+    sourceFloorId: DEFAULT_FLOOR_ID,
+    targetFloorIds: [UPPER_FLOOR_ID],
+    mode,
+    ...installationOnly,
+  })
+}
+
+describe('copyFloorToTargets — tesisat hattı', () => {
+  beforeEach(seedInstallationLine)
+
+  it('hattı köşeleri ve parçalarıyla birlikte aktarır', () => {
+    expect(copyToUpperFloor()).toBe(true)
+
+    const [line] = onFloor(UPPER_FLOOR_ID).lines
+    expect(line.kind).toBe('pipe')
+    expect(line.pipeTypeName).toBe('DN25')
+    expect(line.points.map((point) => point.position)).toEqual([
+      { x: 0, y: 0 },
+      { x: 250, y: 0 },
+      { x: 500, y: 0 },
+    ])
+    expect(line.segments).toHaveLength(2)
+  })
+
+  it('parçalar KOPYA köşeleri gösterir — kaynağınkileri değil', () => {
+    copyToUpperFloor()
+
+    const [line] = onFloor(UPPER_FLOOR_ID).lines
+    const pointIds = line.points.map((point) => point.id)
+    expect(pointIds.some((id) => LINE_POINT_IDS.includes(id))).toBe(false)
+    for (const segment of line.segments) {
+      expect(pointIds).toContain(segment.fromPointId)
+      expect(pointIds).toContain(segment.toPointId)
+    }
+  })
+
+  it('hattın üstündeki armatür KOPYA elemana bağlanır', () => {
+    copyToUpperFloor()
+
+    const target = onFloor(UPPER_FLOOR_ID)
+    const [line] = target.lines
+    const inlineId = line.points.find((point) => point.inlineElementId)?.inlineElementId
+
+    expect(inlineId).toBeDefined()
+    expect(inlineId).not.toBe(VALVE_ID)
+    // Armatür kopya kattaki bir elemanı göstermeli; kaynağınkini gösterseydi
+    // vana iki katta birden "aynı" nesne olurdu.
+    expect(target.elements.map((element) => element.id)).toContain(inlineId)
+  })
+
+  it('bağlantı kaydı KOPYA hatta ve KOPYA elemana bakar', () => {
+    copyToUpperFloor()
+
+    const target = onFloor(UPPER_FLOOR_ID)
+    expect(target.connections).toHaveLength(1)
+
+    const [connection] = target.connections
+    expect(connection.lineId).toBe(target.lines[0].id)
+    expect(connection.end).toBe('end')
+    expect(connection.target.kind).toBe('port')
+    if (connection.target.kind !== 'port') throw new Error('port bağlantısı bekleniyordu')
+    expect(connection.target.portId).toBe('in')
+    expect(connection.target.elementId).not.toBe(13)
+    expect(target.elements.map((element) => element.id)).toContain(connection.target.elementId)
+  })
+
+  it('kopyanın köşesi kaynaktan BAĞIMSIZ: konum nesnesi paylaşılmaz', () => {
+    copyToUpperFloor()
+    const copiedBefore = onFloor(UPPER_FLOOR_ID).lines[0].points.map((point) => ({
+      ...point.position,
+    }))
+
+    useCadStore.getState().moveLinePoint(LINE_ID, LINE_POINT_IDS[0], { x: -300, y: -300 })
+
+    expect(onFloor(UPPER_FLOOR_ID).lines[0].points.map((point) => point.position)).toEqual(
+      copiedBefore,
+    )
+  })
+
+  it('"üzerine yaz" hedefin borusunu silip YERİNE yenisini yazar', () => {
+    copyToUpperFloor()
+    const firstLineId = onFloor(UPPER_FLOOR_ID).lines[0].id
+
+    expect(copyToUpperFloor()).toBe(true)
+
+    const target = onFloor(UPPER_FLOOR_ID)
+    // Birikmedi ve boşalmadı: tek hat, ama YENİ id taşıyor.
+    expect(target.lines).toHaveLength(1)
+    expect(target.lines[0].id).not.toBe(firstLineId)
+    expect(target.connections).toHaveLength(1)
+  })
+
+  it('yalnız mimari seçilirse hedefteki hat silinmez de kopyalanmaz da', () => {
+    useCadStore.getState().copyFloorToTargets({
+      sourceFloorId: DEFAULT_FLOOR_ID,
+      targetFloorIds: [UPPER_FLOOR_ID],
+      mode: 'overwrite',
+      isArchitectureIncluded: true,
+      isInstallationIncluded: false,
+    })
+
+    expect(onFloor(UPPER_FLOOR_ID).lines).toHaveLength(0)
+    expect(onFloor(DEFAULT_FLOOR_ID).lines).toHaveLength(1)
+  })
+
+  it('kaynak katın hattına dokunmaz', () => {
+    copyToUpperFloor()
+
+    const source = onFloor(DEFAULT_FLOOR_ID)
+    expect(source.lines.map((line) => line.id)).toEqual([LINE_ID])
+    expect(source.lines[0].points.map((point) => point.id)).toEqual(LINE_POINT_IDS)
+    expect(source.connections).toHaveLength(1)
   })
 })
