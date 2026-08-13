@@ -131,6 +131,9 @@ const areaObjectSchema = z.object({
   lengthCm: z.number(),
   angleDeg: z.number(),
   label: z.string(),
+  // Etiket kayması SONRADAN eklendi ve yalnız kullanıcı etiketi taşıyınca yazılır:
+  // opsiyonel, çünkü eski dosyalarda da hiç taşınmamış nesnelerde de YOK.
+  labelOffsetCm: z.object({ x: z.number(), y: z.number() }).optional(),
 })
 
 const beamSchema = z.object({
@@ -318,5 +321,8 @@ function toAreaObjectJson(areaObject: AreaObject) {
     lengthCm: areaObject.lengthCm,
     angleDeg: areaObject.angleDeg,
     label: areaObject.label,
+    // undefined alanı JSON.stringify atlıyor: etiketi taşınmamış nesnede alan
+    // dosyaya HİÇ yazılmaz, yani bit-bit tur eski çizimlerde de aynı kalır.
+    labelOffsetCm: areaObject.labelOffsetCm,
   }
 }

@@ -5,6 +5,7 @@ import { OrthographicCamera } from 'three'
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
+import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
@@ -82,6 +83,8 @@ export function usePointDragTool(): void {
         if (findSelectedAreaObjectHandle(event.planPoint, readCameraViewport(camera).zoom)) return
         // Kirişin uç tutamacı da aynı gerekçeyle jesti sahipleniyor (K44 dersi).
         if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
+        // Ad etiketi gövdenin DIŞINDA ve serbestçe taşınabiliyor: o basış etiketin.
+        if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
 
         // Tutulan köşeyi bulmak snap'in kendisidir: yalnız 'point' sayılır,
         // duvar gövdesine basmak köşe tutmaz.

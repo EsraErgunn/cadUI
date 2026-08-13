@@ -230,6 +230,32 @@ sonra): kesik çizgili kutu, ikon yerleşimi, ↘ ile boyutlandırma, ↻ ile
 döndürme (15°'ye yakalanarak) ve tek adımlık Ctrl+Z. Sınanmadı: nesne sağ
 panelin (K37 overlay) altında kalınca ikonlara erişilemiyor.
 
+## Ad etiketi (K50)
+
+Kolon, baca şaftı ve kolon havalandırmasında; **merdivende YOK** (oku ve
+basamakları zaten anlatıyor, kullanıcı seçti). Çizim de tutma sınavı da
+`hasAreaObjectNameLabel`'dan okur — ayrışsalar görünmez bir etiket tutulabilir
+olurdu.
+
+Yazan şey **TÜRÜN adı** ("Kolon"), nesnenin `label` kodu ("K-01") DEĞİL: kod tek
+başına ne olduğunu söylemiyor, panelde düzenlenebilir olarak duruyor.
+
+`AreaObject.labelOffsetCm` opsiyonel ve nesneye GÖRELİ: mutlak konum saklansaydı
+nesne taşınınca etiket yerinde kalırdı. Alan yoksa varsayılan yer = çizilen
+geometrinin DÜNYA kutusunun üstü (yerel kutu döndürülüp eksen hizalıya
+çevriliyor, çünkü yazı dik duruyor). `JSON.stringify` undefined'ı atladığı için
+dokunulmamış nesnede alan dosyaya hiç yazılmaz — bit-bit tur korunur.
+
+⚠️ Kılavuz kırpması `core/labelLeader.ts`'te. Tesisat tarafındaydı, mimari onu
+fay sınırı yüzünden import edemiyordu; ikinci kopya yerine `core/`'a taşınıp
+`plumbing/core/elementLabel.ts`'ten yeniden dışa aktarıldı.
+
+⚠️ Etiket gövdenin DIŞINDA ve serbestçe taşınabiliyor → **jest sahipliği yine
+BEŞ hook'a eklendi** (K44 dersinin üçüncü tekrarı). `findAreaObjectLabelAt`
+isabet ederse çerçeve seçimi/taşıma hiç başlamaz. Silgi etikete değmez.
+
+Kayma ızgaraya yakalanmaz: etiket açıklama notu, çizim geometrisi değil.
+
 ## Kolon Havalandırması (K41): Baca Şaftı'nın karesiz hâli
 
 Roadmap notu: "WebCAD'de RoofVent{radius,x,y}, basit nokta+yarıçap."

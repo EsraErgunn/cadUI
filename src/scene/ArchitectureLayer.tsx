@@ -1,5 +1,6 @@
 import { AreaObject, type AreaObjectTone } from './AreaObject'
 import { AreaObjectHandles } from './AreaObjectHandles'
+import { AreaObjectNameLabels } from './AreaObjectNameLabels'
 import { Beam, type BeamTone } from './Beam'
 import { BeamHandles } from './BeamHandles'
 import { Opening, type OpeningTone } from './Opening'
@@ -11,6 +12,7 @@ import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
+import { useAreaObjectLabelTool } from './useAreaObjectLabelTool'
 import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
 import { useAreaObjectTool } from './useAreaObjectTool'
 import { useBeamSelectionTool } from './useBeamSelectionTool'
@@ -140,6 +142,8 @@ function PointSymbols() {
 function AreaObjects() {
   const preview = useAreaObjectTool()
   useAreaObjectSelectionTool()
+  // Ad etiketi sürüklemesi; jest sahipliği `findAreaObjectLabelAt` ile veriliyor.
+  useAreaObjectLabelTool()
   const areaObjects = useCadStore((state) => state.areaObjects)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)
@@ -302,6 +306,8 @@ export function ArchitectureLayer() {
       {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
       <AreaObjectHandles />
+      {/* Ad etiketleri tutamaçlarla aynı katmanda: her şeyin üstünde okunmalı. */}
+      <AreaObjectNameLabels />
       <BeamHandles />
       <SelectionMarquee />
     </group>

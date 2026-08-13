@@ -213,3 +213,31 @@ describe('setAreaObjectLabel', () => {
     expect(findAreaObject(id!)?.label).toBe('Asansör Boşluğu')
   })
 })
+
+describe('setAreaObjectLabelOffset', () => {
+  it('ad etiketinin kaymasını yazar', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })!
+
+    expect(useCadStore.getState().setAreaObjectLabelOffset(id, { x: 40, y: 90 })).toBe(true)
+    expect(findAreaObject(id)?.labelOffsetCm).toEqual({ x: 40, y: 90 })
+  })
+
+  it('aynı kaymayı ikinci kez yazmaz — geçmişe boş adım girmesin', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })!
+    useCadStore.getState().setAreaObjectLabelOffset(id, { x: 40, y: 90 })
+    const before = useCadStore.getState().revision
+
+    expect(useCadStore.getState().setAreaObjectLabelOffset(id, { x: 40, y: 90 })).toBe(false)
+    expect(useCadStore.getState().revision).toBe(before)
+  })
+
+  it('etiket kayması nesneyle birlikte gelir: taşıma kaymayı DEĞİŞTİRMEZ', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'structuralColumn', x: 0, y: 0 })!
+    useCadStore.getState().setAreaObjectLabelOffset(id, { x: 0, y: 90 })
+
+    useCadStore.getState().moveAreaObject(id, 300, 200)
+
+    // Kayma merkeze GÖRELİ saklandığı için değişmez; mutlak konum türetilir.
+    expect(findAreaObject(id)?.labelOffsetCm).toEqual({ x: 0, y: 90 })
+  })
+})
