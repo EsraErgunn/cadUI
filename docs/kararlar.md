@@ -3092,3 +3092,125 @@ kuralla `admin/` köküne taşınır.
 `projects/` altından `admin/` köküne TAŞINDI (klasör sözleşmesi). Konum izi
 `PageHeader`'ın içinden `Breadcrumb` olarak çıkarıldı: detay başlığı kendi
 düzenini kuruyor (başlık yanında çip, altında künye) ama aynı izi gösteriyor.
+
+## 2026-08 · Evraklar listesi ve Evrak Ekle ekranları
+
+### K57 — Ekranların TAMAMI mock; uç yazmak backend'in işi
+
+`localhost:5193` OpenAPI'sinde 30 yol var ve **evrakla ilgili tek bir yol ya da
+DTO yok**: ne liste, ne yükleme, ne evrak tipi, ne proje birimi. Proje detayı
+çalışmasında da olduğu gibi (K51) uçları frontend uydurmuyor; iki ekran da
+`src/api/documentsMock.ts` içindeki BELLEK deposundan besleniyor.
+
+Depo tohumunu `projectsMock.getMockProjectSeeds()` veriyor — evrak satırları
+kendi proje listesini uydurmuyor. Uydursaydı tablodaki "Proje Adı" bağlantısı
+proje listesinde bulunmayan bir kimliğe giderdi.
+
+Eksik uçların dökümü ve önerilen sözleşme: `docs/api-eksikleri-evraklar.md`.
+`unimplementedEndpoints.ts`'e bayrak EKLENMEDİ: o mekanizma "uç var mı" sorusunu
+gerçek bir çağrının yanında tutuyor, evrak tarafında ise çağrı hiç yok — çağrısı
+olmayan bayrak sessiz kalır (K51'de tespit edilen tek boşluk).
+
+### K58 — Yükleme "kaydediyor gibi" yapıyor ama kalıcı OLMADIĞINI söylüyor
+
+"Kaydet" dosyaları gerçekten belleğe yazıyor: yüklenen evrak hem genel Evraklar
+listesinde hem proje detayının evrak sekmesinde görünüyor (gereksinim 12).
+**Sayfa yenilenince kayboluyor** — veritabanı yok.
+
+İki ayrı karar birleşti ve ilk uygulamada biri unutuldu:
+
+1. Yüklemenin "kaydediyor gibi" davranması iş tarafının açık isteği (uç yokken
+   ekran denenebilsin diye).
+2. **Sahte başarı mesajı gösterilmemesi de iş tarafının açık kararıydı**
+   (K51'deki `isPersisted: false` deseni). İlk sürüm bu ikinciyi atladı: düz
+   yeşil "Evrak başarıyla yüklendi." şeridi çıkıyor, kalıcı olmadığı hiçbir
+   yerde yazmıyordu.
+
+Şimdiki hâl ikisini birden karşılıyor: mesaj çıkıyor (kayıt gerçekten görünür
+bir etki üretiyor, o oturumda doğru) ama şerit `warning` tonunda ve altında
+"kayıt yalnız bu oturumda tutuluyor, sunucuya yazılmadı; sayfa yenilenince
+listeden düşer" satırları duruyor — karar işlemlerindeki `NOT_PERSISTED_DETAILS`
+deseninin aynısı.
+
+**Mock yalnız GELİŞTİRMEDE** (K51'e uygun, `mockGate`): üretim derlemesinde
+liste veri yerine "kaynağı yok" kutusu gösterir, kalıcı mock uyarı şeridi
+geliştirmede hep görünür ve "Kaydet" hiç yazmadan `unavailable` döner —
+gösterilmeyecek bir depoya kayıt atmak yapılmamış bir işi yapılmış göstermek
+olurdu.
+
+**İki ekranın evrak deposu TEK.** Proje detayının `buildMockProjectDocuments`'ı
+eskiden boş dönüyordu; artık aynı depodan süzüp sütun eşlemesi yapıyor. İki ayrı
+mock kalsaydı aynı evrak bir ekranda görünüp öbüründe kaybolurdu.
+
+Dosyanın kendisi de gerçek: yüklenen `File` için `URL.createObjectURL` üretiliyor
+ve evrak adına tıklamak oturum boyunca gerçekten çalışıyor. Tohumlanan satırların
+arkasında dosya YOK, o yüzden adları bağlantı değil düz metin — sahte bir adres
+404'e giden bir bağlantı olurdu.
+
+### K59 — Dosyanın açılma biçimi `contentType`'tan, uzantıdan DEĞİL
+
+Görüntülenebilir tipler (`application/pdf`, `image/*`) yeni sekmede
+(`target="_blank" rel="noopener noreferrer"`), gerisi indirilerek açılıyor.
+Kararı yalnız `contentType` veriyor: uzantıya bakan bir ayrım, uzantısı yanlış
+yazılmış dosyada sessizce yanlış davranırdı.
+
+Uzantı→MIME türetmesi YALNIZ mock katmanında (`documentsMock.contentTypeOf`);
+bileşen uzantıyı hiç görmüyor. Gerçek uç `contentType` alanını kendisi
+döndürecek ve o türetme silinecek.
+
+Biçim DOĞRULAMASI ise tam tersine uzantıdan (`documentFiles.validateDocumentFile`):
+tarayıcı `.alp` ve `.bmp` için `File.type`'ı boş bırakıyor, MIME'a bakan bir
+denetim geçerli dosyayı reddederdi.
+
+### K60 — Kapsam dışı bırakılanlar ve gerekçeleri
+
+- **Favori kavramı tümüyle yok:** listedeki "Favoriler" sekmesi, Evrak Ekle'deki
+  "Favori Evraklar" sekmesi ve dropdown'daki "Favori Evrak" tipi (19 → 18).
+  Seçilebilen ama hiçbir şey yapmayan bir tip, olmayan bir özellik vaat ederdi.
+- **Sekme çubuğu tümüyle kaldırıldı:** "Favoriler" düşünce liste ekranında tek
+  sekme kalıyordu; tek sekmelik şerit kullanıcıya seçenek varmış izlenimi verir.
+- **Dosya tipi rozetleri (PDF/DWG/JPG) yok** — ne listede ne yükleme satırında.
+- **Sayfalama numaralı**, mockup'taki "Daha Fazla Göster" uygulanmadı: sayfa
+  durumunun URL'de tutulması kuralını (admin-list-state) bozuyordu.
+- **Proje listesindeki evrak ikonunun yeşile dönmesi yapılmadı:**
+  `GET /api/projects` `hasDocuments` döndürmüyor, istemcide geçici iz tutmak
+  sunucudan gelen veriyle çelişen ikinci bir gerçek üretirdi.
+
+### K61 — Kimlik yolda değil query'de: `/admin/documents/new?project=<id>`
+
+Yüklenen evrak GELİNEN projeyle ilişkilendiriliyor (gereksinim 6), yani ekran
+kimliksiz açılamaz. `/admin/documents/new` sabiti ve rotası zaten vardı; yolu
+`/projects/:id/documents/new` yapmak hem sabiti hem rotayı hem de ona bağlı iki
+bağlantıyı taşımak olurdu. Kimlik query parametresinde (`documentCreatePath`).
+
+Kimliksiz gelinirse ekran boş kalmıyor: sebebi yazan bir hata kutusu ve
+projelere dönüş bağlantısı çıkıyor.
+
+### K62 — "Firma Adı" ve "G.D Firması" DÜZ METİN
+
+Gereksinim üçünü de tıklanabilir istiyor ama ikisinin gidebileceği bir salt
+okunur ekran repoda yok:
+
+- `ProjectFirmsPage` yalnız `q` (ad araması) okuyor — kimlik filtresi yok, o
+  yüzden bağlantı kullanıcıyı filtresiz bir listeye atardı.
+- G.D. firmasının tek ekranı güncelleme FORMU; bir liste hücresinden düzenleme
+  formuna gitmek yanlış hedef ve her rolün o formu görmesi de doğru değil.
+
+Yalnız "Proje Adı" bağlantılı (`projectDetailPath`). İkisi de
+`docs/api-eksikleri-evraklar.md`'deki eksik ekranlar notuna yazıldı.
+
+### Ortak parçaya çıkanlar
+
+`toIsoDate` ve `lastMonthRange` ikinci ekranda gerekti; kopyalanmadı,
+`projects/useProjectListParams.ts` içinden `admin/adminDateRange.ts`'e TAŞINDI
+(klasör sözleşmesi). İki ekran ayrı kopya tutsaydı biri "son bir ay"ı öbüründen
+farklı hesaplayabilirdi.
+
+`ADMIN_PARAM_KEYS`'e `documentType` eklendi ve `authorityType` ile AYNI adresi
+(`type`) kullanıyor: ikisi de "bu listedeki tür süzgeci" demek ve iki liste asla
+aynı adreste açılmıyor. Ayrı alan adı taşımaları, hangi ekranın hangi süzgeci
+yazdığını çağrı yerinde okunur kılıyor.
+
+`AdminSidebar` testi "Yakında" rozetini artık etiketle değil `isComingSoon`
+bayrağıyla arıyor: Evraklar ekranı yazılınca rozeti düştü ve sabitlenmiş etiket
+testi kırdı — sıradaki ekran aynı testi bir daha kırmasın.
