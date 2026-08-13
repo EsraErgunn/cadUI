@@ -1,6 +1,7 @@
 import type { Lookup } from '../../../api/projects'
 import type { AppliedFilter } from '../FilterChips'
-import { lastMonthRange, type ProjectFilters } from './useProjectListParams'
+import { lastMonthRange } from '../adminDateRange'
+import type { ProjectFilters } from './useProjectListParams'
 
 /** Seçim kutusu kaynağı henüz gelmediyse etiket kimliği değil bunu gösterir:
     kullanıcıya iç kimlik sızmasın, etiket yine de kaldırılabilir kalsın. */

@@ -1,5 +1,5 @@
 import type { NewProjectFormValues } from './newProjectSchema'
-import { toIsoDate } from './useProjectListParams'
+import { toIsoDate } from '../adminDateRange'
 
 const DEFAULT_DURATION_MONTHS = 2
 const DEFAULT_COUNT = 0
