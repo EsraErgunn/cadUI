@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MIN_AREA_OBJECT_SIZE_CM } from '../areaObject'
+import { MIN_AREA_OBJECT_SIZE_CM, type AreaObjectShape } from '../areaObject'
 import {
   findAreaObjectHandleAt,
   getAreaObjectAngleFromPointer,
@@ -211,5 +211,53 @@ describe('resizeAreaObjectFromCorner', () => {
 
     expect(next.widthCm).toBe(MIN_AREA_OBJECT_SIZE_CM)
     expect(next.lengthCm).toBe(MIN_AREA_OBJECT_SIZE_CM)
+  })
+})
+
+describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır (K52)', () => {
+  const vent: AreaObjectShape = { x: 0, y: 0, widthCm: 100, lengthCm: 100, angleDeg: 0 }
+
+  it('SADECE aşağı çekmek çapı büyütür (daire kaymaz, büyür)', () => {
+    // Sabit köşe sol-üst = (-50, 50). Aşağı: y ekseninde uzaklaş, x sabit.
+    const next = resizeAreaObjectFromCorner(
+      'columnVentilation',
+      vent,
+      { x: 50, y: -150 },
+      1,
+      1,
+    )
+
+    // İki ölçü EŞİT: çap = izdüşümlerin büyüğü (uzunluk 200).
+    expect(next.widthCm).toBe(next.lengthCm)
+    expect(next.lengthCm).toBeCloseTo(200, 6)
+    // Çap büyüdü, yani daire gerçekten büyüyor.
+    expect(next.widthCm).toBeGreaterThan(vent.widthCm)
+  })
+
+  it('sabit köşe (sol-üst) yerinde kalır', () => {
+    const next = resizeAreaObjectFromCorner(
+      'columnVentilation',
+      vent,
+      { x: 50, y: -150 },
+      1,
+      1,
+    )
+
+    // Merkez − yarım çap = sol-üst köşe, başlangıçtakiyle aynı.
+    expect(next.x - next.widthCm / 2).toBeCloseTo(-50, 6)
+    expect(next.y + next.lengthCm / 2).toBeCloseTo(50, 6)
+  })
+
+  it('dikdörtgen ölçülü tipte iki ölçü BAĞIMSIZ kalır', () => {
+    const next = resizeAreaObjectFromCorner(
+      'structuralColumn',
+      vent,
+      { x: 50, y: -150 },
+      1,
+      1,
+    )
+
+    expect(next.widthCm).toBeCloseTo(100, 6)
+    expect(next.lengthCm).toBeCloseTo(200, 6)
   })
 })

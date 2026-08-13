@@ -12,7 +12,7 @@ import {
 } from '../core/areaObject'
 import type { PlanPoint } from '../core/coords'
 import type { AreaObjectType, Id } from '../core/model'
-import { snapAngleDeg } from '../core/transform'
+import { normalizeAngleDeg, snapAngleDeg } from '../core/transform'
 
 export type AddAreaObjectInput = {
   type: AreaObjectType
@@ -67,8 +67,14 @@ export type AreaObjectActions = {
    * kullanıcı bir sürükleme için iki kez Ctrl+Z'ye basardı (K44).
    */
   resizeAreaObject: (areaObjectId: Id, next: AreaObjectResize) => boolean
-  /** Açı KK-3'ün 15° adımına yakalanır. */
-  rotateAreaObject: (areaObjectId: Id, angleDeg: number) => boolean
+  /**
+   * Açı VARSAYILAN olarak KK-3'ün 15° adımına yakalanır; panel bu yüzden ham
+   * değer gönderir. Tutamaçla döndürmede Ctrl basılıysa çağıran
+   * `isSnapEnabled: false` geçer — boyutlandırmada Ctrl ızgarayı kapatıyordu,
+   * döndürmede hiçbir şey yapmıyordu; aynı tuş aynı jestte iki farklı anlama
+   * geliyordu (K51).
+   */
+  rotateAreaObject: (areaObjectId: Id, angleDeg: number, isSnapEnabled?: boolean) => boolean
   setAreaObjectLabel: (areaObjectId: Id, label: string) => boolean
   /**
    * Ad etiketinin nesneye göre kayması. Etiket bir AÇIKLAMA notudur, çizim
@@ -154,13 +160,19 @@ export function createAreaObjectActions(set: DraftSetter): AreaObjectActions {
       return isResized
     },
 
-    rotateAreaObject: (areaObjectId: Id, angleDeg: number): boolean => {
+    rotateAreaObject: (
+      areaObjectId: Id,
+      angleDeg: number,
+      isSnapEnabled: boolean = true,
+    ): boolean => {
       let isRotated = false
       set((draft) => {
         const areaObject = draft.areaObjects.find((candidate) => candidate.id === areaObjectId)
         if (!areaObject) return
 
-        const next = snapAngleDeg(angleDeg)
+        // Yakalama KAPALIYKEN de açı 0-359'a indirgenir: -30 ile 330 aynı açı,
+        // ikisi ayrı değer olarak saklanırsa panel ve karşılaştırmalar şaşar.
+        const next = isSnapEnabled ? snapAngleDeg(angleDeg) : normalizeAngleDeg(angleDeg)
         if (areaObject.angleDeg === next) return
 
         const rotated = { ...areaObject, angleDeg: next }

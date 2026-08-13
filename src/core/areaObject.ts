@@ -27,6 +27,21 @@ export const AREA_OBJECT_TYPE_LABELS: Record<AreaObjectType, string> = {
 export const MIN_AREA_OBJECT_SIZE_CM = 1
 
 /**
+ * Nesnenin ölçüsü DİKDÖRTGEN mi (genişlik × uzunluk), yoksa tek bir çap mı?
+ *
+ * Kolon havalandırması yalnız çember çiziyor ve çapı `min(genişlik, uzunluk)`:
+ * ikisi farklı olduğunda fazlalık HİÇ çizilmiyor, üstelik tutamaçla ilk
+ * dokunuşta sessizce siliniyordu (kutu çemberden türüyor, yani kare — K45).
+ * Panel bu yüzden o tipte tek "Çap" alanı gösterir ve iki alana da aynı değeri
+ * yazar; böylece genişlik≠uzunluk durumu HİÇ oluşmaz (K51).
+ *
+ * Baca şaftının çemberi VAR ama kare dış hattı da var: ölçüsü dikdörtgen.
+ */
+export function hasAreaObjectRectangleSize(type: AreaObjectType): boolean {
+  return type !== 'columnVentilation'
+}
+
+/**
  * Tıkla-yerleştirmede kullanılan başlangıç boyutu; sürükleyerek boyutlandırma
  * (tutamaç) bunu sonradan değiştirir.
  */

@@ -1,7 +1,12 @@
 import { useState } from 'react'
 
 import { PropertyNumberField } from './PropertyNumberField'
-import { AREA_OBJECT_TYPE_LABELS, isAreaObjectLabelTaken, isAreaObjectLabelValid } from '../../core/areaObject'
+import {
+  AREA_OBJECT_TYPE_LABELS,
+  hasAreaObjectRectangleSize,
+  isAreaObjectLabelTaken,
+  isAreaObjectLabelValid,
+} from '../../core/areaObject'
 import type { Id } from '../../core/model'
 import { getCommonNumber } from '../../core/propertyFields'
 import { ROTATION_STEP_DEG } from '../../core/transform'
@@ -32,6 +37,10 @@ export function AreaObjectProperties({ areaObjectIds }: AreaObjectPropertiesProp
   const targetKey = `areaObjects-${areaObjectIds.join(',')}`
   const [sole] = selected
   const isSingle = selected.length === 1
+  // Yalnız ÇAP taşıyan tipler: çizimleri çember, genişlik≠uzunluk anlamsız.
+  const isDiameterOnly = selected.every(
+    (areaObject) => !hasAreaObjectRectangleSize(areaObject.type),
+  )
 
   const labelText = labelDraft ?? (isSingle ? sole.label : '')
   const labelError = (() => {
@@ -85,27 +94,49 @@ export function AreaObjectProperties({ areaObjectIds }: AreaObjectPropertiesProp
         </div>
       </div>
 
-      <PropertyNumberField
-        label="Genişlik (cm)"
-        valueCm={getCommonNumber(selected.map((areaObject) => areaObject.widthCm))}
-        targetKey={targetKey}
-        minCm={MIN_SIZE_CM}
-        isReadOnly={!isSingle}
-        onCommit={isSingle ? (widthCm) => setAreaObjectSize(sole.id, widthCm, sole.lengthCm) : undefined}
-        rejectionMessage="Boyut bir açıklığın üstüne düşüyor."
-      />
+      {/* Kolon havalandırması ÇEMBER çiziyor ve çapı min(genişlik, uzunluk):
+          iki ayrı alan gösterilseydi kullanıcının girdiği fazlalık hiç
+          çizilmez, sonra tutamaçla ilk dokunuşta sessizce silinirdi — kutu
+          çemberden türüyor, yani kare (K51). Tek alan: çap. */}
+      {isDiameterOnly ? (
+        <PropertyNumberField
+          label="Çap (cm)"
+          valueCm={getCommonNumber(selected.map((areaObject) => areaObject.widthCm))}
+          targetKey={targetKey}
+          minCm={MIN_SIZE_CM}
+          isReadOnly={!isSingle}
+          onCommit={
+            isSingle ? (diameterCm) => setAreaObjectSize(sole.id, diameterCm, diameterCm) : undefined
+          }
+          rejectionMessage="Boyut bir açıklığın üstüne düşüyor."
+        />
+      ) : (
+        <>
+          <PropertyNumberField
+            label="Genişlik (cm)"
+            valueCm={getCommonNumber(selected.map((areaObject) => areaObject.widthCm))}
+            targetKey={targetKey}
+            minCm={MIN_SIZE_CM}
+            isReadOnly={!isSingle}
+            onCommit={
+              isSingle ? (widthCm) => setAreaObjectSize(sole.id, widthCm, sole.lengthCm) : undefined
+            }
+            rejectionMessage="Boyut bir açıklığın üstüne düşüyor."
+          />
 
-      <PropertyNumberField
-        label="Uzunluk (cm)"
-        valueCm={getCommonNumber(selected.map((areaObject) => areaObject.lengthCm))}
-        targetKey={targetKey}
-        minCm={MIN_SIZE_CM}
-        isReadOnly={!isSingle}
-        onCommit={
-          isSingle ? (lengthCm) => setAreaObjectSize(sole.id, sole.widthCm, lengthCm) : undefined
-        }
-        rejectionMessage="Boyut bir açıklığın üstüne düşüyor."
-      />
+          <PropertyNumberField
+            label="Uzunluk (cm)"
+            valueCm={getCommonNumber(selected.map((areaObject) => areaObject.lengthCm))}
+            targetKey={targetKey}
+            minCm={MIN_SIZE_CM}
+            isReadOnly={!isSingle}
+            onCommit={
+              isSingle ? (lengthCm) => setAreaObjectSize(sole.id, sole.widthCm, lengthCm) : undefined
+            }
+            rejectionMessage="Boyut bir açıklığın üstüne düşüyor."
+          />
+        </>
+      )}
 
       {/* Açı KK-3'ün 15° adımına store'da yakalanıyor; panel ham değeri gönderir. */}
       <PropertyNumberField

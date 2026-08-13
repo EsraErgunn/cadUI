@@ -219,11 +219,38 @@ kullanıcı döndürürken lastik dikdörtgen görünce fark edildi),
 **Yeni bir dışa taşan etkileşimde bu listeyi yeniden gözden geçir** — tek
 kontrol yetmiyor, hata sessiz değil ama garip: iki jest aynı anda çalışıyor.
 
-Bilinen sınırlar: döndürme HER ZAMAN 15°'ye yakalanır (Ctrl kapatmaz; panelle
-aynı kural, ama boyutlandırmada Ctrl ızgarayı kapatıyor — tutarsızlık bilinçli
-değil, henüz gerekmedi); tek tutamaç var (dört köşe/kenar ortası istenmedi);
-boyutlandırma KUTUYU ölçtüğü için kolon havalandırmasında genişlik≠uzunluk ise
-nesneyi kareye indirger (daire zaten `min`'i kullanıyordu).
+**Ctrl döndürmede 15°'lik yakalamayı KAPATIR** (K51). `rotateAreaObject`'in
+üçüncü parametresi `isSnapEnabled` (varsayılan `true`): panel ham değer gönderip
+yakalanmasını bekler (KK-3), tutamaç yolu önizlemede zaten yakalayıp `false`
+geçer. ⚠️ Bu şart — store ikinci kez yakalasaydı Ctrl'ün etkisi bırakma anında
+sessizce silinirdi. Yakalama kapalıyken de açı `normalizeAngleDeg` ile 0-359'a
+indirgenir (-30 ile 330 aynı açı).
+
+Bilinen sınır: tek tutamaç var (dört köşe/kenar ortası istenmedi).
+
+**Kolon havalandırmasında panel tek "Çap" alanı gösterir** (K51,
+`hasAreaObjectRectangleSize`). Tip yalnız çember çiziyor, çapı
+`min(genişlik, uzunluk)`; iki alan varken fazlalık hiç çizilmiyor ve tutamaçla
+ilk dokunuşta sessizce siliniyordu (tutamaç kutusu çemberden türüyor → KARE).
+Tek alan ikisine de aynı değeri yazdığı için genişlik≠uzunluk artık OLUŞMAZ.
+Baca şaftının çemberi var ama kare dış hattı da var: ölçüsü dikdörtgen.
+
+⚠️ TUTAMAÇ yolu da aynı kuralı uygulamak ZORUNDA (K52): yalnız paneli
+düzeltmek yetmedi, `resizeAreaObjectFromCorner` iki ölçüyü ayrı yazdığı sürece
+aşağı sürükleme yalnız uzunluğu büyütüyor, çap `min` olduğu için daire
+BÜYÜMÜYOR ama merkez kaydığı için KAYIYORDU. Çap artık iki izdüşümün büyüğü.
+
+⚠️ **Sürüklemenin sonucu son POINTERMOVE'dan gelir, pointerup'tan değil** (K52).
+`handlePointerUp` şekli yeniden hesaplıyordu; kullanıcı Ctrl'ü fareden önce
+bırakınca (sık olan sıra) serbest döndürdüğü nesne son anda 15°'ye zıplıyordu.
+Artık store'a yazılan şey `areaObjectHandleDrag.shape`, yani ekranda görülen
+önizlemenin kendisi.
+
+**Köşe, alan nesnesinin ÜSTÜNDE kalır — KARAR, sınır değil** (K51). Kolonun
+merkezi duvar köşesine denk gelirse tıklama köşeyi tutar. Kullanıcı böyle
+istedi: önceliği çevirmek büyük bir merdivenin altında kalan köşeleri
+erişilemez yapardı — köşe duvar grafının düzenlenebilir tek yeri, alan nesnesi
+ise gövdesinin her yerinden tutulabiliyor.
 
 **Tarayıcıda doğrulandı** (yukarıdaki `wrapperClass` hatası düzeltildikten
 sonra): kesik çizgili kutu, ikon yerleşimi, ↘ ile boyutlandırma, ↻ ile

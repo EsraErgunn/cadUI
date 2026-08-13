@@ -6,6 +6,7 @@ import {
   getAreaObjectCorners,
   getAreaObjectTypeForTool,
   getNextAreaObjectLabel,
+  hasAreaObjectRectangleSize,
   isAreaObjectLabelTaken,
   isAreaObjectLabelValid,
   isPointInAreaObject,
@@ -170,5 +171,17 @@ describe('findBlockingOpeningForAreaObject', () => {
     const areaObject = makeAreaObject({ x: 200, y: 0, widthCm: 100, lengthCm: 100, angleDeg: 0 })
 
     expect(findBlockingOpeningForAreaObject(areaObject, walls, points, openings)).toBe(openings[0])
+  })
+})
+
+describe('hasAreaObjectRectangleSize', () => {
+  it('kolon havalandırması yalnız ÇAP taşır — çemberi genişlik≠uzunluğu kullanmıyor', () => {
+    expect(hasAreaObjectRectangleSize('columnVentilation')).toBe(false)
+  })
+
+  it('baca şaftının çemberi VAR ama kare dış hattı da var: dikdörtgen ölçü', () => {
+    expect(hasAreaObjectRectangleSize('flueShaft')).toBe(true)
+    expect(hasAreaObjectRectangleSize('structuralColumn')).toBe(true)
+    expect(hasAreaObjectRectangleSize('stairs')).toBe(true)
   })
 })

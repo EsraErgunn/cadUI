@@ -85,10 +85,18 @@ export function getPointsCenter(points: readonly PlanPoint[]): PlanPoint | undef
 }
 
 /** Açıyı adıma yakalar ve [0, 360) aralığına indirir. */
+/**
+ * Açıyı 0-359 aralığına indirger. Yakalama KAPALIYKEN de gerekli: -30 ile 330
+ * aynı açı, ikisi ayrı değer olarak saklanırsa panel farklı sayı gösterir ve
+ * "değişti mi" karşılaştırmaları boşuna true döner.
+ */
+export function normalizeAngleDeg(angleDeg: number): number {
+  return normalizeZero(((angleDeg % 360) + 360) % 360)
+}
+
 export function snapAngleDeg(angleDeg: number, stepDeg: number = ROTATION_STEP_DEG): number {
   if (stepDeg <= 0) return angleDeg
-  const snapped = Math.round(angleDeg / stepDeg) * stepDeg
-  return normalizeZero(((snapped % 360) + 360) % 360)
+  return normalizeAngleDeg(Math.round(angleDeg / stepDeg) * stepDeg)
 }
 
 /**
