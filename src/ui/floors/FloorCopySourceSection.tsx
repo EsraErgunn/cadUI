@@ -1,4 +1,8 @@
-import { formatArchitectureCounts, formatInstallationCounts } from './floorCountText'
+import {
+  formatArchitectureCounts,
+  formatInstallationCounts,
+  formatVerticalAxisCounts,
+} from './floorCountText'
 import { FLOOR_FOCUS_RING } from './floorVariants'
 import type { FloorContentCounts } from '../../core/floorContent'
 import type { Floor, Id } from '../../core/model'
@@ -23,8 +27,10 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
  * Kaynak kat ve içeriğinin özeti (madde 15). Özet SAYILARLA: "kopyalanacak"
  * dediğimiz şeyin ne kadar olduğunu görmeden hedef seçmek kör bir işlem.
  *
- * Not: KK-19'un istediği "Düşey" satırı YOK — baca şaftı ve kolon havalandırması
- * henüz core/model.ts'te tanımlı değil (CLAUDE.md: varsayım kodlanmaz).
+ * "Düşey" satırı alan nesnesi sayımından geliyor ve mimarinin İÇİNDE de
+ * sayılıyor — çift yazım değil, vurgu: baca şaftı ile kolon havalandırması
+ * katlar arasında aynı hizada aranan tek nesne türü, kullanıcı hedef seçmeden
+ * önce kaynakta olup olmadığını görmeli.
  */
 export function FloorCopySourceSection({
   floors,
@@ -53,6 +59,7 @@ export function FloorCopySourceSection({
       <dl className="space-y-1 rounded-md border border-dashed border-edge px-3 py-2 text-sm">
         <SummaryRow label="Mimari" value={formatArchitectureCounts(counts)} />
         <SummaryRow label="Tesisat" value={formatInstallationCounts(counts)} />
+        <SummaryRow label="Düşey" value={formatVerticalAxisCounts(counts)} />
       </dl>
     </section>
   )
