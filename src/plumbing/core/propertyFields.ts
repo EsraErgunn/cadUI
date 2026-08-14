@@ -61,3 +61,15 @@ export function getPlumbingPropertyPanelTitle(
   if (kind.scope === 'mixed') return `${elementCount + lineCount} Nesne`
   return ''
 }
+
+/**
+ * Ortak metin değeri: hepsi aynıysa o değer, ayrışıyorsa undefined
+ * (`core/propertyFields.ts` → `getCommonNumber` ile aynı gerekçe — panel
+ * ayrışan alanı boş gösterir, rastgele birini yazmak yanıltır).
+ */
+export function getCommonString(values: readonly string[]): string | undefined {
+  if (values.length === 0) return undefined
+
+  const [first] = values
+  return values.every((value) => value === first) ? first : undefined
+}

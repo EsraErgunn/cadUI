@@ -1,3 +1,4 @@
+import type { RegulatorProperties } from './elementProperties'
 import type { PipeTypeName } from './pipeTypes'
 import type { InstallationElementType } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
@@ -22,6 +23,12 @@ export type InstallationElement = {
    * Hesabın tek sahibi core/elementLabel.ts.
    */
   labelOffsetCm?: PlanPoint
+  /**
+   * Özellik paneli alanları — TÜRÜNE göre en fazla biri dolu olur (`type`
+   * hangisi olduğunu zaten söylüyor). Her tür kendi opsiyonel alanını alır,
+   * bkz. elementProperties.ts.
+   */
+  regulator?: RegulatorProperties
 }
 
 export type InstallationLineKind =

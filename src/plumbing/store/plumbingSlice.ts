@@ -134,14 +134,28 @@ export type PlumbingSlice = {
   /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
   setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
   /**
-   * Bir elemanın alanlarını kısmi yazar — özellik paneli formlarının GENEL
-   * kapısı (K-tesisat-panel). Her eleman türü kendi opsiyonel alt-alanını
+   * Seçili elemanların alanlarını kısmi yazar — özellik paneli formlarının
+   * GENEL kapısı (K-tesisat-panel). Her eleman türü kendi opsiyonel alt-alanını
    * (`regulator`, `gasMeter`, ...) bununla yazar; tür başına ayrı bir action
-   * gerekmez.
+   * gerekmez. Çoklu seçimde TÜMÜNE tek adımda yazılır — `setWallsThickness`
+   * ile aynı gerekçe (K16): teker teker yazsaydık her biri kendi Ctrl+Z
+   * adımını açardı.
+   *
+   * Patch DEĞER değil FONKSİYON: her elemanın nested alt-alanı (`regulator`
+   * gibi) KENDİ mevcut değerinden türer. Sabit bir patch objesi tüm seçime
+   * aynen uygulansaydı (Object.assign sığ birleştirir) bir alanı düzenlemek
+   * seçimdeki her elemanın DİĞER alt-alanlarını da ortak bir değere ezerdi —
+   * beş regülatörün markasını toplu yazmak modellerini de eşitlerdi.
    */
-  patchElement: (elementId: Id, patch: Partial<InstallationElement>) => void
-  /** `patchElement` ile aynı gerekçe — hat türü başına özellik alanları için. */
-  patchLine: (lineId: Id, patch: Partial<InstallationLine>) => void
+  patchElements: (
+    elementIds: readonly Id[],
+    updater: (element: InstallationElement) => Partial<InstallationElement>,
+  ) => void
+  /** `patchElements` ile aynı gerekçe — hat türü başına özellik alanları için. */
+  patchLines: (
+    lineIds: readonly Id[],
+    updater: (line: InstallationLine) => Partial<InstallationLine>,
+  ) => void
   /**
    * Serbest (`free` modlu, ör. servis kutusu) bir elemanın açısını yazar —
    * döndürme tutamacıyla bir sürükleme = bir Ctrl+Z. Boruya/porta bağlı
@@ -853,33 +867,31 @@ export const createPlumbingSlice: StateCreator<
       if (isChanged) record()
     },
 
-    patchElement: (elementId, patch) => {
+    patchElements: (elementIds, updater) => {
       let isChanged = false
 
       set((draft) => {
-        const element = draft.installationElements.find(
-          (candidate) => candidate.id === elementId,
-        )
-        if (!element) return
-
-        Object.assign(element, patch)
-        isChanged = true
-        markDirty(draft)
+        for (const element of draft.installationElements) {
+          if (!elementIds.includes(element.id)) continue
+          Object.assign(element, updater(element))
+          isChanged = true
+        }
+        if (isChanged) markDirty(draft)
       })
 
       if (isChanged) record()
     },
 
-    patchLine: (lineId, patch) => {
+    patchLines: (lineIds, updater) => {
       let isChanged = false
 
       set((draft) => {
-        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
-        if (!line) return
-
-        Object.assign(line, patch)
-        isChanged = true
-        markDirty(draft)
+        for (const line of draft.installationLines) {
+          if (!lineIds.includes(line.id)) continue
+          Object.assign(line, updater(line))
+          isChanged = true
+        }
+        if (isChanged) markDirty(draft)
       })
 
       if (isChanged) record()
