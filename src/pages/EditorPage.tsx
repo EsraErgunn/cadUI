@@ -78,9 +78,10 @@ export function EditorPage() {
           <SceneRoot />
           <OpeningToolOptions />
           <AxisIndicator />
-          {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). Yalnız mimaride:
-              tesisatın kendi paleti ve kipleri var. */}
-          {activeViewId === 'architecture' && <FloatingToolbar onGoToFloor={goToFloor} />}
+          {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
+              görünümünde de var (K57); izometrikte çizilecek bir şey yok,
+              orada tuval etkileşimi de yok. */}
+          {activeViewId !== 'isometric' && <FloatingToolbar onGoToFloor={goToFloor} />}
         </main>
 
         {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
