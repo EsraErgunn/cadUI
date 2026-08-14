@@ -15,6 +15,7 @@ import {
   type PolicyStep,
 } from './policySchema'
 import { createProjectPolicy } from '../../../api/policies'
+import type { ProjectSummary } from '../../../api/projectDetail'
 
 const SUBMIT_ERROR_MESSAGES = {
   unavailable:
@@ -35,7 +36,13 @@ const FIELD_STEPS: Record<PolicyField, PolicyStep> = {
 }
 
 export interface UsePolicyWizardOptions {
-  projectId: number
+  /**
+   * Poliçenin bağlanacağı proje. Kimlik değil KÜNYE alıyor: kaydedilen poliçe
+   * poliçe listesinde proje adıyla görünüyor ve o ad kimlikten çözülemiyordu —
+   * mock tohumundan çözmek başka bir projenin adını yazdırırdı (K63).
+   * Künye gelmeden (`undefined`) sihirbaz çizilmiyor, kayıt da yapılamıyor.
+   */
+  project: ProjectSummary | undefined
   /** Test ve tarih varsayılanı için enjekte edilebilir; üretimde verilmez. */
   today?: Date
 }
@@ -70,7 +77,7 @@ function stepIndex(step: PolicyStep): number {
  * taşınamadığı için yenilemede adım korunup veri gitseydi kullanıcı boş bir
  * "Poliçe Bilgileri" adımına düşerdi.
  */
-export function usePolicyWizard({ projectId, today }: UsePolicyWizardOptions): PolicyWizard {
+export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): PolicyWizard {
   // Tembel başlatıcı: başlangıç tarihi bir KEZ hesaplanır, her render'da
   // yeniden üretilseydi kullanıcının değiştirdiği tarih geri gelirdi.
   const [values, setValues] = useState<PolicyFormValues>(() => buildPolicyDefaults(today ?? new Date()))
@@ -147,14 +154,14 @@ export function usePolicyWizard({ projectId, today }: UsePolicyWizardOptions): P
       return
     }
 
-    const payload = buildPolicyPayload(values, projectId)
-    if (payload === null) {
+    const payload = project === undefined ? null : buildPolicyPayload(values, project.id)
+    if (payload === null || project === undefined) {
       setSubmitError(SUBMIT_ERROR_MESSAGES.unexpected)
       return
     }
 
     setIsSubmitting(true)
-    const result = await createProjectPolicy(payload)
+    const result = await createProjectPolicy(payload, project)
     setIsSubmitting(false)
 
     if (result.ok) {
@@ -169,7 +176,7 @@ export function usePolicyWizard({ projectId, today }: UsePolicyWizardOptions): P
     }
 
     setSubmitError(SUBMIT_ERROR_MESSAGES.unavailable)
-  }, [failWith, projectId, values])
+  }, [failWith, project, values])
 
   const goNext = useCallback(async () => {
     // Kayıt ÖZET adımında yapılır, sonuç adımı kayıttan SONRA gösterilir (K64).

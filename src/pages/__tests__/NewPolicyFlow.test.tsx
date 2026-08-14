@@ -10,6 +10,7 @@ import {
   END_DATE,
   POLICY_NUMBER,
   PROJECT_ID,
+  PROJECT_NAME,
   fillFirmStep,
   fillInfoStep,
   fillUntilSummary,
@@ -204,11 +205,13 @@ describe('Poliçe özeti ve tamamlanma', () => {
       await screen.findByText(/Poliçe kaydedildi ve projeyle ilişkilendirildi/),
     ).toBeInTheDocument()
 
-    const saved = getMockPolicies()
-    expect(saved).toHaveLength(1)
-    expect(saved[0].projectId).toBe(PROJECT_ID)
-    expect(saved[0].policyNumber).toBe(POLICY_NUMBER)
-    expect(saved[0].amount).toBe(1500000)
+    // Depo tohumlu (K69); yeni kayıt EN ÜSTTE duruyor.
+    const saved = getMockPolicies()[0]
+    expect(saved.projectId).toBe(PROJECT_ID)
+    expect(saved.policyNumber).toBe(POLICY_NUMBER)
+    expect(saved.amount).toBe(1500000)
+    // Künye gerçek uçtan geldi: liste ekranı projeyi adıyla gösterebilir.
+    expect(saved.projectName).toBe(PROJECT_NAME)
 
     await user.click(screen.getByRole('button', { name: 'Proje Detayına Dön' }))
 

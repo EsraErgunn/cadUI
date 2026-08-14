@@ -47,6 +47,9 @@ export const UNIMPLEMENTED_ENDPOINTS = {
   /** TODO(esra): POST /api/projects/{id}/policies — `Policy` entity'si VAR, controller yok;
       poliçe numarası benzersizliği 409 dönmeli (bugün kontrol istemcide). */
   policyCreate: 'POST /api/projects/{id}/policies',
+  /** TODO(esra): GET /api/policies?page&pageSize&q&insuranceCompanyId&sort&dir —
+      bütün projelerin poliçeleri; satır proje künyesini de taşımalı. */
+  policyList: 'GET /api/policies',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */

@@ -1,7 +1,7 @@
 import { parsePolicyAmount, type PolicyFormValues } from './policySchema'
 import { POLICY_METHOD_LABELS, type InsuranceCompany } from '../../../api/policies'
 import { InfoRow } from '../InfoRow'
-import { formatCurrency, formatPlainDate } from '../projectDetail/projectDetailFormat'
+import { formatCurrency, formatPlainDate } from '../adminFormat'
 
 const VALIDITY_SEPARATOR = ' – '
 

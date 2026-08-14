@@ -4,7 +4,7 @@ import type userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 
-import { POLICY_CREATE_PATH, PROJECT_PARAM } from '../../ui/admin/adminNavItems'
+import { POLICY_CREATE_ROUTE, policyCreatePath } from '../../ui/admin/adminNavItems'
 import { NewPolicyPage } from '../NewPolicyPage'
 import { ProjectDetailPage } from '../ProjectDetailPage'
 
@@ -52,14 +52,14 @@ export function stubProjectFetch(): void {
  * Bilgileri" sekmesine düştüğü (KK-21) ve "Vazgeç"in oraya döndürdüğü (KK-22)
  * ancak yönlendirme gerçekten çalışırsa doğrulanabilir.
  */
-export function renderPolicyPage(search = `?${PROJECT_PARAM}=${PROJECT_ID}`) {
+export function renderPolicyPage(route = policyCreatePath(PROJECT_ID)) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[`${POLICY_CREATE_PATH}${search}`]}>
+      <MemoryRouter initialEntries={[route]}>
         <Routes>
-          <Route path={POLICY_CREATE_PATH} element={<NewPolicyPage />} />
+          <Route path={POLICY_CREATE_ROUTE} element={<NewPolicyPage />} />
           <Route path="/projects" element={<h1>Projeler</h1>} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
         </Routes>

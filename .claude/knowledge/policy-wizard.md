@@ -1,9 +1,18 @@
-# decision: Poliçe Oluşturma sihirbazı — kayıt sırası, yerel durum, tek depo
+# decision: Poliçe ekranları — sihirbazın yeri, kayıt sırası, tek depo
 
-Ekran: `src/pages/NewPolicyPage.tsx`, parçalar `src/ui/admin/policies/`,
-veri katmanı `src/api/policies.ts` (+ `policiesMock.ts`).
-Kararların tamamı docs/kararlar.md K64–K67; eksik uçlar
+İki ekran: sihirbaz `src/pages/NewPolicyPage.tsx`, liste
+`src/pages/PolicyListPage.tsx`; parçalar `src/ui/admin/policies/`,
+veri katmanı `src/api/policies.ts` (+ `policiesMock.ts`, `policyListQuery.ts`).
+Kararların tamamı docs/kararlar.md K64–K69; eksik uçlar
 `docs/api-eksikleri-policeler.md`.
+
+**Sihirbaz "Poliçeler" bölümünün ALTINDA DEĞİL** (K68): yolu
+`/projects/:projectId/policies/new` ve kimlik YOLDA (evrak ekranındaki
+`?project=` bu ekran için geçmiyor). `/admin/policies/new` iken sol menü
+"Poliçeler" maddesini işaretliyordu — kullanıcı poliçe listesine geçmiş gibi
+görünüyordu. Kırılım da poliçe bölümünden geçmez: Anasayfa / Projeler / proje /
+Poliçe Oluşturma. `POLICY_CREATE_PATH` sabiti YOK; rota `POLICY_CREATE_ROUTE`,
+bağlantı `policyCreatePath(projectId)`.
 
 ## Bu ekranda varsayım kodlamadan önce bilinmesi gerekenler
 
@@ -23,12 +32,23 @@ içindir; burada form verisi adreste taşınamadığı için adımı URL'de tutm
 yenilemede adımı koruyup veriyi düşürürdü. Adreste yalnız `?project=<id>` var
 (`PROJECT_PARAM`, K61 ile ortak).
 
-**Poliçe deposu TEK ve BELLEKTE** (`policiesMock.ts`). Proje detayının "Poliçe
-Bilgileri" sekmesi de oradan besleniyor (`buildMockProjectPolicies` süzüyor);
-ikinci bir mock açarsan poliçe bir ekranda görünüp öbüründe kaybolur. Depo
-TOHUMLANMIYOR — poliçesi olmayan projede sekme dürüstçe boş kalır. Testlerde
+**Poliçe deposu TEK ve BELLEKTE** (`policiesMock.ts`). Üç ekran da oradan
+besleniyor: poliçe listesi, proje detayının "Poliçe Bilgileri" sekmesi
+(`buildMockProjectPolicies` süzüyor) ve benzersizlik kontrolü. İkinci bir mock
+açarsan poliçe bir ekranda görünüp öbüründe kaybolur. Depo artık TOHUMLU (K69,
+K66'nın kararı değişti) ve tohumlar evrak mock'uyla aynı `getMockProjectSeeds`
+kaynağından — kendi proje listesini uydursaydı satırdaki "Proje Adı" bağlantısı
+listede olmayan bir kimliğe giderdi. `POLICY_COUNTS` içinde sıfırlar var:
+poliçesiz projede sekmenin boş hâli de görünsün. Testlerde
 `resetMockPolicies()` **şart**, yoksa bir testin numarası öbüründe "bu numara
-kayıtlı" hatası doğurur.
+kayıtlı" hatası doğurur; tohum numaraları `ORNEK-POL-` önekli, test numaralarıyla
+çakışmaz.
+
+**Kaydedilen poliçe proje KÜNYESİNİ de saklar.** Liste "Proje Adı" gösteriyor ve
+kimlikten ada inen tek yol mock tohumlarıydı — o yol sunucudaki bir projenin
+poliçesini uydurma bir projenin adıyla listelerdi (K63). Bu yüzden
+`createProjectPolicy` künyeyi parametre alıyor ve `usePolicyWizard` kimlik değil
+`ProjectSummary` istiyor. Künye yoksa ad UYDURULMAZ, satırda boş değer kalır.
 
 **Benzersizlik TEK kapıdan:** `isPolicyNumberTaken`. Hem adım doğrulaması hem
 kayıt oradan geçiyor; uç gelince yalnız o fonksiyonun gövdesi 409'a dönecek.
@@ -57,12 +77,21 @@ Bu satırları kaldırma.
   aynı tuzak): ekran proje künyesini gerçek uçtan çözüyor ve yönlendirme sonrası
   proje detayı aynı ucu tekrar çağırıyor.
 
+## Liste ekranı
+
+Sol menüdeki "Poliçeler" artık gerçek liste (K69): bütün projelerin poliçeleri,
+durum URL'de (`admin-list-state` — arama `q` poliçe numarasını VE proje adını
+kapsar, sigorta şirketi süzgeci `company`, sıralama poliçe no / başlangıç
+tarihi). Sunucu tarafını `policyListQuery.ts` oynuyor (evrakın
+`documentListQuery` deseni); uç açılınca o dosya silinir, çağıran değişmez.
+Tabloda "Birim" ve "Ödeme" sütunu YOK — ikisi de sihirbazda sorulmuyor ve
+"Ödeme: Bekliyor" istemci varsayımıydı (K67).
+
 ## Kapsam dışı bırakılanlar
 
-Poliçe LİSTESİ ekranı yok; sol menüdeki "Poliçeler" hâlâ "Yakında" rozetli ve
-`ComingSoonPage`'e gidiyor (K67). Yöntem adımında İKİNCİ seçenek (otomatik
-poliçe) EKLENMEDİ — yapı kapalı değil (`POLICY_METHODS` dar birleşim + radyo
-grubu) ama bugün seçilebilen ama hiçbir şey yapmayan bir kart konulmadı.
+Yöntem adımında İKİNCİ seçenek (otomatik poliçe) EKLENMEDİ — yapı kapalı değil
+(`POLICY_METHODS` dar birleşim + radyo grubu) ama bugün seçilebilen ama hiçbir
+şey yapmayan bir kart konulmadı.
 
 Sihirbaz birim (`ProjectUnit`) ve ödeme sormuyor; yeni poliçe satırında "Birim"
 boş, "Ödeme" Bekliyor. Uydurma. Adım 5'in bilgilendirme metni GEÇİCİ ve kaynakta

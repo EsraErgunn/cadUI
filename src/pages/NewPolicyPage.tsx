@@ -1,21 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
+import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { listInsuranceCompanies, listPolicyAgencies } from '../api/policies'
-import { getProjectSummary } from '../api/projectDetail'
+import { getProjectSummary, type ProjectSummary } from '../api/projectDetail'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
-import {
-  ADMIN_HOME_PATH,
-  POLICIES_PATH,
-  PROJECT_PARAM,
-  parseProjectParam,
-  projectDetailPath,
-} from '../ui/admin/adminNavItems'
+import { ADMIN_HOME_PATH, parseProjectParam, projectDetailPath } from '../ui/admin/adminNavItems'
 import { ADMIN_PARAM_KEYS } from '../ui/admin/adminUrlParams'
 import { PolicyFirmStep } from '../ui/admin/policies/PolicyFirmStep'
 import { PolicyInfoStep } from '../ui/admin/policies/PolicyInfoStep'
@@ -33,11 +28,18 @@ import type { ProjectDetailTabKey } from '../ui/admin/projectDetail/tabItems'
 const PAGE_TITLE = 'Poliçe Oluşturma'
 const PAGE_DESCRIPTION = 'Manuel poliçe akışı — adımları takip ederek tamamlayın'
 
-const BREADCRUMB = [
-  { label: 'Anasayfa', to: ADMIN_HOME_PATH },
-  { label: 'Poliçeler', to: POLICIES_PATH },
-  { label: PAGE_TITLE },
-]
+/**
+ * Kırılım "Poliçeler" bölümünden GEÇMEZ (K68): ekran bir projenin işlemi,
+ * kullanıcı buraya proje detayından geliyor ve geri dönüşü de oraya.
+ */
+function buildBreadcrumb(project: ProjectSummary) {
+  return [
+    { label: 'Anasayfa', to: ADMIN_HOME_PATH },
+    { label: 'Projeler', to: PROJECT_LIST_PATH },
+    { label: project.name, to: projectDetailPath(project.id) },
+    { label: PAGE_TITLE },
+  ]
+}
 
 /** Kayıt sonrası kullanıcı poliçenin listelendiği sekmede açılır (KK-21). */
 const POLICY_TAB: ProjectDetailTabKey = 'police'
@@ -55,13 +57,11 @@ const CANCEL_DIALOG = {
 }
 
 export function NewPolicyPage() {
-  const [searchParams] = useSearchParams()
-  const projectId = parseProjectParam(searchParams.get(PROJECT_PARAM))
+  // Kimlik YOLDA (K68): adres zaten `/projects/:projectId/policies/new`.
+  const { projectId: rawProjectId } = useParams()
+  const projectId = parseProjectParam(rawProjectId ?? null)
   const navigate = useNavigate()
   const [isCancelPrompted, setIsCancelPrompted] = useState(false)
-
-  const wizard = usePolicyWizard({ projectId: projectId ?? 0 })
-  const { focusField, clearFocusRequest, values } = wizard
 
   // Künye GERÇEK uçtan (K63): mock tohumundan okunsaydı sunucudaki proje ya
   // bulunamaz ya başka bir projenin adıyla açılırdı.
@@ -70,6 +70,9 @@ export function NewPolicyPage() {
     queryFn: ({ signal }) => getProjectSummary(projectId ?? 0, signal),
     enabled: projectId !== undefined,
   })
+
+  const wizard = usePolicyWizard({ project: projectQuery.data ?? undefined })
+  const { focusField, clearFocusRequest, values } = wizard
 
   const { data: companies } = useQuery({
     queryKey: ['insuranceCompanies'],
@@ -90,7 +93,7 @@ export function NewPolicyPage() {
   }, [focusField, clearFocusRequest])
 
   const project = projectQuery.data
-  const goToProjectList = () => void navigate('/projects')
+  const goToProjectList = () => void navigate(PROJECT_LIST_PATH)
 
   if (projectId === undefined || project === null) {
     return <ProjectContextNotice state="missing" screenName={PAGE_TITLE} onRetry={goToProjectList} />
@@ -127,7 +130,11 @@ export function NewPolicyPage() {
 
   return (
     <div className="mx-auto flex max-w-320 flex-col gap-5">
-      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+      <PageHeader
+        breadcrumb={buildBreadcrumb(project)}
+        title={PAGE_TITLE}
+        description={PAGE_DESCRIPTION}
+      />
 
       <p className="text-sm text-ink-muted">
         Oluşturulan poliçe <span className="font-medium text-ink">{project.name}</span> projesiyle

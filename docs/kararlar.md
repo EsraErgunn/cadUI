@@ -3362,3 +3362,68 @@ Aynı kural `projectDetail/projectDetailFormat.ts` için HENÜZ uygulanmadı: po
 biçimleyici proje detayına özel. Dosyayı `admin/adminFormat.ts` yapmak altı
 dosyayı birden değiştireceği için ayrı bir adıma bırakıldı — bugünkü hâli
 klasörler arası bir import, ikinci bir KOPYA değil.
+
+## 2026-08 · Poliçe listesi ekranı ve sihirbazın yeri
+
+### K68 — "Poliçelendir" poliçe bölümüne GİTMEZ; sihirbaz projenin altında
+
+Sihirbazın yolu `/admin/policies/new` idi. Sol menüde `end` yalnız Anasayfa'da
+olduğu için (K67) o adreste "Poliçeler" maddesi işaretleniyordu: kullanıcı proje
+detayından "Poliçelendir"e bastığında, bütün poliçelerin listelendiği bölüme
+geçmiş gibi görünüyordu. Poliçe LİSTESİ ekranı gelince bu iki ekran gerçekten
+ayrıştı ve karışıklık somutlaştı.
+
+Karar: sihirbazın yolu **`/projects/:projectId/policies/new`**. Sonuçları:
+
+- Sol menüde "Projeler" işaretli kalıyor, "Poliçeler" listeye ayrıldı.
+- Kırılım artık "Anasayfa / Projeler / <proje adı> / Poliçe Oluşturma" —
+  K67'deki "Anasayfa / Poliçeler / Poliçe Oluşturma" izi kalktı; ekran bir
+  projenin işlemi ve dönüşü de o projeye.
+- Proje kimliği **YOLDA**, `?project=` ile değil (K61 evrak için geçerli
+  kalıyor): adres zaten projeye bağlıyken ayrıca query taşımak aynı bilginin
+  ikinci kaynağı olurdu. `parseProjectParam` ikisinde de ortak — bozuk kimlikte
+  ekran veri çekmek yerine sebebini yazıyor.
+- `POLICY_CREATE_PATH` sabiti düştü; yerine `POLICY_CREATE_ROUTE` (rota kalıbı)
+  ve `policyCreatePath(projectId)` var, ikisi tek segment sabitinden türüyor.
+  Proje detayının "İşlemler" sekmesindeki kısayol kimliksiz `POLICY_CREATE_PATH`
+  kullanıyordu — o bağlantı da düzeldi (kimliksiz açılan sihirbaz "geçerli bir
+  proje yok" diyordu).
+
+### K69 — Poliçe listesi ekranı; mock depo artık TOHUMLU
+
+Sol menüdeki "Poliçeler" karşılama ekranı değil, gerçek liste
+(`src/pages/PolicyListPage.tsx`): bütün projelerin poliçeleri, sunucu taraflı
+sözleşmeye göre sayfalanan tablo. Uç yok — `GET /api/policies` de
+`unimplementedEndpoints`'te bayraklı, gövdeyi mock besliyor ve şerit bunun
+uydurma olduğunu söylüyor (K51 + K58 deseni).
+
+K66'nın "depo TOHUMLANMIYOR" kararı bu ekranla değişti: boş depoyla listenin
+filtresi, sıralaması ve sayfalaması hiç denenemezdi. Tohumlar evrak mock'uyla
+AYNI kaynaktan (`getMockProjectSeeds`) geliyor ki satırdaki "Proje Adı"
+bağlantısı proje listesinde bulunmayan bir kimliğe gitmesin. Depo hâlâ TEK:
+proje detayının poliçe sekmesi de oradan okuyor, bir poliçe iki ekranda da aynı
+görünüyor. Poliçesiz proje kaldı (`POLICY_COUNTS` içinde sıfırlar) — sekmenin
+boş hâli de görünsün.
+
+Kaydedilen poliçe artık proje KÜNYESİNİ de saklıyor: liste "Proje Adı"
+gösteriyor ve kimlikten ada inen tek yol mock tohumlarıydı — sunucudaki bir
+projenin poliçesi o yolla uydurma bir projenin adıyla listelenirdi (K63'ün
+tuzağı). Bu yüzden `createProjectPolicy` künyeyi parametre alıyor
+(`saveProjectDocuments` deseni) ve `usePolicyWizard` kimlik değil `ProjectSummary`
+istiyor. Künyesi olmayan satırda ad uydurulmuyor, boş değer işareti kalıyor.
+
+Liste durumu URL'de (`admin-list-state`): arama (`q`) poliçe numarasını VE proje
+adını kapsıyor, sigorta şirketi süzgeci yeni `company` anahtarında, sıralama
+poliçe no ve başlangıç tarihinde. Sihirbazın durumu bunun DIŞINDA kalmaya devam
+ediyor (K65).
+
+Tabloda "Birim" ve "Ödeme" sütunu YOK: sihirbaz ikisini de sormuyor ve K67'de
+"Ödeme: Bekliyor"un istemci varsayımı olduğu yazılmıştı — genel listede o
+varsayımı tekrarlamak, listeyi olduğundan dolu gösterirdi.
+
+### Ortak parçaya çıkan
+
+`formatCurrency` ve `formatPlainDate` → **`admin/adminFormat.ts`**: K67'de
+"ayrı bir adıma bırakıldı" denen taşıma yapıldı, üçüncü çağıran (poliçe listesi)
+gelince gerekçe kalmadı. Kalan altı biçimleyici proje detayına özel kaldığı için
+`projectDetailFormat.ts` duruyor.

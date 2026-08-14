@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  PROJECT_ID,
   PROJECT_NAME,
   fillFirmStep,
   fillUntilSummary,
@@ -43,8 +44,9 @@ afterEach(() => {
 })
 
 describe('NewPolicyPage — erişim ve adım göstergesi', () => {
-  it('proje kimliği yoksa ekran boş kalmaz, projelere dönüş sunar', () => {
-    renderPolicyPage('')
+  it('proje kimliği geçersizse ekran boş kalmaz, projelere dönüş sunar', () => {
+    // Kimlik YOLDA (K68); bozuk değer rotayla eşleşiyor ama projeye çözülmüyor.
+    renderPolicyPage('/projects/abc/policies/new')
 
     expect(screen.getByRole('alert')).toHaveTextContent(/geçerli bir proje yok/)
     expect(screen.getByRole('link', { name: 'Projelere dön' })).toHaveAttribute('href', '/projects')
@@ -60,11 +62,21 @@ describe('NewPolicyPage — erişim ve adım göstergesi', () => {
 
     const trail = screen.getByRole('navigation', { name: 'Konum' })
     expect(within(trail).getByRole('link', { name: 'Anasayfa' })).toBeInTheDocument()
-    expect(within(trail).getByRole('link', { name: 'Poliçeler' })).toBeInTheDocument()
+    // Kırılım "Poliçeler" bölümünden GEÇMEZ (K68): ekran projenin altında.
+    expect(within(trail).queryByRole('link', { name: 'Poliçeler' })).not.toBeInTheDocument()
+    expect(within(trail).getByRole('link', { name: 'Projeler' })).toHaveAttribute(
+      'href',
+      '/projects',
+    )
+    expect(within(trail).getByRole('link', { name: PROJECT_NAME })).toHaveAttribute(
+      'href',
+      `/projects/${PROJECT_ID}`,
+    )
     expect(within(trail).getByText('Poliçe Oluşturma')).toHaveAttribute('aria-current', 'page')
 
-    // Poliçe GELİNEN projeyle ilişkilendiriliyor; ekran hangi proje olduğunu yazar.
-    expect(screen.getByText(PROJECT_NAME)).toBeInTheDocument()
+    // Poliçe GELİNEN projeyle ilişkilendiriliyor; ekran hangi proje olduğunu
+    // yazar (kırılımda da geçtiği için tek eşleşme beklenmiyor).
+    expect(screen.getAllByText(PROJECT_NAME).length).toBeGreaterThan(0)
   })
 
   it('beş adım sırayla görünür, bulunulan adım işaretlidir (KK-16)', async () => {

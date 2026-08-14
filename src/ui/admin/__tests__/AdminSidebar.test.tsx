@@ -33,20 +33,22 @@ describe('AdminSidebar', () => {
     }
   })
 
-  it('ekranı hazır olmayan madde "Yakında" rozetiyle işaretlenir', () => {
+  /**
+   * Hangi maddenin beklediği zamanla değişiyor (Evraklar, sonra Poliçeler
+   * yazılınca rozetleri düştü); test etiket sabitlemek yerine bayrağı okuyor —
+   * bugün menüde bekleyen madde kalmadı, yarın eklenirse kendiliğinden kapsar.
+   */
+  it('rozet YALNIZ ekranı hazır olmayan maddede görünür', () => {
     renderSidebar()
 
-    // Hangi maddenin beklediği zamanla değişiyor (Evraklar yazılınca rozeti
-    // düştü); test etiketi sabitlemek yerine bayrağı okuyor.
-    const pending = ADMIN_NAV_ITEMS.filter((item) => item.isComingSoon === true)
-    expect(pending.length).toBeGreaterThan(0)
-
-    for (const item of pending) {
-      expect(screen.getByRole('link', { name: new RegExp(item.label) })).toHaveTextContent(
-        'Yakında',
-      )
+    for (const item of ADMIN_NAV_ITEMS) {
+      const link = screen.getByRole('link', { name: new RegExp(item.label) })
+      if (item.isComingSoon === true) {
+        expect(link).toHaveTextContent('Yakında')
+        continue
+      }
+      expect(link).not.toHaveTextContent('Yakında')
     }
-    expect(screen.getByRole('link', { name: /Anasayfa/ })).not.toHaveTextContent('Yakında')
   })
 
   // Ekranı yazılan madde rozetini KAYBETMELİ; rozet kalsaydı çalışan bir ekran
@@ -78,7 +80,10 @@ describe('AdminSidebar', () => {
     ['/projects/123', 'Projeler'],
     ['/projects/123/editor', 'Projeler'],
     ['/admin/documents/new', 'Evraklar'],
-    ['/admin/policies/new', 'Poliçeler'],
+    // Poliçe sihirbazı poliçe bölümünün altında DEĞİL (K68): projenin işlemi
+    // olduğu için menüde "Projeler" işaretli kalmalı.
+    ['/projects/123/policies/new', 'Projeler'],
+    ['/admin/policies', 'Poliçeler'],
   ]
 
   it.each(subRoutes)('%s adresinde "%s" maddesi işaretli kalır', (route, label) => {

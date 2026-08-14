@@ -30,6 +30,8 @@ export const ADMIN_PARAM_KEYS = {
    * hangi süzgeci yazdığını çağrı yerinde okunur kılıyor.
    */
   documentType: 'type',
+  /** Poliçe listesinin "Sigorta Şirketi" süzgeci; kimlik taşır. */
+  insuranceCompany: 'company',
   /** Yalnız aktif kayıtlar; işaretsiz hâl (varsayılan) adrese yazılmaz. */
   onlyActive: 'active',
 } as const

@@ -1,23 +1,27 @@
 # Poliçe Oluşturma — eksik uçlar ve sözleşme taslağı
 
-**Durum:** Poliçe Oluşturma sihirbazı (5 adım) yazıldı, sunucu tarafının TAMAMI
-yok. `Policy` entity'si veritabanında VAR (`ProjectUnit`'e bağlı) ama controller'ı
-yok; sigorta şirketi ve acente için tablo bile yok.
+**Durum:** Poliçe Oluşturma sihirbazı (5 adım) ve Poliçeler LİSTESİ ekranı
+yazıldı, sunucu tarafının TAMAMI yok. `Policy` entity'si veritabanında VAR
+(`ProjectUnit`'e bağlı) ama controller'ı yok; sigorta şirketi ve acente için
+tablo bile yok.
 
 Sözleşme taslağı FRONTEND önerisidir; alan adları backend'le kesinleşecek.
 
 ## Bugün çalışan uç
 
-Sadece proje künyesi: ekran `?project=<id>` ile gelen projeyi `GET /api/projects/{id}`
-(gerçek uç) üzerinden çözüyor (K63'ün deseni). Bunun dışındaki her şey
-`src/api/policiesMock.ts` içindeki BELLEK deposundan geliyor: oluşturulan poliçe
-proje detayının "Poliçe Bilgileri" sekmesinde gerçekten listeleniyor ama **sayfa
-yenilenince kayboluyor**. Kullanıcıya bu SÖYLENİYOR (K58 deseni, dönüş
-bildirimindeki `warning` şeridi).
+Sadece proje künyesi: sihirbaz `/projects/:projectId/policies/new` yolundaki
+kimliği `GET /api/projects/{id}` (gerçek uç) üzerinden çözüyor (K63'ün deseni).
+Bunun dışındaki her şey `src/api/policiesMock.ts` içindeki BELLEK deposundan
+geliyor: oluşturulan poliçe hem Poliçeler listesinde hem proje detayının "Poliçe
+Bilgileri" sekmesinde gerçekten listeleniyor ama **sayfa yenilenince
+kayboluyor**. Kullanıcıya bu SÖYLENİYOR (K58 deseni, dönüş bildirimindeki
+`warning` şeridi).
 
-Depo TOHUMLANMIYOR: hiç poliçe açılmamış projede sekme dürüstçe boş kalır.
-Uydurma poliçe tohumlansaydı proje detayı, sunucuda karşılığı olmayan kayıtları
-gerçek poliçeymiş gibi listelerdi.
+Depo TOHUMLU (K69): liste ekranının filtresi/sıralaması/sayfalaması boş depoyla
+denenemezdi. Tohumlar evrak mock'uyla aynı proje kaynağından geliyor, numaraları
+`ORNEK-POL-` önekli — hiçbiri sunucudan gelmiş gibi durmuyor ve tamamı yalnız
+geliştirme derlemesinde üretiliyor (`mockGate`). Poliçesiz projeler de var:
+sekmenin boş hâli korunuyor.
 
 ## Eksik uçlar
 
@@ -27,8 +31,9 @@ gerçek poliçeymiş gibi listelerdi.
 | 2 | `GET /api/insurancecompanies/{id}/agencies` | Adım 2 "Acente / Poliçe Firması" listesi (seçilen şirkete bağlı) | **yok** |
 | 3 | `POST /api/projects/{id}/policies` | Adım 4 "Bitir" — poliçe kaydı | `Policy` — **tablo var, controller yok** |
 | 4 | `GET /api/projects/{id}/policies` | Proje detayının poliçe sekmesi (bu görevden ÖNCE de eksikti) | aynı |
+| 5 | `GET /api/policies?page&pageSize&q&insuranceCompanyId&sort&dir` | Poliçeler LİSTESİ ekranı — bütün projelerin poliçeleri | aynı |
 
-Dördü de `src/api/unimplementedEndpoints.ts` içinde bayraklı: uç açılınca oradan
+Beşi de `src/api/unimplementedEndpoints.ts` içinde bayraklı: uç açılınca oradan
 satır silinecek ve `src/api/policies.ts` derleme hatası vererek gövdenin gerçek
 isteğe çevrilmesi gerektiğini gösterecek.
 
@@ -88,6 +93,17 @@ poliçe kaydedilir" diyor, yani başarı ekranını kayıttan ÖNCE gösteriyor.
 Adım 4'te kaydediyor, Adım 5 kayıt sonrası sonuç ekranı (K64) — sapma bilinçli,
 sebebi kaydın başarısız olabilmesi. Esra onayladı; analist teyidi bekleniyor.
 
-**5. Poliçe LİSTESİ ekranı kapsam dışıydı.** Sol menüdeki "Poliçeler" öğesi hâlâ
-"Yakında" rozetli ve karşılama sayfasına gidiyor; ekrana yalnız proje detayından
-giriliyor. 4 numaralı uç gelince liste ekranı ayrı bir iş olarak yazılacak.
+**5. Poliçe LİSTESİ ekranı yazıldı (K69), sözleşmesi onay bekliyor.** Sol
+menüdeki "Poliçeler" artık karşılama değil gerçek liste; 5 numaralı uç gelene
+kadar mock depodan besleniyor. Analiste sorulacaklar:
+
+- Liste hangi alanları döndürecek? Ekran bugün poliçe no, sigorta şirketi,
+  acente, proje adı + ProjeId, teminat, başlangıç/bitiş ve yöntem gösteriyor.
+  Satır proje künyesini de taşımalı, yoksa istemci her satır için ayrı bir proje
+  isteği atmak zorunda kalır.
+- Süzme ölçütleri: bugün arama (poliçe no + proje adı) ve sigorta şirketi var.
+  Tarih aralığı ya da "ödeme durumu" süzgeci istenirse 2 numaralı maddedeki
+  ödeme sorusunun cevabına bağlı.
+- Yetki: liste bütün projelerin poliçelerini gösteriyor. Proje firması
+  kullanıcısının yalnız kendi projelerinin poliçelerini görmesi gerekiyorsa
+  süzme SUNUCUDA olmalı (istemci tarafı yalnız görünürlük).

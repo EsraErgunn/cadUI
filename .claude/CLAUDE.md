@@ -73,10 +73,12 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   `/projects/:id/editor`'a taşındı (K53). Detayın verisinin çoğunun ucu YOK:
   sahte veri yalnız geliştirme derlemesinde üretilir, üretimde bölüm boş kalır
   ve gerçek/uydurma ayrımı tipte durur (K51) — varsayarak doldurma.
-  Bir projeye bağlı açılan ekranlar (Evrak Ekle, Poliçe Oluşturma) kimliği
-  query'de taşır (`?project=<id>`, K61) ve künyeyi GERÇEK uçtan çözer (K63).
-  Poliçe sihirbazının durumu URL'de DEĞİL (K65) — "durum URL'de" kuralı LİSTE
-  ekranları içindir.
+  Bir projeye bağlı açılan ekranlar künyeyi GERÇEK uçtan çözer (K63); Evrak Ekle
+  kimliği query'de taşır (`?project=<id>`, K61), Poliçe Oluşturma ise YOLDA:
+  sihirbaz poliçe bölümünün altında değil, `/projects/:projectId/policies/new`
+  (K68) — sol menüde "Projeler" işaretli kalsın. Poliçe sihirbazının durumu
+  URL'de DEĞİL (K65) — "durum URL'de" kuralı LİSTE ekranları içindir; poliçe
+  LİSTESİ (K69) o kurala uyar.
   (bkz. knowledge/access-control.md, knowledge/admin-list-state.md,
   knowledge/project-detail.md, knowledge/documents-screens.md,
   knowledge/policy-wizard.md)

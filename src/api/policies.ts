@@ -1,6 +1,15 @@
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
+import type { PagedResult, SortDirection } from './listQuery'
 import { mockedData, type Sourced } from './mockGate'
-import { addMockPolicy, getMockAgencies, getMockInsuranceCompanies, getMockPolicies } from './policiesMock'
+import {
+  addMockPolicy,
+  getMockAgencies,
+  getMockInsuranceCompanies,
+  getMockPolicies,
+  getMockPolicyRows,
+} from './policiesMock'
+import { queryPolicyList } from './policyListQuery'
+import type { ProjectSummary } from './projectDetailTypes'
 import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
@@ -57,6 +66,64 @@ export interface CreatePolicyPayload {
 export type PolicyCreateResult =
   | { ok: true; policyId: number }
   | { ok: false; reason: 'duplicateNumber' | 'unavailable' }
+
+export const POLICY_PAGE_SIZE = 30
+
+export const POLICY_SORT_KEYS = ['startDate', 'policyNumber'] as const
+export type PolicySortKey = (typeof POLICY_SORT_KEYS)[number]
+
+/** En yeni poliçe üstte: listenin en sık beklenen açılış sırası. */
+export const DEFAULT_POLICY_SORT_KEY: PolicySortKey = 'startDate'
+export const DEFAULT_POLICY_SORT_DIR: SortDirection = 'desc'
+
+/** Poliçeler listesinin satırı. Şirket KİMLİĞİ de var: filtre kimliğe göre
+    süzüyor, ad tek başına yetmez (evrak satırındaki `projectFirmId` deseni). */
+export interface PolicyRow {
+  id: number
+  policyNumber: string
+  insuranceCompanyId: number
+  insuranceCompanyName: string
+  agencyName: string
+  method: PolicyMethod
+  /** Kuruş DAHİL teminat tutarı; biçimlendirme gösterim katmanında. */
+  amount: number
+  startDate: string
+  endDate: string
+  projectId: number
+  /** Künyesi çözülemeyen kayıtta `null` — uydurma proje adı yazılmaz (K63). */
+  projectName: string | null
+  projectPId: string | null
+}
+
+export interface PolicyListQuery {
+  /** Arama poliçe numarası VE proje adı üzerinde: iki ayrı kutu, tek listede
+      kullanıcıya iki arama alanı gösterirdi. */
+  search: string
+  insuranceCompanyId: number | null
+  page: number
+  pageSize: number
+  sortBy: PolicySortKey
+  sortDir: SortDirection
+}
+
+/**
+ * Poliçeler listesi — bütün projelerin poliçeleri. Sayfalama, filtre ve
+ * sıralama sunucu tarafı sözleşmesine göre çalışır; bugün bu işi mock yapıyor.
+ *
+ * `Sourced` zarfı ŞART (K51): üretim derlemesinde uydurma poliçe listesi
+ * gösterilseydi bir demoda gerçek sanılırdı — orada ekran "kaynağı yok" der.
+ */
+export async function listPolicies(
+  query: PolicyListQuery,
+  signal?: AbortSignal,
+): Promise<Sourced<PagedResult<PolicyRow>>> {
+  if (isEndpointImplemented('policyList')) {
+    throw new Error('listPolicies: uç bağlandı ama gövdesi yazılmadı.')
+  }
+
+  await delay(MOCK_LATENCY_MS, signal)
+  return mockedData(() => queryPolicyList(getMockPolicyRows(), query))
+}
 
 /**
  * Sigorta şirketleri. `Sourced` zarfı ŞART (K51): sahte liste yalnız geliştirme
@@ -115,6 +182,12 @@ export function isPolicyNumberTaken(policyNumber: string): boolean {
  */
 export async function createProjectPolicy(
   payload: CreatePolicyPayload,
+  /**
+   * Proje künyesi. Uca GİTMEZ (sunucu kimliği zaten gövdede görüyor); bellekteki
+   * depo poliçe listesinde proje adını gösterebilsin diye alınıyor — evrak
+   * kaydındaki `ProjectSummary` deseni. Uç açılınca bu parametre düşer.
+   */
+  project: ProjectSummary,
   signal?: AbortSignal,
 ): Promise<PolicyCreateResult> {
   if (isEndpointImplemented('policyCreate')) {
@@ -129,7 +202,7 @@ export async function createProjectPolicy(
 
   await delay(MOCK_LATENCY_MS, signal)
 
-  const saved = mockedData(() => addMockPolicy(payload))
+  const saved = mockedData(() => addMockPolicy(payload, project))
   if (saved.source === 'unavailable') return { ok: false, reason: 'unavailable' }
 
   return { ok: true, policyId: saved.data.id }

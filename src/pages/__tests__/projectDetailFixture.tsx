@@ -196,9 +196,10 @@ export function renderDetail(route: string = DETAIL_PATH) {
             path="/admin/documents/new"
             element={<ComingSoonPage title="Evrak Ekle" section="Evraklar" />}
           />
+          {/* "Poliçelendir" artık poliçe bölümüne DEĞİL projenin altına gidiyor (K68). */}
           <Route
-            path="/admin/policies/new"
-            element={<ComingSoonPage title="Poliçe Oluşturma" section="Poliçeler" />}
+            path="/projects/:projectId/policies/new"
+            element={<ComingSoonPage title="Poliçe Oluşturma" section="Projeler" />}
           />
         </Routes>
       </MemoryRouter>
