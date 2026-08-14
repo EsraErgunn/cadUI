@@ -22,11 +22,42 @@ type UiState = {
    * Mimari tarafın kendi ızgara yakalaması bu bayrağı OKUMAZ, kapsam dışı.
    */
   isGridVisible: boolean
+  /**
+   * Izgaraya yakalama açık mı (K54)? Ctrl'ün ANLIK kapatması bunun ÜSTÜNE
+   * biner: etkin yakalama = `isGridSnapEnabled && !ctrlKey`.
+   *
+   * Uç/köşe/duvar yakalaması bu anahtardan ETKİLENMEZ — kullanıcı seçti.
+   * Kapansaydı duvarlar köşede birleşmez, oda çevrimi kapanmaz ve mahal
+   * tespiti çalışmazdı.
+   */
+  isGridSnapEnabled: boolean
+  /**
+   * Alan nesnesi ad etiketleri (kolon/baca şaftı/kolon havalandırması, K50).
+   * Varsayılan AÇIK: etiket eklenirken hep görünürdü, anahtar davranışı
+   * değiştirmemeli — yalnız kapatma imkânı ekliyor.
+   */
+  isAreaObjectNamesVisible: boolean
+  /**
+   * Oda etiketleri. Ad ve alan (m²) TEK blok olarak açılıp kapanır: ikisi
+   * aynı çapaya yazılmış tek bir yazı öbeği, ayrı ayrı gizlemek ortada asılı
+   * bir sayı bırakırdı.
+   */
+  isRoomNamesVisible: boolean
+  /**
+   * El (pan) modu: sol tuş sürüklemesi çizim/seçim yerine kamerayı kaydırır.
+   * Space'in YAPIŞKAN hâli ve aynı bastırma yolundan geçer — ikinci bir pan
+   * uygulaması yazılmaz (`useViewportControls`, `DrawSurface`).
+   */
+  isPanModeActive: boolean
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
   toggleElementLabelsVisible: () => void
   toggleGridVisible: () => void
+  toggleGridSnapEnabled: () => void
+  toggleAreaObjectNamesVisible: () => void
+  toggleRoomNamesVisible: () => void
+  setPanModeActive: (isActive: boolean) => void
 }
 
 /**
@@ -44,10 +75,18 @@ export const useUiStore = create<UiState>()(
     // ölçü ise isteğe bağlı bir kotalama katmanı.
     isElementLabelsVisible: true,
     isGridVisible: true,
+    isGridSnapEnabled: true,
+    isAreaObjectNamesVisible: true,
+    isRoomNamesVisible: true,
+    isPanModeActive: false,
 
     setActiveTool: (toolId) =>
       set((draft) => {
         draft.activeToolId = toolId
+        // Bir çizim aracı seçmek el modundan ÇIKARIR: ikisi aynı anda açıkken
+        // sol tuş hem pan hem çizim yapamaz, kullanıcı de aracı seçip
+        // çizemediğinde sebebini göremezdi.
+        draft.isPanModeActive = false
       }),
 
     setActiveView: (viewId) =>
@@ -79,6 +118,26 @@ export const useUiStore = create<UiState>()(
     toggleGridVisible: () =>
       set((draft) => {
         draft.isGridVisible = !draft.isGridVisible
+      }),
+
+    toggleGridSnapEnabled: () =>
+      set((draft) => {
+        draft.isGridSnapEnabled = !draft.isGridSnapEnabled
+      }),
+
+    toggleAreaObjectNamesVisible: () =>
+      set((draft) => {
+        draft.isAreaObjectNamesVisible = !draft.isAreaObjectNamesVisible
+      }),
+
+    toggleRoomNamesVisible: () =>
+      set((draft) => {
+        draft.isRoomNamesVisible = !draft.isRoomNamesVisible
+      }),
+
+    setPanModeActive: (isActive) =>
+      set((draft) => {
+        draft.isPanModeActive = isActive
       }),
   })),
 )

@@ -5,6 +5,7 @@ import { OrthographicCamera } from 'three'
 import { readCameraViewport, readViewportSize, writeCameraViewport } from './cameraViewport'
 import { isTypingTarget } from '../core/domEvents'
 import { ZOOM_WHEEL_FACTOR, panByPixels, zoomAtCursor } from '../core/viewport'
+import { useUiStore } from '../store/uiStore'
 
 
 const LEFT_BUTTON = 0
@@ -36,7 +37,7 @@ export function useViewportControls(): void {
         domElement.classList.add('cursor-grabbing')
         return
       }
-      if (isSpaceHeld) {
+      if (isSpaceHeld || useUiStore.getState().isPanModeActive) {
         domElement.classList.add('cursor-grab')
         return
       }
@@ -66,8 +67,10 @@ export function useViewportControls(): void {
     }
 
     const handlePointerDown = (event: PointerEvent) => {
+      // El modu = Space'in yapışkan hâli, sol tuşu aynı şekilde pan'e çevirir (K54).
+      const isPanGrip = isSpaceHeld || useUiStore.getState().isPanModeActive
       const isPanRequest =
-        event.button === MIDDLE_BUTTON || (event.button === LEFT_BUTTON && isSpaceHeld)
+        event.button === MIDDLE_BUTTON || (event.button === LEFT_BUTTON && isPanGrip)
       if (!isPanRequest) return
 
       event.preventDefault()
@@ -119,6 +122,10 @@ export function useViewportControls(): void {
       updateCursor()
     }
 
+    // El modu düğmeyle değişiyor, jestle değil: imleç bir olay beklemeden
+    // güncellenmeli, yoksa kullanıcı fareyi oynatana kadar eski imleci görür.
+    const unsubscribePanMode = useUiStore.subscribe(updateCursor)
+
     domElement.addEventListener('wheel', handleWheel, { passive: false })
     domElement.addEventListener('pointerdown', handlePointerDown)
     domElement.addEventListener('pointermove', handlePointerMove)
@@ -130,6 +137,7 @@ export function useViewportControls(): void {
     window.addEventListener('blur', handleBlur)
 
     return () => {
+      unsubscribePanMode()
       domElement.removeEventListener('wheel', handleWheel)
       domElement.removeEventListener('pointerdown', handlePointerDown)
       domElement.removeEventListener('pointermove', handlePointerMove)

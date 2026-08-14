@@ -36,7 +36,11 @@ export function findAreaObjectLabelAt(
   planPoint: PlanPoint,
   zoom: number,
 ): AreaObject | undefined {
-  if (useUiStore.getState().activeToolId !== SELECTION_TOOL_ID) return undefined
+  const ui = useUiStore.getState()
+  if (ui.activeToolId !== SELECTION_TOOL_ID) return undefined
+  // GİZLİ etiket tutulmaz (K56): görünmeyen bir şeyi sürüklemek, kullanıcıya
+  // "boşluğa bastım ama seçim olmadı" hissi verirdi.
+  if (!ui.isAreaObjectNamesVisible) return undefined
 
   const cad = useCadStore.getState()
   return pickAreaObjectLabelAt(planPoint, cad.areaObjects, cad.activeFloorId, zoom)

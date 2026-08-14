@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { isGridSnapActive } from './gridSnapMode'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
 import {
@@ -67,7 +68,7 @@ export function useWallTool(): WallToolState {
           gridStepCm: pickGridLevel(zoom).minorCm,
           // Ctrl basılıyken ızgara devre dışı: en küçük adım 50 cm olduğu için
           // hep açık olsaydı ara ölçüde duvar çizilemezdi.
-          isGridSnapEnabled: !event.ctrlKey,
+          isGridSnapEnabled: isGridSnapActive(event),
         },
       )
     }
