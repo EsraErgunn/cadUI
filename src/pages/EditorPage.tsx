@@ -5,6 +5,7 @@ import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
+import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
 import { SceneRoot } from '../scene/SceneRoot'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -85,8 +86,10 @@ export function EditorPage() {
         </main>
 
         {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
-            kayarak açılır/kapanır, satırın altında konumlanır. */}
-        <PropertyPanel />
+            kayarak açılır/kapanır, satırın altında konumlanır. İki panel ayrı
+            seçim store'una abone (mimari/tesisat), bu yüzden görünüme göre
+            İKİSİNDEN BİRİ render edilir, tek panelde birleştirilmez. */}
+        {activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />}
       </div>
 
       <StatusBar />

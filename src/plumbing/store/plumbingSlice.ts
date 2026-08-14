@@ -134,6 +134,15 @@ export type PlumbingSlice = {
   /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
   setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
   /**
+   * Bir elemanın alanlarını kısmi yazar — özellik paneli formlarının GENEL
+   * kapısı (K-tesisat-panel). Her eleman türü kendi opsiyonel alt-alanını
+   * (`regulator`, `gasMeter`, ...) bununla yazar; tür başına ayrı bir action
+   * gerekmez.
+   */
+  patchElement: (elementId: Id, patch: Partial<InstallationElement>) => void
+  /** `patchElement` ile aynı gerekçe — hat türü başına özellik alanları için. */
+  patchLine: (lineId: Id, patch: Partial<InstallationLine>) => void
+  /**
    * Serbest (`free` modlu, ör. servis kutusu) bir elemanın açısını yazar —
    * döndürme tutamacıyla bir sürükleme = bir Ctrl+Z. Boruya/porta bağlı
    * elemanlar buradan GEÇMEZ: onların açısı port ekseninden türer
@@ -837,6 +846,38 @@ export const createPlumbingSlice: StateCreator<
         }
 
         element.labelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    patchElement: (elementId, patch) => {
+      let isChanged = false
+
+      set((draft) => {
+        const element = draft.installationElements.find(
+          (candidate) => candidate.id === elementId,
+        )
+        if (!element) return
+
+        Object.assign(element, patch)
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    patchLine: (lineId, patch) => {
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+
+        Object.assign(line, patch)
         isChanged = true
         markDirty(draft)
       })
