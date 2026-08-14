@@ -1,7 +1,23 @@
 # Tuval üstündeki yüzen çubuk (K54)
 
 `[Seç | El] [Geri | Yinele] [↓ | Kat | ↑] [Snap] [Görünüm ▾]`, çizim alanının
-alt-ortasında. **Yalnız mimari görünümde** mount edilir.
+alt-ortasında. **İki ÇİZİM görünümünde de** mount edilir (K57); izometrikte yok.
+
+## Görünüme göre dallanma (K57)
+
+Ortak: Seç, El, Geri/Yinele, Kat. İkisi de aynı altyapıya bağlı olduğu için
+tesisata açmak ek iş gerektirmedi — `DrawSurface`/`useViewportControls` iki
+görünümde de mount ediliyor, `cadStore` zaten ortak.
+
+Seçim aracı SABİTLER üzerinden okunur (`SELECTION_TOOL_ID` /
+`INSTALLATION_SELECTION_TOOL_ID`); bugün ikisi de `'selection'` ama biri
+değişirse çubuk sessizce şaşmasın.
+
+⚠️ **Snap düğmesi tesisatta YOK.** Tesisatın yakalaması ızgara GÖRÜNÜRLÜĞÜNE
+bağlı (`plumbing/scene/placementSnap.ts` → `if (!isGridVisible) return`),
+mimarinin `isGridSnapEnabled`'ı ise ayrı anahtar. Aynı düğme iki görünümde
+farklı şey ifade ederdi. Karar C fayında; verilince `placementSnap`
+`isGridSnapActive`'e geçer ve `isArchitecture` koşulu kalkar.
 
 ## Sınır
 

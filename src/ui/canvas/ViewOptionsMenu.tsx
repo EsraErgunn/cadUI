@@ -27,6 +27,11 @@ export function ViewOptionsMenu() {
   const toggleAreaObjectNamesVisible = useUiStore((state) => state.toggleAreaObjectNamesVisible)
   const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   const toggleRoomNamesVisible = useUiStore((state) => state.toggleRoomNamesVisible)
+  const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
+  const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
+  const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
+  const toggleElementLabelsVisible = useUiStore((state) => state.toggleElementLabelsVisible)
+  const activeViewId = useUiStore((state) => state.activeViewId)
 
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -52,7 +57,15 @@ export function ViewOptionsMenu() {
     }
   }, [isOpen])
 
-  const options: ViewOption[] = [
+  // Izgara İKİ görünümde de var; üstündeki maddeler görünüme özel (K57).
+  const gridOption: ViewOption = {
+    id: 'grid',
+    label: 'Izgara',
+    isChecked: isGridVisible,
+    onToggle: toggleGridVisible,
+  }
+
+  const architectureOptions: ViewOption[] = [
     {
       id: 'areaObjectNames',
       label: 'Nesne adları',
@@ -67,13 +80,29 @@ export function ViewOptionsMenu() {
       isChecked: isRoomNamesVisible,
       onToggle: toggleRoomNamesVisible,
     },
-    {
-      id: 'grid',
-      label: 'Izgara',
-      isChecked: isGridVisible,
-      onToggle: toggleGridVisible,
-    },
+    gridOption,
   ]
+
+  // Tesisatın kendi anahtarları; ikisi de menü çubuğunun Görünüm menüsünde
+  // zaten vardı, çubuk onları TUVALE getiriyor — durum tek yerde (uiStore),
+  // iki arayüz aynı bayrağı okuyor.
+  const installationOptions: ViewOption[] = [
+    {
+      id: 'dimensions',
+      label: 'Ölçüler',
+      isChecked: isDimensionsVisible,
+      onToggle: toggleDimensionsVisible,
+    },
+    {
+      id: 'elementLabels',
+      label: 'Eleman adları',
+      isChecked: isElementLabelsVisible,
+      onToggle: toggleElementLabelsVisible,
+    },
+    gridOption,
+  ]
+
+  const options = activeViewId === 'installation' ? installationOptions : architectureOptions
 
   return (
     <div ref={containerRef} className="relative">

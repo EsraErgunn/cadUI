@@ -1820,6 +1820,39 @@ snap çağıran beş hook, `pages/EditorPage.tsx`.
 Sınanacaklar: çubuğun konumu/görünümü, el modunun sürüklemesi ve imleci, snap
 anahtarının çizime etkisi, açılırın dışarı tıklamayla kapanması.
 
+### K57 — Yüzen çubuk tesisatta da var; görünüme özel parçalar dallanıyor
+
+Çubuk artık iki ÇİZİM görünümünde de mount ediliyor (izometrikte tuval
+etkileşimi yok, orada yok). Ortak kontrollerin çoğu zaten hiçbir değişiklik
+gerektirmedi:
+
+- **Seç** — iki görünümün seçim aracı ayrı sabitlerde ama ikisi de `'selection'`.
+  Yine de sabitler üzerinden okunuyor (`SELECTION_TOOL_ID` /
+  `INSTALLATION_SELECTION_TOOL_ID`): biri değişirse çubuk sessizce şaşmasın.
+- **El** — `DrawSurface` ve `useViewportControls` iki görünümde de mount
+  ediliyor, pan modu zaten ortaktı.
+- **Geri/Yinele, Kat** — `cadStore`, görünümden bağımsız.
+
+**Görünüm menüsünün maddeleri görünüme göre seçiliyor.** Mimaride *Nesne
+adları · Oda adları · Izgara*, tesisatta *Ölçüler · Eleman adları · Izgara*.
+Tesisatın ikisi menü çubuğunda zaten vardı; çubuk onları TUVALE getiriyor,
+durum tek yerde (`uiStore`) kaldığı için iki arayüz aynı bayrağı okuyor ve
+ayrışamıyorlar.
+
+⚠️ **Snap düğmesi tesisata KONMADI.** Tesisatın yakalaması bugün ızgara
+GÖRÜNÜRLÜĞÜNE bağlı (`plumbing/scene/placementSnap.ts:18` →
+`if (!isGridVisible) return planPoint`), yani orada "ızgarayı gizle" aynı
+zamanda "yakalamayı kapat" demek. Mimarinin `isGridSnapEnabled`'ı ise ayrı bir
+anahtar. Aynı düğmenin iki görünümde farklı şey ifade etmesi kötü olurdu;
+hangi anlamın kalacağı tesisat sahibinin kararı (C fayı) ve o gelene kadar
+düğme oraya konmuyor — **görünmeyen düğme, yanlış çalışan düğmeden iyidir**.
+
+Karar verilince yapılacak: `placementSnap` `isGridSnapActive`'e geçer ve
+`FloatingToolbar`'daki `isArchitecture` koşulu kalkar.
+
+Nerede: `ui/canvas/FloatingToolbar.tsx`, `ui/canvas/ViewOptionsMenu.tsx`,
+`pages/EditorPage.tsx`. Testler `ui/__tests__/FloatingToolbar.test.tsx` (yeni).
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
