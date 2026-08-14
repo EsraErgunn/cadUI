@@ -1,5 +1,6 @@
 import { getDocumentTypes, resolveDocumentTypeLabel } from './documentTypes'
 import { getMockDocuments } from './documentsMock'
+import { getMockPolicies } from './policiesMock'
 import type {
   ProjectApprovalInfo,
   ProjectDetailExtras,
@@ -227,6 +228,29 @@ export function buildMockProjectDocuments(projectId: number): ProjectDocumentRow
     }))
 }
 
-export function buildMockProjectPolicies(): ProjectPolicyRow[] {
-  return []
+/**
+ * Projenin poliçeleri. Kaynak, Poliçe Oluşturma ekranının BELLEKTEKİ deposuyla
+ * AYNI (`policiesMock`): oluşturulan poliçe bu sekmede listeleniyor (KK-21) ve
+ * bu ancak tek depo varsa doğru olur. Depo boş başlıyor — tohumlanmış poliçe
+ * YOK, o yüzden hiç poliçe açılmamış projede sekme dürüstçe boş kalır.
+ *
+ * `unitNumber` ve `isPaid` ekranda toplanmıyor: sihirbaz birim sormuyor ve ödeme
+ * bilgisi akışın dışında. Birim boş bırakılıyor (uydurulmuyor); `isPaid: false`
+ * ise VARSAYIM — tablo bunu "Bekliyor" gösteriyor ve gerçek ödeme durumu
+ * bilinmiyor. Uç geldiğinde bu sabit kaldırılmalı
+ * (docs/api-eksikleri-policeler.md, madde 2).
+ */
+export function buildMockProjectPolicies(projectId: number): ProjectPolicyRow[] {
+  return getMockPolicies()
+    .filter((policy) => policy.projectId === projectId)
+    .map((policy) => ({
+      id: policy.id,
+      policyNumber: policy.policyNumber,
+      insuranceCompanyName: policy.insuranceCompanyName,
+      unitNumber: null,
+      amount: policy.amount,
+      startDate: policy.startDate,
+      endDate: policy.endDate,
+      isPaid: false,
+    }))
 }

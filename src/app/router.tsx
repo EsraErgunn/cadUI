@@ -10,8 +10,10 @@ import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPag
 import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
 import { NewDocumentPage } from '../pages/NewDocumentPage'
+import { NewPolicyPage } from '../pages/NewPolicyPage'
 import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
+import { PolicyListPage } from '../pages/PolicyListPage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { ProjectFirmUserFormPage } from '../pages/ProjectFirmUserFormPage'
 import { ProjectFirmUsersPage } from '../pages/ProjectFirmUsersPage'
@@ -25,7 +27,7 @@ import {
   DOCUMENTS_PATH,
   DOCUMENT_CREATE_PATH,
   POLICIES_PATH,
-  POLICY_CREATE_PATH,
+  POLICY_CREATE_ROUTE,
   PROJECT_CREATE_PATH,
   PROJECT_FIRMS_PATH,
   PROJECT_FIRM_CREATE_PATH,
@@ -59,6 +61,10 @@ export function AppRouter() {
           {/* Proje detayı kabuğun İÇİNDE: sol menü ve üst bar duruyor, kırılım
               "Anasayfa / Projeler / Proje Detay" (KK-1). */}
           <Route path={`${PROJECT_LIST_PATH}/:projectId`} element={<ProjectDetailPage />} />
+          {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Poliçe bölümünün
+              altında DEĞİL projenin altında (K68): sihirbaz bir projenin işlemi,
+              sol menüde "Projeler" işaretli kalmalı. */}
+          <Route path={POLICY_CREATE_ROUTE} element={<NewPolicyPage />} />
         </Route>
 
         {/* Editör kabuk dışında: tam ekran çizim alanı. Detay ekranı
@@ -121,14 +127,9 @@ export function AppRouter() {
               (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor. */}
           <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
 
-          <Route path={POLICIES_PATH} element={<ComingSoonPage title="Poliçeler" />} />
-          {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Statik parça
-              dinamik olandan önce gelmeli kuralı burada geçerli değil: yolun
-              dinamik kardeşi yok. */}
-          <Route
-            path={POLICY_CREATE_PATH}
-            element={<ComingSoonPage title="Poliçe Oluşturma" section="Poliçeler" />}
-          />
+          {/* Poliçe LİSTESİ: bütün projelerin poliçeleri. Oluşturma akışı burada
+              DEĞİL, projenin altında (K68). */}
+          <Route path={POLICIES_PATH} element={<PolicyListPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />

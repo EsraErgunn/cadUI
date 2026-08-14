@@ -12,9 +12,17 @@ Yok. Ekranların tamamı `src/api/documentsMock.ts` içindeki BELLEK deposundan
 besleniyor: yüklenen evrak listeye gerçekten giriyor ama **sayfa yenilenince
 kayboluyor**. Kalıcılık veritabanı + uç işi.
 
-Satırlar uydurma değil, mock proje listesinden tohumlanıyor
+Tohumlanan satırlar uydurma değil, mock proje listesinden geliyor
 (`projectsMock.getMockProjectSeeds`): tablodaki "Proje Adı" bağlantısı gerçekten
 var olan bir projeye gidiyor.
+
+**Evrak Ekle'nin proje künyesi ise mock DEĞİL:** ekran `?project=<id>` ile gelen
+projeyi `GET /api/projects/{id}` (gerçek uç) üzerinden çözüyor. Bu yüzden o
+ekranda YÜKLENEN satır `projectFirmId`, `installationNo`, `firmName` ve
+`gasFirmName` alanlarını `null` bırakır — uç bu dört alanı döndürmüyor ve
+kimliğe denk gelen tohumdan doldurmak, gerçek bir projenin evrağını uydurma bir
+firmanın adıyla listelemek olurdu. 1 numaralı uç açılınca alanlar sunucudan
+gelecek.
 
 ## Eksik uçlar
 

@@ -29,25 +29,6 @@ export function formatAreaSquareMeters(value: number | null): string | null {
   return value === null ? null : `${formatCount(value)} m²`
 }
 
-/** Saat taşımayan düz tarih (`yyyy-aa-gg`). */
-export function formatPlainDate(value: string | null): string | null {
-  if (value === null) return null
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return null
-
-  return parsed.toLocaleDateString('tr-TR')
-}
-
-const CURRENCY_FORMATTER = new Intl.NumberFormat('tr-TR', {
-  style: 'currency',
-  currency: 'TRY',
-})
-
-export function formatCurrency(value: number | null): string | null {
-  return value === null ? null : CURRENCY_FORMATTER.format(value)
-}
-
 /** Bayt eşikleri ikilik tabanda; ekranda KB/MB olarak gösterilir. */
 const BYTES_PER_KILOBYTE = 1024
 

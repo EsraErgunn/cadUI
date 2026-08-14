@@ -55,24 +55,49 @@ export function projectFirmUserUpdatePath(userId: number): string {
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
 
-/**
- * Proje detayındaki "Evrak Ekle" ve "Poliçelendir" hedefleri (KK-9).
- * Poliçe ekranı HENÜZ YOK; yolu karşılama sayfasına bağlı (router.tsx).
- */
+/** Proje detayındaki "Evrak Ekle" hedefi (KK-9). */
 export const DOCUMENT_CREATE_PATH = `${DOCUMENTS_PATH}/new`
-export const POLICY_CREATE_PATH = `${POLICIES_PATH}/new`
-
-/** Evrak Ekle ekranının URL anahtarı: yüklenen evrak GELİNEN projeyle
-    ilişkilendiriliyor (gereksinim 6), ekran kimliksiz açılamaz. */
-export const DOCUMENT_PROJECT_PARAM = 'project'
 
 /**
- * Kimlik yola değil query'ye konuldu: `/admin/documents/new` sabiti ve ona
+ * "Bu ekran hangi projeye bağlı açıldı" anahtarı — bugün yalnız Evrak Ekle
+ * kullanıyor. Poliçe Oluşturma kimliği YOLDA taşıyor (K68).
+ */
+export const PROJECT_PARAM = 'project'
+
+/**
+ * Kimlik yola değil query'ye konuldu (K61): `/admin/documents/new` sabiti ve ona
  * bağlı rota zaten vardı, proje kimliği için yolu `/projects/:id/documents/new`
  * yapmak hem sabiti hem rotayı taşımak olurdu.
  */
 export function documentCreatePath(projectId: number): string {
-  return `${DOCUMENT_CREATE_PATH}?${DOCUMENT_PROJECT_PARAM}=${projectId}`
+  return `${DOCUMENT_CREATE_PATH}?${PROJECT_PARAM}=${projectId}`
+}
+
+/**
+ * "Poliçelendir" hedefi. Yol POLİÇELER altında DEĞİL, projenin altında (K68):
+ * sihirbaz tek bir projenin işlemi ve `/admin/policies/new` adresindeyken sol
+ * menü "Poliçeler" maddesini işaretliyordu — kullanıcı, bütün poliçelerin
+ * listelendiği bölüme geçmiş gibi görünüyordu. Kimlik de bu yüzden yolda:
+ * adres zaten projeye bağlıyken ayrıca `?project=` taşımak ikinci bir kaynak
+ * olurdu.
+ */
+const POLICY_CREATE_SEGMENT = 'policies/new'
+
+/** Rota kalıbı; `policyCreatePath` ile aynı parçadan türer ki ikisi ayrışmasın. */
+export const POLICY_CREATE_ROUTE = `${PROJECT_LIST_PATH}/:projectId/${POLICY_CREATE_SEGMENT}`
+
+export function policyCreatePath(projectId: number): string {
+  return `${PROJECT_LIST_PATH}/${projectId}/${POLICY_CREATE_SEGMENT}`
+}
+
+/**
+ * Adresteki proje kimliği (Evrak Ekle'de query, Poliçe Oluşturma'da yol
+ * parçası). Elle düzenlenmiş ya da eksik değer `undefined` döner; ekran o zaman
+ * veri çekmek yerine sebebini yazar.
+ */
+export function parseProjectParam(raw: string | null): number | undefined {
+  const parsed = Number(raw)
+  return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
 
 /** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
@@ -133,11 +158,5 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
   { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH },
-  {
-    key: 'policies',
-    label: 'Poliçeler',
-    icon: ShieldCheck,
-    path: POLICIES_PATH,
-    isComingSoon: true,
-  },
+  { key: 'policies', label: 'Poliçeler', icon: ShieldCheck, path: POLICIES_PATH },
 ]

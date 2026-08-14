@@ -185,6 +185,17 @@ export interface ProjectDocumentRow {
   receivedAt: string | null
 }
 
+/**
+ * Bir projeye bağlı açılan ekranların (Evrak Ekle, Poliçe Oluşturma) başlıkta
+ * gösterdiği künye. Detayın tamamı değil, sunucunun GERÇEKTEN döndürdüğü üç alan.
+ */
+export interface ProjectSummary {
+  id: number
+  name: string
+  /** Serbest biçimli proje numarası; kod boşsa kimliğe düşer (projects.ts kuralı). */
+  pId: string
+}
+
 export interface ProjectPolicyRow {
   id: number
   policyNumber: string | null

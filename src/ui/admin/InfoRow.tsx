@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
+import { EmptyValue } from './EmptyValue'
 import { MockValue } from './MockValue'
-import { EmptyValue } from '../EmptyValue'
 
 interface InfoRowProps {
   label: string
@@ -19,6 +19,10 @@ function hasValue(value: ReactNode): boolean {
  * Etiket / değer satırı. Etiket sola dayalı ve KÜÇÜK BÜYÜK harfli (mockup'taki
  * ritim), değer sağ sütunda. `dl` içinde `div` sarmalayıcı: `dt`/`dd` çiftini
  * grid hücresi olarak hizalamanın tarayıcılar arası tutarlı tek yolu.
+ *
+ * `projectDetail/` altından buraya TAŞINDI: poliçe özeti aynı satırı istedi ve
+ * klasör sözleşmesi ikinci ekranda gereken parçayı ortaklaştırmayı söylüyor —
+ * kopyası çıkarılsaydı iki kartın ritmi zamanla ayrışırdı.
  */
 export function InfoRow({ label, value, isMock = false }: InfoRowProps) {
   return (

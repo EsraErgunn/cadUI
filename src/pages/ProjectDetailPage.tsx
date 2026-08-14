@@ -17,6 +17,7 @@ import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { useSavedDocumentNotice } from '../ui/admin/documents/useSavedDocumentNotice'
+import { useSavedPolicyNotice } from '../ui/admin/policies/useSavedPolicyNotice'
 import { ProjectDetailHeader } from '../ui/admin/projectDetail/ProjectDetailHeader'
 import { ProjectDetailPanels } from '../ui/admin/projectDetail/ProjectDetailPanels'
 import { ProjectDetailTabs } from '../ui/admin/projectDetail/ProjectDetailTabs'
@@ -76,6 +77,8 @@ export function ProjectDetailPage() {
   const [fileNotice, setFileNotice] = useState<string | null>(null)
   // Evrak Ekle ekranından dönüşteki başarı bildirimi (gereksinim 12).
   const savedDocumentNotice = useSavedDocumentNotice()
+  // Poliçe Oluşturma ekranından dönüşteki başarı bildirimi (KK-21).
+  const savedPolicyNotice = useSavedPolicyNotice()
 
   const detailQuery = useQuery({
     queryKey: ['projectDetail', projectId],
@@ -103,7 +106,7 @@ export function ProjectDetailPage() {
 
   const { data: policies } = useQuery({
     queryKey: ['projectPolicies', projectId],
-    queryFn: getProjectPolicies,
+    queryFn: () => getProjectPolicies(projectId ?? 0),
     enabled: projectId !== undefined,
   })
 
@@ -170,6 +173,16 @@ export function ProjectDetailPage() {
           message={savedDocumentNotice.message}
           details={savedDocumentNotice.details}
           onDismiss={savedDocumentNotice.dismiss}
+        />
+      )}
+
+      {savedPolicyNotice !== null && (
+        // `warning`: poliçe listeye girdi ama kayıt sunucuya gitmedi (K58).
+        <NoticeBar
+          tone="warning"
+          message={savedPolicyNotice.message}
+          details={savedPolicyNotice.details}
+          onDismiss={savedPolicyNotice.dismiss}
         />
       )}
 

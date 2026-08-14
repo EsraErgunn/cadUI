@@ -2,7 +2,7 @@ import { CheckCheck, FileDown, Plus, RotateCcw, ShieldPlus, X } from 'lucide-rea
 import { Link } from 'react-router-dom'
 
 import type { ProjectDecision } from '../../../api/projectDetail'
-import { POLICY_CREATE_PATH, documentCreatePath } from '../adminNavItems'
+import { documentCreatePath, policyCreatePath } from '../adminNavItems'
 import { quickActionVariants } from './projectDetailVariants'
 
 const DRAFT_HINT = 'Taslak proje işleme alınamaz; firma tarafından gönderilmesi gerekir.'
@@ -86,7 +86,7 @@ export function ProjectOperationsTab({
           Evrak Ekle
         </Link>
 
-        <Link to={POLICY_CREATE_PATH} className={quickActionVariants()}>
+        <Link to={policyCreatePath(projectId)} className={quickActionVariants()}>
           <ShieldPlus aria-hidden className="size-5 text-ink-muted" />
           Poliçelendir
         </Link>

@@ -3353,6 +3353,43 @@ okunur ekran repoda yok:
 Yalnız "Proje Adı" bağlantılı (`projectDetailPath`). İkisi de
 `docs/api-eksikleri-evraklar.md`'deki eksik ekranlar notuna yazıldı.
 
+### K63 — Evrak Ekle'nin proje künyesi mock tohumundan değil, GERÇEK uçtan
+
+`findDocumentProject` projeyi `documentsMock.findMockProjectSeed` ile çözüyordu,
+yani `projectsMock`'un ürettiği 48 sahte kayıtta arıyordu. Proje LİSTESİ ise
+gerçek `GET /api/projects`'ten geliyor. İki liste birbirini tutmadığı için ekran
+iki türlü yanlış davranıyordu:
+
+- Sunucudaki projenin kimliği tohum aralığının dışındaysa (`id > 48`) ekran
+  "adreste geçerli bir proje yok" deyip hiç açılmıyordu — Evrak Ekle gerçek bir
+  projede kullanılamıyordu.
+- Kimlik tesadüfen bir tohuma denk gelirse (`id ≤ 48`) ekran BAŞKA bir projenin
+  adını gösteriyor ve evrağı o adla kaydediyordu. Sessiz olan ve daha kötü olan
+  hâl bu.
+
+Ayrıca künye `mockGate`'in dışındaydı: üretim derlemesinde de uydurma bir proje
+adı çiziliyordu (K51'in kapatmak için var olduğu boşluk).
+
+Künye artık proje detayını besleyen uçtan geliyor (`getProjectDetail` →
+`server`); `Sourced` zarfına gerek yok, çünkü bu alanlar sunucunun GERÇEKTEN
+döndürdüğü on alanın içinde. Uydurma olan tek şey evrağın kendisi ve o zaten
+`mockedData` arkasında.
+
+Sonuçları:
+
+- `saveProjectDocuments` artık kimlik değil künye nesnesi alıyor; `unknownProject`
+  hata dalı düştü (proje kaydetmeden önce zaten çözülmüş oluyor).
+- Yüklenen satırın firma/tesisat alanları `null`: gerçek uç döndürmüyor,
+  tohumdan doldurmak düzeltilen tuzağın kendisi olurdu.
+- Künye artık asenkron; ekranın "yükleniyor" ve "okunamadı" hâlleri de var
+  (`DocumentProjectNotice`). 404 "proje yok", diğer hatalar "tekrar dene" —
+  ikisini tek mesaja indirmek, sunucu çökmesini "böyle bir proje yok" diye
+  gösterirdi.
+- Test tuzağı: `vi.fn().mockResolvedValue(new Response(...))` TEK yanıt nesnesi
+  paylaştırıyor, gövde ilk okumada tükeniyor. Ekran artık aynı ucu iki kez
+  çağırdığı için (künye + yönlendirme sonrası detay) sahte `fetch` her çağrıda
+  yeni `Response` üretmek zorunda.
+
 ### Ortak parçaya çıkanlar
 
 `toIsoDate` ve `lastMonthRange` ikinci ekranda gerekti; kopyalanmadı,
@@ -3407,3 +3444,179 @@ işlemez. Gerekirse ayrı bir göç kararı.
 `nextUniqueId` sayacından geliyor (kural 6) — nesne id'leriyle aynı evrende,
 çakışması yapı gereği imkânsız. Reddedilen yerleştirmede (K35/K36 açıklık
 koruması) kimlik de harcanmaz.
+
+## 2026-08 · Poliçe Oluşturma sihirbazı
+
+### K64 — Kayıt Adım 4'te yapılır, Adım 5 kayıt SONRASI sonuç ekranıdır
+
+Gereksinim belgesi kendisiyle çelişiyordu: bir yandan "son adımda İleri düğmesi
+Bitir olur", öte yandan "beşinci adımda onay ikonu görünür, Bitir'e tıklanınca
+poliçe kaydedilir" diyordu — yani başarı ekranı kayıttan ÖNCE gösterilecekti.
+
+Karar: **kayıt Adım 4'ün (Poliçe Özeti) "Bitir" düğmesiyle yapılır**, Adım 5
+yalnız sonucu gösterir. Sebep, kaydın başarısız olabilmesi: sunucu hatasında
+kullanıcı "Poliçe Tamamlandı" yazan bir ekrana bakıyor olurdu. Adım 5'te
+ileri/geri düğmesi de yok, tek düğme "Proje Detayına Dön" — kaydedilmiş bir
+poliçenin adımlarına dönmek düzeltme değil, ikinci bir kayıt izlenimi verirdi.
+
+Numara çakışması (`409`) gibi kayıt sırasında çıkan hata, hatanın AİT OLDUĞU
+adıma geri götürüyor ve odak ilk hatalı alana taşınıyor (`FIELD_STEPS`).
+
+### K65 — Sihirbazın durumu URL'de DEĞİL, bileşende
+
+CLAUDE.md "liste ekranlarının durumunun tek sahibi URL query string'dir" diyor.
+Sihirbaz liste değil ve kuralın gerekçesi burada tersine çalışıyor: adres
+paylaşılabilir/yer imlenebilir olsun diye tutulan durum, form verisi adreste
+taşınamadığı için yenilemede **adımı koruyup veriyi düşürürdü** — kullanıcı boş
+bir "Poliçe Bilgileri" adımına düşerdi.
+
+Bu yüzden adım ve form değerleri `usePolicyWizard` içinde yerel durumda; yenileme
+akışı baştan başlatır. Adreste yalnız `?project=<id>` var, o da ekranın hangi
+projeye bağlı açıldığını söylüyor (K61'in aynı gerekçesi).
+
+Doğrulama ADIM BAZLI: "İleri" yalnız bulunulan adımın alanlarını denetler,
+kullanıcı henüz görmediği alanın hatasını görmez. Kayıttan hemen önce iki veri
+adımı birden denetlenir (araya dönülüp bozulmuş alan olabilir).
+
+### K66 — Poliçe verisinin TEK deposu var; benzersizlik TEK kapıdan geçiyor
+
+Sunucuda ne sigorta şirketi, ne acente, ne poliçe kaydı ucu var (`Policy`
+entity'si tabloda VAR, controller'ı yok). K57'nin evrak deseni tekrarlandı:
+`src/api/policies.ts` sözleşmeyi tanımlıyor, gövdeyi `policiesMock.ts`
+besliyor, `mockGate` sahte veriyi yalnız geliştirme derlemesinde açıyor (K51).
+
+Proje detayının poliçe sekmesi AYNI depodan okuyor (`buildMockProjectPolicies`
+artık `getMockPolicies()`'i süzüyor): oluşturulan poliçenin sekmede görünmesi
+(KK-21) ancak tek depo varsa doğru olur. Depo tohumlanmıyor — poliçesi olmayan
+projede sekme dürüstçe boş kalır.
+
+Poliçe numarası benzersizliği (KK-19) bugün istemcide, `isPolicyNumberTaken`
+ile. Hem "İleri" doğrulaması hem kayıt bu tek fonksiyondan geçiyor: uç açılınca
+gövdesi 409 kontrolüne dönecek ve iki çağıran da değişmeden doğru davranacak.
+İki yere kopyalansaydı biri güncellenmeden kalırdı.
+
+Eksik uçların dökümü ve önerilen sözleşme: `docs/api-eksikleri-policeler.md`.
+
+### K67 — Kapsam: yalnız oluşturma akışı; "Poliçeler" menüsü hâlâ karşılama
+
+Poliçe LİSTESİ ekranı bu işin kapsamı değildi. Sol menüdeki "Poliçeler" öğesi
+"Yakında" rozetiyle duruyor ve `ComingSoonPage`'e gidiyor; sihirbaza yalnız
+proje detayındaki "Poliçe Bilgileri" sekmesinin "Poliçelendir" düğmesinden
+giriliyor. Kırılım yine de "Anasayfa / Poliçeler / Poliçe Oluşturma" (gereksinim
+13) — iz, ekranın kavramsal yerini gösteriyor.
+
+Yöntem adımında İKİNCİ seçenek EKLENMEDİ: sigorta şirketi servisleri üzerinden
+otomatik poliçe ileride gelecek ama bugün seçilebilen ama hiçbir şey yapmayan
+bir kart, olmayan bir özellik vaat ederdi (K60'ın "Favori Evrak" gerekçesi).
+Yapı yine de kapalı kurulmadı: `POLICY_METHODS` dar birleşim ve tek elemanlı bir
+radyo GRUBU — o gün ikinci bir `label` ve bir sözlük satırı yetecek.
+
+Ayrıca sihirbazda birim (`ProjectUnit`) ve ödeme sorulmuyor (gereksinimde yok):
+tablo sütunları ile form UYUŞMUYOR. "Birim" boş kalıyor (uydurulmadı), **"Ödeme:
+Bekliyor" ise istemci varsayımıdır** — `buildMockProjectPolicies` sabit
+`isPaid: false` yazıyor. İkisi de analiste soruldu
+(docs/api-eksikleri-policeler.md, madde 2).
+
+### Ortak parçaya çıkanlar
+
+`DOCUMENT_PROJECT_PARAM` → **`PROJECT_PARAM`**: "bu ekran hangi projeye bağlı
+açıldı" anahtarını iki ekran da (Evrak Ekle, Poliçe Oluşturma) kullanıyor; iki
+ayrı sabit aynı anahtarın iki adı olurdu. Adresteki kimliği çözen
+`parseProjectParam` de aynı yerde.
+
+`documents/DocumentProjectNotice` → **`admin/ProjectContextNotice`** (klasör
+sözleşmesi: ikinci ekranda gereken parça `admin/` köküne taşınır, ad öneki
+düşer). Ekran adını parametre aldı; "yükleniyor / kimlik yok / okunamadı" üç
+hâli aynen korundu.
+
+`getProjectSummary` (`api/projectDetail.ts`): künyeyi gerçek uçtan çözen K63
+mantığı Evrak Ekle'nin içinden ortak fonksiyona çıktı — 404 `null`, ağ hatası
+FIRLATIR, çünkü "proje yok" ile "sunucuya ulaşılamadı" farklı ekranlar.
+
+`TextField`'a `suffix` eklendi (girdinin İÇİNDE sağda duran "₺"); ikon slotuyla
+aynı mekanizma, karşı taraf. `aria-hidden`: birim etiketin işi, ekran okuyucu
+değeri iki kez okumasın.
+
+`AdminSidebar`'da `end` artık YALNIZ Anasayfa'da: `/admin` her yönetici yolunun
+ön eki olduğu için o madde hep etkin görünüyordu, diğer maddelerde ise alt yol
+(`/admin/policies/new`) açıkken hiçbir madde işaretli kalmıyordu.
+
+Sihirbaza özel `cva` varyantları `policies/policyVariants.ts`'te: `adminVariants.ts`
+zaten 200 satır sınırının başındaydı ve klasör sözleşmesi tek ekrana özel
+parçaları `<ekran>/` altında istiyor (`projectDetailVariants.ts` deseni).
+
+`projectDetail/InfoRow` (+ bağlı olduğu `MockValue`) → **`admin/InfoRow`**: poliçe
+özeti aynı etiket/değer satırını istedi. Özet kartı ilk yazımda satırın
+işaretlemesini KOPYALAMIŞTI; kopya silindi, parça köke taşındı (klasör
+sözleşmesi). Yan faydası: eksik değer artık iki ekranda da aynı soluk "—".
+
+Aynı kural `projectDetail/projectDetailFormat.ts` için HENÜZ uygulanmadı: poliçe
+özeti oradan yalnız `formatCurrency` ve `formatPlainDate` kullanıyor, kalan altı
+biçimleyici proje detayına özel. Dosyayı `admin/adminFormat.ts` yapmak altı
+dosyayı birden değiştireceği için ayrı bir adıma bırakıldı — bugünkü hâli
+klasörler arası bir import, ikinci bir KOPYA değil.
+
+## 2026-08 · Poliçe listesi ekranı ve sihirbazın yeri
+
+### K68 — "Poliçelendir" poliçe bölümüne GİTMEZ; sihirbaz projenin altında
+
+Sihirbazın yolu `/admin/policies/new` idi. Sol menüde `end` yalnız Anasayfa'da
+olduğu için (K67) o adreste "Poliçeler" maddesi işaretleniyordu: kullanıcı proje
+detayından "Poliçelendir"e bastığında, bütün poliçelerin listelendiği bölüme
+geçmiş gibi görünüyordu. Poliçe LİSTESİ ekranı gelince bu iki ekran gerçekten
+ayrıştı ve karışıklık somutlaştı.
+
+Karar: sihirbazın yolu **`/projects/:projectId/policies/new`**. Sonuçları:
+
+- Sol menüde "Projeler" işaretli kalıyor, "Poliçeler" listeye ayrıldı.
+- Kırılım artık "Anasayfa / Projeler / <proje adı> / Poliçe Oluşturma" —
+  K67'deki "Anasayfa / Poliçeler / Poliçe Oluşturma" izi kalktı; ekran bir
+  projenin işlemi ve dönüşü de o projeye.
+- Proje kimliği **YOLDA**, `?project=` ile değil (K61 evrak için geçerli
+  kalıyor): adres zaten projeye bağlıyken ayrıca query taşımak aynı bilginin
+  ikinci kaynağı olurdu. `parseProjectParam` ikisinde de ortak — bozuk kimlikte
+  ekran veri çekmek yerine sebebini yazıyor.
+- `POLICY_CREATE_PATH` sabiti düştü; yerine `POLICY_CREATE_ROUTE` (rota kalıbı)
+  ve `policyCreatePath(projectId)` var, ikisi tek segment sabitinden türüyor.
+  Proje detayının "İşlemler" sekmesindeki kısayol kimliksiz `POLICY_CREATE_PATH`
+  kullanıyordu — o bağlantı da düzeldi (kimliksiz açılan sihirbaz "geçerli bir
+  proje yok" diyordu).
+
+### K69 — Poliçe listesi ekranı; mock depo artık TOHUMLU
+
+Sol menüdeki "Poliçeler" karşılama ekranı değil, gerçek liste
+(`src/pages/PolicyListPage.tsx`): bütün projelerin poliçeleri, sunucu taraflı
+sözleşmeye göre sayfalanan tablo. Uç yok — `GET /api/policies` de
+`unimplementedEndpoints`'te bayraklı, gövdeyi mock besliyor ve şerit bunun
+uydurma olduğunu söylüyor (K51 + K58 deseni).
+
+K66'nın "depo TOHUMLANMIYOR" kararı bu ekranla değişti: boş depoyla listenin
+filtresi, sıralaması ve sayfalaması hiç denenemezdi. Tohumlar evrak mock'uyla
+AYNI kaynaktan (`getMockProjectSeeds`) geliyor ki satırdaki "Proje Adı"
+bağlantısı proje listesinde bulunmayan bir kimliğe gitmesin. Depo hâlâ TEK:
+proje detayının poliçe sekmesi de oradan okuyor, bir poliçe iki ekranda da aynı
+görünüyor. Poliçesiz proje kaldı (`POLICY_COUNTS` içinde sıfırlar) — sekmenin
+boş hâli de görünsün.
+
+Kaydedilen poliçe artık proje KÜNYESİNİ de saklıyor: liste "Proje Adı"
+gösteriyor ve kimlikten ada inen tek yol mock tohumlarıydı — sunucudaki bir
+projenin poliçesi o yolla uydurma bir projenin adıyla listelenirdi (K63'ün
+tuzağı). Bu yüzden `createProjectPolicy` künyeyi parametre alıyor
+(`saveProjectDocuments` deseni) ve `usePolicyWizard` kimlik değil `ProjectSummary`
+istiyor. Künyesi olmayan satırda ad uydurulmuyor, boş değer işareti kalıyor.
+
+Liste durumu URL'de (`admin-list-state`): arama (`q`) poliçe numarasını VE proje
+adını kapsıyor, sigorta şirketi süzgeci yeni `company` anahtarında, sıralama
+poliçe no ve başlangıç tarihinde. Sihirbazın durumu bunun DIŞINDA kalmaya devam
+ediyor (K65).
+
+Tabloda "Birim" ve "Ödeme" sütunu YOK: sihirbaz ikisini de sormuyor ve K67'de
+"Ödeme: Bekliyor"un istemci varsayımı olduğu yazılmıştı — genel listede o
+varsayımı tekrarlamak, listeyi olduğundan dolu gösterirdi.
+
+### Ortak parçaya çıkan
+
+`formatCurrency` ve `formatPlainDate` → **`admin/adminFormat.ts`**: K67'de
+"ayrı bir adıma bırakıldı" denen taşıma yapıldı, üçüncü çağıran (poliçe listesi)
+gelince gerekçe kalmadı. Kalan altı biçimleyici proje detayına özel kaldığı için
+`projectDetailFormat.ts` duruyor.

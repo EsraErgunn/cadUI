@@ -268,8 +268,21 @@ export const fieldLeadingIconVariants = cva(
   'pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled',
 )
 
+/** Girdinin İÇİNDE sağda duran birim yazısı ("₺"). İkon slotuyla aynı mantık,
+    karşı taraf; `pointer-events-none`: birime tıklamak odağı engellemesin. */
+export const fieldTrailingTextVariants = cva(
+  'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted',
+)
+
 /** İkon slotu doluyken girdinin sol iç boşluğu — metin ikonun altına girmesin. */
 const FIELD_LEADING_ICON_PADDING = 'pl-9'
+
+/** Birim slotu doluyken girdinin sağ iç boşluğu. */
+const FIELD_TRAILING_TEXT_PADDING = 'pr-9'
+
+export function fieldSuffixPadding(hasSuffix: boolean): string | undefined {
+  return hasSuffix ? FIELD_TRAILING_TEXT_PADDING : undefined
+}
 
 /**
  * İkon slotu doluysa girdiye eklenecek sol iç boşluk, boşsa `undefined`.

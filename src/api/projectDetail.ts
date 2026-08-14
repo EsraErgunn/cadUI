@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { requestJson } from './http'
+import { ApiError, requestJson } from './http'
 import { mockedData, type Sourced } from './mockGate'
 import {
   buildMockProjectDocuments,
@@ -17,6 +17,7 @@ import {
   type ProjectHistoryRow,
   type ProjectPolicyRow,
   type ProjectServerFields,
+  type ProjectSummary,
   type ProjectUnitRow,
 } from './projectDetailTypes'
 import { PROJECT_STATUSES } from './projects'
@@ -116,6 +117,32 @@ export async function getProjectDetail(
   return { server, extras: extras.source === 'unavailable' ? null : extras.data }
 }
 
+const NOT_FOUND = 404
+
+/**
+ * Bir projeye bağlı açılan ekranların künyesi (`?project=<id>`). Kaynak, detay
+ * ekranını besleyen GERÇEK uç.
+ *
+ * Künye mock tohumlarından okunduğu sürece iki türlü yanlış davranıyordu:
+ * sunucudaki proje tohum listesinde yoksa ekran açılmıyor, kimlik tesadüfen bir
+ * tohuma denk gelirse BAŞKA bir projenin adı gösteriliyordu (K63).
+ *
+ * 404 `null` döner (kimlik geçersiz — ekran sebebini yazar); ağ/sunucu hatası
+ * FIRLATIR, çünkü "proje yok" ile "sunucuya ulaşılamadı" farklı sonuçlar.
+ */
+export async function getProjectSummary(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<ProjectSummary | null> {
+  try {
+    const { server } = await getProjectDetail(projectId, signal)
+    return { id: server.id, name: server.name, pId: server.pId }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === NOT_FOUND) return null
+    throw error
+  }
+}
+
 export function getProjectUnits(projectId: number): Promise<Sourced<ProjectUnitRow[]>> {
   if (isEndpointImplemented('projectUnits')) {
     throw new Error('getProjectUnits: uç bağlandı ama gövdesi yazılmadı.')
@@ -146,12 +173,12 @@ export function getProjectDocuments(projectId: number): Promise<Sourced<ProjectD
   return Promise.resolve(mockedData(() => buildMockProjectDocuments(projectId)))
 }
 
-export function getProjectPolicies(): Promise<Sourced<ProjectPolicyRow[]>> {
+export function getProjectPolicies(projectId: number): Promise<Sourced<ProjectPolicyRow[]>> {
   if (isEndpointImplemented('projectPolicies')) {
     throw new Error('getProjectPolicies: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  return Promise.resolve(mockedData(buildMockProjectPolicies))
+  return Promise.resolve(mockedData(() => buildMockProjectPolicies(projectId)))
 }
 
 export type ProjectDecision = 'approve' | 'reject' | 'requestRevision'

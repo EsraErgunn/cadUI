@@ -8,8 +8,9 @@ import { getMockDocuments, resetMockDocuments } from '../../api/documentsMock'
 import { NewDocumentPage } from '../NewDocumentPage'
 import { ProjectDetailPage } from '../ProjectDetailPage'
 
-/** Mock proje listesindeki ilk kayıt; künye `projectsMock`'tan tohumlanıyor. */
+/** Ekranın bağlandığı proje; künyesi gerçek uçtan (`GET /api/projects/{id}`) gelir. */
 const PROJECT_ID = 1
+const PROJECT_NAME = 'Demo Doğalgaz Projesi'
 
 function buildFile(name: string, sizeBytes = 1024): File {
   const file = new File(['x'], name)
@@ -32,27 +33,33 @@ function renderPage(search = `?project=${PROJECT_ID}`) {
   )
 }
 
-/** Gizli dosya girdisine doğrudan yazmak, sürükle-bırak taklidinden sade. */
+/**
+ * Gizli dosya girdisine doğrudan yazmak, sürükle-bırak taklidinden sade.
+ * `findBy…`: proje künyesi artık gerçek uçtan geliyor, form o istek dönmeden
+ * çizilmiyor.
+ */
 async function addFiles(user: ReturnType<typeof userEvent.setup>, files: File[]) {
-  await user.upload(screen.getByLabelText('Yüklenecek dosyaları seçin'), files)
+  await user.upload(await screen.findByLabelText('Yüklenecek dosyaları seçin'), files)
 }
 
 beforeEach(() => {
   resetMockDocuments()
-  // Proje detayına yönlendirme sonrası detay ucu çağrılıyor; ekran testin
-  // konusu değil, yalnız yönlendirmenin vardığı yer.
+  // Uç iki kez çağrılıyor: ekranın kendi proje künyesi ve yönlendirme sonrası
+  // proje detayı. Yanıt HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
+  // paylaşılsaydı gövdesi ilk okumada tükenir, ikinci ekran boş yanıt görürdü.
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          id: PROJECT_ID,
-          name: 'Demo Doğalgaz Projesi',
-          createdAt: '2026-07-01T09:00:00.000Z',
-          updatedAt: '2026-07-01T09:00:00.000Z',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+    vi.fn(
+      () =>
+        new Response(
+          JSON.stringify({
+            id: PROJECT_ID,
+            name: PROJECT_NAME,
+            createdAt: '2026-07-01T09:00:00.000Z',
+            updatedAt: '2026-07-01T09:00:00.000Z',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
     ),
   )
 })

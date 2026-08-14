@@ -55,3 +55,27 @@ export function formatShortDate(isoDate: string): string {
 export function formatDateTime(isoDate: string): string {
   return DATE_TIME_FORMATTER.format(new Date(isoDate))
 }
+
+/**
+ * Saat taşımayan düz tarih (`yyyy-aa-gg`). Proje detayından buraya taşındı:
+ * poliçe listesi de aynı biçimi yazıyor ve iki kopya, iki farklı tarih biçimi
+ * demekti.
+ */
+export function formatPlainDate(value: string | null): string | null {
+  if (value === null) return null
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+
+  return parsed.toLocaleDateString('tr-TR')
+}
+
+const CURRENCY_FORMATTER = new Intl.NumberFormat('tr-TR', {
+  style: 'currency',
+  currency: 'TRY',
+})
+
+/** Teminat/tutar alanları; poliçe özeti, proje detayı ve poliçe listesi ortak. */
+export function formatCurrency(value: number | null): string | null {
+  return value === null ? null : CURRENCY_FORMATTER.format(value)
+}

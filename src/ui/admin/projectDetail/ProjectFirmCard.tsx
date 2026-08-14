@@ -1,8 +1,8 @@
 import { Building2 } from 'lucide-react'
 
 import { InfoCard } from './InfoCard'
-import { InfoRow } from './InfoRow'
 import type { ProjectFirmInfo } from '../../../api/projectDetail'
+import { InfoRow } from '../InfoRow'
 
 const CARD_TITLE = 'Proje Firma Bilgileri'
 
