@@ -1733,6 +1733,93 @@ sorgulanıyor; katlama testi silindi, görünüm değişimi için üç test ekle
 `ui/__tests__/AreaObjectProperties.test.tsx`,
 `ui/__tests__/PointSymbolProperties.test.tsx`.
 
+### K54 — Tuval üstünde yüzen çubuk: çalışma kipi ve çizim yardımcıları
+
+Çizim alanının ALT-ORTASINA Figma tarzı kompakt bir çubuk eklendi:
+`[Seç | El] [Geri | Yinele] [↓ | Kat | ↑] [Snap] [Görünüm ▾]`.
+
+**Sınır net: çubuk nesne ÖZELLİĞİ düzenlemez.** O sağ panelin işi (K37/K53);
+buradakiler tuvalin çalışma kipi ve çizim yardımcıları. İki yüzeyin işi
+karışırsa kullanıcı aynı ayarı iki yerde arar.
+
+Yalnız MİMARİ görünümde mount edilir: tesisatın kendi paleti ve kipleri var.
+
+**El aracı palete GİRMEDİ** (kullanıcı seçti): `core/tools.ts`'teki 22 araç
+issue 2.7'nin çizim paleti, el ise bir çizim aracı değil canvas çalışma kipi.
+`uiStore.isPanModeActive` olarak yaşıyor ve **Space'in yapışkan hâli** gibi
+davranıyor — `DrawSurface`'in yayın bastırması ve `useViewportControls`'un pan
+kavraması AYNI yoldan geçiyor, ikinci bir pan uygulaması yazılmadı. Bir çizim
+aracı seçmek el modundan otomatik çıkarır: ikisi açıkken sol tuş hem pan hem
+çizim yapamaz ve kullanıcı sebebini göremezdi.
+
+⚠️ İmleç biçimi için `uiStore`'a abonelik gerekti: el modu bir DÜĞMEYLE
+değişiyor, jestle değil — imleç bir pointer olayı beklemeden güncellenmeli,
+yoksa kullanıcı fareyi oynatana kadar eski imleci görür.
+
+**Snap anahtarı yalnız IZGARA yakalamasını kapatır** (kullanıcı seçti).
+Uç/köşe/duvar yakalaması etkilenmez: kapansaydı duvarlar köşede birleşmez, oda
+çevrimi kapanmaz ve mahal tespiti çalışmazdı. Ctrl'ün anlık kapatması bunun
+ÜSTÜNE biner (`isGridSnapEnabled && !ctrlKey`) ve karar tek yerde —
+`scene/gridSnapMode.ts`. Beş araç hook'u aynı soruyu soruyor; her biri kendi
+`!event.ctrlKey`'ini yazsaydı anahtar eklenirken biri unutulur ve o araçta snap
+sessizce açık kalırdı.
+
+**Görünüm açılırı props ile besleniyor**, maddeler bileşene gömülü değil: ölçü/
+açı/isim anahtarları kendi aşamalarında eklenecek ve bu bileşen değişmeyecek.
+Bu MR'da yalnız Izgara var — ölü anahtar bırakılmadı, her düğme ilk günden
+çalışıyor. `MenuDropdown` yeniden kullanılmadı: o `MenuDefinition` sözleşmesine
+bağlı ve buraya menü çubuğunun grup/kısayol yapısını taşımak gerekirdi.
+
+**Vurgu rengi SEÇİM rengi, marka sarısı DEĞİL** (`canvasBarVariants.ts`):
+çubuk çizim alanının üstünde duruyor ve marka sarısı çizim alanına giremez
+(CLAUDE.md ürün kuralı). Menü çubuğunun `chromeButtonVariants`'ı bu yüzden
+yeniden kullanılmadı.
+
+### K55 — Kat şeridi kaldırıldı, işini çubuktaki açılır devraldı
+
+Sol üstteki `FloorStrip` (KK-21…KK-23) kaldırıldı: iki ayrı kat kontrolü
+tuvalin iki köşesinde duruyordu. Şeridin taşıdığı ve ↓/↑ oklarının
+KARŞILAMADIĞI iki bilgi çubuktaki açılıra taşındı — katların tam listesi
+(uzak bir kata tek adımda gitmek; oklarla aradaki her kattan geçmek gerekirdi)
+ve hangi katın BOŞ olduğu (içi boş halka işareti, şeritten devralındı).
+
+Sıra ALTTAN ÜSTE, yani store dizisinin kendi sırası — şeritteki kuralın aynısı.
+"Katlar" penceresi listeyi ters çevirmeye devam eder (orada bina kesitten
+okunuyor); iki yön bilerek farklı.
+
+`FloorStrip.tsx` ve testi silindi. `floors/floorVariants.ts` DURUYOR: kat
+pencereleri (`FloorCopyDialog`, `FloorManagementDialog`, `AddFloorMenu`) hâlâ
+`FLOOR_FOCUS_RING`'i kullanıyor.
+
+### K56 — Görünüm açılırına nesne adı ve oda adı anahtarları
+
+`Nesne adları` (alan nesnesi etiketleri, K50) ve `Oda adları` eklendi. İkisi de
+varsayılan AÇIK: etiketler bugüne kadar hep görünüyordu, anahtar davranışı
+değiştirmiyor — yalnız kapatma imkânı ekliyor.
+
+**Oda adı ve alanı (m²) TEK madde.** İkisi aynı çapaya yazılmış tek yazı öbeği;
+ayrı ayrı gizlemek ortada asılı bir sayı bırakırdı.
+
+⚠️ **Ad DÜZENLEME kutusu anahtardan etkilenmez.** Kullanıcı çift tıklayıp adı
+yazmaya başlamışsa yazdığını görmeli; anahtar yalnız salt-okunur etiketi gizler.
+
+⚠️ **Gizli etiket TUTULAMAZ.** `findAreaObjectLabelAt` de anahtarı okuyor:
+yalnız çizim durdurulsaydı görünmeyen etiketin tutma kutusu yerinde kalır ve
+kullanıcı boşluğa bastığını sanarken hiçbir şey seçilmezdi. Tesisattaki
+`pickElementLabelAt` aynı gerekçeyle `isElementLabelsVisible`'a bakıyor.
+
+Kapsam bugün kolon/baca şaftı/kolon havalandırması (K50 kararı). Kapı, pencere,
+merdiven ve kirişe genişletildiğinde aynı anahtardan yönetilecek.
+
+Nerede: `ui/canvas/FloatingToolbar.tsx` + `ViewOptionsMenu.tsx` +
+`canvasBarVariants.ts` (yeni), `scene/gridSnapMode.ts` (yeni),
+`store/uiStore.ts`, `scene/DrawSurface.tsx`, `scene/useViewportControls.ts`,
+snap çağıran beş hook, `pages/EditorPage.tsx`.
+
+⚠️ **Tarayıcıda DOĞRULANMADI:** oturum düştü ve tarayıcı paneli kare üretmedi.
+Sınanacaklar: çubuğun konumu/görünümü, el modunun sürüklemesi ve imleci, snap
+anahtarının çizime etkisi, açılırın dışarı tıklamayla kapanması.
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik

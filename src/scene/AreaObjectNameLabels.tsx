@@ -18,6 +18,7 @@ import { clipLeaderEndToRectCm } from '../core/labelLeader'
 import type { AreaObject } from '../core/model'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
 
 /** RoomLabel ile aynı yazı tipi; mimari tarafın kendi sabiti. */
 const FONT_URL = '/fonts/roboto-regular.woff'
@@ -113,11 +114,16 @@ function AreaObjectNameLabel({ areaObject, shape, zoom }: AreaObjectNameLabelPro
  * `ElementNameLabels` ile aynı iş bölümü.
  */
 export function AreaObjectNameLabels() {
+  const isVisible = useUiStore((state) => state.isAreaObjectNamesVisible)
   const zoom = useCameraZoom()
   const areaObjects = useCadStore((state) => state.areaObjects)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const draggingAreaObjects = useArchitectureUiStore((state) => state.draggingAreaObjects)
   const handleDrag = useArchitectureUiStore((state) => state.areaObjectHandleDrag)
+
+  // Kapalıyken hiç çizilmez; etiket sürükleme jesti de `pickAreaObjectLabelAt`
+  // üzerinden GÖRÜNMEYEN etiketi bulmasın diye ayrıca susturuluyor (K56).
+  if (!isVisible) return null
 
   return (
     <group name="area-object-name-labels">

@@ -1,0 +1,34 @@
+import { cva } from 'class-variance-authority'
+
+/**
+ * Tuvalin üstünde yüzen çubuğun düğmeleri. `chromeButtonVariants` (menü çubuğu)
+ * yeniden kullanılmadı: o kabuk yüzeyinin üstünde duruyor ve marka sarısıyla
+ * vurgulanıyor, bu ise ÇİZİM ALANININ üstünde — vurgu seçim rengiyle olmalı,
+ * marka sarısı çizim alanına giremez (CLAUDE.md ürün kuralı).
+ */
+export const canvasBarButtonVariants = cva(
+  'inline-flex items-center justify-center gap-1.5 rounded-md text-sm transition-colors ' +
+    'disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent',
+  {
+    variants: {
+      tone: {
+        plain: 'text-ink-muted hover:bg-surface-sunken',
+        active: 'bg-selection/15 text-selection ring-1 ring-selection/50',
+      },
+      shape: {
+        icon: 'size-8',
+        label: 'h-8 px-2.5',
+      },
+    },
+    defaultVariants: { tone: 'plain', shape: 'icon' },
+  },
+)
+
+/** Çubuktaki mantıksal grupları ayıran ince dikey çizgi. */
+export const CANVAS_BAR_DIVIDER = 'mx-0.5 h-5 w-px shrink-0 bg-edge'
+
+/** Görünüm açılırındaki onay kutusu maddeleri. */
+export const canvasBarMenuItemVariants = cva(
+  'flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-left text-sm ' +
+    'text-ink-muted hover:bg-surface-sunken',
+)

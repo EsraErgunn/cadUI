@@ -7,19 +7,21 @@ import { useProjectPersistence } from './useProjectPersistence'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
 import { SceneRoot } from '../scene/SceneRoot'
 import { useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
 import { AxisIndicator } from '../ui/AxisIndicator'
 import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
-import { FloorStrip } from '../ui/FloorStrip'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
 import { StatusBar } from '../ui/StatusBar'
 import { Toolbar } from '../ui/Toolbar'
+import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
 
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
+  const activeViewId = useUiStore((state) => state.activeViewId)
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
@@ -74,9 +76,11 @@ export function EditorPage() {
 
         <main className="relative min-w-0 flex-1">
           <SceneRoot />
-          <FloorStrip />
           <OpeningToolOptions />
           <AxisIndicator />
+          {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). Yalnız mimaride:
+              tesisatın kendi paleti ve kipleri var. */}
+          {activeViewId === 'architecture' && <FloatingToolbar onGoToFloor={goToFloor} />}
         </main>
 
         {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan

@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { isGridSnapActive } from './gridSnapMode'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
 import { getSnapToleranceCm, resolveSnap } from '../core/snap'
@@ -54,7 +55,7 @@ export function useBeamTool(): BeamPreview | undefined {
         {
           toleranceCm: getSnapToleranceCm(zoom),
           gridStepCm: pickGridLevel(zoom).minorCm,
-          isGridSnapEnabled: !event.ctrlKey,
+          isGridSnapEnabled: isGridSnapActive(event),
         },
       ).point
     }

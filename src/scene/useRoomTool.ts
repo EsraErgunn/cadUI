@@ -4,6 +4,7 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
+import { isGridSnapActive } from './gridSnapMode'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
 import { findBlockingOpeningInLoop, getRoomRectangleCorners } from '../core/room'
@@ -69,7 +70,7 @@ export function useRoomTool(): RoomToolState {
           toleranceCm: getSnapToleranceCm(zoom),
           gridStepCm: pickGridLevel(zoom).minorCm,
           // Ctrl ızgarayı kapatır — duvar aracıyla aynı jest.
-          isGridSnapEnabled: !event.ctrlKey,
+          isGridSnapEnabled: isGridSnapActive(event),
         },
       )
     }
