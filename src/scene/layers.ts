@@ -4,69 +4,86 @@
  */
 export const RENDER_ORDER = {
   gridMinor: 0,
-  gridMajor: 1,
+  gridMajor: 2,
   /**
    * Aktif katın altındaki katın izi (KK-13). architectureGhost'un da ALTINDA:
    * o karşı KATMANIN izi, bu karşı KATIN izi — ikisi aynı anda görünebilir ve
    * hizalama referansı olan alt kat en geride durmalı.
    */
-  floorBelowGhost: 3,
+  floorBelowGhost: 6,
   /** Açıklık kendi duvarının üstünde ayrı sırada — gerekçesi architectureGhostOpening ile aynı. */
-  floorBelowGhostOpening: 4,
-  architectureGhost: 5,
+  floorBelowGhostOpening: 8,
+  /**
+   * Tesisat görünümündeki mimari hayalet (aktif kat, `plumbing/scene/Ghosts.tsx`
+   * → `ArchitectureGhost`). Gerçek `ArchitectureLayer` ile AYNI göreli sıra —
+   * oda en altta, alan nesnesi en üstte — yalnız tek renge boyanmış hâliyle
+   * (bkz. knowledge/ghost-layers.md). Yalnız 'installation' görünümünde
+   * mount edildiği için floorBelowGhost ile (yalnız 'architecture' görünümünde
+   * mount edilir) numara çakışması sorun değil, ikisi asla aynı anda sahnede
+   * olmaz — yine de karışıklık olmasın diye ayrı bant kullanılıyor.
+   */
+  architectureGhostRoom: 9,
+  architectureGhost: 10,
   /**
    * Hayalet açıklık, hayalet duvarın ÜSTÜNDE ayrı bir sırada: aynı renderOrder'da
    * kalsaydı çizim sırası material id'sine (mount sırasına) düşerdi ve sonradan
    * eklenen bir duvar deliği kapatabilirdi.
    */
-  architectureGhostOpening: 6,
-  room: 10,
-  wall: 20,
-  opening: 30,
+  architectureGhostOpening: 12,
+  /** Hayalet kirişin saydam dolgusu, kendi konturunun altında — gerekçesi beamFill ile aynı. */
+  architectureGhostBeamFill: 13,
+  architectureGhostBeam: 14,
+  architectureGhostPointSymbol: 15,
+  /** Hayalet alan nesnesinin saydam dolgusu — gerekçesi areaObjectFill ile aynı. */
+  architectureGhostAreaObjectFill: 16,
+  architectureGhostAreaObject: 17,
+  room: 20,
+  wall: 40,
+  opening: 60,
   /**
    * Kirişin saydam dolgusu, KENDİ konturunun altında ayrı sırada — gerekçesi
    * areaObjectFill ile aynı.
    */
-  beamFill: 31,
+  beamFill: 62,
   /**
    * Kiriş duvarın ve açıklığın ÜSTÜNDE: kiriş plan üstünde onları keserek geçen
    * bir taşıyıcı, altlarına düşerse duvar kütlesi onu yutar. Sembolün ve alan
    * nesnesinin ALTINDA kalır — ikisi de kirişten küçük, üstte durmalılar.
    */
-  beam: 32,
+  beam: 64,
   /**
    * Nokta sembolü açıklığın ve duvarın ÜSTÜNDE: damga plandan okunabilmeli,
    * altına düşerse duvar kütlesi onu yutar. Tutamakların altında kalır.
    */
-  pointSymbol: 33,
+  pointSymbol: 66,
   /**
    * Alan nesnesinin saydam dolgusu, KENDİ konturunun altında ayrı sırada: aynı
    * sırada kalsaydı opak çizgiler saydam mesh'ten ÖNCE çizilir ve dolgu konturu
    * boyardı (üçü de depthWrite kapalı, karar renderOrder'ın).
    */
-  areaObjectFill: 34,
+  areaObjectFill: 68,
   /** Alan nesnesi (merdiven/kolon/baca şaftı) nokta sembolünün ÜSTÜNDE — ikisi çakışabilir. */
-  areaObject: 35,
+  areaObject: 70,
   /**
    * Tesisatın mimari görünümdeki soluk izi. architectureGhost'un aksine mimarinin
    * ÜSTÜNDE: "hayalet"liği saydamlıktan geliyor, derinlikten değil. Altına konsaydı
    * (oda dolgusu geldiğinde) tamamen kaybolurdu.
    */
-  installationGhost: 35,
+  installationGhost: 70,
   /** Baca/havalandırma kanalı borunun ALTINDA: ikisi kesiştiğinde gaz hattı okunmalı. */
-  discharge: 38,
-  pipe: 40,
-  insulation: 45,
-  fitting: 50,
-  equipment: 60,
+  discharge: 76,
+  pipe: 80,
+  insulation: 90,
+  fitting: 100,
+  equipment: 120,
   /** Önizlemedeki alan nesnesi/kiriş dolgusu — areaObjectFill ile aynı gerekçe. */
-  areaObjectPreviewFill: 69,
-  linePreview: 70,
-  portMarker: 80,
-  warning: 90,
-  measurement: 95,
-  handle: 100,
-  label: 110,
+  areaObjectPreviewFill: 138,
+  linePreview: 140,
+  portMarker: 160,
+  warning: 180,
+  measurement: 190,
+  handle: 200,
+  label: 220,
 } as const
 
 /** Plan düzlemi y = 0. Izgara bir tık altta durur ki duvarlarla z-fighting olmasın. */

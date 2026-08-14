@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 import { AreaObjectProperties } from './properties/AreaObjectProperties'
 import { BeamProperties } from './properties/BeamProperties'
@@ -17,6 +17,7 @@ import { getSelectedIds } from '../core/selection'
 import { selectOpeningById } from '../store/architectureSlice'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
 
 /**
  * Seçili nesnenin özellik paneli (K37). Çizim alanının ÜSTÜNE biner, sağdan
@@ -30,7 +31,25 @@ export function PropertyPanel() {
   const selection = useArchitectureUiStore((state) => state.selection)
   const clearSelection = useArchitectureUiStore((state) => state.clearSelection)
   const deleteSelection = useCadStore((state) => state.deleteSelection)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const activeViewId = useUiStore((state) => state.activeViewId)
+
+  /**
+   * Görünüm değişince panel KAPANIR (K53). Kapanma seçimi bırakarak yapılıyor,
+   * paneli ayrıca gizleyerek değil: panel seçimin saf bir türevi (K37) ve ikinci
+   * bir "kapalı ama seçim duruyor" durumu iki ayrı doğruluk kaynağı olurdu —
+   * kullanıcı geri döndüğünde panel kendiliğinden yeniden açılırdı.
+   *
+   * ⚠️ Önceki görünüm ref'te tutuluyor: bağımlılık dizisine güvenip her
+   * çalıştırmada temizlemek MOUNT anında da seçimi siler. Bugün zararsız
+   * görünürdü (editör boş seçimle açılıyor) ama panelin her yeniden
+   * bağlanmasında kullanıcının seçimi sessizce giderdi.
+   */
+  const previousViewIdRef = useRef(activeViewId)
+  useEffect(() => {
+    if (previousViewIdRef.current === activeViewId) return
+    previousViewIdRef.current = activeViewId
+    clearSelection()
+  }, [activeViewId, clearSelection])
 
   const kind = getPropertySelectionKind(selection)
   const wallIds = getSelectedIds(selection, 'wall')
@@ -72,17 +91,10 @@ export function PropertyPanel() {
         isOpen ? 'translate-x-0' : 'pointer-events-none translate-x-full'
       }`}
     >
-      <button
-        type="button"
-        onClick={() => setIsCollapsed((current) => !current)}
-        aria-expanded={!isCollapsed}
-        className="flex shrink-0 items-center gap-1.5 border-b border-edge px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-surface-sunken"
-      >
-        {isCollapsed ? (
-          <ChevronRight size={16} strokeWidth={1.8} aria-hidden />
-        ) : (
-          <ChevronDown size={16} strokeWidth={1.8} aria-hidden />
-        )}
+      {/* Başlık artık DÜĞME değil: içeriği katlayan ok kaldırıldı (K53).
+          Panel zaten seçim varken açılıp seçim bitince kapanıyor, ikinci bir
+          aç/kapa durumu kullanıcıya iki farklı "kapalı" hâli öğretiyordu. */}
+      <h2 className="shrink-0 border-b border-edge px-3 py-2 text-sm font-semibold text-ink">
         {getPropertyPanelTitle(
           kind,
           selection.length,
@@ -90,39 +102,35 @@ export function PropertyPanel() {
           soleSymbolLabel ? `${SYMBOL_TYPE_LABELS[soleSymbolLabel]} Özellikleri` : '',
           soleAreaObjectLabel ? `${AREA_OBJECT_TYPE_LABELS[soleAreaObjectLabel]} Özellikleri` : '',
         )}
-      </button>
+      </h2>
 
-      {!isCollapsed && (
-        <>
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-            {kind === 'wall' && <WallProperties wallIds={wallIds} />}
-            {kind === 'opening' && <OpeningProperties openingIds={openingIds} />}
-            {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
-            {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
-            {kind === 'beam' && <BeamProperties beamIds={beamIds} />}
-            {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
-                genişliği aynı şey değil. Silme yine de çalışır. */}
-            {kind === 'mixed' && (
-              <p className="py-1 text-xs text-ink-muted">
-                Farklı türde nesneler seçili; ortak düzenlenebilir alan yok.
-              </p>
-            )}
-          </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        {kind === 'wall' && <WallProperties wallIds={wallIds} />}
+        {kind === 'opening' && <OpeningProperties openingIds={openingIds} />}
+        {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
+        {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
+        {kind === 'beam' && <BeamProperties beamIds={beamIds} />}
+        {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
+            genişliği aynı şey değil. Silme yine de çalışır. */}
+        {kind === 'mixed' && (
+          <p className="py-1 text-xs text-ink-muted">
+            Farklı türde nesneler seçili; ortak düzenlenebilir alan yok.
+          </p>
+        )}
+      </div>
 
-          <SelectionActions />
+      <SelectionActions />
 
-          <div className="shrink-0 border-t border-edge px-3 py-2">
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-sm text-danger hover:bg-danger/10"
-            >
-              <Trash2 size={16} strokeWidth={1.8} aria-hidden />
-              Sil
-            </button>
-          </div>
-        </>
-      )}
+      <div className="shrink-0 border-t border-edge px-3 py-2">
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-sm text-danger hover:bg-danger/10"
+        >
+          <Trash2 size={16} strokeWidth={1.8} aria-hidden />
+          Sil
+        </button>
+      </div>
     </aside>
   )
 }

@@ -1,9 +1,12 @@
 import { useState } from 'react'
 
-import { formatArchitectureCounts, formatInstallationCounts } from './floorCountText'
+import {
+  describeVerticalAxis,
+  formatArchitectureCounts,
+  formatInstallationCounts,
+} from './floorCountText'
 import { FLOOR_FOCUS_RING } from './floorVariants'
 import { getVerticalAxisCount, isContentCountEmpty } from '../../core/floorContent'
-import type { FloorContentCounts } from '../../core/floorContent'
 import type { FloorDeletionSummary } from '../../core/floorDeletion'
 import { formatElevationM } from '../../core/floorElevation'
 import { DialogShell } from '../controls/DialogShell'
@@ -24,16 +27,6 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
       <span className="text-ink">{value}</span>
     </div>
   )
-}
-
-/** "1 baca şaftı ve 1 kolon havalandırması" — sıfır olan tür yazılmaz. */
-function describeVerticalAxis(counts: FloorContentCounts): string {
-  return [
-    counts.flueShaftCount > 0 && `${counts.flueShaftCount} baca şaftı`,
-    counts.columnVentilationCount > 0 && `${counts.columnVentilationCount} kolon havalandırması`,
-  ]
-    .filter(Boolean)
-    .join(' ve ')
 }
 
 /**

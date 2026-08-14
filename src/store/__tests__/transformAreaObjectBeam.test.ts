@@ -193,3 +193,40 @@ describe('duplicateSelection — alan nesnesi ve kiriş', () => {
     expect(useCadStore.getState().beams).toHaveLength(1)
   })
 })
+
+describe('duplicateSelection — düşey eksen kimliği (KK-19)', () => {
+  const OFFSET = { dxCm: 50, dyCm: 50 }
+
+  function addFlueShaft(x: number, y: number) {
+    return useCadStore.getState().addAreaObject({ type: 'flueShaft', x, y })!
+  }
+
+  it('çoğaltılan baca şaftı YENİ eksen başlatır', () => {
+    const id = addFlueShaft(200, 200)
+    const sourceAxisId = findAreaObject(id)?.axisId
+
+    const [created] = useCadStore.getState().duplicateSelection([{ kind: 'area', id }], OFFSET)
+
+    const copyAxisId = findAreaObject(created.id)?.axisId
+    expect(copyAxisId).toBeDefined()
+    // Kat kopyalamanın TERSİ: kopya aynı kata düşüyor, aynı bacayı iddia edemez.
+    expect(copyAxisId).not.toBe(sourceAxisId)
+  })
+
+  it('kaynağın ekseni çoğaltmadan etkilenmez', () => {
+    const id = addFlueShaft(200, 200)
+    const before = findAreaObject(id)?.axisId
+
+    useCadStore.getState().duplicateSelection([{ kind: 'area', id }], OFFSET)
+
+    expect(findAreaObject(id)?.axisId).toBe(before)
+  })
+
+  it('eksensiz türün kopyası da eksensiz kalır', () => {
+    const id = addColumn(200, 200)
+
+    const [created] = useCadStore.getState().duplicateSelection([{ kind: 'area', id }], OFFSET)
+
+    expect(findAreaObject(created.id)?.axisId).toBeUndefined()
+  })
+})

@@ -11,6 +11,7 @@ import {
 import type { PlanPoint } from '../core/coords'
 import { isTypingTarget } from '../core/domEvents'
 import { screenToWorld } from '../core/viewport'
+import { useUiStore } from '../store/uiStore'
 
 const MIDDLE_BUTTON = 1
 
@@ -33,7 +34,9 @@ export function DrawSurface() {
     }
 
     const publish = (key: DrawSurfacePointerEventKey, event: MouseEvent) => {
-      if (isSpaceHeld || isMiddlePanActive) return
+      // El modu Space'in YAPIŞKAN hâli: aynı bastırma yolundan geçiyor, ayrı
+      // bir "araçları sustur" mekanizması yazılmadı (K54).
+      if (isSpaceHeld || isMiddlePanActive || useUiStore.getState().isPanModeActive) return
       publishDrawSurfaceEvent(key, {
         planPoint: toPlanPoint(event),
         button: event.button,

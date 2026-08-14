@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -12,6 +12,7 @@ import {
 } from '../../store/__tests__/architectureFixture'
 import { useArchitectureUiStore } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
+import { useUiStore } from '../../store/uiStore'
 import { PropertyPanel } from '../PropertyPanel'
 
 const RIGHT_CORNER_WALL_ID = 9
@@ -39,7 +40,7 @@ describe('PropertyPanel', () => {
     useArchitectureUiStore.setState({ selection: [{ kind: 'wall', id: WALL_ID }] })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /Duvar Özellikleri/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Duvar Özellikleri/ })).toBeInTheDocument()
     expect(screen.getByLabelText('Kalınlık (cm)')).toHaveValue(20)
     // Duvar 8 = (0,0)-(500,0).
     expect(screen.getByLabelText('Uzunluk (cm)')).toHaveValue(500)
@@ -74,7 +75,7 @@ describe('PropertyPanel', () => {
     })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /2 Duvar/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /2 Duvar/ })).toBeInTheDocument()
     expect(screen.getByLabelText('Kalınlık (cm)')).toHaveValue(null)
   })
 
@@ -82,7 +83,7 @@ describe('PropertyPanel', () => {
     useArchitectureUiStore.setState({ selection: [{ kind: 'opening', id: WINDOW_ID }] })
     render(<PropertyPanel />)
 
-    expect(screen.getByRole('button', { name: /Pencere Özellikleri/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Pencere Özellikleri/ })).toBeInTheDocument()
   })
 
   it('açıklık konumunu KENARDAN gösterir (K-3)', () => {
@@ -136,14 +137,41 @@ describe('PropertyPanel', () => {
     expect(useCadStore.getState().walls.some((wall) => wall.id === WALL_ID)).toBe(false)
     expect(useArchitectureUiStore.getState().selection).toHaveLength(0)
   })
+})
 
-  it('başlık okuyla kapatılınca alanlar gizlenir', async () => {
+describe('PropertyPanel — görünüm değişimi (K53)', () => {
+  it('mimariden tesisata geçince panel KAPANIR (seçim bırakılır)', () => {
+    useUiStore.setState({ activeViewId: 'architecture' })
     useArchitectureUiStore.setState({ selection: [{ kind: 'wall', id: WALL_ID }] })
     render(<PropertyPanel />)
 
-    await userEvent.click(screen.getByRole('button', { name: /Duvar Özellikleri/ }))
+    expect(screen.getByRole('complementary')).toBeInTheDocument()
 
-    expect(screen.queryByLabelText('Kalınlık (cm)')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+    act(() => {
+      useUiStore.getState().setActiveView('installation')
+    })
+
+    expect(useArchitectureUiStore.getState().selection).toHaveLength(0)
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+  })
+
+  it('tesisattan mimariye dönüşte de kapalı kalır', () => {
+    useUiStore.setState({ activeViewId: 'installation' })
+    useArchitectureUiStore.setState({ selection: [{ kind: 'wall', id: WALL_ID }] })
+    render(<PropertyPanel />)
+
+    act(() => {
+      useUiStore.getState().setActiveView('architecture')
+    })
+
+    expect(useArchitectureUiStore.getState().selection).toHaveLength(0)
+  })
+
+  it('görünüm DEĞİŞMEDİĞİ sürece seçim korunur — mount seçimi silmez', () => {
+    useUiStore.setState({ activeViewId: 'architecture' })
+    useArchitectureUiStore.setState({ selection: [{ kind: 'wall', id: WALL_ID }] })
+    render(<PropertyPanel />)
+
+    expect(useArchitectureUiStore.getState().selection).toHaveLength(1)
   })
 })

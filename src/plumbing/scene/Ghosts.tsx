@@ -1,21 +1,16 @@
-import { Line } from '@react-three/drei'
 import { useMemo } from 'react'
 
+import { GhostAreaObject, GhostBeam, GhostRoomFill } from './ArchitectureGhostFixtures'
+import { GhostPointSymbol } from './ArchitectureGhostPointSymbol'
+import { GhostOpening, GhostWall } from './ArchitectureGhostWalls'
 import { InstallationLines } from './InstallationLineMesh'
 import { SymbolInstance } from './SymbolInstance'
-import {
-  ARCHITECTURE_GHOST_ELEVATION_CM,
-  ARCHITECTURE_GHOST_SYMBOL_LIFT_CM,
-} from './plumbingLayers'
-import { PLUMBING_COLORS } from './plumbingTheme'
-import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
-import type { OpeningType, Point, Wall as WallData } from '../../core/model'
+import type { Room, Wall as WallData } from '../../core/model'
 import { getOpeningOutline } from '../../core/opening'
-import { getOpeningSymbol, type OpeningSymbolRole } from '../../core/openingSymbol'
-import { getWallCapsule } from '../../core/wallShape'
-import { RENDER_ORDER } from '../../scene/layers'
-import { toOpeningFillPositions } from '../../scene/openingFill'
-import { SCENE_COLORS } from '../../scene/sceneTheme'
+import { findRoomFaces } from '../../core/room'
+import { insetRoomPolygon } from '../../core/roomFill'
+import { getWallSetKey } from '../../core/roomIdentity'
+import { getSymbolPose, getSymbolsOnFloor } from '../../core/symbolPlacement'
 import { useCadStore } from '../../store/cadStore'
 
 /*
@@ -24,131 +19,26 @@ import { useCadStore } from '../../store/cadStore'
  * ikisi de aktif katı KENDİ okur, mount eden kat bilgisi geçirmez.
  * Yöntemleri bilerek farklı: mimari tek soluk renge boyanır ve tesisatın altında
  * durur; tesisat rengini korur, saydamlaşır ve mimarinin üstünde durur.
- * Gerekçeler: .claude/knowledge/ghost-layers.md
+ * Gerekçeler: .claude/knowledge/ghost-layers.md · şekil bileşenleri
+ * `ArchitectureGhostWalls.tsx` + `ArchitectureGhostFixtures.tsx`'te (200 satır
+ * sınırı yüzünden ayrıldı).
  */
 
 /**
- * Mimari görünümün 1.8 / 1.2 / 1 oranı, hayalette bir tık ince: açıklık bağlam,
- * konu değil — duvar kütlesi baskın kalsın, delik onun üstünde okunsun.
+ * Tesisat görünümündeki mimari: aktif kattaki duvarlar, kapı/pencere delikleri,
+ * odalar, kirişler, alan nesneleri (merdiven/kolon/baca şaftı/kolon
+ * havalandırması) ve nokta sembolleri (aydınlatma, pano, yangın söndürücü,
+ * alarm cihazı, deprem sensörü, menfez, ana kesme şalteri) — `ArchitectureLayer`
+ * neyi çiziyorsa hayaleti de onu çizer, yalnız tek soluk renkte.
  */
-const GHOST_STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
-  jamb: 1.4,
-  face: 1,
-  detail: 0.8,
-}
-
-type GhostLineProps = {
-  points: ThreePosition[]
-  lineWidth: number
-}
-
-/** Hayaletin her çizgisi raycast DIŞI — mimari bu görünümde seçilemez, salt bağlam. */
-function GhostLine({ points, lineWidth }: GhostLineProps) {
-  return (
-    <Line
-      points={points}
-      color={PLUMBING_COLORS.architectureGhost}
-      lineWidth={lineWidth}
-      renderOrder={RENDER_ORDER.architectureGhostOpening}
-      depthWrite={false}
-      raycast={() => null}
-      toneMapped={false}
-    />
-  )
-}
-
-/**
- * Hayalet duvar = soluk renkli kapsül. scene/Wall.tsx ile AYNI geometri: mimari
- * görünümde union yok, duvarlar üst üste çizilir ve kavşak kendiliğinden dolar (K23).
- */
-function GhostWall({ wall, points }: { wall: WallData; points: readonly Point[] }) {
-  const capsule = getWallCapsule(wall, points)
-  if (!capsule) return null
-
-  return (
-    <Line
-      points={[
-        planToThree(capsule.p1, ARCHITECTURE_GHOST_ELEVATION_CM),
-        planToThree(capsule.p2, ARCHITECTURE_GHOST_ELEVATION_CM),
-      ]}
-      color={PLUMBING_COLORS.architectureGhost}
-      // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
-      worldUnits
-      lineWidth={wall.thickness}
-      alphaToCoverage
-      frustumCulled={false}
-      renderOrder={RENDER_ORDER.architectureGhost}
-      depthWrite={false}
-      raycast={() => null}
-      toneMapped={false}
-    />
-  )
-}
-
-const GHOST_SYMBOL_ELEVATION_CM =
-  ARCHITECTURE_GHOST_ELEVATION_CM + ARCHITECTURE_GHOST_SYMBOL_LIFT_CM
-
-/**
- * Hayalet açıklık, mimari görünümle AYNI plan simgesinden çizilir
- * (core/openingSymbol.ts): kapı kanadından, pencere cam çizgilerinden tanınsın.
- * Zemin rengindeki dolgu hayalet duvar bandını DELER — açıklık bandın üstüne
- * çizilmiş bir kutu değil, gerçek boşluk gibi okunsun.
- */
-function GhostOpening({ outline, type }: { outline: readonly PlanPoint[]; type: OpeningType }) {
-  const symbol = getOpeningSymbol(outline, type)
-
-  return (
-    <>
-      <mesh
-        frustumCulled={false}
-        renderOrder={RENDER_ORDER.architectureGhostOpening}
-        raycast={() => null}
-      >
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[toOpeningFillPositions(outline, ARCHITECTURE_GHOST_ELEVATION_CM), 3]}
-          />
-        </bufferGeometry>
-        <meshBasicMaterial color={SCENE_COLORS.background} depthWrite={false} toneMapped={false} />
-      </mesh>
-
-      {symbol.panel && (
-        <mesh
-          frustumCulled={false}
-          renderOrder={RENDER_ORDER.architectureGhostOpening}
-          raycast={() => null}
-        >
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[toOpeningFillPositions(symbol.panel, GHOST_SYMBOL_ELEVATION_CM), 3]}
-            />
-          </bufferGeometry>
-          <meshBasicMaterial
-            color={PLUMBING_COLORS.architectureGhost}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
-      )}
-
-      {symbol.strokes.map((stroke) => (
-        <GhostLine
-          key={stroke.name}
-          points={stroke.points.map((corner) => planToThree(corner, GHOST_SYMBOL_ELEVATION_CM))}
-          lineWidth={GHOST_STROKE_WIDTHS[stroke.role]}
-        />
-      ))}
-    </>
-  )
-}
-
-/** Tesisat görünümündeki mimari: aktif kattaki duvarlar + kapı/pencere delikleri. */
 export function ArchitectureGhost() {
   const walls = useCadStore((state) => state.walls)
   const points = useCadStore((state) => state.points)
   const openings = useCadStore((state) => state.openings)
+  const rooms = useCadStore((state) => state.rooms)
+  const beams = useCadStore((state) => state.beams)
+  const areaObjects = useCadStore((state) => state.areaObjects)
+  const symbols = useCadStore((state) => state.symbols)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
 
   const floorWalls = useMemo(
@@ -171,14 +61,68 @@ export function ArchitectureGhost() {
     [floorWalls, openings, points],
   )
 
+  // Room.tsx ile AYNI eşleştirme: yüz duvar kümesinden bulunur, eşleşmeyen
+  // (henüz store'a yansımamış ara kare) yüz çizilmez. Oda kimliği React key'i
+  // için taşınır — geometri değil, `Room.tsx`'teki `shapes` ile aynı gerekçe.
+  const roomFillShapes = useMemo(() => {
+    const faces = findRoomFaces(floorWalls, points, activeFloorId)
+    const roomByWallSet = new Map<string, Room>()
+    for (const room of rooms) roomByWallSet.set(getWallSetKey(room.wallIds), room)
+
+    const thicknessById = new Map<WallData['id'], WallData['thickness']>()
+    for (const wall of floorWalls) thicknessById.set(wall.id, wall.thickness)
+
+    return faces.flatMap((face) => {
+      const room = roomByWallSet.get(getWallSetKey(face.wallIds))
+      if (!room) return []
+
+      const thicknessesCm = face.wallIds.map((wallId) => thicknessById.get(wallId) ?? 0)
+      const corners = insetRoomPolygon(face.corners, thicknessesCm)
+      return corners ? [{ id: room.id, corners }] : []
+    })
+  }, [activeFloorId, floorWalls, points, rooms])
+
+  const floorBeams = useMemo(
+    () => beams.filter((beam) => beam.floorId === activeFloorId),
+    [activeFloorId, beams],
+  )
+  const floorAreaObjects = useMemo(
+    () => areaObjects.filter((areaObject) => areaObject.floorId === activeFloorId),
+    [activeFloorId, areaObjects],
+  )
+  const floorSymbolPoses = useMemo(
+    () =>
+      getSymbolsOnFloor(symbols, activeFloorId, walls).flatMap((symbol) => {
+        const pose = getSymbolPose(symbol, walls, points)
+        return pose ? [{ id: symbol.id, type: symbol.type, pose }] : []
+      }),
+    [activeFloorId, points, symbols, walls],
+  )
+
   return (
     <group name="architecture-ghost">
+      {roomFillShapes.map((shape) => (
+        <GhostRoomFill key={shape.id} corners={shape.corners} />
+      ))}
+
       {floorWalls.map((wall) => (
         <GhostWall key={wall.id} wall={wall} points={points} />
       ))}
 
       {openingGhosts.map((opening) => (
         <GhostOpening key={opening.id} outline={opening.outline} type={opening.type} />
+      ))}
+
+      {floorBeams.map((beam) => (
+        <GhostBeam key={beam.id} beam={beam} />
+      ))}
+
+      {floorSymbolPoses.map((symbol) => (
+        <GhostPointSymbol key={symbol.id} type={symbol.type} pose={symbol.pose} />
+      ))}
+
+      {floorAreaObjects.map((areaObject) => (
+        <GhostAreaObject key={areaObject.id} type={areaObject.type} areaObject={areaObject} />
       ))}
     </group>
   )

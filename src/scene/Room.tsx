@@ -13,6 +13,7 @@ import { getWallSetKey } from '../core/roomIdentity'
 import { getRoomLabelAnchor, toSquareMetres } from '../core/roomLabel'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
+import { useUiStore } from '../store/uiStore'
 
 function toFillPositions(corners: readonly PlanPoint[]): Float32Array {
   const triangleCorners = triangulatePolygon(corners)
@@ -35,6 +36,7 @@ type RoomShapeProps = {
 }
 
 function RoomShape({ roomId, face, name, fillCorners, isEditingName }: RoomShapeProps) {
+  const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   // Etiket çapası odanın DOLGUSUNA değil, gerçek çevrimine göre bulunur; dolgu
   // duvar kalınlığı kadar küçültülmüş bir çizim ayrıntısı, odanın kendisi değil.
   const anchor = getRoomLabelAnchor(face.corners)
@@ -59,11 +61,13 @@ function RoomShape({ roomId, face, name, fillCorners, isEditingName }: RoomShape
         </mesh>
       )}
 
-      {/* Düzenlerken etiket gizlenir: kutu zaten aynı yerde ve adı gösteriyor. */}
+      {/* Düzenlerken etiket gizlenir: kutu zaten aynı yerde ve adı gösteriyor.
+          Düzenleme kutusu görünürlük anahtarına BAKMAZ (K56): kullanıcı çift
+          tıklayıp adı yazmaya başlamışsa yazdığı şeyi görmeli. */}
       {isEditingName ? (
         <RoomNameEditor roomId={roomId} anchor={anchor} currentName={name} />
       ) : (
-        <RoomLabel anchor={anchor} name={name} areaM2={areaM2} />
+        isRoomNamesVisible && <RoomLabel anchor={anchor} name={name} areaM2={areaM2} />
       )}
     </group>
   )

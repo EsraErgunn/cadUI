@@ -317,6 +317,34 @@ testinden çıktı. Yerleştirme/seçim hook'ları yine de R3F gerektirdiği iç
 birim testsiz kaldı (K36 ile aynı sınır); Kolon Havalandırması'nın kendisi
 ayrıca tarayıcıda denenmedi.
 
+## Düşey eksen kimliği (K63)
+
+K39/K40 baca şaftı ile kolon havalandırmasını bilinçli olarak kat-başı alan
+nesnesi diye modellemiş, kat-bağımsız kimliği "gerekirse ayrı karar" diye
+ertelemişti. KK-19 o kararı istedi: kopyalanan baca kaynak katla aynı düşey
+eksende kalmalı.
+
+Çözüm `AreaObject.axisId` — opsiyonel, YALNIZ bu iki tip taşır
+(`isVerticalAxisType`). Nesne kattan koparılmadı: `Riser` gibi ayrı bir kök tip,
+tutamaç/etiket/açıklık koruması/kat temizliği/grup dönüşümünün tamamını ikinci
+bir kod yolunda tekrar yazmak demekti.
+
+**Tuzak — id bu işi göremez.** Kopya tanım gereği yeni id alır (kural 6), yani
+"aynı baca" bilgisi kopyalamada kaybolur. Kopya aynı koordinatta doğduğu için
+hizalı GÖRÜNÜR; kat sonradan taşınınca bağ sessizce kopar. Alanın id'den ayrı
+olmasının tek sebebi, ikisinin kopyalamada ZIT yönde davranmak zorunda olması:
+
+| Yol | Davranış |
+|---|---|
+| `addAreaObjectToDraft` | kendi eksenini BAŞLATIR (komşu katta hizalı nesne ARANMAZ) |
+| `cloneFloorArchitecture` | kimliği KORUR — eksenin ikinci kata uzandığı tek yol |
+| `duplicateSelectionInDraft` | YENİ eksen — kopya aynı kata düşüyor |
+
+**Göç YAZILMADI.** Yüklemede `axisId = id` doldurmak bit-bit turunu bozar
+(depodaki her çizim ilk açılışta değişmiş görünür). Sonuç: K63 öncesi çizilmiş
+baca şaftları kopyalandığında kimlik taşımaz, yeniden çizilene kadar KK-19
+onlarda işlemez.
+
 **Dosya:** core/model.ts · core/serialize.ts · core/areaObject.ts ·
 core/areaObjectGeometry.ts · core/selection.ts · core/architectureHover.ts ·
 core/propertyFields.ts · core/floorClone.ts · store/areaObjectOps.ts ·

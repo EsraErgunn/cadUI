@@ -1,7 +1,7 @@
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
 import { takeNextId } from './projectMeta'
-import { getNextAreaObjectLabel } from '../core/areaObject'
+import { getNextAreaObjectLabel, isVerticalAxisType } from '../core/areaObject'
 import { getNextBeamLabel } from '../core/beam'
 import { createIdRemap, remapId } from '../core/idRemap'
 import type { Id, SymbolAttachment } from '../core/model'
@@ -148,6 +148,13 @@ export function duplicateSelectionInDraft(
       angleDeg: areaObject.angleDeg,
       // Sembolle aynı gerekçe: etiket sıradakini görmek için tek tek eklenir.
       label: getNextAreaObjectLabel(draft.areaObjects, areaObject.type, areaObject.floorId),
+      /*
+       * Çoğaltma kat kopyalamanın TERSİ yönde davranır: kopya AYNI kata düştüğü
+       * için yeni bir eksen başlatır (KK-19). Kimlik korunsaydı tek katta iki
+       * nesne aynı bacayı iddia ederdi — düşey eksen tanım gereği kat başına
+       * bir tane. Ötelenmiş kopyanın kaynakla hizalı olması da zaten imkânsız.
+       */
+      ...(isVerticalAxisType(areaObject.type) && { axisId: takeId() }),
     }
     draft.areaObjects.push(copy)
     copiedAreaObjectIds.push(copy.id)

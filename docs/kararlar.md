@@ -1699,6 +1699,160 @@ Nerede: `core/areaObjectHandles.ts` (`resizeAreaObjectFromCorner`),
 `scene/useAreaObjectHandleTool.ts`.
 Testler `core/__tests__/areaObjectHandles.test.ts`.
 
+### K53 — Sağ panelin aç/kapa oku kalktı; görünüm değişince panel kapanıyor
+
+**Aç/kapa oku kaldırıldı.** Başlık bir düğmeydi ve içeriği katlıyordu; artık düz
+bir `<h2>`. Panel zaten seçim varken açılıp seçim bitince kapanıyor (K37), ikinci
+bir aç/kapa durumu kullanıcıya iki farklı "kapalı" hâli öğretiyordu: biri
+nesneyi bırakınca, öteki oka basınca. Kullanıcı gereksiz buldu.
+
+**Görünüm değişince panel KAPANIR.** Mimari ↔ tesisat geçişinde açık kalıyordu:
+duvar seçiliyken tesisata geçen kullanıcı, o görünümde anlamı olmayan bir duvar
+panelini görmeye devam ediyordu.
+
+Kapanma SEÇİMİ BIRAKARAK yapılıyor, paneli ayrıca gizleyerek değil. Panel
+seçimin saf bir türevi (K37); "kapalı ama seçim duruyor" gibi ikinci bir durum
+iki ayrı doğruluk kaynağı olurdu ve kullanıcı geri döndüğünde panel
+kendiliğinden yeniden açılırdı.
+
+⚠️ **Önceki görünüm bir ref'te tutuluyor.** İlk yazımda effect yalnız bağımlılık
+dizisine güveniyordu, yani MOUNT anında da seçimi siliyordu. Bugünkü akışta
+zararsız görünürdü (editör boş seçimle açılıyor) ama panelin her yeniden
+bağlanmasında kullanıcının seçimi sessizce giderdi — mevcut testler bunu
+yakaladı.
+
+Tesisat tarafında ayrı bir özellik paneli YOK (`src/plumbing/ui/` yalnız
+palet), dolayısıyla "iki yönde de kapansın" tek panelin temizlenmesiyle
+karşılanıyor. Tesisatın kendi seçimi (`plumbingUiStore`) C'nin dosyası ve
+görünür bir panel açmadığı için dokunulmadı — tesisata bir panel eklenirse aynı
+kural oraya da yazılmalı.
+
+Nerede: `ui/PropertyPanel.tsx`.
+Testler `ui/__tests__/PropertyPanel.test.tsx` (başlık artık `heading` rolüyle
+sorgulanıyor; katlama testi silindi, görünüm değişimi için üç test eklendi),
+`ui/__tests__/AreaObjectProperties.test.tsx`,
+`ui/__tests__/PointSymbolProperties.test.tsx`.
+
+### K54 — Tuval üstünde yüzen çubuk: çalışma kipi ve çizim yardımcıları
+
+Çizim alanının ALT-ORTASINA Figma tarzı kompakt bir çubuk eklendi:
+`[Seç | El] [Geri | Yinele] [↓ | Kat | ↑] [Snap] [Görünüm ▾]`.
+
+**Sınır net: çubuk nesne ÖZELLİĞİ düzenlemez.** O sağ panelin işi (K37/K53);
+buradakiler tuvalin çalışma kipi ve çizim yardımcıları. İki yüzeyin işi
+karışırsa kullanıcı aynı ayarı iki yerde arar.
+
+Yalnız MİMARİ görünümde mount edilir: tesisatın kendi paleti ve kipleri var.
+
+**El aracı palete GİRMEDİ** (kullanıcı seçti): `core/tools.ts`'teki 22 araç
+issue 2.7'nin çizim paleti, el ise bir çizim aracı değil canvas çalışma kipi.
+`uiStore.isPanModeActive` olarak yaşıyor ve **Space'in yapışkan hâli** gibi
+davranıyor — `DrawSurface`'in yayın bastırması ve `useViewportControls`'un pan
+kavraması AYNI yoldan geçiyor, ikinci bir pan uygulaması yazılmadı. Bir çizim
+aracı seçmek el modundan otomatik çıkarır: ikisi açıkken sol tuş hem pan hem
+çizim yapamaz ve kullanıcı sebebini göremezdi.
+
+⚠️ İmleç biçimi için `uiStore`'a abonelik gerekti: el modu bir DÜĞMEYLE
+değişiyor, jestle değil — imleç bir pointer olayı beklemeden güncellenmeli,
+yoksa kullanıcı fareyi oynatana kadar eski imleci görür.
+
+**Snap anahtarı yalnız IZGARA yakalamasını kapatır** (kullanıcı seçti).
+Uç/köşe/duvar yakalaması etkilenmez: kapansaydı duvarlar köşede birleşmez, oda
+çevrimi kapanmaz ve mahal tespiti çalışmazdı. Ctrl'ün anlık kapatması bunun
+ÜSTÜNE biner (`isGridSnapEnabled && !ctrlKey`) ve karar tek yerde —
+`scene/gridSnapMode.ts`. Beş araç hook'u aynı soruyu soruyor; her biri kendi
+`!event.ctrlKey`'ini yazsaydı anahtar eklenirken biri unutulur ve o araçta snap
+sessizce açık kalırdı.
+
+**Görünüm açılırı props ile besleniyor**, maddeler bileşene gömülü değil: ölçü/
+açı/isim anahtarları kendi aşamalarında eklenecek ve bu bileşen değişmeyecek.
+Bu MR'da yalnız Izgara var — ölü anahtar bırakılmadı, her düğme ilk günden
+çalışıyor. `MenuDropdown` yeniden kullanılmadı: o `MenuDefinition` sözleşmesine
+bağlı ve buraya menü çubuğunun grup/kısayol yapısını taşımak gerekirdi.
+
+**Vurgu rengi SEÇİM rengi, marka sarısı DEĞİL** (`canvasBarVariants.ts`):
+çubuk çizim alanının üstünde duruyor ve marka sarısı çizim alanına giremez
+(CLAUDE.md ürün kuralı). Menü çubuğunun `chromeButtonVariants`'ı bu yüzden
+yeniden kullanılmadı.
+
+### K55 — Kat şeridi kaldırıldı, işini çubuktaki açılır devraldı
+
+Sol üstteki `FloorStrip` (KK-21…KK-23) kaldırıldı: iki ayrı kat kontrolü
+tuvalin iki köşesinde duruyordu. Şeridin taşıdığı ve ↓/↑ oklarının
+KARŞILAMADIĞI iki bilgi çubuktaki açılıra taşındı — katların tam listesi
+(uzak bir kata tek adımda gitmek; oklarla aradaki her kattan geçmek gerekirdi)
+ve hangi katın BOŞ olduğu (içi boş halka işareti, şeritten devralındı).
+
+Sıra ALTTAN ÜSTE, yani store dizisinin kendi sırası — şeritteki kuralın aynısı.
+"Katlar" penceresi listeyi ters çevirmeye devam eder (orada bina kesitten
+okunuyor); iki yön bilerek farklı.
+
+`FloorStrip.tsx` ve testi silindi. `floors/floorVariants.ts` DURUYOR: kat
+pencereleri (`FloorCopyDialog`, `FloorManagementDialog`, `AddFloorMenu`) hâlâ
+`FLOOR_FOCUS_RING`'i kullanıyor.
+
+### K56 — Görünüm açılırına nesne adı ve oda adı anahtarları
+
+`Nesne adları` (alan nesnesi etiketleri, K50) ve `Oda adları` eklendi. İkisi de
+varsayılan AÇIK: etiketler bugüne kadar hep görünüyordu, anahtar davranışı
+değiştirmiyor — yalnız kapatma imkânı ekliyor.
+
+**Oda adı ve alanı (m²) TEK madde.** İkisi aynı çapaya yazılmış tek yazı öbeği;
+ayrı ayrı gizlemek ortada asılı bir sayı bırakırdı.
+
+⚠️ **Ad DÜZENLEME kutusu anahtardan etkilenmez.** Kullanıcı çift tıklayıp adı
+yazmaya başlamışsa yazdığını görmeli; anahtar yalnız salt-okunur etiketi gizler.
+
+⚠️ **Gizli etiket TUTULAMAZ.** `findAreaObjectLabelAt` de anahtarı okuyor:
+yalnız çizim durdurulsaydı görünmeyen etiketin tutma kutusu yerinde kalır ve
+kullanıcı boşluğa bastığını sanarken hiçbir şey seçilmezdi. Tesisattaki
+`pickElementLabelAt` aynı gerekçeyle `isElementLabelsVisible`'a bakıyor.
+
+Kapsam bugün kolon/baca şaftı/kolon havalandırması (K50 kararı). Kapı, pencere,
+merdiven ve kirişe genişletildiğinde aynı anahtardan yönetilecek.
+
+Nerede: `ui/canvas/FloatingToolbar.tsx` + `ViewOptionsMenu.tsx` +
+`canvasBarVariants.ts` (yeni), `scene/gridSnapMode.ts` (yeni),
+`store/uiStore.ts`, `scene/DrawSurface.tsx`, `scene/useViewportControls.ts`,
+snap çağıran beş hook, `pages/EditorPage.tsx`.
+
+⚠️ **Tarayıcıda DOĞRULANMADI:** oturum düştü ve tarayıcı paneli kare üretmedi.
+Sınanacaklar: çubuğun konumu/görünümü, el modunun sürüklemesi ve imleci, snap
+anahtarının çizime etkisi, açılırın dışarı tıklamayla kapanması.
+
+### K57 — Yüzen çubuk tesisatta da var; görünüme özel parçalar dallanıyor
+
+Çubuk artık iki ÇİZİM görünümünde de mount ediliyor (izometrikte tuval
+etkileşimi yok, orada yok). Ortak kontrollerin çoğu zaten hiçbir değişiklik
+gerektirmedi:
+
+- **Seç** — iki görünümün seçim aracı ayrı sabitlerde ama ikisi de `'selection'`.
+  Yine de sabitler üzerinden okunuyor (`SELECTION_TOOL_ID` /
+  `INSTALLATION_SELECTION_TOOL_ID`): biri değişirse çubuk sessizce şaşmasın.
+- **El** — `DrawSurface` ve `useViewportControls` iki görünümde de mount
+  ediliyor, pan modu zaten ortaktı.
+- **Geri/Yinele, Kat** — `cadStore`, görünümden bağımsız.
+
+**Görünüm menüsünün maddeleri görünüme göre seçiliyor.** Mimaride *Nesne
+adları · Oda adları · Izgara*, tesisatta *Ölçüler · Eleman adları · Izgara*.
+Tesisatın ikisi menü çubuğunda zaten vardı; çubuk onları TUVALE getiriyor,
+durum tek yerde (`uiStore`) kaldığı için iki arayüz aynı bayrağı okuyor ve
+ayrışamıyorlar.
+
+⚠️ **Snap düğmesi tesisata KONMADI.** Tesisatın yakalaması bugün ızgara
+GÖRÜNÜRLÜĞÜNE bağlı (`plumbing/scene/placementSnap.ts:18` →
+`if (!isGridVisible) return planPoint`), yani orada "ızgarayı gizle" aynı
+zamanda "yakalamayı kapat" demek. Mimarinin `isGridSnapEnabled`'ı ise ayrı bir
+anahtar. Aynı düğmenin iki görünümde farklı şey ifade etmesi kötü olurdu;
+hangi anlamın kalacağı tesisat sahibinin kararı (C fayı) ve o gelene kadar
+düğme oraya konmuyor — **görünmeyen düğme, yanlış çalışan düğmeden iyidir**.
+
+Karar verilince yapılacak: `placementSnap` `isGridSnapActive`'e geçer ve
+`FloatingToolbar`'daki `isArchitecture` koşulu kalkar.
+
+Nerede: `ui/canvas/FloatingToolbar.tsx`, `ui/canvas/ViewOptionsMenu.tsx`,
+`pages/EditorPage.tsx`. Testler `ui/__tests__/FloatingToolbar.test.tsx` (yeni).
+
 ## 2026-08 · Aşama 5: Boru ve branşman çizimi
 
 Çok noktalı hat çizimi devrede: sol tık nokta koyar, son noktadan imlece lastik
@@ -3251,6 +3405,45 @@ yazdığını çağrı yerinde okunur kılıyor.
 `AdminSidebar` testi "Yakında" rozetini artık etiketle değil `isComingSoon`
 bayrağıyla arıyor: Evraklar ekranı yazılınca rozeti düştü ve sabitlenmiş etiket
 testi kırdı — sıradaki ekran aynı testi bir daha kırmasın.
+### K63 — Düşey eksen kimliği `AreaObject.axisId` ile geldi; nesne kattan KOPARILMADI
+
+KK-19 kopyalanan baca şaftı ve kolon havalandırmasının "kaynak katla aynı düşey
+eksende" kalmasını istiyor. K39/K40 bu türleri bilinçli olarak kat-başı alan
+nesnesi diye modellemiş ve kat-bağımsız kimliği "gerekirse ayrı karar" diye
+ertelemişti. Karar bu.
+
+**Nesne kattan koparılmadı.** `Riser` gibi kökte yaşayan ayrı bir tip açmak
+yerine `AreaObject`'e opsiyonel `axisId` eklendi. Ayrı tip, alan nesnesinin
+tamamını (tutamaç, etiket, açıklık koruması, kat silme temizliği, grup
+dönüşümü) ikinci bir kod yolunda tekrar yazmak demekti; kazanç yalnız
+"kimlik korunuyor" idi ve bunu tek alan da veriyor.
+
+**`id` bu işi göremez.** Kopya tanım gereği yeni id alır (kural 6), yani "aynı
+baca" bilgisi kopyalamada kaybolurdu. Kopya aynı koordinatta doğduğu için
+geometrik olarak hizalı GÖRÜNÜR — korunan bir kimlik olmadan kat sonradan
+taşınınca bağ sessizce kopar. Kimliğin ayrı bir alan olmasının tek sebebi, id
+ile kopyalamada ZIT yönde davranmak zorunda olması.
+
+**Üç yol, üç davranış:**
+
+- Yeni çizim (`addAreaObjectToDraft`) → kendi eksenini BAŞLATIR. Komşu katta
+  hizalı nesne aranmaz: "yakın duruyor" ile "aynı baca" aynı şey değil,
+  varsayılan bir bağ hata kontrollerinde uydurma hizasızlık uyarısı üretirdi.
+- Kat kopyalama (`cloneFloorArchitecture`) → kimliği KORUR. Eksenin ikinci bir
+  kata uzanabildiği tek yol burası.
+- Ctrl+D çoğaltma (`duplicateSelectionInDraft`) → YENİ eksen. Kopya aynı kata
+  düşüyor; düşey eksen kat başına bir tane, ötelenmiş kopya zaten hizalı değil.
+
+**Opsiyonel kaldı, göç YAZILMADI.** Alanın yokluğu "bilinen bir ekseni yok"
+demek, "ekseni sıfır" değil. Yükleme sırasında geriye dönük doldurmak
+(`axisId = id`) bit-bit turunu bozar: depodaki her çizim ilk açılışta değişmiş
+görünür ve kabul testi kırılır. Sonuç: K63 öncesi çizilmiş baca şaftları
+kopyalandığında eksen kimliği taşımaz — yeniden çizilene kadar KK-19 onlarda
+işlemez. Gerekirse ayrı bir göç kararı.
+
+`nextUniqueId` sayacından geliyor (kural 6) — nesne id'leriyle aynı evrende,
+çakışması yapı gereği imkânsız. Reddedilen yerleştirmede (K35/K36 açıklık
+koruması) kimlik de harcanmaz.
 
 ## 2026-08 · Poliçe Oluşturma sihirbazı
 

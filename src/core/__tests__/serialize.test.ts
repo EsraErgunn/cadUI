@@ -200,3 +200,59 @@ describe('parseProjectJson', () => {
     }
   })
 })
+
+describe('düşey eksen kimliği turu (K63)', () => {
+  const withAxis: ProjectData = {
+    ...emptyProject,
+    nextUniqueId: 40,
+    areaObjects: [
+      {
+        id: 20,
+        type: 'flueShaft',
+        floorId: DEFAULT_FLOOR_ID,
+        x: 200,
+        y: 200,
+        widthCm: 100,
+        lengthCm: 100,
+        angleDeg: 0,
+        label: 'BS-01',
+        axisId: 33,
+      },
+    ],
+  }
+
+  it('eksen kimliğini dosyaya yazar', () => {
+    expect(serializeProjectData(withAxis)).toContain('"label":"BS-01","axisId":33')
+  })
+
+  it('yazılan dosya bit bit aynı okunur', () => {
+    const json = serializeProjectData(withAxis)
+
+    expect(serializeProjectData(parseProjectJson(json))).toBe(json)
+  })
+
+  it('ekseni olmayan nesnede alan dosyaya HİÇ yazılmaz', () => {
+    const withoutAxis: ProjectData = {
+      ...withAxis,
+      areaObjects: [{ ...withAxis.areaObjects[0], type: 'stairs', label: 'M-01', axisId: undefined }],
+    }
+
+    expect(serializeProjectData(withoutAxis)).not.toContain('axisId')
+  })
+
+  it('eksen kimliği OLMAYAN eski dosya açılır ve turu bozulmaz', () => {
+    // K63 öncesi kaydedilmiş çizim: alan yok, eklenmemeli de — yoksa depodaki
+    // her çizim ilk açılışta değişmiş görünürdü.
+    const legacy =
+      '{"nextUniqueId":40,"activeFloorId":1,' +
+      '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
+      '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],' +
+      '"areaObjects":[{"id":20,"type":"flueShaft","floorId":1,"x":200,"y":200,' +
+      '"widthCm":100,"lengthCm":100,"angleDeg":0,"label":"BS-01"}],"beams":[]}'
+
+    const parsed = parseProjectJson(legacy)
+
+    expect(parsed.areaObjects[0].axisId).toBeUndefined()
+    expect(serializeProjectData(parsed)).toBe(legacy)
+  })
+})

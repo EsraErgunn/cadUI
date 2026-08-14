@@ -267,3 +267,56 @@ describe('rotateAreaObject — yakalama anahtarı (K51)', () => {
     expect(findAreaObject(id)?.angleDeg).toBe(330)
   })
 })
+
+describe('addAreaObject — düşey eksen kimliği (KK-19)', () => {
+  it('baca şaftı kendi eksen kimliğiyle doğar', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'flueShaft', x: 100, y: 100 })
+
+    const flueShaft = findAreaObject(id!)
+    expect(flueShaft?.axisId).toBeDefined()
+    // Kimlik id evreninden geliyor (kural 6) ama nesnenin id'si DEĞİL.
+    expect(flueShaft?.axisId).not.toBe(id)
+  })
+
+  it('kolon havalandırması da eksen taşır', () => {
+    const id = useCadStore.getState().addAreaObject({ type: 'columnVentilation', x: 100, y: 100 })
+
+    expect(findAreaObject(id!)?.axisId).toBeDefined()
+  })
+
+  it('merdiven ve kolon eksen TAŞIMAZ', () => {
+    const stairsId = useCadStore.getState().addAreaObject({ type: 'stairs', x: 100, y: 100 })
+    const columnId = useCadStore
+      .getState()
+      .addAreaObject({ type: 'structuralColumn', x: 400, y: 400 })
+
+    expect(findAreaObject(stairsId!)?.axisId).toBeUndefined()
+    expect(findAreaObject(columnId!)?.axisId).toBeUndefined()
+  })
+
+  it('iki ayrı baca şaftı AYRI eksenler başlatır', () => {
+    const first = useCadStore.getState().addAreaObject({ type: 'flueShaft', x: 100, y: 100 })
+    const second = useCadStore.getState().addAreaObject({ type: 'flueShaft', x: 600, y: 600 })
+
+    expect(findAreaObject(first!)?.axisId).not.toBe(findAreaObject(second!)?.axisId)
+  })
+
+  it('reddedilen yerleştirme eksen kimliği HARCAMAZ', () => {
+    // Açıklığın içine düşen nesne reddediliyor (K35/K36) ve id harcanmıyor;
+    // eksen kimliği de aynı sayaçtan geldiği için o da harcanmamalı.
+    const before = useCadStore.getState().nextUniqueId
+
+    useCadStore.setState({
+      points: [
+        { id: 2, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
+        { id: 3, floorId: DEFAULT_FLOOR_ID, x: 500, y: 0 },
+      ],
+      walls: [{ id: 6, floorId: DEFAULT_FLOOR_ID, p1Id: 2, p2Id: 3, thickness: 20, height: 280 }],
+      openings: [{ id: 10, wallId: 6, offsetCm: 250, widthCm: 200, type: 'door' }],
+      nextUniqueId: before,
+    })
+
+    expect(useCadStore.getState().addAreaObject({ type: 'flueShaft', x: 250, y: 0 })).toBeUndefined()
+    expect(useCadStore.getState().nextUniqueId).toBe(before)
+  })
+})
