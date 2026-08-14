@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
+import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
 import { RegulatorProperties } from './properties/RegulatorProperties'
 import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
 import { useCadStore } from '../../store/cadStore'
@@ -66,6 +67,9 @@ export function PlumbingPropertyPanel() {
         {kind.scope === 'element' && kind.elementType === 'serviceBox' && <ServiceBoxProperties />}
         {kind.scope === 'element' && kind.elementType === 'regulator' && (
           <RegulatorProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'line' && kind.lineKind === 'pipe' && (
+          <PipePropertiesPanel lineIds={selectedLineIds} />
         )}
         {/* Diğer eleman/hat türleri kendi adımlarında buraya eklenecek — case
             yoksa yalnız başlık + Sil görünür, placeholder metin YAZILMAZ. */}
