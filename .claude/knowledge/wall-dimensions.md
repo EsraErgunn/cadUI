@@ -1,10 +1,19 @@
 # decision: duvar ölçü etiketleri
 
-Tür: `decision` · 2026-08 · İlgili: K72 (docs/kararlar.md)
+Tür: `decision` · 2026-08 · İlgili: K72, K73 (docs/kararlar.md)
 
 ## Ne ölçülüyor
 
-**Duvarın EKSEN boyu** (p1→p2 uzaklığı), yüz boyu değil. Duvar bir kapsül olarak
+Duvar, üzerindeki açıklıkların kestiği PARÇALARA bölünerek ölçülür (K73):
+kapı/pencerenin iki yanında kalan dolu parçalar + açıklığın kendi genişliği.
+İmalatta ölçülen budur, duvarın toplam boyu değil. Açıklığın etiketi FARKLI
+renkte (mor) — aynı hizada yan yana duran sayıların hangisinin boşluk olduğu
+konumdan okunamıyordu.
+
+Bölme yalnız GÖSTERİM içindir: modelde açıklık duvarı bölmez, tek parça duvarın
+üstünde bir deliktir (opening-placement.md).
+
+Her parçanın uzunluğu **EKSEN üzerinden** ölçülür, yüz boyu değil. Duvar bir kapsül olarak
 çiziliyor (bkz. capsule-walls.md) ve kavşakta komşusuyla iç içe giriyor: "yüz
 boyu" için önce hangi komşunun nereden kestiğini çözmek gerekirdi ve iki komşu
 duvar farklı kalınlıktayken aynı duvarın iki yüzü farklı sayı verirdi.
@@ -58,3 +67,15 @@ habersiz kalır — noktalar parametre olarak girer.
   Sıra değişirse yazı düzlemden kalkar.
 - Biçimleyici `core/lengthFormat.ts`'te ve tesisatla ORTAK; `core/coords.ts`'teki
   `formatLengthAsMeters` nokta ondalık üretiyor, tuvalde kullanılmaz.
+- React anahtarı `wallId` DEĞİL (K73): bir duvar birden çok etiket üretiyor.
+  `annotation.key` kullanılır — `wall-<duvarId>-<sıra>` / `opening-<açıklıkId>`.
+- Taşan açıklık span'i duvar boyuna kelepçelenir: duvar kısalınca sığmayan
+  açıklık siliniyor (K16) ama silinme ile yeniden çizim arasındaki karede taşan
+  span gelebilir, ölçü negatife düşmemeli.
+
+## Bilinen sınır
+
+İki komşu duvarın uçlarındaki kısa parçalar (20–25 cm) aynı noktada buluştuğunda
+etiketleri üst üste biniyor. Ekranda doğrulandı, bilinçli olarak bırakıldı: ekran
+boyuna göre eleyen bir eşik çözerdi ama kullanıcının görmek isteyebileceği sayıyı
+gizlerdi. Karar verilmeden eklenmesin.

@@ -32,6 +32,14 @@ export const ARCHITECTURE_COLORS = {
   areaObjectFill: '#4e5661',
   areaObjectFillOpacity: 0.12,
   /**
+   * Açıklık GENİŞLİĞİNİN ölçü yazısı. Duvar parçalarının ölçüsü duvar renginde
+   * yazılıyor; açıklığınki aynı hizada yan yana duruyor ve hangisinin boşluk
+   * olduğu yalnız konumdan okunamıyor. Mor seçildi çünkü tuvalde boş kalan tek
+   * anlamlı hue: sarı gaz hattının (K27), mavi seçimin, yeşil yakalama
+   * işaretinin, kırmızı ise reddedilen yerleştirmenin rengi.
+   */
+  openingDimension: '#7a5ba6',
+  /**
    * Alt kat gölgesi (KK-13). Duvar renginden belirgin biçimde soluk: hizalama
    * referansı okunabilmeli ama aktif katın duvarıyla karıştırılmamalı.
    */
