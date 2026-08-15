@@ -36,3 +36,15 @@ export type GasMeterProperties = {
   isAccessible247: boolean
   hasCorrector: boolean
 }
+
+/**
+ * tesisat_eleman.md'de "Kit" kelimesinden sonra net okunamayan bir kelime var
+ * ("konik" gibi görünüyor). Kullanıcı onayıyla (2026-08) bu kelime GÖRMEZDEN
+ * GELİNDİ — `kit` TEK serbest metin alanı, ayrı bir "kit tipi" alanı YOK.
+ */
+export type FilterKitProperties = {
+  kit: string
+  brand: string
+  model: string
+  description: string
+}

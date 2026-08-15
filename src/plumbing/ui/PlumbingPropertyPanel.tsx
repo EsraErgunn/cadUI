@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 
 import { BranchPropertiesPanel } from './properties/BranchPropertiesPanel'
 import { ChimneyPropertiesPanel } from './properties/ChimneyPropertiesPanel'
+import { FilterKitProperties } from './properties/FilterKitProperties'
 import { GasMeterProperties } from './properties/GasMeterProperties'
 import { InsulationProperties } from './properties/InsulationProperties'
 import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
@@ -77,6 +78,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'gasMeter' && (
           <GasMeterProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'filterKit' && (
+          <FilterKitProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />
