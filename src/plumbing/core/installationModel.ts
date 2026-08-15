@@ -1,3 +1,24 @@
+import type {
+  BoilerProperties,
+  CombiBoilerProperties,
+  FilterKitProperties,
+  GasMeterProperties,
+  InsulationProperties,
+  OtherApplianceProperties,
+  RegulatorProperties,
+  SolenoidValveProperties,
+  SpaceHeaterProperties,
+  StoveProperties,
+  StrainerMeterProperties,
+  ValveProperties,
+  WaterHeaterProperties,
+} from './elementProperties'
+import type {
+  BranchLineProperties,
+  ChimneyLineProperties,
+  PipeLineProperties,
+  VentilationDuctLineProperties,
+} from './lineProperties'
 import type { PipeTypeName } from './pipeTypes'
 import type { InstallationElementType } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
@@ -22,6 +43,24 @@ export type InstallationElement = {
    * Hesabın tek sahibi core/elementLabel.ts.
    */
   labelOffsetCm?: PlanPoint
+  /**
+   * Özellik paneli alanları — TÜRÜNE göre en fazla biri dolu olur (`type`
+   * hangisi olduğunu zaten söylüyor). Her tür kendi opsiyonel alanını alır,
+   * bkz. elementProperties.ts.
+   */
+  regulator?: RegulatorProperties
+  insulation?: InsulationProperties
+  gasMeter?: GasMeterProperties
+  filterKit?: FilterKitProperties
+  valve?: ValveProperties
+  strainerMeter?: StrainerMeterProperties
+  solenoidValve?: SolenoidValveProperties
+  stove?: StoveProperties
+  spaceHeater?: SpaceHeaterProperties
+  combiBoiler?: CombiBoilerProperties
+  waterHeater?: WaterHeaterProperties
+  boiler?: BoilerProperties
+  otherAppliance?: OtherApplianceProperties
 }
 
 export type InstallationLineKind =
@@ -134,4 +173,12 @@ export type InstallationLine = {
   /** Sıralı köşe listesi; en az 2 nokta. */
   points: InstallationLinePoint[]
   segments: InstallationLineSegment[]
+  /**
+   * Özellik paneli alanları — TÜRÜNE göre en fazla biri dolu olur (`kind`
+   * hangisi olduğunu zaten söylüyor). Bkz. lineProperties.ts.
+   */
+  pipe?: PipeLineProperties
+  chimney?: ChimneyLineProperties
+  branch?: BranchLineProperties
+  ventilationDuct?: VentilationDuctLineProperties
 }

@@ -16,6 +16,15 @@ export function hasEnoughPoints(points: readonly PlanPoint[]): boolean {
   return points.length >= MIN_LINE_POINT_COUNT
 }
 
+/** Hattın toplam boyu — ardışık köşeler arası uzunlukların toplamı. */
+export function getLineLengthCm(points: readonly PlanPoint[]): number {
+  let totalCm = 0
+  for (let index = 1; index < points.length; index += 1) {
+    totalCm += getSegmentLengthCm(points[index - 1], points[index])
+  }
+  return totalCm
+}
+
 /** Ölçü etiketinin çapası: bölümün dünya orta noktası (ekran koordinatı saklanmaz, R9). */
 export function getSegmentMidpoint(from: PlanPoint, to: PlanPoint): PlanPoint {
   return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
