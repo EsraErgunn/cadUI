@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-
 import { DEFAULT_FLOOR_HEIGHT_CM } from './model'
 import type {
   AreaObject,
@@ -13,6 +12,14 @@ import type {
   Room,
   Wall,
 } from './model'
+import {
+  installationConnectionSchema,
+  installationElementSchema,
+  installationLineSchema,
+  toInstallationConnectionJson,
+  toInstallationElementJson,
+  toInstallationLineJson,
+} from '../plumbing/core/plumbingSerialize'
 
 
 /**
@@ -173,6 +180,11 @@ export const projectDataSchema = z.object({
   symbols: z.array(pointSymbolSchema).default([]),
   areaObjects: z.array(areaObjectSchema).default([]),
   beams: z.array(beamSchema).default([]),
+  // Tesisat üçlüsü de SONRADAN eklendi (aynı gerekçe): depodaki hiçbir çizimde
+  // henüz yok, zorunlu tutulursa hiçbiri açılmaz.
+  installationElements: z.array(installationElementSchema).default([]),
+  installationLines: z.array(installationLineSchema).default([]),
+  installationConnections: z.array(installationConnectionSchema).default([]),
 })
 
 export class ProjectDataParseError extends Error {
@@ -231,6 +243,9 @@ export function serializeProjectData(data: ProjectData): string {
     symbols: data.symbols.map(toPointSymbolJson),
     areaObjects: data.areaObjects.map(toAreaObjectJson),
     beams: data.beams.map(toBeamJson),
+    installationElements: data.installationElements.map(toInstallationElementJson),
+    installationLines: data.installationLines.map(toInstallationLineJson),
+    installationConnections: data.installationConnections.map(toInstallationConnectionJson),
   })
 }
 

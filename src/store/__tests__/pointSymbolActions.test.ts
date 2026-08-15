@@ -203,6 +203,9 @@ describe('kalıcılık', () => {
       symbols: saved,
       areaObjects: [],
       beams: [],
+      installationElements: [],
+      installationLines: [],
+      installationConnections: [],
     }
     useCadStore.getState().resetProject()
     expect(useCadStore.getState().symbols).toHaveLength(0)

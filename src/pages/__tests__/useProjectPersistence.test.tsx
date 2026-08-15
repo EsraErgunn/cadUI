@@ -36,6 +36,9 @@ function projectWithWall(): ProjectData {
     symbols: [],
     areaObjects: [],
     beams: [],
+    installationElements: [],
+    installationLines: [],
+    installationConnections: [],
   }
 }
 

@@ -15,6 +15,9 @@ const emptyProject: ProjectData = {
   symbols: [],
   areaObjects: [],
   beams: [],
+  installationElements: [],
+  installationLines: [],
+  installationConnections: [],
 }
 
 describe('serializeProjectData', () => {
@@ -24,7 +27,8 @@ describe('serializeProjectData', () => {
       '{"nextUniqueId":2,"activeFloorId":1,' +
         '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
         '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],"areaObjects":[],' +
-        '"beams":[]}',
+        '"beams":[],"installationElements":[],"installationLines":[],' +
+        '"installationConnections":[]}',
 
     )
   })
@@ -42,6 +46,20 @@ describe('serializeProjectData', () => {
     expect(parsed.symbols).toEqual([])
     expect(parsed.areaObjects).toEqual([])
     expect(parsed.beams).toEqual([])
+  })
+
+  it('tesisat üçlüsü OLMAYAN eski dosyayı açar', () => {
+    // Bugüne kadarki hiçbir kayıtta tesisat yok (kaydetme bu sürümle geldi).
+    // Zorunlu tutulursa depodaki HER çizim hiç açılmaz.
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[]}'
+
+    const parsed = parseProjectJson(legacy)
+
+    expect(parsed.installationElements).toEqual([])
+    expect(parsed.installationLines).toEqual([])
+    expect(parsed.installationConnections).toEqual([])
   })
 
   it('eski dosya bir kez kaydedilince alanlar dosyaya yazılır', () => {
@@ -248,7 +266,8 @@ describe('düşey eksen kimliği turu (K63)', () => {
       '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
       '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],' +
       '"areaObjects":[{"id":20,"type":"flueShaft","floorId":1,"x":200,"y":200,' +
-      '"widthCm":100,"lengthCm":100,"angleDeg":0,"label":"BS-01"}],"beams":[]}'
+      '"widthCm":100,"lengthCm":100,"angleDeg":0,"label":"BS-01"}],"beams":[],' +
+      '"installationElements":[],"installationLines":[],"installationConnections":[]}'
 
     const parsed = parseProjectJson(legacy)
 

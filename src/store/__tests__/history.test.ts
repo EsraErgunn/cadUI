@@ -104,6 +104,9 @@ describe('geri al / yinele', () => {
       symbols: [],
       areaObjects: [],
       beams: [],
+      installationElements: [],
+      installationLines: [],
+      installationConnections: [],
     })
 
     expect(temporal().pastStates).toHaveLength(0)
