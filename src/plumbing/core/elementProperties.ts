@@ -11,3 +11,14 @@ export type RegulatorProperties = {
   pressure: string
   description: string
 }
+
+/**
+ * `groundingType` yalnız `isGrounded` true iken panelde GÖSTERİLİR (koşullu
+ * render, bkz. InsulationProperties.tsx) — ama modelde her zaman tutulur,
+ * kapatılıp açılınca önceki değer kaybolmasın diye.
+ */
+export type InsulationProperties = {
+  isGrounded: boolean
+  groundingType: string
+  description: string
+}

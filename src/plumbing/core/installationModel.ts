@@ -1,4 +1,4 @@
-import type { RegulatorProperties } from './elementProperties'
+import type { InsulationProperties, RegulatorProperties } from './elementProperties'
 import type { BranchLineProperties, ChimneyLineProperties, PipeLineProperties } from './lineProperties'
 import type { PipeTypeName } from './pipeTypes'
 import type { InstallationElementType } from './symbolMetadata'
@@ -30,6 +30,7 @@ export type InstallationElement = {
    * bkz. elementProperties.ts.
    */
   regulator?: RegulatorProperties
+  insulation?: InsulationProperties
 }
 
 export type InstallationLineKind =

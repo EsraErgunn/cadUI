@@ -73,3 +73,11 @@ export function getCommonString(values: readonly string[]): string | undefined {
   const [first] = values
   return values.every((value) => value === first) ? first : undefined
 }
+
+/** `getCommonString` ile aynı gerekçe, `PropertyCheckboxField`in `checked` alanı için. */
+export function getCommonBoolean(values: readonly boolean[]): boolean | undefined {
+  if (values.length === 0) return undefined
+
+  const [first] = values
+  return values.every((value) => value === first) ? first : undefined
+}
