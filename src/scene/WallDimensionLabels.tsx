@@ -4,11 +4,14 @@ import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useCameraZoom } from './useCameraZoom'
-import { planToThree } from '../core/coords'
+import { planToThree, type PlanPoint } from '../core/coords'
 import { formatLengthMeters } from '../core/lengthFormat'
 import type { Id } from '../core/model'
 import { getWallsAtPoint } from '../core/wall'
-import { getWallDimensionAnnotations } from '../core/wallDimensions'
+import {
+  getWallDimensionAnnotations,
+  type WallDimensionAnnotation,
+} from '../core/wallDimensions'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -25,6 +28,10 @@ const DEG_TO_RAD = Math.PI / 180
 const LABEL_SIZE_PX = 11
 /** Yazı ile duvar yüzü arasındaki ekran boşluğu. */
 const LABEL_GAP_PX = 9
+/** İç ve dış ölçü satırlarının arası (ekran pikseli). */
+const LABEL_ROW_GAP_PX = 12
+/** Bundan kısa bir iç ölçü yazılmaz: köşeler duvarı tümüyle yutmuştur. */
+const MIN_LABELED_LENGTH_CM = 1
 
 /** Ölçü yazısı tıklanmaz; duvar tutması saf geometriyle yapılıyor. */
 const NO_RAYCAST = () => null
@@ -53,6 +60,7 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
   const zoom = useCameraZoom()
   const draggingPointId = useArchitectureUiStore((state) => state.draggingPoint?.pointId)
   const draggingWallIds = useArchitectureUiStore((state) => state.draggingWall?.wallIds)
+  const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
 
   const annotations = getWallDimensionAnnotations(walls, points, openings, {
     activeFloorId,
@@ -64,29 +72,88 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
 
   return (
     <group name="wall-dimension-labels">
-      {annotations.map((annotation) => (
-        <Text
-          key={annotation.key}
-          font={FONT_URL}
-          position={planToThree(annotation.position, HANDLE_ELEVATION_CM)}
-          // Z ekseni etrafındaki dönüş yazıyı duvara PARALEL tutar; yatırma
-          // (X) önce uygulanıyor, sıra değişirse yazı düzlemden kalkar.
-          rotation={[FLAT_ROTATION_X, 0, annotation.angleDeg * DEG_TO_RAD]}
-          fontSize={LABEL_SIZE_PX / zoom}
-          color={
-            annotation.kind === 'opening'
-              ? ARCHITECTURE_COLORS.openingDimension
-              : ARCHITECTURE_COLORS.wall
-          }
-          anchorX="center"
-          anchorY="middle"
-          renderOrder={RENDER_ORDER.measurement}
-          raycast={NO_RAYCAST}
-        >
-          {formatLengthMeters(annotation.lengthCm)}
-        </Text>
-      ))}
+      {annotations
+        .filter((annotation) => annotation.kind === 'wall' || isOpeningDimensionsVisible)
+        .flatMap((annotation) =>
+          getLabelRows(annotation, LABEL_ROW_GAP_PX / zoom).map((row) => (
+            <DimensionText key={row.key} row={row} kind={annotation.kind} zoom={zoom} />
+          )),
+        )}
     </group>
+  )
+}
+
+type LabelRow = {
+  key: string
+  position: PlanPoint
+  angleDeg: number
+  lengthCm: number
+}
+
+/**
+ * Bir parçanın yazılacak satırları. İç ve dış ölçü eşitse (serbest uçlu duvar,
+ * ya da iki açıklık arasında kalan parça) TEK satır çıkar — aynı sayıyı iki kez
+ * yazmak kullanıcıya "bunlar farklı" der ve yalan söylerdi.
+ *
+ * İki satır varsa içteki duvara YAKIN, dıştaki bir tık uzak durur: hangi sayının
+ * hangisi olduğunu söyleyen tek ipucu bu, çünkü duvarın fiziksel olarak hangi
+ * yanının "içerisi" olduğunu bilmiyoruz (K72 — dış taraf yalnız kapalı oda
+ * çevriminde tanımlı).
+ */
+function getLabelRows(annotation: WallDimensionAnnotation, rowGapCm: number): LabelRow[] {
+  const inner: LabelRow = {
+    key: `${annotation.key}-inner`,
+    position: annotation.position,
+    angleDeg: annotation.angleDeg,
+    lengthCm: annotation.innerLengthCm,
+  }
+
+  if (annotation.outerLengthCm - annotation.innerLengthCm < MIN_LABELED_LENGTH_CM) {
+    return [inner]
+  }
+
+  // Satır kayması etiketin durduğu YANIN yönünde: o yan `angleDeg`in sol
+  // normali (core aynı yönü kullanıyor, ikisi ayrışırsa dış satır duvarın
+  // öbür tarafına düşer).
+  const angleRad = annotation.angleDeg * DEG_TO_RAD
+  const outer: LabelRow = {
+    key: `${annotation.key}-outer`,
+    position: {
+      x: annotation.position.x - Math.sin(angleRad) * rowGapCm,
+      y: annotation.position.y + Math.cos(angleRad) * rowGapCm,
+    },
+    angleDeg: annotation.angleDeg,
+    lengthCm: annotation.outerLengthCm,
+  }
+
+  return annotation.innerLengthCm < MIN_LABELED_LENGTH_CM ? [outer] : [inner, outer]
+}
+
+function DimensionText({
+  row,
+  kind,
+  zoom,
+}: {
+  row: LabelRow
+  kind: WallDimensionAnnotation['kind']
+  zoom: number
+}) {
+  return (
+    <Text
+      font={FONT_URL}
+      position={planToThree(row.position, HANDLE_ELEVATION_CM)}
+      // Z ekseni etrafındaki dönüş yazıyı duvara PARALEL tutar; yatırma
+      // (X) önce uygulanıyor, sıra değişirse yazı düzlemden kalkar.
+      rotation={[FLAT_ROTATION_X, 0, row.angleDeg * DEG_TO_RAD]}
+      fontSize={LABEL_SIZE_PX / zoom}
+      color={kind === 'opening' ? ARCHITECTURE_COLORS.openingDimension : ARCHITECTURE_COLORS.wall}
+      anchorX="center"
+      anchorY="middle"
+      renderOrder={RENDER_ORDER.measurement}
+      raycast={NO_RAYCAST}
+    >
+      {formatLengthMeters(row.lengthCm)}
+    </Text>
   )
 }
 

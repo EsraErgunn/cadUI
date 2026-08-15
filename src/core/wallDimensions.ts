@@ -1,7 +1,12 @@
 import { normalizeZero, type PlanPoint } from './coords'
 import type { Id, Opening, Point, Wall } from './model'
 import { getOpeningsOnWall, getOpeningSpan } from './opening'
-import { getSegmentAngleDeg, getSegmentLength, getWallEnds } from './wall'
+import {
+  getNeighbourThicknessCm,
+  getSegmentAngleDeg,
+  getSegmentLength,
+  getWallEnds,
+} from './wall'
 
 /** Bu boyun altındaki parçaya ölçü yazılmaz: yazı parçadan uzun olurdu. */
 const MIN_LABELED_LENGTH_CM = 1
@@ -25,7 +30,16 @@ export type WallDimensionAnnotation = {
   position: PlanPoint
   /** Yazının plan düzlemindeki dönüşü (derece), (-90, 90] aralığında. */
   angleDeg: number
-  lengthCm: number
+  /**
+   * İÇTEN ölçü: köşedeki dik duvarların kütlesi düşülmüş, yani odanın içinde
+   * kalan net açıklık. Açıklık parçasında genişliğin kendisi.
+   */
+  innerLengthCm: number
+  /**
+   * DIŞTAN ölçü: köşedeki dik duvarların dış yüzünden dış yüzüne. Serbest uçta
+   * (komşusu olmayan) ikisi eşit çıkar ve çağıran tek sayı yazar.
+   */
+  outerLengthCm: number
 }
 
 export type WallDimensionOptions = {
@@ -147,8 +161,23 @@ export function getWallDimensionAnnotations(
     const offsetCm = wall.thickness / 2 + options.gapCm
     const angleDeg = isReadable ? rawAngleDeg : getSegmentAngleDeg(ends.p2, ends.p1)
 
+    // Köşedeki dik duvarın ekseni köşe noktasında duruyor, yani kütlesi bu
+    // duvarın boyunu iki yönde de kalınlığının YARISI kadar etkiliyor: içeride
+    // o kadarını yer, dışarıda o kadar uzatır. Açıklığın köşe payı (K11) aynı
+    // komşuyu TAM kalınlıkla sayar — o bilinçli olarak temkinli bir paydır,
+    // buradaki ise gerçek geometri.
+    const p1TrimCm = getNeighbourThicknessCm(wall, wall.p1Id, walls) / 2
+    const p2TrimCm = getNeighbourThicknessCm(wall, wall.p2Id, walls) / 2
+
     for (const part of getDimensionParts(wall, openings, lengthCm)) {
       const midCm = (part.startCm + part.endCm) / 2
+      const partLengthCm = part.endCm - part.startCm
+      // Köşe payı yalnız duvarın UCUNA dayanan parçayı ilgilendirir: iki
+      // açıklık arasında kalan parçanın komşusu yok, iç ve dış ölçüsü aynıdır.
+      const trimCm =
+        part.kind === 'opening'
+          ? 0
+          : (part.startCm === 0 ? p1TrimCm : 0) + (part.endCm === lengthCm ? p2TrimCm : 0)
 
       annotations.push({
         key: part.key,
@@ -159,7 +188,11 @@ export function getWallDimensionAnnotations(
           y: normalizeZero(ends.p1.y + axis.y * midCm + normal.y * offsetCm),
         },
         angleDeg,
-        lengthCm: part.endCm - part.startCm,
+        // İçten ölçü sıfıra düşebilir (iki kalın duvar arasında kalan kısa
+        // parça); negatif bir uzunluk yazmak yerine sıfırda durur, çağıran
+        // MIN_LABELED_LENGTH_CM altındakini zaten yazmaz.
+        innerLengthCm: Math.max(partLengthCm - trimCm, 0),
+        outerLengthCm: partLengthCm + trimCm,
       })
     }
   }

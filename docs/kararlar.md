@@ -3752,3 +3752,38 @@ Duvar parçaları `wall-<duvarId>-<sıra>`, açıklıklar `opening-<açıklıkId
 noktada buluştuğunda etiketleri üst üste biniyor. Ekranda doğrulandı. Ölçü
 yazısını ekran boyuna göre eleyen bir eşik çözerdi ama bu, kullanıcının görmek
 isteyebileceği sayıyı gizlemek demek — karar verilmeden eklenmedi.
+
+### K74 — Duvar ölçüsü İÇTEN ve DIŞTAN yazılır; açıklık ölçüsünün ayrı anahtarı var
+
+**Neden iki sayı:** bir odanın içten ölçüsü, köşedeki dik duvarların kütlesi
+yüzünden dıştan ölçüsünden kısa. K72/K73 yalnız EKSEN boyunu yazıyordu; bu
+ikisinin ortasında duran, sahada hiçbir yere karşılık gelmeyen bir sayı.
+
+Komşu duvarın ekseni köşe noktasında durduğu için etkisi kalınlığının YARISI
+kadar: içeride o kadarını yer, dışarıda o kadar uzatır. Yani
+`içten = eksen − Σ(komşu kalınlığı / 2)`, `dıştan = eksen + Σ(...)`.
+Hesap `getNeighbourThicknessCm`'i yeniden kullanıyor — açıklığın köşe payı da
+(K11) aynı fonksiyonu okuyor ama TAM kalınlıkla: o bilinçli olarak temkinli bir
+pay, buradaki ise gerçek geometri. İkisini karıştırma.
+
+Bu, K72'nin "dışarısı hesaplanmıyor" kararını BOZMUYOR. Hâlâ duvarın hangi
+fiziksel yanının oda içi olduğunu bilmiyoruz (o ancak kapalı çevrimde tanımlı);
+hesaplanan şey yön değil, iki UZUNLUK. Etiketin düştüğü yan eskisi gibi
+geometriden geliyor.
+
+**Gösterim:** iki satır, içteki duvara yakın, dıştaki bir tık uzak. Hangi
+sayının hangisi olduğunu söyleyen tek ipucu bu — sayının yanına "iç/dış" yazmak
+etiketi iki katına çıkarır ve zaten kalabalık olan planı boğardı.
+
+İki değer eşitse TEK satır yazılır: serbest uçlu duvarda, ya da iki açıklık
+arasında kalan parçada komşu yok. Aynı sayıyı iki kez yazmak kullanıcıya
+"bunlar farklı" der ve yalan söylerdi. İçten ölçü sıfıra düşerse (iki kalın
+duvar arasındaki kısa parça) yalnız dıştan yazılır; negatif uzunluk yazılmaz.
+
+**Açıklık ölçüsünün ayrı anahtarı** (`uiStore.isOpeningDimensionsVisible`,
+Görünüm ▸ Kapı/pencere ölçüleri): açıklıklı bir duvarda sayı adedi ikiye
+katlanıyor ve kullanıcı çoğu zaman yalnız dolu parçaların boyunu okumak istiyor.
+Varsayılan AÇIK — yeni anahtar var olan davranışı değiştirmemeli, yalnız kapatma
+imkânı ekliyor. "Ölçüler" kapalıyken madde PASİF görünür ama listeden KALKMAZ:
+kalksaydı "böyle bir seçenek yok" derdi. Anahtar yalnız mimaride; tesisatta
+açıklık diye bir şey yok.

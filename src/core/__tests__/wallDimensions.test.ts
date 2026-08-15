@@ -27,11 +27,22 @@ const EXPECTED_OFFSET_CM = THICKNESS_CM / 2 + GAP_CM
 
 const OPTIONS = { activeFloorId: FLOOR_ID, gapCm: GAP_CM }
 
+/** 10 ucundan 40 cm ötede bir köşe: iki kalın komşu arasında kalan kısa duvar için. */
+const SHORT_POINTS: Point[] = [...POINTS, { id: 13, floorId: FLOOR_ID, x: 40, y: 0 }]
+
+const OPENING_IN_MIDDLE: Opening = {
+  id: 30,
+  wallId: 20,
+  offsetCm: 200,
+  widthCm: 100,
+  type: 'window',
+}
+
 describe('getWallDimensionAnnotations', () => {
   it('yatay duvarın ölçüsünü ekseninin dikinde konumlandırır', () => {
     const [annotation] = getWallDimensionAnnotations([makeWall(20, 10, 11)], POINTS, NO_OPENINGS, OPTIONS)
 
-    expect(annotation?.lengthCm).toBe(400)
+    expect(annotation?.innerLengthCm).toBe(400)
     expect(annotation?.angleDeg).toBe(0)
     // Orta nokta (200, 0), sol normal +y yönünde.
     expect(annotation?.position).toEqual({ x: 200, y: EXPECTED_OFFSET_CM })
@@ -42,7 +53,7 @@ describe('getWallDimensionAnnotations', () => {
 
     const [annotation] = getWallDimensionAnnotations([thickWall], POINTS, NO_OPENINGS, OPTIONS)
 
-    expect(annotation?.lengthCm).toBe(400)
+    expect(annotation?.innerLengthCm).toBe(400)
     // Kaydırma kalınlıkla büyür: yazı kalın duvarın yüzüne binmesin.
     expect(annotation?.position.y).toBe(60 / 2 + GAP_CM)
   })
@@ -64,7 +75,7 @@ describe('getWallDimensionAnnotations', () => {
     const [annotation] = getWallDimensionAnnotations([makeWall(22, 10, 12)], POINTS, NO_OPENINGS, OPTIONS)
 
     expect(annotation?.angleDeg).toBe(90)
-    expect(annotation?.lengthCm).toBe(300)
+    expect(annotation?.innerLengthCm).toBe(300)
     // Sol normal (-1, 0): dikey duvarın yazısı soluna düşer.
     expect(annotation?.position).toEqual({ x: -EXPECTED_OFFSET_CM, y: 150 })
   })
@@ -123,7 +134,7 @@ describe('getWallDimensionAnnotations', () => {
       OPTIONS,
     )
 
-    expect(annotation?.lengthCm).toBe(500)
+    expect(annotation?.innerLengthCm).toBe(500)
   })
 })
 
@@ -143,7 +154,7 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
       OPTIONS,
     )
 
-    expect(annotations.map((item) => [item.kind, item.lengthCm])).toEqual([
+    expect(annotations.map((item) => [item.kind, item.innerLengthCm])).toEqual([
       ['wall', 150],
       ['opening', 100],
       ['wall', 150],
@@ -177,7 +188,7 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
       OPTIONS,
     )
 
-    expect(annotations.map((item) => [item.kind, item.lengthCm])).toEqual([
+    expect(annotations.map((item) => [item.kind, item.innerLengthCm])).toEqual([
       ['wall', 80],
       ['opening', 40],
       ['wall', 160],
@@ -195,7 +206,7 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
       OPTIONS,
     )
 
-    expect(annotations.map((item) => [item.kind, item.lengthCm])).toEqual([
+    expect(annotations.map((item) => [item.kind, item.innerLengthCm])).toEqual([
       ['opening', 100],
       ['wall', 300],
     ])
@@ -206,7 +217,7 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
 
     const annotations = getWallDimensionAnnotations([WALL], POINTS, [otherWallOpening], OPTIONS)
 
-    expect(annotations.map((item) => [item.kind, item.lengthCm])).toEqual([['wall', 400]])
+    expect(annotations.map((item) => [item.kind, item.innerLengthCm])).toEqual([['wall', 400]])
   })
 
   it('duvardan taşan açıklığı duvar boyuna kelepçeler', () => {
@@ -219,7 +230,7 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
       OPTIONS,
     )
 
-    expect(annotations.map((item) => [item.kind, item.lengthCm])).toEqual([
+    expect(annotations.map((item) => [item.kind, item.innerLengthCm])).toEqual([
       ['wall', 340],
       ['opening', 60],
     ])
@@ -235,5 +246,77 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
 
     const keys = annotations.map((item) => item.key)
     expect(new Set(keys).size).toBe(keys.length)
+  })
+})
+
+describe('getWallDimensionAnnotations — içten / dıştan ölçü', () => {
+  // 400 cm yatay duvar (10→11). İki ucunda da dik komşu var: 10'da kalın (60),
+  // 11'de ince (20). Komşunun ekseni köşede durduğu için etkisi kalınlığının
+  // YARISI kadar: içeride yer kaplar, dışarıda uzatır.
+  const MAIN = makeWall(20, 10, 11)
+  const thickNeighbour = { ...makeWall(21, 10, 12), thickness: 60 }
+  const thinNeighbour = { ...makeWall(22, 11, 12), thickness: 20 }
+
+  it('iki ucu komşulu duvarda iç ölçü kısa, dış ölçü uzun', () => {
+    const walls = [MAIN, thickNeighbour, thinNeighbour]
+
+    const [annotation] = getWallDimensionAnnotations(walls, POINTS, NO_OPENINGS, {
+      ...OPTIONS,
+      wallIds: [MAIN.id],
+    })
+
+    // 400 − (30 + 10) = 360, 400 + (30 + 10) = 440
+    expect(annotation?.innerLengthCm).toBe(360)
+    expect(annotation?.outerLengthCm).toBe(440)
+  })
+
+  it('serbest uçlu duvarda iç ve dış ölçü EŞİT — çağıran tek satır yazsın', () => {
+    const [annotation] = getWallDimensionAnnotations([MAIN], POINTS, NO_OPENINGS, OPTIONS)
+
+    expect(annotation?.innerLengthCm).toBe(400)
+    expect(annotation?.outerLengthCm).toBe(400)
+  })
+
+  it('tek ucu komşulu duvarda pay yalnız o uçtan düşer', () => {
+    const walls = [MAIN, thickNeighbour]
+
+    const [annotation] = getWallDimensionAnnotations(walls, POINTS, NO_OPENINGS, {
+      ...OPTIONS,
+      wallIds: [MAIN.id],
+    })
+
+    expect(annotation?.innerLengthCm).toBe(370)
+    expect(annotation?.outerLengthCm).toBe(430)
+  })
+
+  it('köşe payı yalnız UCA dayanan parçaya uygulanır', () => {
+    // Ortada 100 cm pencere → parçalar 150 | 100 | 150. İlk parça 10 ucuna,
+    // son parça 11 ucuna dayanıyor; açıklığın komşusu yok.
+    const walls = [MAIN, thickNeighbour, thinNeighbour]
+
+    const annotations = getWallDimensionAnnotations(walls, POINTS, [OPENING_IN_MIDDLE], {
+      ...OPTIONS,
+      wallIds: [MAIN.id],
+    })
+
+    expect(annotations.map((item) => [item.innerLengthCm, item.outerLengthCm])).toEqual([
+      [120, 180],
+      [100, 100],
+      [140, 160],
+    ])
+  })
+
+  it('köşeler duvarı yutarsa iç ölçü NEGATİFE düşmez', () => {
+    // 40 cm'lik kısa duvarın iki ucunda da 60 kalınlığında komşu: 40 − 60 < 0.
+    const shortWall = makeWall(23, 10, 13)
+    const walls = [shortWall, thickNeighbour, { ...makeWall(24, 13, 12), thickness: 60 }]
+
+    const [annotation] = getWallDimensionAnnotations(walls, SHORT_POINTS, NO_OPENINGS, {
+      ...OPTIONS,
+      wallIds: [shortWall.id],
+    })
+
+    expect(annotation?.innerLengthCm).toBe(0)
+    expect(annotation?.outerLengthCm).toBe(100)
   })
 })

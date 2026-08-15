@@ -8,6 +8,8 @@ export type ViewOption = {
   id: string
   label: string
   isChecked: boolean
+  /** Üst anahtarı kapalı olan madde: listede DURUR ama tıklanamaz. */
+  isDisabled?: boolean
   onToggle: () => void
 }
 
@@ -29,6 +31,10 @@ export function ViewOptionsMenu() {
   const toggleRoomNamesVisible = useUiStore((state) => state.toggleRoomNamesVisible)
   const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
   const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
+  const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
+  const toggleOpeningDimensionsVisible = useUiStore(
+    (state) => state.toggleOpeningDimensionsVisible,
+  )
   const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
   const toggleElementLabelsVisible = useUiStore((state) => state.toggleElementLabelsVisible)
   const activeViewId = useUiStore((state) => state.activeViewId)
@@ -78,6 +84,16 @@ export function ViewOptionsMenu() {
 
   const architectureOptions: ViewOption[] = [
     dimensionsOption,
+    {
+      // Yalnız MİMARİDE: tesisatta açıklık diye bir şey yok. Ölçüler kapalıyken
+      // pasif görünür — tek başına bir şey yapmıyor, ama listeden kalkması
+      // "böyle bir seçenek yok" derdi.
+      id: 'openingDimensions',
+      label: 'Kapı/pencere ölçüleri',
+      isChecked: isOpeningDimensionsVisible,
+      isDisabled: !isDimensionsVisible,
+      onToggle: toggleOpeningDimensionsVisible,
+    },
     {
       id: 'areaObjectNames',
       label: 'Nesne adları',
@@ -138,6 +154,7 @@ export function ViewOptionsMenu() {
               type="button"
               role="menuitemcheckbox"
               aria-checked={option.isChecked}
+              disabled={option.isDisabled}
               onClick={option.onToggle}
               className={canvasBarMenuItemVariants()}
             >

@@ -13,7 +13,20 @@ konumdan okunamıyordu.
 Bölme yalnız GÖSTERİM içindir: modelde açıklık duvarı bölmez, tek parça duvarın
 üstünde bir deliktir (opening-placement.md).
 
-Her parçanın uzunluğu **EKSEN üzerinden** ölçülür, yüz boyu değil. Duvar bir kapsül olarak
+Her parça İKİ uzunlukla gelir (K74): `innerLengthCm` (içten — köşedeki dik
+duvarların kütlesi düşülmüş) ve `outerLengthCm` (dıştan — o kütle eklenmiş).
+Komşunun ekseni köşede durduğu için etkisi kalınlığının YARISI kadar:
+`içten = eksen − Σ(komşu/2)`, `dıştan = eksen + Σ(komşu/2)`.
+
+Hesap `getNeighbourThicknessCm`'i yeniden kullanır. DİKKAT: açıklığın köşe payı
+(K11) aynı fonksiyonu TAM kalınlıkla okur — o bilinçli olarak temkinli bir pay,
+buradaki gerçek geometri. İkisini birbirine çevirme.
+
+Köşe payı yalnız duvarın UCUNA dayanan parçayı ilgilendirir: iki açıklık
+arasında kalan parçanın komşusu yoktur, içi ve dışı eşittir. Açıklık parçasında
+her zaman eşit.
+
+Bu, "dışarısı hesaplanmıyor" kuralını bozmaz: hesaplanan yön değil, iki uzunluk. Duvar bir kapsül olarak
 çiziliyor (bkz. capsule-walls.md) ve kavşakta komşusuyla iç içe giriyor: "yüz
 boyu" için önce hangi komşunun nereden kestiğini çözmek gerekirdi ve iki komşu
 duvar farklı kalınlıktayken aynı duvarın iki yüzü farklı sayı verirdi.
@@ -44,7 +57,17 @@ bilen taraf orası), ekran-sabit boşluğu çağıran `px / zoom` olarak verir.
 
 ## Görünürlük
 
-Anahtar tesisatla ORTAK: `uiStore.isDimensionsVisible`. Kullanıcı için tek bir
+İki satır çizilir: içteki duvara yakın, dıştaki bir tık uzak — hangi sayının
+hangisi olduğunu söyleyen tek ipucu bu. İki değer eşitse TEK satır (aynı sayıyı
+iki kez yazmak "bunlar farklı" der ve yalan söyler); içten sıfıra düşerse yalnız
+dıştan yazılır.
+
+Açıklık genişliğinin AYRI anahtarı var: `uiStore.isOpeningDimensionsVisible`
+(Görünüm ▸ Kapı/pencere ölçüleri, K74). `isDimensionsVisible` ile VE'lenir —
+tek başına bir anlamı yok, o yüzden ölçüler kapalıyken madde pasif görünür ama
+listeden kalkmaz. Yalnız mimaride.
+
+Ana anahtar tesisatla ORTAK: `uiStore.isDimensionsVisible`. Kullanıcı için tek bir
 "ölçüleri göster" tercihi var — ayrı bayrak olsaydı menü çubuğundaki tek
 "Ölçüleri Göster" maddesi hangisini kastettiğini söyleyemezdi.
 
