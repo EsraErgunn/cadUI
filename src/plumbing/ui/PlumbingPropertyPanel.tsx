@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
+import { BoilerProperties } from './properties/BoilerProperties'
 import { BranchPropertiesPanel } from './properties/BranchPropertiesPanel'
 import { ChimneyPropertiesPanel } from './properties/ChimneyPropertiesPanel'
 import { CombiBoilerProperties } from './properties/CombiBoilerProperties'
@@ -110,6 +111,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'waterHeater' && (
           <WaterHeaterProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'boiler' && (
+          <BoilerProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />

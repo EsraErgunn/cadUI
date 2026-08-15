@@ -122,3 +122,17 @@ export type WaterHeaterProperties = {
   capacity: string
   power: string
 }
+
+/**
+ * tesisat_eleman.md'de Kazan için özellik alanı yazılmamış (yalnız daire
+ * içine alınmış "Kazan" ifadesi var). Kullanıcı onayıyla (2026-08) Kombi/
+ * Şofben ile AYNI alan seti verildi.
+ */
+export type BoilerProperties = {
+  applianceType: ApplianceType
+  brand: string
+  model: string
+  description: string
+  capacity: string
+  power: string
+}

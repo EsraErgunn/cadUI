@@ -1,4 +1,5 @@
 import type {
+  BoilerProperties,
   CombiBoilerProperties,
   FilterKitProperties,
   GasMeterProperties,
@@ -57,6 +58,7 @@ export type InstallationElement = {
   spaceHeater?: SpaceHeaterProperties
   combiBoiler?: CombiBoilerProperties
   waterHeater?: WaterHeaterProperties
+  boiler?: BoilerProperties
 }
 
 export type InstallationLineKind =
