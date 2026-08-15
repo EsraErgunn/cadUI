@@ -29,6 +29,10 @@ export function ViewOptionsMenu() {
   const toggleRoomNamesVisible = useUiStore((state) => state.toggleRoomNamesVisible)
   const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
   const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
+  const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
+  const toggleOpeningDimensionsVisible = useUiStore(
+    (state) => state.toggleOpeningDimensionsVisible,
+  )
   const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
   const toggleElementLabelsVisible = useUiStore((state) => state.toggleElementLabelsVisible)
   const activeViewId = useUiStore((state) => state.activeViewId)
@@ -78,6 +82,15 @@ export function ViewOptionsMenu() {
 
   const architectureOptions: ViewOption[] = [
     dimensionsOption,
+    {
+      // Yalnız MİMARİDE: tesisatta açıklık diye bir şey yok. "Ölçüler"den
+      // BAĞIMSIZ (K76): kullanıcı yalnız kapı/pencere genişliklerini görmek
+      // isteyebilir, bunun için duvar ölçülerini de açmak zorunda kalmasın.
+      id: 'openingDimensions',
+      label: 'Kapı/pencere ölçüleri',
+      isChecked: isOpeningDimensionsVisible,
+      onToggle: toggleOpeningDimensionsVisible,
+    },
     {
       id: 'areaObjectNames',
       label: 'Nesne adları',

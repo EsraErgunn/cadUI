@@ -13,6 +13,13 @@ type UiState = {
   activeViewId: ViewId
   /** Görünüm ▸ Ölçüleri Göster. Görüntüleme tercihi: kaydedilmez, geçmişe girmez. */
   isDimensionsVisible: boolean
+  /**
+   * Kapı/pencere GENİŞLİĞİNİN ölçüsü (K74). `isDimensionsVisible`den BAĞIMSIZ
+   * (K76): duvar ölçüleri kapalıyken de açık kalabilir — kullanıcı yalnız
+   * açıklık genişliklerini görmek isteyebilir ve bunun için planı sayıya
+   * boğmak zorunda kalmasın.
+   */
+  isOpeningDimensionsVisible: boolean
   /** Görünüm ▸ Etiketleri Göster (tesisat eleman adları). Ölçülerle aynı gerekçe. */
   isElementLabelsVisible: boolean
   /**
@@ -52,6 +59,7 @@ type UiState = {
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
+  toggleOpeningDimensionsVisible: () => void
   toggleElementLabelsVisible: () => void
   toggleGridVisible: () => void
   toggleGridSnapEnabled: () => void
@@ -71,6 +79,9 @@ export const useUiStore = create<UiState>()(
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
     isDimensionsVisible: false,
+    // Varsayılan AÇIK: ölçüler açıldığında açıklık genişlikleri hep görünüyordu,
+    // yeni anahtar davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
+    isOpeningDimensionsVisible: true,
     // Ölçülerin aksine varsayılan AÇIK: eleman adı çizimin okunmasına gerekli,
     // ölçü ise isteğe bağlı bir kotalama katmanı.
     isElementLabelsVisible: true,
@@ -108,6 +119,11 @@ export const useUiStore = create<UiState>()(
     toggleDimensionsVisible: () =>
       set((draft) => {
         draft.isDimensionsVisible = !draft.isDimensionsVisible
+      }),
+
+    toggleOpeningDimensionsVisible: () =>
+      set((draft) => {
+        draft.isOpeningDimensionsVisible = !draft.isOpeningDimensionsVisible
       }),
 
     toggleElementLabelsVisible: () =>

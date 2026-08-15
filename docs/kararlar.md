@@ -3752,3 +3752,90 @@ Duvar parçaları `wall-<duvarId>-<sıra>`, açıklıklar `opening-<açıklıkId
 noktada buluştuğunda etiketleri üst üste biniyor. Ekranda doğrulandı. Ölçü
 yazısını ekran boyuna göre eleyen bir eşik çözerdi ama bu, kullanıcının görmek
 isteyebileceği sayıyı gizlemek demek — karar verilmeden eklenmedi.
+
+### K74 — Duvar ölçüsü İÇTEN ve DIŞTAN yazılır; açıklık ölçüsünün ayrı anahtarı var
+
+**Neden iki sayı:** bir odanın içten ölçüsü, köşedeki dik duvarların kütlesi
+yüzünden dıştan ölçüsünden kısa. K72/K73 yalnız EKSEN boyunu yazıyordu; bu
+ikisinin ortasında duran, sahada hiçbir yere karşılık gelmeyen bir sayı.
+
+Komşu duvarın ekseni köşe noktasında durduğu için etkisi kalınlığının YARISI
+kadar: içeride o kadarını yer, dışarıda o kadar uzatır. Yani
+`içten = eksen − Σ(komşu kalınlığı / 2)`, `dıştan = eksen + Σ(...)`.
+Hesap `getNeighbourThicknessCm`'i yeniden kullanıyor — açıklığın köşe payı da
+(K11) aynı fonksiyonu okuyor ama TAM kalınlıkla: o bilinçli olarak temkinli bir
+pay, buradaki ise gerçek geometri. İkisini karıştırma.
+
+Bu, K72'nin "dışarısı hesaplanmıyor" kararını BOZMUYOR. Hâlâ duvarın hangi
+fiziksel yanının oda içi olduğunu bilmiyoruz (o ancak kapalı çevrimde tanımlı);
+hesaplanan şey yön değil, iki UZUNLUK. Etiketin düştüğü yan eskisi gibi
+geometriden geliyor.
+
+**Gösterim (K75'te düzeltildi):** iç ölçü duvarın ODA tarafına, dış ölçü karşı
+yanına yazılır. İlk denemede ikisi aynı yana, alt alta konmuştu; kullanıcı
+haklı olarak reddetti — "içten" ve "dıştan" mekânsal kavramlar, ikisini aynı
+yere yazmak sayının anlamını konumdan koparıyordu.
+
+İki değer eşitse TEK satır yazılır: serbest uçlu duvarda, ya da iki açıklık
+arasında kalan parçada komşu yok. Aynı sayıyı iki kez yazmak kullanıcıya
+"bunlar farklı" der ve yalan söylerdi. İçten ölçü sıfıra düşerse (iki kalın
+duvar arasındaki kısa parça) yalnız dıştan yazılır; negatif uzunluk yazılmaz.
+
+**Açıklık ölçüsünün ayrı anahtarı** (`uiStore.isOpeningDimensionsVisible`,
+Görünüm ▸ Kapı/pencere ölçüleri): açıklıklı bir duvarda sayı adedi ikiye
+katlanıyor ve kullanıcı çoğu zaman yalnız dolu parçaların boyunu okumak istiyor.
+Varsayılan AÇIK — yeni anahtar var olan davranışı değiştirmemeli, yalnız kapatma
+imkânı ekliyor. Anahtar yalnız mimaride; tesisatta açıklık diye bir şey yok.
+(İlk hâlinde "Ölçüler"e bağımlıydı; K76 bunu kaldırdı.)
+
+### K75 — İç ölçü ODANIN İÇİNE, dış ölçü dışına; oda tarafı çevrimden bulunur
+
+K74 iki sayıyı da aynı yana, alt alta yazıyordu. Yanlıştı: "içten" ve "dıştan"
+mekânsal kavramlar — sayıyı duvarın yanlış tarafına koymak, onu okunabilir ama
+anlamsız yapıyor. İç ölçü artık odanın İÇİNE, dış ölçü karşı yana yazılıyor.
+
+Bunun için duvarın hangi yanının oda olduğu gerekiyordu. K72'de "dışarısı
+hesaplanmıyor" denmişti; o karar kalkmadı, KAPSAMI netleşti: hâlâ serbest bir
+duvarda dışarısı tanımsız, ama kapalı çevrime giren duvarda tanımlı ve
+`findRoomFaces` bunu zaten buluyor. `buildWallInteriorPoints` her çevrim için
+`getRoomLabelAnchor`i (en ferah nokta) alıp çevrimdeki duvarlara dağıtıyor;
+`getWallDimensionAnnotations` sol normali o noktaya BAKACAK şekilde çeviriyor.
+
+Çapa neden ağırlık merkezi değil: içbükey odada ağırlık merkezi poligonun
+dışına düşebiliyor ve iç/dış ters çevrilirdi. `getRoomLabelAnchor` zaten
+poligonun içinde kalmayı garanti ediyor (oda etiketi için yazılmıştı).
+
+Sonuç çağıranda `useMemo` ile önbelleğe alınır: çevrim araması duvar/nokta
+değişmedikçe aynı sonucu verir, zoom her karede oynadığı için ikisini birlikte
+koşturmak boşa iş olurdu.
+
+**Bilinen sınırlar:** (1) Serbest duvarda oda tarafı yok — sayılar yine
+karşılıklı iki yana düşer, yalnız hangisinin oda tarafı olduğu iddia edilmez.
+(2) İki odayı ayıran iç bölmede İLK çevrim kazanır; iki tarafı da "içerisi"
+olan duvarda "dışarısı" zaten yok, sayıların ayrı yanlarda durması yeterli.
+
+Açıklık ölçüsünün elenmesi de `getWallDimensionAnnotations`a taşındı
+(`isOpeningVisible`): sahnede bir `filter` olarak durduğunda testsiz kalıyordu.
+Duvar parçaları anahtar kapalıyken de BÖLÜNMÜŞ kalır — açıklığın sayısı gizlense
+de duvar orada delik, tek parça göstermek yalan olurdu.
+
+### K76 — İki ölçü anahtarı BAĞIMSIZ
+
+K74'te "Kapı/pencere ölçüleri" maddesi "Ölçüler" kapalıyken pasif yapılmıştı;
+gerekçe "tek başına bir anlamı yok" idi. Yanlış varsayımdı: kullanıcı yalnız
+kapı/pencere genişliklerini görmek isteyebilir ve bunun için planı duvar
+sayılarına boğmak zorunda kalmamalı. İki anahtar artık birbirinden bağımsız —
+dördü de anlamlı bir hâl:
+
+| Ölçüler | Kapı/pencere | Ekranda |
+|---------|--------------|---------|
+| açık | açık | duvar parçaları + açıklık genişlikleri |
+| açık | kapalı | yalnız duvar parçaları (parçalar yine BÖLÜNMÜŞ) |
+| kapalı | açık | yalnız açıklık genişlikleri |
+| kapalı | kapalı | hiçbiri (sürükleme geri bildirimi hariç) |
+
+Eleme `getWallDimensionAnnotations` içinde iki ayrı seçenekle yapılıyor:
+`isWallVisible` ve `isOpeningVisible`. Sürükleme sırasındaki geçici gösterim
+için kullanılan `wallIds` kısıtı YALNIZ duvar parçalarını daraltır, açıklık
+ölçüsüne dokunmaz — ikisi aynı kısıttan geçseydi "duvar ölçüsü kapalı, açıklık
+açık" hâlinde ekran boş kalırdı (kısıt boş dizi oluyor).

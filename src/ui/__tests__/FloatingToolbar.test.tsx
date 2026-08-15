@@ -103,6 +103,44 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
     expect(useUiStore.getState().isRoomNamesVisible).toBe(!before)
   })
+
+  it('kapı/pencere ölçüleri maddesi bayrağı çevirir', async () => {
+    useUiStore.setState({ isDimensionsVisible: true, isOpeningDimensionsVisible: true })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' }))
+
+    expect(useUiStore.getState().isOpeningDimensionsVisible).toBe(false)
+  })
+
+  it('ölçüler KAPALIYKEN de kapı/pencere maddesi çalışır (K76)', async () => {
+    // İki anahtar bağımsız: kullanıcı yalnız açıklık genişliklerini görmek
+    // isteyebilir, bunun için duvar ölçülerini açmak zorunda kalmamalı.
+    useUiStore.setState({ isDimensionsVisible: false, isOpeningDimensionsVisible: false })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' })
+    expect(item).toBeEnabled()
+
+    await userEvent.click(item)
+
+    expect(useUiStore.getState().isOpeningDimensionsVisible).toBe(true)
+    // Duvar ölçüleri anahtarı bundan ETKİLENMEZ.
+    expect(useUiStore.getState().isDimensionsVisible).toBe(false)
+  })
+
+  it('kapı/pencere ölçüleri maddesi tesisatta YOK', async () => {
+    useUiStore.setState({ activeViewId: 'installation' })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' }),
+    ).not.toBeInTheDocument()
+  })
 })
 
 describe('FloatingToolbar — kat seçici', () => {

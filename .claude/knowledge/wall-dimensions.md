@@ -13,7 +13,20 @@ konumdan okunamıyordu.
 Bölme yalnız GÖSTERİM içindir: modelde açıklık duvarı bölmez, tek parça duvarın
 üstünde bir deliktir (opening-placement.md).
 
-Her parçanın uzunluğu **EKSEN üzerinden** ölçülür, yüz boyu değil. Duvar bir kapsül olarak
+Her parça İKİ uzunlukla gelir (K74): `innerLengthCm` (içten — köşedeki dik
+duvarların kütlesi düşülmüş) ve `outerLengthCm` (dıştan — o kütle eklenmiş).
+Komşunun ekseni köşede durduğu için etkisi kalınlığının YARISI kadar:
+`içten = eksen − Σ(komşu/2)`, `dıştan = eksen + Σ(komşu/2)`.
+
+Hesap `getNeighbourThicknessCm`'i yeniden kullanır. DİKKAT: açıklığın köşe payı
+(K11) aynı fonksiyonu TAM kalınlıkla okur — o bilinçli olarak temkinli bir pay,
+buradaki gerçek geometri. İkisini birbirine çevirme.
+
+Köşe payı yalnız duvarın UCUNA dayanan parçayı ilgilendirir: iki açıklık
+arasında kalan parçanın komşusu yoktur, içi ve dışı eşittir. Açıklık parçasında
+her zaman eşit.
+
+Bu, "dışarısı hesaplanmıyor" kuralını bozmaz: hesaplanan yön değil, iki uzunluk. Duvar bir kapsül olarak
 çiziliyor (bkz. capsule-walls.md) ve kavşakta komşusuyla iç içe giriyor: "yüz
 boyu" için önce hangi komşunun nereden kestiğini çözmek gerekirdi ve iki komşu
 duvar farklı kalınlıktayken aynı duvarın iki yüzü farklı sayı verirdi.
@@ -35,16 +48,36 @@ Sıra ters olsaydı yan, hangi ucun `p1` olduğuna bağlı kalırdı: aynı duva
 yönde çizildiğinde ölçüsü öbür yana atlar, plan çizim sırasına göre farklı
 görünürdü. Bu sırayla yan yalnız geometriden çıkıyor.
 
-**"Dışarısı" hesaplanmıyor.** İdeali ölçünün odanın dışına düşmesi olurdu ama dış
-taraf ancak kapalı bir oda çevriminde tanımlı; serbest duvarda tanımsız. Tutarlı
-bir yan, bazen doğru bazen tanımsız bir yandan iyi.
+**"Dışarısı" ancak ÇEVRİMDE tanımlı.** Kapalı çevrime giren duvarda oda tarafı
+biliniyor ve kullanılıyor (K75). Serbest duvarda tanımsız: orada sol normal
+olduğu gibi kalır, iki sayı yine karşılıklı yanlara düşer ama hangisinin oda
+tarafı olduğu İDDİA EDİLMEZ.
 
 Kaydırma = `wall.thickness / 2 + gapCm`. Kalınlığın yarısını core ekler (kalınlığı
 bilen taraf orası), ekran-sabit boşluğu çağıran `px / zoom` olarak verir.
 
 ## Görünürlük
 
-Anahtar tesisatla ORTAK: `uiStore.isDimensionsVisible`. Kullanıcı için tek bir
+İç ölçü duvarın ODA tarafına, dış ölçü karşı yanına yazılır (K75). Oda tarafı
+`buildWallInteriorPoints` ile bulunur: `findRoomFaces` her kapalı çevrimi verir,
+`getRoomLabelAnchor` çevrimin en ferah noktasını (ağırlık merkezi DEĞİL — içbükey
+odada dışarı düşer ve iç/dış ters çevrilir), sol normal o noktaya bakacak şekilde
+çevrilir. Sonuç çağıranda `useMemo` ile önbelleğe alınır; zoom her karede
+oynuyor, çevrim araması ise duvar/nokta değişmedikçe aynı.
+
+İki değer eşitse TEK satır (aynı sayıyı duvarın iki yanına yazmak "bunlar
+farklı" der ve yalan söyler); içten sıfıra düşerse yalnız dıştan yazılır.
+
+İKİ BAĞIMSIZ anahtar (K76): `isDimensionsVisible` duvar parçalarını,
+`isOpeningDimensionsVisible` açıklık genişliklerini açar. Dördü de anlamlı bir
+hâl; biri kapalıyken diğeri çalışmaya devam eder. Core'da iki ayrı seçenek:
+`isWallVisible` / `isOpeningVisible`.
+
+`wallIds` kısıtı (sürükleme sırasındaki geçici gösterim) YALNIZ duvar
+parçalarını daraltır. Açıklık ölçüsü aynı kısıttan geçseydi "duvar kapalı,
+açıklık açık" hâlinde ekran boş kalırdı — kısıt o durumda boş dizi oluyor.
+
+Duvar ölçüsü anahtarı tesisatla ORTAK: `uiStore.isDimensionsVisible`. Kullanıcı için tek bir
 "ölçüleri göster" tercihi var — ayrı bayrak olsaydı menü çubuğundaki tek
 "Ölçüleri Göster" maddesi hangisini kastettiğini söyleyemezdi.
 
