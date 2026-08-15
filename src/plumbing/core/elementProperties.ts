@@ -57,3 +57,15 @@ export type ValveProperties = {
   type: string
   description: string
 }
+
+/** Sınıf için örnek dokümanda "G4" gibi geçiyor ama sabit seçenek listesi YOK, serbest metin. */
+export type StrainerMeterProperties = {
+  classLabel: string
+  description: string
+}
+
+export type SolenoidValveProperties = {
+  type: string
+  brand: string
+  model: string
+}

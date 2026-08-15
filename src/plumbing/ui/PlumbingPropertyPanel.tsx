@@ -9,6 +9,8 @@ import { InsulationProperties } from './properties/InsulationProperties'
 import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
 import { RegulatorProperties } from './properties/RegulatorProperties'
 import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
+import { SolenoidValveProperties } from './properties/SolenoidValveProperties'
+import { StrainerMeterProperties } from './properties/StrainerMeterProperties'
 import { ValveProperties } from './properties/ValveProperties'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
@@ -85,6 +87,12 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'valve' && (
           <ValveProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'strainerMeter' && (
+          <StrainerMeterProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'solenoidValve' && (
+          <SolenoidValveProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />
