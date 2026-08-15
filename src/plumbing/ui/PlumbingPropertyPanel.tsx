@@ -10,6 +10,7 @@ import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
 import { RegulatorProperties } from './properties/RegulatorProperties'
 import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
 import { SolenoidValveProperties } from './properties/SolenoidValveProperties'
+import { SpaceHeaterProperties } from './properties/SpaceHeaterProperties'
 import { StoveProperties } from './properties/StoveProperties'
 import { StrainerMeterProperties } from './properties/StrainerMeterProperties'
 import { ValveProperties } from './properties/ValveProperties'
@@ -98,6 +99,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'stove' && (
           <StoveProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'spaceHeater' && (
+          <SpaceHeaterProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />

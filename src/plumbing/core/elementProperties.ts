@@ -78,3 +78,28 @@ export type StoveProperties = {
   capacity: string
   power: string
 }
+
+/**
+ * Soba ilk kullanan adım — Kombi/Şofben/(Kazan) kendi enumunu YENİDEN
+ * TANIMLAMAZ, bunu import eder.
+ */
+export type ApplianceType = 'hermetic' | 'flued'
+
+export const APPLIANCE_TYPE_LABELS: Record<ApplianceType, string> = {
+  hermetic: 'Hermetik',
+  flued: 'Bacalı',
+}
+
+/**
+ * "Güç" alanının yanında daire içine alınmış bir "X" işareti var, anlamı
+ * belirsiz (tesisat_eleman.md). Kullanıcı onayıyla (2026-08) GÖRMEZDEN
+ * GELİNDİ — `power` diğerleri gibi normal, koşulsuz bir serbest metin alanı.
+ */
+export type SpaceHeaterProperties = {
+  applianceType: ApplianceType
+  brand: string
+  model: string
+  description: string
+  capacity: string
+  power: string
+}
