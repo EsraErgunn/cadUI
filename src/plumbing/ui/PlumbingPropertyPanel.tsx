@@ -87,6 +87,8 @@ export function PlumbingPropertyPanel() {
         {kind.scope === 'line' && kind.lineKind === 'branch' && (
           <BranchPropertiesPanel lineIds={selectedLineIds} />
         )}
+        {/* Manometrenin özellik alanı BOŞ (tesisat_eleman.md) — 'element' kind'i
+            başlığı zaten açıyor, ayrı bir case/placeholder gerekmez. */}
         {/* Diğer eleman/hat türleri kendi adımlarında buraya eklenecek — case
             yoksa yalnız başlık + Sil görünür, placeholder metin YAZILMAZ. */}
         {kind.scope === 'mixed' && (
