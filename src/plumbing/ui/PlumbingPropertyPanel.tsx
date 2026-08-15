@@ -16,6 +16,7 @@ import { StoveProperties } from './properties/StoveProperties'
 import { StrainerMeterProperties } from './properties/StrainerMeterProperties'
 import { ValveProperties } from './properties/ValveProperties'
 import { VentilationDuctPropertiesPanel } from './properties/VentilationDuctPropertiesPanel'
+import { WaterHeaterProperties } from './properties/WaterHeaterProperties'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { getPlumbingPropertyPanelTitle, getPlumbingSelectionKind } from '../core/propertyFields'
@@ -106,6 +107,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'combiBoiler' && (
           <CombiBoilerProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'waterHeater' && (
+          <WaterHeaterProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />

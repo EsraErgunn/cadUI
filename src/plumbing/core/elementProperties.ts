@@ -112,3 +112,13 @@ export type CombiBoilerProperties = {
   capacity: string
   power: string
 }
+
+/** tesisat_eleman.md: Kombi ile "aynı" alan seti. */
+export type WaterHeaterProperties = {
+  applianceType: ApplianceType
+  brand: string
+  model: string
+  description: string
+  capacity: string
+  power: string
+}

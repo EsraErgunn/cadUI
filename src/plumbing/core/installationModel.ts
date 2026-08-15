@@ -9,6 +9,7 @@ import type {
   StoveProperties,
   StrainerMeterProperties,
   ValveProperties,
+  WaterHeaterProperties,
 } from './elementProperties'
 import type {
   BranchLineProperties,
@@ -55,6 +56,7 @@ export type InstallationElement = {
   stove?: StoveProperties
   spaceHeater?: SpaceHeaterProperties
   combiBoiler?: CombiBoilerProperties
+  waterHeater?: WaterHeaterProperties
 }
 
 export type InstallationLineKind =
