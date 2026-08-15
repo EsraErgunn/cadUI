@@ -136,3 +136,26 @@ export type BoilerProperties = {
   capacity: string
   power: string
 }
+
+/**
+ * "Ocak / Fırın" ve "Hermetik / Bacalı" ifadeleri tesisat_eleman.md'de Tip/
+ * Sınıf çevresinde geçiyor, eşleşme fotoğraftan kesin ayırt edilemiyor.
+ * Kullanıcı onayıyla (2026-08): Tip → Ocak/Fırın (bu tip), Sınıf → Hermetik/
+ * Bacalı (ApplianceType, YENİDEN TANIMLANMADI, yukarıdan reuse).
+ */
+export type OtherApplianceKind = 'hob' | 'oven'
+
+export const OTHER_APPLIANCE_KIND_LABELS: Record<OtherApplianceKind, string> = {
+  hob: 'Ocak',
+  oven: 'Fırın',
+}
+
+export type OtherApplianceProperties = {
+  type: OtherApplianceKind
+  classLabel: ApplianceType
+  brand: string
+  model: string
+  description: string
+  capacity: string
+  power: string
+}

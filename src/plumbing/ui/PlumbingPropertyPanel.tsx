@@ -8,6 +8,7 @@ import { CombiBoilerProperties } from './properties/CombiBoilerProperties'
 import { FilterKitProperties } from './properties/FilterKitProperties'
 import { GasMeterProperties } from './properties/GasMeterProperties'
 import { InsulationProperties } from './properties/InsulationProperties'
+import { OtherApplianceProperties } from './properties/OtherApplianceProperties'
 import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
 import { RegulatorProperties } from './properties/RegulatorProperties'
 import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
@@ -115,6 +116,9 @@ export function PlumbingPropertyPanel() {
         {kind.scope === 'element' && kind.elementType === 'boiler' && (
           <BoilerProperties elementIds={selectedElementIds} />
         )}
+        {kind.scope === 'element' && kind.elementType === 'otherAppliance' && (
+          <OtherApplianceProperties elementIds={selectedElementIds} />
+        )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />
         )}
@@ -129,8 +133,9 @@ export function PlumbingPropertyPanel() {
         )}
         {/* Manometrenin özellik alanı BOŞ (tesisat_eleman.md) — 'element' kind'i
             başlığı zaten açıyor, ayrı bir case/placeholder gerekmez. */}
-        {/* Diğer eleman/hat türleri kendi adımlarında buraya eklenecek — case
-            yoksa yalnız başlık + Sil görünür, placeholder metin YAZILMAZ. */}
+        {/* Tüm INSTALLATION_ELEMENT_TYPES + seçilebilir InstallationLineKind
+            (applianceStub hariç — o hiç seçilebilir bir araç değil, bkz.
+            elementLabels.ts) artık kapsandı. */}
         {kind.scope === 'mixed' && (
           <p className="py-1 text-xs text-ink-muted">
             Farklı türde nesneler seçili; ortak düzenlenebilir alan yok.
