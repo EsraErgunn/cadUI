@@ -131,6 +131,17 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
     expect(useUiStore.getState().isDimensionsVisible).toBe(false)
   })
 
+  it('açılar maddesi bayrağı çevirir ve diğer katmanlara dokunmaz', async () => {
+    useUiStore.setState({ isCornerAnglesVisible: false, isDimensionsVisible: false })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Açılar' }))
+
+    expect(useUiStore.getState().isCornerAnglesVisible).toBe(true)
+    expect(useUiStore.getState().isDimensionsVisible).toBe(false)
+  })
+
   it('kapı/pencere ölçüleri maddesi tesisatta YOK', async () => {
     useUiStore.setState({ activeViewId: 'installation' })
     render(<FloatingToolbar onGoToFloor={vi.fn()} />)

@@ -20,6 +20,12 @@ type UiState = {
    * boğmak zorunda kalmasın.
    */
   isOpeningDimensionsVisible: boolean
+  /**
+   * Köşelerdeki duvar arası AÇILARI (K77). Ölçülerden ayrı anahtar ve varsayılan
+   * KAPALI: planların çoğu dik açılardan oluşuyor, her köşeye 90° yazmak
+   * kalabalıktan başka bir şey getirmez — açı, eğik duvarla çalışırken açılır.
+   */
+  isCornerAnglesVisible: boolean
   /** Görünüm ▸ Etiketleri Göster (tesisat eleman adları). Ölçülerle aynı gerekçe. */
   isElementLabelsVisible: boolean
   /**
@@ -60,6 +66,7 @@ type UiState = {
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
   toggleOpeningDimensionsVisible: () => void
+  toggleCornerAnglesVisible: () => void
   toggleElementLabelsVisible: () => void
   toggleGridVisible: () => void
   toggleGridSnapEnabled: () => void
@@ -82,6 +89,7 @@ export const useUiStore = create<UiState>()(
     // Varsayılan AÇIK: ölçüler açıldığında açıklık genişlikleri hep görünüyordu,
     // yeni anahtar davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
     isOpeningDimensionsVisible: true,
+    isCornerAnglesVisible: false,
     // Ölçülerin aksine varsayılan AÇIK: eleman adı çizimin okunmasına gerekli,
     // ölçü ise isteğe bağlı bir kotalama katmanı.
     isElementLabelsVisible: true,
@@ -124,6 +132,11 @@ export const useUiStore = create<UiState>()(
     toggleOpeningDimensionsVisible: () =>
       set((draft) => {
         draft.isOpeningDimensionsVisible = !draft.isOpeningDimensionsVisible
+      }),
+
+    toggleCornerAnglesVisible: () =>
+      set((draft) => {
+        draft.isCornerAnglesVisible = !draft.isCornerAnglesVisible
       }),
 
     toggleElementLabelsVisible: () =>

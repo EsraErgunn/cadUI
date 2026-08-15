@@ -3,6 +3,7 @@ import { AreaObjectHandles } from './AreaObjectHandles'
 import { AreaObjectNameLabels } from './AreaObjectNameLabels'
 import { Beam, type BeamTone } from './Beam'
 import { BeamHandles } from './BeamHandles'
+import { CornerAngleLabels } from './CornerAngleLabels'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
@@ -312,6 +313,7 @@ export function ArchitectureLayer() {
       {/* Ölçüler tutamaçların ALTINDA (RENDER_ORDER.measurement < handle): sayı
           köşe tutamacını örterse köşe tutulamaz hâle gelirdi. */}
       <WallDimensionLabels />
+      <CornerAngleLabels />
       <BeamHandles />
       <SelectionMarquee />
     </group>

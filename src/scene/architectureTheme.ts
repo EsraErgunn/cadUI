@@ -40,6 +40,15 @@ export const ARCHITECTURE_COLORS = {
    */
   openingDimension: '#7a5ba6',
   /**
+   * Köşe açısı yazısı ve geometrik işareti (K77): BORDO (kullanıcı seçti).
+   * Kendi rengi var çünkü aynı köşede ölçü ve açı yan yana düşebiliyor.
+   *
+   * Reddedilen yerleştirmenin kırmızısından (`previewInvalid`) belirgin biçimde
+   * KOYU ve mat: o renk "bu olmaz" demek, bu ise nötr bir kotalama katmanı —
+   * ikisi karışırsa kullanıcı her dik köşeyi hata sanar.
+   */
+  cornerAngle: '#7b2c3b',
+  /**
    * Alt kat gölgesi (KK-13). Duvar renginden belirgin biçimde soluk: hizalama
    * referansı okunabilmeli ama aktif katın duvarıyla karıştırılmamalı.
    */
