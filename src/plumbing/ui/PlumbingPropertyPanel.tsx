@@ -12,6 +12,7 @@ import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
 import { SolenoidValveProperties } from './properties/SolenoidValveProperties'
 import { StrainerMeterProperties } from './properties/StrainerMeterProperties'
 import { ValveProperties } from './properties/ValveProperties'
+import { VentilationDuctPropertiesPanel } from './properties/VentilationDuctPropertiesPanel'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { getPlumbingPropertyPanelTitle, getPlumbingSelectionKind } from '../core/propertyFields'
@@ -102,6 +103,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'line' && kind.lineKind === 'branch' && (
           <BranchPropertiesPanel lineIds={selectedLineIds} />
+        )}
+        {kind.scope === 'line' && kind.lineKind === 'ventilationDuct' && (
+          <VentilationDuctPropertiesPanel lineIds={selectedLineIds} />
         )}
         {/* Manometrenin özellik alanı BOŞ (tesisat_eleman.md) — 'element' kind'i
             başlığı zaten açıyor, ayrı bir case/placeholder gerekmez. */}

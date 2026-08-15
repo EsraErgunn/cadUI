@@ -22,3 +22,13 @@ export type ChimneyLineProperties = {
 export type BranchLineProperties = {
   elevationCm: number
 }
+
+/**
+ * "Alt kanal" ve "Cebri" tesisat_eleman.md'de yalnız iki not olarak geçiyor,
+ * birbirini dışlayan bir seçim değil — kullanıcı onayıyla (2026-08) BAĞIMSIZ
+ * iki onay kutusu, ikisi birlikte de işaretlenebilir.
+ */
+export type VentilationDuctLineProperties = {
+  isSubDuct: boolean
+  isForced: boolean
+}
