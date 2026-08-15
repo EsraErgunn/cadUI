@@ -4,6 +4,7 @@ import type {
   InsulationProperties,
   RegulatorProperties,
   SolenoidValveProperties,
+  StoveProperties,
   StrainerMeterProperties,
   ValveProperties,
 } from './elementProperties'
@@ -49,6 +50,7 @@ export type InstallationElement = {
   valve?: ValveProperties
   strainerMeter?: StrainerMeterProperties
   solenoidValve?: SolenoidValveProperties
+  stove?: StoveProperties
 }
 
 export type InstallationLineKind =

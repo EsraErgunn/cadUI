@@ -69,3 +69,12 @@ export type SolenoidValveProperties = {
   brand: string
   model: string
 }
+
+/** capacity/power birimi dokümanda yok — serbest metin, sayısal alan ZORLANMAZ. */
+export type StoveProperties = {
+  brand: string
+  model: string
+  description: string
+  capacity: string
+  power: string
+}
