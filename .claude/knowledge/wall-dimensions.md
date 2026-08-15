@@ -48,19 +48,25 @@ Sıra ters olsaydı yan, hangi ucun `p1` olduğuna bağlı kalırdı: aynı duva
 yönde çizildiğinde ölçüsü öbür yana atlar, plan çizim sırasına göre farklı
 görünürdü. Bu sırayla yan yalnız geometriden çıkıyor.
 
-**"Dışarısı" hesaplanmıyor.** İdeali ölçünün odanın dışına düşmesi olurdu ama dış
-taraf ancak kapalı bir oda çevriminde tanımlı; serbest duvarda tanımsız. Tutarlı
-bir yan, bazen doğru bazen tanımsız bir yandan iyi.
+**"Dışarısı" ancak ÇEVRİMDE tanımlı.** Kapalı çevrime giren duvarda oda tarafı
+biliniyor ve kullanılıyor (K75). Serbest duvarda tanımsız: orada sol normal
+olduğu gibi kalır, iki sayı yine karşılıklı yanlara düşer ama hangisinin oda
+tarafı olduğu İDDİA EDİLMEZ.
 
 Kaydırma = `wall.thickness / 2 + gapCm`. Kalınlığın yarısını core ekler (kalınlığı
 bilen taraf orası), ekran-sabit boşluğu çağıran `px / zoom` olarak verir.
 
 ## Görünürlük
 
-İki satır çizilir: içteki duvara yakın, dıştaki bir tık uzak — hangi sayının
-hangisi olduğunu söyleyen tek ipucu bu. İki değer eşitse TEK satır (aynı sayıyı
-iki kez yazmak "bunlar farklı" der ve yalan söyler); içten sıfıra düşerse yalnız
-dıştan yazılır.
+İç ölçü duvarın ODA tarafına, dış ölçü karşı yanına yazılır (K75). Oda tarafı
+`buildWallInteriorPoints` ile bulunur: `findRoomFaces` her kapalı çevrimi verir,
+`getRoomLabelAnchor` çevrimin en ferah noktasını (ağırlık merkezi DEĞİL — içbükey
+odada dışarı düşer ve iç/dış ters çevrilir), sol normal o noktaya bakacak şekilde
+çevrilir. Sonuç çağıranda `useMemo` ile önbelleğe alınır; zoom her karede
+oynuyor, çevrim araması ise duvar/nokta değişmedikçe aynı.
+
+İki değer eşitse TEK satır (aynı sayıyı duvarın iki yanına yazmak "bunlar
+farklı" der ve yalan söyler); içten sıfıra düşerse yalnız dıştan yazılır.
 
 Açıklık genişliğinin AYRI anahtarı var: `uiStore.isOpeningDimensionsVisible`
 (Görünüm ▸ Kapı/pencere ölçüleri, K74). `isDimensionsVisible` ile VE'lenir —

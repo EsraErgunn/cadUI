@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Opening, Point, Wall } from '../model'
-import { getWallDimensionAnnotations } from '../wallDimensions'
+import { buildWallInteriorPoints, getWallDimensionAnnotations } from '../wallDimensions'
 
 /** Açıklıksız duvar: bölme yok, tek ölçü. */
 const NO_OPENINGS: Opening[] = []
@@ -45,7 +45,7 @@ describe('getWallDimensionAnnotations', () => {
     expect(annotation?.innerLengthCm).toBe(400)
     expect(annotation?.angleDeg).toBe(0)
     // Orta nokta (200, 0), sol normal +y yönünde.
-    expect(annotation?.position).toEqual({ x: 200, y: EXPECTED_OFFSET_CM })
+    expect(annotation?.innerPosition).toEqual({ x: 200, y: EXPECTED_OFFSET_CM })
   })
 
   it('uzunluk EKSEN boyudur, kalınlık uzunluğa karışmaz', () => {
@@ -55,7 +55,7 @@ describe('getWallDimensionAnnotations', () => {
 
     expect(annotation?.innerLengthCm).toBe(400)
     // Kaydırma kalınlıkla büyür: yazı kalın duvarın yüzüne binmesin.
-    expect(annotation?.position.y).toBe(60 / 2 + GAP_CM)
+    expect(annotation?.innerPosition.y).toBe(60 / 2 + GAP_CM)
   })
 
   it('baş aşağı düşecek yazıyı çevirir — ölçü hep okunur yönde', () => {
@@ -68,7 +68,7 @@ describe('getWallDimensionAnnotations', () => {
     // Yan da aynı kalır: etiketin düştüğü taraf duvarın GEOMETRİSİNDEN geliyor,
     // hangi ucun p1 olduğundan değil. Aynı duvar ters yönde çizilseydi ölçüsü
     // öbür yana atlardı ve plan, çizim sırasına göre farklı görünürdü.
-    expect(annotation?.position).toEqual({ x: 200, y: EXPECTED_OFFSET_CM })
+    expect(annotation?.innerPosition).toEqual({ x: 200, y: EXPECTED_OFFSET_CM })
   })
 
   it('dikey duvarda açı 90° kalır', () => {
@@ -77,7 +77,7 @@ describe('getWallDimensionAnnotations', () => {
     expect(annotation?.angleDeg).toBe(90)
     expect(annotation?.innerLengthCm).toBe(300)
     // Sol normal (-1, 0): dikey duvarın yazısı soluna düşer.
-    expect(annotation?.position).toEqual({ x: -EXPECTED_OFFSET_CM, y: 150 })
+    expect(annotation?.innerPosition).toEqual({ x: -EXPECTED_OFFSET_CM, y: 150 })
   })
 
   it('başka kattaki duvarı atlar', () => {
@@ -169,12 +169,12 @@ describe('getWallDimensionAnnotations — açıklıklı duvar', () => {
       OPTIONS,
     )
 
-    expect(first?.position.x).toBe(75)
-    expect(opening?.position.x).toBe(200)
-    expect(last?.position.x).toBe(325)
+    expect(first?.innerPosition.x).toBe(75)
+    expect(opening?.innerPosition.x).toBe(200)
+    expect(last?.innerPosition.x).toBe(325)
     // Yan ve açı bölünmeden etkilenmez: hepsi aynı duvarın hizasında.
     for (const annotation of [first, opening, last]) {
-      expect(annotation?.position.y).toBe(EXPECTED_OFFSET_CM)
+      expect(annotation?.innerPosition.y).toBe(EXPECTED_OFFSET_CM)
       expect(annotation?.angleDeg).toBe(0)
     }
   })
@@ -318,5 +318,124 @@ describe('getWallDimensionAnnotations — içten / dıştan ölçü', () => {
 
     expect(annotation?.innerLengthCm).toBe(0)
     expect(annotation?.outerLengthCm).toBe(100)
+  })
+})
+
+describe('getWallDimensionAnnotations — iç ölçü ODA tarafına yazılır', () => {
+  const WALL = makeWall(20, 10, 11)
+
+  it('oda duvarın ÜSTÜNDEYSE iç ölçü de üstte, dış ölçü altta durur', () => {
+    // Duvar (0,0)→(400,0); oda +y tarafında.
+    const interiorPoints = new Map([[WALL.id, { x: 200, y: 150 }]])
+
+    const [annotation] = getWallDimensionAnnotations([WALL], POINTS, NO_OPENINGS, {
+      ...OPTIONS,
+      interiorPoints,
+    })
+
+    expect(annotation?.innerPosition.y).toBe(EXPECTED_OFFSET_CM)
+    expect(annotation?.outerPosition.y).toBe(-EXPECTED_OFFSET_CM)
+  })
+
+  it('oda duvarın ALTINDAYSA taraflar yer değiştirir', () => {
+    const interiorPoints = new Map([[WALL.id, { x: 200, y: -150 }]])
+
+    const [annotation] = getWallDimensionAnnotations([WALL], POINTS, NO_OPENINGS, {
+      ...OPTIONS,
+      interiorPoints,
+    })
+
+    expect(annotation?.innerPosition.y).toBe(-EXPECTED_OFFSET_CM)
+    expect(annotation?.outerPosition.y).toBe(EXPECTED_OFFSET_CM)
+  })
+
+  it('oda bilinmiyorsa iki sayı yine KARŞILIKLI yanlara düşer', () => {
+    // Serbest duvarda "içerisi" tanımsız; iddia edilmeyen tek şey hangisinin
+    // oda tarafı olduğu, sayıların ayrı yanlarda durması yine de şart.
+    const [annotation] = getWallDimensionAnnotations([WALL], POINTS, NO_OPENINGS, OPTIONS)
+
+    expect(annotation?.innerPosition.y).toBe(-annotation!.outerPosition.y)
+  })
+})
+
+describe('getWallDimensionAnnotations — açıklık ölçüsü anahtarı', () => {
+  const WALL = makeWall(20, 10, 11)
+
+  it('isOpeningVisible false iken açıklık ölçüsü ÜRETİLMEZ', () => {
+    const annotations = getWallDimensionAnnotations([WALL], POINTS, [OPENING_IN_MIDDLE], {
+      ...OPTIONS,
+      isOpeningVisible: false,
+    })
+
+    expect(annotations.map((item) => item.kind)).toEqual(['wall', 'wall'])
+  })
+
+  it('anahtar kapalıyken duvar parçaları BÖLÜNMÜŞ kalır', () => {
+    // Açıklığın sayısı gizlense de duvar orada delik: iki parça yazılmalı,
+    // yoksa 4 m'lik tek bir duvar varmış gibi görünürdü.
+    const annotations = getWallDimensionAnnotations([WALL], POINTS, [OPENING_IN_MIDDLE], {
+      ...OPTIONS,
+      isOpeningVisible: false,
+    })
+
+    expect(annotations.map((item) => item.innerLengthCm)).toEqual([150, 150])
+  })
+
+  it('verilmezse açıklık ölçüsü yazılır — varsayılan AÇIK', () => {
+    const annotations = getWallDimensionAnnotations([WALL], POINTS, [OPENING_IN_MIDDLE], OPTIONS)
+
+    expect(annotations.map((item) => item.kind)).toEqual(['wall', 'opening', 'wall'])
+  })
+})
+
+describe('buildWallInteriorPoints', () => {
+  // (0,0)-(400,0)-(400,300)-(0,300) karesi: dört duvar, tek kapalı çevrim.
+  const squarePoints: Point[] = [
+    { id: 10, floorId: FLOOR_ID, x: 0, y: 0 },
+    { id: 11, floorId: FLOOR_ID, x: 400, y: 0 },
+    { id: 12, floorId: FLOOR_ID, x: 400, y: 300 },
+    { id: 13, floorId: FLOOR_ID, x: 0, y: 300 },
+  ]
+  const squareWalls: Wall[] = [
+    makeWall(20, 10, 11),
+    makeWall(21, 11, 12),
+    makeWall(22, 12, 13),
+    makeWall(23, 13, 10),
+  ]
+
+  it('çevrimdeki her duvara odanın İÇİNDE bir nokta verir', () => {
+    const interiorPoints = buildWallInteriorPoints(squareWalls, squarePoints, FLOOR_ID)
+
+    expect([...interiorPoints.keys()].sort((a, b) => a - b)).toEqual([20, 21, 22, 23])
+    for (const point of interiorPoints.values()) {
+      expect(point.x).toBeGreaterThan(0)
+      expect(point.x).toBeLessThan(400)
+      expect(point.y).toBeGreaterThan(0)
+      expect(point.y).toBeLessThan(300)
+    }
+  })
+
+  it('çevrim kapanmıyorsa hiçbir duvara iç taraf verilmez', () => {
+    const openLoop = squareWalls.slice(0, 3)
+
+    expect(buildWallInteriorPoints(openLoop, squarePoints, FLOOR_ID).size).toBe(0)
+  })
+
+  it('kare odanın ölçüleri gerçekten karşılıklı yanlara düşer', () => {
+    // Uçtan uca doğrulama: alt duvarın (20) iç ölçüsü odanın içinde (+y),
+    // dış ölçüsü dışında (−y) olmalı.
+    const interiorPoints = buildWallInteriorPoints(squareWalls, squarePoints, FLOOR_ID)
+
+    const [annotation] = getWallDimensionAnnotations(squareWalls, squarePoints, NO_OPENINGS, {
+      ...OPTIONS,
+      wallIds: [20],
+      interiorPoints,
+    })
+
+    expect(annotation?.innerPosition.y).toBeGreaterThan(0)
+    expect(annotation?.outerPosition.y).toBeLessThan(0)
+    // Komşuları 20 kalınlığında: 400 − (10 + 10) = 380, 400 + 20 = 420.
+    expect(annotation?.innerLengthCm).toBe(380)
+    expect(annotation?.outerLengthCm).toBe(420)
   })
 })

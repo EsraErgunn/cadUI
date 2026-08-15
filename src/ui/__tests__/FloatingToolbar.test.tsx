@@ -103,6 +103,38 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
     expect(useUiStore.getState().isRoomNamesVisible).toBe(!before)
   })
+
+  it('kapı/pencere ölçüleri maddesi bayrağı çevirir', async () => {
+    useUiStore.setState({ isDimensionsVisible: true, isOpeningDimensionsVisible: true })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' }))
+
+    expect(useUiStore.getState().isOpeningDimensionsVisible).toBe(false)
+  })
+
+  it('ölçüler kapalıyken kapı/pencere maddesi PASİF ama listede durur', async () => {
+    // Kalksaydı kullanıcı "böyle bir seçenek yok" sanırdı; tek başına bir şey
+    // yapmadığı için de tıklanabilir olmamalı.
+    useUiStore.setState({ isDimensionsVisible: false })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' })).toBeDisabled()
+  })
+
+  it('kapı/pencere ölçüleri maddesi tesisatta YOK', async () => {
+    useUiStore.setState({ activeViewId: 'installation' })
+    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' }),
+    ).not.toBeInTheDocument()
+  })
 })
 
 describe('FloatingToolbar — kat seçici', () => {

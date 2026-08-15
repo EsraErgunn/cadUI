@@ -1,4 +1,5 @@
 import { Text } from '@react-three/drei'
+import { useMemo } from 'react'
 
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
@@ -9,6 +10,7 @@ import { formatLengthMeters } from '../core/lengthFormat'
 import type { Id } from '../core/model'
 import { getWallsAtPoint } from '../core/wall'
 import {
+  buildWallInteriorPoints,
   getWallDimensionAnnotations,
   type WallDimensionAnnotation,
 } from '../core/wallDimensions'
@@ -28,8 +30,6 @@ const DEG_TO_RAD = Math.PI / 180
 const LABEL_SIZE_PX = 11
 /** Yazı ile duvar yüzü arasındaki ekran boşluğu. */
 const LABEL_GAP_PX = 9
-/** İç ve dış ölçü satırlarının arası (ekran pikseli). */
-const LABEL_ROW_GAP_PX = 12
 /** Bundan kısa bir iç ölçü yazılmaz: köşeler duvarı tümüyle yutmuştur. */
 const MIN_LABELED_LENGTH_CM = 1
 
@@ -62,23 +62,30 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
   const draggingWallIds = useArchitectureUiStore((state) => state.draggingWall?.wallIds)
   const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
 
+  // Oda çevrimi araması duvar/nokta değişmedikçe aynı sonucu verir; zoom her
+  // karede oynadığı için bunu ana hesapla birlikte koşturmak boşa iş olurdu.
+  const interiorPoints = useMemo(
+    () => buildWallInteriorPoints(walls, points, activeFloorId),
+    [walls, points, activeFloorId],
+  )
+
   const annotations = getWallDimensionAnnotations(walls, points, openings, {
     activeFloorId,
     gapCm: LABEL_GAP_PX / zoom,
     wallIds: isEditingOnly
       ? getEditedWallIds(walls, draggingPointId, draggingWallIds)
       : undefined,
+    interiorPoints,
+    isOpeningVisible: isOpeningDimensionsVisible,
   })
 
   return (
     <group name="wall-dimension-labels">
-      {annotations
-        .filter((annotation) => annotation.kind === 'wall' || isOpeningDimensionsVisible)
-        .flatMap((annotation) =>
-          getLabelRows(annotation, LABEL_ROW_GAP_PX / zoom).map((row) => (
-            <DimensionText key={row.key} row={row} kind={annotation.kind} zoom={zoom} />
-          )),
-        )}
+      {annotations.flatMap((annotation) =>
+        getLabelRows(annotation).map((row) => (
+          <DimensionText key={row.key} row={row} kind={annotation.kind} zoom={zoom} />
+        )),
+      )}
     </group>
   )
 }
@@ -91,19 +98,18 @@ type LabelRow = {
 }
 
 /**
- * Bir parçanın yazılacak satırları. İç ve dış ölçü eşitse (serbest uçlu duvar,
- * ya da iki açıklık arasında kalan parça) TEK satır çıkar — aynı sayıyı iki kez
- * yazmak kullanıcıya "bunlar farklı" der ve yalan söylerdi.
+ * Bir parçanın yazılacak satırları. İç ölçü duvarın ODA tarafına, dış ölçü karşı
+ * yanına düşer (K75) — konumları core hesaplıyor, burada yalnız hangisinin
+ * yazılacağına karar veriliyor.
  *
- * İki satır varsa içteki duvara YAKIN, dıştaki bir tık uzak durur: hangi sayının
- * hangisi olduğunu söyleyen tek ipucu bu, çünkü duvarın fiziksel olarak hangi
- * yanının "içerisi" olduğunu bilmiyoruz (K72 — dış taraf yalnız kapalı oda
- * çevriminde tanımlı).
+ * İkisi eşitse (serbest uçlu duvar ya da iki açıklık arasında kalan parça) TEK
+ * satır: aynı sayıyı duvarın iki yanına yazmak kullanıcıya "bunlar farklı" der
+ * ve yalan söylerdi.
  */
-function getLabelRows(annotation: WallDimensionAnnotation, rowGapCm: number): LabelRow[] {
+function getLabelRows(annotation: WallDimensionAnnotation): LabelRow[] {
   const inner: LabelRow = {
     key: `${annotation.key}-inner`,
-    position: annotation.position,
+    position: annotation.innerPosition,
     angleDeg: annotation.angleDeg,
     lengthCm: annotation.innerLengthCm,
   }
@@ -112,20 +118,14 @@ function getLabelRows(annotation: WallDimensionAnnotation, rowGapCm: number): La
     return [inner]
   }
 
-  // Satır kayması etiketin durduğu YANIN yönünde: o yan `angleDeg`in sol
-  // normali (core aynı yönü kullanıyor, ikisi ayrışırsa dış satır duvarın
-  // öbür tarafına düşer).
-  const angleRad = annotation.angleDeg * DEG_TO_RAD
   const outer: LabelRow = {
     key: `${annotation.key}-outer`,
-    position: {
-      x: annotation.position.x - Math.sin(angleRad) * rowGapCm,
-      y: annotation.position.y + Math.cos(angleRad) * rowGapCm,
-    },
+    position: annotation.outerPosition,
     angleDeg: annotation.angleDeg,
     lengthCm: annotation.outerLengthCm,
   }
 
+  // İç ölçü sıfıra düşmüşse (köşeler duvarı yutmuş) yalnız dış ölçü yazılır.
   return annotation.innerLengthCm < MIN_LABELED_LENGTH_CM ? [outer] : [inner, outer]
 }
 
