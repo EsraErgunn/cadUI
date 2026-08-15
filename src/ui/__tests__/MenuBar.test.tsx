@@ -136,8 +136,11 @@ describe('MenuBar', () => {
     const user = userEvent.setup()
     useCadStore.temporal.getState().clear()
     // İzlenen bir alanı değiştirmek yeter: MenuBar'ın işi adımı KİMİN ürettiğini
-    // bilmek değil, geçmişin dolu olduğunu yansıtmak.
-    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    // bilmek değil, geçmişin dolu olduğunu yansıtmak. İzlenen alanlar K71'den
+    // beri yalnız çizim dizileri — revision artırmak adım YAZMAZ.
+    useCadStore.setState((state) => ({
+      points: [...state.points, { id: 1, floorId: 1, x: 0, y: 0 }],
+    }))
     renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: /^Düzenle/ }))

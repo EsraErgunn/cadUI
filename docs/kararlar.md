@@ -3620,3 +3620,63 @@ varsayımı tekrarlamak, listeyi olduğundan dolu gösterirdi.
 "ayrı bir adıma bırakıldı" denen taşıma yapıldı, üçüncü çağıran (poliçe listesi)
 gelince gerekçe kalmadı. Kalan altı biçimleyici proje detayına özel kaldığı için
 `projectDetailFormat.ts` duruyor.
+
+### K70 — Geri al/yinele AKTİF GÖRÜNÜMÜN geçmişine gider, TEK kapıdan
+
+İki ayrı geçmiş yığını var: mimari/proje verisi zundo ile cadStore'da
+(`store/history.ts`), tesisat verisi ayrı bir aynada
+(`plumbing/store/plumbingHistory.ts`). Hangisine gidileceğini seçen dallanma
+klavye kısayolunun içine yazılmıştı; yüzen çubuğun ve menünün düğmeleri
+doğrudan `undoProject`'i çağırıyordu. Sonuç: tesisat görünümünde düğmeye
+basmak tesisatı değil MİMARİYİ geri alıyor, üstelik düğmenin pasifliği de
+yanlış geçmişten okunduğu için tesisatta geri alınacak adım varken düğme
+sönük görünüyordu.
+
+Dallanma tek yere alındı: **`store/activeViewHistory.ts`** —
+`undoActiveView`/`redoActiveView` ve aktiflik için
+`useCanUndoActiveView`/`useCanRedoActiveView`. Kısayol, menü ve yüzen çubuk
+artık yalnız bunları çağırıyor; `undoProject`/`useCanUndo` doğrudan
+çağrılmıyor. İzometrikte düzenleme olmadığı için orada proje geçmişi
+varsayılan kalıyor.
+
+Geçmiş yığınları BİRLEŞTİRİLMEDİ: birleşik tek yığında tesisat görünümündeki
+Ctrl+Z kullanıcıyı göremediği bir duvar değişikliğine götürürdü. Ayrık
+yığınların bedeli, mimaride yapılan bir işin tesisat görünümünden geri
+alınamaması — kullanıcı zaten o değişikliği görmediği görünümde geri almak
+istemez.
+
+**Görünüm (sayfa) geçişi geçmişe YAZILMAZ.** Geri alma çizim VERİSİNİ
+kurtarır, gezinmeyi değil — zoom, pan, seçim ve aktif kat da aynı gerekçeyle
+dışarıda (`store/history.ts`). Görünüm geçişi geçmişe girseydi Ctrl+Z bazen
+bir şeyi geri alır bazen kullanıcıyı başka bir ekrana ışınlardı; tuşun ne
+yapacağı öngörülemez olurdu. Gezinmenin geri tuşu tarayıcınınkidir.
+
+### K71 — `nextUniqueId` ve `revision` mimari geçmişten ÇIKTI
+
+K70'in ayrık yığınları tam ayrık değildi: `store/history.ts` bu iki alanı da
+izliyordu, oysa ikisini de TESİSAT eklemesi artırıyor (`takeNextId`,
+`markDirty` — ortak sayaçlar). Sonuç iki ayrı hataydı:
+
+1. Her tesisat işlemi mimari geçmişe, mimari verisi birebir aynı olan bir adım
+   bırakıyordu. Mimaride Ctrl+Z görünürde hiçbir şey yapmıyor gibi oluyordu —
+   aslında o boş adımı geri alıyordu.
+2. O boş adımı geri almak `nextUniqueId`'yi geriye düşürüyordu, ama tesisat
+   elemanı yerinde kalıyordu. Sayaç aynı id'yi ikinci kez üretebilirdi —
+   knowledge/id-scheme.md'nin "bir kez üretilir, ASLA yeniden üretilmez"
+   kuralının ihlali. Sessiz veri bozulması.
+
+İkisi de izlenen alan listesinden çıkarıldı. Geçmiş artık YALNIZ mimari çizim
+verisini tutuyor; tesisat düzenlemesi mimari dizilere dokunmadığı için
+`areProjectStatesEqual` onu zaten eliyor ve adım yazılmıyor. Sayaç hiç geri
+sarmıyor: geri alınan bir duvarın id'si bir daha kullanılmıyor, ki doğrusu bu.
+
+**Bedeli, bilinçli olarak kabul edildi:** kirli işareti artık geri alınmıyor,
+yani kaydedilen noktaya kadar geri alınan proje "kirli" görünmeye devam ediyor
+ve kullanıcı fazladan bir kaydetme uyarısı alıyor. Eski davranış (K25'ten beri
+"geri alma revision'ı da döndürür") ters yönde yanılıyordu: araya bir tesisat
+düzenlemesi girdiğinde Ctrl+Z sayacı geriye çekiyor ve KAYDEDİLMEMİŞ tesisat
+işi "temiz" görünüyordu — kullanıcı uyarı almadan kapatıp kaybedebilirdi.
+Fazladan uyarı, kaybolan işten iyidir.
+
+Kirli işaretini gerçekten doğru hesaplamak, "şu anki veri kaydedilen veriyle
+aynı mı" karşılaştırmasını ister (iki geçmişi de kapsayan). O ayrı bir iş.

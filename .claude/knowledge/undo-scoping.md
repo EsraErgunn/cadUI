@@ -1,13 +1,15 @@
 # Geri al/yinele kapsamı: görünüme göre ayrık geçmiş
 
-Tür: `gotcha` · 2026-08 · İlgili: K25 (docs/kararlar.md)
+Tür: `gotcha` · 2026-08 · İlgili: K25, K70 (docs/kararlar.md)
 
 ## Tuzak
 
 İki geçmiş var ve ikisi de birbirinden habersiz:
 
 - Mimari veri → `cadStore`'un zundo sarmalayıcısı, izlenen alanlar
-  `store/history.ts`'teki `partializeProjectState`.
+  `store/history.ts`'teki `partializeProjectState`. YALNIZ çizim dizileri;
+  `nextUniqueId`/`revision` ortak sayaçlar olduğu için dışarıda (K71) — geçmişe
+  yeni alan eklerken "bunu tesisat da değiştiriyor mu?" diye sor.
 - Tesisat verisi → `plumbing/store/plumbingHistory.ts`'teki ayrı ayna
   (`installationElements` cadStore'un izlenen alanlarında DEĞİL).
 
@@ -17,24 +19,34 @@ tesisatta bir sembolü geri alırken duvarının da değiştiğini sonra fark ed
 
 ## Kural
 
-Klavye kısayolu için TEK `window` dinleyicisi var: `pages/useEditorShortcuts.ts`.
-Yeni bir katman (izometrik, ölçüm, vb.) kendi undo'sunu getirdiğinde oraya bir
-dal eklenir, yeni bir dinleyici kurulmaz.
+Hangi geçmişe gidileceğini seçen dallanma TEK dosyada: `store/activeViewHistory.ts`
+(K70). Çağıranlar — klavye kısayolu, menü, yüzen çubuk — yalnız
+`undoActiveView`/`redoActiveView` ve `useCanUndoActiveView`/`useCanRedoActiveView`
+kullanır. `undoProject`/`useCanUndo` doğrudan ÇAĞRILMAZ; bu kural bozulduğunda
+düğme yanlış geçmişi geri alır (tam olarak K70'te düzeltilen hata). Yeni bir
+katman (izometrik, ölçüm, vb.) kendi undo'sunu getirdiğinde dal oraya eklenir.
 
-Hedef geçmiş `uiStore.activeViewId` ile seçilir ve tuş anında `getState()` ile
-okunur — abonelik kurulursa görünüm her değiştiğinde effect yeniden çalışır,
-dinleyici sökülüp kurulur.
+Klavye kısayolu için ayrıca TEK `window` dinleyicisi var:
+`pages/useEditorShortcuts.ts`. Katman kendi dinleyicisini kurarsa tek tuş iki
+geçmişe birden düşer.
+
+Hedef geçmiş `uiStore.activeViewId` ile seçilir; imperatif yolda tuş anında
+`getState()` ile okunur — abonelik kurulursa görünüm her değiştiğinde effect
+yeniden çalışır, dinleyici sökülüp kurulur. Aktiflik hook'ları ise abone olur
+(render'ın işi), ve iki geçmişe de KOŞULSUZ abone olur: React hook sırası
+dallanamaz.
 
 Ctrl+S bilerek görünümden bağımsızdır: kayıt tüm projeyi kapsar.
 
 ## Bilinen sınırlar (varsayarak kod yazma)
 
-- Menüdeki "Geri Al/Yinele" hâlâ koşulsuz `undoProject`; `useCanUndo/useCanRedo`
-  yalnız mimari geçmişi okur. Tesisat geçmişinin React hook'u yok.
-- `nextUniqueId` ve `revision` mimari geçmişte izleniyor, tesisat eklemesi
-  ikisini de artırıyor → her tesisat işlemi mimari geçmişe "boş" bir adım
-  bırakır. Mimaride Ctrl+Z o adımda görünürde hiçbir şey yapmaz.
-  Düzeltmek `history.ts`'in izlenen alan listesine dokunmayı gerektirir.
+- Görünüm geçişi geçmişe YAZILMAZ (K70): geri alma çizim verisini kurtarır,
+  gezinmeyi değil — zoom/pan/seçim/aktif kat da aynı gerekçeyle dışarıda.
+- Kirli işareti (`revision`) geri ALINMIYOR (K71): kaydedilen noktaya kadar
+  geri alınan proje kirli görünmeye devam eder, fazladan bir kaydetme uyarısı
+  çıkar. Bilinçli tercih — ters yönü (kaydedilmemiş tesisat işini "temiz"
+  göstermek) işi kaybettiriyordu. Doğrusu "şu anki veri kaydedilenle aynı mı"
+  karşılaştırması, o ayrı iş.
 
 ## Kısayolların gösterimi
 
