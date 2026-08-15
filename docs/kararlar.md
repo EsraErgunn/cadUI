@@ -3680,3 +3680,45 @@ Fazladan uyarı, kaybolan işten iyidir.
 
 Kirli işaretini gerçekten doğru hesaplamak, "şu anki veri kaydedilen veriyle
 aynı mı" karşılaştırmasını ister (iki geçmişi de kapsayan). O ayrı bir iş.
+
+### K72 — Duvar ölçüleri: eksen boyu, okunur yön, geometriden gelen yan
+
+Floating bar'ın "Ölçüler" anahtarı artık mimaride de bir şey yapıyor: kat
+planındaki her duvarın uzunluğu, duvara paralel ve ekseninden dik kaydırılmış
+bir yazı olarak çiziliyor (`core/wallDimensions.ts` →
+`getWallDimensionAnnotations`, `scene/WallDimensionLabels.tsx`).
+
+**Ölçülen şey EKSEN boyu** (p1→p2), yüz boyu değil. Duvar bir kapsül olarak
+çiziliyor (K23) ve kavşakta komşusuyla iç içe giriyor; "yüz boyu" için önce
+hangi komşunun nereden kestiğini çözmek gerekirdi ve iki komşu duvar farklı
+kalınlıktayken aynı duvarın iki yüzü farklı sayı verirdi. Eksen boyu tek ve
+kararlı. Modelde `lengthCm` alanı YOK: her karede geometriden hesaplanıyor,
+olsaydı köşe taşındığında bayatlardı.
+
+**Yazı hep okunur yönde:** ham açı (-90°, 90°] dışına düşerse duvar ters yönde
+okunuyor. Yan (etiketin düştüğü taraf) bu normalleştirmeden SONRA, eksenin sol
+normalinden alınıyor — sırası önemli, çünkü böylece yan duvarın geometrisinden
+çıkıyor, hangi ucun p1 olduğundan değil. Ters sırada aynı duvar ters çizilseydi
+ölçüsü öbür yana atlar, plan çizim sırasına göre farklı görünürdü.
+
+**"Dışarısı" hesaplanmıyor.** İdeali ölçünün odanın dışına düşmesi olurdu ama
+dış taraf ancak kapalı bir oda çevriminde tanımlı; serbest duvarda tanımsız.
+Tutarlı ve öngörülebilir bir yan, bazen doğru bazen tanımsız bir yandan iyi.
+
+**Katman kapalıyken de sürükleme sırasında görünür** — ama yalnız DÜZENLENEN
+duvarlar (taşınan duvarlar, ya da oynatılan köşeyi paylaşan duvarlar). Kullanıcı
+sayıyı görmeden hizalayamaz; tüm planı açmak ise kullanıcının kapattığı katmanı
+geri açmak olurdu. Tesisattaki `DraftLengthLabel` ile aynı ayrım: kalıcı
+kotalama bir tercih, düzenleme sırasındaki sayı bir geri bildirimdir.
+
+**Anahtar tesisatla ORTAK** (`isDimensionsVisible`). Kullanıcı için tek bir
+"ölçüleri göster" tercihi var; ayrı bayrak olsaydı menü çubuğundaki tek
+"Ölçüleri Göster" maddesi hangisini kastettiğini söyleyemezdi.
+
+### Ortak parçaya çıkan
+
+`formatLengthMeters` → **`core/lengthFormat.ts`**: tesisat ve mimari ölçüleri
+aynı tuvalde yan yana okunuyor, biri "3,50 m" diğeri `core/coords.ts`'teki
+`formatLengthAsMeters` ile "3.50" olsaydı çizim iki ayrı programdan çıkmış gibi
+görünürdü. `plumbing/core/lengthFormat.ts` artık yalnız yeniden dışa veriyor
+(tesisat tarafındaki çağrı yolları değişmesin diye).

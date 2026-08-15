@@ -65,7 +65,19 @@ export function ViewOptionsMenu() {
     onToggle: toggleGridVisible,
   }
 
+  // Ölçüler İKİ görünümde de aynı bayrağı okuyor: kullanıcı için tek bir
+  // "ölçüleri göster" tercihi var, mimaride duvar boyunu tesisatta boru boyunu
+  // açıyor. Ayrı bayrak olsaydı menü çubuğundaki tek "Ölçüleri Göster" maddesi
+  // hangisini kastettiğini söyleyemezdi.
+  const dimensionsOption: ViewOption = {
+    id: 'dimensions',
+    label: 'Ölçüler',
+    isChecked: isDimensionsVisible,
+    onToggle: toggleDimensionsVisible,
+  }
+
   const architectureOptions: ViewOption[] = [
+    dimensionsOption,
     {
       id: 'areaObjectNames',
       label: 'Nesne adları',
@@ -87,12 +99,7 @@ export function ViewOptionsMenu() {
   // zaten vardı, çubuk onları TUVALE getiriyor — durum tek yerde (uiStore),
   // iki arayüz aynı bayrağı okuyor.
   const installationOptions: ViewOption[] = [
-    {
-      id: 'dimensions',
-      label: 'Ölçüler',
-      isChecked: isDimensionsVisible,
-      onToggle: toggleDimensionsVisible,
-    },
+    dimensionsOption,
     {
       id: 'elementLabels',
       label: 'Eleman adları',
