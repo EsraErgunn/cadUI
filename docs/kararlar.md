@@ -3722,3 +3722,33 @@ aynı tuvalde yan yana okunuyor, biri "3,50 m" diğeri `core/coords.ts`'teki
 `formatLengthAsMeters` ile "3.50" olsaydı çizim iki ayrı programdan çıkmış gibi
 görünürdü. `plumbing/core/lengthFormat.ts` artık yalnız yeniden dışa veriyor
 (tesisat tarafındaki çağrı yolları değişmesin diye).
+
+### K73 — Açıklıklı duvar PARÇALARA bölünerek ölçülür; açıklık ayrı renkte
+
+K72 duvarın toplam eksen boyunu yazıyordu. Üzerinde kapı/pencere olan bir
+duvarda kullanıcıyı ilgilendiren sayı bu değil: imalatta ölçülen, açıklığın iki
+yanında kalan DOLU parçalardır. Artık `getWallDimensionAnnotations` duvarı
+açıklıkların kestiği parçalara bölüyor ve her parça için ayrı etiket üretiyor.
+
+**Açıklığın kendi genişliği de yazılıyor**, ama duvar parçalarından FARKLI
+renkte (mor, `ARCHITECTURE_COLORS.openingDimension`). Aynı hizada yan yana
+duran sayıların hangisinin duvar hangisinin boşluk olduğu yalnız konumdan
+okunamazdı. Mor seçildi çünkü tuvalde boş kalan tek anlamlı hue: sarı gaz
+hattının (K27), mavi seçimin, yeşil yakalama işaretinin, kırmızı reddedilen
+yerleştirmenin rengi.
+
+Bölme yalnız GÖSTERİM içindir. Modelde açıklık duvarı bölmüyor — tek parça
+duvarın üstünde bir delik (knowledge/opening-placement.md) ve bu değişmedi.
+
+Köşeye dayanan açıklıkta sıfır boy parça yazılmaz (`MIN_LABELED_LENGTH_CM`).
+Açıklık span'i duvar boyuna kelepçeleniyor: duvar kısaldığında sığmayan açıklık
+siliniyor (K16) ama silinme ile yeniden çizim arasındaki karede taşan bir span
+gelebilir ve ölçü negatife düşmemeli.
+
+React anahtarı artık `wallId` DEĞİL: bir duvar birden çok etiket üretiyor.
+Duvar parçaları `wall-<duvarId>-<sıra>`, açıklıklar `opening-<açıklıkId>`.
+
+**Bilinen sınır:** iki komşu duvarın uçlarındaki kısa parçalar (20–25 cm) aynı
+noktada buluştuğunda etiketleri üst üste biniyor. Ekranda doğrulandı. Ölçü
+yazısını ekran boyuna göre eleyen bir eşik çözerdi ama bu, kullanıcının görmek
+isteyebileceği sayıyı gizlemek demek — karar verilmeden eklenmedi.

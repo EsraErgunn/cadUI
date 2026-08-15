@@ -1,20 +1,30 @@
 import { normalizeZero, type PlanPoint } from './coords'
-import type { Id, Point, Wall } from './model'
-import { getSegmentAngleDeg, getSegmentLength, getSegmentMidpoint, getWallEnds } from './wall'
+import type { Id, Opening, Point, Wall } from './model'
+import { getOpeningsOnWall, getOpeningSpan } from './opening'
+import { getSegmentAngleDeg, getSegmentLength, getWallEnds } from './wall'
 
-/** Bu boyun altındaki duvara ölçü yazılmaz: yazı duvardan uzun olurdu. */
+/** Bu boyun altındaki parçaya ölçü yazılmaz: yazı parçadan uzun olurdu. */
 const MIN_LABELED_LENGTH_CM = 1
 
-/** Yazı bu açıların dışına çıkarsa 180° çevrilir — baş aşağı ölçü okunmaz. */
+/** Yazı bu açıların dışına çıkarsa duvar ters yönde okunur — baş aşağı ölçü olmaz. */
 const READABLE_MAX_ANGLE_DEG = 90
 
+/**
+ * Duvar parçası mı, açıklığın kendisi mi? Çağıran ikisini farklı renkte çiziyor:
+ * aynı hizada yan yana duran sayıların hangisinin duvar hangisinin boşluk
+ * olduğu, yalnız konumdan okunamazdı.
+ */
+export type WallDimensionKind = 'wall' | 'opening'
+
 export type WallDimensionAnnotation = {
+  /** React anahtarı: bir duvar artık BİRDEN ÇOK ölçü üretiyor, id tek başına yetmez. */
+  key: string
   wallId: Id
-  /** Etiketin duracağı plan noktası; duvar ekseninden dik kaydırılmış. */
+  kind: WallDimensionKind
+  /** Etiketin duracağı plan noktası; parçanın ortasından dik kaydırılmış. */
   position: PlanPoint
   /** Yazının plan düzlemindeki dönüşü (derece), (-90, 90] aralığında. */
   angleDeg: number
-  /** Ölçülen uzunluk = duvarın EKSEN boyu (p1→p2), cm. */
   lengthCm: number
 }
 
@@ -33,18 +43,65 @@ export type WallDimensionOptions = {
   wallIds?: readonly Id[]
 }
 
+type DimensionPart = {
+  kind: WallDimensionKind
+  key: string
+  /** p1 ucundan itibaren, cm. */
+  startCm: number
+  endCm: number
+}
+
 /**
- * Ölçü yazısı duvarın HANGİ yanına düşer? Yön normalleştirildikten SONRA (yazı
- * hep okunur yönde) eksenin sol normali alınır. Sıralama önemli: normalleştirme
- * önce geldiği için yan, duvarın geometrisinden çıkıyor, hangi ucun p1 olduğundan
- * değil — aynı duvar ters yönde çizilseydi ölçüsü öbür yana atlardı ve plan,
- * çizim sırasına göre farklı görünürdü.
+ * Duvarı açıklıkların KESTİĞİ parçalara böler: kapı/pencere olan bir duvarda
+ * kullanıcıyı ilgilendiren sayı duvarın toplam boyu değil, açıklığın iki
+ * yanında kalan dolu parçalardır (imalatta ölçülen budur). Açıklığın kendi
+ * genişliği de ayrı bir parça olarak çıkar — çağıran onu farklı renkte yazar.
  *
- * "Dışarısı" hesaplanmıyor: dış taraf ancak kapalı bir oda çevriminde tanımlı,
- * serbest duvarda tanımsız olurdu (bkz. K72).
+ * Açıklık modelde duvarı BÖLMÜYOR (tek parça duvarın üstünde bir delik,
+ * knowledge/opening-placement.md); bölme yalnız burada, gösterim için yapılır.
  */
-function getLeftNormal(from: PlanPoint, to: PlanPoint, lengthCm: number): PlanPoint {
-  return { x: -(to.y - from.y) / lengthCm, y: (to.x - from.x) / lengthCm }
+function getDimensionParts(
+  wall: Wall,
+  openings: readonly Opening[],
+  wallLengthCm: number,
+): DimensionPart[] {
+  const spans = getOpeningsOnWall(wall.id, openings)
+    .map((opening) => ({ opening, span: getOpeningSpan(opening) }))
+    .sort((a, b) => a.span[0] - b.span[0])
+
+  const parts: DimensionPart[] = []
+  let cursorCm = 0
+
+  for (const { opening, span } of spans) {
+    // Kelepçe savunma amaçlı: duvar kısaldığında sığmayan açıklık siliniyor
+    // (K16) ama silinme ile yeniden çizim arasındaki karede taşan span gelebilir.
+    const startCm = Math.max(span[0], 0)
+    const endCm = Math.min(span[1], wallLengthCm)
+    if (endCm <= startCm) continue
+
+    if (startCm - cursorCm >= MIN_LABELED_LENGTH_CM) {
+      parts.push({
+        kind: 'wall',
+        key: `wall-${wall.id}-${parts.length}`,
+        startCm: cursorCm,
+        endCm: startCm,
+      })
+    }
+
+    parts.push({ kind: 'opening', key: `opening-${opening.id}`, startCm, endCm })
+    cursorCm = endCm
+  }
+
+  if (wallLengthCm - cursorCm >= MIN_LABELED_LENGTH_CM) {
+    parts.push({
+      kind: 'wall',
+      key: `wall-${wall.id}-${parts.length}`,
+      startCm: cursorCm,
+      endCm: wallLengthCm,
+    })
+  }
+
+  return parts
 }
 
 /**
@@ -59,6 +116,7 @@ function getLeftNormal(from: PlanPoint, to: PlanPoint, lengthCm: number): PlanPo
 export function getWallDimensionAnnotations(
   walls: readonly Wall[],
   points: readonly Point[],
+  openings: readonly Opening[],
   options: WallDimensionOptions,
 ): WallDimensionAnnotation[] {
   const annotations: WallDimensionAnnotation[] = []
@@ -74,25 +132,36 @@ export function getWallDimensionAnnotations(
     if (lengthCm < MIN_LABELED_LENGTH_CM) continue
 
     // Yön normalleştirme: yazı baş aşağı düşecekse duvarı ters yönde okuruz.
-    // Ölçü aynı sayı, yalnız yazının yönü ve düştüğü yan değişir.
+    // Etiketin düştüğü yan bu normalleştirmeden SONRA seçildiği için duvarın
+    // GEOMETRİSİNDEN çıkıyor, hangi ucun p1 olduğundan değil — sıra ters olsaydı
+    // aynı duvar ters çizildiğinde ölçüleri öbür yana atlardı (K72).
     const rawAngleDeg = getSegmentAngleDeg(ends.p1, ends.p2)
     const isReadable = rawAngleDeg > -READABLE_MAX_ANGLE_DEG && rawAngleDeg <= READABLE_MAX_ANGLE_DEG
-    const from = isReadable ? ends.p1 : ends.p2
-    const to = isReadable ? ends.p2 : ends.p1
+    const sign = isReadable ? 1 : -1
 
-    const midpoint = getSegmentMidpoint(from, to)
-    const normal = getLeftNormal(from, to, lengthCm)
+    // p1→p2 birim yönü: parça konumları offset (p1'den uzaklık) ile geliyor.
+    const axis = { x: (ends.p2.x - ends.p1.x) / lengthCm, y: (ends.p2.y - ends.p1.y) / lengthCm }
+    // Okunur yönün SOL normali. "Dışarısı" hesaplanmıyor: dış taraf ancak kapalı
+    // bir oda çevriminde tanımlı, serbest duvarda tanımsız olurdu (K72).
+    const normal = { x: sign * -axis.y, y: sign * axis.x }
     const offsetCm = wall.thickness / 2 + options.gapCm
+    const angleDeg = isReadable ? rawAngleDeg : getSegmentAngleDeg(ends.p2, ends.p1)
 
-    annotations.push({
-      wallId: wall.id,
-      position: {
-        x: normalizeZero(midpoint.x + normal.x * offsetCm),
-        y: normalizeZero(midpoint.y + normal.y * offsetCm),
-      },
-      angleDeg: getSegmentAngleDeg(from, to),
-      lengthCm,
-    })
+    for (const part of getDimensionParts(wall, openings, lengthCm)) {
+      const midCm = (part.startCm + part.endCm) / 2
+
+      annotations.push({
+        key: part.key,
+        wallId: wall.id,
+        kind: part.kind,
+        position: {
+          x: normalizeZero(ends.p1.x + axis.x * midCm + normal.x * offsetCm),
+          y: normalizeZero(ends.p1.y + axis.y * midCm + normal.y * offsetCm),
+        },
+        angleDeg,
+        lengthCm: part.endCm - part.startCm,
+      })
+    }
   }
 
   return annotations

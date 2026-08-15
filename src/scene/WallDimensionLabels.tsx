@@ -46,6 +46,7 @@ function getEditedWallIds(
 
 function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
   const walls = useCadStore((state) => state.walls)
+  const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   // Sürüklenen köşe geçici konumuyla gelir; ölçü jest boyunca canlı güncellenir.
   const points = useArchitecturePoints()
@@ -53,7 +54,7 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
   const draggingPointId = useArchitectureUiStore((state) => state.draggingPoint?.pointId)
   const draggingWallIds = useArchitectureUiStore((state) => state.draggingWall?.wallIds)
 
-  const annotations = getWallDimensionAnnotations(walls, points, {
+  const annotations = getWallDimensionAnnotations(walls, points, openings, {
     activeFloorId,
     gapCm: LABEL_GAP_PX / zoom,
     wallIds: isEditingOnly
@@ -65,14 +66,18 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
     <group name="wall-dimension-labels">
       {annotations.map((annotation) => (
         <Text
-          key={annotation.wallId}
+          key={annotation.key}
           font={FONT_URL}
           position={planToThree(annotation.position, HANDLE_ELEVATION_CM)}
           // Z ekseni etrafındaki dönüş yazıyı duvara PARALEL tutar; yatırma
           // (X) önce uygulanıyor, sıra değişirse yazı düzlemden kalkar.
           rotation={[FLAT_ROTATION_X, 0, annotation.angleDeg * DEG_TO_RAD]}
           fontSize={LABEL_SIZE_PX / zoom}
-          color={ARCHITECTURE_COLORS.wall}
+          color={
+            annotation.kind === 'opening'
+              ? ARCHITECTURE_COLORS.openingDimension
+              : ARCHITECTURE_COLORS.wall
+          }
           anchorX="center"
           anchorY="middle"
           renderOrder={RENDER_ORDER.measurement}
@@ -88,6 +93,9 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
 /**
  * Duvarların uzunluk etiketleri (Görünüm ▸ Ölçüler). Yazı duvara paralel,
  * ekseninden dik kaydırılmış ve ekran boyunda sabit.
+ *
+ * Açıklığı olan duvar PARÇALARINA bölünür (K73): kapı/pencerenin iki yanında
+ * kalan dolu parçalar duvar renginde, açıklığın kendi genişliği mor yazılır.
  *
  * Katman kapalıyken de sürükleme sırasında düzenlenen duvarlar için çizilir —
  * tesisattaki `DraftLengthLabel` ile aynı ayrım: kalıcı kotalama bir tercih,
