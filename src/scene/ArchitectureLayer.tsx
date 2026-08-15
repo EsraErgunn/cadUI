@@ -10,6 +10,7 @@ import { Rooms } from './Room'
 import { RoomTool } from './RoomTool'
 import { SelectionMarquee } from './SelectionMarquee'
 import { Walls } from './Wall'
+import { WallDimensionLabels } from './WallDimensionLabels'
 import { WallTool } from './WallTool'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useAreaObjectLabelTool } from './useAreaObjectLabelTool'
@@ -308,6 +309,9 @@ export function ArchitectureLayer() {
       <AreaObjectHandles />
       {/* Ad etiketleri tutamaçlarla aynı katmanda: her şeyin üstünde okunmalı. */}
       <AreaObjectNameLabels />
+      {/* Ölçüler tutamaçların ALTINDA (RENDER_ORDER.measurement < handle): sayı
+          köşe tutamacını örterse köşe tutulamaz hâle gelirdi. */}
+      <WallDimensionLabels />
       <BeamHandles />
       <SelectionMarquee />
     </group>
