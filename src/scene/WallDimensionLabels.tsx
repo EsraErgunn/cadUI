@@ -51,7 +51,7 @@ function getEditedWallIds(
   return getWallsAtPoint(draggingPointId, walls).map((wall) => wall.id)
 }
 
-function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
+function WallDimensions() {
   const walls = useCadStore((state) => state.walls)
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -60,6 +60,7 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
   const zoom = useCameraZoom()
   const draggingPointId = useArchitectureUiStore((state) => state.draggingPoint?.pointId)
   const draggingWallIds = useArchitectureUiStore((state) => state.draggingWall?.wallIds)
+  const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
   const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
 
   // Oda çevrimi araması duvar/nokta değişmedikçe aynı sonucu verir; zoom her
@@ -72,9 +73,12 @@ function WallDimensions({ isEditingOnly }: { isEditingOnly: boolean }) {
   const annotations = getWallDimensionAnnotations(walls, points, openings, {
     activeFloorId,
     gapCm: LABEL_GAP_PX / zoom,
-    wallIds: isEditingOnly
-      ? getEditedWallIds(walls, draggingPointId, draggingWallIds)
-      : undefined,
+    // Duvar ölçüleri kapalıyken bile SÜRÜKLENEN duvarınki geçici çıkar; kısıt o
+    // zaman devreye girer. Açıklık ölçüsü bu kısıttan etkilenmez, kendi
+    // anahtarına bakar (K76).
+    wallIds: isDimensionsVisible
+      ? undefined
+      : getEditedWallIds(walls, draggingPointId, draggingWallIds),
     interiorPoints,
     isOpeningVisible: isOpeningDimensionsVisible,
   })
@@ -158,26 +162,30 @@ function DimensionText({
 }
 
 /**
- * Duvarların uzunluk etiketleri (Görünüm ▸ Ölçüler). Yazı duvara paralel,
- * ekseninden dik kaydırılmış ve ekran boyunda sabit.
+ * Duvar ve açıklık ölçüleri. Yazı duvara paralel, ekseninden dik kaydırılmış ve
+ * ekran boyunda sabit; iç ölçü odanın içine, dış ölçü karşı yanına düşer (K75).
  *
- * Açıklığı olan duvar PARÇALARINA bölünür (K73): kapı/pencerenin iki yanında
- * kalan dolu parçalar duvar renginde, açıklığın kendi genişliği mor yazılır.
+ * İKİ BAĞIMSIZ anahtar (K76): Görünüm ▸ Ölçüler duvar parçalarını, Görünüm ▸
+ * Kapı/pencere ölçüleri açıklık genişliklerini açar. Biri kapalıyken diğeri
+ * çalışmaya devam eder — kullanıcı yalnız kapı/pencere ölçülerini görmek
+ * isteyebilir.
  *
- * Katman kapalıyken de sürükleme sırasında düzenlenen duvarlar için çizilir —
- * tesisattaki `DraftLengthLabel` ile aynı ayrım: kalıcı kotalama bir tercih,
- * düzenleme sırasındaki sayı bir geri bildirimdir.
+ * Duvar ölçüleri kapalıyken de sürükleme sırasında düzenlenen duvarlar için
+ * çizilir — tesisattaki `DraftLengthLabel` ile aynı ayrım: kalıcı kotalama bir
+ * tercih, düzenleme sırasındaki sayı bir geri bildirimdir.
  *
- * Kapı gövdeden ayrı bileşen: hiçbir ölçü çizilmeyecekse duvar/nokta
- * aboneliği ve `useFrame` (zoom yoklaması) hiç kurulmaz — geriye yalnız üç
- * küçük bayrak aboneliği kalır (`LengthLabels` deseni).
+ * Kapı gövdeden ayrı bileşen: hiçbir ölçü çizilmeyecekse duvar/nokta aboneliği
+ * ve `useFrame` (zoom yoklaması) hiç kurulmaz — geriye yalnız dört küçük bayrak
+ * aboneliği kalır (`LengthLabels` deseni).
  */
 export function WallDimensionLabels() {
   const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
+  const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
   const isDraggingPoint = useArchitectureUiStore((state) => state.draggingPoint !== null)
   const isDraggingWall = useArchitectureUiStore((state) => state.draggingWall !== null)
 
-  if (isDimensionsVisible) return <WallDimensions isEditingOnly={false} />
-  if (isDraggingPoint || isDraggingWall) return <WallDimensions isEditingOnly />
-  return null
+  const isEditing = isDraggingPoint || isDraggingWall
+  if (!isDimensionsVisible && !isOpeningDimensionsVisible && !isEditing) return null
+
+  return <WallDimensions />
 }

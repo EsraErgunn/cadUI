@@ -114,15 +114,21 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
     expect(useUiStore.getState().isOpeningDimensionsVisible).toBe(false)
   })
 
-  it('ölçüler kapalıyken kapı/pencere maddesi PASİF ama listede durur', async () => {
-    // Kalksaydı kullanıcı "böyle bir seçenek yok" sanırdı; tek başına bir şey
-    // yapmadığı için de tıklanabilir olmamalı.
-    useUiStore.setState({ isDimensionsVisible: false })
+  it('ölçüler KAPALIYKEN de kapı/pencere maddesi çalışır (K76)', async () => {
+    // İki anahtar bağımsız: kullanıcı yalnız açıklık genişliklerini görmek
+    // isteyebilir, bunun için duvar ölçülerini açmak zorunda kalmamalı.
+    useUiStore.setState({ isDimensionsVisible: false, isOpeningDimensionsVisible: false })
     render(<FloatingToolbar onGoToFloor={vi.fn()} />)
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' })
+    expect(item).toBeEnabled()
 
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' })).toBeDisabled()
+    await userEvent.click(item)
+
+    expect(useUiStore.getState().isOpeningDimensionsVisible).toBe(true)
+    // Duvar ölçüleri anahtarı bundan ETKİLENMEZ.
+    expect(useUiStore.getState().isDimensionsVisible).toBe(false)
   })
 
   it('kapı/pencere ölçüleri maddesi tesisatta YOK', async () => {

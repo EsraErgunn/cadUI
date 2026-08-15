@@ -14,10 +14,10 @@ type UiState = {
   /** Görünüm ▸ Ölçüleri Göster. Görüntüleme tercihi: kaydedilmez, geçmişe girmez. */
   isDimensionsVisible: boolean
   /**
-   * Kapı/pencere GENİŞLİĞİNİN ölçüsü (K74). Duvar ölçülerinden ayrı anahtar:
-   * açıklıklı bir duvarda sayı adedi ikiye katlanıyor ve kullanıcı çoğu zaman
-   * yalnız dolu parçaların boyunu okumak istiyor. `isDimensionsVisible`
-   * kapalıyken bunun tek başına bir anlamı yok — ikisi VE'leniyor.
+   * Kapı/pencere GENİŞLİĞİNİN ölçüsü (K74). `isDimensionsVisible`den BAĞIMSIZ
+   * (K76): duvar ölçüleri kapalıyken de açık kalabilir — kullanıcı yalnız
+   * açıklık genişliklerini görmek isteyebilir ve bunun için planı sayıya
+   * boğmak zorunda kalmasın.
    */
   isOpeningDimensionsVisible: boolean
   /** Görünüm ▸ Etiketleri Göster (tesisat eleman adları). Ölçülerle aynı gerekçe. */

@@ -3785,9 +3785,8 @@ duvar arasındaki kısa parça) yalnız dıştan yazılır; negatif uzunluk yaz�
 Görünüm ▸ Kapı/pencere ölçüleri): açıklıklı bir duvarda sayı adedi ikiye
 katlanıyor ve kullanıcı çoğu zaman yalnız dolu parçaların boyunu okumak istiyor.
 Varsayılan AÇIK — yeni anahtar var olan davranışı değiştirmemeli, yalnız kapatma
-imkânı ekliyor. "Ölçüler" kapalıyken madde PASİF görünür ama listeden KALKMAZ:
-kalksaydı "böyle bir seçenek yok" derdi. Anahtar yalnız mimaride; tesisatta
-açıklık diye bir şey yok.
+imkânı ekliyor. Anahtar yalnız mimaride; tesisatta açıklık diye bir şey yok.
+(İlk hâlinde "Ölçüler"e bağımlıydı; K76 bunu kaldırdı.)
 
 ### K75 — İç ölçü ODANIN İÇİNE, dış ölçü dışına; oda tarafı çevrimden bulunur
 
@@ -3819,3 +3818,24 @@ Açıklık ölçüsünün elenmesi de `getWallDimensionAnnotations`a taşındı
 (`isOpeningVisible`): sahnede bir `filter` olarak durduğunda testsiz kalıyordu.
 Duvar parçaları anahtar kapalıyken de BÖLÜNMÜŞ kalır — açıklığın sayısı gizlense
 de duvar orada delik, tek parça göstermek yalan olurdu.
+
+### K76 — İki ölçü anahtarı BAĞIMSIZ
+
+K74'te "Kapı/pencere ölçüleri" maddesi "Ölçüler" kapalıyken pasif yapılmıştı;
+gerekçe "tek başına bir anlamı yok" idi. Yanlış varsayımdı: kullanıcı yalnız
+kapı/pencere genişliklerini görmek isteyebilir ve bunun için planı duvar
+sayılarına boğmak zorunda kalmamalı. İki anahtar artık birbirinden bağımsız —
+dördü de anlamlı bir hâl:
+
+| Ölçüler | Kapı/pencere | Ekranda |
+|---------|--------------|---------|
+| açık | açık | duvar parçaları + açıklık genişlikleri |
+| açık | kapalı | yalnız duvar parçaları (parçalar yine BÖLÜNMÜŞ) |
+| kapalı | açık | yalnız açıklık genişlikleri |
+| kapalı | kapalı | hiçbiri (sürükleme geri bildirimi hariç) |
+
+Eleme `getWallDimensionAnnotations` içinde iki ayrı seçenekle yapılıyor:
+`isWallVisible` ve `isOpeningVisible`. Sürükleme sırasındaki geçici gösterim
+için kullanılan `wallIds` kısıtı YALNIZ duvar parçalarını daraltır, açıklık
+ölçüsüne dokunmaz — ikisi aynı kısıttan geçseydi "duvar ölçüsü kapalı, açıklık
+açık" hâlinde ekran boş kalırdı (kısıt boş dizi oluyor).

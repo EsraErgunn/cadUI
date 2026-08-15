@@ -386,6 +386,36 @@ describe('getWallDimensionAnnotations — açıklık ölçüsü anahtarı', () =
 
     expect(annotations.map((item) => item.kind)).toEqual(['wall', 'opening', 'wall'])
   })
+
+  it('duvar ölçüsü KAPALI, açıklık ölçüsü AÇIK olabilir — ikisi bağımsız (K76)', () => {
+    const annotations = getWallDimensionAnnotations([WALL], POINTS, [OPENING_IN_MIDDLE], {
+      ...OPTIONS,
+      isWallVisible: false,
+    })
+
+    expect(annotations.map((item) => item.kind)).toEqual(['opening'])
+  })
+
+  it('duvar kısıtı açıklık ölçüsünü ELEMEZ', () => {
+    // Sürükleme sırasında duvar parçaları yalnız düzenlenen duvara yazılır;
+    // açıklık ölçüsü o kısıttan bağımsız, kendi anahtarına bakar.
+    const annotations = getWallDimensionAnnotations([WALL], POINTS, [OPENING_IN_MIDDLE], {
+      ...OPTIONS,
+      wallIds: [],
+    })
+
+    expect(annotations.map((item) => item.kind)).toEqual(['opening'])
+  })
+
+  it('ikisi de kapalıysa hiçbir şey üretilmez', () => {
+    const annotations = getWallDimensionAnnotations([WALL], POINTS, [OPENING_IN_MIDDLE], {
+      ...OPTIONS,
+      isWallVisible: false,
+      isOpeningVisible: false,
+    })
+
+    expect(annotations).toHaveLength(0)
+  })
 })
 
 describe('buildWallInteriorPoints', () => {

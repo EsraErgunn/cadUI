@@ -8,8 +8,6 @@ export type ViewOption = {
   id: string
   label: string
   isChecked: boolean
-  /** Üst anahtarı kapalı olan madde: listede DURUR ama tıklanamaz. */
-  isDisabled?: boolean
   onToggle: () => void
 }
 
@@ -85,13 +83,12 @@ export function ViewOptionsMenu() {
   const architectureOptions: ViewOption[] = [
     dimensionsOption,
     {
-      // Yalnız MİMARİDE: tesisatta açıklık diye bir şey yok. Ölçüler kapalıyken
-      // pasif görünür — tek başına bir şey yapmıyor, ama listeden kalkması
-      // "böyle bir seçenek yok" derdi.
+      // Yalnız MİMARİDE: tesisatta açıklık diye bir şey yok. "Ölçüler"den
+      // BAĞIMSIZ (K76): kullanıcı yalnız kapı/pencere genişliklerini görmek
+      // isteyebilir, bunun için duvar ölçülerini de açmak zorunda kalmasın.
       id: 'openingDimensions',
       label: 'Kapı/pencere ölçüleri',
       isChecked: isOpeningDimensionsVisible,
-      isDisabled: !isDimensionsVisible,
       onToggle: toggleOpeningDimensionsVisible,
     },
     {
@@ -154,7 +151,6 @@ export function ViewOptionsMenu() {
               type="button"
               role="menuitemcheckbox"
               aria-checked={option.isChecked}
-              disabled={option.isDisabled}
               onClick={option.onToggle}
               className={canvasBarMenuItemVariants()}
             >

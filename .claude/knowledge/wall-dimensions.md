@@ -68,12 +68,16 @@ oynuyor, çevrim araması ise duvar/nokta değişmedikçe aynı.
 İki değer eşitse TEK satır (aynı sayıyı duvarın iki yanına yazmak "bunlar
 farklı" der ve yalan söyler); içten sıfıra düşerse yalnız dıştan yazılır.
 
-Açıklık genişliğinin AYRI anahtarı var: `uiStore.isOpeningDimensionsVisible`
-(Görünüm ▸ Kapı/pencere ölçüleri, K74). `isDimensionsVisible` ile VE'lenir —
-tek başına bir anlamı yok, o yüzden ölçüler kapalıyken madde pasif görünür ama
-listeden kalkmaz. Yalnız mimaride.
+İKİ BAĞIMSIZ anahtar (K76): `isDimensionsVisible` duvar parçalarını,
+`isOpeningDimensionsVisible` açıklık genişliklerini açar. Dördü de anlamlı bir
+hâl; biri kapalıyken diğeri çalışmaya devam eder. Core'da iki ayrı seçenek:
+`isWallVisible` / `isOpeningVisible`.
 
-Ana anahtar tesisatla ORTAK: `uiStore.isDimensionsVisible`. Kullanıcı için tek bir
+`wallIds` kısıtı (sürükleme sırasındaki geçici gösterim) YALNIZ duvar
+parçalarını daraltır. Açıklık ölçüsü aynı kısıttan geçseydi "duvar kapalı,
+açıklık açık" hâlinde ekran boş kalırdı — kısıt o durumda boş dizi oluyor.
+
+Duvar ölçüsü anahtarı tesisatla ORTAK: `uiStore.isDimensionsVisible`. Kullanıcı için tek bir
 "ölçüleri göster" tercihi var — ayrı bayrak olsaydı menü çubuğundaki tek
 "Ölçüleri Göster" maddesi hangisini kastettiğini söyleyemezdi.
 

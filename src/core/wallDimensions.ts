@@ -55,10 +55,14 @@ export type WallDimensionOptions = {
    */
   gapCm: number
   /**
-   * Verilirse YALNIZ bu duvarlara ölçü yazılır. Ölçü katmanı kapalıyken
-   * sürüklenen duvarı geçici göstermek için: tüm plan yerine düzenlenen parça.
+   * Verilirse duvar PARÇALARININ ölçüsü yalnız bu duvarlara yazılır. Duvar
+   * ölçüleri kapalıyken sürüklenen duvarı geçici göstermek için: tüm plan
+   * yerine düzenlenen parça. Açıklık ölçülerini KISITLAMAZ — onların
+   * görünürlüğü `isOpeningVisible`a bağlı ve bu ikisi bağımsız (K76).
    */
   wallIds?: readonly Id[]
+  /** Duvar parçalarının ölçüsü yazılsın mı (Görünüm ▸ Ölçüler). */
+  isWallVisible?: boolean
   /**
    * Duvar id'si → o duvarın ODA tarafında kalan bir nokta
    * (`buildWallInteriorPoints`). Eksik olan duvarda (hiçbir çevrime girmeyen
@@ -181,7 +185,12 @@ export function getWallDimensionAnnotations(
 
   for (const wall of walls) {
     if (wall.floorId !== options.activeFloorId) continue
-    if (options.wallIds && !options.wallIds.includes(wall.id)) continue
+
+    // İki tür bağımsız açılıp kapanıyor; bu duvardan hiçbir şey çıkmayacaksa
+    // geometriyi hiç hesaplama.
+    const isWallPartVisible =
+      options.isWallVisible !== false && (!options.wallIds || options.wallIds.includes(wall.id))
+    if (!isWallPartVisible && options.isOpeningVisible === false) continue
 
     const ends = getWallEnds(wall, points)
     if (!ends) continue
@@ -229,6 +238,7 @@ export function getWallDimensionAnnotations(
 
     for (const part of getDimensionParts(wall, openings, lengthCm)) {
       if (part.kind === 'opening' && options.isOpeningVisible === false) continue
+      if (part.kind === 'wall' && !isWallPartVisible) continue
 
       const midCm = (part.startCm + part.endCm) / 2
       const partLengthCm = part.endCm - part.startCm
