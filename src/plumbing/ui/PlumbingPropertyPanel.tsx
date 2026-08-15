@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
+import { ChimneyPropertiesPanel } from './properties/ChimneyPropertiesPanel'
 import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
 import { RegulatorProperties } from './properties/RegulatorProperties'
 import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
@@ -70,6 +71,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />
+        )}
+        {kind.scope === 'line' && kind.lineKind === 'chimney' && (
+          <ChimneyPropertiesPanel lineIds={selectedLineIds} />
         )}
         {/* Diğer eleman/hat türleri kendi adımlarında buraya eklenecek — case
             yoksa yalnız başlık + Sil görünür, placeholder metin YAZILMAZ. */}
