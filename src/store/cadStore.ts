@@ -47,6 +47,9 @@ function createEmptyProjectData(): ProjectData {
     symbols: [],
     areaObjects: [],
     beams: [],
+    installationElements: [],
+    installationLines: [],
+    installationConnections: [],
   }
 }
 
@@ -88,6 +91,9 @@ export const useCadStore = create<CadState>()(
             draft.symbols = data.symbols
             draft.areaObjects = data.areaObjects
             draft.beams = data.beams
+            draft.installationElements = data.installationElements
+            draft.installationLines = data.installationLines
+            draft.installationConnections = data.installationConnections
             draft.revision = 0
             draft.savedRevision = 0
           })
@@ -166,5 +172,8 @@ export function selectProjectData(state: CadState): ProjectData {
     symbols: state.symbols,
     areaObjects: state.areaObjects,
     beams: state.beams,
+    installationElements: state.installationElements,
+    installationLines: state.installationLines,
+    installationConnections: state.installationConnections,
   }
 }

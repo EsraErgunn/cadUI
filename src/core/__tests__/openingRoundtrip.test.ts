@@ -30,6 +30,9 @@ const project: ProjectData = {
   symbols: [],
   areaObjects: [],
   beams: [],
+  installationElements: [],
+  installationLines: [],
+  installationConnections: [],
 }
 
 describe('açıklık yükle→kaydet turu', () => {

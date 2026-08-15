@@ -1,5 +1,12 @@
 // Tip-only ve coords.ts hiçbir şey import etmiyor: döngü oluşmaz.
 import type { PlanPoint } from './coords'
+// installationModel.ts da `Id`'yi buradan tip-only import ediyor — döngüsel
+// ama çalışma zamanında SİLİNİR (K17'deki cadStore↔plumbingSlice gerekçesiyle aynı).
+import type {
+  InstallationConnection,
+  InstallationElement,
+  InstallationLine,
+} from '../plumbing/core/installationModel'
 
 /** Kalıcı id: proje bazlı artan tamsayı. Bkz. knowledge/id-scheme.md. */
 export type Id = number
@@ -233,8 +240,14 @@ export type Beam = {
 
 /**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
- * Node/Pipe/Fitting/Equipment/Riser/ServiceBox henüz eklenmedi,
- * kendi issue'larında ekip onayıyla eklenecek.
+ *
+ * Tesisat üçlüsü (`installationElements/Lines/Connections`) BURADAN yönetilir
+ * ama tipleri `plumbing/core/installationModel.ts`te yaşar (C'nin dosyası) —
+ * orijinal Node/Pipe/Fitting/Equipment/ServiceBox adlandırması bu üçlüye
+ * evrildi (fiili uygulama farklı isimlerle ilerledi, ServiceBox ayrı kökte
+ * TEK nesne değil `InstallationElement` dizisinin bir üyesi; Riser henüz
+ * YOK). Serileştirme `plumbing/core/plumbingSerialize.ts`te, kendi iç
+ * şeklimizle — plnr.webcad.com.tr uyumu HEDEFLENMEDİ (bkz. docs/webcad-format.md).
  */
 export type ProjectData = {
   nextUniqueId: Id
@@ -247,4 +260,7 @@ export type ProjectData = {
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
   beams: Beam[]
+  installationElements: InstallationElement[]
+  installationLines: InstallationLine[]
+  installationConnections: InstallationConnection[]
 }
