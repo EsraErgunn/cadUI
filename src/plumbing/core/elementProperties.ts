@@ -48,3 +48,12 @@ export type FilterKitProperties = {
   model: string
   description: string
 }
+
+/**
+ * Regülatörün refakatçi vanaları da bu tipi taşır (ELEMENT_COMPANIONS,
+ * attachModes.ts) — ayrı bir elementType/properties tipi YOK, aynı form.
+ */
+export type ValveProperties = {
+  type: string
+  description: string
+}

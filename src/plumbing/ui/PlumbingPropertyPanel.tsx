@@ -9,6 +9,7 @@ import { InsulationProperties } from './properties/InsulationProperties'
 import { PipePropertiesPanel } from './properties/PipePropertiesPanel'
 import { RegulatorProperties } from './properties/RegulatorProperties'
 import { ServiceBoxProperties } from './properties/ServiceBoxProperties'
+import { ValveProperties } from './properties/ValveProperties'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { getPlumbingPropertyPanelTitle, getPlumbingSelectionKind } from '../core/propertyFields'
@@ -81,6 +82,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'filterKit' && (
           <FilterKitProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'valve' && (
+          <ValveProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />

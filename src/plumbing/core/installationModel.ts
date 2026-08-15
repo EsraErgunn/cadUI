@@ -3,6 +3,7 @@ import type {
   GasMeterProperties,
   InsulationProperties,
   RegulatorProperties,
+  ValveProperties,
 } from './elementProperties'
 import type { BranchLineProperties, ChimneyLineProperties, PipeLineProperties } from './lineProperties'
 import type { PipeTypeName } from './pipeTypes'
@@ -38,6 +39,7 @@ export type InstallationElement = {
   insulation?: InsulationProperties
   gasMeter?: GasMeterProperties
   filterKit?: FilterKitProperties
+  valve?: ValveProperties
 }
 
 export type InstallationLineKind =
