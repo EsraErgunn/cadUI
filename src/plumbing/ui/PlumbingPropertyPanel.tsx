@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 
 import { BranchPropertiesPanel } from './properties/BranchPropertiesPanel'
 import { ChimneyPropertiesPanel } from './properties/ChimneyPropertiesPanel'
+import { CombiBoilerProperties } from './properties/CombiBoilerProperties'
 import { FilterKitProperties } from './properties/FilterKitProperties'
 import { GasMeterProperties } from './properties/GasMeterProperties'
 import { InsulationProperties } from './properties/InsulationProperties'
@@ -102,6 +103,9 @@ export function PlumbingPropertyPanel() {
         )}
         {kind.scope === 'element' && kind.elementType === 'spaceHeater' && (
           <SpaceHeaterProperties elementIds={selectedElementIds} />
+        )}
+        {kind.scope === 'element' && kind.elementType === 'combiBoiler' && (
+          <CombiBoilerProperties elementIds={selectedElementIds} />
         )}
         {kind.scope === 'line' && kind.lineKind === 'pipe' && (
           <PipePropertiesPanel lineIds={selectedLineIds} />

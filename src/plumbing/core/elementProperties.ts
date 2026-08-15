@@ -103,3 +103,12 @@ export type SpaceHeaterProperties = {
   capacity: string
   power: string
 }
+
+export type CombiBoilerProperties = {
+  applianceType: ApplianceType
+  brand: string
+  model: string
+  description: string
+  capacity: string
+  power: string
+}
