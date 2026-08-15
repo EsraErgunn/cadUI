@@ -2,37 +2,13 @@ import { useEffect, useRef } from 'react'
 
 import { isTypingTarget } from '../core/domEvents'
 import type { FloorDirection } from '../core/floors'
-import { redoProject, undoProject, useCadStore } from '../store/cadStore'
-import { useUiStore } from '../store/uiStore'
+import { redoActiveView, undoActiveView } from '../store/activeViewHistory'
 
 export type EditorShortcutHandlers = {
   onSave: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
   onGoToFloor: (direction: FloorDirection) => void
-}
-
-/**
- * Geri al/yinele AKTİF GÖRÜNÜMÜN geçmişine gider: tesisat görünümünde tesisat
- * aynası (plumbingHistory), mimaride proje geçmişi. Katmanlar kendi kısayolunu
- * ayrı bir window dinleyicisiyle bağlasaydı tesisat görünümünde tek Ctrl+Z iki
- * dinleyiciye birden düşer, iki geçmişi aynı anda geri alırdı.
- * İzometrikte düzenleme yok; proje geçmişi varsayılan olarak kalır.
- */
-function undoActiveView(): void {
-  if (useUiStore.getState().activeViewId === 'installation') {
-    useCadStore.getState().undoPlumbing()
-    return
-  }
-  undoProject()
-}
-
-function redoActiveView(): void {
-  if (useUiStore.getState().activeViewId === 'installation') {
-    useCadStore.getState().redoPlumbing()
-    return
-  }
-  redoProject()
 }
 
 /**

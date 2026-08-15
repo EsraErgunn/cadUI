@@ -3,13 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { FloorDirection } from '../core/floors'
 import {
-  redoProject,
-  selectIsProjectDirty,
-  undoProject,
-  useCadStore,
-  useCanRedo,
-  useCanUndo,
-} from '../store/cadStore'
+  redoActiveView,
+  undoActiveView,
+  useCanRedoActiveView,
+  useCanUndoActiveView,
+} from '../store/activeViewHistory'
+import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 import { chromeButtonVariants } from './controls/buttonVariants'
 import { MenuDropdown } from './menu/MenuDropdown'
@@ -55,8 +54,8 @@ export function MenuBar({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const floorCount = useCadStore((state) => state.floors.length)
   const isDirty = useCadStore(selectIsProjectDirty)
-  const canUndo = useCanUndo()
-  const canRedo = useCanRedo()
+  const canUndo = useCanUndoActiveView()
+  const canRedo = useCanRedoActiveView()
   const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
   const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
   const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
@@ -103,8 +102,8 @@ export function MenuBar({
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === EXPORT_ITEM_ID) onExport()
-    if (itemId === UNDO_ITEM_ID) undoProject()
-    if (itemId === REDO_ITEM_ID) redoProject()
+    if (itemId === UNDO_ITEM_ID) undoActiveView()
+    if (itemId === REDO_ITEM_ID) redoActiveView()
     if (itemId === FLOOR_MANAGEMENT_ITEM_ID) onOpenFloorManagement()
     if (itemId === FLOOR_COPY_ITEM_ID) onOpenFloorCopy()
     if (itemId === FLOOR_UP_ITEM_ID) onGoToFloor('up')

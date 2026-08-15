@@ -59,15 +59,35 @@ describe('geri al / yinele', () => {
     expect(temporal().pastStates).toHaveLength(0)
   })
 
-  it('geri alma revision’ı da döndürür — proje yeniden temiz görünür', () => {
+  it('geri alma kirli işaretini geri ÇEVİRMEZ (K71)', () => {
+    // Eskiden revision de geçmişteydi ve geri alma projeyi yeniden "temiz"
+    // gösteriyordu. Araya bir tesisat düzenlemesi girdiğinde o davranış
+    // kaydedilmemiş tesisat işini gizliyordu; fazladan kaydetme uyarısı yeğ.
     useCadStore.getState().markSaved()
     useCadStore.getState().addOpening({ wallId: WALL_ID, offsetCm: 100, widthCm: 90, type: 'door' })
-    expect(useCadStore.getState().revision).not.toBe(useCadStore.getState().savedRevision)
 
     undoProject()
 
     const state = useCadStore.getState()
-    expect(state.revision).toBe(state.savedRevision)
+    expect(state.revision).not.toBe(state.savedRevision)
+  })
+
+  it('geri alma id sayacını geriye DÜŞÜRMEZ (K71)', () => {
+    // Sayaç geri alınsaydı silinen açıklığın id'si ikinci kez üretilirdi —
+    // knowledge/id-scheme.md'nin "bir kez üretilir" kuralının ihlali.
+    const counterBefore = useCadStore.getState().nextUniqueId
+    useCadStore.getState().addOpening({ wallId: WALL_ID, offsetCm: 100, widthCm: 90, type: 'door' })
+
+    undoProject()
+
+    expect(useCadStore.getState().nextUniqueId).toBeGreaterThan(counterBefore)
+  })
+
+  it('tesisat düzenlemesi mimari geçmişe adım yazmaz (K71)', () => {
+    // Boş adım kalırsa mimaride Ctrl+Z görünürde hiçbir şey yapmaz.
+    useCadStore.getState().addElement({ type: 'valve', position: { x: 0, y: 0 } })
+
+    expect(temporal().pastStates).toHaveLength(0)
   })
 
   it('kaydetmek geçmişe adım yazmaz', () => {

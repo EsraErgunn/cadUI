@@ -15,6 +15,16 @@ type HarnessHandlers = {
   onGoToFloor: (direction: 'up' | 'down') => void
 }
 
+/**
+ * Mimari geçmişe adım yazan en küçük değişiklik. `revision` artırmak YETMEZ:
+ * kirli işareti K71'den beri geçmişin dışında, izlenen tek şey çizim verisi.
+ */
+function addTrackedPoint(): void {
+  useCadStore.setState((state) => ({
+    points: [...state.points, { id: 1, floorId: 1, x: 0, y: 0 }],
+  }))
+}
+
 function Harness(handlers: HarnessHandlers) {
   useEditorShortcuts(handlers)
   // Kısayolun metin kutusunda susmasını sınamak için bir giriş alanı da var.
@@ -44,8 +54,9 @@ function renderFloorHarness() {
 }
 
 beforeEach(() => {
+  // Önce yaz sonra temizle: ters sırada bu setState geçmişe bir adım bırakırdı.
+  useCadStore.setState({ revision: 0, savedRevision: 0, points: [], ...INITIAL_PLUMBING_DATA })
   useCadStore.temporal.getState().clear()
-  useCadStore.setState({ revision: 0, savedRevision: 0, ...INITIAL_PLUMBING_DATA })
   resetPlumbingHistory(INITIAL_PLUMBING_DATA)
   useUiStore.setState({ activeViewId: 'architecture' })
 })
@@ -83,33 +94,33 @@ describe('useEditorShortcuts', () => {
   it('Ctrl+Z geri alır', async () => {
     const user = userEvent.setup()
     renderHarness()
-    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    addTrackedPoint()
 
     await user.keyboard('{Control>}z{/Control}')
 
-    expect(useCadStore.getState().revision).toBe(0)
+    expect(useCadStore.getState().points).toHaveLength(0)
   })
 
   it('Ctrl+Shift+Z yineler', async () => {
     const user = userEvent.setup()
     renderHarness()
-    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    addTrackedPoint()
 
     await user.keyboard('{Control>}z{/Control}')
     await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}')
 
-    expect(useCadStore.getState().revision).toBe(1)
+    expect(useCadStore.getState().points).toHaveLength(1)
   })
 
   it('Ctrl+Y de yineler', async () => {
     const user = userEvent.setup()
     renderHarness()
-    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    addTrackedPoint()
 
     await user.keyboard('{Control>}z{/Control}')
     await user.keyboard('{Control>}y{/Control}')
 
-    expect(useCadStore.getState().revision).toBe(1)
+    expect(useCadStore.getState().points).toHaveLength(1)
   })
 
   it('tesisat görünümünde Ctrl+Z tesisat elemanını geri alır', async () => {
@@ -127,12 +138,12 @@ describe('useEditorShortcuts', () => {
     // Aynı tuşu iki dinleyici yakalasaydı tek Ctrl+Z iki geçmişi birden gezerdi.
     const user = userEvent.setup()
     renderHarness()
-    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    addTrackedPoint()
     useUiStore.setState({ activeViewId: 'installation' })
 
     await user.keyboard('{Control>}z{/Control}')
 
-    expect(useCadStore.getState().revision).toBe(1)
+    expect(useCadStore.getState().points).toHaveLength(1)
   })
 
   it('mimari görünümünde Ctrl+Z tesisat elemanını geri almaz', async () => {

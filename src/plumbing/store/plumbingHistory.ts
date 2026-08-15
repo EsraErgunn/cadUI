@@ -1,4 +1,5 @@
 import { temporal } from 'zundo'
+import { useStore } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 
 import type {
@@ -58,6 +59,24 @@ export function redoPlumbingHistory(): PlumbingSnapshot | null {
 
   redo()
   return historyStore.getState()
+}
+
+type PlumbingTemporalState = {
+  pastStates: PlumbingSnapshot[]
+  futureStates: PlumbingSnapshot[]
+}
+
+/**
+ * Menü/çubuk maddelerinin aktifliği için — cadStore'daki useCanUndo'nun tesisat
+ * karşılığı. Sayıya değil boş olup olmadığına abone olunuyor: her adımda
+ * yeniden render etmenin anlamı yok.
+ */
+export function useCanUndoPlumbing(): boolean {
+  return useStore(temporalStore, (state) => (state as PlumbingTemporalState).pastStates.length > 0)
+}
+
+export function useCanRedoPlumbing(): boolean {
+  return useStore(temporalStore, (state) => (state as PlumbingTemporalState).futureStates.length > 0)
 }
 
 /** Proje yüklendiğinde geçmiş sıfırlanır: önceki projenin adımları geri alınamaz. */

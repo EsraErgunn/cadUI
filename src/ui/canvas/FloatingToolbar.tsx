@@ -7,12 +7,12 @@ import { getFloorIdInDirection, type FloorDirection } from '../../core/floors'
 import { SELECTION_TOOL_ID } from '../../core/tools'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../../plumbing/core/installationTools'
 import {
-  redoProject,
-  undoProject,
-  useCadStore,
-  useCanRedo,
-  useCanUndo,
-} from '../../store/cadStore'
+  redoActiveView,
+  undoActiveView,
+  useCanRedoActiveView,
+  useCanUndoActiveView,
+} from '../../store/activeViewHistory'
+import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 
 type FloatingToolbarProps = {
@@ -40,8 +40,8 @@ export function FloatingToolbar({ onGoToFloor }: FloatingToolbarProps) {
   const toggleGridSnapEnabled = useUiStore((state) => state.toggleGridSnapEnabled)
   const activeViewId = useUiStore((state) => state.activeViewId)
 
-  const canUndo = useCanUndo()
-  const canRedo = useCanRedo()
+  const canUndo = useCanUndoActiveView()
+  const canRedo = useCanRedoActiveView()
 
   const floors = useCadStore((state) => state.floors)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -97,7 +97,7 @@ export function FloatingToolbar({ onGoToFloor }: FloatingToolbarProps) {
 
         <button
           type="button"
-          onClick={undoProject}
+          onClick={undoActiveView}
           disabled={!canUndo}
           title="Geri al (Ctrl+Z)"
           aria-label="Geri al"
@@ -107,7 +107,7 @@ export function FloatingToolbar({ onGoToFloor }: FloatingToolbarProps) {
         </button>
         <button
           type="button"
-          onClick={redoProject}
+          onClick={redoActiveView}
           disabled={!canRedo}
           title="Yinele (Ctrl+Y)"
           aria-label="Yinele"
