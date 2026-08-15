@@ -1,5 +1,5 @@
 import type { RegulatorProperties } from './elementProperties'
-import type { ChimneyLineProperties, PipeLineProperties } from './lineProperties'
+import type { BranchLineProperties, ChimneyLineProperties, PipeLineProperties } from './lineProperties'
 import type { PipeTypeName } from './pipeTypes'
 import type { InstallationElementType } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
@@ -148,4 +148,5 @@ export type InstallationLine = {
    */
   pipe?: PipeLineProperties
   chimney?: ChimneyLineProperties
+  branch?: BranchLineProperties
 }

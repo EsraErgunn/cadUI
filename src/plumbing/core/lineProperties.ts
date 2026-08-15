@@ -18,3 +18,7 @@ export type ChimneyLineProperties = {
   startHeightCm: number
   endHeightCm: number
 }
+
+export type BranchLineProperties = {
+  elevationCm: number
+}
