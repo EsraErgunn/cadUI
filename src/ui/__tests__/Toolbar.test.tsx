@@ -12,16 +12,37 @@ beforeEach(() => {
 })
 
 describe('Toolbar', () => {
-  it('22 aracın tamamını dokümandaki sırayla gösterir (KK-8)', () => {
+  it('araçların tamamını dokümandaki sırayla gösterir (KK-8)', () => {
     render(<Toolbar />)
     // Sayım nav ile sınırlı: kısayol ipucu butonu palet dışında, araç değil.
     const buttons = within(screen.getByRole('navigation', { name: 'Araç paleti' })).getAllByRole(
       'button',
     )
-    expect(buttons).toHaveLength(22)
+    expect(buttons).toHaveLength(ARCHITECTURE_TOOLS.length)
+    // Henüz yazılmamış araçların erişilebilir adı sebebi de söyler (K79).
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(
-      ARCHITECTURE_TOOLS.map((tool) => tool.label),
+      ARCHITECTURE_TOOLS.map((tool) =>
+        'isPlanned' in tool ? `${tool.label} (henüz eklenmedi)` : tool.label,
+      ),
     )
+  })
+
+  it('"Toplu Silme" palette YOK (K79)', () => {
+    // İşi zaten var: çerçeveyle çoklu seçim + Delete, hem de tek adımda.
+    render(<Toolbar />)
+
+    expect(screen.queryByRole('button', { name: /Toplu Silme/ })).not.toBeInTheDocument()
+  })
+
+  it('henüz yazılmamış araç PASİF — tıklanınca aktif araç değişmez', async () => {
+    const user = userEvent.setup()
+    render(<Toolbar />)
+
+    const planned = screen.getByRole('button', { name: 'Ölçüm (henüz eklenmedi)' })
+    expect(planned).toBeDisabled()
+
+    await user.click(planned)
+    expect(useUiStore.getState().activeToolId).toBe(DEFAULT_TOOL_ID)
   })
 
   it('açılışta Seçim Aracı aktiftir (KK-7)', () => {

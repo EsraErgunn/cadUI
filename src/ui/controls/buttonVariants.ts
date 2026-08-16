@@ -22,7 +22,8 @@ export const chromeButtonVariants = cva(
 
 /** Sol paletteki araç butonları. */
 export const toolButtonVariants = cva(
-  'inline-flex size-9 items-center justify-center rounded-md transition-colors',
+  'inline-flex size-9 items-center justify-center rounded-md transition-colors ' +
+    'disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent',
   {
     variants: {
       tone: {

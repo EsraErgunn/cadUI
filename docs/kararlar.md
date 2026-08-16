@@ -3891,3 +3891,34 @@ birleşimde yalnız sayıya bakarak bunu çıkarmak zordu.
 çiziyor — geometrinin testi ekransız yazılabilsin diye. Yarıçap çağırandan
 gelir ve ekran-sabittir (`px / zoom`): işaret dünya boyunda büyümemeli, zoom'dan
 bağımsız aynı görünmeli. Yazı işaretin DIŞINDA kalır (yarıçap 16 px, yazı 30 px).
+
+### K79 — Palet yalan söylemez: "Toplu Silme" kalktı, yazılmamış araçlar PASİF
+
+Mimari paletindeki 22 aracın DÖRDÜ boştu: `bulkDelete`, `text`, `measure`,
+`freeDraw` yalnız `core/tools.ts`'te tanımlıydı — hook'u, sahne karşılığı,
+store'da izi yoktu. Tıklanınca yalnız "aktif araç" değişiyor, sonra hiçbir şey
+olmuyordu. Kullanıcı hangisinin bozuk hangisinin "henüz yok" olduğunu
+anlayamıyordu.
+
+**"Toplu Silme" tümüyle KALDIRILDI** (issue 2.7'nin listesinden bilinçli sapma).
+İşi zaten var ve daha iyisi var: çerçeveyle çoklu seçim + Delete, hem de tek
+adımda — tek `markDirty`, tek Ctrl+Z (`useSelectionTool`, `selectionOps`). Aynı
+işi yapan ikinci bir kip, öğrenilecek fazladan bir kavramdan ibaretti. Yeniden
+gerekirse geri eklemek tek satır; boş düğmeyi taşımanın bedeli ise kalıcı.
+
+**Kalan üçü palette DURUYOR ama pasif** (`ToolDefinition.isPlanned`). Gerekçe:
+tıklanabilir görünüp hiçbir şey yapmayan araç "bozuk" dedirtir; listeden
+kalkması ise yol haritasını görünmez yapar. Pasif düğme + "(henüz eklenmedi)"
+ipucu ikisini birden çözüyor. Metin `aria-label`'a da giriyor — ekran okuyucu
+kullanıcısı yalnız `disabled`'ı duyar, sebebini duymazdı.
+
+Sıradaki adım ÖLÇÜM ve sıfırdan yazılmayacak: tesisatta çalışan bir ölçüm aracı
+var (`plumbing/scene/useMeasurementTool.ts` + `MeasurementOverlay.tsx`), ortak
+yere çıkarılacak. Duvar ölçüleriyle karışmasın — onlar duvarın boyunu anlatır
+(K72), ölçüm ise iki serbest nokta arasını okur; ölçü çizime KAYDEDİLMEZ.
+
+Metin ve Serbest Çizim ise yeni bir KALICI TİP istiyor (`core/model.ts`
+sözleşmesi, serialize + WebCAD round-trip + kat kopyalama + grup dönüşümü +
+geri alma). İkisi de karar alınmadan yazılmayacak; Serbest Çizim'de ayrıca
+"bu çizgiler geometri mi, not katmanı mı" sorusu var (öneri: not katmanı, duvar
+grafiğine ve oda tespitine girmez).

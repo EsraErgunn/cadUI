@@ -17,7 +17,6 @@ import {
   RectangleHorizontal,
   Ruler,
   Square,
-  SquareDashed,
   Type,
   Wind,
   ZapOff,
@@ -27,7 +26,7 @@ import {
 import type { ToolId } from '../../core/tools'
 
 /**
- * Record olduğu için 22 aracın hepsine ikon vermek ZORUNLU: core/tools.ts'e yeni
+ * Record olduğu için araçların hepsine ikon vermek ZORUNLU: core/tools.ts'e yeni
  * araç eklenip buraya eklenmezse derleme kırılır, sessizce boş kutu çıkmaz.
  * Bazı CAD'e özgü araçların lucide'da birebir karşılığı yok, en yakını seçildi.
  */
@@ -43,7 +42,6 @@ export const TOOL_ICONS: Record<ToolId, LucideIcon> = {
   window: AppWindow,
   eraser: Eraser,
   stairs: ChartNoAxesColumnIncreasing,
-  bulkDelete: SquareDashed,
   structuralColumn: Columns3,
   text: Type,
   beam: RectangleHorizontal,
