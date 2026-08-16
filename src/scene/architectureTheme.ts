@@ -40,6 +40,12 @@ export const ARCHITECTURE_COLORS = {
    */
   openingDimension: '#7a5ba6',
   /**
+   * ÖLÇÜM aracının geçici çizgisi ve yazısı (K80). Duvar ölçülerinden ayrı
+   * renk: o kalıcı bir kotalama katmanı, bu ise kullanıcının o an aldığı geçici
+   * bir okuma — ikisi aynı renkte olsaydı ölçüm çizime yazılmış sanılırdı.
+   */
+  measurement: '#0f766e',
+  /**
    * Köşe açısı yazısı ve geometrik işareti (K77): BORDO (kullanıcı seçti).
    * Kendi rengi var çünkü aynı köşede ölçü ve açı yan yana düşebiliyor.
    *

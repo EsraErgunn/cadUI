@@ -3922,3 +3922,38 @@ sözleşmesi, serialize + WebCAD round-trip + kat kopyalama + grup dönüşümü
 geri alma). İkisi de karar alınmadan yazılmayacak; Serbest Çizim'de ayrıca
 "bu çizgiler geometri mi, not katmanı mı" sorusu var (öneri: not katmanı, duvar
 grafiğine ve oda tespitine girmez).
+
+### K80 — Mimari ölçüm aracı: tesisattaki jest, mimarinin yakalaması
+
+K79'da "sıradaki adım Ölçüm, sıfırdan yazılmayacak" denmişti; yapıldı. Jest
+tesisattakinin aynısı: 1. tık başlangıcı koyar, imleç ikinci noktayı taşır,
+2. tık ölçüyü dondurur, Esc temizler. Ölçü ÇİZİMİN PARÇASI DEĞİL —
+`architectureUiStore.measurement`'ta yaşar, cadStore'a yazılmaz, `markDirty`
+çağırmaz, kaydedilen JSON'a girmez. Model değişmedi.
+
+**Ortak yere çıkan:** ölçü çapası (`getMeasurementAnchor` + `getSegmentNormal`)
+`plumbing/core/lineGeometry.ts`'ten **`core/measurement.ts`**'e taşındı, tesisat
+tarafı yeniden dışa veriyor. `getPlacementPosition`ın daha önce aynı yolu
+izlemesiyle aynı gerekçe: iki yerde yaşasaydı biri değiştiğinde diğerinden
+ayrışırdı. `formatLengthMeters` zaten ortaktı (K72).
+
+**Ortak yere ÇIKMAYAN:** jestin kendisi ve çizim katmanı. Mimari kendi
+`scene/useMeasurementTool.ts` + `MeasurementOverlay.tsx`'ini aldı. Gerekçe:
+
+- **Yakalama kuralı farklı ve öyle kalmalı.** Mimari `getPlacementPosition` +
+  Ctrl'le anlık kapatma kullanıyor (`useAreaObjectTool`, `usePointDragTool` ile
+  aynı); tesisatınki ızgara GÖRÜNÜRLÜĞÜNE bağlı (`placementSnap.ts`) ve o ayrım
+  tesisat sahibinin açık kararı (K57). Tek hook'a indirmek o kararı bozardı.
+- **Durum ayrı store'larda.** Ortak bir hook, iki UI store'undan hangisine
+  yazacağını parametreyle sorardı; ikisi de aynı sözleşmeyi ayrı ayrı tuttuğu
+  sürece kazanç yok.
+- Çizim tarafı zaten farklı: tesisat borunun `PipeLine`ını kullanıyor, mimari
+  kendi `<Line>`/`<Text>` desenini.
+
+Esc ölçümü siler ama aracı DEĞİŞTİRMEZ: ölçü almak tekrarlanan bir jest,
+her ölçüden sonra aracı yeniden seçtirmek gereksiz olurdu. Tamamlanmış ölçümün
+üstüne tıklamak da yenisini başlatır, aynı gerekçe.
+
+Renk duvar ölçülerinden AYRI (`ARCHITECTURE_COLORS.measurement`): duvar ölçüsü
+kalıcı bir kotalama katmanı, ölçüm ise o an alınan geçici bir okuma — aynı
+renkte olsalardı ölçüm çizime yazılmış sanılırdı.

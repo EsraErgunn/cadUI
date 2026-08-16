@@ -38,11 +38,20 @@ describe('Toolbar', () => {
     const user = userEvent.setup()
     render(<Toolbar />)
 
-    const planned = screen.getByRole('button', { name: 'Ölçüm (henüz eklenmedi)' })
+    const planned = screen.getByRole('button', { name: 'Metin Ekle (henüz eklenmedi)' })
     expect(planned).toBeDisabled()
 
     await user.click(planned)
     expect(useUiStore.getState().activeToolId).toBe(DEFAULT_TOOL_ID)
+  })
+
+  it('Ölçüm aracı ARTIK etkin (K80)', async () => {
+    const user = userEvent.setup()
+    render(<Toolbar />)
+
+    await user.click(screen.getByRole('button', { name: 'Ölçüm' }))
+
+    expect(useUiStore.getState().activeToolId).toBe('measure')
   })
 
   it('açılışta Seçim Aracı aktiftir (KK-7)', () => {

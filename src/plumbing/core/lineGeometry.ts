@@ -1,4 +1,4 @@
-import { normalizeZero, type PlanPoint } from '../../core/coords'
+import type { PlanPoint } from '../../core/coords'
 
 /** Bir hat en az bir segment taşır; tek noktalı taslak kaydedilmez. */
 export const MIN_LINE_POINT_COUNT = 2
@@ -48,34 +48,7 @@ export function getSplitLengthsCm(
   return [fromLengthCm, toLengthCm]
 }
 
-/**
- * Bölüme dik BİRİM vektör. Etiket bunun yönünde kaydırılır, yoksa yazı borunun
- * üstüne biner ve okunmaz. Sıfır boy bölümde yön tanımsızdır → sıfır vektör
- * (etiket orta noktada kalır).
- */
-export function getSegmentNormal(from: PlanPoint, to: PlanPoint): PlanPoint {
-  const lengthCm = getSegmentLengthCm(from, to)
-  if (lengthCm === 0) return { x: 0, y: 0 }
-
-  // İşaret çevirme -0 üretir; koordinatlarda -0 dolaşırsa karşılaştırmalar şaşar.
-  return {
-    x: normalizeZero(-(to.y - from.y) / lengthCm),
-    y: normalizeZero((to.x - from.x) / lengthCm),
-  }
-}
-
-/**
- * Ölçü yazısının duracağı yer: bölümün orta noktası, dikinde `offsetCm` kadar
- * kaydırılmış hâli — yazı borunun üstüne binmesin. Kaydırma miktarı ÇAĞIRANDAN
- * gelir çünkü ekran pikselinden türer (px/zoom) ve core zoom'u tanımaz.
- */
-export function getMeasurementAnchor(
-  from: PlanPoint,
-  to: PlanPoint,
-  offsetCm: number,
-): PlanPoint {
-  const midpoint = getSegmentMidpoint(from, to)
-  const normal = getSegmentNormal(from, to)
-
-  return { x: midpoint.x + normal.x * offsetCm, y: midpoint.y + normal.y * offsetCm }
-}
+// Ölçü çapası `core/measurement.ts`'e taşındı: mimari ölçüm aracı da aynı
+// hesabı istiyor (K80). Buradaki yeniden dışa verme tesisat tarafındaki çağrı
+// yollarını değiştirmemek için duruyor — `getPlacementPosition`la aynı desen.
+export { getMeasurementAnchor, getSegmentNormal } from '../../core/measurement'

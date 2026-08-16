@@ -4,6 +4,7 @@ import { AreaObjectNameLabels } from './AreaObjectNameLabels'
 import { Beam, type BeamTone } from './Beam'
 import { BeamHandles } from './BeamHandles'
 import { CornerAngleLabels } from './CornerAngleLabels'
+import { MeasurementOverlay } from './MeasurementOverlay'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
@@ -19,6 +20,7 @@ import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
 import { useAreaObjectTool } from './useAreaObjectTool'
 import { useBeamSelectionTool } from './useBeamSelectionTool'
 import { useBeamTool } from './useBeamTool'
+import { useMeasurementTool } from './useMeasurementTool'
 import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
@@ -284,6 +286,11 @@ function SelectionTool() {
   return null
 }
 
+/** Ölçüm aracı: hook <Canvas> içinde koşmak zorunda (kamera okuyor). */
+function Measurement() {
+  return <MeasurementOverlay {...useMeasurementTool()} />
+}
+
 /** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
 export function ArchitectureLayer() {
   // Oda adı düzenleme jesti; hook <Canvas> içinde çalışmak zorunda (kamera okuyor).
@@ -313,6 +320,8 @@ export function ArchitectureLayer() {
       {/* Ölçüler tutamaçların ALTINDA (RENDER_ORDER.measurement < handle): sayı
           köşe tutamacını örterse köşe tutulamaz hâle gelirdi. */}
       <WallDimensionLabels />
+      {/* Ölçüm en üstte: kullanıcının o an aldığı okuma hiçbir şeyin altında kalmasın. */}
+      <Measurement />
       <CornerAngleLabels />
       <BeamHandles />
       <SelectionMarquee />

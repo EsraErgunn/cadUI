@@ -55,6 +55,15 @@ type SymbolDrag = {
  * Taşınan alan nesnelerinin GEÇİCİ ötelemesi. draggingSymbols ile aynı gerekçe:
  * sürükleme boyunca cadStore'a yazılmaz, tek yazım bırakma anında olur.
  */
+/**
+ * İki noktalı ölçüm. `end === null` iken ikinci nokta imleçte, lastik bant
+ * çizilir; kondu mu ölçü donar ve Esc'e ya da araç değişimine kadar durur.
+ */
+type Measurement = {
+  start: PlanPoint
+  end: PlanPoint | null
+}
+
 type AreaObjectDrag = {
   areaObjectIds: Id[]
   dxCm: number
@@ -113,6 +122,13 @@ type ArchitectureUiState = {
   selection: Selection
   /** Sürüklenen çerçevenin anlık dikdörtgeni; yalnız çizim için, seçim bırakışta yazılır. */
   marquee: PlanRect | null
+  /**
+   * Ekrandaki ölçüm; null = ölçüm yok (K80). Çizimin PARÇASI DEĞİL: cadStore'a
+   * yazılmaz, `markDirty` çağırmaz, kaydedilen JSON'a girmez — geçici bir okuma.
+   * Tesisat tarafındaki `plumbingUiStore.measurement` ile aynı sözleşme.
+   * Tek temizleme kapısı `clearMeasurement`.
+   */
+  measurement: Measurement | null
   draggingPoint: PointDrag | null
   draggingWall: WallDrag | null
   draggingSymbols: SymbolDrag | null
@@ -147,6 +163,9 @@ type ArchitectureUiState = {
   toggleSelected: (item: SelectionItem) => void
   clearSelection: () => void
   setMarquee: (marquee: PlanRect | null) => void
+  startMeasurement: (start: PlanPoint) => void
+  finishMeasurement: (end: PlanPoint) => void
+  clearMeasurement: () => void
   setOpeningWidthCm: (type: OpeningType, widthCm: number) => void
   setDraggingPoint: (drag: PointDrag | null) => void
   setDraggingWall: (drag: WallDrag | null) => void
@@ -175,6 +194,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
   immer((set) => ({
     selection: [],
     marquee: null,
+    measurement: null,
     draggingPoint: null,
     draggingWall: null,
     draggingSymbols: null,
@@ -209,6 +229,21 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setMarquee: (marquee) =>
       set((draft) => {
         draft.marquee = marquee
+      }),
+
+    startMeasurement: (start) =>
+      set((draft) => {
+        draft.measurement = { start, end: null }
+      }),
+
+    finishMeasurement: (end) =>
+      set((draft) => {
+        if (draft.measurement) draft.measurement.end = end
+      }),
+
+    clearMeasurement: () =>
+      set((draft) => {
+        draft.measurement = null
       }),
 
     setOpeningWidthCm: (type, widthCm) =>
