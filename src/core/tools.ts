@@ -2,12 +2,22 @@ export type ToolDefinition = {
   id: string
   /** Tooltip ve durum çubuğunda görünen ad (KK-7, KK-8). */
   label: string
+  /**
+   * Palette DURAN ama henüz yazılmamış araç (K79). Düğmesi pasif çıkar:
+   * tıklanabilir görünüp hiçbir şey yapmayan bir araç, kullanıcıya "bozuk"
+   * dedirtir — "henüz yok" demek dürüst olan.
+   */
+  isPlanned?: true
 }
 
 /**
- * Mimari Tasarım paletindeki 22 araç, issue 2.7'deki sırayla.
+ * Mimari Tasarım paletindeki araçlar, issue 2.7'deki sırayla.
  * Kimlikler burada (core) duruyor çünkü hem ui/ hem scene/ okuyacak;
  * eslint ui/ ↔ scene/ importunu engelliyor, ortak nokta core.
+ *
+ * "Toplu Silme" issue'daki listeden ÇIKARILDI (K79): işi zaten var — çerçeveyle
+ * çoklu seçim + Delete, hem de tek adımda (`useSelectionTool`, `selectionOps`).
+ * Aynı işi yapan ikinci bir kip, öğrenilecek fazladan bir kavramdan ibaretti.
  */
 export const ARCHITECTURE_TOOLS = [
   { id: 'selection', label: 'Seçim Aracı' },
@@ -21,14 +31,13 @@ export const ARCHITECTURE_TOOLS = [
   { id: 'window', label: 'Pencere Ekle' },
   { id: 'eraser', label: 'Silgi' },
   { id: 'stairs', label: 'Merdiven Ekle' },
-  { id: 'bulkDelete', label: 'Toplu Silme' },
   // Yapısal kolon — gaz kolonu (Riser) DEĞİL. İkisi de "kolon" diye anılıyor.
   { id: 'structuralColumn', label: 'Kolon Ekle' },
-  { id: 'text', label: 'Metin Ekle' },
+  { id: 'text', label: 'Metin Ekle', isPlanned: true },
   { id: 'beam', label: 'Kiriş Ekle' },
-  { id: 'measure', label: 'Ölçüm' },
+  { id: 'measure', label: 'Ölçüm', isPlanned: true },
   { id: 'vent', label: 'Menfez Ekle' },
-  { id: 'freeDraw', label: 'Serbest Çizim Araçları' },
+  { id: 'freeDraw', label: 'Serbest Çizim Araçları', isPlanned: true },
   { id: 'columnVentilation', label: 'Kolon Havalandırması Ekle' },
   { id: 'alarmDevice', label: 'Alarm Cihazı Ekle' },
   { id: 'earthquakeSensor', label: 'Deprem Sensörü Ekle' },

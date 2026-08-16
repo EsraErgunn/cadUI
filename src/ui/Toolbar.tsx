@@ -8,11 +8,16 @@ import { useUiStore } from '../store/uiStore'
 import { toolButtonVariants } from './controls/buttonVariants'
 import { TOOL_ICONS } from './tools/toolIcons'
 
+/** Pasif düğmenin ipucuna eklenen açıklama; palet "bozuk" değil "henüz yok" desin. */
+const PLANNED_HINT = ' (henüz eklenmedi)'
+
 type ToolButtonProps<TId extends string> = {
   toolId: TId
   label: string
   icon: LucideIcon
   isActive: boolean
+  /** Palette duran ama henüz yazılmamış araç (K79): pasif çıkar. */
+  isPlanned?: boolean
   onSelect: (toolId: TId) => void
 }
 
@@ -22,6 +27,7 @@ export function ToolButton<TId extends string>({
   label,
   icon,
   isActive,
+  isPlanned,
   onSelect,
 }: ToolButtonProps<TId>) {
   const Icon = icon
@@ -29,8 +35,11 @@ export function ToolButton<TId extends string>({
     <div className="group relative">
       <button
         type="button"
-        aria-label={label}
+        // Erişilebilir ad da "henüz eklenmedi" der: ekran okuyucu kullanıcısı
+        // yalnız `disabled`'ı duyar, sebebini duymazdı.
+        aria-label={isPlanned ? `${label}${PLANNED_HINT}` : label}
         aria-pressed={isActive}
+        disabled={isPlanned}
         onClick={() => onSelect(toolId)}
         className={toolButtonVariants({ tone: isActive ? 'active' : 'plain' })}
       >
@@ -41,7 +50,7 @@ export function ToolButton<TId extends string>({
         aria-hidden
         className="pointer-events-none absolute left-full top-1/2 z-30 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded bg-ink px-2 py-1 text-xs text-white shadow-md group-hover:block"
       >
-        {label}
+        {isPlanned ? `${label}${PLANNED_HINT}` : label}
       </span>
     </div>
   )
@@ -59,7 +68,7 @@ export function Toolbar() {
     // Kısayol ipucu paletin ALTINA yapışsın diye sütun: nav yalnız araçları
     // sarmalar, ipucu araç değil (nav'ın içinde olsaydı palete araç gibi girerdi).
     <div className="flex shrink-0 flex-col border-r border-ink bg-surface">
-      {/* 22 araç tek sütunda 1080p'ye sığmıyor → 11 satır × 2 sütun. */}
+      {/* Araçlar tek sütunda 1080p'ye sığmıyor → iki sütun. */}
       <nav aria-label="Araç paleti" className="grid grid-cols-2 content-start gap-1 p-1.5">
         {ARCHITECTURE_TOOLS.map((tool) => (
           <ToolButton
@@ -68,6 +77,7 @@ export function Toolbar() {
             label={tool.label}
             icon={TOOL_ICONS[tool.id]}
             isActive={tool.id === activeToolId}
+            isPlanned={'isPlanned' in tool}
             onSelect={setActiveTool}
           />
         ))}
