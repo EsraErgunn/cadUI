@@ -33,6 +33,8 @@ export function ViewOptionsMenu() {
   const toggleOpeningDimensionsVisible = useUiStore(
     (state) => state.toggleOpeningDimensionsVisible,
   )
+  const isCornerAnglesVisible = useUiStore((state) => state.isCornerAnglesVisible)
+  const toggleCornerAnglesVisible = useUiStore((state) => state.toggleCornerAnglesVisible)
   const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
   const toggleElementLabelsVisible = useUiStore((state) => state.toggleElementLabelsVisible)
   const activeViewId = useUiStore((state) => state.activeViewId)
@@ -90,6 +92,14 @@ export function ViewOptionsMenu() {
       label: 'Kapı/pencere ölçüleri',
       isChecked: isOpeningDimensionsVisible,
       onToggle: toggleOpeningDimensionsVisible,
+    },
+    {
+      // Ölçülerden de birbirlerinden de bağımsız (K76'nın kuralı): açı, eğik
+      // duvarla çalışırken açılan ayrı bir katman.
+      id: 'cornerAngles',
+      label: 'Açılar',
+      isChecked: isCornerAnglesVisible,
+      onToggle: toggleCornerAnglesVisible,
     },
     {
       id: 'areaObjectNames',

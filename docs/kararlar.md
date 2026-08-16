@@ -3839,3 +3839,55 @@ Eleme `getWallDimensionAnnotations` içinde iki ayrı seçenekle yapılıyor:
 için kullanılan `wallIds` kısıtı YALNIZ duvar parçalarını daraltır, açıklık
 ölçüsüne dokunmaz — ikisi aynı kısıttan geçseydi "duvar ölçüsü kapalı, açıklık
 açık" hâlinde ekran boş kalırdı (kısıt boş dizi oluyor).
+
+### K77 — Köşe açıları: kollar SIRALANIR, ardışık çiftler ölçülür
+
+Görünüm ▸ Açılar (`core/cornerAngles.ts` → `getCornerAngleAnnotations`,
+`scene/CornerAngleLabels.tsx`). Bir köşede buluşan duvar kolları yön açısına
+göre sıralanıyor, sonra ardışık çiftlerin arası ölçülüyor — toplamları 360°
+ediyor. Sıralama olmadan "komşu kol" tanımsız kalırdı: üç kollu bir birleşimde
+hangi ikisinin arasının ölçüleceği duvarların ÇİZİM SIRASINA düşerdi.
+
+**İki kollu köşede ters açı (360−x) yazılmaz.** Aynı köşeyi öbür yandan ölçer,
+yeni bir şey söylemez ve her köşedeki sayıyı ikiye katlardı. Üç ve daha çok
+kolda her boşluk ayrı bir gerçek, hepsi yazılır.
+
+**Etiket açıortay üzerinde.** Kolların yön vektörlerini toplamak da açıortay
+verirdi ama 180°'ye yakın açıda toplam sıfıra gider ve yön kaybolur; hesap ilk
+kolu açının yarısı kadar döndürerek yapılıyor, o her açıda çalışıyor.
+
+**Yazı duvara paralel DÖNMEZ** (ölçü yazısının aksine, K72): açı iki duvara
+birden ait, birine hizalamak öbürüne yanlış bakardı. Yatay kalıyor.
+
+Varsayılan KAPALI: planların çoğu dik açılardan oluşuyor, her köşeye 90° yazmak
+kalabalıktan başka bir şey getirmez — açı, eğik duvarla çalışırken açılan bir
+katman. Kapalıyken de sürükleme sırasında düzenlenen köşeler için çizilir
+(K73'ün kuralı). Anahtar diğer ikisinden bağımsız (K76'nın kuralı).
+
+Sıfır boy duvar köşeye kol EKLEMEZ: `atan2(0, 0)` sessizce 0 döndürüyor ve
+olmayan bir yön uyduruyordu.
+
+**Bilinen sınır:** iki kollu içbükey köşede yazılan sayı odanın İÇİNDEKİ açı
+(270°) değil, dışarıdaki tümleyeni (90°). Aynı köşenin geometrisi, yalnız öbür
+yandan ölçülmüş. Oda tarafındaki açıyı seçmek `findRoomFaces`in yüzlerine
+bakmayı gerektirir (K75'in çapası kullanılabilir); gerekirse ayrı bir adım.
+
+### K78 — Açının altında GEOMETRİK işaret: 90°'de kare, diğerlerinde yay
+
+Sayı tek başına yetmiyordu: teknik çizimde açı, kolların arasına çizilen bir
+işaretle gösterilir ve sayı o işaretin etiketi olur. İşaret aynı zamanda
+"bu sayı hangi iki duvarın arası" sorusunu da cevaplıyor — üç kollu bir
+birleşimde yalnız sayıya bakarak bunu çıkarmak zordu.
+
+- **Dik açıda KARE** (`getCornerAngleMarkerPoints` üç nokta döndürür, iki
+  çizgi): teknik çizimin evrensel gösterimi, "burası tam 90°" demenin sayıya
+  bakmadan okunan hâli. Tolerans 0.5° — trigonometriden 89.9999 çıkabiliyor ve
+  toleranssız her dik köşe yay olarak çizilirdi.
+- **Diğer açılarda daire dilimi YAYI**, 6°'de bir kırılarak örneklenir. Nokta
+  sayısı açıyla büyür: dar açıda gereksiz nokta, geniş açıda köşeli görünüm
+  olmasın.
+
+Şekil `core/`'da üretiliyor (`getCornerAngleMarkerPoints`), sahne yalnız
+çiziyor — geometrinin testi ekransız yazılabilsin diye. Yarıçap çağırandan
+gelir ve ekran-sabittir (`px / zoom`): işaret dünya boyunda büyümemeli, zoom'dan
+bağımsız aynı görünmeli. Yazı işaretin DIŞINDA kalır (yarıçap 16 px, yazı 30 px).
