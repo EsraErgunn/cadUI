@@ -34,11 +34,13 @@ export type LineCornerDrag = { lineId: Id; pointId: Id; position: PlanPoint }
 export type LabelDrag = { elementId: Id; offsetCm: PlanPoint }
 
 /**
- * Serbest (`free` modlu) bir elemanın döndürme tutamacıyla sürüklenen açısı.
+ * Bir elemanın döndürme tutamacıyla sürüklenen açısı VE konumu.
  * `architectureUiStore.areaObjectHandleDrag` ile AYNI desen: bırakılana kadar
- * cadStore'a yazılmaz, sahne elemanı geçici açısıyla çizer.
+ * cadStore'a yazılmaz, sahne elemanı geçici açı+konumuyla çizer. Boruya/porta
+ * bağlı elemanlarda `position` de değişir — tutunduğu nokta dünyada sabit
+ * kalsın diye (`core/elementRotateHandle.ts` → `getElementAnchorOffset`).
  */
-export type ElementRotateDrag = { elementId: Id; angleDeg: number }
+export type ElementRotateDrag = { elementId: Id; angleDeg: number; position: PlanPoint }
 
 /**
  * Devam eden çizim: hangi araçla + zincirin nerede kaldığı. Zincirin nasıl

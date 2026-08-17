@@ -157,13 +157,15 @@ export type PlumbingSlice = {
     updater: (line: InstallationLine) => Partial<InstallationLine>,
   ) => void
   /**
-   * Serbest (`free` modlu, ör. servis kutusu) bir elemanın açısını yazar —
-   * döndürme tutamacıyla bir sürükleme = bir Ctrl+Z. Boruya/porta bağlı
-   * elemanlar buradan GEÇMEZ: onların açısı port ekseninden türer
-   * (`core/elementAttach.ts`), elle yazım o sözleşmeyi bozardı — kapsam
-   * denetimi çağıran tarafta (`useElementRotateTool.ts`).
+   * Bir elemanın açısını VE konumunu birlikte yazar — döndürme tutamacıyla bir
+   * sürükleme = bir Ctrl+Z. Boruya/porta bağlı elemanlarda `position` de
+   * değişir: döndürme tutunduğu noktayı (`core/elementRotateHandle.ts` →
+   * `getElementRotateAnchorLocal`) DÜNYADA sabit tutacak şekilde yeniden
+   * hesaplanır, yoksa gövde borudan kopardı. Çağıran (`useElementRotateTool.ts`)
+   * ikisini BİRLİKTE hesaplayıp geçirir; kapsam denetimi (döndürülebilir mi)
+   * de orada.
    */
-  rotateElement: (elementId: Id, angleDeg: number) => void
+  rotateElement: (elementId: Id, angleDeg: number, position: PlanPoint) => void
   undoPlumbing: () => void
   redoPlumbing: () => void
 }
@@ -897,16 +899,24 @@ export const createPlumbingSlice: StateCreator<
       if (isChanged) record()
     },
 
-    rotateElement: (elementId, angleDeg) => {
+    rotateElement: (elementId, angleDeg, position) => {
       let isChanged = false
 
       set((draft) => {
         const element = draft.installationElements.find(
           (candidate) => candidate.id === elementId,
         )
-        if (!element || element.angleDeg === angleDeg) return
+        if (!element) return
+        if (
+          element.angleDeg === angleDeg &&
+          element.position.x === position.x &&
+          element.position.y === position.y
+        ) {
+          return
+        }
 
         element.angleDeg = angleDeg
+        element.position = position
         isChanged = true
         markDirty(draft)
       })
