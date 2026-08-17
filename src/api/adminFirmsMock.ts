@@ -3,8 +3,9 @@ import type { GasDistributionFirm } from './adminFirms'
 import type { FirmGroup } from './gasFirmDto'
 
 /**
- * Mock kayıt hem liste satırını hem tekil detayı besliyor: liste bölge taşıyor,
- * tekil yanıt taşımıyor, ikisinin birleşimi burada duruyor.
+ * Mock kayıt hem liste satırını hem tekil detayı besliyor: tekil yanıt
+ * açıklama/telefon/adres/yetkili kişi de taşıyor, liste satırı taşımıyor —
+ * ikisinin birleşimi burada duruyor.
  */
 type MockFirm = GasDistributionFirm & GasDistributionFirmDetail
 
@@ -22,9 +23,9 @@ const NAME_SUFFIXES = ['Doğalgaz Dağıtım A.Ş.', 'Gaz Dağıtım A.Ş.', 'Ş
  * Gerçek uç `{ id, name }` döndürüyor; mock da aynı biçimi taklit ediyor.
  *
  * Adlar KISA ve büyük harf — gerçek `/api/gasdistributiongroups` yanıtı da böyle.
- * Bu liste aynı zamanda üst bardaki bölge kapsamının seçenekleri ve gösterge
- * panelindeki bölge adları: K43 ile "bölge" = gaz dağıtım grup firması, tek
- * kaynak burası (bkz. adminDashboardMock → MOCK_REGIONS).
+ * Bu liste aynı zamanda üst bardaki KAPSAM seçicisinin grup satırları ve gösterge
+ * panelindeki yoğunluk adları; tek kaynak burası (bkz. adminDashboardMock →
+ * MOCK_SCOPE_NAMES).
  */
 export const MOCK_FIRM_GROUPS: FirmGroup[] = [
   { id: 1, name: 'AKMERCAN' },
@@ -166,4 +167,18 @@ export function updateMockFirm(
   }
   mockFirms = mockFirms.map((firm) => (firm.id === id ? updated : firm))
   return updated
+}
+
+/**
+ * Kaydı PASİFLEŞTİRİR. Sunucu soft-delete yapıyor ve pasif kayıt `GET`'te artık
+ * dönmüyor; mock aynı GÖRÜNÜR sonucu üretmek için satırı diziden düşürüyor —
+ * ayrı bir `isActive` alanı tutmak, hiçbir uç onu okumadığı için ölü veri olurdu.
+ *
+ * Kayıt yoksa `false`: çağıran bunu 404'e çevirir.
+ */
+export function deactivateMockFirm(id: number): boolean {
+  if (!mockFirms.some((firm) => firm.id === id)) return false
+
+  mockFirms = mockFirms.filter((firm) => firm.id !== id)
+  return true
 }

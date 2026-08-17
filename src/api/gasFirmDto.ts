@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { pagedResultSchema } from './listQuery'
+
 /**
  * SUNUCU ↔ ARAYÜZ dönüşümünün TEK yeri.
  *
@@ -41,7 +43,11 @@ export type FirmDetailDto = z.infer<typeof firmDetailDtoSchema>
  * taşımıyor — bunlar yalnız detay ucunda. `contactPerson` sunucu tarafında
  * liste DTO'sundan çıkarıldı; şemada zorunlu kalırsa `safeParse` patlar ve
  * liste hiç render olmaz, o yüzden burada da yok.
- * Uç filtresiz/sayfalamasız DÜZ DİZİ döndürüyor.
+ *
+ * Uç 2026-08-16'da düz diziden SAYFALI ZARFA geçti (`{ items, totalCount, page,
+ * pageSize }`) ve `GasDistributionGroupId`/`SortBy`/`SortDir`/`Page`/`PageSize`
+ * almaya başladı. Şema zarfı okuyor; süzme/sıralama/sayfalama hâlâ İSTEMCİDE
+ * (K27), yalnız tüm sayfalar toplanıyor (`fetchAllPages`).
  */
 export const firmListItemDtoSchema = z.object({
   id: z.number().int().positive(),
@@ -51,7 +57,7 @@ export const firmListItemDtoSchema = z.object({
   groupName: nullableText,
 })
 
-export const firmListDtoSchema = z.array(firmListItemDtoSchema)
+export const firmListPageSchema = pagedResultSchema(firmListItemDtoSchema)
 
 export type FirmListItemDto = z.infer<typeof firmListItemDtoSchema>
 
@@ -97,7 +103,7 @@ export function toFirmDetail(dto: FirmDetailDto) {
   }
 }
 
-/** İstek gövdesi alanları. Sunucu bölge (`region`) TAŞIMIYOR. */
+/** İstek gövdesi alanları. Bölge alanı YOK — kavram sunucudan kalktı. */
 export interface FirmPayloadDto {
   title: string
   companyNumber: number

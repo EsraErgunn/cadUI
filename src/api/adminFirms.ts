@@ -3,13 +3,14 @@ import { z } from 'zod'
 import { MOCK_FIRM_GROUPS, allMockFirms } from './adminFirmsMock'
 import {
   firmGroupListDtoSchema,
-  firmListDtoSchema,
+  firmListPageSchema,
   toFirmListItem,
   toSortedFirmGroups,
   type FirmGroup,
 } from './gasFirmDto'
 import { queryFirmList } from './gasFirmListQuery'
 import { hasApiBaseUrl, requestJson } from './http'
+import { fetchAllPages } from './listQuery'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 
 export type { FirmGroup } from './gasFirmDto'
@@ -102,9 +103,13 @@ export async function getGasDistributionFirms(
 }
 
 /**
- * TÜM listeyi tek seferde çeker. Uçta `q`/`page`/`pageSize`/`sort` yok, bu
- * yüzden arama, sıralama ve sayfalama istemcide yapılıyor — CLAUDE.md
- * "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası (K27).
+ * TÜM listeyi çeker. Arama, sıralama ve sayfalama istemcide yapılıyor —
+ * CLAUDE.md "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası
+ * (K27).
+ *
+ * Uç 2026-08-16'da sayfalı zarfa geçti ve parametresiz çağrıda yalnız İLK 30
+ * kaydı veriyor. Fonksiyonun sözleşmesi ("hepsi") değişmesin diye sayfalar
+ * `fetchAllPages` ile toplanıyor; çağıranların hiçbiri değişmedi.
  */
 export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[]> {
   if (!hasApiBaseUrl()) {
@@ -112,9 +117,15 @@ export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributi
     return allMockFirms()
   }
 
-  const dtos = await requestJson(
-    { method: 'GET', path: '/api/gasdistributionfirms', signal },
-    firmListDtoSchema,
+  const dtos = await fetchAllPages(({ page, pageSize }) =>
+    requestJson(
+      {
+        method: 'GET',
+        path: `/api/gasdistributionfirms?Page=${page}&PageSize=${pageSize}`,
+        signal,
+      },
+      firmListPageSchema,
+    ),
   )
 
   return dtos.map(toFirmListItem)
