@@ -65,13 +65,14 @@ export function hasAreaObjectRectangleSize(type: AreaObjectType): boolean {
 export const DEFAULT_AREA_OBJECT_SIZE_CM: Record<AreaObjectType, { widthCm: number; lengthCm: number }> = {
   // Tek kol merdiven varsayımı — tam kat yüksekliği (300+) yerine kısa bir kol.
   stairs: { widthCm: 120, lengthCm: 200 },
-  // En az 1m kenar — kullanıcı görsel referansla netleştirdi (K39 taslağı çok küçüktü).
-  structuralColumn: { widthCm: 100, lengthCm: 100 },
-  flueShaft: { widthCm: 100, lengthCm: 100 },
-  // Baca şaftının iç çemberine YAKIN (100 × 0.92 = 92) ama bir tık küçük çap —
-  // kullanıcı istedi. areaObjectGeometry.ts → FLUE_SHAFT_CIRCLE_RATIO değişirse
-  // elle senkron kalmalı.
-  columnVentilation: { widthCm: 80, lengthCm: 80 },
+  // 50 cm kenar (kullanıcı kararı). Önceki 1 m'lik taslak planda gereğinden
+  // büyük duruyordu; asıl boyut zaten tutamaçla veriliyor.
+  structuralColumn: { widthCm: 50, lengthCm: 50 },
+  flueShaft: { widthCm: 50, lengthCm: 50 },
+  // Baca şaftından BAĞIMSIZ (kullanıcı kararı): eskiden çapı şaftın iç çemberine
+  // (FLUE_SHAFT_CIRCLE_RATIO) göre seçiliyor ve elle senkron tutuluyordu. Artık
+  // kendi başına bir sayı — şaftın boyutu değişince buranın değişmesi gerekmez.
+  columnVentilation: { widthCm: 40, lengthCm: 40 },
 }
 
 const LABEL_NUMBER_PAD = 2
