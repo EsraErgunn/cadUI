@@ -27,7 +27,6 @@ const LIST_DTO = [
 const LIST_QUERY = {
   nameQuery: '',
   groupId: null,
-  region: null,
   sortKey: 'dfirmNo',
   sortDir: 'asc',
   page: 1,
@@ -39,6 +38,14 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+/**
+ * Uç 2026-08-16'da sayfalı zarfa geçti. `totalCount` öğe sayısına eşit:
+ * tek sayfaya sığan yanıt, `fetchAllPages` ikinci istek atmasın.
+ */
+function listPage(items: unknown[]): Response {
+  return jsonResponse({ items, totalCount: items.length, page: 1, pageSize: 100 })
 }
 
 function stubFetch(...responses: Response[]) {
@@ -59,7 +66,7 @@ afterEach(() => {
 
 describe('getGasDistributionFirms', () => {
   it('liste ucuna gider ve alan adlarını çevirir', async () => {
-    const fetchMock = stubFetch(jsonResponse(LIST_DTO))
+    const fetchMock = stubFetch(listPage(LIST_DTO))
 
     const page = await getGasDistributionFirms(LIST_QUERY)
 
@@ -70,13 +77,18 @@ describe('getGasDistributionFirms', () => {
     expect(page.items[0].groupId).toBe(1)
   })
 
-  it('sayfalamayı istemcide yapar — uca parametre GÖNDERMEZ', async () => {
-    const fetchMock = stubFetch(jsonResponse(LIST_DTO))
+  /**
+   * Sayfalama hâlâ İSTEMCİDE (K27). Uca `Page`/`PageSize` GİDİYOR ama ekranın
+   * sayfası olarak değil, "hepsini topla" amacıyla: istenen `pageSize: 1`
+   * sorguya YANSIMAZ, sunucudan azami sayfa istenir ve dilimleme burada yapılır.
+   */
+  it('ekranın sayfa boyutunu uca YANSITMAZ, dilimlemeyi istemcide yapar', async () => {
+    const fetchMock = stubFetch(listPage(LIST_DTO))
 
     const page = await getGasDistributionFirms({ ...LIST_QUERY, page: 1, pageSize: 1 })
 
-    expect(requestOf(fetchMock).url).not.toContain('page=')
-    expect(requestOf(fetchMock).url).not.toContain('pageSize=')
+    expect(requestOf(fetchMock).url).not.toContain('PageSize=1&')
+    expect(requestOf(fetchMock).url).toContain('PageSize=100')
     expect(page.items).toHaveLength(1)
     expect(page.totalCount).toBe(2)
   })
@@ -87,7 +99,7 @@ describe('getGasDistributionFirms', () => {
    * Mock'a bakarken veritabanındaki mükerrer adı göremiyordu.
    */
   it('ad araması gerçek veriden süzer', async () => {
-    stubFetch(jsonResponse(LIST_DTO))
+    stubFetch(listPage(LIST_DTO))
 
     const page = await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
 
@@ -97,7 +109,7 @@ describe('getGasDistributionFirms', () => {
 
 describe('getGasDistributionFirmsByGroup', () => {
   it('yalnız gruba bağlı kayıtları verir', async () => {
-    stubFetch(jsonResponse(LIST_DTO))
+    stubFetch(listPage(LIST_DTO))
 
     const firms = await getGasDistributionFirmsByGroup(1)
 
@@ -105,7 +117,7 @@ describe('getGasDistributionFirmsByGroup', () => {
   })
 
   it('gruba bağlı kayıt yoksa boş döner', async () => {
-    stubFetch(jsonResponse(LIST_DTO))
+    stubFetch(listPage(LIST_DTO))
 
     expect(await getGasDistributionFirmsByGroup(99)).toEqual([])
   })

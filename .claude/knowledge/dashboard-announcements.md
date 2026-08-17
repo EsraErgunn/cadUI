@@ -1,6 +1,6 @@
 # gotcha: Anasayfa iki kaynaktan beslenir — duyurular tarayıcıda
 
-Karar: docs/kararlar.md K48.
+Karar: docs/kararlar.md K48, K76.
 
 ## Sayaçlar gerçek, duyurular değil
 
@@ -8,30 +8,46 @@ Karar: docs/kararlar.md K48.
 
 | Parça | Kaynak |
 |---|---|
-| Sayaçlar, "bugün", bölge yoğunluğu | **gerçek** `GET /api/admin/dashboard` |
+| Sayaçlar, "bugün", yoğunluk | **gerçek** `GET /api/admin/dashboard` |
 | Duyurular | **yerel** `announcementStore.ts` (`localStorage`) |
 
 Kartlar iki ayrı yükleme durumu yönetmesin diye tek nesnede birleşiyorlar. Uç
 duyuru döndürmeye başladığında birleştirme satırı silinir, gerisi değişmez.
 
-## Bölge yoğunluğu kartı BOŞ — bozuk değil
+## Yoğunluk alanı `density`, satır `{ id, name, projectCount }`
 
-Uç `regionDensity: []` döndürüyor. Sunucudaki yoğunluk kavramı karttakiyle aynı
-değil:
+Coğrafi bölge kavramı kalkınca `regionDensity: [{ regionId, regionName,
+projectCount }]` tümüyle YOK oldu. Yanıt `density` + kırılımın boyutunu söyleyen
+`densityBy` taşıyor ve **ekranın iç tipi de aynı adlarla** duruyor: eşleme
+katmanı yalnız sayaçlarda kaldı, yoğunluk satırı olduğu gibi geçiyor.
 
-- sunucu: COĞRAFİ bölge başına **proje adedi** (`{ regionId, regionName, projectCount }`)
-- kart: bölge başına **üç sayaç** (G.D. kullanıcısı / proje firması / proje firması kullanıcısı)
-- istenen: **grup firması** bazlı (AKSA, ENERYA…) — sunucuda hiç yok
+`densityBy` kart BAŞLIĞINI seçiyor (grup/firma) ve bu yüzden artık zorunlu; ama
+tanınmayan değer `.catch('group')` ile gruba düşüyor — sayıları değil metni
+seçen bir alan uğruna bütün panel hata ekranına dönmesin. `generatedAt`
+kullanılmadığı için hâlâ opsiyonel. (bkz. admin-scope.md)
 
-Boş bırakıldı; mock sayıyla doldurmak sahte veriyi gerçek gibi gösterirdi.
-Grup bazlı yoğunluk istenirse backend'de yeni bir uç gerekir.
+## Kapsam `gdGroupId` VEYA `gdFirmId` olarak GİDİYOR, `dayKey` gitmiyor
 
-## `date` ve bölge uca GİTMİYOR
+Kapsam üç hâlli: sistem geneli (parametre YOK), grup (`gdGroupId`) veya tek gaz
+dağıtım firması (`gdFirmId`). İkisi ASLA birlikte gitmez — kural `AdminScope`
+ayrık birleşimiyle tipte garanti (`api/adminDashboard.ts`), sorguyu ucun kendi
+`withScopeQuery`'si
+kuruyor. Süzme sunucuda; istemci diziyi daraltmıyor. Kapsam yokken parametre HİÇ
+yazılmaz (boş `gdGroupId=` ayrı anlam taşıyabilir).
 
-Uç yalnız `regionId` alıyor. Gün anahtarı istemcide sorgu anahtarı olarak
-kalıyor (gün dönünce veri tazelensin); bölge ise ADLA taşındığı ve sunucu
-KİMLİK beklediği için gönderilmiyor. `getDashboardSummary(region, dayKey)`
-imzası korunuyor — bölge yalnız DUYURU süzmesinde kullanılıyor.
+`dayKey` uca gitmez: "bugün" sayaçlarını sunucu kendi gününe göre hesaplıyor,
+anahtar istemcide yalnız TanStack Query anahtarı olarak yaşıyor.
+
+## Özet hatası MOCK'A YUTULMAZ (K76)
+
+404/501/ağ hatası → mock yedeği KALDIRILDI; uç artık var, hata `QueryError`
+şeridine düşer. `isMissingEndpoint`/`warnOnceAboutMissingEndpoint` duruyor ama
+YALNIZ duyuru yollarına ait.
+
+Mock gövde silinmedi: `VITE_API_URL` tanımsızken (backend'siz geliştirme) ekran
+hâlâ `adminDashboardMock.ts`'ten besleniyor, kapsam orada da çalışıyor. Testte
+API kökü TANIMLI olduğu için mock yolu `getDashboardSummary` üzerinden
+sınanamaz — `queryMockDayActivity`/`allMockScopeFacts` doğrudan çağrılır.
 
 ## Duyuru kalıcılığı sahte, ama gizli değil
 

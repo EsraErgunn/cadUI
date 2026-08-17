@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-import { buildDefaultValues, deriveEndDate } from './newProjectDefaults'
+import { buildDefaultValues } from './newProjectDefaults'
 import {
   firstErrorField,
   toCreateProjectPayload,
@@ -9,14 +9,34 @@ import {
   type NewProjectField,
   type NewProjectFormValues,
 } from './newProjectSchema'
+import { ApiError } from '../../../api/http'
+import { ProjectFirmAuthorizationError } from '../../../api/projectFirmAuthorizations'
 import { createProject, type CreatedProject } from '../../../api/projects'
 
+/** Ağa HİÇ çıkılamadığında (API kapalı, CORS, DNS) gösterilen mesaj. */
 const SUBMIT_ERROR_MESSAGE = 'Proje oluşturulamadı. Bağlantınızı kontrol edip tekrar deneyin.'
+
+/**
+ * Sunucunun kendi mesajı KORUNUR (`http.ts` onu `message`/`detail`/doğrulama
+ * sözlüğünden okuyup `ApiError`e koyuyor). Eskiden `catch` her hatayı yutup
+ * yerine "Bağlantınızı kontrol edin" yazıyordu: 400 "Proje firması yetkisi
+ * zorunludur" gibi bir doğrulama hatası ağ hatası gibi görünüyor ve kullanıcı
+ * neyi düzelteceğini öğrenemiyordu. Proje firması formundaki `buildSubmitError`
+ * ile aynı desen.
+ *
+ * `ProjectFirmAuthorizationError` de aynı sebeple geçiyor: yetki kaydı
+ * bulunamaması ağ hatası değil, kullanıcının firma seçimiyle ilgili bir durum
+ * ve düzeltmesi ona bağlı.
+ */
+function buildSubmitError(error: unknown): string {
+  if (error instanceof ApiError) return error.message
+  if (error instanceof ProjectFirmAuthorizationError) return error.message
+
+  return SUBMIT_ERROR_MESSAGE
+}
 
 export interface UseNewProjectFormOptions {
   isAdmin: boolean
-  /** Test ve tarih varsayılanları için enjekte edilebilir; üretimde verilmez. */
-  today?: Date
 }
 
 export interface NewProjectForm {
@@ -34,7 +54,7 @@ export interface NewProjectForm {
     value: NewProjectFormValues[TField],
   ) => void
   /** Sunucudan gelen proje tipi listesi hazır olunca ilk seçeneği varsayılan yapar. */
-  applyProjectTypeOptions: (codes: string[]) => void
+  applyProjectTypeOptions: (codeIds: number[]) => void
   submit: () => Promise<CreatedProject | null>
   clearFocusRequest: () => void
   clearSubmitError: () => void
@@ -42,15 +62,12 @@ export interface NewProjectForm {
 
 /**
  * Yeni proje formunun durumu. Doğrulama zod şemasında, bağımlı alan temizleme
- * burada: iki firma seçimi ve mühendis birbirine bağlı olduğu için "bir alan
- * değişince hangi alanlar geçersizleşir" kararı tek yerde durmalı.
+ * burada: iki firma seçimi birbirine bağlı olduğu için "bir alan değişince
+ * hangi alanlar geçersizleşir" kararı tek yerde durmalı.
  */
-export function useNewProjectForm({ isAdmin, today }: UseNewProjectFormOptions): NewProjectForm {
-  // Tembel başlatıcı: varsayılan tarihler bir KEZ hesaplanır. Her render'da
-  // yeniden üretilseydi kullanıcının değiştirdiği tarih geri gelirdi.
-  const [values, setValues] = useState<NewProjectFormValues>(() =>
-    buildDefaultValues(today ?? new Date()),
-  )
+export function useNewProjectForm({ isAdmin }: UseNewProjectFormOptions): NewProjectForm {
+  // Tembel başlatıcı: varsayılanlar bir KEZ kurulur.
+  const [values, setValues] = useState<NewProjectFormValues>(() => buildDefaultValues())
   const [errors, setErrors] = useState<NewProjectErrors>({})
   const [isDirty, setIsDirty] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -63,7 +80,7 @@ export function useNewProjectForm({ isAdmin, today }: UseNewProjectFormOptions):
       setIsDirty(true)
       // Kullanıcı proje tipini bir kez seçtiyse liste tazelense de yerine
       // varsayılan konmaz; bayrak kalıcı, seçim temizlense bile geri gelmez.
-      if (field === 'projectType') setHasChosenProjectType(true)
+      if (field === 'projectTypeCodeId') setHasChosenProjectType(true)
       setValues((current) => applyDependencies(current, field, value))
       // Kullanıcı alanı düzeltirken eski hata mesajı ekranda kalmaz.
       setErrors((current) => {
@@ -77,18 +94,19 @@ export function useNewProjectForm({ isAdmin, today }: UseNewProjectFormOptions):
   )
 
   const applyProjectTypeOptions = useCallback(
-    (codes: string[]) => {
+    (codeIds: number[]) => {
       setValues((current) => {
-        if (codes.length === 0) return current
+        if (codeIds.length === 0) return current
 
         // Seçili tip Ayarlar'dan kaldırılmışsa seçim DÜŞER: yerine sessizce başka
         // bir tip konsaydı kullanıcı seçmediği bir tiple projeyi kaydederdi.
-        if (current.projectType !== '' && !codes.includes(current.projectType)) {
-          return { ...current, projectType: '' }
+        const selected = current.projectTypeCodeId
+        if (selected !== null && !codeIds.includes(selected)) {
+          return { ...current, projectTypeCodeId: null }
         }
         // Kullanıcı henüz seçmediyse belgedeki varsayılan: ilk seçenek.
-        if (current.projectType === '' && !hasChosenProjectType) {
-          return { ...current, projectType: codes[0] }
+        if (selected === null && !hasChosenProjectType) {
+          return { ...current, projectTypeCodeId: codeIds[0] }
         }
         return current
       })
@@ -110,9 +128,9 @@ export function useNewProjectForm({ isAdmin, today }: UseNewProjectFormOptions):
     setIsSubmitting(true)
     try {
       return await createProject(toCreateProjectPayload(data, { isAdmin }))
-    } catch {
+    } catch (error) {
       // Girilen veri korunur: kullanıcı formu baştan doldurmak zorunda kalmasın.
-      setSubmitError(SUBMIT_ERROR_MESSAGE)
+      setSubmitError(buildSubmitError(error))
       return null
     } finally {
       setIsSubmitting(false)
@@ -140,9 +158,9 @@ export function useNewProjectForm({ isAdmin, today }: UseNewProjectFormOptions):
 /**
  * Bir alan değişince geçersizleşen alanları temizler.
  *
- * Proje firması değişince mühendis ve GD firması ARTIK O FİRMAYA AİT DEĞİL:
- * seçili kalsalardı kullanıcı, listede görünmeyen bir mühendisle projeyi
- * kaydedebilirdi. Temizleme burada, `setValue` içinde dağıtılmadan yapılıyor.
+ * Proje firması değişince GD firması ARTIK O FİRMAYA AİT DEĞİL: seçili
+ * kalsaydı kullanıcı, listede görünmeyen bir firmayla projeyi kaydedebilirdi.
+ * Temizleme burada, `setValue` içinde dağıtılmadan yapılıyor.
  */
 function applyDependencies<TField extends NewProjectField>(
   current: NewProjectFormValues,
@@ -152,17 +170,7 @@ function applyDependencies<TField extends NewProjectField>(
   const next: NewProjectFormValues = { ...current, [field]: value }
 
   if (field === 'projectFirmId' && value !== current.projectFirmId) {
-    next.engineerUserId = null
     next.gasDistributionFirmId = null
-  }
-
-  // Bitiş tarihi başlamadan TÜRER: başlama her değişince +2 ay yeniden
-  // hesaplanır. Başlama varsayılan olarak dolu geldiği için bitiş alanını pasif
-  // tutmak sırayı zorlamıyordu; kullanıcı bitişi önce girse de başlamayı
-  // değiştirdiğinde seçim türetilmiş tarihe bırakır. Başlama silinirse bitiş de
-  // boşalır — pasif alanda düzeltilemeyen bir tarih kalmasın.
-  if (field === 'startDate' && typeof value === 'string' && value !== current.startDate) {
-    next.endDate = deriveEndDate(value)
   }
 
   return next

@@ -15,7 +15,7 @@ import {
 
 const VALID: AnnouncementFormValues = {
   title: 'Planlı Bakım Bildirimi',
-  region: 'Ege',
+  scopeName: 'AKSA',
   body: '19 Temmuz Pazar 02:00–06:00 arasında sistem bakımda olacaktır.',
   isSystem: true,
 }
@@ -56,9 +56,9 @@ describe('validateAnnouncement', () => {
     expect(errors.body).toBe(ANNOUNCEMENT_ERRORS.bodyTooLong)
   })
 
-  // Bölge boş bırakılabilir: duyuru o zaman tüm bölgelerde görünür.
-  it('bölgeyi zorunlu tutmaz', () => {
-    expect(validateAnnouncement({ ...VALID, region: '' }).region).toBeUndefined()
+  // Kapsam boş bırakılabilir: duyuru o zaman herkese görünür.
+  it('kapsamı zorunlu tutmaz', () => {
+    expect(validateAnnouncement({ ...VALID, scopeName: '' }).scopeName).toBeUndefined()
   })
 })
 
@@ -88,12 +88,12 @@ describe('toAnnouncementDraft', () => {
     expect(draft.body).toBe('Metin')
   })
 
-  it('seçilmemiş bölgeyi null’a çevirir — duyuru tüm bölgelerde görünür', () => {
-    expect(toAnnouncementDraft({ ...VALID, region: '' }).region).toBeNull()
+  it('seçilmemiş kapsamı null’a çevirir — duyuru herkese görünür', () => {
+    expect(toAnnouncementDraft({ ...VALID, scopeName: '' }).scopeName).toBeNull()
   })
 
-  it('seçili bölgeyi olduğu gibi taşır', () => {
-    expect(toAnnouncementDraft(VALID).region).toBe('Ege')
+  it('seçili kapsamı olduğu gibi taşır', () => {
+    expect(toAnnouncementDraft(VALID).scopeName).toBe('AKSA')
   })
 
   it('sistem duyurusu işaretini taşır — amber kenarlık buna bağlı', () => {

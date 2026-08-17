@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import { DashboardCard } from './DashboardCard'
 import type { Permission } from '../../../api/permissions'
 import { PROJECT_LIST_PATH } from '../../../pages/useCloseEditor'
-import { ComingSoonBadge } from '../ComingSoonBadge'
 import {
   GAS_FIRM_CREATE_PATH,
   PROJECT_FIRM_CREATE_PATH,
@@ -20,8 +19,6 @@ interface QuickAction {
   /** `null` ise izin aranmaz — proje listesi sol menüden zaten korumasız (K28). */
   permission: Permission | null
   to: string
-  /** Hedef gerçek ekran mı, yoksa "bu ekran gelecektir" karşılaması mı. */
-  isComingSoon?: boolean
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
@@ -38,7 +35,6 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: FilePlus2,
     permission: 'projectFirm.create',
     to: PROJECT_FIRM_CREATE_PATH,
-    isComingSoon: true,
   },
   {
     key: 'createUser',
@@ -81,9 +77,6 @@ interface ActionTileProps {
  * "bu ekran gelecektir" karşılaması var (ComingSoonPage). Pasif düğme yerine
  * bunun seçilmesi bilinçli — kullanıcı tıklayınca ne olduğunu okuyor, geri
  * dönebiliyor; ekran gelince yalnız route'un element'i değişiyor.
- *
- * Rozet, tıklamadan önce beklentiyi kuruyor ve erişilebilir adın parçası olduğu
- * için ("Kullanıcı Oluştur Yakında") ekran okuyucu kullanıcısına da ulaşıyor.
  */
 function ActionTile({ action }: ActionTileProps) {
   const Icon = action.icon
@@ -95,7 +88,6 @@ function ActionTile({ action }: ActionTileProps) {
     >
       <Icon aria-hidden className="size-4 shrink-0 text-accent-ink" />
       <span className="min-w-0 flex-1">{action.label}</span>
-      {action.isComingSoon === true && <ComingSoonBadge />}
     </Link>
   )
 }

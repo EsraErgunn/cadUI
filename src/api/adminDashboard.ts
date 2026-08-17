@@ -2,13 +2,14 @@ import { z } from 'zod'
 
 import {
   allMockAnnouncements,
-  allMockRegionFacts,
-  mockRegionNameOf,
+  allMockScopeFacts,
+  mockScopeIdOf,
+  mockScopeNameOf,
   publishMockAnnouncement,
   queryMockDayActivity,
   type MockAnnouncement,
-  type RegionDayActivity,
-  type RegionFacts,
+  type ScopeDayActivity,
+  type ScopeFacts,
 } from './adminDashboardMock'
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import { ApiError, NetworkError, hasApiBaseUrl, requestJson } from './http'
@@ -20,32 +21,63 @@ import { includesTr } from './turkishText'
  *
  * Ekran İKİ kaynaktan besleniyor ve bu bilinçli (docs/kararlar.md K48):
  *
- * - **Sayaçlar, bugün, bölge yoğunluğu → GERÇEK uç** `GET /api/admin/dashboard`
+ * - **Sayaçlar, bugün, yoğunluk → GERÇEK uç** `GET /api/admin/dashboard`
  * - **Duyurular → YEREL depo** (`announcementStore.ts`); duyuru varlığı
  *   sunucuda hiç yazılmadı (entity, tablo, controller, migration yok)
  *
- * Özet TEK uçtan gelir: ekranın tüm sayıları (özet sayaçlar, bugün, bölge
- * yoğunluğu, duyuru önizlemeleri) aynı yanıtta. Liste uçlarının toplamı ALINMAZ
- * — sayfalı bir uçtan toplam çıkarmak yanlış sonuç verir.
+ * Özet TEK uçtan gelir: ekranın tüm sayıları (özet sayaçlar, bugün, yoğunluk,
+ * duyuru önizlemeleri) aynı yanıtta. Liste uçlarının toplamı ALINMAZ — sayfalı
+ * bir uçtan toplam çıkarmak yanlış sonuç verir.
  *
- * `date` YEREL takvim günüdür (`YYYY-MM-DD`, bkz. `dayKey.ts`) ve zorunludur:
- * "bugün" sayaçlarının hangi güne ait olduğuna istemci karar verir, sunucunun
- * saat dilimi değil. Gün dönünce anahtar değişir, sayaçlar yeniden istenir.
+ * Kapsam sorguya `gdGroupId` VEYA `gdFirmId` olarak gider, ikisi birden ASLA.
+ * Coğrafi bölge kavramı sunucudan kalktı; `regionId` yok.
  *
- * Bu uçların İKİSİ DE HENÜZ YOK. Sunucudaki gerçek rotalarda `/api/admin/`
- * öneki hiç bulunmadığı için yollar `/api/dashboard/...` olarak yazıldı;
- * backend NİHAİ adı farklı verebilir, uç açılınca bu sabitler doğrulanacak.
+ * `dayKey` YEREL takvim günüdür (`YYYY-MM-DD`, bkz. `dayKey.ts`) ama UCA
+ * GİTMEZ: "bugün" sayaçlarını sunucu kendi gününe göre hesaplıyor. Anahtar
+ * istemcide yalnız sorgu anahtarı olarak yaşıyor — gün dönünce veri tazelensin.
  *
- * Uç 404/501 dönerse ya da API'ye ulaşılamazsa mock veriye düşülür
- * (`isMissingEndpoint`). Backend'den istenecek alanların dökümü
- * docs/kararlar.md → "Genel Bakış: backend'den istenecek uçlar ve alanlar".
+ * Özet ucu ARTIK VAR ve mock'a düşmüyor; hata gerçek hata olarak görünür.
+ * Duyuru ucu hâlâ yok, yalnız o yol 404'te yerel depoya düşüyor (K48).
  */
 
-/** TODO(esra): nihai yolu backend doğrulayacak — sunucuda `/api/admin/` öneki yok. */
 const ADMIN_DASHBOARD_PATH = '/api/admin/dashboard'
 
 /** TODO(esra): duyuru varlığı sunucuda yok; yol uç açılınca doğrulanacak. */
 const ANNOUNCEMENTS_PATH = '/api/dashboard/announcements'
+
+/**
+ * Bu ucun KAPSAM parametresi. Uç `gdGroupId` ve `gdFirmId`'yi opsiyonel alıyor
+ * ama İKİSİNİ BİRDEN kabul etmiyor; ayrık birleşim tam olarak bunu anlatıyor.
+ *
+ * `{ groupId?: number; firmId?: number }` biçimi geçersiz hâli (ikisi de dolu)
+ * tipte MÜMKÜN kılardı ve hata ancak sunucuda görünürdü. Yeni bir kavram değil,
+ * sunucunun sorgu sözleşmesinin arayüzdeki karşılığı — bu yüzden ucun kendi
+ * dosyasında duruyor.
+ */
+export type AdminScope =
+  | { type: 'global' }
+  | { type: 'group'; groupId: number }
+  | { type: 'firm'; firmId: number }
+
+/** Kapsam seçilmemiş hâl; sorguya hiçbir parametre yazılmaz. */
+export const GLOBAL_SCOPE: AdminScope = { type: 'global' }
+
+/**
+ * Kapsamı sorgu dizesine çevirir. Kapsam yoksa parametre HİÇ yazılmaz: boş
+ * `gdGroupId=` sunucuda ayrı bir anlam taşıyabilir, "tümü" demek için
+ * parametrenin YOKLUĞU kullanılır.
+ */
+function withScopeQuery(scope: AdminScope): string {
+  if (scope.type === 'global') return ADMIN_DASHBOARD_PATH
+
+  const search = new URLSearchParams(
+    scope.type === 'group'
+      ? { gdGroupId: String(scope.groupId) }
+      : { gdFirmId: String(scope.firmId) },
+  )
+
+  return `${ADMIN_DASHBOARD_PATH}?${search.toString()}`
+}
 
 /** Duyuru başlığı tek satırda kalmalı; kart başlığı iki satıra taşarsa liste bozulur. */
 export const ANNOUNCEMENT_TITLE_MAX_LENGTH = 80
@@ -53,8 +85,8 @@ export const ANNOUNCEMENT_TITLE_MAX_LENGTH = 80
 /** Duyuru metni. Kartta zaten kısaltılıyor; sınır formda da uygulanır. */
 export const ANNOUNCEMENT_BODY_MAX_LENGTH = 500
 
-/** Kartta gösterilecek en fazla bölge satırı (belge: "en fazla 5 bölge"). */
-export const MAX_REGION_ROWS = 5
+/** Kartta gösterilecek en fazla yoğunluk satırı (belge: "en fazla 5"). */
+export const MAX_DENSITY_ROWS = 5
 
 /** Kartta gösterilecek en fazla duyuru önizlemesi (belge: "en fazla 2 duyuru"). */
 export const MAX_ANNOUNCEMENTS = 2
@@ -80,8 +112,8 @@ const announcementSchema = z.object({
 
 /**
  * Duyuru LİSTESİ satırı. Kart satırından farkı: metin KISALTILMAMIŞ (`body`) ve
- * kapsam (`region`) taşıyor. Liste ekranının işi duyuruyu tam göstermek; özet
- * alanı yalnız anasayfa kartının sınırlı yeri için var, ikisi aynı şey değil.
+ * kapsam (`scopeName`) taşıyor. Liste ekranının işi duyuruyu tam göstermek;
+ * özet alanı yalnız anasayfa kartının sınırlı yeri için var, ikisi aynı değil.
  */
 const announcementDetailSchema = z.object({
   id: z.number().int().positive(),
@@ -89,15 +121,22 @@ const announcementDetailSchema = z.object({
   body: z.string(),
   publishedAt: z.string(),
   source: z.string(),
-  /** null = tüm bölgeler. */
-  region: z.string().nullable(),
+  /** null = tüm kapsamlar. */
+  scopeName: z.string().nullable(),
 })
 
 const announcementPageSchema = pagedResultSchema(announcementDetailSchema)
 
-const regionDensityRowSchema = z.object({
-  region: z.string(),
-  count: z.number().int().nonnegative(),
+/**
+ * Yoğunluğun hangi boyutta kırıldığı. Sunucu grup kapsamında grupları, firma
+ * kapsamında firmaları döndürüyor; kart başlığı buna göre değişiyor.
+ */
+const densityBySchema = z.enum(['group', 'firm'])
+
+const densityRowSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  projectCount: z.number().int().nonnegative(),
 })
 
 const dashboardSummarySchema = z.object({
@@ -111,14 +150,16 @@ const dashboardSummarySchema = z.object({
     approved: z.number().int().nonnegative(),
     rejected: z.number().int().nonnegative(),
   }),
-  regionDensity: z.array(regionDensityRowSchema),
+  densityBy: densityBySchema,
+  density: z.array(densityRowSchema),
   announcements: z.array(announcementSchema),
 })
 
 export type Announcement = z.infer<typeof announcementSchema>
 export type AnnouncementDetail = z.infer<typeof announcementDetailSchema>
 export type AnnouncementPage = PagedResult<AnnouncementDetail>
-export type RegionDensityRow = z.infer<typeof regionDensityRowSchema>
+export type DensityBy = z.infer<typeof densityBySchema>
+export type DensityRow = z.infer<typeof densityRowSchema>
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>
 
 /** Duyuru listesinin sayfa boyutu. Kartlar uzun olduğu için tablo kadar sık değil. */
@@ -127,8 +168,8 @@ export const ANNOUNCEMENT_PAGE_SIZE = 10
 export interface AnnouncementQuery {
   /** Başlıkta ve metinde aranan metin; boş dize = arama yok. */
   textQuery: string
-  /** Üst bardaki bölge kapsamı (grup firması kimliği); null = tüm bölgeler. */
-  groupId: number | null
+  /** Üst bardaki kapsam; duyuru ucu olmadığı için yalnız mock süzgecini besler. */
+  scope: AdminScope
   page: number
   pageSize: number
 }
@@ -159,7 +200,7 @@ function toAnnouncementDetail(mock: MockAnnouncement): AnnouncementDetail {
     body: mock.body,
     publishedAt: mock.publishedAt,
     source: mock.source,
-    region: mock.region,
+    scopeName: mock.scopeName,
   }
 }
 
@@ -174,7 +215,7 @@ function toAnnouncement(mock: MockAnnouncement): Announcement {
   }
 }
 
-function sumFacts(facts: RegionFacts[]): DashboardSummary['counts'] {
+function sumFacts(facts: ScopeFacts[]): DashboardSummary['counts'] {
   return {
     gasDistributionUsers: facts.reduce((total, row) => total + row.gasDistributionUsers, 0),
     projectFirms: facts.reduce((total, row) => total + row.projectFirms, 0),
@@ -183,7 +224,7 @@ function sumFacts(facts: RegionFacts[]): DashboardSummary['counts'] {
 }
 
 /** Yalnız istenen güne ait hareketlerin toplamı; gün boşsa üç sayaç da sıfır. */
-function sumDayActivity(activity: RegionDayActivity[]): DashboardSummary['today'] {
+function sumDayActivity(activity: ScopeDayActivity[]): DashboardSummary['today'] {
   return {
     newProjects: activity.reduce((total, row) => total + row.newProjects, 0),
     approved: activity.reduce((total, row) => total + row.approved, 0),
@@ -202,9 +243,10 @@ function normalizeSummary(raw: DashboardSummary): DashboardSummary {
   return {
     counts: raw.counts,
     today: raw.today,
-    regionDensity: [...raw.regionDensity]
-      .sort((left, right) => right.count - left.count)
-      .slice(0, MAX_REGION_ROWS),
+    densityBy: raw.densityBy,
+    density: [...raw.density]
+      .sort((left, right) => right.projectCount - left.projectCount)
+      .slice(0, MAX_DENSITY_ROWS),
     announcements: [...raw.announcements]
       .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))
       .slice(0, MAX_ANNOUNCEMENTS)
@@ -216,9 +258,14 @@ function normalizeSummary(raw: DashboardSummary): DashboardSummary {
 }
 
 /**
- * Sunucunun gövdesi. `AdminDashboardDto` alanları arayüzünkilerle aynı DEĞİL
- * (`gasDistributionUserCount` ↔ `gasDistributionUsers`, `projectCount` ↔ `count`);
- * dönüşüm tek yerde, `toDashboardSummary`'de.
+ * Sunucunun gövdesi. Sayaç alanları arayüzünkilerle aynı DEĞİL
+ * (`gasDistributionUserCount` ↔ `gasDistributionUsers`); dönüşüm tek yerde,
+ * `toDashboardSummary`'de. Yoğunluk satırları ise sunucunun alan adlarıyla
+ * (`id`/`name`/`projectCount`) OLDUĞU GİBİ taşınıyor.
+ *
+ * `densityBy` artık ZORUNLU: kart başlığını o belirliyor, gösterilmeyen bir
+ * alan değil. `generatedAt` arayüzde kullanılmadığı için hâlâ opsiyonel —
+ * sunucu onu kaldırırsa ekranın sınırda patlaması gereksiz bir bedel olurdu.
  */
 const adminDashboardDtoSchema = z.object({
   summary: z.object({
@@ -231,15 +278,18 @@ const adminDashboardDtoSchema = z.object({
     approvedCount: z.number().int().nonnegative(),
     rejectedCount: z.number().int().nonnegative(),
   }),
-  /** Sunucuda COĞRAFİ bölge başına PROJE adedi; kartın üç sayacı değil. */
-  regionDensity: z.array(
-    z.object({
-      regionId: z.number().int(),
-      regionName: z.string(),
-      projectCount: z.number().int().nonnegative(),
-    }),
-  ),
-  generatedAt: z.string(),
+  /**
+   * Yoğunluğun hangi boyutta kırıldığı; kart başlığı buna göre değişir.
+   *
+   * Beklenmeyen değer 'group'a düşer, şemayı PATLATMAZ: bu alan yalnız başlık
+   * metnini seçiyor ve sunucu bir gün başka bir kırılım eklerse (ya da değeri
+   * farklı yazarsa) bütün gösterge panelinin hata ekranına dönmesi orantısız
+   * bir bedel olurdu. Sayılar yine doğru gösterilir, yalnız başlık genel kalır.
+   */
+  densityBy: densityBySchema.catch('group'),
+  /** Kırılım başına PROJE adedi; kartın üç sayacı değil. */
+  density: z.array(densityRowSchema),
+  generatedAt: z.string().optional(),
 })
 
 /**
@@ -262,39 +312,42 @@ function toDashboardSummary(
       approved: dto.today.approvedCount,
       rejected: dto.today.rejectedCount,
     },
-    regionDensity: dto.regionDensity.map((row) => ({
-      region: row.regionName,
-      count: row.projectCount,
-    })),
+    densityBy: dto.densityBy,
+    density: dto.density,
     announcements,
   }
 }
 
 /** Mock ham veriyi üretir; sıralama/limit/kısaltma `normalizeSummary`'de. */
-function buildMockSummary(dayKey: string, groupId: number | null): DashboardSummary {
-  const region = mockRegionNameOf(groupId)
-  const facts = allMockRegionFacts(region)
+function buildMockSummary(dayKey: string, scope: AdminScope): DashboardSummary {
+  const scopeName = mockScopeNameOf(scope)
+  const facts = allMockScopeFacts(scopeName)
   // Birikimli sayılar günden bağımsız; "bugün" ve yoğunluk YALNIZ o günün
   // hareketlerinden geliyor, gün dönünce ikisi de sıfırlanıyor.
-  const activity = queryMockDayActivity(dayKey, region)
+  const activity = queryMockDayActivity(dayKey, scopeName)
 
   return {
     counts: sumFacts(facts),
     today: sumDayActivity(activity),
-    regionDensity: activity.map((row) => ({ region: row.region, count: row.newProjects })),
+    densityBy: scope.type === 'firm' ? 'firm' : 'group',
+    density: activity.map((row) => ({
+      id: mockScopeIdOf(row.name),
+      name: row.name,
+      projectCount: row.newProjects,
+    })),
     announcements: allMockAnnouncements().map(toAnnouncement),
   }
 }
 
-function buildNormalizedMock(dayKey: string, groupId: number | null): DashboardSummary {
-  return normalizeSummary(dashboardSummarySchema.parse(buildMockSummary(dayKey, groupId)))
+function buildNormalizedMock(dayKey: string, scope: AdminScope): DashboardSummary {
+  return normalizeSummary(dashboardSummarySchema.parse(buildMockSummary(dayKey, scope)))
 }
 
 const NOT_FOUND = 404
 const NOT_IMPLEMENTED = 501
 
 /**
- * Uyarı bir KEZ yazılır: bölge her değiştiğinde sorgu yeniden çalıştığı için
+ * Uyarı bir KEZ yazılır: liste her sayfalandığında istek yeniden gittiği için
  * bayrak olmadan konsol aynı satırla dolardı.
  */
 let hasWarnedAboutMissingEndpoint = false
@@ -305,16 +358,18 @@ function warnOnceAboutMissingEndpoint(): void {
 
   // BİLİNÇLİ teşhis çıktısı — unutulmuş log DEĞİL, silinmemeli (docs/kararlar.md
   // K28). Ekran sessizce örnek veri gösteriyor; bunu söylemezsek geliştirici
-  // sahte sayıları gerçek sanır. Uç açılınca bu blok tümüyle kalkacak.
+  // sahte kayıtları gerçek sanır. Uç açılınca bu blok tümüyle kalkacak.
   // eslint-disable-next-line no-console -- yukarıdaki gerekçe
-  console.warn('dashboard endpoint yok, mock veri kullanılıyor')
+  console.warn('duyuru endpointi yok, yerel depo kullanılıyor')
 }
 
 /**
- * Uç HENÜZ YOKKEN (404/501) veya API'ye hiç ulaşılamazken mock'a düşülür.
+ * YALNIZ DUYURU yolları için: uç henüz yokken (404/501) veya API'ye hiç
+ * ulaşılamazken yerel depoya düşülür. Özet ucu artık gerçek, o yol bu kontrolü
+ * KULLANMIYOR — hatası hata olarak görünüyor.
  *
- * 401/403 ve 5xx BİLEREK dışarıda: `http.ts` 401'de oturumu düşürüyor ve
- * `RequireAuth` girişe yönlendiriyor. Bunları mock'a yutsaydık, süresi dolmuş
+ * 401/403 ve 5xx burada da BİLEREK dışarıda: `http.ts` 401'de oturumu düşürüyor
+ * ve `RequireAuth` girişe yönlendiriyor. Bunları yutsaydık, süresi dolmuş
  * oturumda kullanıcı sahte veriyle dolu çalışan bir ekran görürdü — hata
  * ekranından çok daha kötü bir sonuç.
  */
@@ -328,49 +383,42 @@ function isMissingEndpoint(error: unknown): boolean {
 }
 
 /**
- * Kapsam üst bardaki bölge seçicisinden geliyor (`groupId`, null = sistem
- * geneli). Ekranın hiçbir yerinde ikinci bir veri kaynağı yok, tüm kartlar bu
- * tek çağrıdan besleniyor — kapsam değişince hepsi birlikte döner.
+ * Kapsam üst bardaki seçiciden geliyor ve UCA GİDİYOR: grup seçilirse
+ * `gdGroupId`, firma seçilirse `gdFirmId`, hiçbiri seçilmezse parametresiz
+ * (sistem geneli). İkisi BİRLİKTE gitmez — kural `AdminScope` tipinin kendisiyle
+ * garanti altında. Süzme sunucuda; istemci gelen diziyi daraltmıyor.
  *
- * `dayKey` zorunlu ve YEREL takvim günü (`dayKey.ts`). Çağıran gün dönünce
- * anahtarı değiştirir; "bugün" sayaçları böyle sıfırlanır.
+ * Ekranın hiçbir yerinde ikinci bir sayı kaynağı yok, tüm kartlar bu tek
+ * çağrıdan besleniyor — kapsam değişince hepsi birlikte döner.
+ *
+ * `dayKey` zorunlu ve YEREL takvim günü (`dayKey.ts`) ama sorguya girmez;
+ * çağıran gün dönünce anahtarı değiştirir, veri o gün için yeniden istenir.
  */
 export async function getDashboardSummary(
   dayKey: string,
-  groupId: number | null,
+  scope: AdminScope,
   signal?: AbortSignal,
 ): Promise<DashboardSummary> {
   if (!hasApiBaseUrl()) {
     await delay(MOCK_LATENCY_MS, signal)
-    return buildNormalizedMock(dayKey, groupId)
+    return buildNormalizedMock(dayKey, scope)
   }
 
-  try {
-    // Kapsam UCA GÖNDERİLMİYOR: uç coğrafi `regionId` alıyor, üst bardaki kapsam
-    // ise gaz dağıtım GRUP firması (K43). İkisi farklı kavram; grup kimliğini
-    // `regionId` diye göndermek sunucuya yanlış soru sormak olurdu. Mock yolunda
-    // kapsam çalışmaya devam ediyor.
-    const dto = await requestJson(
-      { method: 'GET', path: ADMIN_DASHBOARD_PATH, signal },
-      adminDashboardDtoSchema,
-    )
+  const dto = await requestJson(
+    { method: 'GET', path: withScopeQuery(scope), signal },
+    adminDashboardDtoSchema,
+  )
 
-    // Duyurular yanıtta yok; kartın verisi yerel depodan geliyor.
-    const announcements = buildMockSummary(dayKey, groupId).announcements
-    return normalizeSummary(toDashboardSummary(dto, announcements))
-  } catch (error) {
-    if (!isMissingEndpoint(error)) throw error
-
-    warnOnceAboutMissingEndpoint()
-    return buildNormalizedMock(dayKey, groupId)
-  }
+  // Duyurular yanıtta yok; kartın verisi yerel depodan geliyor (K48).
+  const announcements = buildMockSummary(dayKey, scope).announcements
+  return normalizeSummary(toDashboardSummary(dto, announcements))
 }
 
-/** Formun gönderdiği duyuru. `region` null = tüm bölgeler. */
+/** Formun gönderdiği duyuru. `scopeName` null = tüm kapsamlar. */
 export interface AnnouncementDraft {
   title: string
   body: string
-  region: string | null
+  scopeName: string | null
   /** Bakım/kesinti duyurusu mu — kartta amber sol kenarlığı bu belirler. */
   isSystem: boolean
 }
@@ -419,7 +467,7 @@ export async function publishAnnouncement(
 /** Mock listeyi süzer, sıralar ve sayfalar. Sıralama/sayfalama gerçek uçta
     SUNUCUDA yapılacak; burada yalnız uç yokken aynı davranış taklit ediliyor. */
 function buildMockAnnouncementPage(query: AnnouncementQuery): AnnouncementPage {
-  const scopedRegion = mockRegionNameOf(query.groupId)
+  const scopedName = mockScopeNameOf(query.scope)
 
   const matching = allMockAnnouncements()
     .filter(
@@ -428,13 +476,13 @@ function buildMockAnnouncementPage(query: AnnouncementQuery): AnnouncementPage {
         includesTr(announcement.title, query.textQuery) ||
         includesTr(announcement.body, query.textQuery),
     )
-    // Bölgesi null olan duyuru TÜM bölgeleri ilgilendiriyor; kapsam seçilince de
+    // Kapsamı null olan duyuru TÜM kapsamları ilgilendiriyor; seçim yapılınca da
     // görünür kalır — elenseydi sistem duyuruları kapsamlı görünümde kaybolurdu.
     .filter(
       (announcement) =>
-        scopedRegion === null ||
-        announcement.region === null ||
-        announcement.region === scopedRegion,
+        scopedName === null ||
+        announcement.scopeName === null ||
+        announcement.scopeName === scopedName,
     )
     .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))
     .map(toAnnouncementDetail)
@@ -471,7 +519,8 @@ export async function getAnnouncements(
     pageSize: String(query.pageSize),
   })
   if (query.textQuery !== '') search.set('q', query.textQuery)
-  if (query.groupId !== null) search.set('group', String(query.groupId))
+  if (query.scope.type === 'group') search.set('gdGroupId', String(query.scope.groupId))
+  if (query.scope.type === 'firm') search.set('gdFirmId', String(query.scope.firmId))
 
   try {
     const raw = await requestJson(

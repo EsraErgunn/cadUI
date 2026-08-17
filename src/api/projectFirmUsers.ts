@@ -24,8 +24,9 @@ import { isEndpointImplemented } from './unimplementedEndpoints'
  * önerilen sözleşme: docs/api-eksikleri-kullanicilar.md
  *
  * FİRMALAR İSE GERÇEK UÇTAN GELİYOR:
- * - `GET /api/gasdistributionfirms` → yetki satırının G.D. firması seçenekleri
- * - `GET /api/projectfirms`         → proje firması seçenekleri
+ * - `GET /api/gasdistributionfirms`        → yetki satırının G.D. firması seçenekleri
+ * - `GET /api/project-firm-authorizations` → proje firması seçenekleri (KK-20 daraltması)
+ * - `GET /api/projectfirms`                → mock kullanıcı tohumu (daraltmasız tam liste)
  *
  * Kullanıcı satırları bu iki gerçek listeden TOHUMLANIYOR (`seedProjectFirmUsers`).
  * Böylece formdaki seçeneklerle listedeki kayıtlar aynı firmaları gösteriyor;
@@ -55,35 +56,30 @@ export async function getCompetencyGasFirms(signal?: AbortSignal): Promise<FirmR
 }
 
 /**
- * Proje firması seçenekleri — GERÇEK uç.
- *
- * KK-20 listeyi "seçilen G.D. firmasında yeterliliği olan" firmalarla
- * sınırlandırmak istiyor ama sunucuda bu bağı veren bir uç YOK: `ProjectFirmAuthorization`
- * tablosu proje firmasını GDF-bölgesine bağlıyor, onu okuyan bir uç açılmamış.
- * Bu yüzden bugün TÜM proje firmaları listeleniyor. Daraltma yapılmadığı için
- * kutu yine de firma seçilmeden PASİF kalıyor — sıra kuralı korunuyor, sessizce
- * yanlış bir daraltma uydurulmuyor.
+ * Yetki satırındaki proje firması seçenekleri — SEÇİLEN G.D. firmasında bugün
+ * yeterliliği olanlar (KK-20). Gövdesi `projectFirmAuthorizations.ts`'te, Yeni
+ * Proje formundaki aynasının yanında: iki açılır da tek geçerlilik kuralından
+ * geçsin diye. Ekranın API yüzeyi tek modül kalsın diye buradan dışa veriliyor.
  */
-export async function getAuthorizedProjectFirms(
-  // Bugün kullanılmıyor; daraltmayı veren uç açılınca imza değişmeden sunucuya geçecek.
-  _gasDistributionFirmId: number,
-  signal?: AbortSignal,
-): Promise<FirmReference[]> {
-  const firms = await getProjectFirmList(signal)
+export { getAuthorizedProjectFirms } from './projectFirmAuthorizations'
 
-  return firms
-    .map((firm) => ({ id: firm.id, name: firm.name }))
-    .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
-}
-
-/** Kullanıcı satırlarının dayandığı gerçek firma listeleri; ikisi paralel çekilir. */
+/**
+ * Kullanıcı satırlarının dayandığı gerçek firma listeleri; ikisi paralel çekilir.
+ *
+ * Proje firmaları burada YETKİ ucundan değil `getProjectFirmList`'ten geliyor:
+ * tohum tüm firmaları istiyor, oysa yetki ucu bir G.D. firmasına daraltılmadan
+ * anlamlı değil.
+ */
 async function seedFromRealFirms(signal?: AbortSignal): Promise<void> {
   const [gasFirms, projectFirms] = await Promise.all([
     getCompetencyGasFirms(signal),
-    getAuthorizedProjectFirms(0, signal),
+    getProjectFirmList(signal),
   ])
 
-  seedProjectFirmUsers(gasFirms, projectFirms)
+  seedProjectFirmUsers(
+    gasFirms,
+    projectFirms.map((firm) => ({ id: firm.id, name: firm.name })),
+  )
 }
 
 /**

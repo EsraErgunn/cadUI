@@ -33,7 +33,6 @@ function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
     serialNumber: null,
     qualificationNumber: null,
     name: 'FİRMA',
-    gasFirm: null,
     authorizedPerson: null,
     email: null,
     phone: null,
@@ -177,9 +176,12 @@ describe('toProjectFirmPayload', () => {
     })
   })
 
-  /** T.C. kimlik numarası gövdeye KONMAZ: sunucunun create DTO'sunda karşılığı
-      yok, `taxNumber` alanına yazılsaydı yanlış sütuna düşerdi. */
-  it('şahıs şirketinde kimlik numarasını vergi alanına yazmaz', () => {
+  /**
+   * T.C. kimlik numarası KENDİ alanında gider. Uç `nationalIdNumber`'ı sonradan
+   * kabul etmeye başladı; asıl güvence değişmedi: numara `taxNumber` alanına
+   * YAZILMAZ, yoksa vergi numarası sütununa kimlik düşerdi.
+   */
+  it('şahıs şirketinde kimliği nationalIdNumber alanına yazar, vergi alanına yazmaz', () => {
     const { data } = validateProjectFirm(
       buildValidValues({
         isSoleProprietorship: true,
@@ -189,8 +191,15 @@ describe('toProjectFirmPayload', () => {
     )
     const payload = toProjectFirmPayload(data!)
 
+    expect(payload.nationalIdNumber).toBe('12345678901')
     expect(payload.taxNumber).toBeNull()
     expect(payload.companyType).toBe(1)
-    expect(JSON.stringify(payload)).not.toContain('12345678901')
+  })
+
+  /** Tüzel firmada kimlik alanı formda temizlenir; gövdeye `null` gider. */
+  it('tüzel firmada nationalIdNumber null gönderir', () => {
+    const { data } = validateProjectFirm(buildValidValues())
+
+    expect(toProjectFirmPayload(data!).nationalIdNumber).toBeNull()
   })
 })

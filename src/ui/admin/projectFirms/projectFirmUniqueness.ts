@@ -23,18 +23,26 @@ import { normalizeTr } from '../../../api/turkishText'
 export function findTakenProjectFirmErrors(
   firms: readonly ProjectFirm[],
   values: ProjectFirmParsedValues,
+  /**
+   * Güncellenen kaydın kimliği. Kayıt KENDİSİYLE karşılaştırılmaz: aksi hâlde
+   * hiçbir alanı değiştirmeden "Kaydet" demek bile "bu vergi numarası zaten
+   * kullanılmaktadır" hatası verir ve güncelleme ekranı hiç kaydedilemezdi.
+   * Ekleme yolunda `null` geçilir.
+   */
+  excludeFirmId: number | null = null,
 ): ProjectFirmErrors {
   const errors: ProjectFirmErrors = {}
   const taxNumber = values.taxNumber.trim()
   const serialNumber = values.serialNumber.trim()
+  const others = firms.filter((firm) => firm.id !== excludeFirmId)
 
-  if (taxNumber !== '' && firms.some((firm) => matchesCode(firm.taxNumber, taxNumber))) {
+  if (taxNumber !== '' && others.some((firm) => matchesCode(firm.taxNumber, taxNumber))) {
     errors.taxNumber = PROJECT_FIRM_ERRORS.taxNumberTaken
   }
 
   if (
     serialNumber !== '' &&
-    firms.some((firm) => matchesCode(firm.serialNumber, serialNumber))
+    others.some((firm) => matchesCode(firm.serialNumber, serialNumber))
   ) {
     errors.serialNumber = PROJECT_FIRM_ERRORS.serialNumberTaken
   }

@@ -10,15 +10,73 @@ import { ProjectListPage } from '../ProjectListPage'
 const TODAY = `${new Date().toISOString().slice(0, 10)}T09:00:00`
 
 /**
- * Liste artık gerçek `GET /api/projects`'e gidiyor; gövde 2026-08-04'te
- * cadapi'den doğrulanan biçimde. Sil/Gönder rozetleri hâlâ mock uçlardan
- * geliyor, onlar stub'lanmıyor.
+ * Liste, sekme rozetleri ve il/ilçe süzgeçleri gerçek uçlara gidiyor
+ * (Swagger 2026-08-14). Liste artık SAYFALI ZARF döndürüyor; süzme, sıralama
+ * ve sayfalama sunucuda. "Onaya Gönder" hâlâ mock uçtan geliyor, stub'lanmıyor.
  */
 const API_PROJECTS = [
   { id: 3, name: 'Gülbahar Apartmanı', code: null, createdAt: TODAY, updatedAt: TODAY },
   { id: 2, name: 'Çınar Sitesi', code: 'PRJ-002', createdAt: TODAY, updatedAt: TODAY },
   { id: 1, name: 'Demo Doğalgaz Projesi', code: null, createdAt: TODAY, updatedAt: TODAY },
 ]
+
+const API_STATUS_COUNTS = { draft: 3, pendingApproval: 0, approved: 0, rejected: 0 }
+const API_CITIES = [{ id: 6, name: 'Ankara', plateCode: '06' }]
+const API_DISTRICTS = [{ id: 64, name: 'Çankaya' }]
+/** `GET /api/projectfirms` satırı; kutu `title`'ı etiket olarak gösterir. */
+const API_PROJECT_FIRMS = [
+  {
+    id: 11,
+    companyType: 2,
+    title: 'Anadolu Mühendislik Ltd. Şti.',
+    taxNumber: null,
+    contactPerson: null,
+    phone: null,
+    email: null,
+  },
+]
+
+/** Yanıt HER çağrıda yeniden kuruluyor: tek `Response` paylaşılsaydı gövdesi
+    ilk okumada tükenir, ikinci sorgu boş yanıt görürdü. */
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/** Sayfa dört ayrı uca gidiyor; stub yolu okuyup doğru gövdeyi veriyor. */
+function respondByPath(input: RequestInfo | URL): Response {
+  const { pathname } = new URL(String(input))
+
+  if (pathname.endsWith('/status-counts')) return jsonResponse(API_STATUS_COUNTS)
+  if (pathname.endsWith('/districts')) return jsonResponse(API_DISTRICTS)
+  if (pathname === '/api/cities') return jsonResponse(API_CITIES)
+  // Uç 2026-08-16'da sayfalı zarfa geçti (`fetchAllPages` topluyor).
+  if (pathname === '/api/projectfirms') {
+    return jsonResponse({
+      items: API_PROJECT_FIRMS,
+      totalCount: API_PROJECT_FIRMS.length,
+      page: 1,
+      pageSize: 100,
+    })
+  }
+
+  return jsonResponse({
+    items: API_PROJECTS,
+    totalCount: API_PROJECTS.length,
+    page: 1,
+    pageSize: 30,
+  })
+}
+
+/** İstek URL'lerini yeni→eski sırada verir; son çağrı en sonda. */
+function fetchCalls(): URL[] {
+  const mock = vi.mocked(fetch)
+  return mock.mock.calls
+    .map((call) => new URL(String(call[0])))
+    .filter((url) => url.pathname === '/api/projects')
+}
 
 function LocationProbe() {
   const location = useLocation()
@@ -49,17 +107,7 @@ function renderPage() {
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          resolve(
-            new Response(JSON.stringify(API_PROJECTS), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            }),
-          ),
-        ),
-    ),
+    vi.fn().mockImplementation((input: RequestInfo | URL) => Promise.resolve(respondByPath(input))),
   )
 })
 
@@ -91,6 +139,66 @@ describe('ProjectListPage (duman)', () => {
     expect(screen.getByTestId('search').textContent).toContain('q=g')
     // Onaylanan projede satır aksiyonu olmaz.
     await waitFor(() => expect(screen.queryAllByRole('button', { name: 'Sil' })).toHaveLength(0))
+  })
+
+  /**
+   * Rozetler eskiden mock veri kümesini sayıyordu: "Onaylanan 7" yazan sekme
+   * boş açılıyordu. Artık listeyle AYNI uçtan geliyorlar — uç durum
+   * döndürmediği için tüm kayıtlar taslak, diğer üç sekme dürüstçe sıfır.
+   */
+  it('sekme rozetleri gerçek listeden gelir, uydurma dağılım göstermez', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    const draftTab = screen.getByRole('tab', { name: /Taslak/ })
+    await waitFor(() => expect(draftTab).toHaveTextContent(String(API_PROJECTS.length)))
+
+    for (const label of [/Onay Bekleyen/, /Onaylanan/, /Reddedilen/]) {
+      expect(screen.getByRole('tab', { name: label })).toHaveTextContent('0')
+    }
+  })
+
+  /**
+   * Uç yalnız beş alan döndürüyor; taşımadığı sütunlar tablonun geri kalanıyla
+   * aynı boş değer işaretini gösterir — uydurma firma adı ya da içi tire dolu
+   * bir rozet çizilmez.
+   */
+  it('uçtan gelmeyen sütunlar boş değer işaretiyle çizilir', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    const firstRow = within(table).getAllByRole('row')[1]
+
+    expect(within(firstRow).getByRole('link')).toHaveTextContent('Gülbahar Apartmanı')
+    // Firma İsmi / Bina Kodu / Proje Tipi / Isınma Tipi / G.D Firması → beş boşluk.
+    expect(within(firstRow).getAllByText('Değer yok')).toHaveLength(5)
+  })
+
+  /**
+   * Firma listesi GERÇEK uçtan; kutu `title`'ı gösteriyor. Seçim uca
+   * `ProjectFirmId` olarak gidiyor, temizlenince parametre DÜŞÜYOR.
+   */
+  it('proje firması süzgeci gerçek uçtan gelir ve ProjectFirmId gönderir', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    const firmSelect = screen.getByLabelText('Proje Firması')
+    await screen.findByRole('option', { name: 'Anadolu Mühendislik Ltd. Şti.' })
+    await user.selectOptions(firmSelect, '11')
+    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+
+    // SON istek bakılır: ilk istek süzgeç uygulanmadan önce atılmıştı.
+    await waitFor(() =>
+      expect(fetchCalls().at(-1)?.searchParams.get('ProjectFirmId')).toBe('11'),
+    )
+
+    await user.selectOptions(screen.getByLabelText('Proje Firması'), '')
+    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+
+    await waitFor(() =>
+      expect(fetchCalls().at(-1)?.searchParams.has('ProjectFirmId')).toBe(false),
+    )
   })
 
   it('sil onayı iptal edilince satır listede kalır', async () => {

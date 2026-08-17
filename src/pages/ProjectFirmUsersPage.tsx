@@ -57,7 +57,7 @@ export function ProjectFirmUsersPage() {
   const totalCount = data?.totalCount
 
   return (
-    <div className="mx-auto flex max-w-320 flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       {savedNotice !== null && (
         <NoticeBar
           tone={savedNotice.tone}

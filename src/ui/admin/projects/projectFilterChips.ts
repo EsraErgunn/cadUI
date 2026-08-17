@@ -22,6 +22,8 @@ function findLookupName(lookups: Lookup[], id: number): string {
 
 interface ProjectFilterChipsOptions {
   filters: ProjectFilters
+  cities: Lookup[]
+  /** Uygulanmış İLİN ilçeleri; il yoksa boş gelir (ilçe süzgeci de olamaz). */
   districts: Lookup[]
   projectFirms: Lookup[]
   onApply: (filters: ProjectFilters) => void
@@ -33,6 +35,7 @@ interface ProjectFilterChipsOptions {
  */
 export function buildProjectFilterChips({
   filters,
+  cities,
   districts,
   projectFirms,
   onApply,
@@ -51,6 +54,17 @@ export function buildProjectFilterChips({
       value: `${toDisplayDate(filters.dateFrom)} – ${toDisplayDate(filters.dateTo)}`,
       onRemove: () =>
         onApply({ ...filters, dateFrom: defaultRange.from, dateTo: defaultRange.to }),
+    })
+  }
+
+  const cityId = filters.cityId
+  if (cityId !== null) {
+    applied.push({
+      key: 'city',
+      label: 'İl',
+      value: findLookupName(cities, cityId),
+      // İl kalkınca ilçe de kalkar: ilçe listesi ile bağlı geliyor.
+      onRemove: () => onApply({ ...filters, cityId: null, districtId: null }),
     })
   }
 

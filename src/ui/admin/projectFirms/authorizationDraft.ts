@@ -6,9 +6,11 @@ import type { ProjectFirmAuthorizationPayload } from '../../../api/projectFirmFo
  * "Gaz Dağıtım Firması" bölge lisanslı firmayı, "Grup Firması" ("AKSA") onun bir
  * üst seviyesini anlatıyor.
  *
- * Kod bir tur boyunca bunlara `region` demişti; arayüz etiketi ("G.D Firması
- * Bölgeleri") belgeden geldiği için AYNI kalıyor, adlandırma ise gerçeği
- * söylüyor (docs/kararlar.md K31).
+ * Kod bir tur boyunca bunlara `region` demişti; coğrafi bölge kavramı sunucudan
+ * tümüyle kalktığı için adlandırma artık gerçeği söylüyor. Arayüz etiketi
+ * ("G.D Firması Bölgeleri") belgeden geldiği için AYNI kalıyor — bu ekran
+ * kaldırılan bölge ucunu DEĞİL, grup süzgeçli `/api/gasdistributionfirms`'i
+ * kullanıyor.
  */
 export interface AuthorizationGasFirm {
   id: number

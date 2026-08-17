@@ -61,7 +61,13 @@ export function DataTable<TRow, TSort extends string = string>({
   rowClassName,
 }: DataTableProps<TRow, TSort>) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-edge bg-surface">
+    // `relative` ŞART, süs değil: hücrelerdeki `sr-only` metinler
+    // `position: absolute` ve konumlanmış bir ata yoksa kapsayan blokları
+    // KÖK öğe olur. O hâlde kaydırma kabı onları kırpamıyor — geniş tablonun
+    // sağ ucundaki gizli metin belgenin genişliğini uzatıp SAYFA seviyesinde
+    // yatay kaydırma çubuğu doğuruyordu (Evraklar ekranı, 1440 px'ten aşağıda).
+    // Kap konumlanınca sr-only metinlerin kapsayan bloğu burası olur ve kırpılır.
+    <div className="relative overflow-x-auto rounded-xl border border-edge bg-surface">
       <table className={`w-full ${minWidthClassName} border-collapse text-sm`}>
         <caption className="sr-only">{caption}</caption>
         <thead>

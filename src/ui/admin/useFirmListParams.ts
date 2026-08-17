@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   ADMIN_PARAM_KEYS,
   FIRST_PAGE,
-  parseGroupId,
+  parseScopeId,
   parsePage,
   useAdminParamWriter,
 } from './adminUrlParams'
@@ -47,7 +47,7 @@ export function useFirmListParams(): FirmListControls {
   const query = useMemo<GasDistributionFirmQuery>(
     () => ({
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
-      groupId: parseGroupId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
+      groupId: parseScopeId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
       sortKey: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),

@@ -6,8 +6,8 @@ import {
 } from '../../../api/adminDashboard'
 import { formatDateTime } from '../adminFormat'
 
-/** Genel duyurunun kapsam etiketi; bölgeli olanda bölge adı yazar. */
-const ALL_REGIONS_LABEL = 'Tüm bölgeler'
+/** Genel duyurunun kapsam etiketi; kapsamlı olanda grubun adı yazar. */
+const ALL_SCOPES_LABEL = 'Tüm kapsamlar'
 
 interface AnnouncementCardProps {
   announcement: AnnouncementDetail
@@ -23,7 +23,7 @@ interface AnnouncementCardProps {
  */
 export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   const isSystem = announcement.source === SYSTEM_ANNOUNCEMENT_SOURCE
-  const RegionIcon = announcement.region === null ? Globe : MapPin
+  const ScopeIcon = announcement.scopeName === null ? Globe : MapPin
 
   return (
     <li
@@ -52,8 +52,8 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           {announcement.source}
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-2 py-1">
-          <RegionIcon aria-hidden className="size-3.5" />
-          {announcement.region ?? ALL_REGIONS_LABEL}
+          <ScopeIcon aria-hidden className="size-3.5" />
+          {announcement.scopeName ?? ALL_SCOPES_LABEL}
         </span>
       </div>
     </li>

@@ -31,10 +31,13 @@ export const PROJECT_FIRMS_PATH = `${ADMIN_HOME_PATH}/project-firms`
 export const PROJECT_FIRM_CREATE_PATH = `${PROJECT_FIRMS_PATH}/new`
 
 /**
- * Proje firması güncelleme ekranının yolu. Ekranı HENÜZ YOK — uçları
- * (`PUT /api/projectfirms/{id}`) hazır ama route'u kendi issue'sunda gelecek;
- * gaz dağıtım firması güncelleme ekranı da bir dönem böyleydi.
+ * Güncelleme rotasının KALIBI (router için). `/new` statik olduğu için
+ * react-router onu bu dinamik segmentin önünde sıralar; ekleme adresi
+ * kimlik sanılmaz.
  */
+export const PROJECT_FIRM_UPDATE_ROUTE = `${PROJECT_FIRMS_PATH}/:firmId`
+
+/** Bir kaydın güncelleme ekranının adresi (`ProjectFirmUpdatePage`). */
 export function projectFirmUpdatePath(firmId: number): string {
   return `${PROJECT_FIRMS_PATH}/${firmId}`
 }
@@ -103,6 +106,10 @@ export function parseProjectParam(raw: string | null): number | undefined {
 /** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
 export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
 
+/** Kişi Bilgileri ekranı; sol menüde madde YOK, üst bardaki kullanıcı
+    menüsünden açılıyor (kişisel ayar, yönetim bölümü değil). */
+export const PROFILE_PATH = `${ADMIN_HOME_PATH}/profile`
+
 export const PROJECT_CREATE_PATH = `${PROJECT_LIST_PATH}/new`
 
 /**
@@ -126,18 +133,16 @@ export interface AdminNavItem {
   label: string
   icon: LucideIcon
   path: string
-  /** Hedef gerçek ekran mı, yoksa "bu ekran gelecektir" karşılaması mı. */
-  isComingSoon?: boolean
 }
 
 /**
  * Sol menünün TEK kaynağı: sıra, etiket ve yol burada durur. Yeni yönetici ekranı
  * eklenince yalnız bu dizi ve router.tsx değişir, AdminSidebar'a dokunulmaz.
  *
- * Her maddenin yolu VAR. Ekranı yazılmamış olanlar bugün karşılama sayfasına
- * gidiyor (`isComingSoon`), pasif düğme olarak durmuyorlar: `disabled` düğme
- * odaklanamadığı için o maddeler klavye ve ekran okuyucu kullanıcısına hiç
- * görünmüyordu.
+ * Her maddenin yolu VAR ve hepsinin ekranı yazıldı. Ekranı olmayan bir madde
+ * gerekirse pasif düğme YAPILMAZ, karşılama sayfasına bağlanır: `disabled` düğme
+ * odaklanamadığı için o madde klavye ve ekran okuyucu kullanıcısına hiç
+ * görünmezdi.
  */
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Geçici karşılama ekranı (AdminHomePage). Kendi yolu var; "Projeler" maddesiyle

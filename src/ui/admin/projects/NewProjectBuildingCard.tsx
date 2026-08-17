@@ -42,7 +42,7 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
         onChange={(value) => setValue('address', value)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <NumberStepperField
           id={newProjectFieldId('apartmentCount')}
           label="Daire Sayısı"
@@ -62,11 +62,12 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <NumberStepperField
           id={newProjectFieldId('areaSquareMeters')}
           label={`Alan (${UNIT_SQUARE_METER})`}
           value={values.areaSquareMeters}
+          isInteger
           unit={UNIT_SQUARE_METER}
           error={errors.areaSquareMeters}
           onChange={(value) => setValue('areaSquareMeters', value)}

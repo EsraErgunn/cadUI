@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  projectFirmListDtoSchema,
+  projectFirmListPageSchema,
   toProjectFirmListItem,
   type ProjectFirmListItemDto,
 } from '../projectFirmDto'
@@ -34,12 +34,14 @@ describe('toProjectFirmListItem', () => {
    * Uçta karşılığı OLMAYAN alanlar. Bu test bilerek "null bekliyorum" diyor:
    * backend liste DTO'suna bu alanları eklediğinde kırılıp eşlemenin
    * güncellenmesi gerektiğini hatırlatsın (bkz. projectFirmDto.ts TODO).
+   *
+   * G.D. firması bağı bu listede ARTIK YOK: ayrı uçtan geliyor ve satıra
+   * `projectFirmListQuery.buildProjectFirmRows` ekliyor.
    */
   it('uçta bulunmayan alanları null bırakır', () => {
     expect(toProjectFirmListItem(buildDto())).toMatchObject({
       serialNumber: null,
       qualificationNumber: null,
-      gasFirm: null,
       mobilePhone: null,
     })
   })
@@ -53,17 +55,29 @@ describe('toProjectFirmListItem', () => {
   })
 })
 
-describe('projectFirmListDtoSchema', () => {
-  it('geçerli yanıtı kabul eder', () => {
-    expect(projectFirmListDtoSchema.parse([buildDto()])).toHaveLength(1)
+/** Uç 2026-08-16'da düz diziden sayfalı zarfa geçti; şema zarfı okuyor. */
+function buildPage(items: unknown[]) {
+  return { items, totalCount: items.length, page: 1, pageSize: 30 }
+}
+
+describe('projectFirmListPageSchema', () => {
+  it('geçerli zarfı kabul eder', () => {
+    expect(projectFirmListPageSchema.parse(buildPage([buildDto()])).items).toHaveLength(1)
+  })
+
+  /** Eski sözleşme: düz dizi artık gelmemeli, sınırda patlasın. */
+  it('düz diziyi reddeder', () => {
+    expect(() => projectFirmListPageSchema.parse([buildDto()])).toThrow()
   })
 
   // Sözleşme kayması bileşenin içinde değil sınırda patlamalı.
   it('ünvanı olmayan satırı reddeder', () => {
-    expect(() => projectFirmListDtoSchema.parse([{ ...buildDto(), title: undefined }])).toThrow()
+    expect(() =>
+      projectFirmListPageSchema.parse(buildPage([{ ...buildDto(), title: undefined }])),
+    ).toThrow()
   })
 
   it('kimliği sayı olmayan satırı reddeder', () => {
-    expect(() => projectFirmListDtoSchema.parse([{ ...buildDto(), id: '7' }])).toThrow()
+    expect(() => projectFirmListPageSchema.parse(buildPage([{ ...buildDto(), id: '7' }]))).toThrow()
   })
 })

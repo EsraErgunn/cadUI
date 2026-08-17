@@ -32,15 +32,11 @@ export function NewProjectPage() {
   const form = useNewProjectForm({ isAdmin })
   const { focusField, clearFocusRequest, applyProjectTypeOptions } = form
 
-  const lookups = useNewProjectLookups({
-    isAdmin,
-    // Admin olmayanda firma sunucuda belli; kimlik gönderilmez.
-    projectFirmId: isAdmin ? form.values.projectFirmId : null,
-  })
+  const lookups = useNewProjectLookups({ isAdmin, projectFirmId: form.values.projectFirmId })
 
   // Sunucudan gelen tip listesi değişince varsayılan/geçersiz seçim tazelenir.
   useEffect(() => {
-    applyProjectTypeOptions(lookups.projectTypes.map((option) => option.code))
+    applyProjectTypeOptions(lookups.projectTypes.map((option) => option.id))
   }, [applyProjectTypeOptions, lookups.projectTypes])
 
   // Doğrulama başarısızsa odak ilk hatalı alana taşınır; istek tek seferlik
@@ -77,7 +73,7 @@ export function NewProjectPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-320 flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
         breadcrumb={[
           { label: 'Anasayfa', to: ADMIN_HOME_PATH },
@@ -102,14 +98,19 @@ export function NewProjectPage() {
         onSubmit={(event) => void handleSubmit(event)}
         className="flex flex-col gap-5"
       >
-        {/* Dar ekranda kartlar alt alta iner; geniş ekranda yan yana ve eşit.
+        {/* Telefonda tek, tablette iki, masaüstünde üç sütun; sütunlar `1fr`
+            olduğu için içerik miktarından bağımsız EŞİT genişlikte. Kartın kendi
+            içindeki alan çiftleri ekran değil KART genişliğine bakıyor
+            (`FormCard` → `@container`), böylece iki sütunlu tablette de üç
+            sütunlu masaüstünde de kutular okunur kalıyor.
+
             `fieldset` gönderim sürerken içindeki TÜM alanları tek hamlede
             kilitler: alanlar açık kalsaydı istek uçarken yapılan değişiklik
             kaydedilmeden listeye dönülürdü. `min-w-0` şart — fieldset'in tarayıcı
             varsayılanı `min-inline-size: min-content`, ızgarayı taşırıyor. */}
         <fieldset
           disabled={form.isSubmitting}
-          className="grid min-w-0 items-start gap-5 lg:grid-cols-3"
+          className="grid min-w-0 items-start gap-5 md:grid-cols-2 lg:grid-cols-3"
         >
           <NewProjectInfoCard form={form} lookups={lookups} isAdmin={isAdmin} />
           <NewProjectBuildingCard form={form} />

@@ -57,11 +57,9 @@ export const UNIMPLEMENTED_ENDPOINTS = {
 } as const
 
 /**
- * Burada OLMAYAN bir eksik: yetki satırındaki proje firması listesini seçilen
- * G.D. firmasına göre daraltan uç (KK-20). Bayrak tutulmuyor çünkü seçenekler
- * MOCK DEĞİL — `GET /api/projectfirms` gerçek listesi gösteriliyor, yalnız
- * daraltılamıyor. Daraltmayı veren uç açıldığında `getAuthorizedProjectFirms`
- * imzası değişmeden süzme sunucuya geçer.
+ * KK-20 daraltması (yetki satırındaki proje firması listesi) burada DEĞİL ve
+ * hiç olmadı: seçenekler mock değildi, artık daraltma da gerçek uçtan geliyor
+ * (`GET /api/project-firm-authorizations?GasDistributionFirmId=`, K87).
  */
 
 export type UnimplementedEndpoint = keyof typeof UNIMPLEMENTED_ENDPOINTS

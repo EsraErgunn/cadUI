@@ -1,20 +1,32 @@
 import { FolderKanban } from 'lucide-react'
 
-
 import { newProjectFieldId } from './newProjectSchema'
 import type { NewProjectForm } from './useNewProjectForm'
 import type { NewProjectLookups } from './useNewProjectLookups'
-import type { FirmEngineer, Lookup } from '../../../api/projects'
-import { DateField } from '../form/DateField'
+import type { Lookup } from '../../../api/projects'
 import { FormCard } from '../form/FormCard'
 import { SelectField, type SelectFieldOption } from '../form/SelectField'
 import { TextField } from '../form/TextField'
 
 const SELECT_PLACEHOLDER = 'Seçiniz'
-const ENGINEER_HINT = 'Yalnızca 1 mühendis seçilebilir.'
-const ENGINEER_DISABLED_HINT = 'Önce proje firmasını seçin.'
-const END_DATE_DISABLED_HINT = 'Önce iş başlama tarihini seçin.'
-const END_DATE_HINT = 'Başlama tarihi değişince iki ay sonrası olarak yeniden hesaplanır.'
+
+/**
+ * Liste çekilemediğinde kutu BOŞ kalmamalı: kullanıcı firmasının sistemde
+ * olmadığını sanıyordu (il/ilçe kutularıyla aynı desen).
+ */
+const PROJECT_FIRM_ERROR = 'Proje firması listesi yüklenemedi. Sayfayı yenileyip tekrar deneyin.'
+const GAS_FIRM_ERROR = 'Gaz dağıtım firması listesi yüklenemedi. Sayfayı yenileyip tekrar deneyin.'
+/** Liste geldi ama boş: firmanın geçerli yetkisi yok (süresi dolmuş olabilir). */
+const NO_AUTHORIZED_GAS_FIRM =
+  'Seçilen proje firmasının geçerli bir yetkisi yok. Yetki süresi dolmuş olabilir.'
+
+/** İki durum da kutuyu boş bırakıyor ama sebepleri farklı; mesaj da farklı olmalı. */
+function gasFirmMessage(lookups: NewProjectLookups): string | undefined {
+  if (lookups.haveGasFirmsFailed) return GAS_FIRM_ERROR
+  if (lookups.hasNoAuthorizedGasFirm) return NO_AUTHORIZED_GAS_FIRM
+
+  return undefined
+}
 
 function toSelectValue(id: number | null): string {
   return id === null ? '' : String(id)
@@ -29,13 +41,6 @@ function toFirmOptions(firms: Lookup[]): SelectFieldOption[] {
   return firms.map((firm) => ({ value: String(firm.id), label: firm.name }))
 }
 
-function toEngineerOptions(engineers: FirmEngineer[]): SelectFieldOption[] {
-  return engineers.map((engineer) => ({
-    value: String(engineer.id),
-    label: engineer.fullName,
-  }))
-}
-
 interface NewProjectInfoCardProps {
   form: NewProjectForm
   lookups: NewProjectLookups
@@ -44,7 +49,6 @@ interface NewProjectInfoCardProps {
 
 export function NewProjectInfoCard({ form, lookups, isAdmin }: NewProjectInfoCardProps) {
   const { values, errors, setValue } = form
-  const isStartDateMissing = values.startDate === ''
 
   return (
     <FormCard title="Proje Bilgileri" icon={FolderKanban}>
@@ -58,7 +62,15 @@ export function NewProjectInfoCard({ form, lookups, isAdmin }: NewProjectInfoCar
       />
 
       {/* Firma alanları proje firması kullanıcısında DOM'a hiç girmez: değeri
-          sunucu token'dan türetiyor, gizlenmiş bir alan yanlış beklenti yaratırdı. */}
+          sunucu token'dan türetiyor, gizlenmiş bir alan yanlış beklenti yaratırdı.
+
+          DİKKAT — bu iki seçim GÖVDEYE GİTMİYOR. `POST /api/projects` firma
+          kimliği değil `projectFirmAuthorizationId` (proje firmasının bir gaz
+          dağıtım firmasındaki YETKİ kaydı) istiyor ve o kimlikleri listeleyen
+          bir uç yok; değer bugün `api/projects.ts` içinde sabit. Seçimler
+          doğrulamayı besliyor ve ekranda duruyor ama kaydedilen projeye
+          yansımıyor. Uç açılınca yetki kimliği bu seçimlerden türeyecek —
+          değişecek tek yer `SEEDED_PROJECT_FIRM_AUTHORIZATION_ID`. */}
       {isAdmin && (
         <SelectField
           id={newProjectFieldId('projectFirmId')}
@@ -66,7 +78,10 @@ export function NewProjectInfoCard({ form, lookups, isAdmin }: NewProjectInfoCar
           value={toSelectValue(values.projectFirmId)}
           options={toFirmOptions(lookups.projectFirms)}
           placeholder={SELECT_PLACEHOLDER}
-          error={errors.projectFirmId}
+          // Doğrulama hatasının ÖNÜNDE: liste hiç gelmediyse "seçiniz" demenin
+          // anlamı yok.
+          error={lookups.haveProjectFirmsFailed ? PROJECT_FIRM_ERROR : errors.projectFirmId}
+          isDisabled={lookups.haveProjectFirmsFailed}
           onChange={(value) => setValue('projectFirmId', toLookupId(value))}
         />
       )}
@@ -78,50 +93,15 @@ export function NewProjectInfoCard({ form, lookups, isAdmin }: NewProjectInfoCar
           value={toSelectValue(values.gasDistributionFirmId)}
           options={toFirmOptions(lookups.gasFirms)}
           placeholder={SELECT_PLACEHOLDER}
-          error={errors.gasDistributionFirmId}
-          isDisabled={values.projectFirmId === null}
+          error={gasFirmMessage(lookups) ?? errors.gasDistributionFirmId}
+          // Liste seçili proje firmasının BUGÜN geçerli yetkilerinden türüyor
+          // (`GET /api/project-firm-authorizations`); süresi dolmuş yetkiler
+          // elenmiş oluyor. Kutu proje firması seçilene kadar pasif — seçenekler
+          // o firmaya bağlı olduğu için öncesinde gösterilecek bir şey yok.
+          isDisabled={lookups.haveGasFirmsFailed || values.projectFirmId === null}
           onChange={(value) => setValue('gasDistributionFirmId', toLookupId(value))}
         />
       )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Başlama tarihine ÜST sınır konmaz: sınır konsaydı projeyi ileri
-            tarihe kaydırmak için önce bitişi silmek gerekirdi. Sıra kuralını
-            bitiş alanı taşıyor. */}
-        <DateField
-          id={newProjectFieldId('startDate')}
-          label="İş Başlama Tarihi"
-          value={values.startDate}
-          error={errors.startDate}
-          onChange={(value) => setValue('startDate', value)}
-        />
-        <DateField
-          id={newProjectFieldId('endDate')}
-          label="İş Bitiş Tarihi"
-          value={values.endDate}
-          // Başlangıçtan önceki gün takvimde hiç seçilemesin; şema da ayrıca doğrular.
-          min={values.startDate}
-          // Başlama boşken alt sınır da yok: alan açık kalsaydı kullanıcı
-          // sınırsız bir bitiş seçip sonra sıraya aykırı bir başlama girebilirdi.
-          isDisabled={isStartDateMissing}
-          hint={isStartDateMissing ? END_DATE_DISABLED_HINT : END_DATE_HINT}
-          error={errors.endDate}
-          onChange={(value) => setValue('endDate', value)}
-        />
-      </div>
-
-      <SelectField
-        id={newProjectFieldId('engineerUserId')}
-        label="Yetkili Mühendis"
-        labelNote="(firmaya kayıtlı mühendisler)"
-        value={toSelectValue(values.engineerUserId)}
-        options={toEngineerOptions(lookups.engineers)}
-        placeholder={SELECT_PLACEHOLDER}
-        hint={lookups.isEngineerDisabled ? ENGINEER_DISABLED_HINT : ENGINEER_HINT}
-        error={errors.engineerUserId}
-        isDisabled={lookups.isEngineerDisabled}
-        onChange={(value) => setValue('engineerUserId', toLookupId(value))}
-      />
     </FormCard>
   )
 }

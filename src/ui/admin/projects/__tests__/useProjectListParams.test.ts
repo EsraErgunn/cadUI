@@ -50,12 +50,13 @@ describe('useProjectListParams', () => {
   })
 
   it('sekme değişince filtre kriterlerini korur, sayfayı sıfırlar', () => {
-    const { result } = renderWithUrl('/projects?q=gul&district=3&firm=12&from=2026-01-01&page=4')
+    const { result } = renderWithUrl('/projects?q=gul&city=6&district=3&firm=12&from=2026-01-01&page=4')
 
     act(() => result.current.controls.setStatus('onaylanan'))
 
     expect(result.current.controls.query.status).toBe('onaylanan')
     expect(result.current.controls.query.search).toBe('gul')
+    expect(result.current.controls.query.cityId).toBe(6)
     expect(result.current.controls.query.districtId).toBe(3)
     expect(result.current.controls.query.projectFirmId).toBe(12)
     expect(result.current.controls.query.dateFrom).toBe('2026-01-01')
@@ -69,6 +70,7 @@ describe('useProjectListParams', () => {
       result.current.controls.applyFilters({
         dateFrom: '2026-02-01',
         dateTo: '2026-02-28',
+        cityId: 6,
         districtId: 2,
         projectFirmId: null,
         search: 'yıldız',
@@ -77,6 +79,7 @@ describe('useProjectListParams', () => {
 
     expect(result.current.controls.query.page).toBe(1)
     expect(result.current.controls.query.dateFrom).toBe('2026-02-01')
+    expect(result.current.controls.query.cityId).toBe(6)
     expect(result.current.controls.query.districtId).toBe(2)
     expect(result.current.controls.query.projectFirmId).toBeNull()
     expect(result.current.controls.query.search).toBe('yıldız')
@@ -90,6 +93,7 @@ describe('useProjectListParams', () => {
       result.current.controls.applyFilters({
         dateFrom: defaultRange.from,
         dateTo: defaultRange.to,
+        cityId: null,
         districtId: null,
         projectFirmId: null,
         search: '',

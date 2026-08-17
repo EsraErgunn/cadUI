@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom'
 
 import { useDebouncedSearchDraft } from './useDebouncedSearchDraft'
 import { PROJECT_FIRM_CREATE_PATH } from '../adminNavItems'
+import {
+  ADMIN_TOOLBAR_ROW,
+  ADMIN_TOOLBAR_SEARCH_FIELD,
+  ADMIN_TOOLBAR_SEARCH_WRAPPER,
+} from '../adminToolbarLayout'
 import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
 import { useIsAdmin } from '../useIsAdmin'
 
@@ -21,10 +26,10 @@ export function ProjectFirmTableToolbar({
   const { draft, setDraft } = useDebouncedSearchDraft(nameQuery, onApplyNameQuery)
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
+    <div className={ADMIN_TOOLBAR_ROW}>
       {/* Form YOK: arama yazarken uygulanıyor, gönderilecek bir şey kalmıyor.
           "Filtrele" de artık aramayı değil yalnız kriter alanını açıyor (4.3). */}
-      <div className="relative">
+      <div className={ADMIN_TOOLBAR_SEARCH_WRAPPER}>
         <Search
           aria-hidden
           className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled"
@@ -35,7 +40,7 @@ export function ProjectFirmTableToolbar({
           onChange={(event) => setDraft(event.target.value)}
           aria-label="Firma adında ara"
           placeholder="Firma Adı"
-          className={adminFieldVariants({ className: 'w-56 pl-9' })}
+          className={adminFieldVariants({ className: ADMIN_TOOLBAR_SEARCH_FIELD })}
         />
       </div>
 

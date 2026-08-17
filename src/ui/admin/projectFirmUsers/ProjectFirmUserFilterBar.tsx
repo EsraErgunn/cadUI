@@ -9,6 +9,12 @@ import {
   parseAuthorityType,
 } from '../../../api/projectFirmUserDto'
 import { PROJECT_FIRM_USER_CREATE_PATH } from '../adminNavItems'
+import {
+  ADMIN_TOOLBAR_FORM,
+  ADMIN_TOOLBAR_ROW,
+  ADMIN_TOOLBAR_SEARCH_FIELD,
+  ADMIN_TOOLBAR_SEARCH_WRAPPER,
+} from '../adminToolbarLayout'
 import { ADMIN_CHECKBOX, adminButtonVariants, adminFieldVariants } from '../adminVariants'
 import { useIsAdmin } from '../useIsAdmin'
 
@@ -57,8 +63,8 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3">
+    <div className={ADMIN_TOOLBAR_ROW}>
+      <form onSubmit={handleSubmit} className={ADMIN_TOOLBAR_FORM}>
         <select
           id={AUTHORITY_FIELD_ID}
           value={draft.authorityType ?? ALL_AUTHORITIES_VALUE}
@@ -69,7 +75,7 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
             }))
           }
           aria-label="Yetki"
-          className={adminFieldVariants({ className: 'w-44 pr-8' })}
+          className={adminFieldVariants({ className: 'w-full min-w-0 pr-8 sm:w-44' })}
         >
           <option value={ALL_AUTHORITIES_VALUE}>Tümü</option>
           {AUTHORITY_TYPES.map((type) => (
@@ -94,7 +100,7 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
           </label>
         </div>
 
-        <div className="relative">
+        <div className={ADMIN_TOOLBAR_SEARCH_WRAPPER}>
           <Search
             aria-hidden
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled"
@@ -108,7 +114,7 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
             }
             aria-label="Kullanıcı adı, ad soyad veya e-postada ara"
             placeholder="Kullanıcı Adı"
-            className={adminFieldVariants({ className: 'w-56 pl-9' })}
+            className={adminFieldVariants({ className: ADMIN_TOOLBAR_SEARCH_FIELD })}
           />
         </div>
 

@@ -1,12 +1,10 @@
-import { MOCK_LATENCY_MS, delay } from './adminFirms'
-import { hasApiBaseUrl, requestJson } from './http'
-import type { SortDirection } from './listQuery'
+import { requestJson } from './http'
+import { fetchAllPages, type SortDirection } from './listQuery'
 import {
-  projectFirmListDtoSchema,
+  projectFirmListPageSchema,
   toProjectFirmListItem,
   type ProjectFirm,
 } from './projectFirmDto'
-import { allMockProjectFirms } from './projectFirmsMock'
 
 export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
 
@@ -21,10 +19,13 @@ export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
  * - Satır FİRMA bazlı: yetki bazlı DEĞİL. Uç hiçbir gaz dağıtım firması alanı
  *   taşımadığı için kayıt adedi tekil firma sayısıdır (KK-5 karşılanmıyor).
  *
- * `VITE_API_URL` tanımlı değilse mock gövdeye düşer (`projectFirmsMock.ts`).
+ * MOCK GÖVDE YOK. Eskiden `VITE_API_URL` tanımsızken sessizce sahte listeye
+ * düşüyordu; uç sözleşmede VAR, o yüzden tek doğru davranış gerçek isteği
+ * atmak. API kökü yoksa `http.ts` anlaşılır bir `NetworkError` fırlatır ve
+ * ekran hata durumunu gösterir — kullanıcı uydurma veriyi gerçek sanmaz.
+ * (Aynı ilke: `unimplementedEndpoints.ts`, docs/kararlar.md K46.)
  *
- * Ekle/güncelle uçları (`POST /api/projectfirms`, `PUT|DELETE /api/projectfirms/{id}`)
- * mevcut ama ekranları henüz yok; bu dosya yalnız listeyi kapsıyor.
+ * Ekle/güncelle/sil uçları `projectFirmForm.ts` içinde.
  */
 
 export const PROJECT_FIRM_PAGE_SIZE = 30
@@ -57,19 +58,22 @@ export interface ProjectFirmQuery {
 }
 
 /**
- * TÜM listeyi tek seferde çeker; süzme/sıralama/sayfalama ÇAĞIRANDA (`useMemo`)
- * yapılır. Sorgu `queryKey`'in parçası olsaydı her tuş vuruşu yeni bir ağ isteği
+ * TÜM listeyi çeker; süzme/sıralama/sayfalama ÇAĞIRANDA (`useMemo`) yapılır.
+ * Sorgu `queryKey`'in parçası olsaydı her tuş vuruşu yeni bir ağ isteği
  * doğururdu — kayıt adedi yüksek olduğu için bilinçli olarak böyle.
+ *
+ * Uç 2026-08-16'da sayfalı zarfa geçti ve parametresiz çağrıda yalnız İLK 30
+ * kaydı veriyor. Eksik liste burada özellikle tehlikeli: benzersizlik ön
+ * kontrolü (`findTakenProjectFirmErrors`) bu listeye bakıyor, yani görünmeyen
+ * bir kayıt "vergi numarası boşta" sonucunu verir ve çift kayıt açtırır.
+ * Sayfalar bu yüzden `fetchAllPages` ile toplanıyor.
  */
 export async function getProjectFirmList(signal?: AbortSignal): Promise<ProjectFirm[]> {
-  if (!hasApiBaseUrl()) {
-    await delay(MOCK_LATENCY_MS, signal)
-    return allMockProjectFirms()
-  }
-
-  const dtos = await requestJson(
-    { method: 'GET', path: '/api/projectfirms', signal },
-    projectFirmListDtoSchema,
+  const dtos = await fetchAllPages(({ page, pageSize }) =>
+    requestJson(
+      { method: 'GET', path: `/api/projectfirms?Page=${page}&PageSize=${pageSize}`, signal },
+      projectFirmListPageSchema,
+    ),
   )
 
   return dtos.map(toProjectFirmListItem)

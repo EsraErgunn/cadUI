@@ -19,7 +19,10 @@ import { z } from 'zod'
  * TODO(esra): duyuru uçları açılınca bu dosya ve çağıranları silinecek.
  */
 
-const STORAGE_KEY = 'starcad.admin.announcements.v1'
+/** v2: kayıt alanı `region` → `scopeName` oldu (coğrafi bölge kavramı kalktı).
+    Anahtar yükseltildi ki eski biçimdeki kayıtlar şemadan düşüp sessizce
+    kaybolmasın — v1 verisi okunmaya hiç çalışılmıyor. */
+const STORAGE_KEY = 'starcad.admin.announcements.v2'
 
 const storedAnnouncementSchema = z.object({
   id: z.number().int().positive(),
@@ -27,7 +30,7 @@ const storedAnnouncementSchema = z.object({
   body: z.string(),
   publishedAt: z.string(),
   source: z.string(),
-  region: z.string().nullable(),
+  scopeName: z.string().nullable(),
 })
 
 const storedAnnouncementsSchema = z.array(storedAnnouncementSchema)

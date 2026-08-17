@@ -3,12 +3,14 @@ import { Plus } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 
+import { getProjectFirmList } from '../api/projectFirms'
 import {
-  getDistricts,
-  getProjectFirms,
+  getCities,
+  getCityDistricts,
   getProjectStatusCounts,
   listProjects,
   PROJECT_STATUS_LABELS,
+  type Lookup,
   type ProjectStatusCountsQuery,
 } from '../api/projects'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
@@ -21,7 +23,7 @@ import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
 import { ADMIN_ROW_HIGHLIGHT, adminButtonVariants } from '../ui/admin/adminVariants'
 import { CreatedProjectNotice } from '../ui/admin/projects/CreatedProjectNotice'
-import { ProjectFilterBar } from '../ui/admin/projects/ProjectFilterBar'
+import { LOCATION_STALE_MS, ProjectFilterBar } from '../ui/admin/projects/ProjectFilterBar'
 import { StatusTabs } from '../ui/admin/projects/StatusTabs'
 import {
   buildProjectColumns,
@@ -50,6 +52,7 @@ export function ProjectListPage() {
     () => ({
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
+      cityId: query.cityId,
       districtId: query.districtId,
       projectFirmId: query.projectFirmId,
       search: query.search,
@@ -57,6 +60,7 @@ export function ProjectListPage() {
     [
       query.dateFrom,
       query.dateTo,
+      query.cityId,
       query.districtId,
       query.projectFirmId,
       query.search,
@@ -76,17 +80,36 @@ export function ProjectListPage() {
     placeholderData: keepPreviousData,
   })
 
+  // İl/ilçe listeleri filtre etiketlerinin ADINI çözmek için: kutuların kendi
+  // sorgusu çubuğun İÇİNDE (taslak seçime bağlı), buradakiler UYGULANMIŞ
+  // değerlere bakıyor. Anahtarlar aynı olduğu için önbellek paylaşılıyor.
+  const { data: cities } = useQuery({
+    queryKey: ['cities'],
+    queryFn: ({ signal }) => getCities(signal),
+    staleTime: LOCATION_STALE_MS,
+  })
+
   const { data: districts } = useQuery({
-    queryKey: ['districts'],
-    queryFn: ({ signal }) => getDistricts(signal),
+    queryKey: ['districts', query.cityId],
+    queryFn: ({ signal }) => getCityDistricts(query.cityId ?? 0, signal),
+    enabled: query.cityId !== null,
+    staleTime: LOCATION_STALE_MS,
+  })
+
+  // Firma listesi GERÇEK uçtan (`GET /api/projectfirms`). Anahtar proje
+  // firmaları ekranıyla ORTAK: aynı listeyi iki kez indirmenin anlamı yok.
+  const { data: projectFirms, isError: haveProjectFirmsFailed } = useQuery({
+    queryKey: ['projectFirmList'],
+    queryFn: ({ signal }) => getProjectFirmList(signal),
     staleTime: LOOKUP_STALE_MS,
   })
 
-  const { data: projectFirms } = useQuery({
-    queryKey: ['projectFirms'],
-    queryFn: ({ signal }) => getProjectFirms(signal),
-    staleTime: LOOKUP_STALE_MS,
-  })
+  // Süzgeç kutusu kimlik + ad istiyor; satırın geri kalanı (vergi no, telefon…)
+  // burada işe yaramıyor. `name` uçtaki `title`'ın karşılığı (projectFirmDto).
+  const projectFirmOptions = useMemo<Lookup[]>(
+    () => (projectFirms ?? []).map((firm) => ({ id: firm.id, name: firm.name })),
+    [projectFirms],
+  )
 
   const refreshLists = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -114,12 +137,16 @@ export function ProjectListPage() {
 
   const statusTitle = `${PROJECT_STATUS_LABELS[query.status]} Projeler`
   const hasActiveFilters =
-    query.search !== '' || query.districtId !== null || query.projectFirmId !== null
+    query.search !== '' ||
+    query.cityId !== null ||
+    query.districtId !== null ||
+    query.projectFirmId !== null
   // Filtre çubuğu taslak durumunu kendi tutuyor; dışarıdan gelen değişim (geri
   // tuşu, sekme değişimi) ancak bileşen yeni bir key ile kurulunca yansır.
   const appliedFilters = {
     dateFrom: query.dateFrom ?? '',
     dateTo: query.dateTo ?? '',
+    cityId: query.cityId,
     districtId: query.districtId,
     projectFirmId: query.projectFirmId,
     search: query.search,
@@ -127,7 +154,7 @@ export function ProjectListPage() {
   const filterKey = Object.values(appliedFilters).join('|')
 
   return (
-    <div className="mx-auto flex max-w-320 flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={[
@@ -167,16 +194,17 @@ export function ProjectListPage() {
       <ProjectFilterBar
         key={filterKey}
         filters={appliedFilters}
-        districts={districts ?? []}
-        projectFirms={projectFirms ?? []}
+        projectFirms={projectFirmOptions}
+        haveProjectFirmsFailed={haveProjectFirmsFailed}
         onApply={applyFilters}
       />
 
       <FilterChips
         filters={buildProjectFilterChips({
           filters: appliedFilters,
+          cities: cities ?? [],
           districts: districts ?? [],
-          projectFirms: projectFirms ?? [],
+          projectFirms: projectFirmOptions,
           onApply: applyFilters,
         })}
       />

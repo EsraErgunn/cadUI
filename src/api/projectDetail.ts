@@ -36,7 +36,7 @@ export * from './projectDetailTypes'
  * GERÇEK ve bağlı olan tek uç:
  *   GET /api/projects/{id} → ProjectDetailDto
  *   { id, name, description, code, projectFirmAuthorizationId,
- *     gasDistributionFirmRegionId, cityId, cityName, districtId, districtName,
+ *     gasDistributionFirmId, cityId, cityName, districtId, districtName,
  *     addressLine, blockLotParcel, createdAt, updatedAt }
  *
  * Ekranın istediği geri kalan her şeyin (durum, tesisat no, proje/ısınma tipi,

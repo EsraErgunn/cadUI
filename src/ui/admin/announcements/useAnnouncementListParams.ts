@@ -8,10 +8,10 @@ import {
 import {
   ADMIN_PARAM_KEYS,
   FIRST_PAGE,
-  parseGroupId,
   parsePage,
   useAdminParamWriter,
 } from '../adminUrlParams'
+import { useAdminScopeParam } from '../useAdminScopeParam'
 
 export interface AnnouncementListControls {
   query: AnnouncementQuery
@@ -20,23 +20,24 @@ export interface AnnouncementListControls {
 }
 
 /**
- * Arama ve sayfa durumunun TEK sahibi URL (`useFirmListParams` deseni). Bölge
- * kapsamı üst bardan geliyor ama AYNI query string'de duruyor (`group`), bu
- * yüzden burada ayrıca okunuyor: sorgu anahtarı kapsamı içermeseydi bölge
- * değişince liste tazelenmezdi (docs/kararlar.md K44).
+ * Arama ve sayfa durumunun TEK sahibi URL (`useFirmListParams` deseni). Üst
+ * bardaki kapsam da AYNI query string'de duruyor, bu yüzden buradan okunuyor:
+ * sorgu anahtarı kapsamı içermeseydi kapsam değişince liste tazelenmezdi
+ * (docs/kararlar.md K44).
  */
 export function useAnnouncementListParams(): AnnouncementListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
+  const { scope } = useAdminScopeParam()
 
   const query = useMemo<AnnouncementQuery>(
     () => ({
       textQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
-      groupId: parseGroupId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
+      scope,
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: ANNOUNCEMENT_PAGE_SIZE,
     }),
-    [searchParams],
+    [searchParams, scope],
   )
 
   const setTextQuery = useCallback(

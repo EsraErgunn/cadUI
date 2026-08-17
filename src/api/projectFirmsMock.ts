@@ -83,7 +83,6 @@ function buildMockProjectFirms(): ProjectFirm[] {
         serialNumber: null,
         qualificationNumber: null,
         name: `${city} ${suffix}`,
-        gasFirm: null,
         authorizedPerson:
           index % UNAUTHORIZED_EVERY === 0
             ? null
@@ -136,13 +135,24 @@ export function recordMockProjectFirmAuthorizations(
   mockAuthorizationsByFirm.set(firmId, [...authorizations])
 }
 
+/**
+ * Silinen kayıt diziden düşer. Dönüş `false` ise kayıt yoktu — çağıran bunu
+ * gerçek ucun 404'üne çevirir, böylece mock ile sunucu aynı hatayı üretir.
+ */
+export function deleteMockProjectFirm(id: number): boolean {
+  const remaining = mockProjectFirms.filter((firm) => firm.id !== id)
+  if (remaining.length === mockProjectFirms.length) return false
+
+  mockProjectFirms = remaining
+  return true
+}
+
 export function createMockProjectFirm(payload: ProjectFirmPayload): ProjectFirm {
   const created: ProjectFirm = {
     id: nextMockProjectFirmId(),
     serialNumber: payload.serialNumber,
     qualificationNumber: null,
     name: payload.name,
-    gasFirm: null,
     authorizedPerson: payload.authorizedPerson,
     email: payload.email,
     phone: payload.phone,

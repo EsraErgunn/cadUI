@@ -146,7 +146,7 @@ export function ProjectDetailPage() {
   const reasonCopy = decisions.reasonPrompt === null ? null : REASON_DIALOG_COPY[decisions.reasonPrompt]
 
   return (
-    <div className="mx-auto flex max-w-320 flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <ProjectDetailHeader
         detail={detail}
         status={status}

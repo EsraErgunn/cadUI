@@ -64,7 +64,6 @@ export const EXISTING_PROJECT_FIRM: ProjectFirm = {
   serialNumber: 'SR-KAYITLI',
   qualificationNumber: null,
   name: 'MEVCUT MÜHENDİSLİK LTD. ŞTİ.',
-  gasFirm: null,
   authorizedPerson: null,
   email: null,
   phone: null,

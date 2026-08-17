@@ -1,5 +1,58 @@
+import type { ProjectFirmAuthorizationRef } from './projectFirmAuthorizations'
+import type { ProjectFirmGasFirm } from './projectFirmDto'
 import type { ProjectFirm, ProjectFirmQuery } from './projectFirms'
 import { includesTr } from './turkishText'
+
+/**
+ * Tabloya giren satır: firma alanları + yetki ucundan gelen G.D. firmaları.
+ *
+ * Alan ÇOĞUL çünkü bir proje firması aynı anda birden fazla gaz dağıtım
+ * firmasında yetkili olabiliyor (gerçek veride var). Tekil `gasFirm | null`
+ * bırakılsaydı çağıranın "ilk yetki" gibi sessiz bir seçim yapması gerekirdi ve
+ * kullanıcı firmanın diğer yetkilerini hiç görmezdi.
+ */
+export interface ProjectFirmRow extends ProjectFirm {
+  gasFirms: ProjectFirmGasFirm[]
+}
+
+/**
+ * İki ucun sonucunu satırda birleştirir: `GET /api/projectfirms` firmayı,
+ * `GET /api/project-firm-authorizations` yetkiyi veriyor, bağı kuran tek bir uç
+ * yok.
+ *
+ * Yetki satırları çağıran tarafından ZATEN süzülmüş gelir
+ * (`getEffectiveAuthorizations`): süresi dolmuş yetki kuralı tek kapıdan geçsin
+ * diye burada ikinci bir tarih karşılaştırması yapılmıyor.
+ *
+ * Yetkisi olmayan firma listeden DÜŞMEZ, `gasFirms` boş kalır ve hücre "-"
+ * gösterir. İç birleştirme yapılsaydı liste sessizce firma kaybederdi.
+ */
+export function buildProjectFirmRows(
+  firms: readonly ProjectFirm[],
+  effectiveAuthorizations: readonly ProjectFirmAuthorizationRef[],
+): ProjectFirmRow[] {
+  const gasFirmsByProjectFirm = new Map<number, Map<number, ProjectFirmGasFirm>>()
+
+  for (const authorization of effectiveAuthorizations) {
+    const byId =
+      gasFirmsByProjectFirm.get(authorization.projectFirmId) ??
+      new Map<number, ProjectFirmGasFirm>()
+
+    // Aynı çift için yenilenmiş belge iki satır olabiliyor (S6); firma tek görünmeli.
+    byId.set(authorization.gasDistributionFirmId, {
+      id: authorization.gasDistributionFirmId,
+      name: authorization.gasDistributionFirmName,
+    })
+    gasFirmsByProjectFirm.set(authorization.projectFirmId, byId)
+  }
+
+  return firms.map((firm) => ({
+    ...firm,
+    gasFirms: [...(gasFirmsByProjectFirm.get(firm.id)?.values() ?? [])].sort((left, right) =>
+      left.name.localeCompare(right.name, 'tr'),
+    ),
+  }))
+}
 
 /**
  * Sunucunun yapması GEREKEN işi istemcide yapar: filtre → sırala → dilimle.
@@ -14,10 +67,10 @@ import { includesTr } from './turkishText'
  * Mock yol da aynı fonksiyondan geçer: iki yerde iki farklı eşleşme/sıralama
  * kuralı olsaydı, mock'tan gerçeğe geçerken davranış sessizce değişirdi.
  */
-export function queryProjectFirmList(
-  firms: ProjectFirm[],
+export function queryProjectFirmList<TFirm extends ProjectFirm>(
+  firms: TFirm[],
   query: ProjectFirmQuery,
-): { items: ProjectFirm[]; totalCount: number } {
+): { items: TFirm[]; totalCount: number } {
   const matched = firms.filter((firm) => matchesQuery(firm, query))
   const sorted = [...matched].sort((left, right) => compareFirms(left, right, query))
   const offset = (query.page - 1) * query.pageSize

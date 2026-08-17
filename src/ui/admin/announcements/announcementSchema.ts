@@ -4,12 +4,12 @@ import {
   type AnnouncementDraft,
 } from '../../../api/adminDashboard'
 
-export type AnnouncementField = 'title' | 'body' | 'region'
+export type AnnouncementField = 'title' | 'body' | 'scopeName'
 
 export interface AnnouncementFormValues {
   title: string
   /** Boş dize = tüm bölgeler; `SelectField` seçilmemiş hâli böyle taşıyor. */
-  region: string
+  scopeName: string
   body: string
   isSystem: boolean
 }
@@ -29,7 +29,7 @@ export const ANNOUNCEMENT_ERRORS = {
 
 export const EMPTY_ANNOUNCEMENT: AnnouncementFormValues = {
   title: '',
-  region: '',
+  scopeName: '',
   body: '',
   isSystem: false,
 }
@@ -39,7 +39,7 @@ export const EMPTY_ANNOUNCEMENT: AnnouncementFormValues = {
  * fonksiyonundaki yazım sırasına göre değil — alan sırası değişirse odak da
  * onunla değişmeli.
  */
-const FIELD_ORDER: AnnouncementField[] = ['title', 'region', 'body']
+const FIELD_ORDER: AnnouncementField[] = ['title', 'scopeName', 'body']
 
 function validateTitle(raw: string): string | undefined {
   const title = raw.trim()
@@ -85,7 +85,7 @@ export function toAnnouncementDraft(values: AnnouncementFormValues): Announcemen
   return {
     title: values.title.trim(),
     body: values.body.trim(),
-    region: values.region === '' ? null : values.region,
+    scopeName: values.scopeName === '' ? null : values.scopeName,
     isSystem: values.isSystem,
   }
 }

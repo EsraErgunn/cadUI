@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { GasDistributionFirm } from '../../../api/adminFirms'
 import { gasFirmUpdatePath } from '../adminNavItems'
-import { FIRM_COLUMNS } from '../firms/firmColumns'
+import { buildFirmColumns } from '../firms/firmColumns'
 
 const FIRM: GasDistributionFirm = {
   id: 42,
@@ -17,8 +17,12 @@ const FIRM: GasDistributionFirm = {
 /** Hücreler satır indeksini kullanmıyor; tek satır render edildiği için 0. */
 const FIRST_ROW_INDEX = 0
 
+function buildColumns({ canManage = true } = {}) {
+  return buildFirmColumns({ pendingFirmId: null, canManage, onDeactivate: () => {} })
+}
+
 function renderCell(key: string, firm: GasDistributionFirm) {
-  const column = FIRM_COLUMNS.find((candidate) => candidate.key === key)
+  const column = buildColumns().find((candidate) => candidate.key === key)
   if (column === undefined) throw new Error(`Sütun yok: ${key}`)
 
   return render(<MemoryRouter>{column.cell(firm, FIRST_ROW_INDEX)}</MemoryRouter>)
@@ -54,5 +58,18 @@ describe('firma listesi bağlantıları', () => {
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getByText('-')).toBeInTheDocument()
+  })
+})
+
+/** Yetki denetimi SUNUCUDA; istemci yalnız sütunun çizilip çizilmeyeceğine karar verir. */
+describe('İşlemler sütunu', () => {
+  it('yönetici için eklenir', () => {
+    expect(buildColumns().map((column) => column.key)).toContain('actions')
+  })
+
+  it('yetkisiz kullanıcıda hiç çizilmez', () => {
+    expect(buildColumns({ canManage: false }).map((column) => column.key)).not.toContain(
+      'actions',
+    )
   })
 })

@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Paket analizi çıktısı (`vite build --mode analyze`); üretilen bir rapor,
+# kaynak değil.
+stats.html
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

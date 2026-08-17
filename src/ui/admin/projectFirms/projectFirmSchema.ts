@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-import type { ProjectFirmPayload } from '../../../api/projectFirmDto'
+import {
+  PROJECT_FIRM_COMPANY_TYPES,
+  type ProjectFirmFullDto,
+  type ProjectFirmPayload,
+} from '../../../api/projectFirmDto'
 import { toCompanyType } from '../../../api/projectFirmForm'
 import { isValidPhone, toPhoneDigits } from '../../../core/phone'
 
@@ -259,17 +263,17 @@ function optionalText(value: string): string | null {
 }
 
 /**
- * Doğrulanmış değerler → istek gövdesi.
+ * Doğrulanmış değerler → istek gövdesi (POST ve PUT için AYNI gövde).
  *
- * T.C. kimlik numarası gövdeye KONMAZ: sunucunun create DTO'sunda karşılığı yok
- * ve `taxNumber` alanına yazılsaydı vergi numarası sütununa kimlik düşerdi
- * (bkz. api/projectFirmForm.ts sözleşme notu).
+ * T.C. kimlik numarası artık kendi alanında gidiyor (`nationalIdNumber`).
+ * Tüzel firmada alan formda temizlendiği için `null` düşer.
  */
 export function toProjectFirmPayload(values: ProjectFirmParsedValues): ProjectFirmPayload {
   return {
     companyType: toCompanyType(values.isSoleProprietorship),
     name: values.name.trim(),
     taxNumber: optionalText(values.taxNumber),
+    nationalIdNumber: optionalText(values.nationalId),
     accountingCode: optionalText(values.accountingCode),
     serialNumber: optionalText(values.serialNumber),
     authorizedPerson: optionalText(values.authorizedPerson),
@@ -278,5 +282,38 @@ export function toProjectFirmPayload(values: ProjectFirmParsedValues): ProjectFi
     phone: values.phoneDigits === '' ? null : values.phoneDigits,
     mobilePhone: values.phone2Digits === '' ? null : values.phone2Digits,
     address: optionalText(values.address),
+  }
+}
+
+/** Sunucudan gelen `null`/`undefined` metin → formun boş dizesi. */
+function toFieldText(value: string | null | undefined): string {
+  return value ?? ''
+}
+
+/**
+ * TEKİL uç yanıtı → form değerleri.
+ *
+ * Kaynak DETAY yanıtı olmak ZORUNDA: liste satırı seri no, adres ve ikinci
+ * telefonu taşımıyor (hepsi `null` doğuyor) ve o eksik satırla doldurulan bir
+ * form, kaydedildiğinde sunucudaki dolu alanları SİLERDİ.
+ *
+ * Şahıs şirketi işareti `companyType`ten okunuyor; sunucu alanı boş bırakırsa
+ * tüzel varsayılıyor — `PROJECT_FIRM_COMPANY_TYPES.legal` bugün zaten tek
+ * kabul edilen değer.
+ */
+export function toProjectFirmFormValues(firm: ProjectFirmFullDto): ProjectFirmFormValues {
+  return {
+    name: firm.title,
+    accountingCode: toFieldText(firm.accountingCode),
+    serialNumber: toFieldText(firm.serialNumber),
+    authorizedPerson: toFieldText(firm.contactPerson),
+    email: toFieldText(firm.email),
+    taxNumber: toFieldText(firm.taxNumber),
+    isSoleProprietorship: firm.companyType === PROJECT_FIRM_COMPANY_TYPES.individual,
+    nationalId: toFieldText(firm.nationalIdNumber),
+    address: toFieldText(firm.address),
+    // Sunucudaki numara maskeli veya boşluklu gelebilir; form HAM rakam tutuyor.
+    phoneDigits: toPhoneDigits(toFieldText(firm.phone)),
+    phone2Digits: toPhoneDigits(toFieldText(firm.phone2)),
   }
 }

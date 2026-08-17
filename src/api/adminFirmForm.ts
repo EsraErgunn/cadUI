@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import {
   createMockFirm,
+  deactivateMockFirm,
   findMockFirm,
   isMockDfirmNoTaken,
   nextMockDfirmNo,
@@ -14,17 +15,23 @@ import {
   toFirmDetail,
   toFirmPayloadDto,
 } from './gasFirmDto'
-import { ApiError, hasApiBaseUrl, requestJson } from './http'
+import { ApiError, hasApiBaseUrl, requestJson, requestVoid } from './http'
 
 /**
- * API SÖZLEŞMESİ — Gaz dağıtım firma ekle / güncelle ekranı.
+ * API SÖZLEŞMESİ — Gaz dağıtım firmasının YAZMA uçları (ekle / güncelle /
+ * pasifleştir).
  * (Liste uçları `adminFirms.ts` içinde ve HÂLÂ mock: sunucuda sayfalama/arama yok.)
  *
  * Taban yol `/api/gasdistributionfirms` — `/admin/` yok, tire yok.
  *
- * GET  /api/gasdistributionfirms/:id → FirmDetailDto
- * POST /api/gasdistributionfirms     → 200 (201 DEĞİL) + FirmDetailDto
- * PUT  /api/gasdistributionfirms/:id → { message }   (kimlik dönmez)
+ * GET    /api/gasdistributionfirms/:id → FirmDetailDto
+ * POST   /api/gasdistributionfirms     → 200 (201 DEĞİL) + FirmDetailDto
+ * PUT    /api/gasdistributionfirms/:id → { message }   (kimlik dönmez)
+ * DELETE /api/gasdistributionfirms/:id → 200, GÖVDESİZ; 404 kayıt yoksa
+ *
+ * **DELETE fiziksel silme DEĞİL, pasifleştirme (soft-delete).** Kayıt sunucuda
+ * duruyor, yalnız listelerde görünmüyor. Arayüzün dili yine de "Sil" (ekip
+ * kararı); kaydın korunduğu bilgisi onay diyaloğunun açıklamasında.
  *
  * Gövde alanları sunucunun adlarıyla: `title`, `companyNumber`, `groupId`,
  * `description`, `contactPerson`, `phone`, `address`. Bölge alanı YOK.
@@ -43,8 +50,8 @@ const NOT_FOUND = 404
 const FIRMS_PATH = '/api/gasdistributionfirms'
 
 /**
- * Tekil firma — arayüz alan adlarıyla. Liste satırından TÜRETİLMEZ: sunucunun
- * tekil yanıtında bölge (`region`) yok, liste şeması ise onu taşıyor.
+ * Tekil firma — arayüz alan adlarıyla. Liste satırından TÜRETİLMEZ: tekil yanıt
+ * açıklama/telefon/adres/yetkili kişi de taşıyor, liste satırı taşımıyor.
  * `phone` null olabilir (sunucu boş bırakabiliyor).
  */
 const gasDistributionFirmDetailSchema = z.object({
@@ -65,9 +72,7 @@ export type GasDistributionFirmDetail = z.infer<typeof gasDistributionFirmDetail
  * Ekleme/güncelleme istek gövdesi (ARAYÜZ adlarıyla; sunucuya `toFirmPayloadDto`
  * ile çevrilir). Grup artık adla değil KİMLİKLE gönderiliyor.
  *
- * `region` yok: form böyle bir alan taşımıyor ve sunucunun sözleşmesinde de
- * bölge bulunmuyor — daha önce açık soru olarak işaretlenen madde bu turda
- * kapandı.
+ * Bölge alanı YOK: kavram sunucudan tümüyle kalktı, formda da hiç olmadı.
  */
 export interface GasDistributionFirmPayload {
   dfirmNo: number
@@ -166,6 +171,27 @@ export async function updateGasDistributionFirm(
   }
 }
 
+/**
+ * Firmayı PASİFLEŞTİRİR (sunucu soft-delete yapıyor). Ad bilerek
+ * `deleteGasDistributionFirm` değil: çağıran taraf kaydın silinmediğini
+ * fonksiyon adından görsün.
+ *
+ * Yanıt GÖVDESİZ; bu yüzden `requestJson` değil `requestVoid` kullanılıyor —
+ * boş gövdede `response.json()` patlar ve işlem sunucuda BAŞARILIYKEN kullanıcı
+ * hata görürdü.
+ *
+ * 404 dışında bir iş kuralı hatası bildirilmedi, o yüzden durum kodunu ayrı
+ * hata tipine çeviren bir eşleme de yok: `ApiError` olduğu gibi çağırana çıkar.
+ */
+export async function deactivateGasDistributionFirm(id: number): Promise<void> {
+  if (!hasApiBaseUrl()) {
+    await deactivateMockGasFirm(id)
+    return
+  }
+
+  await requestVoid({ method: 'DELETE', path: `${FIRMS_PATH}/${id}` })
+}
+
 /* ------------------------------------------------------------------ */
 /* VITE_API_URL yokken kullanılan mock gövdeler. Backend ayakta değilken
    ekranın komple ölmesi yerine mock veriyle çalışmaya devam eder.     */
@@ -201,4 +227,12 @@ async function updateMockGasFirm(
   if (updated === null) throw new ApiError(NOT_FOUND, 'Gaz dağıtım firması bulunamadı.')
 
   return updated.id
+}
+
+async function deactivateMockGasFirm(id: number): Promise<void> {
+  await delay(MOCK_LATENCY_MS)
+
+  if (!deactivateMockFirm(id)) {
+    throw new ApiError(NOT_FOUND, 'Gaz dağıtım firması bulunamadı.')
+  }
 }

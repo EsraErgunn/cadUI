@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { addMonths, buildDefaultValues } from '../projects/newProjectDefaults'
+import { buildDefaultValues } from '../projects/newProjectDefaults'
 import {
-  createNewProjectSchema,
   firstErrorField,
   MAX_CAPACITY_CUBIC_METER_PER_HOUR,
   NEW_PROJECT_ERRORS,
@@ -11,21 +10,24 @@ import {
   type NewProjectFormValues,
 } from '../projects/newProjectSchema'
 
-const TODAY = new Date(2026, 7, 4)
+/** Kod kimlikleri kod grubu ucundan gelir; testte yalnız "bir kimlik" olmaları
+    yetiyor — sayısal değerler sözleşme değil (bkz. api/codes.ts). */
+const PROJECT_TYPE_CODE_ID = 3
+const HEATING_TYPE_CODE_ID = 8
+const BUILDING_USAGE_TYPE_CODE_ID = 12
 
 function validValues(): NewProjectFormValues {
   return {
-    ...buildDefaultValues(TODAY),
+    ...buildDefaultValues(),
     name: 'Yıldız Apartmanı Doğalgaz Tesisatı',
     projectFirmId: 11,
     gasDistributionFirmId: 101,
-    engineerUserId: 501,
     cityId: 6,
     districtId: 64,
     address: 'Çankaya Mahallesi 12. Sokak No 5',
-    projectType: 'ILAVE',
-    heatingType: 'bireysel',
-    buildingUsageType: 'coklu',
+    projectTypeCodeId: PROJECT_TYPE_CODE_ID,
+    heatingTypeCodeId: HEATING_TYPE_CODE_ID,
+    buildingUsageTypeCodeId: BUILDING_USAGE_TYPE_CODE_ID,
   }
 }
 
@@ -34,15 +36,8 @@ function errorsFor(values: NewProjectFormValues, isAdmin: boolean) {
 }
 
 describe('buildDefaultValues', () => {
-  it('başlama tarihi bugün, bitiş tarihi iki ay sonrası', () => {
-    const values = buildDefaultValues(TODAY)
-
-    expect(values.startDate).toBe('2026-08-04')
-    expect(values.endDate).toBe('2026-10-04')
-  })
-
   it('sayısal alanlar sıfır, S.K. basıncı 21 gelir', () => {
-    const values = buildDefaultValues(TODAY)
+    const values = buildDefaultValues()
 
     expect(values.apartmentCount).toBe(0)
     expect(values.workplaceCount).toBe(0)
@@ -52,36 +47,25 @@ describe('buildDefaultValues', () => {
   })
 
   it('ruhsat proje işaretsiz, seçim kutuları boş başlar', () => {
-    const values = buildDefaultValues(TODAY)
+    const values = buildDefaultValues()
 
     expect(values.isPermitProject).toBe(false)
     expect(values.projectFirmId).toBeNull()
-    expect(values.engineerUserId).toBeNull()
+    expect(values.gasDistributionFirmId).toBeNull()
   })
 
   it('ısınma tipi ve bina kullanımı tipi BOŞ açılır — sessizce ilk seçeneğe düşmez', () => {
-    const values = buildDefaultValues(TODAY)
+    const values = buildDefaultValues()
 
-    expect(values.heatingType).toBe('')
-    expect(values.buildingUsageType).toBe('')
+    expect(values.heatingTypeCodeId).toBeNull()
+    expect(values.buildingUsageTypeCodeId).toBeNull()
   })
 
   it('boş bırakılan ısınma / bina kullanımı tipi zorunluluk hatası verir', () => {
-    const errors = validateNewProject(buildDefaultValues(TODAY), { isAdmin: true }).errors
+    const errors = validateNewProject(buildDefaultValues(), { isAdmin: true }).errors
 
-    expect(errors.heatingType).toBe(NEW_PROJECT_ERRORS.heatingType)
-    expect(errors.buildingUsageType).toBe(NEW_PROJECT_ERRORS.buildingUsageType)
-  })
-})
-
-describe('addMonths', () => {
-  it('karşılığı olmayan günü ayın son gününe çeker', () => {
-    // 31 Aralık + 2 ay JavaScript'te 3 Mart'a kayar; beklenen 28 Şubat.
-    expect(addMonths(new Date(2026, 11, 31), 2)).toEqual(new Date(2027, 1, 28))
-  })
-
-  it('normal günlerde günü korur', () => {
-    expect(addMonths(new Date(2026, 7, 4), 2)).toEqual(new Date(2026, 9, 4))
+    expect(errors.heatingTypeCodeId).toBe(NEW_PROJECT_ERRORS.heatingType)
+    expect(errors.buildingUsageTypeCodeId).toBe(NEW_PROJECT_ERRORS.buildingUsageType)
   })
 })
 
@@ -91,54 +75,19 @@ describe('validateNewProject', () => {
   })
 
   it('boş formda her zorunlu alan için belgedeki mesajı üretir', () => {
-    const errors = errorsFor(buildDefaultValues(TODAY), true)
+    const errors = errorsFor(buildDefaultValues(), true)
 
     expect(errors.name).toBe(NEW_PROJECT_ERRORS.name)
     expect(errors.projectFirmId).toBe(NEW_PROJECT_ERRORS.projectFirm)
     expect(errors.gasDistributionFirmId).toBe(NEW_PROJECT_ERRORS.gasDistributionFirm)
-    expect(errors.engineerUserId).toBe(NEW_PROJECT_ERRORS.engineer)
     expect(errors.address).toBe(NEW_PROJECT_ERRORS.address)
-    expect(errors.projectType).toBe(NEW_PROJECT_ERRORS.projectType)
-    expect(errors.heatingType).toBe(NEW_PROJECT_ERRORS.heatingType)
-    expect(errors.buildingUsageType).toBe(NEW_PROJECT_ERRORS.buildingUsageType)
+    expect(errors.projectTypeCodeId).toBe(NEW_PROJECT_ERRORS.projectType)
+    expect(errors.heatingTypeCodeId).toBe(NEW_PROJECT_ERRORS.heatingType)
+    expect(errors.buildingUsageTypeCodeId).toBe(NEW_PROJECT_ERRORS.buildingUsageType)
   })
 
   it('yalnız boşluktan oluşan proje adını boş sayar', () => {
     expect(errorsFor({ ...validValues(), name: '   ' }, true).name).toBe(NEW_PROJECT_ERRORS.name)
-  })
-
-  it('bitiş tarihi başlama tarihinden önceyse hata verir', () => {
-    const errors = errorsFor(
-      { ...validValues(), startDate: '2026-08-04', endDate: '2026-08-03' },
-      true,
-    )
-
-    expect(errors.endDate).toBe(NEW_PROJECT_ERRORS.endBeforeStart)
-  })
-
-  /**
-   * TUZAK TESTİ: tarih kuralı bilerek şemanın DIŞINDA (zod'un refine'ı kardeş alan
-   * hatalıyken çalışmıyor). Biri şemayı tek başına `parse` ederse kural sessizce
-   * kaybolur. Kural şemaya geri taşınırsa buradaki ilk beklenti kırılır — o zaman
-   * bu test silinir, ama kimse durumu fark etmeden geçemez.
-   */
-  it('şema TEK BAŞINA tarih kuralını bilmez; doğrulama validateNewProject üzerinden yapılmalı', () => {
-    const values = { ...validValues(), startDate: '2026-08-04', endDate: '2026-08-03' }
-
-    expect(createNewProjectSchema({ isAdmin: true }).safeParse(values).success).toBe(true)
-    expect(validateNewProject(values, { isAdmin: true }).errors.endDate).toBe(
-      NEW_PROJECT_ERRORS.endBeforeStart,
-    )
-    expect(validateNewProject(values, { isAdmin: true }).data).toBeNull()
-  })
-
-  it('bitiş tarihi başlama tarihine eşitse kabul eder', () => {
-    const errors = errorsFor(
-      { ...validValues(), startDate: '2026-08-04', endDate: '2026-08-04' },
-      true,
-    )
-
-    expect(errors.endDate).toBeUndefined()
   })
 
   it('negatif sayısal değeri reddeder', () => {
@@ -176,14 +125,21 @@ describe('validateNewProject', () => {
     expect(errors.capacityCubicMeterPerHour).toBeUndefined()
   })
 
-  it('alan ve kapasite kesirli olabilir', () => {
+  /** Uçtaki karşılıklarının hepsi int32; ondalık gövde 400 döner. */
+  it('alan, kapasite ve S.K. basıncı da kesirli kabul etmez', () => {
     const errors = errorsFor(
-      { ...validValues(), areaSquareMeters: 120.5, capacityCubicMeterPerHour: 4.2 },
+      {
+        ...validValues(),
+        areaSquareMeters: 120.5,
+        capacityCubicMeterPerHour: 4.2,
+        serviceBoxPressureMbar: 21.5,
+      },
       true,
     )
 
-    expect(errors.areaSquareMeters).toBeUndefined()
-    expect(errors.capacityCubicMeterPerHour).toBeUndefined()
+    expect(errors.areaSquareMeters).toBe(NEW_PROJECT_ERRORS.integer)
+    expect(errors.capacityCubicMeterPerHour).toBe(NEW_PROJECT_ERRORS.integer)
+    expect(errors.serviceBoxPressureMbar).toBe(NEW_PROJECT_ERRORS.integer)
   })
 
   it('admin değilse firma alanları boş olsa da geçerli', () => {
@@ -207,7 +163,7 @@ describe('validateNewProject', () => {
 describe('firstErrorField', () => {
   it('şema sırasını değil ekran sırasını izler', () => {
     expect(firstErrorField({ address: 'x', name: 'y' })).toBe('name')
-    expect(firstErrorField({ heatingType: 'x', engineerUserId: 'y' })).toBe('engineerUserId')
+    expect(firstErrorField({ heatingTypeCodeId: 'x', cityId: 'y' })).toBe('cityId')
   })
 
   it('hata yoksa null döner', () => {
@@ -221,6 +177,43 @@ describe('toCreateProjectPayload', () => {
     if (data === null) throw new Error('geçerli değerler bekleniyordu')
     return toCreateProjectPayload(data, { isAdmin })
   }
+
+  /** Kod METNİ değil KİMLİK taşınır: uç `*CodeId` istiyor (api/codes.ts). */
+  it('üç tipin kod kimliğini gövdeye taşır', () => {
+    const payload = parse(validValues(), true)
+
+    expect(payload.projectTypeCodeId).toBe(PROJECT_TYPE_CODE_ID)
+    expect(payload.heatingTypeCodeId).toBe(HEATING_TYPE_CODE_ID)
+    expect(payload.buildingUsageTypeCodeId).toBe(BUILDING_USAGE_TYPE_CODE_ID)
+  })
+
+  it('tesisat ve yapı alanlarını gövdeye taşır', () => {
+    const payload = parse(
+      {
+        ...validValues(),
+        isPermitProject: true,
+        apartmentCount: 4,
+        workplaceCount: 2,
+        areaSquareMeters: 120,
+        connectionObject: 'Servis kutusu',
+        capacityCubicMeterPerHour: 12,
+        serviceBoxPressureMbar: 21,
+        coverNote: ' Kapak açıklaması ',
+      },
+      true,
+    )
+
+    expect(payload).toMatchObject({
+      isPermitProject: true,
+      apartmentCount: 4,
+      workplaceCount: 2,
+      areaSquareMeters: 120,
+      connectionObject: 'Servis kutusu',
+      capacityCubicMeterPerHour: 12,
+      serviceBoxPressureMbar: 21,
+      coverNote: 'Kapak açıklaması',
+    })
+  })
 
   it('admin gövdesinde firma kimlikleri bulunur', () => {
     const payload = parse(validValues(), true)

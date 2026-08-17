@@ -8,7 +8,7 @@ import {
   removeAuthorization,
   toAuthorizationPayloads,
   type ProjectFirmAuthorization,
-} from '../projectFirmAuthorizations'
+} from '../authorizationDraft'
 
 const GROUP = { id: 1, name: 'AKSA' }
 

@@ -18,7 +18,11 @@ export function QueryLoading({ message }: QueryLoadingProps) {
 
 interface QueryErrorProps {
   message: string
-  onRetry: () => void
+  /**
+   * Yeniden deneme yolu YOKSA verilmez ve düğme hiç çizilmez — bozuk adres gibi
+   * durumlarda "Tekrar dene" aynı hatayı üretir, kullanıcıyı boşuna uğraştırırdı.
+   */
+  onRetry?: () => void
 }
 
 export function QueryError({ message, onRetry }: QueryErrorProps) {
@@ -29,9 +33,15 @@ export function QueryError({ message, onRetry }: QueryErrorProps) {
     >
       <CircleAlert aria-hidden className="size-5 text-danger" />
       <span>{message}</span>
-      <button type="button" onClick={onRetry} className={adminButtonVariants({ tone: 'secondary' })}>
-        Tekrar dene
-      </button>
+      {onRetry !== undefined && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className={adminButtonVariants({ tone: 'secondary' })}
+        >
+          Tekrar dene
+        </button>
+      )}
     </div>
   )
 }

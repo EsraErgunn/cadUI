@@ -1,3 +1,5 @@
+import { parseServerTimestampMs } from './serverTimestamp'
+
 const STORAGE_KEY = 'starcad.auth'
 
 /**
@@ -49,7 +51,9 @@ function isSession(value: unknown): value is AuthSession {
 }
 
 export function isExpired(candidate: AuthSession): boolean {
-  const expiresAtMs = Date.parse(candidate.expiresAt)
+  // Dilim eki yoksa UTC varsayılır; kural `serverTimestamp.ts`'te, yetki
+  // geçerliliğiyle ORTAK (iki yerde ayrı yazılsaydı biri düzeltilip öbürü kalırdı).
+  const expiresAtMs = parseServerTimestampMs(candidate.expiresAt)
   // Tarih okunamıyorsa süresi dolmuş sayılmaz; kararı sunucunun 401'i verir.
   return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now()
 }
@@ -78,3 +82,22 @@ export function subscribeAuthSession(listener: () => void): () => void {
     listeners.delete(listener)
   }
 }
+
+/**
+ * Sekmeler arası eşitleme. `storage` olayı yalnız DİĞER sekmelerde tetiklenir:
+ * bir sekmede çıkış yapılınca öbürü açık kalıp "girişli" görünmesin, bir
+ * sekmede giriş yapılınca öbürü elle yenilenmeden çalışsın.
+ *
+ * Modül yüklenirken bir kez bağlanıyor ve hiç sökülmüyor — oturum uygulamanın
+ * ömrü boyunca yaşayan tek bir değer, bileşen ömrüne bağlı değil.
+ */
+globalThis.addEventListener?.('storage', (event) => {
+  if (event.key !== STORAGE_KEY) return
+
+  const next = readStoredSession()
+  // Aynı token yeniden yazıldıysa abone uyandırmaya gerek yok.
+  if (next?.token === session?.token) return
+
+  session = next
+  for (const listener of listeners) listener()
+})

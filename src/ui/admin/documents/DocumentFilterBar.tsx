@@ -74,7 +74,9 @@ export function DocumentFilterBar({
     >
       <fieldset className="flex min-w-0 flex-col gap-1 border-0 p-0">
         <legend className="mb-1 text-xs font-medium text-ink-muted">Tarih Aralığı</legend>
-        <div className="flex items-center gap-2">
+        {/* `min-w-0 flex-1`: `input[type=date]` içeriğine göre ~150 px'lik bir
+            asgari genişlik dayatıyor, iki kutu 375 px ekranda kabı taşırıyordu. */}
+        <div className="flex min-w-0 items-center gap-2">
           <input
             type="date"
             value={dateFrom}
@@ -82,9 +84,9 @@ export function DocumentFilterBar({
             max={dateTo}
             aria-label="Başlangıç tarihi"
             onChange={(event) => setDateFrom(event.target.value)}
-            className={adminFieldVariants()}
+            className={adminFieldVariants({ className: 'min-w-0 flex-1' })}
           />
-          <span aria-hidden className="text-ink-muted">
+          <span aria-hidden className="shrink-0 text-ink-muted">
             –
           </span>
           <input
@@ -93,7 +95,7 @@ export function DocumentFilterBar({
             min={dateFrom}
             aria-label="Bitiş tarihi"
             onChange={(event) => setDateTo(event.target.value)}
-            className={adminFieldVariants()}
+            className={adminFieldVariants({ className: 'min-w-0 flex-1' })}
           />
         </div>
       </fieldset>

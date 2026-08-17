@@ -1,17 +1,14 @@
 import { z } from 'zod'
 
+import { getCurrentUser } from './auth'
 import { fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import {
-  queryMockDistricts,
-  queryMockFirmEngineers,
-  queryMockGasFirmsForProjectFirm,
-  queryMockHeatingTypes,
-  queryMockProjectFirms,
-  queryMockProjectStatusCounts,
-  queryMockProjectTypes,
-  submitMockProject,
-} from './projectsMock'
+  MISSING_USER_FIRMS_MESSAGE,
+  ProjectFirmAuthorizationError,
+  resolveProjectFirmAuthorizationId,
+} from './projectFirmAuthorizations'
+import { queryMockProjectFirms, submitMockProject } from './projectsMock'
 import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
 import { parseProjectJson, serializeProjectData } from '../core/serialize'
@@ -101,19 +98,6 @@ export const HEATING_TYPE_LABELS: Record<HeatingType, string> = {
  */
 export type HeatingTypeCode = HeatingType | (string & {})
 
-/**
- * Bina kullanımı PARAMETRİK DEĞİL: proje/ısınma tipinin aksine Ayarlar'dan
- * beslenmiyor, iki değeri sözleşmede sabit (proje detayındaki "Müstakil" alanı
- * bu ikiliye karşılık geliyor).
- */
-export const BUILDING_USAGE_TYPES = ['coklu', 'mustakil'] as const
-export type BuildingUsageType = (typeof BUILDING_USAGE_TYPES)[number]
-
-export const BUILDING_USAGE_TYPE_LABELS: Record<BuildingUsageType, string> = {
-  coklu: 'Çoklu',
-  mustakil: 'Müstakil',
-}
-
 export const PROJECT_SORT_KEYS = ['updatedAt', 'createdAt', 'name'] as const
 export type ProjectSortKey = (typeof PROJECT_SORT_KEYS)[number]
 
@@ -132,15 +116,22 @@ const lookupSchema = z.object({
   name: z.string(),
 })
 
+/**
+ * Uçtan GELMEYEN alanlar `null`: `GET /api/projects` beş alan döndürüyor
+ * (Swagger 2026-08-14). Eskiden bu alanlara "—" METNİ yazılıyordu; gösterim
+ * metni veri katmanında durunca tip de yalan söylüyordu (`firmName: string`).
+ * Artık yokluk `null` ile taşınıyor, tireyi tablo çiziyor (`EmptyValue`).
+ */
 const projectListItemSchema = z.object({
   id: z.number().int().positive(),
   pId: z.string(),
   name: z.string(),
-  firmName: z.string(),
+  firmName: z.string().nullable(),
   buildingCode: z.string().nullable(),
-  projectType: z.string(),
-  // Dar birleşim DEĞİL: uç ısınma tipini henüz döndürmüyor, yer tutucu geçebilmeli.
-  heatingType: z.string(),
+  // Dar birleşim DEĞİL: tipler sunucuda parametrik, bilinmeyen kod rozette
+  // ham hâliyle çıkar (bkz. ProjectTypeCode).
+  projectType: z.string().nullable(),
+  heatingType: z.string().nullable(),
   updatedAt: z.string(),
   createdAt: z.string(),
   gasFirm: lookupSchema.nullable(),
@@ -152,13 +143,18 @@ export interface ProjectListItem {
   /** Serbest biçimli proje numarası — sayı olarak yorumlanmaz, olduğu gibi gösterilir. */
   pId: string
   name: string
-  firmName: string
+  firmName: string | null
   buildingCode: string | null
-  projectType: ProjectTypeCode
-  heatingType: HeatingTypeCode
+  projectType: ProjectTypeCode | null
+  heatingType: HeatingTypeCode | null
   updatedAt: string
   createdAt: string
   gasFirm: Lookup | null
+  /**
+   * Uç bu bilgiyi döndürmüyor; bugün her satırda `false` ve bu bir VARSAYIM —
+   * ikon "evrak yok" diyor, sunucu böyle bir şey söylemedi.
+   * TODO(esra): `GET /api/projects/{id}/docs` bağlanınca gerçek değere geçilecek.
+   */
   hasDocuments: boolean
 }
 
@@ -166,8 +162,14 @@ export interface ProjectListQuery {
   status: ProjectStatus
   dateFrom: string | null
   dateTo: string | null
+  /** İlçe süzgeci ile bağlı: ilçe listesi ancak il seçilince gelir. */
+  cityId: number | null
   districtId: number | null
   projectFirmId: number | null
+  /**
+   * Uçta karşılığı YOK; gelen sayfa istemcide süzülüyor (bkz. `filterBySearch`).
+   * Alan sorguda duruyor çünkü URL durumu ve arama kutusu ona bağlı.
+   */
   search: string
   page: number
   pageSize: number
@@ -201,11 +203,12 @@ const submitProjectResultSchema = z.discriminatedUnion('ok', [
 ])
 
 /**
- * Rozet adetlerini üreten mock kaydın şekli. Liste artık gerçek uçtan geldiği
- * için bunun zod şeması ve eşleyicisi kaldırıldı; tip yalnız `projectsMock`
- * ayakta kaldığı sürece duruyor.
+ * Mock kaydın şekli. Liste de rozetler de artık gerçek uçtan geldiği için bu
+ * tipin zod şeması ve eşleyicisi kaldırıldı; yalnız `projectsMock` "Onaya
+ * Gönder" ve evrak/poliçe tohumları için ayakta kaldığı sürece duruyor.
  *
- * TODO(api): `GET /api/projects/status-counts` bağlanınca bu tip de silinecek.
+ * TODO(esra): `POST /api/projects/{id}/submit` açılınca `projectsMock` ile
+ * birlikte bu tip de silinecek.
  */
 export interface RawProjectListItem {
   id: number
@@ -223,46 +226,70 @@ export interface RawProjectListItem {
 }
 
 /**
- * GERÇEK UÇ SÖZLEŞMESİ — doğrulandı (2026-08-04, cadapi yerel).
+ * GERÇEK UÇ SÖZLEŞMESİ — Swagger ile doğrulandı (2026-08-14, güncel sürüm).
  *
- * GET    /api/projects       → 200, DÜZ DİZİ: [{ id, name, code, createdAt, updatedAt }]
- *                              Sayfalama/filtre parametresi YOK, kayıt id'ye göre azalan.
- * POST   /api/projects       → 200, { id, name, description, code,
- *                                     projectFirmRegionId, gasDistributionFirmRegionId,
- *                                     createdAt, updatedAt }
- *                              Zorunlu: name, projectFirmRegionId, gasDistributionFirmRegionId.
- *                              Opsiyonel: description, code. Tanınmayan alan SESSİZCE atılır.
- * DELETE /api/projects/{id}  → 200 { message }, kayıt yoksa 404.
+ * GET /api/projects
+ *   Query (PascalCase): Status, DateFrom, DateTo (RFC 3339 date-time),
+ *   CityId, DistrictId, ProjectFirmId, SortBy, SortDir, Page, PageSize.
+ *   200 → { items: [{ id, name, code, status, statusName, projectTypeName,
+ *                     heatingTypeName, createdAt, updatedAt }],
+ *           totalCount, page, pageSize }
+ *   SÜZME VE SAYFALAMA ARTIK SUNUCUDA — istemci dizi dilimlemiyor.
+ *   ARAMA parametresi YOK: sözleşmede `q`/`Search` bulunmuyor.
+ *
+ * GET /api/projects/status-counts
+ *   Query: DateFrom, DateTo, CityId, DistrictId, ProjectFirmId (Status YOK —
+ *   rozetler durumdan bağımsız). 200 → { draft, pendingApproval, approved, rejected }
+ *
+ * POST   /api/projects       → 200, ProjectDto (aşağıda `apiCreatedProjectSchema`)
+ * DELETE /api/projects/{id}  → 200, soft-delete (pasifleştirir), kayıt yoksa 404.
  *
  * Doğrulama hatası: 400 { errors: { Alan: [mesaj] } }
  * İş kuralı hatası: 400 { message }
  */
-const apiProjectSchema = z.object({
+const apiProjectListItemSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   code: z.string().nullish(),
+  /** Durum KODU ve adı. Tabloda sütunu yok (satırlar zaten sekmeyle süzülü);
+      sözleşmeyi belgelemek için şemada duruyorlar. */
+  status: z.string().nullish(),
+  statusName: z.string().nullish(),
+  /** Uç KOD değil AD döndürüyor; rozet bilinmeyen kodu ham gösterdiği için
+      ad da olduğu gibi basılabiliyor. */
+  projectTypeName: z.string().nullish(),
+  heatingTypeName: z.string().nullish(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
 
-/**
- * Uç, listede olmayan alanları hiç göndermiyor. Tabloda boş hücre yerine tire
- * çıksın diye tek bir yer tutucu kullanılıyor — gösterim metninin veri
- * katmanında olması geçici, uç alanları döndürmeye başlayınca kalkacak.
- *
- * TODO(api): firma adı, proje tipi, ısınma tipi, bina kodu, evrak durumu ve
- * gaz dağıtım firması uçtan gelmiyor; sözleşmeye eklenince eşleme düzeltilecek.
- */
-const MISSING_VALUE_LABEL = '—'
+const apiProjectPageSchema = pagedResultSchema(apiProjectListItemSchema)
 
 /**
- * Uç `status` döndürmüyor; kayıtların tamamı taslak sayılıyor. Diğer sekmeler
- * bu yüzden boş liste alır — uydurma bir durum atamak, kullanıcıya onaya
- * gitmiş gibi görünen bir proje gösterirdi.
+ * Sunucunun durum kodu ↔ arayüzün kodu. `status-counts` yanıtının anahtarları
+ * (draft/pendingApproval/approved/rejected) bu adlandırmayı doğruluyor.
  *
- * TODO(api): proje durumu uca eklenince bu sabit kalkacak.
+ * TODO(esra): `Status` query parametresinin BEKLEDİĞİ değer biçimi Swagger'da
+ * yazılı değil; buradaki dört değer tek kaynaktan gidiyor — sunucu farklı bir
+ * biçim istiyorsa (ör. sayısal CodeValue) yalnız bu sözlük değişir.
  */
-const API_PROJECT_STATUS: ProjectStatus = 'taslak'
+const SERVER_STATUS_CODES: Record<ProjectStatus, string> = {
+  taslak: 'Draft',
+  onayBekleyen: 'PendingApproval',
+  onaylanan: 'Approved',
+  reddedilen: 'Rejected',
+}
+
+/** Yeni proje taslak açılır (ürün kuralı); `POST` yanıtı durum döndürmüyor. */
+const CREATED_PROJECT_STATUS: ProjectStatus = 'taslak'
+
+/** `status-counts` yanıtının anahtarları; sözleşmede birebir bu adlarla. */
+const statusCountsDtoSchema = z.object({
+  draft: z.number().int().nonnegative(),
+  pendingApproval: z.number().int().nonnegative(),
+  approved: z.number().int().nonnegative(),
+  rejected: z.number().int().nonnegative(),
+})
 
 /**
  * Uçta P_ID diye bir alan yok; `code` opsiyonel ve varsayılan olarak null.
@@ -276,15 +303,25 @@ function toProjectPId(raw: { id: number; code?: string | null }): string {
   return code === undefined || code === '' ? String(raw.id) : code
 }
 
-function mapApiProject(raw: z.infer<typeof apiProjectSchema>): ProjectListItem {
+function toNullableText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed === undefined || trimmed === '' ? null : trimmed
+}
+
+/**
+ * TODO(esra): firma adı, bina kodu, evrak durumu ve gaz dağıtım firması uçtan
+ * GELMİYOR — sözleşmeye eklendiğinde bu `null`'lar gerçek değerlerle dolacak,
+ * çağıran taraf değişmeyecek.
+ */
+function mapApiProject(raw: z.infer<typeof apiProjectListItemSchema>): ProjectListItem {
   return {
     id: raw.id,
     pId: toProjectPId(raw),
     name: raw.name,
-    firmName: MISSING_VALUE_LABEL,
+    firmName: null,
     buildingCode: null,
-    projectType: MISSING_VALUE_LABEL,
-    heatingType: MISSING_VALUE_LABEL,
+    projectType: toNullableText(raw.projectTypeName),
+    heatingType: toNullableText(raw.heatingTypeName),
     updatedAt: raw.updatedAt,
     createdAt: raw.createdAt,
     gasFirm: null,
@@ -292,68 +329,121 @@ function mapApiProject(raw: z.infer<typeof apiProjectSchema>): ProjectListItem {
   }
 }
 
-function matchesQuery(project: ProjectListItem, query: ProjectListQuery): boolean {
-  if (query.status !== API_PROJECT_STATUS) return false
+/**
+ * Gün → RFC 3339 damgası. Uç `date-time` istiyor, URL'de ise `yyyy-aa-gg`
+ * duruyor. Parçalar YEREL saatle kuruluyor: `new Date('2026-08-01')` UTC gece
+ * yarısı sayılır ve +03'te günü bir gün geriye kaydırırdı.
+ */
+function toDayBoundary(isoDay: string, edge: 'start' | 'end'): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDay)
+  if (match === null) return null
 
-  // Tarih aralığı güncelleme tarihine göre, gün bazlı kapsayıcı.
-  const updatedDay = project.updatedAt.slice(0, 10)
-  if (query.dateFrom !== null && updatedDay < query.dateFrom) return false
-  if (query.dateTo !== null && updatedDay > query.dateTo) return false
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const date =
+    edge === 'start'
+      ? new Date(year, month - 1, day, 0, 0, 0, 0)
+      : // Aralık KAPSAYICI: bitiş günü içindeki kayıtlar da girsin.
+        new Date(year, month - 1, day, 23, 59, 59, 999)
 
-  if (query.search !== '') {
-    const hit = includesTr(project.name, query.search) || includesTr(project.pId, query.search)
-    if (!hit) return false
-  }
-
-  // TODO(api): ilçe, proje firması ve bölge uçtan gelmiyor; bu üç filtre şimdilik
-  // hiçbir kaydı elemiyor. Elenseydi filtre seçilir seçilmez liste boşalır ve
-  // kullanıcı veri kaybettiğini sanardı.
-  return true
+  return date.toISOString()
 }
 
-function compareProjects(a: ProjectListItem, b: ProjectListItem, query: ProjectListQuery): number {
-  const direction = query.sortDir === 'asc' ? 1 : -1
-  if (query.sortBy === 'name') return a.name.localeCompare(b.name, 'tr') * direction
-  return a[query.sortBy].localeCompare(b[query.sortBy]) * direction
+/** Uç PascalCase anahtar bekliyor; boş değerler hiç yazılmaz (adres temiz kalır). */
+function appendParam(search: URLSearchParams, key: string, value: string | number | null): void {
+  if (value === null || value === '') return
+  search.set(key, String(value))
 }
 
 /**
- * TODO(api): `GET /api/projects` filtre/sıralama/sayfalama parametresi almıyor,
- * bu yüzden TÜM liste çekilip istemcide süzülüyor, sıralanıyor ve 30'arlı
- * diliniyor. Kayıt sayısı büyüyünce uca `page`/`pageSize`/`q` eklenmeli —
- * CLAUDE.md "sayfalama sunucu taraflı" kuralının bilinçli, geçici istisnası.
+ * Liste ve rozet uçlarının ORTAK süzgeç parametreleri. İkisi aynı kriterleri
+ * alıyor (rozetlerde yalnız `Status` yok); tek yerde üretiliyor ki biri
+ * güncellenip öbürü unutulmasın.
+ */
+function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
+  const search = new URLSearchParams()
+
+  appendParam(search, 'DateFrom', query.dateFrom === null ? null : toDayBoundary(query.dateFrom, 'start'))
+  appendParam(search, 'DateTo', query.dateTo === null ? null : toDayBoundary(query.dateTo, 'end'))
+  appendParam(search, 'CityId', query.cityId)
+  appendParam(search, 'DistrictId', query.districtId)
+  appendParam(search, 'ProjectFirmId', query.projectFirmId)
+
+  return search
+}
+
+/**
+ * Sözleşmede ARAMA parametresi YOK. Kutu kaldırılmadığı için gelen sayfa
+ * istemcide süzülüyor — yani arama YALNIZ görüntülenen sayfayı kapsıyor,
+ * `totalCount` süzülmemiş adedi göstermeye devam ediyor.
+ *
+ * TODO(esra): uca `Q` parametresi eklenmeli; eklenince bu fonksiyon ve
+ * çağrısı silinip parametre `buildFilterParams`'a taşınacak.
+ */
+function filterBySearch(items: ProjectListItem[], search: string): ProjectListItem[] {
+  if (search === '') return items
+
+  // `includesTr` şart: 'İ'.toLowerCase() birleşen nokta üretip eşleşmeyi
+  // sessizce kaçırıyor (knowledge/turkish-collation).
+  return items.filter(
+    (project) => includesTr(project.name, search) || includesTr(project.pId, search),
+  )
+}
+
+/**
+ * `GET /api/projects` — süzme, sıralama ve sayfalama SUNUCUDA (Swagger
+ * 2026-08-14). Yanıtın `totalCount`'u sayfalamayı, `items` sırası tabloyu
+ * yönetiyor; istemci diziyi dilimlemiyor.
+ *
+ * Tek istisna arama: uçta karşılığı yok, gelen sayfa `filterBySearch` ile
+ * süzülüyor (bkz. oradaki not).
  */
 export async function listProjects(
   query: ProjectListQuery,
   signal?: AbortSignal,
 ): Promise<PagedResult<ProjectListItem>> {
-  const raw = await requestJson(
-    { method: 'GET', path: '/api/projects', signal },
-    z.array(apiProjectSchema),
+  const search = buildFilterParams(query)
+  appendParam(search, 'Status', SERVER_STATUS_CODES[query.status])
+  appendParam(search, 'SortBy', query.sortBy)
+  appendParam(search, 'SortDir', query.sortDir)
+  appendParam(search, 'Page', query.page)
+  appendParam(search, 'PageSize', query.pageSize)
+
+  const page = await requestJson(
+    { method: 'GET', path: `/api/projects?${search.toString()}`, signal },
+    apiProjectPageSchema,
   )
 
-  const matched = raw
-    .map(mapApiProject)
-    .filter((project) => matchesQuery(project, query))
-    .sort((a, b) => compareProjects(a, b, query))
-
-  const start = (query.page - 1) * query.pageSize
-
   return projectPageSchema.parse({
-    items: matched.slice(start, start + query.pageSize),
-    totalCount: matched.length,
-    page: query.page,
-    pageSize: query.pageSize,
+    items: filterBySearch(page.items.map(mapApiProject), query.search),
+    totalCount: page.totalCount,
+    page: page.page,
+    pageSize: page.pageSize,
   })
 }
 
-/** gerçek `GET /api/admin/projects/status-counts`. */
+/**
+ * Sekme rozetleri — `GET /api/projects/status-counts`. Listeyle AYNI süzgeçleri
+ * alır, `Status` almaz: rozetler durumdan bağımsız sayılır.
+ *
+ * Arama rozetlere YANSIMAZ (uçta parametresi yok): kutuya yazılan metin
+ * listedeki satırları süzer ama rozetteki adet süzülmemiş kalır.
+ */
 export async function getProjectStatusCounts(
   query: ProjectStatusCountsQuery,
   signal?: AbortSignal,
 ): Promise<Record<ProjectStatus, number>> {
-  const counts = await queryMockProjectStatusCounts(query, signal)
-  return statusCountsSchema.parse(counts)
+  const search = buildFilterParams(query)
+  const dto = await requestJson(
+    { method: 'GET', path: `/api/projects/status-counts?${search.toString()}`, signal },
+    statusCountsDtoSchema,
+  )
+
+  return statusCountsSchema.parse({
+    taslak: dto.draft,
+    onayBekleyen: dto.pendingApproval,
+    onaylanan: dto.approved,
+    reddedilen: dto.rejected,
+  })
 }
 
 /** `DELETE /api/projects/{id}` → 200 `{ message }`. Gövde kullanılmıyor; uç
@@ -368,13 +458,11 @@ export async function submitProject(id: number): Promise<SubmitProjectResult> {
   return submitProjectResultSchema.parse(result)
 }
 
-/** gerçek `GET /api/admin/districts`. */
-export async function getDistricts(signal?: AbortSignal): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockDistricts(signal))
-}
-
 /**
  * `GET /api/cities` → 81 il (seeder ile dolu gelir). GERÇEK uç.
+ *
+ * İLSİZ bir ilçe listesi ucu YOK; liste ekranının ilçe süzgeci de bu yüzden
+ * önce il sorar (eski `getDistricts` mock'u kalktı).
  *
  * `plateCode` alanı da geliyor ama arayüze taşınmıyor: seçim kutusunda plaka
  * göstermek istenmedi, taşınsaydı kullanılmayan bir alan olurdu.
@@ -405,11 +493,14 @@ export async function getCityDistricts(
 }
 
 /**
- * gerçek `GET /api/admin/project-firms`.
+ * MOCK proje firmaları. Tek çağıranı kaldı: EVRAKLAR listesinin firma süzgeci.
  *
- * Bölge süzgeci YOK: üst bardaki kapsam seçicisi kaldırıldığı için hem liste
- * ekranının filtre kutusu hem yeni proje formu TÜM firmaları istiyor
- * (docs/kararlar.md K31).
+ * Gerçek uç VAR (`GET /api/projectfirms`, `api/projectFirms.ts`) ve hem proje
+ * listesi hem yeni proje formu ona bağlandı. Evrak süzgeci bağlanamıyor çünkü
+ * evrak satırları bu mock'un kimlikleriyle (11–15) tohumlanıyor; gerçek uca
+ * çevrilseydi süzgeç hiçbir kaydın eşleşmediği bir hâle düşerdi (K75).
+ *
+ * TODO(esra): evrak uçları gelince bu fonksiyon ve `MOCK_PROJECT_FIRMS` silinecek.
  */
 export async function getProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
   return lookupListSchema.parse(await queryMockProjectFirms(signal))
@@ -418,41 +509,20 @@ export async function getProjectFirms(signal?: AbortSignal): Promise<Lookup[]> {
 /**
  * API SÖZLEŞMESİ - Yeni proje formu.
  *
- * POST /api/admin/projects
- *   Gövde = CreateProjectPayload. P_ID SUNUCUDA üretilir, istemci göndermez.
+ * POST /api/projects
+ *   Gövde = ProjectCreateDto (aşağıda `createProject`). P_ID SUNUCUDA üretilir.
  *   Proje "taslak" durumunda oluşur.
- *   201 → { id, pId, status }
  *
- * GET /api/admin/project-types   → ParametricOption[]  (Ayarlar'dan beslenir)
- * GET /api/admin/heating-types   → ParametricOption[]  (Ayarlar'dan beslenir)
- *
- * GET /api/admin/firm-engineers?projectFirmId=
- *   projectFirmId YOKSA sunucu token'daki firmadan türetir — proje firması
- *   kullanıcısı kendi firma kimliğini taşımıyor (bkz. getFirmEngineers).
- *   200 → RawFirmEngineer[]
+ * Proje / ısınma / bina kullanımı tipleri PARAMETRİK ve tek bir kod grubu
+ * ucundan geliyor (`api/codes.ts`): gövdeye kod METNİ değil kod KİMLİĞİ gider.
  *
  * GET /api/admin/gas-distribution-firms/for-project-firm?projectFirmId=
  *   Seçili proje firmasının ÇALIŞTIĞI GD firmaları (bir proje firması birden
  *   fazla GD firmasıyla çalışabilir).
  *   200 → Lookup[]
  *
- * TODO(api): uçların yolları ve alan adları backend'le doğrulanacak.
+ * TODO(api): firma uçlarının yolları ve alan adları backend'le doğrulanacak.
  */
-
-/** Ayarlar'dan beslenen seçenek: kod sözleşme, etiket kullanıcıya gösterilen ad. */
-export interface ParametricOption<TCode extends string = string> {
-  code: TCode
-  label: string
-}
-
-export type ProjectTypeOption = ParametricOption<ProjectTypeCode>
-export type HeatingTypeOption = ParametricOption<HeatingType>
-
-/** Yetkili mühendis seçim kutusunun kaynağı. */
-export interface FirmEngineer {
-  id: number
-  fullName: string
-}
 
 /**
  * Formun sunucuya gönderdiği gövde. Firma alanları OPSİYONEL: proje firması
@@ -468,10 +538,6 @@ export interface CreateProjectPayload {
   cityId: number
   /** İlçe kimliği — uca `districtId` olarak gider (zorunlu alan). */
   districtId: number
-  /** yyyy-aa-gg; saat dilimi kaymasın diye ISO damgası değil, düz tarih. */
-  startDate: string
-  endDate: string
-  engineerUserId: number
   connectionObject: string | null
   address: string
   apartmentCount: number
@@ -479,11 +545,14 @@ export interface CreateProjectPayload {
   areaSquareMeters: number
   /** Ada/Pafta/Parsel — serbest metin (tapu bilgisi). */
   parcelInfo: string | null
-  projectType: ProjectTypeCode
+  /** `ProjectType` kod grubundaki kaydın kimliği (bkz. api/codes.ts). */
+  projectTypeCodeId: number
   /** Yapı ruhsatına bağlı proje mi. */
   isPermitProject: boolean
-  heatingType: HeatingType
-  buildingUsageType: BuildingUsageType
+  /** `HeatingType` kod grubundaki kaydın kimliği. */
+  heatingTypeCodeId: number
+  /** `BuildingUsageType` kod grubundaki kaydın kimliği. */
+  buildingUsageTypeCodeId: number
   capacityCubicMeterPerHour: number
   serviceBoxPressureMbar: number
   coverNote: string | null
@@ -496,101 +565,11 @@ export interface CreatedProject {
   status: ProjectStatus
 }
 
-const rawParametricOptionSchema = z.object({
-  code: z.string(),
-  label: z.string(),
-})
-
-/** Sunucu adı iki parça + aktiflik bayrağıyla gönderiyor; ekran tek ad bekliyor. */
-const rawFirmEngineerSchema = z.object({
-  id: z.number().int().positive(),
-  firstName: z.string(),
-  lastName: z.string(),
-  isActive: z.boolean(),
-})
-
 const createdProjectSchema = z.object({
   id: z.number().int().positive(),
   pId: z.string(),
   status: z.enum(PROJECT_STATUSES),
 })
-
-export type RawParametricOption = z.infer<typeof rawParametricOptionSchema>
-export type RawFirmEngineer = z.infer<typeof rawFirmEngineerSchema>
-
-export function mapFirmEngineer(raw: RawFirmEngineer): FirmEngineer {
-  return { id: raw.id, fullName: `${raw.firstName} ${raw.lastName}`.trim() }
-}
-
-/**
- * Isınma tipi sunucuda parametrik ama `heatingType` alanı dar birleşimle kilitli
- * (liste ekranının şeması bu enum'a bağlı). Tanınmayan kod gelirse form KIRILMAZ:
- * seçenek süzülür ve bir kez uyarı düşer — kullanıcıya seçtiremeyeceğimiz bir
- * değeri göstermek, sonradan doğrulamada patlamaktan iyidir.
- */
-export function mapHeatingTypeOptions(raw: RawParametricOption[]): HeatingTypeOption[] {
-  const known: HeatingTypeOption[] = []
-  const unknownCodes: string[] = []
-
-  for (const option of raw) {
-    const code = HEATING_TYPES.find((candidate) => candidate === option.code)
-    if (code === undefined) {
-      unknownCodes.push(option.code)
-      continue
-    }
-    known.push({ code, label: option.label })
-  }
-
-  if (unknownCodes.length > 0) {
-    // Sessizce kaybolan seçenek, hata ayıklanamayan bir "listede yok" şikâyetine
-    // dönüşür; sözleşme sapması görünür kalmalı. no-console kuralı unutulmuş
-    // hata ayıklama çıktısı içindir, bilinçli sözleşme uyarısı için değil.
-    // eslint-disable-next-line no-console
-    console.warn(`Bilinmeyen ısınma tipi kodu sunucudan geldi: ${unknownCodes.join(', ')}`)
-  }
-
-  return known
-}
-
-/** gerçek `GET /api/admin/project-types`. Kod listesi parametrik: süzülmez. */
-export async function getProjectTypes(signal?: AbortSignal): Promise<ProjectTypeOption[]> {
-  const raw = z.array(rawParametricOptionSchema).parse(await queryMockProjectTypes(signal))
-  return raw.map((option) => ({ code: option.code, label: option.label }))
-}
-
-/** gerçek `GET /api/admin/heating-types`. */
-export async function getHeatingTypes(signal?: AbortSignal): Promise<HeatingTypeOption[]> {
-  const raw = z.array(rawParametricOptionSchema).parse(await queryMockHeatingTypes(signal))
-  return mapHeatingTypeOptions(raw)
-}
-
-/**
- * gerçek `GET /api/admin/firm-engineers`.
- *
- * `projectFirmId` opsiyonel: admin firmayı seçerek sorar, proje firması kullanıcısı
- * kendi firma kimliğini taşımadığı için kimliksiz sorar ve sunucu token'dan türetir.
- * TODO(api): kimliksiz çağrının uçta desteklendiği doğrulanacak.
- */
-export async function getFirmEngineers(
-  projectFirmId?: number,
-  signal?: AbortSignal,
-): Promise<FirmEngineer[]> {
-  const raw = z
-    .array(rawFirmEngineerSchema)
-    .parse(await queryMockFirmEngineers(projectFirmId, signal))
-
-  // Pasif kullanıcıyı sunucunun süzmesi beklenir; ikinci süzgeç ucuz ve
-  // yetkisini kaybetmiş bir mühendisin yeni projeye atanmasını engeller.
-  return raw.filter((engineer) => engineer.isActive).map(mapFirmEngineer)
-}
-
-/** gerçek `GET /api/admin/gas-distribution-firms/for-project-firm`. */
-export async function getGasFirmsForProjectFirm(
-  projectFirmId: number,
-  signal?: AbortSignal,
-): Promise<Lookup[]> {
-  return lookupListSchema.parse(await queryMockGasFirmsForProjectFirm(projectFirmId, signal))
-}
 
 /**
  * `POST /api/projects` yanıtı (2026-08 sözleşmesi). Şema YALNIZ çağıranın
@@ -609,17 +588,39 @@ const apiCreatedProjectSchema = z.object({
 
 /**
  * Uç `projectFirmAuthorizationId` istiyor: bu firma kimliği DEĞİL, proje
- * firmasının belirli bir GDF-bölgesindeki YETKİ kaydının kimliği. Formdaki
- * `projectFirmId` (11, 12…) buraya konulamaz — uç 400 döner.
+ * firmasının belirli bir gaz dağıtım firmasındaki YETKİ kaydının kimliği.
+ * Formdaki `projectFirmId` (11, 12…) buraya konulamaz — uç 400 döner.
  *
- * Bu kimlikleri listeleyen bir uç YOK: `/api/projectfirms` yalnız firmayı
- * döndürüyor, yetki bağını değil. Bugün veritabanında 1 numaralı kayıt var.
- * Sabit bu yüzden, tahmin olduğu için değil.
+ * Kimlik 2026-08-16'ya kadar SABİTTİ (seed'deki tek satır, `= 1`) çünkü
+ * listeleyen uç yoktu: her proje, seçilen firmadan bağımsız olarak o tek yetki
+ * kaydına bağlanıyordu. `GET /api/project-firm-authorizations` açılınca sabit
+ * kalktı ve kimlik seçilen firma çiftinden çözülüyor.
  *
- * TODO(api): proje firması yetkilerini listeleyen uç açılınca form bu değeri
- * seçilen firmadan türetecek ve sabit kalkacak.
+ * Firma çifti iki kaynaktan gelebiliyor:
+ * - **admin**: formdaki proje firması + GD firması seçimleri (alanlar yalnız
+ *   admin'de render ediliyor, bkz. `newProjectSchema`),
+ * - **proje firması kullanıcısı**: alanlar hiç görünmüyor, çift oturumdaki
+ *   kullanıcıdan (`GET /api/auth/me`) okunuyor.
  */
-const SEEDED_PROJECT_FIRM_AUTHORIZATION_ID = 1
+async function resolveAuthorizationId(payload: CreateProjectPayload): Promise<number> {
+  if (payload.projectFirmId !== undefined && payload.gasDistributionFirmId !== undefined) {
+    return resolveProjectFirmAuthorizationId({
+      projectFirmId: payload.projectFirmId,
+      gasDistributionFirmId: payload.gasDistributionFirmId,
+    })
+  }
+
+  const me = await getCurrentUser()
+
+  if (me.projectFirmId === null || me.gasDistributionFirmId === null) {
+    throw new ProjectFirmAuthorizationError(MISSING_USER_FIRMS_MESSAGE)
+  }
+
+  return resolveProjectFirmAuthorizationId({
+    projectFirmId: me.projectFirmId,
+    gasDistributionFirmId: me.gasDistributionFirmId,
+  })
+}
 
 /**
  * `POST /api/projects`.
@@ -630,28 +631,44 @@ const SEEDED_PROJECT_FIRM_AUTHORIZATION_ID = 1
  * Eski gövde 400 alıyordu ("Proje firması yetkisi zorunludur") — proje ekleme
  * bu yüzden hiç çalışmıyordu.
  *
- * Uç bugün `name`, `description`, `code`, yetki bağı, il/ilçe, adres ve
- * ada/pafta/parsel saklıyor.
+ * `ProjectCreateDto` artık tesisat ve yapı alanlarının tamamını saklıyor; üç
+ * tip alanı kod KİMLİĞİ olarak gidiyor (`*CodeId`) ve sayısal alanların hepsi
+ * int32 — ondalık gövde 400 döner, doğrulama `newProjectSchema`'da tam sayıyı
+ * zorunlu tutuyor.
  *
- * TODO(api): iş başlama/bitiş tarihi, yetkili mühendis, bağlantı nesnesi,
- * daire/işyeri sayısı, alan, proje tipi, ruhsat bayrağı, ısınma tipi, bina
- * kullanımı tipi, kapasite, S.K. basıncı ve kapak açıklaması uçta karşılığı
- * olmadığı için hâlâ kaydedilmiyor. Bunları `description` içine JSON olarak
- * gömmek sunucunun sorgulayamadığı, şemasız bir alan yaratırdı — bilinçli
- * olarak yapılmadı, uç genişleyince tek tek eklenecek.
+ * `description` ve `code` GÖNDERİLMİYOR: formda karşılıkları yok, uçta ikisi de
+ * `null` kabul ediyor. Form alanlarını `description` içine JSON olarak gömmek
+ * sunucunun sorgulayamadığı şemasız bir alan yaratırdı.
  */
 export async function createProject(payload: CreateProjectPayload): Promise<CreatedProject> {
+  // Yetki kimliği kayıttan ÖNCE çözülüyor: çözülemezse proje hiç açılmasın.
+  // Sonrasına bırakılsaydı kayıt sunucuya yazılmış, bağı yanlış kalmış olurdu.
+  const projectFirmAuthorizationId = await resolveAuthorizationId(payload)
+
   const created = await requestJson(
     {
       method: 'POST',
       path: '/api/projects',
       rawJsonBody: JSON.stringify({
         name: payload.name,
-        projectFirmAuthorizationId: SEEDED_PROJECT_FIRM_AUTHORIZATION_ID,
+        projectFirmAuthorizationId,
         cityId: payload.cityId,
         districtId: payload.districtId,
         addressLine: payload.address,
         blockLotParcel: payload.parcelInfo,
+        connectionObject: payload.connectionObject,
+        projectTypeCodeId: payload.projectTypeCodeId,
+        heatingTypeCodeId: payload.heatingTypeCodeId,
+        buildingUsageTypeCodeId: payload.buildingUsageTypeCodeId,
+        isPermitProject: payload.isPermitProject,
+        apartmentCount: payload.apartmentCount,
+        workplaceCount: payload.workplaceCount,
+        areaSquareMeters: payload.areaSquareMeters,
+        // Uçtaki ad birimsiz; birim gövdede kaybolmasın diye payload alanı
+        // `capacityCubicMeterPerHour` kalıyor, çeviri yalnız burada.
+        capacity: payload.capacityCubicMeterPerHour,
+        serviceBoxPressureMbar: payload.serviceBoxPressureMbar,
+        coverNote: payload.coverNote,
       }),
     },
     apiCreatedProjectSchema,
@@ -662,7 +679,9 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
   return createdProjectSchema.parse({
     id: created.id,
     pId: toProjectPId(created),
-    status: API_PROJECT_STATUS,
+    // Yanıt durum döndürmüyor; yeni proje kural gereği taslak açılıyor ve
+    // çağıran onu "Taslak" sekmesinde vurguluyor.
+    status: CREATED_PROJECT_STATUS,
   })
 }
 
