@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { queryProjectFirmList } from '../projectFirmListQuery'
+import type { ProjectFirmAuthorizationRef } from '../projectFirmAuthorizations'
+import { buildProjectFirmRows, queryProjectFirmList } from '../projectFirmListQuery'
 import {
   PROJECT_FIRM_PAGE_SIZE,
   type ProjectFirm,
@@ -13,7 +14,6 @@ function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
     serialNumber: null,
     qualificationNumber: null,
     name: 'FİRMA',
-    gasFirm: null,
     authorizedPerson: null,
     email: null,
     phone: null,
@@ -33,6 +33,72 @@ function buildQuery(overrides: Partial<ProjectFirmQuery> = {}): ProjectFirmQuery
     ...overrides,
   }
 }
+
+function buildAuthorization(
+  overrides: Partial<ProjectFirmAuthorizationRef> = {},
+): ProjectFirmAuthorizationRef {
+  return {
+    id: 1,
+    projectFirmId: 1,
+    projectFirmName: 'FİRMA',
+    gasDistributionFirmId: 101,
+    gasDistributionFirmName: 'Başkentgaz',
+    validFrom: '2026-01-01T00:00:00Z',
+    validTo: null,
+    ...overrides,
+  }
+}
+
+/**
+ * Firma ↔ G.D. firması bağını kuran uç yok; iki ucun sonucu satırda burada
+ * birleşiyor. Süre süzgeci ÇAĞIRANDA (`getEffectiveAuthorizations`), bu yüzden
+ * buradaki girdiler zaten yürürlükte sayılıyor.
+ */
+describe('buildProjectFirmRows', () => {
+  it('yetkiyi kendi firmasının satırına yazar', () => {
+    const rows = buildProjectFirmRows(
+      [buildFirm({ id: 1 }), buildFirm({ id: 2 })],
+      [buildAuthorization({ projectFirmId: 2 })],
+    )
+
+    expect(rows[0].gasFirms).toEqual([])
+    expect(rows[1].gasFirms).toEqual([{ id: 101, name: 'Başkentgaz' }])
+  })
+
+  it('bir firmanın birden fazla G.D. firmasını taşır', () => {
+    const rows = buildProjectFirmRows(
+      [buildFirm({ id: 1 })],
+      [
+        buildAuthorization({ id: 1, gasDistributionFirmId: 101, gasDistributionFirmName: 'Doğugaz' }),
+        buildAuthorization({ id: 2, gasDistributionFirmId: 102, gasDistributionFirmName: 'Çorumgaz' }),
+      ],
+    )
+
+    // Sıralama Türkçe: sunucu 'Ç'yi 'D'den sonra veriyor.
+    expect(rows[0].gasFirms.map((firm) => firm.name)).toEqual(['Çorumgaz', 'Doğugaz'])
+  })
+
+  /** Yenilenen belge aynı çift için iki satır olabiliyor (S6). */
+  it('aynı G.D. firmasının iki yetkisini tek gösterir', () => {
+    const rows = buildProjectFirmRows(
+      [buildFirm({ id: 1 })],
+      [buildAuthorization({ id: 1 }), buildAuthorization({ id: 2 })],
+    )
+
+    expect(rows[0].gasFirms).toHaveLength(1)
+  })
+
+  /** Karşılığı olmayan yetki satırı hiçbir firmaya yazılmaz, hata da vermez. */
+  it('firması listede olmayan yetkiyi yok sayar', () => {
+    const rows = buildProjectFirmRows(
+      [buildFirm({ id: 1 })],
+      [buildAuthorization({ projectFirmId: 99 })],
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].gasFirms).toEqual([])
+  })
+})
 
 /**
  * Sunucu filtresiz/sayfalamasız düz dizi döndürdüğü için bu iş istemcide.

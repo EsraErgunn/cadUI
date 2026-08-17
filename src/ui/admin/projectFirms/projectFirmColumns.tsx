@@ -1,26 +1,33 @@
 import { Link } from 'react-router-dom'
 
+import { ProjectFirmRowActions } from './ProjectFirmRowActions'
+import type { ProjectFirmGasFirm } from '../../../api/projectFirmDto'
+import type { ProjectFirmRow } from '../../../api/projectFirmListQuery'
 import type { ProjectFirm, ProjectFirmSortKey } from '../../../api/projectFirms'
 import { formatPhone, isValidPhone, toPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
+import { EmptyValue } from '../EmptyValue'
 import { gasFirmUpdatePath, projectFirmUpdatePath } from '../adminNavItems'
 import { ADMIN_CELL_LINK } from '../adminVariants'
 
 export const PROJECT_FIRM_TABLE_CAPTION =
   'Proje firmaları listesi. Firma Adı ve Yetkili başlıkları sıralamayı değiştirir.'
 
-/** Sekiz sütun dar ekrana sığmaz; bu eşiğin altında tablo yatay kayar (4.5). */
-export const PROJECT_FIRM_TABLE_MIN_WIDTH = 'min-w-280'
-
-const MISSING_VALUE_LABEL = '-'
+/** Sekiz veri sütunu + İşlemler dar ekrana sığmaz; bu eşiğin altında tablo
+    yatay kayar (4.5). Kaydırma kabı `DataTable`'da, gövde düzeyinde DEĞİL. */
+export const PROJECT_FIRM_TABLE_MIN_WIDTH = 'min-w-320'
 
 /**
  * Hücre çiziciler bilerek BİLEŞEN değil, düz fonksiyon: dosya sütun dizisini de
  * dışa aktardığı için bileşen tanımı fast refresh'i bozuyor
  * (react-refresh/only-export-components). Çıktı aynı.
+ *
+ * Boş hücre projenin ortak `EmptyValue`'suna bağlandı: buradaki yerel tire
+ * ekran okuyucuya "-" diye okunuyordu, ortak bileşen işareti `aria-hidden`
+ * yapıp yerine "Değer yok" veriyor.
  */
 function renderMissingValue() {
-  return <span className="text-ink-disabled">{MISSING_VALUE_LABEL}</span>
+  return <EmptyValue />
 }
 
 function renderPhone(value: string | null) {
@@ -49,14 +56,38 @@ function renderEmail(value: string | null) {
 }
 
 /**
+ * Bir firma birden fazla gaz dağıtım firmasında yetkili olabiliyor; hepsi ALT
+ * ALTA listeleniyor.
+ *
+ * Virgülle yan yana dizilmedi: her ad ayrı bir bağlantı hedefi ve virgülle
+ * ayrılmış bağlantılar hem gözle hem ekran okuyucuda tek bağlantıya benziyor.
+ * `<ul>` ayrıca öğe sayısını okuyucuya duyuruyor.
+ */
+function renderGasFirms(gasFirms: ProjectFirmGasFirm[]) {
+  if (gasFirms.length === 0) return renderMissingValue()
+
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {gasFirms.map((gasFirm) => (
+        <li key={gasFirm.id}>
+          <Link to={gasFirmUpdatePath(gasFirm.id)} className={ADMIN_CELL_LINK}>
+            {gasFirm.name}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
  * Sütun sırası gereksinim 4.5'ten birebir alındı.
  *
- * `Seri No`, `Yeter No`, `Gsm` ve `G.D. Firması` bugün HER SATIRDA "-" gösterir:
- * ilk üçü liste ucunda yok (ikisi yalnız detay yanıtında), sonuncusunu üreten
- * hiçbir uç yok. Sütunlar yine de duruyor ki uç genişleyince yalnız
- * `projectFirmDto.ts`'teki eşleme değişsin (bkz. o dosyadaki TODO).
+ * `Seri No`, `Yeter No` ve `Gsm` bugün HER SATIRDA "-" gösterir: ilk ve üçüncü
+ * yalnız detay yanıtında, ikincisi uçta hiç yok. Sütunlar yine de duruyor ki uç
+ * genişleyince yalnız `projectFirmDto.ts`'teki eşleme değişsin (bkz. o dosyadaki
+ * TODO). `G.D. Firması` ise artık dolu — yetki ucundan geliyor.
  */
-export const PROJECT_FIRM_COLUMNS: DataTableColumn<ProjectFirm, ProjectFirmSortKey>[] = [
+const DATA_COLUMNS: DataTableColumn<ProjectFirmRow, ProjectFirmSortKey>[] = [
   {
     key: 'serialNumber',
     label: 'Seri No',
@@ -83,16 +114,9 @@ export const PROJECT_FIRM_COLUMNS: DataTableColumn<ProjectFirm, ProjectFirmSortK
     ),
   },
   {
-    key: 'gasFirm',
+    key: 'gasFirms',
     label: 'G.D. Firması',
-    cell: (firm) =>
-      firm.gasFirm === null ? (
-        renderMissingValue()
-      ) : (
-        <Link to={gasFirmUpdatePath(firm.gasFirm.id)} className={ADMIN_CELL_LINK}>
-          {firm.gasFirm.name}
-        </Link>
-      ),
+    cell: (firm) => renderGasFirms(firm.gasFirms),
   },
   {
     key: 'authorizedPerson',
@@ -119,3 +143,39 @@ export const PROJECT_FIRM_COLUMNS: DataTableColumn<ProjectFirm, ProjectFirmSortK
     cell: (firm) => renderPhone(firm.mobilePhone),
   },
 ]
+
+interface ProjectFirmColumnsOptions {
+  /** İstek süren satır; o satırın düğmesi kilitlenir. */
+  pendingFirmId: number | null
+  /**
+   * Yazma yetkisi olmayan kullanıcıda İşlemler sütunu HİÇ çizilmez — pasif
+   * düğme göstermek, tıklayınca 403 alacak bir yol açık bırakmak olurdu.
+   * Karar yalnız GÖRÜNÜRLÜK içindir; denetim sunucuda (`useIsAdmin`).
+   */
+  canManage: boolean
+  onDelete: (firm: ProjectFirm) => void
+}
+
+export function buildProjectFirmColumns({
+  pendingFirmId,
+  canManage,
+  onDelete,
+}: ProjectFirmColumnsOptions): DataTableColumn<ProjectFirmRow, ProjectFirmSortKey>[] {
+  if (!canManage) return DATA_COLUMNS
+
+  return [
+    ...DATA_COLUMNS,
+    {
+      key: 'actions',
+      label: 'İşlemler',
+      cellClassName: 'text-right',
+      cell: (firm) => (
+        <ProjectFirmRowActions
+          firm={firm}
+          isPending={pendingFirmId === firm.id}
+          onDelete={onDelete}
+        />
+      ),
+    },
+  ]
+}

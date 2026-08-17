@@ -4,17 +4,20 @@ import { FilterSelect } from '../FilterSelect'
 import { ADMIN_FOCUS_RING } from '../adminVariants'
 
 /**
- * İki kriterin de pasif olmasının sebebi AYNI: liste satırı bu bilgilerin
- * hiçbirini taşımıyor (`GET /api/projectfirms` yalnız firma alanlarını
- * döndürüyor). Seçim uygulanabilseydi liste ilk seçimde boşalır ve kullanıcı
- * veri kaybettiğini sanardı — gaz dağıtım firmaları ekranında bölge süzgeci
- * için verilen kararın aynısı (docs/kararlar.md K27, K29).
+ * İki kutu da pasif ama sebepleri ARTIK AYNI DEĞİL, bu yüzden ipuçları da ayrı:
+ *
+ * - Yeterlilik durumu: satır bu bilgiyi taşımıyor ve veren uç yok. Seçim
+ *   uygulanabilseydi liste ilk seçimde boşalır ve kullanıcı veri kaybettiğini
+ *   sanardı (docs/kararlar.md K27, K29).
+ * - G.D. firması: veri GELDİ (yetki ucu, "G.D. Firması" sütunu dolu) ama süzgeç
+ *   henüz bağlanmadı — süzmek KK-5 satır kararına bağlı, önce o verilecek.
  *
  * Panel yine de açılıyor: gereksinim 4.3 "Filtrele tıklanınca kriter alanı
  * açılır" diyor ve kullanıcının hangi kriterlerin geleceğini görmesi, düğmenin
  * hiçbir şey yapmamasından iyi.
  */
-const DISABLED_HINT = 'Bu bilgi sunucudan gelene kadar filtre kullanılamıyor.'
+const MISSING_DATA_HINT = 'Bu bilgi sunucudan gelene kadar filtre kullanılamıyor.'
+const NOT_WIRED_HINT = 'Bu süzgeç henüz açılmadı.'
 
 const ANY_GAS_FIRM_LABEL = 'Tümü'
 const ANY_QUALIFICATION_LABEL = 'Tümü'
@@ -40,7 +43,7 @@ export function ProjectFirmFilterPanel({ onClose }: ProjectFirmFilterPanelProps)
         value={null}
         options={NO_OPTIONS}
         isDisabled
-        hint={DISABLED_HINT}
+        hint={NOT_WIRED_HINT}
         onChange={() => {}}
       />
       <FilterSelect
@@ -50,7 +53,7 @@ export function ProjectFirmFilterPanel({ onClose }: ProjectFirmFilterPanelProps)
         value={null}
         options={NO_OPTIONS}
         isDisabled
-        hint={DISABLED_HINT}
+        hint={MISSING_DATA_HINT}
         onChange={() => {}}
       />
 

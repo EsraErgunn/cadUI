@@ -4,15 +4,22 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { ProjectFirmAuthorizationRef } from '../../api/projectFirmAuthorizations'
 import { PROJECT_FIRM_PAGE_SIZE, type ProjectFirm } from '../../api/projectFirms'
 import { ProjectFirmsPage } from '../ProjectFirmsPage'
 
 const listApi = vi.hoisted(() => ({ getProjectFirmList: vi.fn() }))
+const authorizationApi = vi.hoisted(() => ({ getEffectiveAuthorizations: vi.fn() }))
 const useIsAdmin = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/projectFirms', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/projectFirms')>()),
   ...listApi,
+}))
+
+vi.mock('../../api/projectFirmAuthorizations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/projectFirmAuthorizations')>()),
+  ...authorizationApi,
 }))
 
 vi.mock('../../ui/admin/useIsAdmin', () => ({ useIsAdmin }))
@@ -25,7 +32,6 @@ function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
     serialNumber: null,
     qualificationNumber: null,
     name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
-    gasFirm: null,
     authorizedPerson: 'Ahmet Yılmaz',
     email: 'bilgi@adana.com.tr',
     phone: '05321000000',
@@ -35,8 +41,30 @@ function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
   }
 }
 
-function renderPage({ firms = [buildFirm()], isAdmin = true, route = LIST_PATH } = {}) {
+/** Sayfaya YÜRÜRLÜKTEKİ satırlar geliyor; süre süzgeci api katmanında. */
+function buildAuthorization(
+  overrides: Partial<ProjectFirmAuthorizationRef> = {},
+): ProjectFirmAuthorizationRef {
+  return {
+    id: 1,
+    projectFirmId: 1,
+    projectFirmName: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
+    gasDistributionFirmId: 101,
+    gasDistributionFirmName: 'Başkentgaz',
+    validFrom: '2026-01-01T00:00:00Z',
+    validTo: null,
+    ...overrides,
+  }
+}
+
+function renderPage({
+  firms = [buildFirm()],
+  authorizations = [] as ProjectFirmAuthorizationRef[],
+  isAdmin = true,
+  route = LIST_PATH,
+} = {}) {
   listApi.getProjectFirmList.mockResolvedValue(firms)
+  authorizationApi.getEffectiveAuthorizations.mockResolvedValue(authorizations)
   useIsAdmin.mockReturnValue(isAdmin)
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -55,6 +83,25 @@ async function findTable() {
   return screen.findByRole('table')
 }
 
+/** Belgedeki sekiz veri sütunu; "İşlemler" bunlara YETKİLİYSE eklenir. */
+const DATA_COLUMN_LABELS = [
+  'Seri No',
+  'Yeter No',
+  'Firma Adı',
+  'G.D. Firması',
+  'Yetkili',
+  'E-Mail',
+  'Telefon',
+  'Gsm',
+]
+
+async function readHeaders(): Promise<(string | undefined)[]> {
+  const table = await findTable()
+  return within(table)
+    .getAllByRole('columnheader')
+    .map((header) => header.textContent?.trim())
+}
+
 afterEach(() => {
   vi.clearAllMocks()
 })
@@ -71,22 +118,14 @@ describe('ekran açılışı', () => {
 
   it('sütunları belgedeki sırayla listeler', async () => {
     renderPage()
-    const table = await findTable()
 
-    const headers = within(table)
-      .getAllByRole('columnheader')
-      .map((header) => header.textContent?.trim())
+    expect(await readHeaders()).toEqual([...DATA_COLUMN_LABELS, 'İşlemler'])
+  })
 
-    expect(headers).toEqual([
-      'Seri No',
-      'Yeter No',
-      'Firma Adı',
-      'G.D. Firması',
-      'Yetkili',
-      'E-Mail',
-      'Telefon',
-      'Gsm',
-    ])
+  it('yetkisiz kullanıcıda İşlemler sütunu hiç çizilmez', async () => {
+    renderPage({ isAdmin: false })
+
+    expect(await readHeaders()).toEqual(DATA_COLUMN_LABELS)
   })
 
   it('arama alanı ve iki düğme sağ üstte yer alır', async () => {
@@ -147,18 +186,93 @@ describe('satır içeriği', () => {
   })
 
   /**
-   * Seri No / Yeter No / Gsm / G.D. Firması uçtan gelmiyor; hücre boş
-   * bırakılmaz, "-" gösterilir (bkz. api/projectFirmDto.ts).
+   * Seri No / Yeter No / Gsm uçtan gelmiyor; hücre boş bırakılmaz, ortak
+   * `EmptyValue` deseni çizilir (bkz. api/projectFirmDto.ts). Dördüncü hücre
+   * (G.D. Firması) burada yetkisi olmadığı için boş — alan artık uçtan geliyor.
    */
-  it('karşılığı olmayan alanlarda tire gösterir', async () => {
+  it('karşılığı olmayan alanlarda boş değer gösterir', async () => {
     renderPage()
     const table = await findTable()
 
     const cells = within(table).getAllByRole('cell')
-    expect(cells[0]).toHaveTextContent('-')
-    expect(cells[1]).toHaveTextContent('-')
-    expect(cells[3]).toHaveTextContent('-')
-    expect(cells[7]).toHaveTextContent('-')
+    for (const index of [0, 1, 3, 7]) {
+      // İşaret `aria-hidden`; ekran okuyucuya okunan karşılığı sınanıyor.
+      expect(within(cells[index]).getByText('Değer yok')).toBeInTheDocument()
+    }
+  })
+})
+
+/**
+ * G.D. firması bağı AYRI uçtan (`/api/project-firm-authorizations`) geliyor ve
+ * satır başına BİRDEN FAZLA olabiliyor.
+ */
+describe('G.D. firması sütunu', () => {
+  it('yetkili olunan firmayı güncelleme ekranına bağlar', async () => {
+    renderPage({ authorizations: [buildAuthorization()] })
+    await findTable()
+
+    expect(screen.getByRole('link', { name: 'Başkentgaz' })).toHaveAttribute(
+      'href',
+      '/admin/gas-distribution-firms/101',
+    )
+  })
+
+  it('birden fazla yetkinin firmasını alt alta listeler', async () => {
+    renderPage({
+      authorizations: [
+        buildAuthorization({ id: 1, gasDistributionFirmId: 101, gasDistributionFirmName: 'Doğugaz' }),
+        buildAuthorization({ id: 2, gasDistributionFirmId: 102, gasDistributionFirmName: 'Çorumgaz' }),
+      ],
+    })
+    const table = await findTable()
+
+    // Sıralama Türkçe: 'Ç' 'D'den ÖNCE gelmeli.
+    const names = within(within(table).getAllByRole('cell')[3])
+      .getAllByRole('listitem')
+      .map((item) => item.textContent)
+    expect(names).toEqual(['Çorumgaz', 'Doğugaz'])
+  })
+
+  it('aynı çift için yenilenmiş iki yetkiyi tek satıra indirir', async () => {
+    renderPage({
+      authorizations: [
+        buildAuthorization({ id: 1, validFrom: '2025-01-01T00:00:00Z' }),
+        buildAuthorization({ id: 2, validFrom: '2026-01-01T00:00:00Z' }),
+      ],
+    })
+    const table = await findTable()
+
+    expect(within(within(table).getAllByRole('cell')[3]).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  /** Yetkisi olmayan firma listeden DÜŞMEZ; iç birleştirme yapılsaydı düşerdi. */
+  it('yetkisi olmayan firmayı listede tutar', async () => {
+    renderPage({
+      firms: [buildFirm({ id: 1, name: 'Yetkisiz Mühendislik' })],
+      authorizations: [buildAuthorization({ projectFirmId: 99 })],
+    })
+    const table = await findTable()
+
+    expect(screen.getByText('Yetkisiz Mühendislik')).toBeInTheDocument()
+    expect(within(within(table).getAllByRole('cell')[3]).getByText('Değer yok')).toBeInTheDocument()
+  })
+
+  /** Sütun boş kalınca "hiç yetkisi yok" gibi okunur; şerit farkı söylüyor. */
+  it('bağ çekilemezse uyarı şeridi gösterir', async () => {
+    listApi.getProjectFirmList.mockResolvedValue([buildFirm()])
+    authorizationApi.getEffectiveAuthorizations.mockRejectedValue(new Error('kopuk'))
+    useIsAdmin.mockReturnValue(true)
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[LIST_PATH]}>
+          <ProjectFirmsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText(/G.D. Firması. sütunu boş görünüyor/)).toBeInTheDocument()
   })
 })
 
@@ -277,6 +391,7 @@ describe('filtre alanı', () => {
 describe('hata durumu', () => {
   it('liste yüklenemezse hata kutusu ve yeniden dene düğmesi çıkar', async () => {
     listApi.getProjectFirmList.mockRejectedValue(new Error('Sunucuya ulaşılamadı.'))
+    authorizationApi.getEffectiveAuthorizations.mockResolvedValue([])
     useIsAdmin.mockReturnValue(true)
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
