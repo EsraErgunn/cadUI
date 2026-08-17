@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { useLoginForm } from "./useLoginForm";
 import leftPipe from "../assets/images/auth/leftpipe.png";
-import panelBg from "../assets/images/auth/panel-bg.png";
+import panelBg from "../assets/images/auth/panel-bg.jpg";
 import rightPipe from "../assets/images/auth/rightpipe.png";
 
 /* 

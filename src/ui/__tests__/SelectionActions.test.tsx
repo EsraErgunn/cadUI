@@ -23,7 +23,6 @@ beforeEach(() => {
     openings: FIXTURE_OPENINGS,
     nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
-    savedRevision: 0,
   })
   useArchitectureUiStore.setState({
     selection: [{ kind: 'wall', id: DIAGONAL_WALL_ID }],

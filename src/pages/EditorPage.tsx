@@ -11,16 +11,13 @@ import { ServiceBoxDeleteDialog } from '../plumbing/ui/ServiceBoxDeleteDialog'
 import { SceneRoot } from '../scene/SceneRoot'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
-import { AxisIndicator } from '../ui/AxisIndicator'
+import { EditorSidebar } from '../ui/EditorSidebar'
 import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
-import { StatusBar } from '../ui/StatusBar'
-import { Toolbar } from '../ui/Toolbar'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
-
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
@@ -34,8 +31,8 @@ export function EditorPage() {
   const handleSave = () => void save()
 
   /**
-   * Şeritten, menüden ve klavyeden yapılan geçiş ANINDA uygulanır (madde 20);
-   * yalnız "Katlar" penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
+   * Klavyeden yapılan geçiş ANINDA uygulanır (madde 20); yalnız "Katlar"
+   * penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
    */
   const goToFloor = (direction: FloorDirection) => {
     const { floors, activeFloorId, setActiveFloor } = useCadStore.getState()
@@ -52,75 +49,85 @@ export function EditorPage() {
   })
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <MenuBar
-        onCloseEditor={closeEditor}
-        onSave={handleSave}
-        onImport={triggerImport}
-        onExport={exportProject}
-        onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
-        onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
-        onGoToFloor={goToFloor}
-        isSaving={isSaving}
-      />
+    // Sağdaki her şey TEK yüzey: üst bar ayrı bir şerit değil, aynı yüzeyin üst
+    // kenarında duran düğmeler. Bu yüzden kavis sayfanın en üstünden en altına
+    // kadar iniyor (`rounded-l-2xl`) — bara ait bir kesinti yok.
+    //
+    // Yüzey `canvas-overlay`, yani KOYU TEMADA DA BEYAZ: bu yüzeyin büyük kısmı
+    // zaten tuval ve tuval iki temada da beyaz (sceneTheme.background). Kabuk
+    // token'ı kullanılsaydı üst bar beyaz tuvalin üstünde lacivert bir şerit
+    // olurdu. Tema DEĞİŞEN parçalar solda: sol bar ve yüzen çubuk.
+    <div className="flex h-screen overflow-hidden bg-surface-sunken">
+      <EditorSidebar />
 
-      {/* Menüden tetiklenir (Dosya > İçe Aktar); görünür bir seçici yerine
-          gizli input kullanmak tarayıcının kendi dosya diyaloğunu verir. */}
-      <input
-        ref={importInputRef}
-        type="file"
-        accept="application/json"
-        className="hidden"
-        onChange={handleFileSelected}
-      />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl bg-canvas-overlay">
+        <MenuBar
+          onCloseEditor={closeEditor}
+          onSave={handleSave}
+          onImport={triggerImport}
+          onExport={exportProject}
+          isSaving={isSaving}
+        />
 
-      {error && (
-        <p
-          role="alert"
-          className="shrink-0 border-b border-edge bg-surface-sunken px-3 py-1.5 text-sm text-danger"
-        >
-          {error}
-        </p>
-      )}
+        {/* Menüden tetiklenir (Dosya > İçe Aktar); görünür bir seçici yerine
+            gizli input kullanmak tarayıcının kendi dosya diyaloğunu verir. */}
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={handleFileSelected}
+        />
 
-      {importError && (
-        <p
-          role="alert"
-          className="shrink-0 border-b border-edge bg-surface-sunken px-3 py-1.5 text-sm text-danger"
-        >
-          {importError}
-        </p>
-      )}
+        {error && (
+          <p
+            role="alert"
+            className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
+          >
+            {error}
+          </p>
+        )}
 
-      {/* min-h-0 / min-w-0 şart: flex çocukları varsayılan olarak içeriğinden
-          küçülmeyi reddeder; olmazsa canvas taşar ve durum çubuğunu ekran dışına
-          iter. Menü/palet/durum çubuğu shrink-0, kalan alanı çizim alanı doldurur.
-          relative: PropertyPanel'in absolute konumlanması buna göre. */}
-      <div className="relative flex min-h-0 flex-1">
-        <Toolbar />
+        {importError && (
+          <p
+            role="alert"
+            className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
+          >
+            {importError}
+          </p>
+        )}
 
-        <main className="relative min-w-0 flex-1">
-          <SceneRoot />
-          <OpeningToolOptions />
-          <AxisIndicator />
-          {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
-              görünümünde de var (K57); izometrikte çizilecek bir şey yok,
-              orada tuval etkileşimi de yok. */}
-          {activeViewId !== 'isometric' && <FloatingToolbar onGoToFloor={goToFloor} />}
-        </main>
+        {/* min-h-0 / min-w-0 şart: flex çocukları varsayılan olarak içeriğinden
+            küçülmeyi reddeder; olmazsa canvas taşar. relative: PropertyPanel'in
+            absolute konumlanması buna göre. */}
+        {/* Tuval soldan boşlukla içeri alınıyor: ızgara orada KESİLİYOR, cetvel
+            sayısı olmadan da çizim alanının nerede başladığı okunuyor. Üstte
+            ayrıca boşluk YOK — üst bar zaten o kesintiyi yapıyor. */}
+        <div className="relative flex min-h-0 flex-1 pl-3">
+          <main className="relative min-w-0 flex-1 overflow-hidden">
+            <SceneRoot />
+            <OpeningToolOptions />
+            {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
+                görünümünde de var (K57); izometrikte çizilecek bir şey yok,
+                orada tuval etkileşimi de yok. */}
+            {activeViewId !== 'isometric' && (
+              <FloatingToolbar
+                onGoToFloor={goToFloor}
+                onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
+                onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
+              />
+            )}
+          </main>
 
-        {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
-            kayarak açılır/kapanır, satırın altında konumlanır. İki panel ayrı
-            seçim store'una abone (mimari/tesisat), bu yüzden görünüme göre
-            İKİSİNDEN BİRİ render edilir, tek panelde birleştirilmez. */}
-        {activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />}
+          {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
+              kayarak açılır/kapanır. İki panel ayrı seçim store'una abone
+              (mimari/tesisat), bu yüzden görünüme göre İKİSİNDEN BİRİ render
+              edilir, tek panelde birleştirilmez. */}
+          {activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />}
+        </div>
       </div>
 
-      <StatusBar />
-
-      {isFloorDialogOpen && (
-        <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />
-      )}
+      {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
 

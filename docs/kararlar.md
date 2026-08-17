@@ -4585,3 +4585,142 @@ sütunu tümüyle kalksın" → listeden silme yeteneği kaybolur.
 Karar S1/S2 netleşince yeniden değerlendirilecek; analiste sorulacak soru
 docs/api-eksikleri-proje-firmalari.md **S7**: satırlar yetki bazlı olursa yetki
 başına hangi eylemler sunulacak?
+
+## 2026-08 · Editör kabuğunun yeniden kurulması
+
+### K90 — Üst bar proje düzeyine daraldı, kip ayarları tuvale indi
+
+Menü çubuğunda yalnız **Dosya** ve **Araçlar** kaldı. Düzenle / Görünüm /
+Katlar KALKTI; taşıdıkları her şeyin tuvalde zaten bir karşılığı vardı:
+geri al-yinele ve görünüm anahtarları yüzen çubukta (K54/K56), kat geçişi kat
+seçicide (K55). Kalan tek madde "Kayıt Geçmişi"ydi, o da sağdaki eylem öbeğine
+kendi düğmesi olarak geçti — Kaydet'in açılırı DEĞİL, çünkü kayıt geçmişine
+bakmak kaydetmenin bir çeşidi değil.
+
+Sebep mesafe: kullanıcı çizerken eli tuvalin altında, ölçüleri açmak ya da kat
+değiştirmek için ekranın tepesine çıkıp geri dönmesi gerekiyordu. Aynı ayarın
+iki yerde durması da (menü + çubuk) hangisinin "asıl" olduğunu belirsiz
+bırakıyordu (K83'ün seçim aracı için verdiği kararın aynısı).
+
+Alt **durum çubuğu kaldırıldı** (`ui/StatusBar.tsx` silindi): üç alanının
+üçünün de karşılığı ekranda duruyor — aktif araç palette vurgulu, kat seçicide
+yazılı, görünüm sahne pilinde işaretli. Sol alttaki **X/Y eksen göstergesi** de
+kaldırıldı (`ui/AxisIndicator.tsx`). Menü çubuğunun ortasındaki üç pasif ikon
+(`menu/ShortcutButtons.tsx`) yerini Test Et / Gönder'e bıraktı.
+
+**Test Et, Gönder, Hata Kontrolleri ve Kayıt Geçmişi görünür ama PASİF.**
+Arkalarında akış yok — `core/validate.ts` bugün boş dosya. K79'un palet
+dürüstlüğü kuralı: düğme "bozuk" değil "henüz yok" demeli. "Hata Kontrolleri"
+bağımsız bir eylem değil, Test Et'in SONUCUNU gösterecek yer; doğrulama hattı
+bağlanınca sonuç varken görünen bir rozete dönüşecek. Yer tutucu bir "0 hata"
+yazılmadı — çalıştırılmamış bir kontrolü geçmiş gibi gösterirdi.
+
+### K91 — Kabuk iki yüzeye ayrıldı: tema değişeni ve HEP BEYAZ olanı
+
+Üst bar ve tuval TEK yüzey; sol bar ve tuvalin çevresindeki boşluk ayrı zemin.
+Yüzeyler arasındaki geçiş kavisle (`rounded-l-2xl`, sayfanın en üstünden en
+altına) veriliyor — üst barın kendi dolgusu ve kenarlığı yok, "bar" diye ayrı
+bir şerit okunmuyor.
+
+Kritik kısım: **üst bar koyu temada da BEYAZ kalır.** Kullandığı token ailesi
+`canvas-overlay`, kabuğun `surface`/`ink`'i değil. Gerekçe zaten o ailenin
+tanımında yazılıydı — tuvalin üstünde duran DOM parçaları koyu temada dönmez,
+çünkü tuvalin kendisi de dönmüyor (`sceneTheme.background` iki temada da beyaz).
+Üst bar da o yüzeyin üstünde. Kabuk token'ı kullanılsaydı beyaz tuvalin üstünde
+lacivert bir şerit kalırdı.
+
+Aile beyaz zeminde okunacak dört token'la genişledi (`index.css`, hepsi açık
+tema değerleri ve `.dark` karşılığı YOK): `canvas-overlay-ink-strong`,
+`-ink-muted`, `-success`, `-danger`.
+
+⚠️ **`chromeButtonVariants` bu iş için DEĞİŞTİRİLMEDİ.** Üst barın kendi
+varyantları ayrı dosyada (`ui/menu/editorBarVariants.ts`). Önce ortak varyanta
+`card`/`success` tonları eklenmişti; o varyantı kat pencereleri, silme onayı ve
+kopyalama listesi de kullanıyor ve onlar koyu temada KOYU kalmalı — beyaz
+zemine göre ayarlanmış renkler oraya sızıyordu. Kabuk üstünde duran bir düğme
+ile tuval üstünde duran bir düğme aynı varyantı paylaşamaz.
+
+⚠️ **cva sınıfları ÇAKIŞTIRMAZ.** Taban ile ton aynı `disabled:` rengini
+verirse hangisinin kazandığı Tailwind'in stil sırasına kalır, sınıf sırasına
+değil. Bu yüzden pasif metin rengi tabandan tonların içine alındı; aynı gerekçe
+`EDITOR_BAR_PANEL`'in köşe yarıçapı taşımamasının da sebebi (çağıran kendi
+`rounded-*`'ını verir).
+
+Tema DEĞİŞMEYE devam eden yerler: sol bar, yüzen çubuk ve tüm pencereler.
+Sol barın "açık temada bile lacivert" durması DENENDİ ve geri alındı (kullanıcı
+kararı) — bugün zemin token'ını izliyor.
+
+### K92 — Kat yönetimi ve kopyalama, çubuktaki kat açılırının altına indi
+
+"Katlar" menüsü kalkınca bu iki pencerenin tek girişi kat seçici oldu: liste,
+ayraç, sonra `Kat Yönetimi (Ctrl+K)` ve `Kat Kopyalama (Ctrl+Shift+K)`.
+Yukarısı "hangi kattayım", aşağısı "katları değiştir".
+
+Düğme artık aktif katın adını değil `Katlar <sayı>` yazıyor (kalkan menünün
+rozeti de buraya geldi); aktif kat açılırın içinde işaretli. Erişilebilir ad
+ikisini birden söyler ("Katlar, aktif kat Zemin Kat") — görünen metin artık
+aktif katı söylemediği için ekran okuyucu kullanıcısı onu kaybederdi.
+
+↓/↑ okları bir tur KALDIRILDI, sonra GERİ KONDU (kullanıcı kararı): komşu kata
+geçmek çizerken en sık yapılan hareket ve açılır açıp madde seçmek onun yanında
+üç adım. Açılır uzak kata atlamak, boş katı görmek ve pencereleri açmak için.
+
+### K93 — İki özellik paneli tuvalin üstünde YÜZEN KART, kabuk ortak
+
+Paneller ekranın sağ kenarına yapışan tam boy şeritti. Üst barın şerit
+görünümü kalkınca o blok kabuğun neresine ait olduğu okunmayan bir yama hâline
+geldi. Artık üç kenardan paylı, kavisli, kenarlıklı ve gölgeli bir kart —
+yüzen çubukla (K54) aynı aile.
+
+⚠️ Kaydırma animasyonu panelin KENDİSİNDE değil bir sarmalayıcıda: kenar
+boşluğu sarmalayıcıda olduğu için `translate-x-full` paneli boşlukla birlikte
+götürüyor. Boşluk panelin üstünde olsaydı kapalıyken kenardan boşluk kadar bir
+şerit sızardı.
+
+Kabuk **paylaşıldı**: `ui/properties/PropertyPanelShell.tsx`. Mimari ve tesisat
+panelleri ayrı bileşen kalmaya devam ediyor (seçim store'ları ayrı, K37) ama
+ayrışmaması gereken şey görünümdü ve iki kopya hâlinde duruyordu — dosya
+yorumunda "AYNI iskelet" yazdığı hâlde. Ortak kabuk: kaydırma, `aria-hidden` +
+`inert`, kavis/kenarlık/gölge, başlık ve Sil düğmesi. Mimarinin grup dönüşümü
+eylemleri `actions` prop'undan giriyor.
+
+Paneller koyu temada KOYU kalıyor (K91'in tema değişen tarafı): içlerindeki
+form bileşenlerinin tamamı kabuk token'larına bağlı, beyaza çevirmek onları da
+yeniden boyamak demek. Yüzen çubuk ve sol barla tutarlı.
+
+## 2026-08 · Kirli işaretinin hesabı
+
+### K94 — Kirli işareti sayaçtan değil İÇERİKTEN hesaplanıyor
+
+`selectIsProjectDirty` artık `revision !== savedRevision` demiyor; kaydetme/
+yükleme anında alınan içerik anlık görüntüsüyle (`store/persistedContent.ts`)
+bugünkü diziler karşılaştırılıyor. `savedRevision` alanı düştü.
+
+Sebep: `revision` yalnız ileri gider ve geri alma onu düşürmez (K71, bilinçli).
+Çizip Ctrl+Z yapan kullanıcının çizimi kaydedilenle birebir aynı oluyor ama
+sayaçlar farklı kaldığı için kaydetme uyarısı alıyordu. K71'in notu bunu bilinen
+bir bedel olarak yazmıştı ("fazladan uyarı, kaybolan işten iyidir"); bedel
+gereksizmiş — sayacı geçmişe sokmadan da doğru hesap yapılabiliyor.
+
+Karşılaştırma SIĞ referans karşılaştırması: immer dokunulmayan diziyi aynı
+referansla bırakıyor, zundo geri alırken kaydettiği referansları geri koyuyor.
+Yani "çiz + geri al" sonrasında diziler kaydetme anındaki referanslara döner.
+
+Anlık görüntü MİMARİ + TESİSAT dizilerinin hepsini taşır. Yalnız mimari
+geçmişinin izlediği alt küme (`history.ts`) kullanılsaydı K71'in asıl korkusu
+gerçekleşirdi: mimaride Ctrl+Z yapmak kaydedilmemiş tesisat işini "temiz"
+gösterirdi.
+
+`nextUniqueId` ve `activeFloorId` JSON'a giriyor ama anlık görüntüde YOK: biri
+sayaç (geri alınan nesnenin id'si zaten kullanımda değil), diğeri hangi kata
+BAKILDIĞI. İkisi de dahil edilseydi ekranda hiçbir şey değişmeden uyarı çıkardı.
+
+`markDirty`/`revision` DURUYOR, anlamı daraldı: "bir action gerçekten yazdı".
+Reddedilen işlemler (K13 geçersiz taşıma, sığmayan yerleştirme) onu artırmıyor
+ve testler reddedilmeyi bu şekilde sınıyor — 101 çağrıyı sökmek için sebep yok.
+
+⚠️ Anlık görüntü immer producer'ının DIŞINDAN alınmalı. İçeriden `draft.walls`
+okunursa bir draft proxy'si gelir; producer bitince state'e yazılan gerçek dizi
+başka bir referans olur ve karşılaştırma HER ZAMAN "kirli" der. `loadProject`
+bu yüzden gelen `data`dan alıyor (aynı referanslar state'e yazılıyor),
+`markSaved` ise `getState()`ten.

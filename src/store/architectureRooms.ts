@@ -1,5 +1,6 @@
 // cadStore ↔ store dosyaları karşılıklı import eder; bu taraf tip-only (K17).
 import type { CadState } from './cadStore'
+import { toPlainSnapshot } from './draftSnapshot'
 import { takeNextId } from './projectMeta'
 import { DEFAULT_ROOM_NAME, type Id, type Room } from '../core/model'
 import { findRoomFaces } from '../core/room'
@@ -33,7 +34,14 @@ export function recomputeRoomsInDraft(draft: CadState): boolean {
   const otherFloorRooms = draft.rooms.filter((room) => !isRoomOnFloor(room, wallIdsOnFloor))
   const floorRooms = draft.rooms.filter((room) => isRoomOnFloor(room, wallIdsOnFloor))
 
-  const faces = findRoomFaces(draft.walls, draft.points, draft.activeFloorId)
+  // Yüz taraması graf gezintisi: kavşak kurup her kavşakta açı sıralıyor, yani
+  // duvar/nokta özelliklerini defalarca okuyor — draft'ta her okuma proxy'den
+  // geçerdi (bkz. draftSnapshot.ts).
+  const faces = findRoomFaces(
+    toPlainSnapshot(draft.walls),
+    toPlainSnapshot(draft.points),
+    draft.activeFloorId,
+  )
   const { rooms, removedRoomIds, createdCount } = reconcileRooms(
     faces,
     floorRooms,

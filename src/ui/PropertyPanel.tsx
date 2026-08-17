@@ -1,10 +1,10 @@
-import { Trash2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { AreaObjectProperties } from './properties/AreaObjectProperties'
 import { BeamProperties } from './properties/BeamProperties'
 import { OpeningProperties } from './properties/OpeningProperties'
 import { PointSymbolProperties } from './properties/PointSymbolProperties'
+import { PropertyPanelShell } from './properties/PropertyPanelShell'
 import { SelectionActions } from './properties/SelectionActions'
 import { WallProperties } from './properties/WallProperties'
 import { AREA_OBJECT_TYPE_LABELS } from '../core/areaObject'
@@ -89,54 +89,31 @@ export function PropertyPanel() {
   }
 
   return (
-    <aside
-      aria-label="Nesne özellikleri"
-      aria-hidden={!isOpen}
-      inert={!isOpen ? true : undefined}
-      className={`absolute inset-y-0 right-0 z-10 flex w-64 shrink-0 flex-col border-l border-edge bg-surface shadow-lg transition-transform duration-200 ease-out ${
-        isOpen ? 'translate-x-0' : 'pointer-events-none translate-x-full'
-      }`}
+    <PropertyPanelShell
+      label="Nesne özellikleri"
+      isOpen={isOpen}
+      onDelete={handleDelete}
+      actions={<SelectionActions />}
+      title={getPropertyPanelTitle(
+        kind,
+        selection.length,
+        soleOpening?.type === 'door',
+        soleSymbolLabel ? `${SYMBOL_TYPE_LABELS[soleSymbolLabel]} Özellikleri` : '',
+        soleAreaObjectLabel ? `${AREA_OBJECT_TYPE_LABELS[soleAreaObjectLabel]} Özellikleri` : '',
+      )}
     >
-      {/* Başlık artık DÜĞME değil: içeriği katlayan ok kaldırıldı (K53).
-          Panel zaten seçim varken açılıp seçim bitince kapanıyor, ikinci bir
-          aç/kapa durumu kullanıcıya iki farklı "kapalı" hâli öğretiyordu. */}
-      <h2 className="shrink-0 border-b border-edge px-3 py-2 text-sm font-semibold text-ink">
-        {getPropertyPanelTitle(
-          kind,
-          selection.length,
-          soleOpening?.type === 'door',
-          soleSymbolLabel ? `${SYMBOL_TYPE_LABELS[soleSymbolLabel]} Özellikleri` : '',
-          soleAreaObjectLabel ? `${AREA_OBJECT_TYPE_LABELS[soleAreaObjectLabel]} Özellikleri` : '',
-        )}
-      </h2>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {kind === 'wall' && <WallProperties wallIds={wallIds} />}
-        {kind === 'opening' && <OpeningProperties openingIds={openingIds} />}
-        {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
-        {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
-        {kind === 'beam' && <BeamProperties beamIds={beamIds} />}
-        {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
-            genişliği aynı şey değil. Silme yine de çalışır. */}
-        {kind === 'mixed' && (
-          <p className="py-1 text-xs text-ink-muted">
-            Farklı türde nesneler seçili; ortak düzenlenebilir alan yok.
-          </p>
-        )}
-      </div>
-
-      <SelectionActions />
-
-      <div className="shrink-0 border-t border-edge px-3 py-2">
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md text-sm text-danger hover:bg-danger/10"
-        >
-          <Trash2 size={16} strokeWidth={1.8} aria-hidden />
-          Sil
-        </button>
-      </div>
-    </aside>
+      {kind === 'wall' && <WallProperties wallIds={wallIds} />}
+      {kind === 'opening' && <OpeningProperties openingIds={openingIds} />}
+      {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
+      {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
+      {kind === 'beam' && <BeamProperties beamIds={beamIds} />}
+      {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
+          genişliği aynı şey değil. Silme yine de çalışır. */}
+      {kind === 'mixed' && (
+        <p className="py-1 text-xs text-ink-muted">
+          Farklı türde nesneler seçili; ortak düzenlenebilir alan yok.
+        </p>
+      )}
+    </PropertyPanelShell>
   )
 }

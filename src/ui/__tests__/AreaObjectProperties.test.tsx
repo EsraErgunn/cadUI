@@ -24,7 +24,6 @@ beforeEach(() => {
     areaObjects: [],
     nextUniqueId: 100,
     revision: 0,
-    savedRevision: 0,
   })
   useArchitectureUiStore.setState({ selection: [] })
 })

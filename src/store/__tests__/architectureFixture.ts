@@ -59,6 +59,9 @@ export function resetArchitectureState(): void {
     rooms: [],
     nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
-    savedRevision: 0,
   })
+  // Sahne "kaydedilmiş başlangıç" sayılır: kirlilik artık içerik anlık
+  // görüntüsüne bakıyor (store/persistedContent.ts) ve tazelenmezse fixture'ın
+  // yazdığı diziler kaydedilenden farklı kalır, her test kirli başlardı.
+  useCadStore.getState().markSaved()
 }

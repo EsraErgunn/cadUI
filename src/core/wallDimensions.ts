@@ -4,10 +4,11 @@ import { getOpeningsOnWall, getOpeningSpan } from './opening'
 import { findRoomFaces } from './room'
 import { getRoomLabelAnchor } from './roomLabel'
 import {
+  buildPointIndex,
   getNeighbourThicknessCm,
   getSegmentAngleDeg,
   getSegmentLength,
-  getWallEnds,
+  getWallEndsFrom,
 } from './wall'
 
 /** Bu boyun altındaki parçaya ölçü yazılmaz: yazı parçadan uzun olurdu. */
@@ -182,6 +183,8 @@ export function getWallDimensionAnnotations(
   options: WallDimensionOptions,
 ): WallDimensionAnnotation[] {
   const annotations: WallDimensionAnnotation[] = []
+  // Duvar döngüsü uç çözüyor; havuzu duvar başına taramak O(N·P) ederdi.
+  const pointIndex = buildPointIndex(points)
 
   for (const wall of walls) {
     if (wall.floorId !== options.activeFloorId) continue
@@ -192,7 +195,7 @@ export function getWallDimensionAnnotations(
       options.isWallVisible !== false && (!options.wallIds || options.wallIds.includes(wall.id))
     if (!isWallPartVisible && options.isOpeningVisible === false) continue
 
-    const ends = getWallEnds(wall, points)
+    const ends = getWallEndsFrom(wall, pointIndex)
     if (!ends) continue
 
     const lengthCm = getSegmentLength(ends.p1, ends.p2)

@@ -18,7 +18,6 @@ function resetState(): void {
     openings: FIXTURE_OPENINGS,
     nextUniqueId: FIXTURE_NEXT_FREE_ID,
     revision: 0,
-    savedRevision: 0,
   })
   useCadStore.temporal.getState().clear()
 }

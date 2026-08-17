@@ -1,6 +1,6 @@
 import { cva } from 'class-variance-authority'
 
-/** Menü çubuğundaki başlık/ikon/görünüm butonları. */
+/** Kabuk (pencere, kat listesi) içindeki başlık/ikon butonları. */
 export const chromeButtonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 rounded-md text-sm transition-colors ' +
     'disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent',

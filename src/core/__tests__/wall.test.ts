@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Point, Wall } from '../model'
 import {
+  buildPointIndex,
   getOrphanPointIds,
   getPlacementRange,
   getSegmentAngleDeg,
@@ -120,6 +121,36 @@ describe('getOrphanPointIds', () => {
 
   it('duvar kalmayınca tüm noktalar sahipsizdir', () => {
     expect(getOrphanPointIds(points, [])).toEqual([1, 2, 3])
+  })
+})
+
+/**
+ * İndeks çağrı başına kurulur, modül seviyesinde ÖNBELLEKLENMEZ: immer draft'ı
+ * yerinde değişen bir dizidir, referansa bağlı bir önbellek üretici ortasında
+ * bayatlar ve yeni eklenen nokta kaybolur (duvar bölme tam bundan kırılmıştı).
+ * Bu blok o sözleşmeyi sabitliyor.
+ */
+describe('buildPointIndex', () => {
+  it('id ile noktayı çözer', () => {
+    expect(buildPointIndex(points).get(2)).toEqual({ id: 2, floorId: FLOOR_ID, x: 400, y: 0 })
+  })
+
+  it('olmayan id için undefined döner', () => {
+    expect(buildPointIndex(points).get(404)).toBeUndefined()
+  })
+
+  it('boş havuzda boş indeks verir', () => {
+    expect(buildPointIndex([]).size).toBe(0)
+  })
+
+  it('dizi sonradan büyüyünce YENİ indeks yeni noktayı görür', () => {
+    const pool = [makePoint(1, 0, 0)]
+    const before = buildPointIndex(pool)
+
+    pool.push(makePoint(2, 50, 50))
+
+    expect(before.get(2)).toBeUndefined()
+    expect(buildPointIndex(pool).get(2)).toEqual({ id: 2, floorId: FLOOR_ID, x: 50, y: 50 })
   })
 })
 

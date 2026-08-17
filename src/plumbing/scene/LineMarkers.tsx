@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { CircleGeometry, DoubleSide, MeshBasicMaterial, PlaneGeometry, RingGeometry } from 'three'
 
 import { LINE_ELEVATION_CM, LINE_END_MARKER_LIFT_CM } from './plumbingLayers'
@@ -39,12 +39,14 @@ const FREE_MARKER_SCALE = 0.9
 const CORNER_MARKER_SCALE = 1.15
 
 /**
- * Renk çaptan geldiği için material instance başına üretilir; geometri
- * paylaşılıyor ve mount başına dispose gerektirmiyor (React unmount'ta
- * material'i R3F bırakır).
+ * Renk çaptan geldiği için material instance başına üretilir; geometri paylaşılıyor.
+ *
+ * Dispose ELLE yapılmak zorunda: R3F yalnız JSX ile kendi kurduğu nesneleri
+ * bırakır, `material={...}` prop'u olarak verileni bırakmaz. Aksi hâlde her
+ * işaret mount'unda ve her renk değişiminde bir material sızar.
  */
 function useMarkerMaterial(colorHex: string) {
-  return useMemo(
+  const material = useMemo(
     () =>
       new MeshBasicMaterial({
         color: colorHex,
@@ -55,6 +57,10 @@ function useMarkerMaterial(colorHex: string) {
       }),
     [colorHex],
   )
+
+  useEffect(() => () => material.dispose(), [material])
+
+  return material
 }
 
 type LineEndMarkerProps = {

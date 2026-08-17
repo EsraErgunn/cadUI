@@ -21,7 +21,6 @@ beforeEach(() => {
     installationElements: [],
     nextUniqueId: 200,
     revision: 0,
-    savedRevision: 0,
   })
   useCadStore.temporal.getState().clear()
 })

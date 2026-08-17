@@ -29,6 +29,29 @@ export type PlacementRange = {
   maxOffsetCm: number
 }
 
+/** Nokta havuzunun id → Point indeksi. */
+export type PointIndex = ReadonlyMap<Id, Point>
+
+/**
+ * Havuzu id'ye göre indeksler.
+ *
+ * Neden gerekti: `points.find()` O(P) tarama yapıyor ve sıcak yollarda duvar
+ * ÇİFTİ başına çağrılıyordu (`getSnapPoints` iç içe iki duvar döngüsü,
+ * `findWallSplits` aynısı) — toplam O(N²·P). 40 duvar / 60 noktalık planda tek
+ * fare hareketinde ~190 bin dizi adımı ediyordu.
+ *
+ * İndeks ÇAĞRI BAŞINA kurulur, modül seviyesinde önbelleklenmez: immer draft'ı
+ * bir dizidir ve üretici içinde YERİNDE değişir (`draft.points.push(...)`),
+ * yani dizi referansı aynı kalırken içerik değişebilir. Referansa göre
+ * önbelleklenen bir indeks o anda bayatlar ve yeni eklenen nokta `undefined`
+ * döner — duvar bölme tam olarak bu yüzden kırılmıştı.
+ */
+export function buildPointIndex(points: readonly Point[]): PointIndex {
+  const index = new Map<Id, Point>()
+  for (const point of points) index.set(point.id, point)
+  return index
+}
+
 function findPoint(points: readonly Point[], pointId: Id): Point | undefined {
   return points.find((point) => point.id === pointId)
 }
@@ -53,6 +76,14 @@ export function getSegmentAngleDeg(a: PlanPoint, b: PlanPoint): number {
 export function getWallEnds(wall: Wall, points: readonly Point[]): WallEnds | undefined {
   const p1 = findPoint(points, wall.p1Id)
   const p2 = findPoint(points, wall.p2Id)
+  if (!p1 || !p2) return undefined
+  return { p1: { x: p1.x, y: p1.y }, p2: { x: p2.x, y: p2.y } }
+}
+
+/** `getWallEnds`'in indeksli hâli; duvar döngüsü içinde çağrılan yerler bunu kullanır. */
+export function getWallEndsFrom(wall: Wall, pointIndex: PointIndex): WallEnds | undefined {
+  const p1 = pointIndex.get(wall.p1Id)
+  const p2 = pointIndex.get(wall.p2Id)
   if (!p1 || !p2) return undefined
   return { p1: { x: p1.x, y: p1.y }, p2: { x: p2.x, y: p2.y } }
 }
@@ -142,7 +173,20 @@ export function getSnapPoints(
   points: readonly Point[],
   walls: readonly Wall[],
 ): PlanPoint[] {
-  const ends = getWallEnds(wall, points)
+  return getSnapPointsFrom(wall, buildPointIndex(points), walls)
+}
+
+/**
+ * `getSnapPoints`'in indeksli hâli. Duvar döngüsü içinden çağrılan yerler
+ * indeksi BİR kez kurup bunu çağırır: aksi hâlde iç döngüdeki uç çözümü havuzu
+ * baştan tarar ve maliyet O(N²·P) olur.
+ */
+export function getSnapPointsFrom(
+  wall: Wall,
+  pointIndex: PointIndex,
+  walls: readonly Wall[],
+): PlanPoint[] {
+  const ends = getWallEndsFrom(wall, pointIndex)
   if (!ends) return []
 
   const result: PlanPoint[] = [ends.p1, ends.p2, getSegmentMidpoint(ends.p1, ends.p2)]
@@ -150,7 +194,7 @@ export function getSnapPoints(
   for (const other of walls) {
     if (other.id === wall.id || other.floorId !== wall.floorId) continue
 
-    const otherEnds = getWallEnds(other, points)
+    const otherEnds = getWallEndsFrom(other, pointIndex)
     if (!otherEnds) continue
 
     const intersection = getSegmentIntersection(ends.p1, ends.p2, otherEnds.p1, otherEnds.p2)
@@ -251,7 +295,7 @@ export function getPointMoveImpact(
   const segments = movingWalls.flatMap((wall): MovedWallSegment[] => {
     const isMovingP1 = wall.p1Id === pointId
     const otherPointId = isMovingP1 ? wall.p2Id : wall.p1Id
-    const otherPoint = points.find((point) => point.id === otherPointId)
+    const otherPoint = findPoint(points, otherPointId)
     if (!otherPoint) return []
 
     // Uçlar duvarın p1 → p2 sırasında yazılır (taşınan uç hangisiyse oraya):

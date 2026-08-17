@@ -16,6 +16,7 @@ const emptyProject: ProjectData = {
   symbols: [],
   areaObjects: [],
   beams: [],
+  texts: [],
   installationElements: [],
   installationLines: [],
   installationConnections: [],

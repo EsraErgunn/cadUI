@@ -1,5 +1,6 @@
 // cadStore ↔ store dosyaları karşılıklı import eder; bu taraf tip-only (K17).
 import type { CadState } from './cadStore'
+import { toPlainSnapshot } from './draftSnapshot'
 import { takeNextId } from './projectMeta'
 import type { Id, Opening, Wall } from '../core/model'
 import { getOpeningSpan } from '../core/opening'
@@ -117,7 +118,13 @@ function splitWall(
  * hareketi projeyi kirletmesin.
  */
 export function splitWallsAtIntersections(draft: CadState): boolean {
-  const splits = findWallSplits(draft.walls, draft.points, draft.activeFloorId)
+  // Arama duvar ÇİFTİ başına özellik okuyor (O(N²)); draft'ta her okuma immer
+  // proxy'sinden geçerdi (bkz. draftSnapshot.ts).
+  const splits = findWallSplits(
+    toPlainSnapshot(draft.walls),
+    toPlainSnapshot(draft.points),
+    draft.activeFloorId,
+  )
   // Split yoksa da örtüşme temizliği HÂLÂ gerekebilir: duplicate önceki bir
   // çağrıda doğmuş olabilir ve o T birleşimleri artık paylaşılan düğümde
   // olduğu için bu turda `findWallSplits` hiçbir yeni split görmez.

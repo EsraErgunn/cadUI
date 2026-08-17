@@ -9,10 +9,30 @@ toplu mu yazıldığındadır.
 **Panel çizim alanının ÜSTÜNE biner, sağdan kayarak açılır/kapanır (K37).**
 Eskiden (KK-12) EditorPage'de çizim alanının KARDEŞİYDİ — açılınca tuvali
 daraltıyordu; kullanıcı geri bildirimiyle bu terk edildi, çünkü seçim
-yapıldıkça canvas'ın kayması rahatsız ediciydi. `PropertyPanel.tsx`'in dış
-kabuğu artık `EditorPage.tsx`'teki `relative` satırın altında `absolute
-inset-y-0 right-0`, `translate-x-full` ↔ `translate-x-0` ile kayıyor
-(`transition-transform`).
+yapıldıkça canvas'ın kayması rahatsız ediciydi. Dış kabuk `EditorPage.tsx`'teki
+`relative` satırın altında `absolute inset-y-0 right-0`, `translate-x-full` ↔
+`translate-x-0` ile kayıyor (`transition-transform`).
+
+**Kabuk PAYLAŞILIYOR: `ui/properties/PropertyPanelShell.tsx` (K93).** Mimari ve
+tesisat panelleri ayrı bileşen (seçim store'ları ayrı) ama görünüm ve K37
+davranışı tek yerde — iki kopya hâlindeyken dosya yorumunda "AYNI iskelet"
+yazdığı hâlde sessizce ayrışıyorlardı. Kabuğun verdikleri: kaydırma,
+`aria-hidden` + `inert`, kavis/kenarlık/gölge, başlık, Sil düğmesi. Mimarinin
+grup dönüşümü eylemleri `actions` prop'undan giriyor.
+
+**Panel artık tam boy ŞERİT değil, YÜZEN KART (K93):** üç kenardan 16px paylı,
+`rounded-2xl`, kenarlıklı + gölgeli — yüzen çubukla (K54) aynı aile. Üst barın
+şerit görünümü kalkınca (K90) sağ kenara yapışan blok kabuğun neresine ait
+olduğu okunmayan bir yama hâline gelmişti.
+
+⚠️ **Kaydırma panelin KENDİSİNDE değil bir SARMALAYICIDA.** Kenar boşluğu
+sarmalayıcıda olduğu için `translate-x-full` paneli boşlukla birlikte götürür.
+Boşluk panelin üstünde olsaydı kapalıyken kenardan boşluk kadar bir şerit
+sızardı.
+
+Panel koyu temada KOYU kalır (`surface`): içindeki form bileşenlerinin tamamı
+kabuk token'larına bağlı. Üst bar beyaz kalıyor ama o ayrı yüzey — bkz.
+[editor-shell](./editor-shell.md).
 
 **Aç/kapa oku YOK, başlık düğme DEĞİL (K53).** Başlık içeriği katlayan bir
 düğmeydi; kaldırıldı, artık düz `<h2>`. Panel zaten seçim varken açılıp seçim
@@ -23,8 +43,8 @@ hâli öğretiyordu. Testler başlığı `getByRole('heading')` ile sorgular.
 paneli ayrıca gizleyerek değil: panel seçimin saf türevi, "kapalı ama seçim
 duruyor" ikinci bir doğruluk kaynağı olurdu. ⚠️ Önceki görünüm bir ref'te
 tutulur; yalnız bağımlılık dizisine güvenen effect MOUNT anında da seçimi siler
-(ilk yazımda öyleydi, mevcut testler yakaladı). Tesisatta ayrı bir panel YOK,
-eklenirse aynı kural oraya da yazılmalı.
+(ilk yazımda öyleydi, mevcut testler yakaladı). Tesisat panelinde de aynı kural
+yazılı (`PlumbingPropertyPanel`, kendi store'uyla).
 
 **Seçim yokken de DOM'da kalır ama erişilemez.** Animasyonun oynayabilmesi
 için `kind === 'none'` artık `return null` DEMİYOR — `aria-hidden` +

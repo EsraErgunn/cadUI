@@ -1,3 +1,4 @@
+import { ChevronDown, Copy, Layers, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { canvasBarButtonVariants, canvasBarMenuItemVariants } from './canvasBarVariants'
@@ -30,7 +31,12 @@ function EmptyRing() {
  * Sıra ALTTAN ÜSTE, yani store dizisinin kendi sırası — şeritte de öyleydi.
  * ("Katlar" penceresi listeyi ters çevirir: orada bina kesitten okunuyor.)
  */
-export function FloorSelect() {
+type FloorSelectProps = {
+  onOpenFloorManagement: () => void
+  onOpenFloorCopy: () => void
+}
+
+export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSelectProps) {
   const floors = useCadStore((state) => state.floors)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const setActiveFloor = useCadStore((state) => state.setActiveFloor)
@@ -61,17 +67,28 @@ export function FloorSelect() {
   const isEmpty = (floorId: Id) => isFloorContentEmpty(getFloorContent(contentSource, floorId))
   const activeFloorName = floors.find((floor) => floor.id === activeFloorId)?.name ?? ''
 
+  const openDialog = (open: () => void) => {
+    setIsOpen(false)
+    open()
+  }
+
   return (
     <div ref={containerRef} className="relative">
+      {/* Etiket "Katlar" + kat SAYISI; aktif katın adı açılırın içinde işaretli
+          duruyor. Kalkan "Katlar" menüsündeki rozet de buraya geldi. */}
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        title="Kat seç"
-        className={`${canvasBarButtonVariants({ shape: 'label', tone: isOpen ? 'active' : 'plain' })} min-w-24 justify-center text-xs font-medium`}
+        title={`Katlar — aktif: ${activeFloorName}`}
+        aria-label={`Katlar, aktif kat ${activeFloorName}`}
+        className={canvasBarButtonVariants({ shape: 'label', tone: isOpen ? 'active' : 'plain' })}
       >
-        <span aria-live="polite">{activeFloorName}</span>
+        <Layers size={16} strokeWidth={1.8} aria-hidden />
+        Katlar
+        <span className="text-xs font-semibold text-ink-disabled">{floors.length}</span>
+        <ChevronDown size={14} strokeWidth={2} aria-hidden />
       </button>
 
       {isOpen && (
@@ -102,6 +119,31 @@ export function FloorSelect() {
               </button>
             )
           })}
+
+          {/* Kat YÖNETİMİ listenin altında, ayraçla: yukarısı "hangi kattayım",
+              aşağısı "katları değiştir". Üst bardaki Katlar menüsü kalkınca bu
+              iki pencerenin tek girişi burası kaldı. */}
+          <div className="my-1 h-px bg-edge" aria-hidden />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => openDialog(onOpenFloorManagement)}
+            className={canvasBarMenuItemVariants()}
+          >
+            <Settings2 size={14} strokeWidth={1.8} aria-hidden />
+            Kat Yönetimi
+            <span className="ml-auto pl-4 text-xs text-ink-disabled">Ctrl+K</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => openDialog(onOpenFloorCopy)}
+            className={canvasBarMenuItemVariants()}
+          >
+            <Copy size={14} strokeWidth={1.8} aria-hidden />
+            Kat Kopyalama
+            <span className="ml-auto pl-4 text-xs text-ink-disabled">Ctrl+Shift+K</span>
+          </button>
         </div>
       )}
     </div>
