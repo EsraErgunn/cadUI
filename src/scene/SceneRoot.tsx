@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber'
+import { Suspense } from 'react'
 
 import { ArchitectureLayer } from './ArchitectureLayer'
 import { Cameras } from './Cameras'
@@ -32,29 +33,39 @@ export function SceneRoot() {
     // TEK <Canvas>: görünümler ikinci renderer/kamera kurmaz, alt ağaç değişir.
     <Canvas orthographic dpr={[1, 2]}>
       <color attach="background" args={[SCENE_COLORS.background]} />
+      {/* Kamera ve girdi aşağıdaki Suspense sınırının DIŞINDA: alt ağaç bir an
+          askıya alınırsa makeDefault geri alınıp zoom/pan sıfırlanırdı. */}
       <Cameras />
       <ViewportControls />
       <CameraZoomTracker />
       {isGridVisible && <Grid />}
-      {/* Her görünüm KARŞI katmanı soluk gösterir. İkisi de burada, görünüm
-          anahtarının yanında: hayalet çizen katmanın parçası değil, görünümün
-          bağlamı — ve ikisi de aktif katı kendi okuyor. */}
-      {activeViewId === 'architecture' && (
-        <>
-          <DrawSurface />
-          {/* Alt kat en geride: hizalama referansı, aktif katın çizimini örtmez. */}
-          <FloorBelowGhost />
-          <ArchitectureLayer />
-          <InstallationGhost />
-        </>
-      )}
-      {activeViewId === 'installation' && (
-        <>
-          <DrawSurface />
-          <ArchitectureGhost />
-          <PlumbingLayer />
-        </>
-      )}
+      {/* Askıya alan her şey (drei <Text> → troika'nın font indirmesi) BU sınırın
+          altında kalmak zorunda. Kaçarsa R3F'in <Canvas> içindeki kendi sınırı
+          devreye girip <Canvas>'ın kendisini fırlatır; router'daki tek Suspense
+          editörü gizler, React gizlenen ağacın effect'lerini söker ve R3F'in
+          500 ms gecikmeli teardown'ı o sırada YAŞAYAN renderer'ın WebGL
+          context'ini düşürür ("THREE.WebGLRenderer: Context Lost"). */}
+      <Suspense fallback={null}>
+        {/* Her görünüm KARŞI katmanı soluk gösterir. İkisi de burada, görünüm
+            anahtarının yanında: hayalet çizen katmanın parçası değil, görünümün
+            bağlamı — ve ikisi de aktif katı kendi okuyor. */}
+        {activeViewId === 'architecture' && (
+          <>
+            <DrawSurface />
+            {/* Alt kat en geride: hizalama referansı, aktif katın çizimini örtmez. */}
+            <FloorBelowGhost />
+            <ArchitectureLayer />
+            <InstallationGhost />
+          </>
+        )}
+        {activeViewId === 'installation' && (
+          <>
+            <DrawSurface />
+            <ArchitectureGhost />
+            <PlumbingLayer />
+          </>
+        )}
+      </Suspense>
     </Canvas>
   )
 }
