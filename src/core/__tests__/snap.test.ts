@@ -171,3 +171,60 @@ describe('resolveSnap — boş proje', () => {
     expect(result.point).toEqual({ x: 100, y: 150 })
   })
 })
+
+/**
+ * Aday duvarlar sınır kutusuyla önceden eleniyor (O(N²) kesişim taramasını
+ * kısaltmak için). Eleme fazla agresif olursa yakalama SESSİZCE kaybolur —
+ * kullanıcı duvara yapışamaz ama hata da almaz. Bu blok elemenin sınırlarını
+ * sabitliyor.
+ */
+describe('resolveSnap — sınır kutusu elemesi aday kaybetmez', () => {
+  // Yatay duvar (0,0)→(400,0) ile onu x=300'de kesen dikey duvar.
+  const crossingPoints = [
+    makePoint(1, 0, 0),
+    makePoint(2, 400, 0),
+    makePoint(3, 300, -100),
+    makePoint(4, 300, 100),
+  ]
+  const crossingWalls = [makeWall(10, 1, 2), makeWall(11, 3, 4)]
+  const crossingContext: SnapContext = {
+    points: crossingPoints,
+    walls: crossingWalls,
+    floorId: FLOOR_ID,
+  }
+
+  it('iki duvarın kesişimini yakalar — kesişim iki uçtan da uzakta', () => {
+    const result = resolveSnap({ x: 300, y: 6 }, crossingContext, options)
+
+    expect(result.kind).toBe('wallSnapPoint')
+    expect(result.point).toEqual({ x: 300, y: 0 })
+  })
+
+  it('uzun duvarın ortasına, iki ucundan da uzakken yapışır', () => {
+    const result = resolveSnap({ x: 200, y: 6 }, crossingContext, options)
+
+    expect(result.kind).toBe('wallSnapPoint')
+    expect(result.point).toEqual({ x: 200, y: 0 })
+  })
+
+  it('kutusu uzak kalan duvara yapışmaz', () => {
+    // Dikey duvar x=300'de; hedef x=0 tarafında, tolerans 20 cm.
+    const farContext: SnapContext = {
+      points: [makePoint(3, 300, -100), makePoint(4, 300, 100)],
+      walls: [makeWall(11, 3, 4)],
+      floorId: FLOOR_ID,
+    }
+
+    expect(resolveSnap({ x: 0, y: 50 }, farContext, options).kind).toBe('grid')
+  })
+
+  it('ucu eksik duvar aday üretmez, çökmez', () => {
+    const brokenContext: SnapContext = {
+      points: [makePoint(1, 0, 0)],
+      walls: [makeWall(10, 1, 404)],
+      floorId: FLOOR_ID,
+    }
+
+    expect(resolveSnap({ x: 2, y: 2 }, brokenContext, options).kind).toBe('point')
+  })
+})

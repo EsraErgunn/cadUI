@@ -1,7 +1,15 @@
 import type { PlanPoint } from './coords'
 import { snapPointToGrid } from './grid'
 import type { Id, Point, Wall } from './model'
-import { getSegmentLength, getSnapPoints, projectPointOntoWall } from './wall'
+import {
+  buildPointIndex,
+  getSegmentLength,
+  getSnapPointsFrom,
+  getWallEndsFrom,
+  projectPointOntoWall,
+  type PointIndex,
+  type WallEnds,
+} from './wall'
 
 /** Yakalama yarıçapı ekran mesafesidir: uzaklaşınca cm karşılığı büyür, his sabit kalır. */
 export const SNAP_TOLERANCE_PX = 10
@@ -98,15 +106,38 @@ function findPointAt(position: PlanPoint, points: readonly Point[]): SnapResult 
   return existing ? { point: { x: existing.x, y: existing.y }, kind: 'point', pointId: existing.id } : undefined
 }
 
+/**
+ * Duvarın sınır kutusu toleransla genişletildiğinde hedefi içeriyor mu?
+ *
+ * Eleme GÜVENLİ: bir duvarın ürettiği aday noktaların hepsi (iki uç, orta nokta,
+ * başka duvarlarla kesişimler, gövde izdüşümü) o duvarın ÜSTÜNDE, yani sınır
+ * kutusunun içinde. Kutuya tolerans kadar bile yaklaşamayan duvar toleransa
+ * giren hiçbir aday üretemez. Kutu testi gerçek mesafeden gevşek — bilerek:
+ * yanlışlıkla eleme yapmaz, yalnız uzaktakileri ucuza atar.
+ */
+function isWallNearTarget(target: PlanPoint, ends: WallEnds, toleranceCm: number): boolean {
+  return (
+    target.x >= Math.min(ends.p1.x, ends.p2.x) - toleranceCm &&
+    target.x <= Math.max(ends.p1.x, ends.p2.x) + toleranceCm &&
+    target.y >= Math.min(ends.p1.y, ends.p2.y) - toleranceCm &&
+    target.y <= Math.max(ends.p1.y, ends.p2.y) + toleranceCm
+  )
+}
+
 function findNearestWallSnapPoint(
   target: PlanPoint,
-  context: SnapContext,
+  pointIndex: PointIndex,
   walls: readonly Wall[],
   toleranceCm: number,
 ): Candidate | undefined {
   const candidates: Candidate[] = []
   for (const wall of walls) {
-    for (const point of getSnapPoints(wall, context.points, walls)) {
+    // Eleme dıştaki döngüde: `getSnapPointsFrom` kendi içinde TÜM duvarları
+    // dolaşıp kesişim arıyor, yani elenen her duvar bir O(N) taramayı götürüyor.
+    const ends = getWallEndsFrom(wall, pointIndex)
+    if (!ends || !isWallNearTarget(target, ends, toleranceCm)) continue
+
+    for (const point of getSnapPointsFrom(wall, pointIndex, walls)) {
       candidates.push({ point, distanceCm: getSegmentLength(target, point), wallId: wall.id })
     }
   }
@@ -116,11 +147,15 @@ function findNearestWallSnapPoint(
 function findNearestWallEdge(
   target: PlanPoint,
   context: SnapContext,
+  pointIndex: PointIndex,
   walls: readonly Wall[],
   toleranceCm: number,
 ): Candidate | undefined {
   const candidates: Candidate[] = []
   for (const wall of walls) {
+    const ends = getWallEndsFrom(wall, pointIndex)
+    if (!ends || !isWallNearTarget(target, ends, toleranceCm)) continue
+
     const projection = projectPointOntoWall(wall, context.points, target)
     if (!projection) continue
     candidates.push({
@@ -169,9 +204,14 @@ export function resolveSnap(
     return { point: nearestPoint.point, kind: 'point', pointId: nearestPoint.pointId }
   }
 
+  // İndeks çağrı başına BİR kez: duvar döngülerinin içinde kurulursa kazanç gider.
+  // Kat süzmesi yapılmaz — duvarlar başka kattaki noktalara referans vermiyor,
+  // ama süzülmüş havuz uçları çözemeyecek duruma düşürebilirdi.
+  const pointIndex = buildPointIndex(context.points)
+
   const nearestWallSnapPoint = findNearestWallSnapPoint(
     target,
-    context,
+    pointIndex,
     floorWalls,
     options.toleranceCm,
   )
@@ -183,7 +223,13 @@ export function resolveSnap(
     }
   }
 
-  const nearestWallEdge = findNearestWallEdge(target, context, floorWalls, options.toleranceCm)
+  const nearestWallEdge = findNearestWallEdge(
+    target,
+    context,
+    pointIndex,
+    floorWalls,
+    options.toleranceCm,
+  )
   if (nearestWallEdge) {
     return { point: nearestWallEdge.point, kind: 'wallEdge', wallId: nearestWallEdge.wallId }
   }
