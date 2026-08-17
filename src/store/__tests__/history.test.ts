@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { resetArchitectureState, WALL_ID, WINDOW_ID } from './architectureFixture'
 import { createGroundFloor } from '../../core/floors'
-import { redoProject, undoProject, useCadStore } from '../cadStore'
+import { redoProject, selectIsProjectDirty, undoProject, useCadStore } from '../cadStore'
 import { HISTORY_LIMIT } from '../history'
 
 function temporal() {
@@ -59,17 +59,32 @@ describe('geri al / yinele', () => {
     expect(temporal().pastStates).toHaveLength(0)
   })
 
-  it('geri alma kirli işaretini geri ÇEVİRMEZ (K71)', () => {
-    // Eskiden revision de geçmişteydi ve geri alma projeyi yeniden "temiz"
-    // gösteriyordu. Araya bir tesisat düzenlemesi girdiğinde o davranış
-    // kaydedilmemiş tesisat işini gizliyordu; fazladan kaydetme uyarısı yeğ.
+  it('kaydedilen noktaya geri alınca proje TEMİZ olur', () => {
+    // Eskiden kirlilik `revision` sayacına bakıyordu ve sayaç geri alınmıyor
+    // (K71). Sonuç: çizimi kaydedilenle birebir aynı hâle getiren kullanıcı
+    // yine de kaydetme uyarısı alıyordu. Artık İÇERİK karşılaştırılıyor.
     useCadStore.getState().markSaved()
     useCadStore.getState().addOpening({ wallId: WALL_ID, offsetCm: 100, widthCm: 90, type: 'door' })
+    expect(selectIsProjectDirty(useCadStore.getState())).toBe(true)
 
     undoProject()
 
-    const state = useCadStore.getState()
-    expect(state.revision).not.toBe(state.savedRevision)
+    expect(selectIsProjectDirty(useCadStore.getState())).toBe(false)
+    // Sayaç yine de ileride: anlamı "bir action yazdı", kirlilik değil.
+    expect(useCadStore.getState().revision).toBeGreaterThan(0)
+  })
+
+  it('kaydedilmemiş TESİSAT işi mimari geri almayla gizlenmez (K71)', () => {
+    // K71'in asıl koruduğu şey: mimari geçmişi tesisatı kapsamıyor, o yüzden
+    // mimaride Ctrl+Z yapmak kaydedilmemiş tesisat işini "temiz" göstermemeli.
+    // İçerik anlık görüntüsü tesisat dizilerini de taşıdığı için gösteremiyor.
+    useCadStore.getState().markSaved()
+    useCadStore.getState().addOpening({ wallId: WALL_ID, offsetCm: 100, widthCm: 90, type: 'door' })
+    useCadStore.getState().addElement({ type: 'valve', position: { x: 0, y: 0 } })
+
+    undoProject()
+
+    expect(selectIsProjectDirty(useCadStore.getState())).toBe(true)
   })
 
   it('geri alma id sayacını geriye DÜŞÜRMEZ (K71)', () => {
@@ -91,7 +106,7 @@ describe('geri al / yinele', () => {
   })
 
   it('kaydetmek geçmişe adım yazmaz', () => {
-    // markSaved yalnız savedRevision'a dokunuyor: o alan izlenmiyor.
+    // markSaved yalnız savedContent'e dokunuyor: o alan izlenmiyor.
     useCadStore.getState().markSaved()
 
     expect(temporal().pastStates).toHaveLength(0)

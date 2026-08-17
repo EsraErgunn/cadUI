@@ -18,7 +18,6 @@ beforeEach(() => {
     beams: [],
     texts: [],
     revision: 0,
-    savedRevision: 0,
   })
 })
 

@@ -55,7 +55,7 @@ function renderFloorHarness() {
 
 beforeEach(() => {
   // Önce yaz sonra temizle: ters sırada bu setState geçmişe bir adım bırakırdı.
-  useCadStore.setState({ revision: 0, savedRevision: 0, points: [], ...INITIAL_PLUMBING_DATA })
+  useCadStore.setState({ revision: 0, points: [], ...INITIAL_PLUMBING_DATA })
   useCadStore.temporal.getState().clear()
   resetPlumbingHistory(INITIAL_PLUMBING_DATA)
   useUiStore.setState({ activeViewId: 'architecture' })

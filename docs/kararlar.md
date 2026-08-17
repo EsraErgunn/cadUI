@@ -4687,3 +4687,40 @@ eylemleri `actions` prop'undan giriyor.
 Paneller koyu temada KOYU kalıyor (K91'in tema değişen tarafı): içlerindeki
 form bileşenlerinin tamamı kabuk token'larına bağlı, beyaza çevirmek onları da
 yeniden boyamak demek. Yüzen çubuk ve sol barla tutarlı.
+
+## 2026-08 · Kirli işaretinin hesabı
+
+### K94 — Kirli işareti sayaçtan değil İÇERİKTEN hesaplanıyor
+
+`selectIsProjectDirty` artık `revision !== savedRevision` demiyor; kaydetme/
+yükleme anında alınan içerik anlık görüntüsüyle (`store/persistedContent.ts`)
+bugünkü diziler karşılaştırılıyor. `savedRevision` alanı düştü.
+
+Sebep: `revision` yalnız ileri gider ve geri alma onu düşürmez (K71, bilinçli).
+Çizip Ctrl+Z yapan kullanıcının çizimi kaydedilenle birebir aynı oluyor ama
+sayaçlar farklı kaldığı için kaydetme uyarısı alıyordu. K71'in notu bunu bilinen
+bir bedel olarak yazmıştı ("fazladan uyarı, kaybolan işten iyidir"); bedel
+gereksizmiş — sayacı geçmişe sokmadan da doğru hesap yapılabiliyor.
+
+Karşılaştırma SIĞ referans karşılaştırması: immer dokunulmayan diziyi aynı
+referansla bırakıyor, zundo geri alırken kaydettiği referansları geri koyuyor.
+Yani "çiz + geri al" sonrasında diziler kaydetme anındaki referanslara döner.
+
+Anlık görüntü MİMARİ + TESİSAT dizilerinin hepsini taşır. Yalnız mimari
+geçmişinin izlediği alt küme (`history.ts`) kullanılsaydı K71'in asıl korkusu
+gerçekleşirdi: mimaride Ctrl+Z yapmak kaydedilmemiş tesisat işini "temiz"
+gösterirdi.
+
+`nextUniqueId` ve `activeFloorId` JSON'a giriyor ama anlık görüntüde YOK: biri
+sayaç (geri alınan nesnenin id'si zaten kullanımda değil), diğeri hangi kata
+BAKILDIĞI. İkisi de dahil edilseydi ekranda hiçbir şey değişmeden uyarı çıkardı.
+
+`markDirty`/`revision` DURUYOR, anlamı daraldı: "bir action gerçekten yazdı".
+Reddedilen işlemler (K13 geçersiz taşıma, sığmayan yerleştirme) onu artırmıyor
+ve testler reddedilmeyi bu şekilde sınıyor — 101 çağrıyı sökmek için sebep yok.
+
+⚠️ Anlık görüntü immer producer'ının DIŞINDAN alınmalı. İçeriden `draft.walls`
+okunursa bir draft proxy'si gelir; producer bitince state'e yazılan gerçek dizi
+başka bir referans olur ve karşılaştırma HER ZAMAN "kirli" der. `loadProject`
+bu yüzden gelen `data`dan alıyor (aynı referanslar state'e yazılıyor),
+`markSaved` ise `getState()`ten.
