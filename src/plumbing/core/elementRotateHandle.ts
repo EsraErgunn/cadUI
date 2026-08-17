@@ -1,27 +1,75 @@
 import { getSymbolLocalBounds } from './elementPicking'
-import type { InstallationConnection, InstallationElement } from './installationModel'
+import { getTargetElementId } from './installationModel'
+import type { InstallationConnection, InstallationElement, InstallationLine } from './installationModel'
+import { rotatePlanOffset, svgLocalToPlanOffset } from './ports'
 import type { SymbolMetadata } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
 import { getSegmentLength } from '../../core/wall'
 
 /**
- * Elemanın herhangi bir portu bağlı mı — döndürme kapsamının kilidi bu
- * (bkz. `PlumbingSlice.rotateElement` yorumu). Boruya/porta bağlı elemanın
- * açısı port ekseninden türer (`element-attach.md` → "Sembol boruya PORT
- * EKSENİNDEN hizalanır"); elle döndürme bunu ezerse sembol boruyla görsel
- * olarak hizasız kalırdı — kullanıcı kararı: yalnız TAMAMEN serbest VE
- * bağlanmamış elemanlar döndürülebilir. Hem tutamacın GÖRÜNÜRLÜĞÜ hem
- * TUTULABİLİRLİĞİ aynı bu kontrolden geçer (`ElementRotateHandle.tsx` +
- * `useElementRotateTool.ts`), ayrışsalardı görünmeyen bir tutamaç ya da
- * görünüp tutulamayan bir tutamaç ortaya çıkardı.
+ * Elemanın boruya/porta TUTUNDUĞU yerel (SVG) nokta(lar) — döndürme
+ * kapsamının kilidi bu (bkz. `PlumbingSlice.rotateElement` yorumu). Boruya/porta
+ * bağlı elemanın açısı YERLEŞTİRME anında port ekseninden türer
+ * (`element-attach.md` → "Sembol boruya PORT EKSENİNDEN hizalanır") ama o an
+ * sonrası hiçbir yerde YENİDEN hesaplanmaz (`resolveOnLineSlide` "Açı SABİT"
+ * notu) — bu yüzden elle döndürme güvenlidir, YETER Kİ tutunduğu nokta
+ * DÜNYADA yerinde kalsın (`getElementAnchorOffset` bunu sağlar, çağıran
+ * `element.position`'ı buna göre yeniden yazar).
+ *
+ * Birden fazla tutunma varsa (ör. birden fazla havalandırma ağzı bağlı bir
+ * cihaz) döndürme geometrik olarak imkânsızdır — katı bir gövde iki farklı
+ * sabit noktayı aynı anda koruyarak dönemez — bu durumda `null` döner, eleman
+ * döndürülemez. Hem tutamacın GÖRÜNÜRLÜĞÜ hem TUTULABİLİRLİĞİ aynı bu
+ * kontrolden geçer (`ElementRotateHandle.tsx` + `useElementRotateTool.ts`),
+ * ayrışsalardı görünmeyen bir tutamaç ya da görünüp tutulamayan bir tutamaç
+ * ortaya çıkardı.
  */
-export function hasAnyPortConnection(
-  connections: readonly InstallationConnection[],
+export function getElementRotateAnchorLocal(
   elementId: InstallationElement['id'],
-): boolean {
-  return connections.some(
-    (connection) => connection.target.kind === 'port' && connection.target.elementId === elementId,
-  )
+  metadata: SymbolMetadata,
+  connections: readonly InstallationConnection[],
+  lines: readonly InstallationLine[],
+): readonly [number, number] | null {
+  const anchors: Array<readonly [number, number]> = []
+
+  for (const line of lines) {
+    for (const point of line.points) {
+      if (point.inlineElementId !== elementId) continue
+      const [onlyPort] = metadata.ports
+      anchors.push(metadata.ports.length === 1 && onlyPort ? onlyPort.position : metadata.origin)
+    }
+  }
+
+  for (const connection of connections) {
+    const target = connection.target
+    if (getTargetElementId(target) !== elementId) continue
+    if (target.kind === 'port') {
+      const port = metadata.ports.find((candidate) => candidate.id === target.portId)
+      if (port) anchors.push(port.position)
+    } else if (target.kind === 'outlet') {
+      anchors.push(target.position)
+    }
+  }
+
+  if (anchors.length > 1) return null
+  // Bağlantısız (serbest) eleman: çapa kendi kökeni — döndürme konumu
+  // DEĞİŞTİRMEZ, bugüne kadarki `free` davranışıyla birebir aynı.
+  return anchors[0] ?? metadata.origin
+}
+
+/**
+ * Bir çapanın (yerel SVG noktası) elemanın KENDİ konumuna göre dünya ofseti —
+ * ölçek + açı uygulanmış. Sürüklemenin hem BAŞINDA (mevcut açı, sabit tutulacak
+ * dünya noktasını bulmak için) hem her KARESİNDE (yeni açı, o noktayı koruyacak
+ * yeni konumu bulmak için) AYNI formülle çağrılır.
+ */
+export function getElementAnchorOffset(
+  element: Pick<InstallationElement, 'scale'>,
+  metadata: SymbolMetadata,
+  anchorLocal: readonly [number, number],
+  angleDeg: number,
+): PlanPoint {
+  return rotatePlanOffset(svgLocalToPlanOffset(anchorLocal, metadata.origin, element.scale), angleDeg)
 }
 
 /**

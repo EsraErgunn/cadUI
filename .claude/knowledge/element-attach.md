@@ -12,21 +12,52 @@ bileşenin içinden değil: dört mod var ve her biri farklı bir geometri çöz
 | `nearestLine` | ocak, soba, şofben, kombi, kazan, diğer yakıcı cihaz | İmleçte durur, en yakın AÇIK BORU UCUNA kısa kolla bağlanır |
 | `free` | servis kutusu, baca, havalandırma kanalı | Izgaraya oturur, serbest |
 
-## open-question: Serbest eleman döndürme tutamacı YARIM kaldı, DOĞRULANMADI (2026-08)
+## decision: Döndürme boruya/porta BAĞLI elemanlara da açıldı, hâlâ TARAYICIDA DOĞRULANMADI (2026-08)
 
-Kullanıcı isteği "mimari çizimdeki döndürmeyi (AreaObject tutamacı)
-kullanabiliriz" üzerine `free` modlu VE hiçbir portu bağlı olmayan elemanlar
-için (kullanıcı kararı — `onLine`/`lineEnd`/`nearestLine` elemanların açısı
-port ekseninden TÜRER, elle döndürme onu ezerdi) bir döndürme tutamacı
-yazıldı: `core/elementRotateHandle.ts` (saf geometri, testli), `PlumbingSlice
-.rotateElement`, `scene/useElementRotateTool.ts` + `ElementRotateHandle.tsx`,
-`useSelectionTool.ts`'e K44 tipi bir sahiplenme kontrolü. Tarayıcıda
-DOĞRULANAMADI — geliştirme ortamındaki gerçek API'ye (`.env` → dahili IP)
-kimlik bilgisi yoktu, oturum açılamadı. Kullanıcı işi bu turda BIRAKTI
-("döndürme işini bıraktık") ama kod SİLİNMEDİ — bir sonraki oturumda önce
-tarayıcıda deneyip doğrulanmalı, özellikle: (1) tutamaç gerçekten görünüyor
-mu, (2) sürükleme AreaObject'teki gibi hissediyor mu, (3) servis kutusuna
-boru bağlandıktan SONRA tutamacın kaybolması beklendiği gibi mi davranıyor.
+İlk sürüm yalnız `free` modlu VE hiçbir portu bağlı olmayan elemanları
+döndürülebilir sayıyordu (gerekçe: `onLine`/`lineEnd`/`nearestLine`
+elemanların açısı YERLEŞTİRME anında port ekseninden türer, elle döndürme onu
+ezerdi). Kullanıcı isteği "tesisat araçları borulara bağlı olsa da
+döndürülebilsin" üzerine bu kısıt gevşetildi — ama körü körüne KALDIRILMADI,
+**çapa korumalı döndürmeye** çevrildi:
+
+- `core/elementRotateHandle.ts` → `getElementRotateAnchorLocal` elemanın
+  tutunduğu yerel (SVG) noktayı bulur: `onLine` düğümünde akış geçişli
+  (2 portlu) eleman için merkez (`metadata.origin`), tek portlu eleman için o
+  portun kendisi; `lineEnd`/`nearestLine`/bağlı-`free` elemanlarda BAĞLI olan
+  portun (`InstallationConnection` → `kind:'port'`) ya da deşarj ağzının
+  (`kind:'outlet'`) yerel konumu. Birden fazla tutunma varsa (örn. birden
+  çok havalandırma ağzı bağlı bir cihaz) döndürme geometrik olarak
+  İMKÂNSIZDIR — `null` döner, tutamaç o eleman için hiç görünmez.
+- `getElementAnchorOffset` bu yerel noktanın elemanın KENDİ konumuna göre
+  dünya ofsetini (ölçek+açı uygulanmış) verir. `useElementRotateTool.ts`
+  sürüklemenin BAŞINDA bu ofseti mevcut açıyla hesaplayıp çapanın dünya
+  konumunu (`anchorWorld`) sabitler, her karede YENİ açıyla aynı ofseti
+  yeniden hesaplayıp `element.position`'ı çapa dünyada KIPIRDAMAYACAK şekilde
+  geri çözer — imleç açısı hesabının EKSENİ de artık elemanın kendi konumu
+  değil bu `anchorWorld`'dür (gövde, tutunduğu noktanın etrafında döner).
+- Sonuç: boruya/porta bağlı bir elemanı döndürmek onu borudan KOPARMAZ (bağlı
+  nokta yerinde kalır, yalnız gövde döner) — ama hattın/portun KENDİSİ
+  (`InstallationLine.points`, `InstallationConnection`) hiç DOKUNULMAZ, çünkü
+  buna gerek yok.
+- `PlumbingSlice.rotateElement` artık `angleDeg` YANINDA `position` de alır
+  (`(elementId, angleDeg, position)`), ikisini TEK `set()`'te yazar. Kapsam
+  denetimi (döndürülebilir mi) hâlâ çağıran tarafta.
+- `core/__tests__/elementRotateHandle.test.ts`: `getElementRotateAnchorLocal`
+  (bağlantısız/onLine tek-çift port/port bağlı/outlet bağlı/çoklu bağlı/başka
+  elemanın bağlantısı) ve `getElementAnchorOffset` (origin çapada ofset
+  sıfır, 90°'de port ofsetinin dönüşü, anchor-round-trip) testli.
+
+**Hâlâ TARAYICIDA DOĞRULANMADI** — önceki turda da aynı sebeple (geliştirme
+ortamındaki gerçek API'ye `.env` → dahili IP kimlik bilgisi yok, oturum
+açılamadı) canlı deneme yapılamadı. Bir sonraki oturumda önce tarayıcıda
+denenmeli, özellikle: (1) `onLine` bir armatürü (örn. vana) döndürünce gövde
+gerçekten boru üstünde SABİT bir nokta etrafında dönüyor mu (görsel kayma
+YOK), (2) `nearestLine` bir cihazı döndürünce kısa kol (stub) ucu cihazla
+BİRLİKTE mi geliyor yoksa görsel olarak KOPUYOR mu — kol geometrisi
+`InstallationLine.points`'te BAKILI durduğu için, teoride kopmamalı ama canlı
+doğrulanmadı, (3) birden fazla havalandırma ağzı bağlı bir cihazda tutamacın
+GERÇEKTEN kaybolduğu.
 
 ## nearestLine artık yalnız AÇIK UÇLARA bağlanır (2026-08 güncelleme)
 

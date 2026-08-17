@@ -9,24 +9,25 @@ import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-import { getElementAttachMode } from '../core/attachModes'
 import {
   getElementAngleFromPointer,
-  hasAnyPortConnection,
+  getElementAnchorOffset,
+  getElementRotateAnchorLocal,
   isPointerOnElementRotateHandle,
 } from '../core/elementRotateHandle'
 import type { InstallationElement } from '../core/installationModel'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
+import type { SymbolMetadata } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 const PRIMARY_BUTTON = 0
 
 /**
- * İmleç, TEK seçili SERBEST (ve bağlanmamış) elemanın döndürme tutamacının
- * üstünde mi? `useSelectionTool.ts` bu kontrolü kendi `handlePointerDown`'ının
- * BAŞINDA çağırıp erken döner — yoksa tutamaca tıklamak (gövdenin dışına
- * taştığı için) "boşluk" gibi görünüp çerçeve seçimi başlatırdı
- * (knowledge/area-objects.md K44 ile aynı tuzak).
+ * İmleç, TEK seçili ve döndürülebilir (bkz. `getElementRotateAnchorLocal`)
+ * elemanın döndürme tutamacının üstünde mi? `useSelectionTool.ts` bu kontrolü
+ * kendi `handlePointerDown`'ının BAŞINDA çağırıp erken döner — yoksa tutamaca
+ * tıklamak (gövdenin dışına taştığı için) "boşluk" gibi görünüp çerçeve
+ * seçimi başlatırdı (knowledge/area-objects.md K44 ile aynı tuzak).
  */
 export function findSelectedElementRotateHandle(
   planPoint: PlanPoint,
@@ -42,24 +43,36 @@ export function findSelectedElementRotateHandle(
     (candidate) => candidate.id === ui.selectedElementIds[0],
   )
   if (!element || element.floorId !== cad.activeFloorId) return undefined
-  if (getElementAttachMode(element.type) !== 'free') return undefined
-  if (hasAnyPortConnection(cad.installationConnections, element.id)) return undefined
 
   const metadata = getLoadedSymbol(element.type).metadata
+  const anchorLocal = getElementRotateAnchorLocal(
+    element.id,
+    metadata,
+    cad.installationConnections,
+    cad.installationLines,
+  )
+  if (!anchorLocal) return undefined
+
   return isPointerOnElementRotateHandle(planPoint, element, metadata, zoom) ? element : undefined
 }
 
 type RotateGrab = {
   elementId: InstallationElement['id']
-  /** Elemanın KENDİ konumu — döndürme ekseni, tutamacın konumu DEĞİL. */
-  center: PlanPoint
+  metadata: SymbolMetadata
+  scale: number
+  anchorLocal: readonly [number, number]
+  /** Elemanın tutunduğu noktanın DÜNYA konumu — döndürme boyunca SABİT kalır. */
+  anchorWorld: PlanPoint
 }
 
 /**
- * Serbest elemanın döndürme tutamacıyla döndürülmesi. Mimari taraftaki
+ * Elemanın döndürme tutamacıyla döndürülmesi. Mimari taraftaki
  * `useAreaObjectHandleTool.ts` ile AYNI sözleşme: sürükleme boyunca cadStore
  * YAZILMAZ, önizleme `plumbingUiStore.elementRotateDrag`'da durur, tek yazım
- * bırakma anında olur (tek markDirty, tek Ctrl+Z).
+ * bırakma anında olur (tek markDirty, tek Ctrl+Z). Boruya/porta bağlı bir
+ * eleman için imlecin döndüğü eksen elemanın KENDİ konumu değil, tutunduğu
+ * `anchorWorld` noktasıdır — gövde bu nokta etrafında döner, tutunduğu yer
+ * dünyada hiç kıpırdamaz (`elementRotateHandle.ts` → `getElementAnchorOffset`).
  */
 export function useElementRotateTool(): void {
   const camera = useThree((state) => state.camera)
@@ -88,7 +101,25 @@ export function useElementRotateTool(): void {
       const hit = findSelectedElementRotateHandle(event.planPoint, readZoom())
       if (!hit) return
 
-      grab = { elementId: hit.id, center: hit.position }
+      const metadata = getLoadedSymbol(hit.type).metadata
+      const cad = useCadStore.getState()
+      const anchorLocal = getElementRotateAnchorLocal(
+        hit.id,
+        metadata,
+        cad.installationConnections,
+        cad.installationLines,
+      )
+      // findSelectedElementRotateHandle zaten eledi — burada yalnız savunma.
+      if (!anchorLocal) return
+
+      const offset = getElementAnchorOffset(hit, metadata, anchorLocal, hit.angleDeg)
+      grab = {
+        elementId: hit.id,
+        metadata,
+        scale: hit.scale,
+        anchorLocal,
+        anchorWorld: { x: hit.position.x + offset.x, y: hit.position.y + offset.y },
+      }
     }
 
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
@@ -99,10 +130,17 @@ export function useElementRotateTool(): void {
 
       // Açı KK-3'ün 15° adımına yakalanır — AreaObject panelinden yazmakla
       // aynı kural (`snapAngleDeg`, core/transform.ts).
-      const rawAngleDeg = getElementAngleFromPointer(event.planPoint, grab.center)
+      const angleDeg = snapAngleDeg(getElementAngleFromPointer(event.planPoint, grab.anchorWorld))
+      const offset = getElementAnchorOffset(
+        { scale: grab.scale },
+        grab.metadata,
+        grab.anchorLocal,
+        angleDeg,
+      )
       usePlumbingUiStore.getState().setElementRotateDrag({
         elementId: grab.elementId,
-        angleDeg: snapAngleDeg(rawAngleDeg),
+        angleDeg,
+        position: { x: grab.anchorWorld.x - offset.x, y: grab.anchorWorld.y - offset.y },
       })
     }
 
@@ -115,7 +153,7 @@ export function useElementRotateTool(): void {
       endDrag()
       if (!drag) return
 
-      useCadStore.getState().rotateElement(elementId, drag.angleDeg)
+      useCadStore.getState().rotateElement(elementId, drag.angleDeg, drag.position)
     }
 
     // Esc sürüklemeyi iptal eder: eleman eski açısında kalır, store'a yazılmadı.

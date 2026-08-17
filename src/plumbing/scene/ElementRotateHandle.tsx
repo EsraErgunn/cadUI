@@ -7,15 +7,14 @@ import { useCameraZoom } from './useCameraZoom'
 import { useElementRotateTool } from './useElementRotateTool'
 import { planToThree } from '../../core/coords'
 import { useCadStore } from '../../store/cadStore'
-import { getElementAttachMode } from '../core/attachModes'
-import { getElementRotateHandlePosition, hasAnyPortConnection } from '../core/elementRotateHandle'
+import { getElementRotateAnchorLocal, getElementRotateHandlePosition } from '../core/elementRotateHandle'
 import type { InstallationElement } from '../core/installationModel'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /**
  * Seçimin döndürülebilir TEK elemanı — görünürlük burada, tutulabilirlik
- * `findSelectedElementRotateHandle`de: ikisi AYNI üç koşulu (tek seçim,
- * `free` mod, bağlantısız) sınıyor, ayrışsalardı görünüp tutulamayan ya da
+ * `findSelectedElementRotateHandle`de: ikisi AYNI koşulu (tek seçim, tutunma
+ * noktası TEK ya da hiç yok) sınıyor, ayrışsalardı görünüp tutulamayan ya da
  * görünmeden tutulan bir tutamaç ortaya çıkardı (bkz. core dosyasındaki not).
  */
 function useRotatableSelectedElement(): InstallationElement | undefined {
@@ -23,14 +22,17 @@ function useRotatableSelectedElement(): InstallationElement | undefined {
   const selectedLineIds = usePlumbingUiStore((state) => state.selectedLineIds)
   const elements = useCadStore((state) => state.installationElements)
   const connections = useCadStore((state) => state.installationConnections)
+  const lines = useCadStore((state) => state.installationLines)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
 
   if (selectedElementIds.length !== 1 || selectedLineIds.length !== 0) return undefined
 
   const element = elements.find((candidate) => candidate.id === selectedElementIds[0])
   if (!element || element.floorId !== activeFloorId) return undefined
-  if (getElementAttachMode(element.type) !== 'free') return undefined
-  if (hasAnyPortConnection(connections, element.id)) return undefined
+
+  const metadata = getLoadedSymbol(element.type).metadata
+  const anchorLocal = getElementRotateAnchorLocal(element.id, metadata, connections, lines)
+  if (!anchorLocal) return undefined
 
   return element
 }
@@ -76,16 +78,17 @@ function HandleIcon({ element, zoom, isHovered }: HandleIconProps) {
 }
 
 /**
- * Serbest elemanın döndürme tutamacı — YALNIZ tek, bağlanmamış, `free` modlu
- * bir eleman seçiliyken görünür (kullanıcı kararı, 2026-08: vana/sayaç/cihaz
- * gibi boruya bağlı elemanların açısı port ekseninden türediği için elle
- * döndürme oraya KADAR uzatılmadı).
+ * Elemanın döndürme tutamacı — tek eleman seçiliyken VE elemanın tutunma
+ * noktası tekil (ya da hiç yoksa) görünür (bkz. `getElementRotateAnchorLocal`).
+ * Boruya/porta bağlı elemanlarda döndürme, tutunduğu noktayı dünyada sabit
+ * tutar (`useElementRotateTool.ts`) — bu yüzden `free` modla sınırlı DEĞİL.
  */
 export function ElementRotateHandle() {
   useElementRotateTool()
 
   const element = useRotatableSelectedElement()
   const dragAngleDeg = usePlumbingUiStore((state) => state.elementRotateDrag?.angleDeg)
+  const dragPosition = usePlumbingUiStore((state) => state.elementRotateDrag?.position)
   const isHandleHovered = usePlumbingUiStore((state) => state.isElementRotateHandleHovered)
   const isDragging = usePlumbingUiStore(
     (state) => state.elementRotateDrag?.elementId === element?.id,
@@ -94,11 +97,11 @@ export function ElementRotateHandle() {
 
   if (!element) return null
 
-  // Sürükleme sırasında ikon ÖNİZLENEN açıyı takip eder; nesnenin kendisi de
-  // AYNI kaynaktan (`SymbolInstance` → `elementRotateDrag`) canlı döner —
+  // Sürükleme sırasında ikon ÖNİZLENEN açı+konumu takip eder; nesnenin kendisi
+  // de AYNI kaynaktan (`SymbolInstance` → `elementRotateDrag`) canlı döner —
   // ikisi ayrı hesaplansaydı ikon nesnenin gerisinde kalırdı.
-  const previewElement = isDragging && dragAngleDeg !== undefined
-    ? { ...element, angleDeg: dragAngleDeg }
+  const previewElement = isDragging && dragAngleDeg !== undefined && dragPosition !== undefined
+    ? { ...element, angleDeg: dragAngleDeg, position: dragPosition }
     : element
 
   return (

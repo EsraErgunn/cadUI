@@ -90,22 +90,24 @@ export function SymbolInstance({
   const occupiedPortIds = loaded.metadata.ports
     .filter((port) => isPortOccupied(connections, element.id, port.id))
     .map((port) => port.id)
+  // Döndürme tutamacıyla sürüklenirken ÖNİZLENEN açı+konum kullanılır —
+  // bırakılana kadar cadStore'a yazılmaz (bkz. useElementRotateTool.ts), sahne
+  // bu tek kaynaktan (`elementRotateDrag`) okuyup canlı döner; ikon da AYNI
+  // kaynağı okuyor (`ElementRotateHandle.tsx`), ikisi ayrışmaz. Boruya/porta
+  // bağlı elemanlarda döndürme `position`'ı da değiştirir (tutunduğu nokta
+  // dünyada sabit kalsın diye), bu yüzden konum burada da izlenir.
+  const rotateDrag = usePlumbingUiStore((state) =>
+    state.elementRotateDrag?.elementId === element.id ? state.elementRotateDrag : undefined,
+  )
   const position = useMemo(
     () =>
       planToThree(
-        element.position,
+        rotateDrag?.position ?? element.position,
         isGhost ? INSTALLATION_GHOST_ELEVATION_CM : SYMBOL_ELEVATION_CM,
       ),
-    [element.position, isGhost],
+    [element.position, rotateDrag?.position, isGhost],
   )
-  // Döndürme tutamacıyla sürüklenirken ÖNİZLENEN açı kullanılır — bırakılana
-  // kadar cadStore'a yazılmaz (bkz. useElementRotateTool.ts), sahne bu tek
-  // kaynaktan (`elementRotateDrag`) okuyup canlı döner; ikon da AYNI kaynağı
-  // okuyor (`ElementRotateHandle.tsx`), ikisi ayrışmaz.
-  const rotateDragAngleDeg = usePlumbingUiStore((state) =>
-    state.elementRotateDrag?.elementId === element.id ? state.elementRotateDrag.angleDeg : undefined,
-  )
-  const rotationY = (rotateDragAngleDeg ?? element.angleDeg) * DEG_TO_RAD
+  const rotationY = (rotateDrag?.angleDeg ?? element.angleDeg) * DEG_TO_RAD
   const renderOrder = isGhost ? RENDER_ORDER.installationGhost : RENDER_ORDER.equipment
 
   // Sürükleme konumu doğrudan object3D'ye yazılır: imleç her kıpırdadığında
