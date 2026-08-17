@@ -4052,3 +4052,34 @@ Ayraç `<nav>`ın içinde grupların ARASINDA duruyor, ızgaranın içinde deği
 sütunlu tek ızgarada çizgi bir hücreyi işgal ederdi. Her grup kendi ızgarası ve
 kendi `role="group"` + `aria-label`'ı — ekran okuyucu grubu duyar, ekranda
 yalnız çizgi görünür.
+
+### K84 — Sağ tık ARACI BIRAKIR; oda çizimi tıkla-taşı-tıkla oldu
+
+K42'de yalnız alan nesnelerinde olan "sağ tık seçim aracına döner" davranışı
+bütün araçlara yayıldı: cihaz/sembol, kapı, pencere, ölçüm, metin, silgi, oda ve
+duvar. Kullanıcı bir aracı bitirmek için palete geri gitmek zorunda kalmıyor.
+
+Kural TEK yerde: `scene/useRightClickReturnsToSelection.ts`, `ArchitectureLayer`
+içinde bir kez mount ediliyor. Araç başına kopyalansaydı yeni araç eklendiğinde
+unutulur ve "bu araçtan çıkamıyorum" diye geri gelirdi. Liste beyaz değil KARA
+liste — davranış varsayılan, istisna eklemek bilinçli bir iş.
+
+İki istisna:
+
+- **Seçim aracı** — zaten seçimde, dönecek yer yok.
+- **Duvar** — orada sağ tıkın ZATEN bir işi var: zinciri bitiriyor. Bu yüzden
+  İKİ ADIMLI (`useWallTool`): zincir sürerken sağ tık onu kapatır, boştayken
+  ikinci sağ tık araçtan çıkar. Tek adıma indirilseydi zincirin sonunu getirmek
+  aracı da kapatırdı ve arka arkaya duvar çizmek imkânsızlaşırdı.
+
+Araçların kendi önizleme temizliği kendi hook'larında kaldı: araç değişimi
+onların effect'ini zaten söküyor.
+
+**Oda çizimi artık TIKLA–TAŞI–TIKLA**, basılı tutmalı sürükleme değil. İlk tık
+bir köşeyi koyar, imleç karşı köşeyi taşır, ikinci tık odayı yerleştirir.
+Basılı tutma büyük odalarda tuvalin dışına taşıyordu — parmağı kaldırmadan
+kaydırmak gerekiyordu. Duvar aracı da tıkla-tıkla çalışıyor; iki çizim aracının
+aynı jesti paylaşması, kullanıcının hangisinde ne yapacağını hatırlamasını
+gereksiz kılıyor. Sağ tık odada TEK adımda çıkarır: dikdörtgen bir zincir değil,
+tek atımlık bir jest — yarım kalanı iptal etmekle araçtan çıkmak aynı anda
+olabilir.

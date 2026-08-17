@@ -8,7 +8,6 @@ import { getAreaObjectTypeForTool } from '../core/areaObject'
 import type { PlanPoint } from '../core/coords'
 import type { AreaObjectType } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
-import { SELECTION_TOOL_ID } from '../core/tools'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
@@ -74,13 +73,13 @@ export function useAreaObjectTool(): AreaObjectPreview | undefined {
         useCadStore.getState().addAreaObject({ type: areaObjectType, x: position.x, y: position.y })
       },
 
-      // Sağ tık çizimi bitirir: önizleme silinir ve palet seçim aracına döner.
-      // Araç değişimi bu hook'un effect'ini söker, temizlik zaten orada —
+      // Sağ tık önizlemeyi siler; ARAÇTAN ÇIKMA kısmı artık ortak hook'ta
+      // (`useRightClickReturnsToSelection`, K84) — kural bütün araçlara
+      // yayıldığı için her birinde ayrı kopyası duramazdı.
+      //
+      // Araç değişimi bu hook'un effect'ini söker, temizlik zaten orada;
       // setPreview yine de çağrılıyor çünkü sökülme bir sonraki render'da olur.
-      onContextMenu: () => {
-        setPreview(undefined)
-        useUiStore.getState().setActiveTool(SELECTION_TOOL_ID)
-      },
+      onContextMenu: () => setPreview(undefined),
 
       onCancel: () => setPreview(undefined),
     })

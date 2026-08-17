@@ -80,3 +80,26 @@ scene/drawSurfaceEvents.ts (yayın),
 core/snap.ts (`findCornerPointIdAt` — ortak köşe koşulu),
 core/openingTool.ts (`isCornerHandleAtPoint`),
 core/architectureHover.ts (`resolveArchitectureTarget` — ortak öncelik sırası).
+
+## Sağ tık: aracı bırak (K84)
+
+Kural TEK yerde — `scene/useRightClickReturnsToSelection.ts`, `ArchitectureLayer`
+içinde bir kez mount ediliyor. KARA liste: davranış varsayılan, istisna eklemek
+bilinçli bir iş. Araç başına kopyalansaydı yeni araçta unutulurdu.
+
+İstisnalar:
+
+- **Seçim aracı** — dönecek yer yok.
+- **Duvar** — sağ tıkın orada zaten bir işi var (zinciri bitirmek), bu yüzden
+  İKİ ADIMLI: zincir sürerken kapatır, boştayken çıkar (`useWallTool`). Tek
+  adımda çıksaydı arka arkaya duvar çizmek imkânsızlaşırdı.
+
+Araçların önizleme temizliği kendi hook'larında kalır; araç değişimi effect'i
+zaten söküyor.
+
+## Oda çizimi: tıkla–taşı–tıkla (K84)
+
+`useRoomTool` basılı tutmalı sürüklemeyi BIRAKTI: ilk tık köşeyi koyar, imleç
+karşı köşeyi taşır, ikinci tık yerleştirir. Basılı tutma büyük odalarda tuvalin
+dışına taşıyordu. Duvar aracıyla aynı jest — kullanıcı hangisinde ne yapacağını
+hatırlamak zorunda kalmasın.
