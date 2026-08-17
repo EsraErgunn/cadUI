@@ -32,15 +32,11 @@ export function NewProjectPage() {
   const form = useNewProjectForm({ isAdmin })
   const { focusField, clearFocusRequest, applyProjectTypeOptions } = form
 
-  const lookups = useNewProjectLookups({
-    isAdmin,
-    // Admin olmayanda firma sunucuda belli; kimlik gönderilmez.
-    projectFirmId: isAdmin ? form.values.projectFirmId : null,
-  })
+  const lookups = useNewProjectLookups({ isAdmin, projectFirmId: form.values.projectFirmId })
 
   // Sunucudan gelen tip listesi değişince varsayılan/geçersiz seçim tazelenir.
   useEffect(() => {
-    applyProjectTypeOptions(lookups.projectTypes.map((option) => option.code))
+    applyProjectTypeOptions(lookups.projectTypes.map((option) => option.id))
   }, [applyProjectTypeOptions, lookups.projectTypes])
 
   // Doğrulama başarısızsa odak ilk hatalı alana taşınır; istek tek seferlik

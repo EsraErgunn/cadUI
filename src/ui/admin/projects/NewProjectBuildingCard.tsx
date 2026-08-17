@@ -67,6 +67,7 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
           id={newProjectFieldId('areaSquareMeters')}
           label={`Alan (${UNIT_SQUARE_METER})`}
           value={values.areaSquareMeters}
+          isInteger
           unit={UNIT_SQUARE_METER}
           error={errors.areaSquareMeters}
           onChange={(value) => setValue('areaSquareMeters', value)}

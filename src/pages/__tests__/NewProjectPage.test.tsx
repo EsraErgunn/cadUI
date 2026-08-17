@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,15 +8,13 @@ import { NewProjectPage } from '../NewProjectPage'
 
 const api = vi.hoisted(() => ({
   createProject: vi.fn(),
-  getProjectFirms: vi.fn(),
-  getGasFirmsForProjectFirm: vi.fn(),
-  getFirmEngineers: vi.fn(),
-  getProjectTypes: vi.fn(),
-  getHeatingTypes: vi.fn(),
   getCities: vi.fn(),
   getCityDistricts: vi.fn(),
 }))
 
+const getCodesByGroupName = vi.hoisted(() => vi.fn())
+const getProjectFirmList = vi.hoisted(() => vi.fn())
+const getAuthorizedGasFirms = vi.hoisted(() => vi.fn())
 const useIsAdmin = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/projects', async (importOriginal) => ({
@@ -24,12 +22,37 @@ vi.mock('../../api/projects', async (importOriginal) => ({
   ...api,
 }))
 
+// Proje firması kutusu proje firmaları ekranıyla ORTAK veri katmanından
+// (`GET /api/projectfirms`); GD firması kutusu ise seçili proje firmasının
+// GEÇERLİ yetkilerinden (`GET /api/project-firm-authorizations`).
+vi.mock('../../api/projectFirms', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/projectFirms')>()),
+  getProjectFirmList,
+}))
+
+vi.mock('../../api/projectFirmAuthorizations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/projectFirmAuthorizations')>()),
+  getAuthorizedGasFirms,
+}))
+
+vi.mock('../../api/codes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/codes')>()),
+  getCodesByGroupName,
+}))
+
 vi.mock('../../ui/admin/useIsAdmin', () => ({ useIsAdmin }))
 
+/** `getProjectFirmList` satırı: kutu yalnız `id` + `name` kullanıyor
+    (`name`, uçtaki `title`'ın karşılığı — projectFirmDto). */
 const FIRMS = [
-  { id: 11, name: 'Anadolu Mühendislik' },
-  { id: 12, name: 'Beyaz Tesisat' },
+  { id: 11, name: 'Anadolu Mühendislik', serialNumber: null, qualificationNumber: null,
+    authorizedPerson: null, email: null, phone: null, mobilePhone: null,
+    taxNumber: null },
+  { id: 12, name: 'Beyaz Tesisat', serialNumber: null, qualificationNumber: null,
+    authorizedPerson: null, email: null, phone: null, mobilePhone: null,
+    taxNumber: null },
 ]
+/** `getAuthorizedGasFirms` satırı: kutu yalnız `id` + `name` kullanıyor. */
 const GAS_FIRMS = [{ id: 101, name: 'Başkent Doğalgaz' }]
 const CITIES = [
   { id: 6, name: 'Ankara' },
@@ -39,18 +62,25 @@ const DISTRICTS = [
   { id: 64, name: 'Çankaya' },
   { id: 59, name: 'Altındağ' },
 ]
-const ENGINEERS = [
-  { id: 501, fullName: 'Ayşe Yıldırım' },
-  { id: 502, fullName: 'Mehmet Kaya' },
-]
+/** Kod grubu ucundan gelen seçenekler: gövdeye `id`, ekrana `name`. */
 const PROJECT_TYPES = [
-  { code: 'ILAVE', label: 'İlave' },
-  { code: 'DONUSUM', label: 'Dönüşüm' },
+  { id: 3, name: 'İlave' },
+  { id: 7, name: 'Dönüşüm' },
 ]
 const HEATING_TYPES = [
-  { code: 'bireysel', label: 'Bireysel' },
-  { code: 'merkezi', label: 'Merkezi' },
+  { id: 8, name: 'Bireysel' },
+  { id: 9, name: 'Merkezi' },
 ]
+const BUILDING_USAGE_TYPES = [
+  { id: 12, name: 'Çoklu' },
+  { id: 13, name: 'Müstakil' },
+]
+
+const CODES_BY_GROUP: Record<string, { id: number; name: string }[]> = {
+  ProjectType: PROJECT_TYPES,
+  HeatingType: HEATING_TYPES,
+  BuildingUsageType: BUILDING_USAGE_TYPES,
+}
 
 /** Yönlendirme hedefi; rota durumunu da görünür kılar (başarı bildirimi verisi). */
 function ListProbe() {
@@ -97,6 +127,16 @@ async function selectCityAndDistrict(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(district, '64')
 }
 
+/** Bina kullanımı da artık kod grubundan geliyor; seçenekler basılmadan seçilemez. */
+async function selectBuildingUsageType(
+  user: ReturnType<typeof userEvent.setup>,
+  codeId: string,
+) {
+  const select = screen.getByLabelText(/Bina Kullanımı Tipi/)
+  await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1))
+  await user.selectOptions(select, codeId)
+}
+
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Proje Adı'), 'Yıldız Apartmanı')
   await selectProjectFirm(user, '11')
@@ -104,27 +144,21 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
     expect(screen.getByLabelText('Gaz Dağıtım Firması')).not.toBeDisabled(),
   )
   await user.selectOptions(screen.getByLabelText('Gaz Dağıtım Firması'), '101')
-  await waitFor(() =>
-    expect(
-      within(screen.getByLabelText(/Yetkili Mühendis/)).getAllByRole('option').length,
-    ).toBeGreaterThan(1),
-  )
-  await user.selectOptions(screen.getByLabelText(/Yetkili Mühendis/), '501')
   await selectCityAndDistrict(user)
   await user.type(screen.getByLabelText('Adres'), 'Çankaya 12. Sokak No 5')
-  await user.selectOptions(screen.getByLabelText(/Isınma Tipi/), 'bireysel')
-  await user.selectOptions(screen.getByLabelText('Bina Kullanımı Tipi'), 'coklu')
+  await user.selectOptions(screen.getByLabelText(/Isınma Tipi/), '8')
+  await selectBuildingUsageType(user, '12')
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.getProjectFirms.mockResolvedValue(FIRMS)
-  api.getGasFirmsForProjectFirm.mockResolvedValue(GAS_FIRMS)
+  getProjectFirmList.mockResolvedValue(FIRMS)
+  getAuthorizedGasFirms.mockResolvedValue(GAS_FIRMS)
   api.getCities.mockResolvedValue(CITIES)
   api.getCityDistricts.mockResolvedValue(DISTRICTS)
-  api.getFirmEngineers.mockResolvedValue(ENGINEERS)
-  api.getProjectTypes.mockResolvedValue(PROJECT_TYPES)
-  api.getHeatingTypes.mockResolvedValue(HEATING_TYPES)
+  getCodesByGroupName.mockImplementation((groupName: string) =>
+    Promise.resolve(CODES_BY_GROUP[groupName] ?? []),
+  )
   api.createProject.mockResolvedValue({ id: 99, pId: '24999', status: 'taslak' })
   // Varsayılan tarihler "bugüne" bağlı; sabitlenmeseydi test yıl sonunda kayardı.
   vi.setSystemTime(new Date(2026, 7, 4))
@@ -148,45 +182,7 @@ describe('NewProjectPage — çerçeve ve varsayılanlar', () => {
 
     expect(screen.getByLabelText(/Proje Tipi \(parametrik\)/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Isınma Tipi \(parametrik\)/)).toBeInTheDocument()
-  })
-
-  it('tarihler bugün ve iki ay sonrasıyla gelir, bitiş başlamadan öne inemez', () => {
-    renderPage()
-
-    expect(screen.getByLabelText('İş Başlama Tarihi')).toHaveValue('2026-08-04')
-    expect(screen.getByLabelText('İş Bitiş Tarihi')).toHaveValue('2026-10-04')
-    expect(screen.getByLabelText('İş Bitiş Tarihi')).toHaveAttribute('min', '2026-08-04')
-    expect(screen.getByLabelText('İş Bitiş Tarihi')).toBeEnabled()
-  })
-
-  it('başlama tarihi silinince bitiş alanı pasifleşir ve boşalır', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.clear(screen.getByLabelText('İş Başlama Tarihi'))
-
-    const endDate = screen.getByLabelText('İş Bitiş Tarihi')
-    expect(endDate).toBeDisabled()
-    expect(endDate).toHaveValue('')
-    expect(screen.getByText('Önce iş başlama tarihini seçin.')).toBeInTheDocument()
-  })
-
-  it('başlama tarihi değişince bitiş tarihi yeniden hesaplanır', () => {
-    renderPage()
-
-    // Tarih girdisi bölüm bölüm yazılıyor; `type` ara adımlarda alanı boşaltıyor.
-    // Takvimden seçim tek bir change olayı, `fireEvent` onu birebir taklit ediyor.
-    fireEvent.change(screen.getByLabelText('İş Bitiş Tarihi'), {
-      target: { value: '2026-09-01' },
-    })
-    expect(screen.getByLabelText('İş Bitiş Tarihi')).toHaveValue('2026-09-01')
-
-    // Önce bitiş girilse bile başlama değişince türetilen tarih kazanır.
-    fireEvent.change(screen.getByLabelText('İş Başlama Tarihi'), {
-      target: { value: '2026-10-01' },
-    })
-
-    expect(screen.getByLabelText('İş Bitiş Tarihi')).toHaveValue('2026-12-01')
+    expect(screen.getByLabelText(/Bina Kullanımı Tipi \(parametrik\)/)).toBeInTheDocument()
   })
 
   it('sayısal alanlar varsayılanlarıyla ve birimleriyle gelir', () => {
@@ -225,7 +221,8 @@ describe('NewProjectPage — çerçeve ve varsayılanlar', () => {
     renderPage()
 
     const select = screen.getByLabelText(/Proje Tipi/)
-    await waitFor(() => expect(select).toHaveValue('ILAVE'))
+    // Ekranda ad görünür, değer KİMLİK taşır.
+    await waitFor(() => expect(select).toHaveValue('3'))
     // Sabit dizi gömülseydi Ayarlar'dan eklenen bu tip listede olmazdı.
     expect(within(select).getByRole('option', { name: 'Dönüşüm' })).toBeInTheDocument()
   })
@@ -246,58 +243,119 @@ describe('NewProjectPage — rol bazlı alanlar', () => {
     expect(screen.queryByLabelText('Gaz Dağıtım Firması')).not.toBeInTheDocument()
   })
 
-  it('admin’de firma seçilmeden mühendis alanı pasif', () => {
-    renderPage({ isAdmin: true })
-
-    expect(screen.getByLabelText(/Yetkili Mühendis/)).toBeDisabled()
-    expect(api.getFirmEngineers).not.toHaveBeenCalled()
-  })
-
-  it('proje firması kullanıcısında mühendis alanı ilk render’da aktif ve kimliksiz çekilir', async () => {
-    renderPage({ isAdmin: false })
-
-    expect(screen.getByLabelText(/Yetkili Mühendis/)).not.toBeDisabled()
-    await waitFor(() => expect(api.getFirmEngineers).toHaveBeenCalled())
-    expect(api.getFirmEngineers.mock.calls[0][0]).toBeUndefined()
-  })
-
-  it('firma seçilince mühendis listesi o firmayla çekilir', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await selectProjectFirm(user, '11')
-
-    await waitFor(() => expect(api.getFirmEngineers).toHaveBeenCalled())
-    expect(api.getFirmEngineers.mock.calls[0][0]).toBe(11)
-    await waitFor(() => expect(screen.getByLabelText(/Yetkili Mühendis/)).not.toBeDisabled())
-  })
-
-  it('firma değişince seçili mühendis temizlenir', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await selectProjectFirm(user, '11')
-    await waitFor(() => expect(screen.getByLabelText(/Yetkili Mühendis/)).not.toBeDisabled())
-    await waitFor(() =>
-      expect(
-        within(screen.getByLabelText(/Yetkili Mühendis/)).getAllByRole('option').length,
-      ).toBeGreaterThan(1),
-    )
-    await user.selectOptions(screen.getByLabelText(/Yetkili Mühendis/), '501')
-    expect(screen.getByLabelText(/Yetkili Mühendis/)).toHaveValue('501')
-
-    await user.selectOptions(screen.getByLabelText('Proje Firması'), '12')
-
-    expect(screen.getByLabelText(/Yetkili Mühendis/)).toHaveValue('')
-    expect(screen.getByLabelText('Gaz Dağıtım Firması')).toHaveValue('')
-  })
-
   // Bölge kapsamı kaldırıldı (K31): firma listesi hiçbir zaman süzülmez.
   it('firma listesini bölgeyle sınırlamaz', async () => {
     renderPage({ route: '/projects/new?region=Ege' })
 
-    await waitFor(() => expect(api.getProjectFirms).toHaveBeenCalled())
-    expect(api.getProjectFirms.mock.calls[0][0]).not.toBe('Ege')
+    await waitFor(() => expect(getProjectFirmList).toHaveBeenCalled())
+    expect(getProjectFirmList.mock.calls[0][0]).not.toBe('Ege')
+  })
+})
+
+describe('NewProjectPage — firma kutularının kaynağı', () => {
+  /** İkisi de mock'tan değil gerçek uçtan; ekranda `title`, değerde `id`. */
+  it('proje firmalarını GET /api/projectfirms veri katmanından alır', async () => {
+    renderPage()
+
+    const select = screen.getByLabelText('Proje Firması')
+    await waitFor(() =>
+      expect(within(select).getByRole('option', { name: 'Anadolu Mühendislik' })).toHaveValue('11'),
+    )
+    expect(getProjectFirmList).toHaveBeenCalled()
+  })
+
+  it('gaz dağıtım firmalarını seçili proje firmasının YETKİLERİNDEN alır', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await selectProjectFirm(user, '11')
+
+    const select = screen.getByLabelText('Gaz Dağıtım Firması')
+    await waitFor(() =>
+      expect(within(select).getByRole('option', { name: 'Başkent Doğalgaz' })).toHaveValue('101'),
+    )
+    expect(getAuthorizedGasFirms).toHaveBeenCalled()
+  })
+
+  /** Seçenekler proje firmasına bağlı; firma seçilmeden uca gidilmesi boşuna istek olurdu. */
+  it('proje firması seçilmeden yetki ucuna gitmez', () => {
+    renderPage()
+
+    expect(getAuthorizedGasFirms).not.toHaveBeenCalled()
+  })
+
+  /** Boş kutu "sistemde firma yok" gibi okunuyordu; sebep yazılmalı. */
+  it('proje firması listesi yüklenemezse sebebi yazar ve kutu pasif kalır', async () => {
+    getProjectFirmList.mockRejectedValue(new Error('ağ'))
+    renderPage()
+
+    expect(
+      await screen.findByText(/Proje firması listesi yüklenemedi/),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Proje Firması')).toBeDisabled()
+  })
+
+  it('gaz dağıtım firması listesi yüklenemezse sebebi yazar', async () => {
+    const user = userEvent.setup()
+    getAuthorizedGasFirms.mockRejectedValue(new Error('ağ'))
+    renderPage()
+
+    await selectProjectFirm(user, '11')
+
+    expect(
+      await screen.findByText(/Gaz dağıtım firması listesi yüklenemedi/),
+    ).toBeInTheDocument()
+  })
+
+  /**
+   * Gerçek veride var: tek yetkisi süresi dolmuş bir proje firması seçilince
+   * liste BOŞ geliyor. Sessiz boş kutu, kullanıcıya sebebi söylemezdi.
+   */
+  it('firmanın geçerli yetkisi yoksa sebebini yazar', async () => {
+    const user = userEvent.setup()
+    getAuthorizedGasFirms.mockResolvedValue([])
+    renderPage()
+
+    await selectProjectFirm(user, '11')
+
+    expect(await screen.findByText(/geçerli bir yetkisi yok/)).toBeInTheDocument()
+  })
+
+  /** Seçenekler proje firmasının yetkilerinden türediği için sıra kuralı korunuyor. */
+  it('GD firması kutusu proje firması seçilene kadar pasif kalır', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(screen.getByLabelText('Gaz Dağıtım Firması')).toBeDisabled()
+
+    await selectProjectFirm(user, '11')
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Gaz Dağıtım Firması')).not.toBeDisabled(),
+    )
+  })
+
+  /** Daraltma artık GERÇEK: liste seçili firmanın yetkilerinden türüyor. */
+  it('GD firması listesi seçilen proje firmasına göre DARALIR', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await selectProjectFirm(user, '11')
+    await waitFor(() => expect(getAuthorizedGasFirms).toHaveBeenCalled())
+
+    expect(getAuthorizedGasFirms.mock.calls[0][0]).toBe(11)
+  })
+
+  /** Firma değişince seçenekler o firmanın yetkileriyle yeniden çekilmeli. */
+  it('proje firması değişince GD listesi yeniden çekilir', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await selectProjectFirm(user, '11')
+    await waitFor(() => expect(getAuthorizedGasFirms).toHaveBeenCalledWith(11, expect.anything()))
+
+    await user.selectOptions(screen.getByLabelText('Proje Firması'), '12')
+    await waitFor(() => expect(getAuthorizedGasFirms).toHaveBeenCalledWith(12, expect.anything()))
   })
 })
 
@@ -312,7 +370,6 @@ describe('NewProjectPage — gönderim', () => {
     expect(await screen.findByText('Proje adı zorunludur.')).toBeInTheDocument()
     expect(screen.getByText('Proje firması zorunludur.')).toBeInTheDocument()
     expect(screen.getByText('Gaz dağıtım firması zorunludur.')).toBeInTheDocument()
-    expect(screen.getByText('Yetkili mühendis zorunludur.')).toBeInTheDocument()
     expect(screen.getByText('Adres zorunludur.')).toBeInTheDocument()
     // İl ve ilçe ZORUNLU: uç ikisini de istiyor.
     expect(screen.getByText('İl seçiniz.')).toBeInTheDocument()
@@ -339,6 +396,34 @@ describe('NewProjectPage — gönderim', () => {
 
     await waitFor(() => expect(district).not.toBeDisabled())
     expect(api.getCityDistricts).toHaveBeenCalledWith(6, expect.anything())
+  })
+
+  /**
+   * Uç düşünce kutu SESSİZCE boş kalıyordu: kullanıcı ilinin sistemde
+   * olmadığını sanıyordu. Sebep yazılmalı.
+   */
+  it('il listesi yüklenemezse sebebi yazar', async () => {
+    api.getCities.mockRejectedValue(new Error('ağ'))
+    renderPage()
+
+    expect(
+      await screen.findByText('İl listesi yüklenemedi. Sayfayı yenileyip tekrar deneyin.'),
+    ).toBeInTheDocument()
+  })
+
+  it('ilçe listesi yüklenemezse kutu boş açılmaz, sebebi yazar', async () => {
+    api.getCityDistricts.mockRejectedValue(new Error('ağ'))
+    const user = userEvent.setup()
+    renderPage()
+
+    const city = await screen.findByLabelText(/^İl \*$/)
+    await waitFor(() => expect(within(city).getAllByRole('option').length).toBeGreaterThan(1))
+    await user.selectOptions(city, '6')
+
+    expect(
+      await screen.findByText('İlçe listesi yüklenemedi. İli tekrar seçin.'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(/^İlçe \*$/)).toBeDisabled()
   })
 
   // İl değişince eski ilçe yeni ilin listesinde bulunmayabilir; ekranda
@@ -378,12 +463,11 @@ describe('NewProjectPage — gönderim', () => {
       name: 'Yıldız Apartmanı',
       projectFirmId: 11,
       gasDistributionFirmId: 101,
-      engineerUserId: 501,
       address: 'Çankaya 12. Sokak No 5',
-      heatingType: 'bireysel',
-      buildingUsageType: 'coklu',
+      projectTypeCodeId: 3,
+      heatingTypeCodeId: 8,
+      buildingUsageTypeCodeId: 12,
       serviceBoxPressureMbar: 21,
-      projectType: 'ILAVE',
     })
     // P_ID istemcide üretilmez.
     expect(api.createProject.mock.calls[0][0]).not.toHaveProperty('pId')
@@ -409,7 +493,6 @@ describe('NewProjectPage — gönderim', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Proje Adı')).toBeDisabled())
     expect(screen.getByRole('spinbutton', { name: 'Daire Sayısı' })).toBeDisabled()
-    expect(screen.getByLabelText('İş Başlama Tarihi')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'İptal' })).toBeDisabled()
 
     releaseRequest()

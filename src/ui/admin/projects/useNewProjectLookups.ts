@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 
 import {
-  getFirmEngineers,
-  getGasFirmsForProjectFirm,
-  getHeatingTypes,
-  getProjectFirms,
-  getProjectTypes,
-  type FirmEngineer,
-  type HeatingTypeOption,
-  type Lookup,
-  type ProjectTypeOption,
-} from '../../../api/projects'
+  CODE_GROUP_NAMES,
+  getCodesByGroupName,
+  type CodeGroupName,
+  type CodeOption,
+} from '../../../api/codes'
+import { getAuthorizedGasFirms } from '../../../api/projectFirmAuthorizations'
+import { getProjectFirmList } from '../../../api/projectFirms'
+import type { Lookup } from '../../../api/projects'
 
 /** Seçim kutusu kaynakları sık değişmez; her alan odağında yeniden çekilmesin. */
 const LOOKUP_STALE_MS = 5 * 60 * 1000
@@ -21,72 +20,95 @@ const EMPTY_LIST: never[] = []
 
 interface UseNewProjectLookupsOptions {
   isAdmin: boolean
-  /** Seçili proje firması; admin olmayanda her zaman null (sunucu token'dan türetir). */
+  /** Seçili proje firması; GD firması seçenekleri onun yetkilerinden türüyor. */
   projectFirmId: number | null
 }
 
 export interface NewProjectLookups {
   projectFirms: Lookup[]
   gasFirms: Lookup[]
-  engineers: FirmEngineer[]
-  projectTypes: ProjectTypeOption[]
-  heatingTypes: HeatingTypeOption[]
-  /** Mühendis alanı pasif mi — admin firmayı seçene kadar liste anlamsız. */
-  isEngineerDisabled: boolean
+  /** Firma listeleri çekilemedi mi — kutu boş açılıp "sistemde firma yok" sanılmasın. */
+  haveProjectFirmsFailed: boolean
+  haveGasFirmsFailed: boolean
+  /**
+   * Seçili proje firmasının BUGÜN geçerli hiçbir yetkisi yok mu. Hata DEĞİL:
+   * liste başarıyla geldi ve boş. Ayrı bayrak çünkü kutu sessizce boş kalırsa
+   * kullanıcı seçim yapamadığını görür ama SEBEBİNİ göremez — yetkisi süresi
+   * dolmuş bir firma seçtiğinde tam olarak bu oluyor.
+   */
+  hasNoAuthorizedGasFirm: boolean
+  projectTypes: CodeOption[]
+  heatingTypes: CodeOption[]
+  buildingUsageTypes: CodeOption[]
 }
 
 /**
- * Formun bağımlı listeleri. Proje firması `queryKey`'in parçası: değişince
- * React Query yeni bir sorgu çalıştırır, elle "yeniden çek" çağrısı gerekmez.
+ * Formun seçim kutusu kaynakları. Firma listelerinin ikisi de GERÇEK uçtan ve
+ * anahtarları diğer ekranlarla ORTAK — aynı liste ikinci kez indirilmiyor,
+ * bir firma pasifleştirilince oradaki geçersizleştirme buradaki seçenekleri de
+ * tazeliyor.
  */
 export function useNewProjectLookups({
   isAdmin,
   projectFirmId,
 }: UseNewProjectLookupsOptions): NewProjectLookups {
-  // Firma seçilmeden mühendis listesi YALNIZ admin'de anlamsız; proje firması
-  // kullanıcısının firması zaten belli, alan ilk render'da açık gelir.
-  const isEngineerDisabled = isAdmin && projectFirmId === null
-
+  // `GET /api/projectfirms` — proje firmaları ekranıyla AYNI anahtar (K75).
   const projectFirmsQuery = useQuery({
-    queryKey: ['projectFirms'],
-    queryFn: ({ signal }) => getProjectFirms(signal),
+    queryKey: ['projectFirmList'],
+    queryFn: ({ signal }) => getProjectFirmList(signal),
     enabled: isAdmin,
     staleTime: LOOKUP_STALE_MS,
   })
 
+  /**
+   * GD firması seçenekleri artık TÜM firmalar değil, seçili proje firmasının
+   * BUGÜN geçerli yetkileri (`GET /api/project-firm-authorizations`). Kutu zaten
+   * proje firması seçilene kadar pasifti; liste daralmayınca kullanıcı
+   * yetkisiz bir çift seçebiliyor ve hata ancak kaydederken çıkıyordu.
+   *
+   * Proje firması `queryKey`'in parçası: firma değişince seçenekler yeniden
+   * çekiliyor, iki firmanın listesi birbirine karışmıyor.
+   */
   const gasFirmsQuery = useQuery({
-    queryKey: ['gasFirmsForProjectFirm', projectFirmId],
-    queryFn: ({ signal }) => getGasFirmsForProjectFirm(projectFirmId ?? 0, signal),
+    queryKey: ['authorizedGasFirms', projectFirmId],
+    queryFn: ({ signal }) => getAuthorizedGasFirms(projectFirmId ?? 0, signal),
     enabled: isAdmin && projectFirmId !== null,
     staleTime: LOOKUP_STALE_MS,
   })
 
-  const engineersQuery = useQuery({
-    // Kimliksiz çağrı da önbelleğe girer; anahtar bu yüzden sabit bir etiket alır.
-    queryKey: ['firmEngineers', projectFirmId ?? 'session'],
-    queryFn: ({ signal }) => getFirmEngineers(projectFirmId ?? undefined, signal),
-    enabled: !isEngineerDisabled,
-    staleTime: LOOKUP_STALE_MS,
-  })
+  const projectTypesQuery = useCodeGroup(CODE_GROUP_NAMES.projectType)
+  const heatingTypesQuery = useCodeGroup(CODE_GROUP_NAMES.heatingType)
+  const buildingUsageTypesQuery = useCodeGroup(CODE_GROUP_NAMES.buildingUsageType)
 
-  const projectTypesQuery = useQuery({
-    queryKey: ['projectTypes'],
-    queryFn: ({ signal }) => getProjectTypes(signal),
-    staleTime: LOOKUP_STALE_MS,
-  })
+  // Kutular kimlik + ad istiyor; satırın geri kalanı (vergi no, telefon, dfirmNo)
+  // burada işe yaramıyor. Proje firmasında `name`, uçtaki `title`'ın karşılığı.
+  const projectFirms = useMemo<Lookup[]>(
+    () => (projectFirmsQuery.data ?? EMPTY_LIST).map((firm) => ({ id: firm.id, name: firm.name })),
+    [projectFirmsQuery.data],
+  )
 
-  const heatingTypesQuery = useQuery({
-    queryKey: ['heatingTypes'],
-    queryFn: ({ signal }) => getHeatingTypes(signal),
-    staleTime: LOOKUP_STALE_MS,
-  })
+  const gasFirms = useMemo<Lookup[]>(
+    () => (gasFirmsQuery.data ?? EMPTY_LIST).map((firm) => ({ id: firm.id, name: firm.name })),
+    [gasFirmsQuery.data],
+  )
 
   return {
-    projectFirms: projectFirmsQuery.data ?? EMPTY_LIST,
-    gasFirms: gasFirmsQuery.data ?? EMPTY_LIST,
-    engineers: engineersQuery.data ?? EMPTY_LIST,
+    projectFirms,
+    gasFirms,
+    haveProjectFirmsFailed: projectFirmsQuery.isError,
+    haveGasFirmsFailed: gasFirmsQuery.isError,
+    hasNoAuthorizedGasFirm: gasFirmsQuery.isSuccess && gasFirms.length === 0,
     projectTypes: projectTypesQuery.data ?? EMPTY_LIST,
     heatingTypes: heatingTypesQuery.data ?? EMPTY_LIST,
-    isEngineerDisabled,
+    buildingUsageTypes: buildingUsageTypesQuery.data ?? EMPTY_LIST,
   }
+}
+
+/** Üç tip alanı AYNI uçtan besleniyor; grup adı `queryKey`'in parçası. */
+function useCodeGroup(groupName: CodeGroupName) {
+  return useQuery({
+    queryKey: ['codes', groupName],
+    queryFn: ({ signal }) => getCodesByGroupName(groupName, signal),
+    staleTime: LOOKUP_STALE_MS,
+  })
 }

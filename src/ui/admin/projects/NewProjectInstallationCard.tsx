@@ -3,11 +3,7 @@ import { Flame } from 'lucide-react'
 import { MAX_CAPACITY_CUBIC_METER_PER_HOUR, newProjectFieldId } from './newProjectSchema'
 import type { NewProjectForm } from './useNewProjectForm'
 import type { NewProjectLookups } from './useNewProjectLookups'
-import {
-  BUILDING_USAGE_TYPES,
-  BUILDING_USAGE_TYPE_LABELS,
-  type ParametricOption,
-} from '../../../api/projects'
+import type { CodeOption } from '../../../api/codes'
 import { CheckboxField } from '../form/CheckboxField'
 import { FormCard } from '../form/FormCard'
 import { NumberStepperField } from '../form/NumberStepperField'
@@ -20,15 +16,20 @@ const UNIT_CAPACITY = 'm³/h'
 const UNIT_PRESSURE = 'mbar'
 const COVER_NOTE_HINT =
   'Onay mühendisi açıklamasını proje imzalama aşamasında girebilirsiniz.'
+const NO_SELECTION = ''
 
-/** Bina kullanımı parametrik DEĞİL: seçenekleri sözleşmede sabit. */
-const BUILDING_USAGE_OPTIONS: SelectFieldOption[] = BUILDING_USAGE_TYPES.map((code) => ({
-  value: code,
-  label: BUILDING_USAGE_TYPE_LABELS[code],
-}))
+/** Kullanıcı ADI görür, form KİMLİĞİ tutar — gövdeye giden değer o (api/codes.ts). */
+function toCodeOptions(codes: CodeOption[]): SelectFieldOption[] {
+  return codes.map((code) => ({ value: String(code.id), label: code.name }))
+}
 
-function toParametricOptions(options: ParametricOption[]): SelectFieldOption[] {
-  return options.map((option) => ({ value: option.code, label: option.label }))
+function toSelectValue(codeId: number | null): string {
+  return codeId === null ? NO_SELECTION : String(codeId)
+}
+
+function toCodeId(value: string): number | null {
+  const parsed = Number(value)
+  return value === NO_SELECTION || !Number.isInteger(parsed) ? null : parsed
 }
 
 interface NewProjectInstallationCardProps {
@@ -42,14 +43,14 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
   return (
     <FormCard title="Tesisat Bilgileri" icon={Flame}>
       <SelectField
-        id={newProjectFieldId('projectType')}
+        id={newProjectFieldId('projectTypeCodeId')}
         label="Proje Tipi"
         labelNote={PARAMETRIC_NOTE}
-        value={values.projectType}
-        options={toParametricOptions(lookups.projectTypes)}
+        value={toSelectValue(values.projectTypeCodeId)}
+        options={toCodeOptions(lookups.projectTypes)}
         placeholder={SELECT_PLACEHOLDER}
-        error={errors.projectType}
-        onChange={(value) => setValue('projectType', value)}
+        error={errors.projectTypeCodeId}
+        onChange={(value) => setValue('projectTypeCodeId', toCodeId(value))}
       />
 
       <CheckboxField
@@ -63,23 +64,24 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
 
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
-          id={newProjectFieldId('heatingType')}
+          id={newProjectFieldId('heatingTypeCodeId')}
           label="Isınma Tipi"
           labelNote={PARAMETRIC_NOTE}
-          value={values.heatingType}
-          options={toParametricOptions(lookups.heatingTypes)}
+          value={toSelectValue(values.heatingTypeCodeId)}
+          options={toCodeOptions(lookups.heatingTypes)}
           placeholder={SELECT_PLACEHOLDER}
-          error={errors.heatingType}
-          onChange={(value) => setValue('heatingType', value)}
+          error={errors.heatingTypeCodeId}
+          onChange={(value) => setValue('heatingTypeCodeId', toCodeId(value))}
         />
         <SelectField
-          id={newProjectFieldId('buildingUsageType')}
+          id={newProjectFieldId('buildingUsageTypeCodeId')}
           label="Bina Kullanımı Tipi"
-          value={values.buildingUsageType}
-          options={BUILDING_USAGE_OPTIONS}
+          labelNote={PARAMETRIC_NOTE}
+          value={toSelectValue(values.buildingUsageTypeCodeId)}
+          options={toCodeOptions(lookups.buildingUsageTypes)}
           placeholder={SELECT_PLACEHOLDER}
-          error={errors.buildingUsageType}
-          onChange={(value) => setValue('buildingUsageType', value)}
+          error={errors.buildingUsageTypeCodeId}
+          onChange={(value) => setValue('buildingUsageTypeCodeId', toCodeId(value))}
         />
       </div>
 
@@ -89,6 +91,7 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
           label={`Kapasite (${UNIT_CAPACITY})`}
           value={values.capacityCubicMeterPerHour}
           max={MAX_CAPACITY_CUBIC_METER_PER_HOUR}
+          isInteger
           unit={UNIT_CAPACITY}
           error={errors.capacityCubicMeterPerHour}
           onChange={(value) => setValue('capacityCubicMeterPerHour', value)}
@@ -98,6 +101,7 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
           label={`S.K. Basıncı (${UNIT_PRESSURE})`}
           labelNote="(servis kutusu)"
           value={values.serviceBoxPressureMbar}
+          isInteger
           unit={UNIT_PRESSURE}
           error={errors.serviceBoxPressureMbar}
           onChange={(value) => setValue('serviceBoxPressureMbar', value)}
