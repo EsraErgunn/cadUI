@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import type { PlanPoint } from '../core/coords'
 import { findRoomFaceAt, findRoomFaces } from '../core/room'
 import { getWallSetKey } from '../core/roomIdentity'
+import { getRoomLabelAnchor, isPointInRoomLabel } from '../core/roomLabel'
 import { getSnapToleranceCm } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -95,4 +96,35 @@ export function useRoomNameTool(): void {
       closeEditor()
     }
   }, [camera])
+}
+
+/**
+ * İmleç bir oda ad rozetinin üstünde mi?
+ *
+ * ⚠️ Öncelik zincirine kaydedilmesi ŞART: rozet tuvalde serbest duran bir hedef
+ * ve `resolveArchitectureTarget` onu tanımıyor. Kaydedilmediği sürece üstündeki
+ * basış "boşluk" sayılıyor ve çerçeve (marquee) seçimi başlıyordu — kullanıcı
+ * adı çift tıklamak isterken, özellikle rozetin KENARLARINDA, çizikli seçim
+ * dikdörtgeni açılıyordu. Alan nesnesi ad etiketi ve metin de aynı sebeple
+ * zincire eklenmişti (K44'ün tekrar eden dersi).
+ *
+ * Yalnız rozet GÖRÜNÜRKEN sahiplenir: `isRoomNamesVisible` kapalıyken ortada
+ * tıklanacak bir şey yok ve görünmeyen bir kutu jesti yutmamalı — aynı kural
+ * `findAreaObjectLabelAt`ta da var.
+ */
+export function findRoomLabelAt(point: PlanPoint): boolean {
+  if (!useUiStore.getState().isRoomNamesVisible) return false
+
+  const cad = useCadStore.getState()
+  const faces = findRoomFaces(cad.walls, cad.points, cad.activeFloorId)
+
+  for (const face of faces) {
+    const wallSetKey = getWallSetKey(face.wallIds)
+    const room = cad.rooms.find((candidate) => getWallSetKey(candidate.wallIds) === wallSetKey)
+    if (!room) continue
+
+    if (isPointInRoomLabel(point, getRoomLabelAnchor(face.corners), room.name)) return true
+  }
+
+  return false
 }

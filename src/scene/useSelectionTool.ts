@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findRoomLabelAt } from './useRoomNameTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
@@ -87,6 +88,9 @@ export function useSelectionTool(): void {
       // çözümlemesi metnin üstünü "boşluk" sayıyor ve çerçeve seçimi başlıyordu
       // — ad etiketiyle birebir aynı tuzak, çözümü de aynı: jesti metin alır.
       if (findTextLabelAtPointer(event.planPoint)) return
+      // Oda ad rozeti de gövdesiz ve serbest: üstüne basıldıysa jest etiketin —
+      // yoksa çift tıklamak isteyen kullanıcıda çerçeve seçimi açılıyordu.
+      if (findRoomLabelAt(event.planPoint)) return
 
       anchor = event.planPoint
       isAdditive = event.shiftKey

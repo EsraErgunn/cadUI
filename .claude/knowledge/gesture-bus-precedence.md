@@ -103,3 +103,26 @@ zaten söküyor.
 karşı köşeyi taşır, ikinci tık yerleştirir. Basılı tutma büyük odalarda tuvalin
 dışına taşıyordu. Duvar aracıyla aynı jest — kullanıcı hangisinde ne yapacağını
 hatırlamak zorunda kalmasın.
+
+## Oda ad rozeti de zincirde (K44'ün ALTINCI tekrarı)
+
+`findRoomLabelAt` (scene/useRoomNameTool.ts) → `isPointInRoomLabel`
+(core/roomLabel.ts). `useSelectionTool` ve `useWallSelectionTool`'un ikisinde de
+metin etiketinden hemen sonra çağrılır.
+
+Belirti: kullanıcı oda adını çift tıklamak isterken çerçeve (marquee) seçimi
+açılıyordu — özellikle rozetin KENARLARINA doğru, çünkü ortada çoğu zaman
+altındaki hedef jesti yakalıyordu. Rozet `resolveArchitectureTarget`te YOK ve
+zincire kaydedilmediği sürece basış "boşluk" sayılıyor.
+
+⚠️ Tutma kutusu KABA TAHMİN: gerçek genişlik troika'nın dizmesinden çıkıyor,
+core troika'yı tanımaz (`textLabel.ts` ile aynı yaklaşım, aynı karakter oranı).
+Ölçüler `scene/RoomLabel.tsx`'teki sabitlerle ELLE senkron — orada yazı boyu
+veya dolgu değişirse burası da değişmeli.
+
+Kutu çapa etrafında simetrik DEĞİL: ad `anchorY="bottom"` ile üstte, alan satırı
+`anchorY="top"` ile altta. Bugün iki yarı tesadüfen 40 cm çıkıyor; eşitliğe
+GÜVENME.
+
+Rozet görünmezken (`isRoomNamesVisible` kapalı) jest sahiplenilmez — görünmeyen
+kutu tıklama yutmamalı, `findAreaObjectLabelAt` ile aynı kural.

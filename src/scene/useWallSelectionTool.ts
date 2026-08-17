@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findRoomLabelAt } from './useRoomNameTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
@@ -101,6 +102,9 @@ export function useWallSelectionTool(): void {
       if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
       // Metin de gövdesiz ve serbest: üstüne basıldıysa jest metnin (K81).
       if (findTextLabelAtPointer(event.planPoint)) return
+      // Oda ad rozeti de gövdesiz ve serbest: üstüne basıldıysa jest etiketin —
+      // yoksa çift tıklamak isteyen kullanıcıda çerçeve seçimi açılıyordu.
+      if (findRoomLabelAt(event.planPoint)) return
 
       const target = resolveArchitectureTarget(event.planPoint, context)
 
