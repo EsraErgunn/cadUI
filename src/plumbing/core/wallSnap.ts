@@ -1,6 +1,7 @@
 import type { PlanPoint } from '../../core/coords'
 import type { Point, Wall } from '../../core/model'
 import { getSegmentAngleDeg, getWallEnds, projectOntoSegment } from '../../core/wall'
+import { projectOntoClosestOrthogonalAxis } from './orthogonalAxis'
 
 export type WallParallelCandidate = {
   wallId: Wall['id']
@@ -16,12 +17,22 @@ const DEG_TO_RAD = Math.PI / 180
 const WALL_CLEARANCE_CM = 5
 
 /**
- * Anchor'dan geçen, `wall`ın AÇISINA paralel doğru üzerinde imlece en yakın
- * nokta — mesafe/yarıçap KONTROLÜ YOK, çağıran karar verir (bkz.
- * `findNearestWallParallel` yarıçaplı sürümü ve `wallParallelLock.ts`'in
- * sınırsız/"kilitli" kullanımı). `getSegmentAngleDeg` sabit bir değer —
- * duvarın kapsül (yuvarlak uçlu, `capsule-walls.md`) render'ından bağımsız,
- * hep düz eksenin açısı.
+ * Anchor'dan geçen, `wall`ın AÇISINA PARALEL YA DA ona DİK doğrulardan
+ * imlece daha yakın olanı üzerinde imlece en yakın nokta — mesafe/yarıçap
+ * KONTROLÜ YOK, çağıran karar verir (bkz. `findNearestWallParallel` yarıçaplı
+ * sürümü ve `wallParallelLock.ts`'in sınırsız/"kilitli" kullanımı).
+ * `getSegmentAngleDeg` sabit bir değer — duvarın kapsül (yuvarlak uçlu,
+ * `capsule-walls.md`) render'ından bağımsız, hep düz eksenin açısı.
+ *
+ * **İki eksen** (`orthogonalAxis.ts` → `projectOntoClosestOrthogonalAxis`):
+ * yalnız duvara paralel değil, ona DİK yön de aday — kullanıcı bir duvarın
+ * yanında dururken boruyu 90° döndürüp o duvarın DİK ekseninde de
+ * ilerletebilmeli (köşe dönüşü). Eskiden yalnız paralel eksen vardı; kilit bir
+ * kez bir duvara oturunca kullanıcı o duvarın dik yönünü hiç alamıyordu
+ * (2026-08 kullanıcı şikâyeti — "duvarın eksenini kitleyeceğim diye diğer
+ * ekseni almıyor"). Hangi eksenin kullanılacağı HER karede imlecin o eksene
+ * olan dik uzaklığından yeniden hesaplanır, kilitli olan yalnız DUVAR
+ * (`wallParallelLock.ts`), eksen değil.
  *
  * **Boru duvara HİÇBİR ZAMAN değmez** (kullanıcı isteği, iki kez tekrarlandı):
  * paralel doğru anchor'ın kendi dik uzaklığını miras aldığı için normal
@@ -29,8 +40,10 @@ const WALL_CLEARANCE_CM = 5
  * ender olarak duvarın üstündedir). Yine de bir GÜVENCE olarak, sonucun
  * duvara dik uzaklığı `wall.thickness/2 + WALL_CLEARANCE_CM`'in altındaysa
  * (anchor'ın kendisi bu payın altında kalmışsa) sonuç duvardan uzağa DİK
- * itilir — yön hâlâ paralel kalır, yalnız bu ender köşede anchor'la aynı dik
- * ofseti paylaşmaz.
+ * itilir — yön hâlâ korunur, yalnız bu ender köşede anchor'la aynı dik
+ * ofseti paylaşmaz. Bu güvence duvarın KENDİ ekseninden ölçülür — seçilen
+ * aday paralel de olsa dik de olsa aynı normal kullanılır, çünkü ölçülen şey
+ * "sonucun duvar HATTINA olan uzaklığı", hangi eksenden vardığı değil.
  */
 export function getWallParallelPosition(
   wall: Wall,
@@ -41,17 +54,12 @@ export function getWallParallelPosition(
   const ends = getWallEnds(wall, points)
   if (!ends) return null
 
-  const angleRad = getSegmentAngleDeg(ends.p1, ends.p2) * DEG_TO_RAD
-  const dirX = Math.cos(angleRad)
-  const dirY = Math.sin(angleRad)
-  const normalX = -dirY
-  const normalY = dirX
+  const wallAngleDeg = getSegmentAngleDeg(ends.p1, ends.p2)
+  const angleRad = wallAngleDeg * DEG_TO_RAD
+  const normalX = -Math.sin(angleRad)
+  const normalY = Math.cos(angleRad)
 
-  // Anchor'dan imlece giden vektörün, duvar yönündeki İZDÜŞÜMÜ: sonuç anchor'ı
-  // içeren, duvara paralel bir doğru üzerinde — duvarın kendisiyle hiç kesişmek
-  // zorunda değil.
-  const alongCm = (cursor.x - anchor.x) * dirX + (cursor.y - anchor.y) * dirY
-  let position = { x: anchor.x + dirX * alongCm, y: anchor.y + dirY * alongCm }
+  let position = projectOntoClosestOrthogonalAxis(wallAngleDeg, anchor, cursor)
 
   // Dik ofset anchor'dan MİRAS alınır (dir boyunca kayma onu değiştirmez);
   // güvence bu ofsetin asgari payın altına düşmediğini denetler.

@@ -36,6 +36,7 @@ import {
   cutSelectionToClipboard,
   pasteClipboard,
 } from '../store/clipboardActions'
+import { requestSelectionDeletion } from '../store/deletionActions'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 const PRIMARY_BUTTON = 0
@@ -624,9 +625,10 @@ export function useSelectionTool(): SelectionToolState {
         // Sürükleme ortasında silinirse jest de biter; yoksa pointerup artık var
         // olmayan id'leri taşımaya çalışırdı.
         endDrag()
-        // Eleman ve hat TEK çağrıda gider: bir silme jesti = bir Ctrl+Z.
-        useCadStore.getState().removeSelection(selectedElementIds, selectedLineIds)
-        ui.clearSelection()
+        // Eleman ve hat TEK çağrıda gider: bir silme jesti = bir Ctrl+Z. Seçimde
+        // servis kutusu varsa doğrudan silinmez, önce onay istenir (bkz.
+        // deletionActions.ts).
+        requestSelectionDeletion(selectedElementIds, selectedLineIds)
         return
       }
 

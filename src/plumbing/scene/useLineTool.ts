@@ -10,7 +10,7 @@ import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-import { snapToNearestAngle } from '../core/angleSnap'
+import { snapToOrthogonalAxis } from '../core/angleSnap'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { advanceChain, rewindChain, startChain } from '../core/lineChain'
@@ -102,23 +102,27 @@ export function useLineTool(): LineToolState {
       usePlumbingUiStore.getState().setDraftLine(draft)
 
     /**
-     * Öncelik: port > mevcut boru > duvara paralel yön > 45°'lik açı yardımı >
-     * ızgara. Ctrl ızgarayı kapatır (eleman sürüklemesiyle aynı jest) ama
-     * port/boru/duvar yakalamasını kapatmaz: bağlantı kurmak serbest
-     * konumlandırmadan daha güçlü bir niyettir.
+     * Öncelik: port > mevcut boru > yön kelepçesi (duvara paralel/dik ya da
+     * dünya ekseni) > ızgara. Ctrl ızgarayı kapatır (eleman sürüklemesiyle
+     * aynı jest) ama port/boru/yön yakalamasını kapatmaz: bağlantı kurmak
+     * serbest konumlandırmadan daha güçlü bir niyettir.
      *
-     * Duvar yakalaması BAĞLANTI KAYDI ÜRETMEZ (`snap: null`) ve BELİRLİ BİR
-     * NOKTAYA da yapıştırmaz (kullanıcı isteği, 2026-08) — yalnız zincirin
-     * ANCHOR'ından çıkan köşeyi en yakın duvarın AÇISINA paralel bir doğruya
-     * kelepçeler (`findNearestWallParallel` + `wallParallelLock`, SIKI ve
-     * kalıcı). Duvar yokken (ya da yeterince yakın değilken) genel bir
-     * yardımcı devreye girer: yön en yakın 45°'lik hedefe YALNIZ yakınken
-     * yakalanır (`snapToNearestAngle`, TOLERANSLI ve her karede yeniden
-     * hesaplanır) — "her zaman dümdüz ilerlemesin, 45/90 de yapsın, biraz
-     * oynasın" (kullanıcı isteği). Zincirin İLK noktasında (henüz anchor
-     * yokken, yani `draftLine` boşken) ikisinin de bu adımda etkisi yok —
-     * yön iki noktalı bir segmentin özelliği, tek bir başlangıç noktasının
-     * değil; ilk nokta düz ızgaraya düşer.
+     * Bir ANCHOR varken (`draftLine` doluyken) köşe HER ZAMAN iki dik
+     * eksenden birine düşer — boru "rastgele bir yere" (çapraz, herhangi bir
+     * açıda) hiç çizilemez (2026-08 ürün kuralı). Duvar yakınsa o duvarın
+     * AÇISI ve ona DİK yönü aday (`findNearestWallParallel` +
+     * `wallParallelLock`, hangi DUVARIN kilitli olduğu SIKI/kalıcı, ama o
+     * duvarın iki ekseninden hangisinin kullanılacağı her karede imlece göre
+     * yeniden seçilir — kullanıcı köşe dönüp duvarın DİK yönünde de
+     * ilerleyebilir). Duvar yakında değilse dünya ekseni (yatay/dikey)
+     * kelepçesi devreye girer (`snapToOrthogonalAxis`, TOLERANSSIZ — eski
+     * "yalnız 45°'ye yakınken yakala, yoksa serbest bırak" tasarımı çapraz
+     * borulara izin veriyordu ve kullanıcı bunu hatalı buldu). Duvar
+     * yakalaması BAĞLANTI KAYDI ÜRETMEZ (`snap: null`) ve BELİRLİ BİR
+     * NOKTAYA da yapıştırmaz — yalnız YÖNÜ kelepçeler. Zincirin İLK
+     * noktasında (henüz anchor yokken, yani `draftLine` boşken) bunların
+     * hiçbirinin etkisi yok — yön iki noktalı bir segmentin özelliği, tek bir
+     * başlangıç noktasının değil; ilk nokta düz ızgaraya düşer.
      */
     const resolveSnap = (
       event: DrawSurfacePointerEvent,
@@ -161,14 +165,11 @@ export function useLineTool(): LineToolState {
         const wall = wallLock.resolve(floorWalls, cad.points, draftLine.anchor, event.planPoint, radiusCm)
         if (wall) return { point: wall.position, snap: null }
 
-        // Duvar YOKKEN de kullanıcı düzgün açılarla çizebilsin diye (kullanıcı
-        // isteği: "her zaman dümdüz ilerlemesin, 45/90 derece de yapsın, biraz
-        // oynasın") — bu, wallLock'un aksine SIKI DEĞİL: yalnız hedef açıya
-        // yakınken yakalar (`ANGLE_SNAP_TOLERANCE_DEG`), uzaktaysa imleç
-        // serbest kalır. Izgaraya değil AÇIYA yakalar; mesafe imleçten
+        // Duvar YOKKEN (ya da yeterince yakın değilken) dünya eksenine
+        // (yatay/dikey) kelepçelenir — HER ZAMAN, çünkü boru hiçbir açıda
+        // serbest çizilemez. Izgaraya değil EKSENE yakalar; mesafe imleçten
         // aynen gelir, ayrıca ızgaraya yuvarlanmaz.
-        const angled = snapToNearestAngle(draftLine.anchor, event.planPoint)
-        if (angled) return { point: angled, snap: null }
+        return { point: snapToOrthogonalAxis(draftLine.anchor, event.planPoint), snap: null }
       }
 
       const point = event.ctrlKey ? event.planPoint : resolvePlacementPosition(event.planPoint, zoom)

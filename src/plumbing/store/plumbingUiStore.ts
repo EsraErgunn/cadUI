@@ -62,6 +62,15 @@ export type LineDraft = LineChain & {
  */
 export type Measurement = { start: PlanPoint; end: PlanPoint | null }
 
+/**
+ * Servis kutusu silme onayı beklerken tutulan kapsam — `deletionActions.ts` →
+ * `requestSelectionDeletion` tarafından ÖNCEDEN hesaplanır (kutuya bağlı TÜM
+ * gaz ağı, bkz. `core/installationReachability.ts`). Silme iki ayrı yerden
+ * tetiklenebildiği için (klavye Delete, panel "Sil" düğmesi) tek karar noktası
+ * burada — ikisi ayrı yerel state tutsaydı biri onay istemeyi unuturdu.
+ */
+export type PendingServiceBoxDeletion = { elementIds: Id[]; lineIds: Id[] }
+
 type PlumbingUiState = {
   selectedElementIds: Id[]
   /** Hatlar ayrı listede: eleman ve hat id'leri aynı evrende ama iki farklı
@@ -120,6 +129,10 @@ type PlumbingUiState = {
   /** symbolLoader.ts'in doldurduğu asset hataları — sessiz catch yerine görünür durum. */
   assetErrors: Partial<Record<InstallationElementType, string>>
   setAssetError: (type: InstallationElementType, message: string) => void
+  /** Onay bekleyen servis kutusu silme kapsamı; boş = diyalog kapalı. */
+  pendingServiceBoxDeletion: PendingServiceBoxDeletion | null
+  requestServiceBoxDeletion: (request: PendingServiceBoxDeletion) => void
+  cancelServiceBoxDeletion: () => void
 }
 
 /**
@@ -153,6 +166,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     pasteStepCount: 0,
     measurement: null,
     assetErrors: {},
+    pendingServiceBoxDeletion: null,
 
     setSelectedElements: (elementIds) =>
       set((draft) => {
@@ -266,6 +280,16 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     setAssetError: (type, message) =>
       set((draft) => {
         draft.assetErrors[type] = message
+      }),
+
+    requestServiceBoxDeletion: (request) =>
+      set((draft) => {
+        draft.pendingServiceBoxDeletion = request
+      }),
+
+    cancelServiceBoxDeletion: () =>
+      set((draft) => {
+        draft.pendingServiceBoxDeletion = null
       }),
   })),
 )

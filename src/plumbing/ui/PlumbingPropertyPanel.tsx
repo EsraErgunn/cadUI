@@ -22,6 +22,7 @@ import { WaterHeaterProperties } from './properties/WaterHeaterProperties'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { getPlumbingPropertyPanelTitle, getPlumbingSelectionKind } from '../core/propertyFields'
+import { requestSelectionDeletion } from '../store/deletionActions'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /**
@@ -38,7 +39,6 @@ export function PlumbingPropertyPanel() {
   const clearSelection = usePlumbingUiStore((state) => state.clearSelection)
   const installationElements = useCadStore((state) => state.installationElements)
   const installationLines = useCadStore((state) => state.installationLines)
-  const removeSelection = useCadStore((state) => state.removeSelection)
   const activeViewId = useUiStore((state) => state.activeViewId)
 
   // Görünüm değişince panel KAPANIR — mimarideki K53 kuralı burada da geçerli
@@ -60,9 +60,10 @@ export function PlumbingPropertyPanel() {
   )
   const isOpen = kind.scope !== 'none'
 
+  // Seçimde servis kutusu varsa doğrudan silinmez, önce onay istenir (bkz.
+  // deletionActions.ts).
   const handleDelete = () => {
-    removeSelection(selectedElementIds, selectedLineIds)
-    clearSelection()
+    requestSelectionDeletion(selectedElementIds, selectedLineIds)
   }
 
   return (
