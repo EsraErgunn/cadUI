@@ -33,6 +33,7 @@ const DISABLED_CHECKBOX: Pick<MenuItemDefinition, 'kind' | 'isEnabled'> = {
 
 export const CLOSE_EDITOR_ITEM_ID = 'close'
 export const SAVE_ITEM_ID = 'save'
+export const IMPORT_ITEM_ID = 'import'
 export const EXPORT_ITEM_ID = 'export'
 export const UNDO_ITEM_ID = 'undo'
 export const REDO_ITEM_ID = 'redo'
@@ -56,7 +57,7 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
           { id: SAVE_ITEM_ID, label: 'Kaydet', kind: 'command', isEnabled: true },
           { id: 'saveAs', label: 'Farklı Kaydet', ...DISABLED },
           { id: 'clearProject', label: 'Projeyi Temizle', ...DISABLED },
-          { id: 'import', label: 'İçe Aktar', ...DISABLED },
+          { id: IMPORT_ITEM_ID, label: 'İçe Aktar', kind: 'command', isEnabled: true },
           { id: EXPORT_ITEM_ID, label: 'Dışa Aktar (JSON)', kind: 'command', isEnabled: true },
           { id: 'exportPdf', label: "PDF'e Aktar", ...DISABLED },
           { id: 'exportPdfFloors', label: "PDF'e Aktar (Katlar)", ...DISABLED },

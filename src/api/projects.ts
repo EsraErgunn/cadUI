@@ -11,7 +11,8 @@ import {
 import { queryMockProjectFirms, submitMockProject } from './projectsMock'
 import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
-import { parseProjectJson, serializeProjectData } from '../core/serialize'
+import { serializeProjectDataForBackend } from '../core/projectExportFormat'
+import { parseProjectJson } from '../core/serialize'
 
 /**
  * API SÖZLEŞMESİ - Projeler listesi.
@@ -737,8 +738,11 @@ export function saveProjectVersion(
       method: 'POST',
       path: `/api/projects/${projectId}/newversion${query}`,
       // Metin burada üretiliyor: nesne gönderilseydi fetch ikinci kez
-      // stringify eder ve alan sırası sözleşmeden sapardı.
-      rawJsonBody: serializeProjectData(data),
+      // stringify eder ve alan sırası sözleşmeden sapardı. Düzenleme modeline
+      // (serializeProjectData) EK olarak backend'in okuyacağı sayaç bazlı
+      // unitReport'u da gömer (core/projectExportFormat.ts) — düzenleme
+      // modelinin kendisi ve kabul testi bundan ETKİLENMEZ.
+      rawJsonBody: serializeProjectDataForBackend(data),
       signal: options?.signal,
     },
     projectVersionCreatedSchema,

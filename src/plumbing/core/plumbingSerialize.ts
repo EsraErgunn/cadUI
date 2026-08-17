@@ -72,6 +72,13 @@ function toGasMeterJson(properties: GasMeterProperties) {
     isIndoor: properties.isIndoor,
     isAccessible247: properties.isAccessible247,
     hasCorrector: properties.hasCorrector,
+    meterOrder: properties.meterOrder,
+    unitNumber: properties.unitNumber,
+    subscriberName: properties.subscriberName,
+    subscriberNo: properties.subscriberNo,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
+    pressureMbar: properties.pressureMbar,
+    areaSquareMeters: properties.areaSquareMeters,
   }
 }
 
@@ -103,6 +110,7 @@ function toStoveJson(properties: StoveProperties) {
     description: properties.description,
     capacity: properties.capacity,
     power: properties.power,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
   }
 }
 
@@ -114,6 +122,7 @@ function toBurnerApplianceJson(properties: {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour?: number
 }) {
   return {
     applianceType: properties.applianceType,
@@ -122,6 +131,7 @@ function toBurnerApplianceJson(properties: {
     description: properties.description,
     capacity: properties.capacity,
     power: properties.power,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
   }
 }
 
@@ -134,6 +144,7 @@ function toOtherApplianceJson(properties: OtherApplianceProperties) {
     description: properties.description,
     capacity: properties.capacity,
     power: properties.power,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
   }
 }
 
@@ -150,6 +161,14 @@ const insulationPropertiesSchema = z.object({
   description: z.string(),
 })
 
+/**
+ * meterOrder/abone-birim/ölçü alanları SONRADAN eklendi (2026-08): eski
+ * kayıtlarda `gasMeter` nesnesi var ama bu alanlar yok. `.optional()` —
+ * `.default()` DEĞİL: `axisId`/`labelOffsetCm` (model.ts) ile AYNI gerekçe,
+ * varsayılan bir değer YAZSAYDI docs/sample-project.json gibi eski dosyalar
+ * hiç dokunulmamışken bile "bit bit aynı" kabul testini kırardı (yokluk,
+ * sıfır DEĞİLDİR). Alan yalnız kullanıcı gerçekten dokunup kaydedince yazılır.
+ */
 const gasMeterPropertiesSchema = z.object({
   classLabel: z.string(),
   inletConsumptionPoint: z.string(),
@@ -157,6 +176,13 @@ const gasMeterPropertiesSchema = z.object({
   isIndoor: z.boolean(),
   isAccessible247: z.boolean(),
   hasCorrector: z.boolean(),
+  meterOrder: z.number().optional(),
+  unitNumber: z.string().optional(),
+  subscriberName: z.string().optional(),
+  subscriberNo: z.string().optional(),
+  flowCubicMeterPerHour: z.number().optional(),
+  pressureMbar: z.number().optional(),
+  areaSquareMeters: z.number().optional(),
 })
 
 const filterKitPropertiesSchema = z.object({
@@ -176,12 +202,15 @@ const solenoidValvePropertiesSchema = z.object({
   model: z.string(),
 })
 
+/** `flowCubicMeterPerHour` ("Debi") SONRADAN eklendi — gasMeterPropertiesSchema'daki
+ * `.optional()` gerekçesiyle aynı, bit-bit tur için `.default()` KULLANILMAZ. */
 const stovePropertiesSchema = z.object({
   brand: z.string(),
   model: z.string(),
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
+  flowCubicMeterPerHour: z.number().optional(),
 })
 
 const burnerAppliancePropertiesSchema = z.object({
@@ -191,6 +220,7 @@ const burnerAppliancePropertiesSchema = z.object({
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
+  flowCubicMeterPerHour: z.number().optional(),
 })
 
 const otherAppliancePropertiesSchema = z.object({
@@ -201,6 +231,7 @@ const otherAppliancePropertiesSchema = z.object({
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
+  flowCubicMeterPerHour: z.number().optional(),
 })
 
 export const installationElementSchema = z.object({

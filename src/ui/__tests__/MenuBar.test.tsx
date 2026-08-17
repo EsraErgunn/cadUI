@@ -11,6 +11,7 @@ import { EDITOR_MENUS } from '../menu/menuDefinitions'
 function renderMenuBar(
   onCloseEditor = vi.fn(),
   onSave = vi.fn(),
+  onImport = vi.fn(),
   onExport = vi.fn(),
   onOpenFloorManagement = vi.fn(),
   onOpenFloorCopy = vi.fn(),
@@ -21,6 +22,7 @@ function renderMenuBar(
       <MenuBar
         onCloseEditor={onCloseEditor}
         onSave={onSave}
+        onImport={onImport}
         onExport={onExport}
         onOpenFloorManagement={onOpenFloorManagement}
         onOpenFloorCopy={onOpenFloorCopy}
@@ -29,7 +31,15 @@ function renderMenuBar(
       />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave, onExport, onOpenFloorManagement, onOpenFloorCopy, onGoToFloor }
+  return {
+    onCloseEditor,
+    onSave,
+    onImport,
+    onExport,
+    onOpenFloorManagement,
+    onOpenFloorCopy,
+    onGoToFloor,
+  }
 }
 
 describe('MenuBar', () => {
@@ -63,7 +73,7 @@ describe('MenuBar', () => {
     },
   )
 
-  it('yalnız Kaydet, Dışa Aktar ve Kapat aktiftir (KK-9)', async () => {
+  it('yalnız Kaydet, İçe Aktar, Dışa Aktar ve Kapat aktiftir (KK-9)', async () => {
     const user = userEvent.setup()
     renderMenuBar()
 
@@ -71,8 +81,19 @@ describe('MenuBar', () => {
 
     expect(screen.getByRole('menuitem', { name: 'Kapat' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'İçe Aktar' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Gönder' })).toBeDisabled()
+  })
+
+  it('Dosya > İçe Aktar içe aktarmayı tetikler', async () => {
+    const user = userEvent.setup()
+    const { onImport } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'İçe Aktar' }))
+
+    expect(onImport).toHaveBeenCalledTimes(1)
   })
 
   it('Dosya > Dışa Aktar dışa aktarmayı tetikler', async () => {

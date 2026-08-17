@@ -1,5 +1,7 @@
 import type { Id } from '../../../core/model'
+import { getCommonNumber } from '../../../core/propertyFields'
 import { useCadStore } from '../../../store/cadStore'
+import { PropertyNumberField } from '../../../ui/properties/PropertyNumberField'
 import { PropertyTextField } from '../../../ui/properties/PropertyTextField'
 import type { StoveProperties as StovePropertiesData } from '../../core/elementProperties'
 import { getCommonString } from '../../core/propertyFields'
@@ -10,6 +12,7 @@ const EMPTY_STOVE: StovePropertiesData = {
   description: '',
   capacity: '',
   power: '',
+  flowCubicMeterPerHour: 0,
 }
 
 type StovePropertiesProps = {
@@ -27,15 +30,18 @@ export function StoveProperties({ elementIds }: StovePropertiesProps) {
 
   // Yalnız DEĞİŞEN alan yazılır, elemanın diğer alt-alanları KENDİ mevcut
   // değerinden korunur (RegulatorProperties'teki gerekçeyle aynı).
-  const commitField = (field: keyof StovePropertiesData) => (value: string) => {
+  const commitField = (field: keyof StovePropertiesData) => (value: string | number) => {
     patchElements(elementIds, (element) => ({
       stove: { ...EMPTY_STOVE, ...element.stove, [field]: value },
     }))
     return true
   }
 
-  const commonValue = (field: keyof StovePropertiesData) =>
+  const commonValue = (field: 'brand' | 'model' | 'description' | 'capacity' | 'power') =>
     getCommonString(selected.map((element) => element.stove?.[field] ?? ''))
+
+  const commonFlow = () =>
+    getCommonNumber(selected.map((element) => element.stove?.flowCubicMeterPerHour ?? 0))
 
   return (
     <div>
@@ -68,6 +74,12 @@ export function StoveProperties({ elementIds }: StovePropertiesProps) {
         value={commonValue('power')}
         targetKey={targetKey}
         onCommit={commitField('power')}
+      />
+      <PropertyNumberField
+        label="Debi (m³/h)"
+        valueCm={commonFlow()}
+        targetKey={targetKey}
+        onCommit={commitField('flowCubicMeterPerHour')}
       />
     </div>
   )

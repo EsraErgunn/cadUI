@@ -27,6 +27,19 @@ export type InsulationProperties = {
  * "Tüketim noktası" tesisat_eleman.md'de iki kez geçiyor — kullanıcı onayıyla
  * (2026-08) bunlar İKİ ayrı alan: sayacın zaten bağlı olduğu (giriş) hat ve
  * yeni kurulacak (çıkış) hat için birer serbest metin notu.
+ *
+ * `meterOrder`/abone-birim alanları (2026-08, backend'in "Birim / Cihaz
+ * Bilgileri" raporu ihtiyacı): 1 daire = 1 sayaç, aynı katta birden fazla
+ * sayaç olabilir — `meterOrder` bunların backend sıralamasını/ayrımını taşır.
+ *
+ * Altısı da OPSİYONEL: SONRADAN eklendi ve docs/sample-project.json gibi eski
+ * kayıtlarda hiç yok. `axisId`/`labelOffsetCm` (model.ts) ile AYNI gerekçe —
+ * zorunlu + varsayılan (`.default(0)`) olsaydı eski dosyalar bu alanları
+ * YOKTAN VAR ederdi ve "bit bit aynı" kabul testi kırılırdı (bir alanı
+ * hiç dokunulmamış eski kayıtta bulunmayan bir değerle doldurmak, o kaydı
+ * hiç değişmemiş gibi yeniden yazdığımız iddiasıyla çelişir). Panel yine de
+ * `0`/`''` gösterir (EMPTY_GAS_METER) — o SADECE düzenleme sırasındaki
+ * görüntü, dosyaya ancak kullanıcı gerçekten dokununca yazılır.
  */
 export type GasMeterProperties = {
   classLabel: string
@@ -35,6 +48,13 @@ export type GasMeterProperties = {
   isIndoor: boolean
   isAccessible247: boolean
   hasCorrector: boolean
+  meterOrder?: number
+  unitNumber?: string
+  subscriberName?: string
+  subscriberNo?: string
+  flowCubicMeterPerHour?: number
+  pressureMbar?: number
+  areaSquareMeters?: number
 }
 
 /**
@@ -70,13 +90,19 @@ export type SolenoidValveProperties = {
   model: string
 }
 
-/** capacity/power birimi dokümanda yok — serbest metin, sayısal alan ZORLANMAZ. */
+/**
+ * capacity/power birimi dokümanda yok — serbest metin, sayısal alan
+ * ZORLANMAZ. `flowCubicMeterPerHour` ("Debi") bunlardan AYRI: backend
+ * raporunun net m³/h değeri istediği, birimi belli tek alan (2026-08).
+ */
 export type StoveProperties = {
   brand: string
   model: string
   description: string
   capacity: string
   power: string
+  /** OPSİYONEL — bkz. GasMeterProperties başındaki gerekçe (eski kayıt, bit-bit tur). */
+  flowCubicMeterPerHour?: number
 }
 
 /**
@@ -102,6 +128,8 @@ export type SpaceHeaterProperties = {
   description: string
   capacity: string
   power: string
+  /** OPSİYONEL — bkz. GasMeterProperties başındaki gerekçe (eski kayıt, bit-bit tur). */
+  flowCubicMeterPerHour?: number
 }
 
 export type CombiBoilerProperties = {
@@ -111,6 +139,8 @@ export type CombiBoilerProperties = {
   description: string
   capacity: string
   power: string
+  /** OPSİYONEL — bkz. GasMeterProperties başındaki gerekçe (eski kayıt, bit-bit tur). */
+  flowCubicMeterPerHour?: number
 }
 
 /** tesisat_eleman.md: Kombi ile "aynı" alan seti. */
@@ -121,6 +151,8 @@ export type WaterHeaterProperties = {
   description: string
   capacity: string
   power: string
+  /** OPSİYONEL — bkz. GasMeterProperties başındaki gerekçe (eski kayıt, bit-bit tur). */
+  flowCubicMeterPerHour?: number
 }
 
 /**
@@ -135,6 +167,8 @@ export type BoilerProperties = {
   description: string
   capacity: string
   power: string
+  /** OPSİYONEL — bkz. GasMeterProperties başındaki gerekçe (eski kayıt, bit-bit tur). */
+  flowCubicMeterPerHour?: number
 }
 
 /**
@@ -158,4 +192,6 @@ export type OtherApplianceProperties = {
   description: string
   capacity: string
   power: string
+  /** OPSİYONEL — bkz. GasMeterProperties başındaki gerekçe (eski kayıt, bit-bit tur). */
+  flowCubicMeterPerHour?: number
 }

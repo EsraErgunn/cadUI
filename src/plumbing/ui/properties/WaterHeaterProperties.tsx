@@ -1,5 +1,7 @@
 import type { Id } from '../../../core/model'
+import { getCommonNumber } from '../../../core/propertyFields'
 import { useCadStore } from '../../../store/cadStore'
+import { PropertyNumberField } from '../../../ui/properties/PropertyNumberField'
 import { PropertySelectField } from '../../../ui/properties/PropertySelectField'
 import { PropertyTextField } from '../../../ui/properties/PropertyTextField'
 import {
@@ -16,6 +18,7 @@ const EMPTY_WATER_HEATER: WaterHeaterPropertiesData = {
   description: '',
   capacity: '',
   power: '',
+  flowCubicMeterPerHour: 0,
 }
 
 const APPLIANCE_TYPE_OPTIONS = (Object.entries(APPLIANCE_TYPE_LABELS) as [ApplianceType, string][]).map(
@@ -41,15 +44,19 @@ export function WaterHeaterProperties({ elementIds }: WaterHeaterPropertiesProps
 
   // Yalnız DEĞİŞEN alan yazılır, elemanın diğer alt-alanları KENDİ mevcut
   // değerinden korunur (RegulatorProperties'teki gerekçeyle aynı).
-  const commitField = (field: keyof WaterHeaterPropertiesData) => (value: string) => {
+  const commitField = (field: keyof WaterHeaterPropertiesData) => (value: string | number) => {
     patchElements(elementIds, (element) => ({
       waterHeater: { ...EMPTY_WATER_HEATER, ...element.waterHeater, [field]: value },
     }))
     return true
   }
 
-  const commonValue = (field: keyof WaterHeaterPropertiesData) =>
-    getCommonString(selected.map((element) => element.waterHeater?.[field] ?? ''))
+  const commonValue = (
+    field: 'applianceType' | 'brand' | 'model' | 'description' | 'capacity' | 'power',
+  ) => getCommonString(selected.map((element) => element.waterHeater?.[field] ?? ''))
+
+  const commonFlow = () =>
+    getCommonNumber(selected.map((element) => element.waterHeater?.flowCubicMeterPerHour ?? 0))
 
   return (
     <div>
@@ -92,6 +99,12 @@ export function WaterHeaterProperties({ elementIds }: WaterHeaterPropertiesProps
         value={commonValue('power')}
         targetKey={targetKey}
         onCommit={commitField('power')}
+      />
+      <PropertyNumberField
+        label="Debi (m³/h)"
+        valueCm={commonFlow()}
+        targetKey={targetKey}
+        onCommit={commitField('flowCubicMeterPerHour')}
       />
     </div>
   )
