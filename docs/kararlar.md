@@ -4751,3 +4751,87 @@ parçalara bölünmesi) DURUYOR — kaldırılan yalnız parça başına ikinci 
 Etiket okunur yönün SOL normaline yazılıyor; "oda tarafı" kavramı artık
 hesaplanmıyor, dolayısıyla `findRoomFaces` bu yoldan çıktı (kare başına oda
 çevrimi araması da gitti).
+
+## 2026-08 · Tesisat paleti de gruplandı
+
+### K96 — Tesisat paleti İŞE göre gruplandı, Seçim Aracı paletten çıktı
+
+Mimaride K82/K83 ile yapılan düzen tesisat paletine de uygulandı: araçlar plan
+Bölüm 10'un düz sırasıyla değil, TÜRLERİNE göre beş grupta duruyor ve gruplar
+ince bir ayraçla ayrılıyor.
+
+1. **Besleme ve ölçüm** — Servis Kutusu, Regülatör, Sayaç, Süzme Sayaç.
+2. **Hatlar** — Boru, Branşman, Baca, Havalandırma Kanalı. Baca ve havalandırma
+   eleman değil GÜZERGÂH (`attachModes.ts`), yeri hat grubu.
+3. **Armatürler** — Vana, Selenoid Vana, Manometre, Filtre/Kit, İzolasyon.
+   Hepsi `onLine`: boruya oturur, boruyu ayırır.
+4. **Yakıcı cihazlar** — Ocak, Soba, Şofben, Kombi, Kazan, Diğer (`nearestLine`).
+5. **Notlar ve yardımcılar** — Ölçüm. Tesisatın hiçbir parçasını çizmiyor.
+
+Grup sırası gazın yolunu izliyor (servis kutusundan girer → hat çizilir →
+armatür oturur → cihaz yanar) ve grupların sınırı `attachModes.ts`'teki tutunma
+kipiyle uyumlu: kullanıcının gördüğü ayrım ile kodun davranış ayrımı ayrışırsa
+"neden bu ikisi ayrı grupta" sorusunun cevabı kalmaz.
+
+**Seçim Aracı paletten ÇIKARILDI** — K83'ün tesisat karşılığı. Yüzen çubuk iki
+çizim görünümünde de mount ediliyor (K57) ve tesisatın seçim aracını
+`INSTALLATION_SELECTION_TOOL_ID` üzerinden zaten gösteriyor; aynı kip iki yerde
+dururken kullanıcı hangisinin "asıl" olduğunu bilemiyordu. Araç olarak duruyor:
+varsayılan odur, hook'lar sabit üzerinden ona bakıyor.
+
+Mimarideki gibi `INSTALLATION_TOOLS` (var olan araçlar) ile
+`INSTALLATION_TOOL_GROUPS` (palette görünenler) artık AYNI KÜME DEĞİL; ikon
+kaydı ve davranış çözen fonksiyonlar (`getPlacementElementType`, `getLineKind`,
+`isMeasurementTool`) düzleştirilmiş listeyi okur, gruplar yalnız YERLEŞİM
+bilgisidir. Düzleştirmenin dönüş tipi burada da ELLE yazıldı — `flatMap` demet
+tiplerini genişletiyor ve `InstallationToolId` `string`e düşüyordu.
+
+**Ayraç her grubun ÜSTÜNDE, ilki dahil** (kullanıcı kararı): en üstteki çizgi
+grupları değil paleti üstündeki LOGODAN ayırıyor. İki palet aynı çizgiyi
+kullansın diye sınıf `TOOL_GROUP_DIVIDER` sabitinde
+(`ui/controls/buttonVariants.ts`), iki dosyada iki kopya değil.
+
+## 2026-08 · Duvar uzaklaşınca kayboluyor, kenarlarda inceliyordu
+
+### K97 — Duvar kalınlığı da PİKSEL cinsinden (worldUnits bırakıldı) + 3 px taban
+
+İki şikâyet arka arkaya geldi ve ikisinin de kaynağı aynı çizim yolu:
+
+1. **Uzaklaşınca duvarlar incelip yok oluyordu.** Duvar `alphaToCoverage` ile
+   yumuşatılıyor; çizgi bir-iki pikselken bandın TAMAMI "kenar" sayılıyor, örtme
+   maskesi seyrekleşiyor ve duvar yer yer silinip titriyordu. En uzak zoom'da
+   (%10) 20 cm'lik duvar 2 px'e denk geliyor.
+2. **Ekran KENARLARINA doğru inceliyordu.** Bu, boruda daha önce çözülen tuzağın
+   aynısı ("Boru kalınlığı piksel cinsinden veriliyor" kararı): `worldUnits`
+   shader'ı göz ışınının bir NOKTADAN çıktığını varsayıyor (perspektif), kameramız
+   ortografik ve 100.000 cm yukarıda — hesap float32 hassasiyetini yiyor, hata
+   ekran merkezinden uzaklaştıkça büyüyor. O kararda "duvarlarda görünmez" denip
+   duvar `worldUnits`ta bırakılmıştı; 3 px'e inen duvarda GÖRÜNÜR oldu.
+
+Karar: **duvar da `worldUnits` KULLANMAZ.** `scene/wallStyle.ts` →
+
+    getWallLineWidthPx(thicknessCm, zoom) = max(thicknessCm × zoom, 3)
+
+Taban boru tarafındakiyle aynı değer (`MIN_LINE_WIDTH_PX = 3`): aynı ekranda
+duvar ile hattın alt sınırı farklı olsaydı, uzaklaşınca biri kaybolup diğeri
+kalırdı. Taban yalnız en uzak birkaç zoom adımında devreye girer (20 cm duvar
+için zoom < 0,15); yakınken duvar gerçek kalınlığında, plan fiziksel olarak
+doğru okunuyor.
+
+Kapsül biçimi KAYBOLMADI: `worldUnits`siz yolda da uçlar yuvarlak, yalnız
+yuvarlaklık ekran uzayında hesaplanıyor. Ortografik tepeden bakışta ekran uzayı
+dünyanın düzgün ölçeklenmişi olduğu için kavşaklar yine kendiliğinden dolar
+(K23 duruyor). `CAMERA_HEIGHT_CM` uyarısı da duruyor ama artık duvar ona bağlı
+değil — düşürmek yine de gereksiz.
+
+Zoom, duvar başına DEĞİL kapsayıcıda bir kez okunur (`useCameraZoom`
+sözleşmesi): `Walls`, `FloorBelowGhost` ve tesisat görünümündeki
+`ArchitectureGhost` zoom'u prop olarak dağıtır. Üç yol da aynı fonksiyondan
+geçiyor — hayalet kaybolup gerçek duvar kalsaydı hizalama referansı işe
+yaramazdı.
+
+Bilinen sınır: açıklık DOLGUSU dünya uzayında bir mesh, tabana tabi değil. En
+uzak zoom'da duvar bandı biraz kalınken delik gerçek genişliğinde kalır, yani
+kapı/pencere olduğundan dar görünür. Kiriş ve alan nesnesi konturları da hâlâ
+`worldUnits` yolunda (AreaObject.tsx, Beam.tsx) — aynı iki kusur onlarda da var,
+ayrıca ele alınacak.

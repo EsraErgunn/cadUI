@@ -10,6 +10,7 @@ import { getWallCapsuleFrom } from '../../core/wallShape'
 import { RENDER_ORDER } from '../../scene/layers'
 import { toOpeningFillPositions } from '../../scene/openingFill'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
+import { getWallLineWidthPx } from '../../scene/wallStyle'
 
 /**
  * `ArchitectureGhost`in (Ghosts.tsx) duvar + açıklık şekilleri — ayrı dosyada,
@@ -55,7 +56,16 @@ function GhostLine({ points, lineWidth }: GhostLineProps) {
  * Hayalet duvar = soluk renkli kapsül. scene/Wall.tsx ile AYNI geometri: mimari
  * görünümde union yok, duvarlar üst üste çizilir ve kavşak kendiliğinden dolar (K23).
  */
-export function GhostWall({ wall, pointIndex }: { wall: WallData; pointIndex: PointIndex }) {
+export function GhostWall({
+  wall,
+  pointIndex,
+  zoom,
+}: {
+  wall: WallData
+  pointIndex: PointIndex
+  /** Kalınlığın ekran tabanı zoom'a bağlı; kapsayıcı bir kez okur. */
+  zoom: number
+}) {
   const capsule = getWallCapsuleFrom(wall, pointIndex)
   if (!capsule) return null
 
@@ -66,9 +76,10 @@ export function GhostWall({ wall, pointIndex }: { wall: WallData; pointIndex: Po
         planToThree(capsule.p2, ARCHITECTURE_GHOST_ELEVATION_CM),
       ]}
       color={PLUMBING_COLORS.architectureGhost}
-      // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
-      worldUnits
-      lineWidth={wall.thickness}
+      // Kalınlık mimari görünümdekiyle AYNI yoldan (piksel, worldUnits YOK):
+      // uzaklaşınca hayalet incelip kaybolursa borunun hangi duvarın üstünde
+      // olduğuna bakılacak bağlam da kaybolur.
+      lineWidth={getWallLineWidthPx(wall.thickness, zoom)}
       alphaToCoverage
       frustumCulled={false}
       renderOrder={RENDER_ORDER.architectureGhost}

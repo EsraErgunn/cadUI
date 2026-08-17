@@ -6,6 +6,8 @@ import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
 import { toOpeningFillPositions } from './openingFill'
 import { SCENE_COLORS } from './sceneTheme'
+import { useCameraZoom } from './useCameraZoom'
+import { getWallLineWidthPx } from './wallStyle'
 import { planToThree, type PlanPoint } from '../core/coords'
 import { getFloorBelowId } from '../core/floors'
 import type { OpeningType, Wall } from '../core/model'
@@ -27,7 +29,15 @@ const GHOST_STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
 
 const GHOST_SYMBOL_ELEVATION_CM = FLOOR_BELOW_GHOST_ELEVATION_CM + OPENING_SYMBOL_LIFT_CM
 
-function GhostWall({ wall, pointIndex }: { wall: Wall; pointIndex: PointIndex }) {
+function GhostWall({
+  wall,
+  pointIndex,
+  zoom,
+}: {
+  wall: Wall
+  pointIndex: PointIndex
+  zoom: number
+}) {
   const capsule = getWallCapsuleFrom(wall, pointIndex)
   if (!capsule) return null
 
@@ -38,9 +48,9 @@ function GhostWall({ wall, pointIndex }: { wall: Wall; pointIndex: PointIndex })
         planToThree(capsule.p2, FLOOR_BELOW_GHOST_ELEVATION_CM),
       ]}
       color={ARCHITECTURE_COLORS.floorBelowGhost}
-      // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
-      worldUnits
-      lineWidth={wall.thickness}
+      // Kalınlık aktif kat duvarıyla AYNI yoldan (piksel, worldUnits YOK):
+      // biri incelip kaybolurken diğeri kalsaydı iz hizalama işini görmezdi.
+      lineWidth={getWallLineWidthPx(wall.thickness, zoom)}
       alphaToCoverage
       frustumCulled={false}
       renderOrder={RENDER_ORDER.floorBelowGhost}
@@ -132,6 +142,8 @@ export function FloorBelowGhost() {
   // Havuz BİR kez indekslenir; hayalet duvar başına taransaydı O(N·P) olurdu.
   const pointIndex = buildPointIndex(points)
   const openings = useCadStore((state) => state.openings)
+  // Zoom BİR kez okunur ve dağıtılır (bkz. useCameraZoom).
+  const zoom = useCameraZoom()
 
   const floorBelowId = getFloorBelowId(floors, activeFloorId)
 
@@ -158,7 +170,7 @@ export function FloorBelowGhost() {
   return (
     <group name="floor-below-ghost">
       {ghostWalls.map((wall) => (
-        <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} />
+        <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} zoom={zoom} />
       ))}
 
       {ghostOpenings.map((opening) => (

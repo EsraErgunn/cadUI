@@ -5,7 +5,7 @@ import { ARCHITECTURE_SHORTCUTS } from '../core/shortcuts'
 import { ARCHITECTURE_TOOL_GROUPS } from '../core/tools'
 import { PlumbingToolbar } from '../plumbing/ui/PlumbingToolbar'
 import { useUiStore } from '../store/uiStore'
-import { toolButtonVariants } from './controls/buttonVariants'
+import { TOOL_GROUP_DIVIDER, toolButtonVariants } from './controls/buttonVariants'
 import { TOOL_ICONS } from './tools/toolIcons'
 
 /** Pasif düğmenin ipucuna eklenen açıklama; palet "bozuk" değil "henüz yok" desin. */
@@ -69,13 +69,14 @@ export function Toolbar() {
     // sarmalar, ipucu araç değil (nav'ın içinde olsaydı palete araç gibi girerdi).
     // Zemin ve kenarlık YOK: ikisini de EditorSidebar taşıyor (tek parça yüzey).
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Gruplar arasında ince ayraç (K82). Ayraç `<nav>`ın İÇİNDE değil
-          grupların arasında: her grup kendi ızgarası, yoksa iki sütunlu tek
-          ızgarada çizgi bir hücreyi işgal ederdi. */}
+      {/* Her grubun ÜSTÜNDE ince ayraç (K82): ilki paleti üstteki logodan ayırır.
+          Ayraç `<nav>`ın İÇİNDE değil grupların arasında: her grup kendi
+          ızgarası, yoksa iki sütunlu tek ızgarada çizgi bir hücreyi işgal
+          ederdi. */}
       <nav aria-label="Araç paleti" className="flex flex-col">
-        {ARCHITECTURE_TOOL_GROUPS.map((group, index) => (
+        {ARCHITECTURE_TOOL_GROUPS.map((group) => (
           <div key={group.id}>
-            {index > 0 && <div className="mx-2 h-px bg-edge" aria-hidden />}
+            <div className={TOOL_GROUP_DIVIDER} aria-hidden />
             {/* Araçlar tek sütunda 1080p'ye sığmıyor → iki sütun. */}
             <div
               role="group"

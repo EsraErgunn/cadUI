@@ -18,37 +18,109 @@ export type InstallationToolDefinition = {
   description?: string
 }
 
-/**
- * Tesisat paletindeki araçlar, plan Bölüm 10'daki sırayla + doküman (tesisat_tasarimi_
- * elemanlari_ve_cizim_kurallari.md § 15) gereği eklenen 5 yakıcı cihaz türü (Soba, Şofben,
- * Kombi, Kazan, Diğer). Ortak davranış hepsinde aynı: tek gaz girişi, cihaz üzerinde vana yok
- * (bkz. docs/kararlar.md).
- */
-export const INSTALLATION_TOOLS = [
-  { id: 'selection', label: 'Seçim Aracı', behavior: 'selection' },
-  { id: 'regulator', label: 'Regülatör Ekle', behavior: 'placement', elementType: 'regulator' },
-  { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline', lineKind: 'pipe' },
-  { id: 'chimney', label: 'Baca Çiz', behavior: 'polyline', lineKind: 'chimney' },
-  { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline', lineKind: 'branch' },
-  { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'placement', elementType: 'insulation' },
-  { id: 'gasMeter', label: 'Sayaç Ekle', behavior: 'placement', elementType: 'gasMeter' },
-  { id: 'manometer', label: 'Manometre Ekle', behavior: 'placement', elementType: 'manometer' },
-  { id: 'serviceBox', label: 'Servis Kutusu Ekle', behavior: 'placement', elementType: 'serviceBox' },
-  { id: 'filterKit', label: 'Filtre / Kit Ekle', behavior: 'placement', elementType: 'filterKit' },
-  { id: 'valve', label: 'Vana Ekle', behavior: 'placement', elementType: 'valve' },
-  { id: 'strainerMeter', label: 'Süzme Sayaç Ekle', behavior: 'placement', elementType: 'strainerMeter' },
-  { id: 'solenoidValve', label: 'Selenoid Vana Ekle', behavior: 'placement', elementType: 'solenoidValve' },
-  { id: 'ventilationDuct', label: 'Havalandırma Kanalı Çiz', behavior: 'polyline', lineKind: 'ventilationDuct' },
-  { id: 'stove', label: 'Ocak Ekle', behavior: 'placement', elementType: 'stove' },
-  { id: 'spaceHeater', label: 'Soba Ekle', behavior: 'placement', elementType: 'spaceHeater' },
-  { id: 'waterHeater', label: 'Şofben Ekle', behavior: 'placement', elementType: 'waterHeater' },
-  { id: 'combiBoiler', label: 'Kombi Ekle', behavior: 'placement', elementType: 'combiBoiler' },
-  { id: 'boiler', label: 'Kazan Ekle', behavior: 'placement', elementType: 'boiler' },
-  { id: 'otherAppliance', label: 'Diğer Yakıcı Cihaz Ekle', behavior: 'placement', elementType: 'otherAppliance' },
-  { id: 'measurement', label: 'Ölçüm', behavior: 'measurement' },
-] as const satisfies readonly InstallationToolDefinition[]
+export type InstallationToolGroup = {
+  id: string
+  /** Ekran okuyucu bu adı duyar; ekranda yalnız ayraç çizgisi görünür. */
+  label: string
+  tools: readonly InstallationToolDefinition[]
+}
 
-export type InstallationToolId = (typeof INSTALLATION_TOOLS)[number]['id']
+/**
+ * Seçim aracı PALETTE YOK — mimarideki K83 kararının aynısı: aynı kip tuvalin
+ * altındaki yüzen çubukta El aracıyla yan yana duruyor ve sol tuşun ne
+ * yapacağını söyleyen düğmeler tek yerde olmalı.
+ *
+ * Yine de bir ARAÇ: varsayılan odur, hook'lar `INSTALLATION_SELECTION_TOOL_ID`
+ * ile ona bakar. Tanımı bu yüzden duruyor, yalnız gruplara girmiyor.
+ */
+const SELECTION_TOOL = { id: 'selection', label: 'Seçim Aracı', behavior: 'selection' } as const
+
+/**
+ * Tesisat paleti, İŞE göre gruplanmış (mimarideki K82'nin karşılığı). Plan Bölüm
+ * 10'un düz sırası bırakıldı: iki sütuna serilince boruyla izolasyon, sayaçla
+ * manometre yan yana düşüyordu — kullanıcı aradığı aracı sırayla değil TÜRÜNE
+ * göre arıyor.
+ *
+ * Grup sırası gazın yolunu izler: servis kutusundan girer, hat çizilir, hattın
+ * üstüne armatür oturur, ucunda cihaz yanar. Elemanın hangi gruba düştüğü
+ * `attachModes.ts`'teki tutunma kipiyle uyumlu (free/lineEnd · onLine ·
+ * nearestLine) — kullanıcının gördüğü ayrım ile kodun davranış ayrımı ayrışmasın.
+ *
+ * Yakıcı cihazlarda ortak davranış aynı: tek gaz girişi, cihaz üzerinde vana yok
+ * (doküman § 15, bkz. docs/kararlar.md).
+ */
+export const INSTALLATION_TOOL_GROUPS = [
+  {
+    id: 'supply',
+    label: 'Besleme ve ölçüm',
+    tools: [
+      { id: 'serviceBox', label: 'Servis Kutusu Ekle', behavior: 'placement', elementType: 'serviceBox' },
+      { id: 'regulator', label: 'Regülatör Ekle', behavior: 'placement', elementType: 'regulator' },
+      { id: 'gasMeter', label: 'Sayaç Ekle', behavior: 'placement', elementType: 'gasMeter' },
+      { id: 'strainerMeter', label: 'Süzme Sayaç Ekle', behavior: 'placement', elementType: 'strainerMeter' },
+    ],
+  },
+  {
+    id: 'lines',
+    label: 'Hatlar',
+    tools: [
+      { id: 'pipe', label: 'Boru Ekle', behavior: 'polyline', lineKind: 'pipe' },
+      { id: 'branch', label: 'Branşman Ekle', behavior: 'polyline', lineKind: 'branch' },
+      // Baca ve havalandırma da hat: eleman değil, cihazın deşarj güzergâhı.
+      { id: 'chimney', label: 'Baca Çiz', behavior: 'polyline', lineKind: 'chimney' },
+      { id: 'ventilationDuct', label: 'Havalandırma Kanalı Çiz', behavior: 'polyline', lineKind: 'ventilationDuct' },
+    ],
+  },
+  {
+    id: 'fittings',
+    label: 'Armatürler',
+    tools: [
+      { id: 'valve', label: 'Vana Ekle', behavior: 'placement', elementType: 'valve' },
+      { id: 'solenoidValve', label: 'Selenoid Vana Ekle', behavior: 'placement', elementType: 'solenoidValve' },
+      { id: 'manometer', label: 'Manometre Ekle', behavior: 'placement', elementType: 'manometer' },
+      { id: 'filterKit', label: 'Filtre / Kit Ekle', behavior: 'placement', elementType: 'filterKit' },
+      { id: 'insulation', label: 'İzolasyon Ekle', behavior: 'placement', elementType: 'insulation' },
+    ],
+  },
+  {
+    id: 'appliances',
+    label: 'Yakıcı cihazlar',
+    tools: [
+      { id: 'stove', label: 'Ocak Ekle', behavior: 'placement', elementType: 'stove' },
+      { id: 'spaceHeater', label: 'Soba Ekle', behavior: 'placement', elementType: 'spaceHeater' },
+      { id: 'waterHeater', label: 'Şofben Ekle', behavior: 'placement', elementType: 'waterHeater' },
+      { id: 'combiBoiler', label: 'Kombi Ekle', behavior: 'placement', elementType: 'combiBoiler' },
+      { id: 'boiler', label: 'Kazan Ekle', behavior: 'placement', elementType: 'boiler' },
+      { id: 'otherAppliance', label: 'Diğer Yakıcı Cihaz Ekle', behavior: 'placement', elementType: 'otherAppliance' },
+    ],
+  },
+  {
+    // Tesisatın hiçbir parçasını çizmeyen yardımcılar; bugün tek üye ölçüm.
+    id: 'annotation',
+    label: 'Notlar ve yardımcılar',
+    tools: [{ id: 'measurement', label: 'Ölçüm', behavior: 'measurement' }],
+  },
+] as const satisfies readonly InstallationToolGroup[]
+
+type InstallationTool =
+  | typeof SELECTION_TOOL
+  | (typeof INSTALLATION_TOOL_GROUPS)[number]['tools'][number]
+
+/**
+ * VAR OLAN araçların tamamı — palettekiler + palette görünmeyen seçim aracı.
+ * Kimlik türeten (`InstallationToolId`), ikon zorlayan (`INSTALLATION_TOOL_ICONS`)
+ * ve davranış çözen fonksiyonlar bunu okur; gruplar yalnız YERLEŞİM bilgisidir.
+ *
+ * Dönüş tipi ELLE yazıldı: `flatMap` demet (tuple) tiplerini birleştirirken
+ * genişletiyor ve `InstallationToolId` string'e düşüyordu — o zaman "olmayan
+ * araç kimliği" derleme hatası vermezdi (core/tools.ts'teki aynı tuzak).
+ */
+export const INSTALLATION_TOOLS: readonly InstallationTool[] = [
+  SELECTION_TOOL,
+  ...INSTALLATION_TOOL_GROUPS.flatMap((group) => group.tools as readonly InstallationTool[]),
+]
+
+export type InstallationToolId = InstallationTool['id']
 
 export const DEFAULT_INSTALLATION_TOOL_ID: InstallationToolId = 'selection'
 
