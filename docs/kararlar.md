@@ -4835,3 +4835,41 @@ uzak zoom'da duvar bandı biraz kalınken delik gerçek genişliğinde kalır, y
 kapı/pencere olduğundan dar görünür. Kiriş ve alan nesnesi konturları da hâlâ
 `worldUnits` yolunda (AreaObject.tsx, Beam.tsx) — aynı iki kusur onlarda da var,
 ayrıca ele alınacak.
+
+## 2026-08 · Kavşaktaki hale
+
+### K98 — Duvarlarda `alphaToCoverage` KAPALI: kavşaktaki hale bundandı
+
+Duvar `<Line>`'ının kenar yumuşatması artık örtme (coverage) maskesiyle değil,
+materyalin kendi harmanlamasıyla yapılıyor.
+
+Eski yorum "duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz"
+diyordu ve İKİ duvarın gövdesi kısmen çakışırken bu doğruydu. Gözden kaçan
+durum KAVŞAK: orada birden çok yuvarlak UÇ aynı noktada üst üste biniyor. Her
+uç ayrı bir çizim ve örnek maskesini ekleyerek değil YAZARAK koyuyor; kenar
+alfaları birbirine yakın olduğu için hepsi aşağı yukarı aynı örnek altkümesini
+dolduruyor ve birleşim tam örtmeye ulaşmıyordu. Sonuç: kavşakta zeminin sızdığı,
+duvardan açık renkli bir hale.
+
+Belirti kullanıcıdan geldi ("köşelerde gölgemsi görüntü") ve dört kollu
+kesişimde gözle seçiliyordu; iki kollu L köşesinde eksik örtme çok küçük olduğu
+için fark edilmiyordu.
+
+Kapatmanın bilinen riski shader'ın kenarı sert `discard` etmesi ve yuvarlak
+uçların tırtıklanmasıydı; tarayıcıda bakıldı, uçlar düzgün kaldı (MSAA açık).
+
+⚠️ Bu ayarı geri açan, kavşak halesini de geri getirir.
+
+"Tek duvar çizdim iki oldu" şikâyeti bu haleyle birlikte KAPANDI. Belirtinin
+iki kaynağı varmış ve ikisi de görseldi:
+
+1. Kavşaktaki hale, ayrı bir parça gibi okunuyordu (bu karar).
+2. Aynı parçaya yazılan ikinci ve yanlış sayı (K95'te kaldırılan içten ölçü).
+
+⚠️ "Kıymık duvar" diye bir sorun ÇIKMADI, arama oraya boşuna gitti. Şüphe
+ekrandaki `0,02 m` / `0,10 m` gibi etiketlerden doğmuştu; onlar minicik duvarlar
+değil, `0,42 m` / `0,50 m` ile ÇİFT hâlinde duran bozuk içten ölçülerdi — K74
+komşu kalınlığını düşüp sıfırda kelepçelediği için 42 cm'lik duvar "0,02 m"
+yazıyordu. Ders: bir sayının saçmalığına bakmadan önce yanındaki sayıyla çift
+olup olmadığına bak. Kullanıcı K95+K96 sonrası planı denetledi, 20 cm altında
+parça yok.

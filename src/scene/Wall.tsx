@@ -69,12 +69,15 @@ export function Wall({ wall, pointIndex, tone, zoom }: WallProps) {
       // — bkz. wallStyle.ts: o yol ekran kenarlarına doğru inceltiyordu).
       lineWidth={getWallLineWidthPx(wall.thickness + TONE_BOOSTS_CM[tone], zoom)}
       /*
-       * Kenar yumuşatma örtme (coverage) maskesiyle yapılır, harmanlamayla değil.
-       * Duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz: maske
-       * hangi örneği seçerse seçsin yazılan renk aynı. Kapatılırsa shader sert
-       * `discard` eder ve eğri uçlar tırtıklanır.
+       * `alphaToCoverage` KAPALI. Açıkken kenar yumuşatma örtme maskesiyle
+       * yapılıyordu ve tek renk duvarlarda sorunsuz görünüyordu — ama bir
+       * KAVŞAKTA birden çok yuvarlak UÇ üst üste biniyor. Her uç kendi çizimidir
+       * ve maskesini ekleyerek değil YAZARAK koyar; kenar alfası benzer olduğu
+       * için hepsi aşağı yukarı aynı örnek altkümesini dolduruyor, birleşim tam
+       * örtmeye ulaşmıyor ve kavşakta zeminin sızdığı açık renkli bir hale
+       * kalıyordu (kullanıcı bildirimi).
        */
-      alphaToCoverage
+      alphaToCoverage={false}
       // Kapsül geometrinin sınırlarını taştığı için kırpma kapalı.
       frustumCulled={false}
       renderOrder={RENDER_ORDER.wall}
