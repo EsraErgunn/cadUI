@@ -1,17 +1,9 @@
-import { MOCK_REGIONS } from './adminDashboardMock'
 import type {
-  CreatedProject,
-  CreateProjectPayload,
   Lookup,
-  ProjectListQuery,
   ProjectStatus,
-  ProjectStatusCountsQuery,
-  RawFirmEngineer,
-  RawParametricOption,
   RawProjectListItem,
   SubmitProjectResult,
 } from './projects'
-import { includesTr } from './turkishText'
 
 /**
  * Statü döngüsü burada yerel tanımlı: `projects.ts`'ten DEĞER almak döngüsel
@@ -55,10 +47,6 @@ const MOCK_GAS_FIRMS: Lookup[] = [
   { id: 102, name: 'İzmirgaz Şehiriçi Doğalgaz A.Ş.' },
   { id: 103, name: 'Bursagaz Gaz Dağıtım A.Ş.' },
 ]
-
-/** Üst bardaki bölge seçimi firma listesinin bölgelerini gösteriyor; iki mock aynı
-    değer kümesini kullanmazsa bölge filtresi tarayıcıda hiçbir projeyi eşleştiremez. */
-const MOCK_PROJECT_REGIONS = MOCK_REGIONS.slice(0, 4)
 
 const PROJECT_NAME_PREFIXES = [
   'Yıldız Apartmanı', 'Gül Sitesi B Blok', 'Papatya Konakları', 'Meşe Residence',
@@ -106,7 +94,6 @@ interface MockProject extends RawProjectListItem {
   status: ProjectStatus
   districtId: number
   projectFirmId: number
-  region: string
   /** Aramada geçer ama listede sütunu yok — arama proje adı, P_ID ve tesisat no üzerinde. */
   installationNo: string
 }
@@ -145,7 +132,6 @@ function buildMockProjects(): MockProject[] {
       status: MOCK_STATUS_CYCLE[index % MOCK_STATUS_CYCLE.length],
       districtId: MOCK_DISTRICTS[index % MOCK_DISTRICTS.length].id,
       projectFirmId: MOCK_PROJECT_FIRMS[index % MOCK_PROJECT_FIRMS.length].id,
-      region: MOCK_PROJECT_REGIONS[index % MOCK_PROJECT_REGIONS.length],
       installationNo: `TN${900_000 + index * 13}`,
     })
 
@@ -155,8 +141,13 @@ function buildMockProjects(): MockProject[] {
   return projects
 }
 
-/** Sil/Gönder gerçekten listeyi değiştirsin diye değişebilir tutulur. */
-let mockProjects = buildMockProjects()
+/**
+ * Bu liste ARTIK PROJE LİSTESİ EKRANINI BESLEMİYOR — o ekran gerçek
+ * `GET /api/projects`'ten geliyor. Geriye iki işi kaldı: "Onaya Gönder"in
+ * (`submitMockProject`) üzerinde çalıştığı kayıtlar ve evrak/poliçe
+ * mock'larının ortak proje tohumu (`getMockProjectSeeds`).
+ */
+const mockProjects = buildMockProjects()
 
 /** Evrak satırlarının bağlanacağı proje künyesi; `MockProject`'in tamamı
     dışarı açılmasın diye dar tutuldu. */
@@ -185,89 +176,6 @@ export function getMockProjectSeeds(): MockProjectSeed[] {
     gasFirmName: project.gasFirmName ?? null,
     installationNo: project.installationNo,
   }))
-}
-
-/** ISO damgasının yalnız tarih parçası; aralık karşılaştırması gün bazlı. */
-function toIsoDate(timestamp: string): string {
-  return timestamp.slice(0, 10)
-}
-
-function matchesFilters(project: MockProject, query: ProjectStatusCountsQuery): boolean {
-  const updatedDate = toIsoDate(project.updatedAt)
-  if (query.dateFrom !== null && updatedDate < query.dateFrom) return false
-  if (query.dateTo !== null && updatedDate > query.dateTo) return false
-  if (query.districtId !== null && project.districtId !== query.districtId) return false
-  if (query.projectFirmId !== null && project.projectFirmId !== query.projectFirmId) return false
-
-  if (query.search !== '') {
-    const matchesSearch =
-      includesTr(project.name, query.search) ||
-      includesTr(project.pId, query.search) ||
-      includesTr(project.installationNo, query.search)
-    if (!matchesSearch) return false
-  }
-
-  return true
-}
-
-function compareProjects(
-  left: MockProject,
-  right: MockProject,
-  query: ProjectListQuery,
-): number {
-  const direction = query.sortDir === 'asc' ? 1 : -1
-
-  if (query.sortBy === 'name') return left.name.localeCompare(right.name, 'tr') * direction
-
-  const leftValue = query.sortBy === 'createdAt' ? left.createdAt : left.updatedAt
-  const rightValue = query.sortBy === 'createdAt' ? right.createdAt : right.updatedAt
-  return leftValue.localeCompare(rightValue) * direction
-}
-
-/**
- * Sunucunun yapacağı işi taklit eder: filtre → sırala → SADECE istenen sayfayı
- * dilimle. Gerçek endpoint geldiğinde çağıran taraf değişmez, yalnız bu dosya silinir.
- */
-export async function queryMockProjects(
-  query: ProjectListQuery,
-  signal?: AbortSignal,
-): Promise<{ items: RawProjectListItem[]; totalCount: number }> {
-  await sleep(MOCK_LATENCY_MS, signal)
-
-  const matched = mockProjects.filter(
-    (project) => project.status === query.status && matchesFilters(project, query),
-  )
-  const sorted = [...matched].sort((left, right) => compareProjects(left, right, query))
-  const offset = (query.page - 1) * query.pageSize
-
-  return {
-    items: sorted.slice(offset, offset + query.pageSize),
-    totalCount: matched.length,
-  }
-}
-
-export async function queryMockProjectStatusCounts(
-  query: ProjectStatusCountsQuery,
-  signal?: AbortSignal,
-): Promise<Record<ProjectStatus, number>> {
-  await sleep(MOCK_LATENCY_MS, signal)
-
-  const counts: Record<ProjectStatus, number> = {
-    taslak: 0,
-    onayBekleyen: 0,
-    onaylanan: 0,
-    reddedilen: 0,
-  }
-  for (const project of mockProjects) {
-    if (matchesFilters(project, query)) counts[project.status] += 1
-  }
-
-  return counts
-}
-
-export async function deleteMockProject(id: number): Promise<void> {
-  await sleep(MOCK_LATENCY_MS)
-  mockProjects = mockProjects.filter((project) => project.id !== id)
 }
 
 /** Evrağı eksik proje onaya gönderilemez; hangi evrakların eksik olduğu id'den türetilir. */
@@ -303,173 +211,4 @@ export async function queryMockProjectFirms(signal?: AbortSignal): Promise<Looku
   return MOCK_PROJECT_FIRMS
 }
 
-/** Proje firmasının bölgesi. Süzgeç olarak KULLANILMIYOR (bölge kapsamı kalktı);
-    yeni kaydın bölge alanını doldurmak için duruyor. */
-const MOCK_PROJECT_FIRM_REGIONS = new Map<number, string>(
-  MOCK_PROJECT_FIRMS.map((firm, index) => [
-    firm.id,
-    MOCK_PROJECT_REGIONS[index % MOCK_PROJECT_REGIONS.length],
-  ]),
-)
 
-/** Proje firması → çalıştığı GD firmaları. Bir proje firması birden fazla GD
-    firmasıyla çalışabilir, o yüzden dizi. */
-const MOCK_GAS_FIRM_LINKS = new Map<number, number[]>([
-  [11, [101, 102]],
-  [12, [101]],
-  [13, [102, 103]],
-  [14, [103]],
-  [15, [101, 103]],
-])
-
-export async function queryMockGasFirmsForProjectFirm(
-  projectFirmId: number,
-  signal?: AbortSignal,
-): Promise<Lookup[]> {
-  await sleep(MOCK_LATENCY_MS, signal)
-  const linkedIds = MOCK_GAS_FIRM_LINKS.get(projectFirmId) ?? []
-
-  return MOCK_GAS_FIRMS.filter((firm) => linkedIds.includes(firm.id))
-}
-
-const MOCK_ENGINEER_NAMES: [string, string][] = [
-  ['Ayşe', 'Yıldırım'], ['Mehmet', 'Kaya'], ['Elif', 'Demir'], ['Burak', 'Şahin'],
-  ['Zeynep', 'Aydın'], ['Onur', 'Çelik'], ['Deniz', 'Arslan'], ['Selin', 'Koç'],
-]
-
-/** Her firmada bu kadar mühendis var ve SONUNCUSU pasif: pasif kullanıcının
-    listeye girmediği tarayıcıda da görülebilsin. */
-const ENGINEERS_PER_FIRM = 3
-const FIRST_ENGINEER_ID = 501
-
-interface MockEngineer extends RawFirmEngineer {
-  projectFirmId: number
-}
-
-function buildMockEngineers(): MockEngineer[] {
-  const engineers: MockEngineer[] = []
-
-  MOCK_PROJECT_FIRMS.forEach((firm, firmIndex) => {
-    for (let slot = 0; slot < ENGINEERS_PER_FIRM; slot += 1) {
-      const nameIndex = (firmIndex * ENGINEERS_PER_FIRM + slot) % MOCK_ENGINEER_NAMES.length
-      const [firstName, lastName] = MOCK_ENGINEER_NAMES[nameIndex]
-
-      engineers.push({
-        id: FIRST_ENGINEER_ID + engineers.length,
-        firstName,
-        lastName,
-        isActive: slot < ENGINEERS_PER_FIRM - 1,
-        projectFirmId: firm.id,
-      })
-    }
-  })
-
-  return engineers
-}
-
-const MOCK_ENGINEERS = buildMockEngineers()
-
-/**
- * Kimliksiz mühendis sorgusu = proje firması kullanıcısı; gerçek uçta firma
- * token'dan türetilir, mock sabit bir firmayı oturumun firması sayar.
- * TODO(esra): gerçek uç bağlanınca bu sabit silinecek.
- */
-const MOCK_TOKEN_PROJECT_FIRM_ID = 11
-
-export async function queryMockFirmEngineers(
-  projectFirmId?: number,
-  signal?: AbortSignal,
-): Promise<RawFirmEngineer[]> {
-  await sleep(MOCK_LATENCY_MS, signal)
-  const firmId = projectFirmId ?? MOCK_TOKEN_PROJECT_FIRM_ID
-
-  return MOCK_ENGINEERS.filter((engineer) => engineer.projectFirmId === firmId)
-}
-
-/** Etiketler `projects.ts`'teki PROJECT_TYPE_LABELS ile aynı ama oradan DEĞER
-    alınamıyor (dosya başındaki döngüsel import notu). */
-const MOCK_PROJECT_TYPE_OPTIONS: RawParametricOption[] = [
-  { code: 'ILAVE', label: 'İlave' },
-  { code: 'ILAVE_TADILAT', label: 'İlave Tadilat' },
-  { code: 'KOLON', label: 'Kolon' },
-  { code: 'KOLON_TADILAT', label: 'Kolon Tadilat' },
-  { code: 'RUHSAT', label: 'Ruhsat' },
-  // Ayarlar'dan sonradan eklenmiş tip: liste sunucudan geldiği için arayüz
-  // yeniden yayınlanmadan görünür (kabul kriteri 6).
-  { code: UNKNOWN_PROJECT_TYPE_CODE, label: 'Dönüşüm' },
-]
-
-const MOCK_HEATING_TYPE_OPTIONS: RawParametricOption[] = [
-  { code: 'bireysel', label: 'Bireysel' },
-  { code: 'merkezi', label: 'Merkezi' },
-]
-
-export async function queryMockProjectTypes(
-  signal?: AbortSignal,
-): Promise<RawParametricOption[]> {
-  await sleep(MOCK_LATENCY_MS, signal)
-  return MOCK_PROJECT_TYPE_OPTIONS
-}
-
-export async function queryMockHeatingTypes(
-  signal?: AbortSignal,
-): Promise<RawParametricOption[]> {
-  await sleep(MOCK_LATENCY_MS, signal)
-  return MOCK_HEATING_TYPE_OPTIONS
-}
-
-/** Yeni projenin ilçesi formda sorulmuyor (adres serbest metin); kayıt ilçe
-    filtresinde de görünsün diye ilk ilçe atanıyor. */
-const CREATED_PROJECT_DISTRICT_ID = MOCK_DISTRICTS[0].id
-
-/**
- * P_ID SUNUCUDA üretilir — istemci göndermez (kabul kriteri 7). Mock burada
- * sunucunun yerine geçtiği için numarayı o üretiyor.
- */
-function nextMockPId(): string {
-  const highest = mockProjects.reduce(
-    (max, project) => Math.max(max, Number(project.pId) || 0),
-    FIRST_P_ID,
-  )
-  return String(highest + 1)
-}
-
-export async function createMockProject(payload: CreateProjectPayload): Promise<CreatedProject> {
-  await sleep(MOCK_LATENCY_MS)
-
-  // Firma kimliği gelmediyse kullanıcı proje firması kullanıcısıdır; gerçek uçta
-  // sunucu bunu token'dan türetir, mock oturumun firmasını sabit sayar.
-  const projectFirmId = payload.projectFirmId ?? MOCK_TOKEN_PROJECT_FIRM_ID
-  const projectFirm = MOCK_PROJECT_FIRMS.find((firm) => firm.id === projectFirmId)
-  const gasFirm =
-    MOCK_GAS_FIRMS.find((firm) => firm.id === payload.gasDistributionFirmId) ?? null
-  const id = mockProjects.reduce((max, project) => Math.max(max, project.id), 0) + 1
-  const pId = nextMockPId()
-  const now = new Date().toISOString()
-
-  // Yeni kayıt listenin başına: varsayılan sıralama son güncellenen üstte.
-  mockProjects = [
-    {
-      id,
-      pId,
-      name: payload.name,
-      firmName: projectFirm?.name ?? '',
-      buildingCode: null,
-      projectType: payload.projectType,
-      heatingType: payload.heatingType,
-      updatedAt: now,
-      createdAt: now,
-      gasFirmId: gasFirm?.id ?? null,
-      gasFirmName: gasFirm?.name ?? null,
-      hasDocuments: false,
-      status: 'taslak',
-      districtId: CREATED_PROJECT_DISTRICT_ID,
-      projectFirmId,
-      region: MOCK_PROJECT_FIRM_REGIONS.get(projectFirmId) ?? MOCK_PROJECT_REGIONS[0],
-      installationNo: `TN${900_000 + id * 13}`,
-    },
-    ...mockProjects,
-  ]
-
-  return { id, pId, status: 'taslak' }
-}
