@@ -1,26 +1,9 @@
+import { LoaderCircle } from 'lucide-react'
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
-import { AdminHomePage } from '../pages/AdminHomePage'
-import { AnnouncementsPage } from '../pages/AnnouncementsPage'
-import { DocumentListPage } from '../pages/DocumentListPage'
-import { EditorPage } from '../pages/EditorPage'
-import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
-import { GasDistributionFirmsPage } from '../pages/GasDistributionFirmsPage'
 import { LoginPage } from '../pages/LoginPage'
-import { NewDocumentPage } from '../pages/NewDocumentPage'
-import { NewPolicyPage } from '../pages/NewPolicyPage'
-import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
-import { NewProjectPage } from '../pages/NewProjectPage'
-import { PolicyListPage } from '../pages/PolicyListPage'
-import { ProfilePage } from '../pages/ProfilePage'
-import { ProjectDetailPage } from '../pages/ProjectDetailPage'
-import { ProjectFirmUpdatePage } from '../pages/ProjectFirmUpdatePage'
-import { ProjectFirmUserFormPage } from '../pages/ProjectFirmUserFormPage'
-import { ProjectFirmUsersPage } from '../pages/ProjectFirmUsersPage'
-import { ProjectFirmsPage } from '../pages/ProjectFirmsPage'
-import { ProjectListPage } from '../pages/ProjectListPage'
-import { RegisterPage } from '../pages/RegisterPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
 import { AdminLayout } from '../ui/admin/AdminLayout'
 import {
@@ -38,10 +21,93 @@ import {
   PROJECT_FIRM_USER_CREATE_PATH,
 } from '../ui/admin/adminNavItems'
 
+
+/**
+ * Rota bazlı kod bölme. GİRİŞ ekranı dışındaki her sayfa ayrı bir parçaya
+ * çıkıyor: eskiden tek bir paket vardı ve giriş ekranını açan kullanıcı, hiç
+ * girmeyeceği çizim editörünün three.js/R3F dünyasını da indiriyordu.
+ *
+ * `LoginPage` bilerek STATİK: ilk boyanan ekran o, tembel yüklemek yalnız
+ * gereksiz bir bekleme karesi eklerdi. `AdminLayout` da statik — kabuk her
+ * yönetici rotasında zaten gerekli, ayrı parçaya çıkarmak fazladan istek olurdu.
+ */
+const EditorPage = lazy(async () => ({ default: (await import('../pages/EditorPage')).EditorPage }))
+const RegisterPage = lazy(async () => ({
+  default: (await import('../pages/RegisterPage')).RegisterPage,
+}))
+const AdminHomePage = lazy(async () => ({
+  default: (await import('../pages/AdminHomePage')).AdminHomePage,
+}))
+const AnnouncementsPage = lazy(async () => ({
+  default: (await import('../pages/AnnouncementsPage')).AnnouncementsPage,
+}))
+const DocumentListPage = lazy(async () => ({
+  default: (await import('../pages/DocumentListPage')).DocumentListPage,
+}))
+const GasDistributionFirmFormPage = lazy(async () => ({
+  default: (await import('../pages/GasDistributionFirmFormPage')).GasDistributionFirmFormPage,
+}))
+const GasDistributionFirmsPage = lazy(async () => ({
+  default: (await import('../pages/GasDistributionFirmsPage')).GasDistributionFirmsPage,
+}))
+const NewDocumentPage = lazy(async () => ({
+  default: (await import('../pages/NewDocumentPage')).NewDocumentPage,
+}))
+const NewPolicyPage = lazy(async () => ({
+  default: (await import('../pages/NewPolicyPage')).NewPolicyPage,
+}))
+const NewProjectFirmPage = lazy(async () => ({
+  default: (await import('../pages/NewProjectFirmPage')).NewProjectFirmPage,
+}))
+const NewProjectPage = lazy(async () => ({
+  default: (await import('../pages/NewProjectPage')).NewProjectPage,
+}))
+const PolicyListPage = lazy(async () => ({
+  default: (await import('../pages/PolicyListPage')).PolicyListPage,
+}))
+const ProjectDetailPage = lazy(async () => ({
+  default: (await import('../pages/ProjectDetailPage')).ProjectDetailPage,
+}))
+const ProjectFirmUserFormPage = lazy(async () => ({
+  default: (await import('../pages/ProjectFirmUserFormPage')).ProjectFirmUserFormPage,
+}))
+const ProjectFirmUsersPage = lazy(async () => ({
+  default: (await import('../pages/ProjectFirmUsersPage')).ProjectFirmUsersPage,
+}))
+const ProjectFirmUpdatePage = lazy(async () => ({
+  default: (await import('../pages/ProjectFirmUpdatePage')).ProjectFirmUpdatePage,
+}))
+const ProjectFirmsPage = lazy(async () => ({
+  default: (await import('../pages/ProjectFirmsPage')).ProjectFirmsPage,
+}))
+const ProjectListPage = lazy(async () => ({
+  default: (await import('../pages/ProjectListPage')).ProjectListPage,
+}))
+const ProfilePage = lazy(async () => ({
+  default: (await import('../pages/ProfilePage')).ProfilePage,
+}))
+
+/** Sayfa parçası inerken görünen ara ekran; boş beyaz kare bırakmaz. */
+function RouteFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[50vh] items-center justify-center gap-2 p-6 text-sm text-ink-muted"
+    >
+      <LoaderCircle aria-hidden className="size-4 animate-spin" />
+      Yükleniyor…
+    </div>
+  )
+}
+
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <Routes>
+      {/* Tek sınır: hangi rotaya gidilirse gidilsin parçası inerken aynı ara
+          ekran görünür, her rotaya ayrı Suspense sarmak gerekmiyor. */}
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
         {/* Korumasız olan YALNIZ bu ikisi; gerisi RequireAuth'un altında. */}
         <Route path={LOGIN_PATH} element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -136,7 +202,8 @@ export function AppRouter() {
         </Route>
 
         <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }
