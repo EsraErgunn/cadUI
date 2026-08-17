@@ -43,19 +43,54 @@ kullanacak (K22'de kararlaştırıldı).
 
 ## Nasıl çiziliyor
 
-`scene/Wall.tsx` → duvar başına tek `<Line worldUnits lineWidth={wall.thickness}>`.
+`scene/Wall.tsx` → duvar başına tek
+`<Line lineWidth={getWallLineWidthPx(thickness, zoom)}>`.
 
-`worldUnits`, LineMaterial'ın kapsül shader'ını açar: parça, ışının doğru
-parçasına uzaklığı yarıçapı aşınca atılır. Eğri **analitiktir** — hiçbir zoom'da
-köşelenmez ve üçgenlenmiş geometri yoktur. `lineWidth` kapsülün TAM genişliğidir
-(yarısı değil), birimi cm.
+LineMaterial yuvarlak uçlu kalın çizgiyi ekran uzayında **analitik** çizer —
+hiçbir zoom'da köşelenmez ve üçgenlenmiş geometri yoktur. `lineWidth` kapsülün
+TAM genişliğidir (yarısı değil); birimi K97'den beri PİKSEL, cm değil.
 
 `alphaToCoverage` açık: kenar yumuşatma harmanlamayla değil örtme maskesiyle
 yapılıyor. Duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz —
 maske hangi örneği seçerse seçsin yazılan renk aynı. Kapatılırsa shader sert
 `discard` eder ve eğri uçlar tırtıklanır.
 
-## ⚠️ Gizli bağımlılık: CAMERA_HEIGHT_CM düşürülmemeli
+## ⚠️ Kalınlık PİKSEL cinsinden + 3 px taban (K97) — `worldUnits` BIRAKILDI
+
+`lineWidth` ne `wall.thickness`, ne de dünya birimi. Tek adres
+`scene/wallStyle.ts` → `getWallLineWidthPx(thicknessCm, zoom)` =
+`max(thicknessCm × zoom, 3)` ve `<Line>`'da `worldUnits` YOK.
+
+İki kusur birden vardı:
+
+1. `alphaToCoverage` ile çizilen kapsül bir-iki pikselken bandın TAMAMI "kenar"
+   sayılıyor, örtme maskesi seyrekleşiyor, duvar yer yer silinip titriyordu (en
+   uzak zoom'da 20 cm duvar = 2 px) → 3 px taban.
+2. `worldUnits` shader'ı ışının bir NOKTADAN çıktığını varsayıyor (perspektif);
+   ortografik kamerada + 100.000 cm yükseklikte float32 hassasiyeti gidiyor ve
+   duvar ekran KENARLARINA doğru inceliyordu → piksel yolu (boruda daha önce
+   verilen kararın aynısı, `plumbing/scene/lineStyle.ts`).
+
+Taban boru tarafındakiyle aynı değer (`MIN_LINE_WIDTH_PX`); farklı olsaydı
+uzaklaşınca biri kaybolup diğeri kalırdı.
+
+**Kapsül biçimi kaybolmadı:** `worldUnits`siz yolda da uçlar yuvarlak, yalnız
+yuvarlaklık ekran uzayında hesaplanıyor. Ortografik tepeden bakışta ekran uzayı
+dünyanın düzgün ölçeklenmişi olduğu için K23'ün kavşak dolgusu aynen geçerli.
+
+Zoom duvar başına okunmaz: `Walls`, `FloorBelowGhost` ve tesisattaki
+`ArchitectureGhost` `useCameraZoom`u BİR kez okuyup prop olarak dağıtır. Üç yol
+da aynı fonksiyondan geçmek zorunda.
+
+Bilinen sınır: açıklık dolgusu dünya uzayında bir mesh, tabana tabi değil — en
+uzak zoom'da delik duvar bandından dar kalır. Kiriş ve alan nesnesi konturları
+hâlâ `worldUnits` yolunda, aynı iki kusur onlarda da var.
+
+## ⚠️ CAMERA_HEIGHT_CM düşürülmemeli (duvar artık bağlı DEĞİL)
+
+K97'den sonra duvar `worldUnits` kullanmadığı için aşağıdaki hesap duvar için
+geçerliliğini yitirdi; uyarı yine de duruyor: `worldUnits` kullanan başka
+çizimler (kiriş, alan nesnesi) var ve o değeri düşürmenin bir faydası yok.
 
 `worldUnits` shader'ı ışının **gözden çıktığını** varsayar (perspektif):
 `normalize(worldPos.xyz)`. Kameramız ORTOGRAFİK, yani ışınlar paralel. Hata,

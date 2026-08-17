@@ -3,6 +3,8 @@ import { Line } from '@react-three/drei'
 import { RENDER_ORDER, WALL_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { useArchitecturePoints } from './useArchitecturePoints'
+import { useCameraZoom } from './useCameraZoom'
+import { getWallLineWidthPx } from './wallStyle'
 import { planToThree } from '../core/coords'
 import type { Wall as WallData } from '../core/model'
 import { isSelected } from '../core/selection'
@@ -39,19 +41,20 @@ type WallProps = {
   /** Havuz indeksi, dizi değil: kapsül duvar başına uç çözüyor (bkz. wallShape). */
   pointIndex: PointIndex
   tone: WallTone
+  /** Kalınlık piksel cinsinden verildiği için zoom'a bağlı; kapsayıcı bir kez okur. */
+  zoom: number
 }
 
 /**
  * Duvar = yuvarlak uçlu tek bir kalın çizgi (kapsül). Konturu YOKTUR, düz renktir.
  *
- * `worldUnits` LineMaterial'ın kapsül shader'ını açar: parça, ışının doğru
- * parçasına uzaklığı yarıçapı aşınca atılır. Yani eğri analitiktir — hiçbir
- * zoom'da köşelenmez, üçgenlenmiş geometri yoktur.
+ * Uç yuvarlaklığı ekran uzayında analitik hesaplanır — hiçbir zoom'da köşelenmez,
+ * üçgenlenmiş geometri yoktur. Kalınlık `wallStyle.ts`'ten piksel cinsinden gelir.
  *
  * Duvarlar birbirinin üstüne çizilir ve birleşim hesabı YAPILMAZ: hepsi aynı
  * opak renkte olduğu için çakışma görünmez, kavşak kendiliğinden dolar (K23).
  */
-export function Wall({ wall, pointIndex, tone }: WallProps) {
+export function Wall({ wall, pointIndex, tone, zoom }: WallProps) {
   const capsule = getWallCapsuleFrom(wall, pointIndex)
   if (!capsule) return null
 
@@ -62,9 +65,9 @@ export function Wall({ wall, pointIndex, tone }: WallProps) {
         planToThree(capsule.p2, WALL_ELEVATION_CM),
       ]}
       color={TONE_COLORS[tone]}
-      // lineWidth kapsülün TAM genişliği; worldUnits ile birimi cm.
-      worldUnits
-      lineWidth={wall.thickness + TONE_BOOSTS_CM[tone]}
+      // lineWidth kapsülün TAM genişliği, birimi EKRAN PİKSELİ (worldUnits YOK
+      // — bkz. wallStyle.ts: o yol ekran kenarlarına doğru inceltiyordu).
+      lineWidth={getWallLineWidthPx(wall.thickness + TONE_BOOSTS_CM[tone], zoom)}
       /*
        * Kenar yumuşatma örtme (coverage) maskesiyle yapılır, harmanlamayla değil.
        * Duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz: maske
@@ -93,6 +96,9 @@ export function Walls() {
   const hover = useArchitectureUiStore((state) => state.hover)
   // Kararlı referansa abone olunur; seçili olup olmadığı render sırasında türetilir.
   const selection = useArchitectureUiStore((state) => state.selection)
+  // Zoom BİR kez okunur ve dağıtılır; duvar başına abone olunsaydı kare başına
+  // duvar sayısı kadar geri çağrım olurdu (useCameraZoom'un gerekçesi).
+  const zoom = useCameraZoom()
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
   const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
@@ -108,7 +114,13 @@ export function Walls() {
   return (
     <group name="walls">
       {floorWalls.map((wall) => (
-        <Wall key={wall.id} wall={wall} pointIndex={pointIndex} tone={toneOf(wall.id)} />
+        <Wall
+          key={wall.id}
+          wall={wall}
+          pointIndex={pointIndex}
+          tone={toneOf(wall.id)}
+          zoom={zoom}
+        />
       ))}
     </group>
   )

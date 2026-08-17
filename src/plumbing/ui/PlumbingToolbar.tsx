@@ -2,7 +2,8 @@ import { INSTALLATION_TOOL_ICONS } from './plumbingToolIcons'
 import { useUiStore } from '../../store/uiStore'
 import { ShortcutHint } from '../../ui/ShortcutHint'
 import { ToolButton } from '../../ui/Toolbar'
-import { INSTALLATION_TOOLS, type InstallationToolId } from '../core/installationTools'
+import { TOOL_GROUP_DIVIDER } from '../../ui/controls/buttonVariants'
+import { INSTALLATION_TOOL_GROUPS, type InstallationToolId } from '../core/installationTools'
 import { PLUMBING_SHORTCUTS } from '../core/plumbingShortcuts'
 
 export function PlumbingToolbar() {
@@ -31,17 +32,32 @@ export function PlumbingToolbar() {
     // Zemin ve kenarlık YOK: mimari paletle aynı gerekçe, ikisini de
     // EditorSidebar taşıyor.
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Mimari paletle aynı iskelet: araçlar 2 sütuna otomatik sarar. */}
-      <nav aria-label="Araç paleti" className="grid grid-cols-2 content-start gap-1 p-1.5">
-        {INSTALLATION_TOOLS.map((tool) => (
-          <div key={tool.id} onPointerDown={(event) => handlePointerDown(event, tool.id)}>
-            <ToolButton
-              toolId={tool.id}
-              label={tool.label}
-              icon={INSTALLATION_TOOL_ICONS[tool.id]}
-              isActive={tool.id === activeToolId}
-              onSelect={setActiveTool}
-            />
+      {/* Mimari paletle aynı iskelet (K82): her grubun ÜSTÜNDE ince ayraç —
+          ilki paleti üstteki logodan ayırır. Ayraç `<nav>`ın İÇİNDE ama
+          grupların ARASINDA: iki sütunlu tek ızgarada çizgi bir hücreyi işgal
+          ederdi, bu yüzden her grup kendi ızgarası. */}
+      <nav aria-label="Araç paleti" className="flex flex-col">
+        {INSTALLATION_TOOL_GROUPS.map((group) => (
+          <div key={group.id}>
+            <div className={TOOL_GROUP_DIVIDER} aria-hidden />
+            {/* Araçlar tek sütunda 1080p'ye sığmıyor → iki sütun. */}
+            <div
+              role="group"
+              aria-label={group.label}
+              className="grid grid-cols-2 content-start gap-1 p-1.5"
+            >
+              {group.tools.map((tool) => (
+                <div key={tool.id} onPointerDown={(event) => handlePointerDown(event, tool.id)}>
+                  <ToolButton
+                    toolId={tool.id}
+                    label={tool.label}
+                    icon={INSTALLATION_TOOL_ICONS[tool.id]}
+                    isActive={tool.id === activeToolId}
+                    onSelect={setActiveTool}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </nav>

@@ -5,6 +5,7 @@ import { GhostPointSymbol } from './ArchitectureGhostPointSymbol'
 import { GhostOpening, GhostWall } from './ArchitectureGhostWalls'
 import { InstallationLines } from './InstallationLineMesh'
 import { SymbolInstance } from './SymbolInstance'
+import { useCameraZoom } from './useCameraZoom'
 import type { Room, Wall as WallData } from '../../core/model'
 import { getOpeningOutline } from '../../core/opening'
 import { findRoomFaces } from '../../core/room'
@@ -43,6 +44,8 @@ export function ArchitectureGhost() {
   const areaObjects = useCadStore((state) => state.areaObjects)
   const symbols = useCadStore((state) => state.symbols)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
+  // Zoom BİR kez okunur ve dağıtılır (bkz. useCameraZoom).
+  const zoom = useCameraZoom()
 
   const floorWalls = useMemo(
     () => walls.filter((wall) => wall.floorId === activeFloorId),
@@ -109,7 +112,7 @@ export function ArchitectureGhost() {
       ))}
 
       {floorWalls.map((wall) => (
-        <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} />
+        <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} zoom={zoom} />
       ))}
 
       {openingGhosts.map((opening) => (

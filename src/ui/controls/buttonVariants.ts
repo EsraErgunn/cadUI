@@ -35,6 +35,12 @@ export const toolButtonVariants = cva(
   },
 )
 
+/**
+ * Palet gruplarını ayıran ince çizgi. Her grubun ÜSTÜNDE duruyor: ilki grupları
+ * değil paleti LOGODAN ayırır, iki palet de aynı çizgiyi kullansın diye burada.
+ */
+export const TOOL_GROUP_DIVIDER = 'mx-2 h-px bg-edge'
+
 /** Açılır menü maddeleri. */
 export const menuItemVariants = cva(
   'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-ink-muted ' +
