@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Search } from 'lucide-react'
+import { Bell, Menu, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { UserMenu } from './UserMenu'
@@ -33,7 +33,12 @@ const GLOBAL_SCOPE_VALUE = ''
  * olmayan kayıt elenmez, o ekranda kapsam bugün sonucu değiştirmez — böylece
  * seçim hiçbir listeyi sessizce boşaltmıyor.
  */
-export function AdminTopBar() {
+interface AdminTopBarProps {
+  /** Dar ekrandaki menü çekmecesini açar; `lg` ve üstünde düğme görünmez. */
+  onOpenMenu: () => void
+}
+
+export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   const [globalQuery, setGlobalQuery] = useState('')
   const { scope, setScope } = useAdminScopeParam()
 
@@ -55,16 +60,30 @@ export function AdminTopBar() {
   )
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-edge bg-surface px-6">
-      <div className="flex shrink-0 items-center gap-2">
-        <label htmlFor={SCOPE_SELECT_ID} className="text-sm font-medium text-ink">
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b border-edge bg-surface px-3 sm:gap-4 sm:px-6">
+      <button
+        type="button"
+        onClick={onOpenMenu}
+        aria-label="Menüyü aç"
+        className={adminIconButtonVariants({ className: 'lg:hidden' })}
+      >
+        <Menu aria-hidden className="size-5" />
+      </button>
+
+      <div className="flex min-w-0 items-center gap-2">
+        {/* Etiket dar ekranda gizleniyor ama erişilebilir ad kayboluyor değil:
+            `sr-only` ile ekran okuyucuda kalıyor. */}
+        <label
+          htmlFor={SCOPE_SELECT_ID}
+          className="whitespace-nowrap text-sm font-medium text-ink max-lg:sr-only"
+        >
           Kapsam
         </label>
         <select
           id={SCOPE_SELECT_ID}
           value={toScopeValue(scope)}
           onChange={(event) => setScope(parseScopeValue(event.target.value))}
-          className={adminFieldVariants({ className: 'w-56' })}
+          className={adminFieldVariants({ className: 'w-32 min-w-0 sm:w-44 lg:w-56' })}
         >
           <option value={GLOBAL_SCOPE_VALUE}>Sistem geneli</option>
           {optionGroups.map((optionGroup) => (
@@ -86,8 +105,10 @@ export function AdminTopBar() {
         </select>
       </div>
 
-      {/*  genel arama sonuç ekranı kendi issue'sunda gelecek. */}
-      <div className="relative min-w-0 flex-1">
+      {/* Genel arama sonuç ekranı kendi issue'sunda gelecek. Dar ekranda
+          GİZLENİYOR: 320 px'de kapsam seçici + arama + eylemler aynı satıra
+          sığmıyor ve üst bar yatay kayıyordu. */}
+      <div className="relative hidden min-w-0 flex-1 md:block">
         <Search
           aria-hidden
           className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled"
@@ -101,6 +122,9 @@ export function AdminTopBar() {
           className={adminFieldVariants({ className: 'w-full pl-9' })}
         />
       </div>
+
+      {/* Arama gizliyken sağdaki eylemler sağa yaslansın. */}
+      <div className="flex-1 md:hidden" />
 
       <button
         type="button"

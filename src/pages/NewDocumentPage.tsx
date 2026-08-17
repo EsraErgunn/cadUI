@@ -143,7 +143,7 @@ export function NewDocumentPage() {
   const hasRows = upload.rows.length > 0
 
   return (
-    <div className="mx-auto flex max-w-320 flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={PAGE_TITLE}

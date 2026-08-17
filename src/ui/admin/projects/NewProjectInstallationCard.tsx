@@ -62,7 +62,7 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
         onChange={(value) => setValue('isPermitProject', value)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <SelectField
           id={newProjectFieldId('heatingTypeCodeId')}
           label="Isınma Tipi"
@@ -85,7 +85,7 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <NumberStepperField
           id={newProjectFieldId('capacityCubicMeterPerHour')}
           label={`Kapasite (${UNIT_CAPACITY})`}

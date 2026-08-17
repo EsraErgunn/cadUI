@@ -12,7 +12,7 @@ function renderSidebar(route = '/admin') {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[route]}>
-        <AdminSidebar />
+        <AdminSidebar isOpen onClose={() => {}} />
       </MemoryRouter>
     </QueryClientProvider>,
   )

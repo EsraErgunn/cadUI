@@ -2,6 +2,12 @@ import { Funnel, Plus, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { GAS_FIRM_CREATE_PATH } from '../adminNavItems'
+import {
+  ADMIN_TOOLBAR_FORM,
+  ADMIN_TOOLBAR_ROW,
+  ADMIN_TOOLBAR_SEARCH_FIELD,
+  ADMIN_TOOLBAR_SEARCH_WRAPPER,
+} from '../adminToolbarLayout'
 import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
 import { usePermission } from '../usePermission'
 
@@ -21,13 +27,13 @@ export function FirmTableToolbar({
   const canCreateFirm = usePermission('firm.create')
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
+    <div className={ADMIN_TOOLBAR_ROW}>
       {/* Enter ile "Filtrele" aynı işi yapsın diye ikisi de formun submit'i.
           key={nameQuery}: URL dışarıdan değişince (geri tuşu, etiket kaldırma)
           kutu yeni değerle yeniden kurulur — kopya state tutmaya gerek kalmaz. */}
       <form
         key={nameQuery}
-        className="flex items-center gap-2"
+        className={ADMIN_TOOLBAR_FORM}
         onSubmit={(event) => {
           event.preventDefault()
           const value = new FormData(event.currentTarget).get(NAME_QUERY_FIELD)
@@ -35,7 +41,7 @@ export function FirmTableToolbar({
           onOpenFilterPanel()
         }}
       >
-        <div className="relative">
+        <div className={ADMIN_TOOLBAR_SEARCH_WRAPPER}>
           <Search
             aria-hidden
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-disabled"
@@ -46,7 +52,7 @@ export function FirmTableToolbar({
             defaultValue={nameQuery}
             aria-label="Firma adında ara"
             placeholder="Firma Adı"
-            className={adminFieldVariants({ className: 'w-56 pl-9' })}
+            className={adminFieldVariants({ className: ADMIN_TOOLBAR_SEARCH_FIELD })}
           />
         </div>
 

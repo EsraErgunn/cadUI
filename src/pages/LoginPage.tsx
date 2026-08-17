@@ -39,15 +39,20 @@ export function LoginPage() {
     useLoginForm();
 
   return (
-    <div className="flex h-screen items-center justify-center overflow-hidden bg-[#DDE3EC] p-6">
-      <div className="relative h-full max-h-[560px] min-h-[400px] w-full max-w-[920px]
-                      overflow-hidden rounded-[28px] bg-[#F7F8FA] shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-[#DDE3EC] p-4 sm:p-6">
+      {/* Telefonda kart SABİT yükseklikte değil: 560 px'lik kutu içinde %46
+          genişliğindeki form kolonu 320 px ekranda ~125 px'e düşüyor ve alan
+          kullanılamaz hâle geliyordu. `md` altında dekoratif kavis gizlenir,
+          form tam genişlikte akar; `md` ve üstünde tasarım AYNEN korunur. */}
+      <div className="relative w-full max-w-[920px] overflow-hidden rounded-[28px] bg-[#F7F8FA] shadow-2xl
+                      md:h-full md:max-h-[560px] md:min-h-[400px]">
 
         {/* 1 — kavis + lacivert panel (arka plan görseli logoyu da içeriyor) */}
         <svg
           viewBox="0 0 1180 720"
           preserveAspectRatio="none"
-          className="pointer-events-none absolute inset-0 h-full w-full"
+          aria-hidden
+          className="pointer-events-none absolute inset-0 hidden h-full w-full md:block"
         >
           <defs>
             <linearGradient id="panelFallback" x1="0" y1="0" x2="1" y2="1">
@@ -109,13 +114,14 @@ export function LoginPage() {
         </svg>
 
         {/* 2 — sol kolon, form */}
-        <div className="relative z-10 flex h-full w-[46%] flex-col justify-center
-                        overflow-y-auto overflow-x-hidden pl-[16%] pr-[4%]">
+        <div className="relative z-10 flex w-full flex-col justify-center overflow-x-hidden
+                        px-6 py-10
+                        md:h-full md:w-[46%] md:overflow-y-auto md:py-0 md:pl-[16%] md:pr-[4%]">
 
-          <h1 className="whitespace-nowrap text-[24px] font-semibold leading-tight text-[#1B2A4A]">
+          <h1 className="text-[24px] font-semibold leading-tight text-[#1B2A4A] md:whitespace-nowrap">
             Welcome to
           </h1>
-          <p className="whitespace-nowrap text-[42px] font-bold leading-tight">
+          <p className="text-[36px] font-bold leading-tight sm:text-[42px] md:whitespace-nowrap">
             <span className="text-[#FFC107]">Star</span>
             <span className="text-[#1B2A4A]">CAD</span>
           </p>
@@ -219,16 +225,18 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* 3 — borular, en üstte */}
+        {/* 3 — borular, en üstte. Kavisle birlikte `md` altında gizleniyor:
+            kartın yüksekliğine göre konumlandıkları için telefonda formun
+            üstüne biniyor ve girdileri tıklanamaz hâle getiriyorlardı. */}
         <img
           src={leftPipe}
           alt=""
-          className="pointer-events-none absolute -top-[8%] -left-[7.3%] z-20 h-[118%] object-contain object-left"
+          className="pointer-events-none absolute -top-[8%] -left-[7.3%] z-20 hidden h-[118%] object-contain object-left md:block"
         />
         <img
           src={rightPipe}
           alt=""
-          className="pointer-events-none absolute -top-[9%] -right-[5.3%] z-20 h-[118%] object-contain object-right"
+          className="pointer-events-none absolute -top-[9%] -right-[5.3%] z-20 hidden h-[118%] object-contain object-right md:block"
         />
       </div>
     </div>

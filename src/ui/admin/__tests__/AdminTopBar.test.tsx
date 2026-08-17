@@ -48,7 +48,7 @@ function renderTopBar(pathname: string) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[pathname]}>
-        <AdminTopBar />
+        <AdminTopBar onOpenMenu={() => {}} />
         <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -172,7 +172,7 @@ describe('AdminTopBar oturum sonlandırma', () => {
               path={GAS_DISTRIBUTION_FIRMS_PATH}
               element={
                 <RequireAuth>
-                  <AdminTopBar />
+                  <AdminTopBar onOpenMenu={() => {}} />
                 </RequireAuth>
               }
             />

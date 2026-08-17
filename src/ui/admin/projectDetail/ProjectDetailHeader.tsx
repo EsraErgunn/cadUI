@@ -51,7 +51,11 @@ export function ProjectDetailHeader({
         />
 
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-ink">{server.name}</h1>
+          {/* `break-words`: proje adı boşluksuz uzun bir kod olabiliyor ve
+              sarılmadığında başlık bloğu satırı taşırıyordu. */}
+          <h1 className="min-w-0 break-words text-xl font-semibold text-ink sm:text-2xl">
+            {server.name}
+          </h1>
           {status !== null && <ProjectStatusChip status={status} />}
         </div>
 
