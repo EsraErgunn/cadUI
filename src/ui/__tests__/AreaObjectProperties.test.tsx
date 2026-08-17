@@ -44,8 +44,9 @@ describe('PropertyPanel — alan nesnesi', () => {
 
     expect(screen.getByText('Kolon')).toBeInTheDocument()
     expect(screen.getByLabelText('Etiket')).toHaveValue('K-01')
-    expect(screen.getByLabelText('Genişlik (cm)')).toHaveValue(100)
-    expect(screen.getByLabelText('Uzunluk (cm)')).toHaveValue(100)
+    // 100/100 KONUM; ölçü varsayılandan geliyor (kolon 50×50).
+    expect(screen.getByLabelText('Genişlik (cm)')).toHaveValue(50)
+    expect(screen.getByLabelText('Uzunluk (cm)')).toHaveValue(50)
     expect(screen.getByLabelText('Açı (°)')).toHaveValue(0)
   })
 
