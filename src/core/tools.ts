@@ -10,41 +10,106 @@ export type ToolDefinition = {
   isPlanned?: true
 }
 
+export type ToolGroup = {
+  id: string
+  /** Ekran okuyucu bu adı duyar; ekranda yalnız ayraç çizgisi görünür. */
+  label: string
+  tools: readonly ToolDefinition[]
+}
+
 /**
- * Mimari Tasarım paletindeki araçlar, issue 2.7'deki sırayla.
+ * Mimari Tasarım paleti, İŞE göre gruplanmış (K82). Issue 2.7'deki düz sıra
+ * bırakıldı: o sıra iki sütuna dizilince duvarla pano, kapıyla yangın
+ * söndürücü yan yana düşüyordu — kullanıcı aradığı aracı sırayla değil
+ * TÜRÜNE göre arıyor.
+ *
  * Kimlikler burada (core) duruyor çünkü hem ui/ hem scene/ okuyacak;
  * eslint ui/ ↔ scene/ importunu engelliyor, ortak nokta core.
  *
- * "Toplu Silme" issue'daki listeden ÇIKARILDI (K79): işi zaten var — çerçeveyle
- * çoklu seçim + Delete, hem de tek adımda (`useSelectionTool`, `selectionOps`).
- * Aynı işi yapan ikinci bir kip, öğrenilecek fazladan bir kavramdan ibaretti.
+ * "Toplu Silme" listeden ÇIKARILDI (K79): işi zaten var — çerçeveyle çoklu
+ * seçim + Delete, hem de tek adımda (`useSelectionTool`, `selectionOps`).
  */
-export const ARCHITECTURE_TOOLS = [
-  { id: 'selection', label: 'Seçim Aracı' },
-  { id: 'mainCutoffSwitch', label: 'Ana Kesme Şalteri Ekle' },
-  { id: 'drawWall', label: 'Duvar Çiz' },
-  { id: 'panel', label: 'Pano Ekle' },
-  { id: 'drawRoom', label: 'Oda Çiz' },
-  { id: 'lighting', label: 'Aydınlatma Ekle' },
-  { id: 'door', label: 'Kapı Ekle' },
-  { id: 'fireExtinguisher', label: 'Yangın Söndürücü Ekle' },
-  { id: 'window', label: 'Pencere Ekle' },
-  { id: 'eraser', label: 'Silgi' },
-  { id: 'stairs', label: 'Merdiven Ekle' },
-  // Yapısal kolon — gaz kolonu (Riser) DEĞİL. İkisi de "kolon" diye anılıyor.
-  { id: 'structuralColumn', label: 'Kolon Ekle' },
-  { id: 'text', label: 'Metin Ekle' },
-  { id: 'beam', label: 'Kiriş Ekle' },
-  { id: 'measure', label: 'Ölçüm' },
-  { id: 'vent', label: 'Menfez Ekle' },
-  { id: 'freeDraw', label: 'Serbest Çizim Araçları', isPlanned: true },
-  { id: 'columnVentilation', label: 'Kolon Havalandırması Ekle' },
-  { id: 'alarmDevice', label: 'Alarm Cihazı Ekle' },
-  { id: 'earthquakeSensor', label: 'Deprem Sensörü Ekle' },
-  { id: 'flueShaft', label: 'Baca Şaftı Ekle' },
-] as const satisfies readonly ToolDefinition[]
+/**
+ * Seçim aracı PALETTE YOK (K83): aynı kip tuvalin altındaki yüzen çubukta
+ * zaten var (K54) ve orada El aracıyla yan yana duruyor — sol tuşun ne
+ * yapacağını söyleyen iki düğme aynı yerde olmalı. İki palette birden
+ * durduğunda kullanıcı hangisinin "asıl" olduğunu bilemiyordu.
+ *
+ * Yine de bir ARAÇ: varsayılan odur, durum çubuğu adını yazar ve bütün seçim
+ * hook'ları `SELECTION_TOOL_ID` ile ona bakar. Bu yüzden tanımı duruyor,
+ * yalnız paletin gruplarına girmiyor.
+ */
+const SELECTION_TOOL = { id: 'selection', label: 'Seçim Aracı' } as const
 
-export type ToolId = (typeof ARCHITECTURE_TOOLS)[number]['id']
+export const ARCHITECTURE_TOOL_GROUPS = [
+  {
+    id: 'shell',
+    label: 'Kabuk',
+    tools: [
+      { id: 'drawWall', label: 'Duvar Çiz' },
+      { id: 'drawRoom', label: 'Oda Çiz' },
+      { id: 'door', label: 'Kapı Ekle' },
+      { id: 'window', label: 'Pencere Ekle' },
+    ],
+  },
+  {
+    id: 'structure',
+    label: 'Yapı elemanları',
+    tools: [
+      { id: 'stairs', label: 'Merdiven Ekle' },
+      // Yapısal kolon — gaz kolonu (Riser) DEĞİL. İkisi de "kolon" diye anılıyor.
+      { id: 'structuralColumn', label: 'Kolon Ekle' },
+      { id: 'beam', label: 'Kiriş Ekle' },
+      { id: 'columnVentilation', label: 'Kolon Havalandırması Ekle' },
+      { id: 'flueShaft', label: 'Baca Şaftı Ekle' },
+    ],
+  },
+  {
+    id: 'devices',
+    label: 'Cihazlar',
+    tools: [
+      { id: 'lighting', label: 'Aydınlatma Ekle' },
+      { id: 'panel', label: 'Pano Ekle' },
+      { id: 'vent', label: 'Menfez Ekle' },
+      { id: 'mainCutoffSwitch', label: 'Ana Kesme Şalteri Ekle' },
+      { id: 'fireExtinguisher', label: 'Yangın Söndürücü Ekle' },
+      { id: 'alarmDevice', label: 'Alarm Cihazı Ekle' },
+      { id: 'earthquakeSensor', label: 'Deprem Sensörü Ekle' },
+    ],
+  },
+  {
+    // Not ve yardımcılar: hiçbiri binanın parçasını çizmiyor — ölçü okur, not
+    // düşer, siler. Silgi de buraya: yapı elemanı eklemiyor, kaldırıyor.
+    id: 'annotation',
+    label: 'Notlar ve yardımcılar',
+    tools: [
+      { id: 'measure', label: 'Ölçüm' },
+      { id: 'text', label: 'Metin Ekle' },
+      { id: 'freeDraw', label: 'Serbest Çizim Araçları', isPlanned: true },
+      { id: 'eraser', label: 'Silgi' },
+    ],
+  },
+] as const satisfies readonly ToolGroup[]
+
+type ArchitectureTool =
+  | typeof SELECTION_TOOL
+  | (typeof ARCHITECTURE_TOOL_GROUPS)[number]['tools'][number]
+
+/**
+ * VAR OLAN araçların tamamı — palettekiler + palette görünmeyen seçim aracı.
+ * Kimlik türeten (`ToolId`), ikon zorlayan (`TOOL_ICONS`) ve ad çözen
+ * (`getToolLabel`) taraflar bunu okur; gruplar yalnız YERLEŞİM bilgisidir.
+ *
+ * Dönüş tipi ELLE yazıldı: `flatMap` demet (tuple) tiplerini birleştirirken
+ * genişletiyor ve `ToolId` string'e düşüyordu — o zaman "olmayan araç kimliği"
+ * derleme hatası vermezdi.
+ */
+export const ARCHITECTURE_TOOLS: readonly ArchitectureTool[] = [
+  SELECTION_TOOL,
+  ...ARCHITECTURE_TOOL_GROUPS.flatMap((group) => group.tools as readonly ArchitectureTool[]),
+]
+
+export type ToolId = ArchitectureTool['id']
 
 export const DEFAULT_TOOL_ID: ToolId = 'selection'
 

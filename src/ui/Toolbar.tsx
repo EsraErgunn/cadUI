@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 
 import { ShortcutHint } from './ShortcutHint'
 import { ARCHITECTURE_SHORTCUTS } from '../core/shortcuts'
-import { ARCHITECTURE_TOOLS } from '../core/tools'
+import { ARCHITECTURE_TOOL_GROUPS } from '../core/tools'
 import { PlumbingToolbar } from '../plumbing/ui/PlumbingToolbar'
 import { useUiStore } from '../store/uiStore'
 import { toolButtonVariants } from './controls/buttonVariants'
@@ -68,18 +68,32 @@ export function Toolbar() {
     // Kısayol ipucu paletin ALTINA yapışsın diye sütun: nav yalnız araçları
     // sarmalar, ipucu araç değil (nav'ın içinde olsaydı palete araç gibi girerdi).
     <div className="flex shrink-0 flex-col border-r border-ink bg-surface">
-      {/* Araçlar tek sütunda 1080p'ye sığmıyor → iki sütun. */}
-      <nav aria-label="Araç paleti" className="grid grid-cols-2 content-start gap-1 p-1.5">
-        {ARCHITECTURE_TOOLS.map((tool) => (
-          <ToolButton
-            key={tool.id}
-            toolId={tool.id}
-            label={tool.label}
-            icon={TOOL_ICONS[tool.id]}
-            isActive={tool.id === activeToolId}
-            isPlanned={'isPlanned' in tool}
-            onSelect={setActiveTool}
-          />
+      {/* Gruplar arasında ince ayraç (K82). Ayraç `<nav>`ın İÇİNDE değil
+          grupların arasında: her grup kendi ızgarası, yoksa iki sütunlu tek
+          ızgarada çizgi bir hücreyi işgal ederdi. */}
+      <nav aria-label="Araç paleti" className="flex flex-col">
+        {ARCHITECTURE_TOOL_GROUPS.map((group, index) => (
+          <div key={group.id}>
+            {index > 0 && <div className="mx-2 h-px bg-edge" aria-hidden />}
+            {/* Araçlar tek sütunda 1080p'ye sığmıyor → iki sütun. */}
+            <div
+              role="group"
+              aria-label={group.label}
+              className="grid grid-cols-2 content-start gap-1 p-1.5"
+            >
+              {group.tools.map((tool) => (
+                <ToolButton
+                  key={tool.id}
+                  toolId={tool.id}
+                  label={tool.label}
+                  icon={TOOL_ICONS[tool.id]}
+                  isActive={tool.id === activeToolId}
+                  isPlanned={'isPlanned' in tool}
+                  onSelect={setActiveTool}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 

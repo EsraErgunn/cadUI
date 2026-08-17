@@ -4040,3 +4040,45 @@ Düzenleme kutusu `RoomNameEditor`ün birebir deseni: drei `<Html>`, NATIVE
 dinleyici (React'in onKeyDown'ı ayrı react-dom kökünden store'a yazınca R3F
 ağacı yeniden çizilmiyor), taslak yerel state'te (her harf ayrı Ctrl+Z adımı
 olmasın).
+
+### K82 — Palet İŞE göre gruplandı; issue 2.7'nin düz sırası bırakıldı
+
+Araçlar issue 2.7'deki sırayla diziliyordu ve o sıra iki sütuna serilince duvarla
+pano, kapıyla yangın söndürücü yan yana düşüyordu. Kullanıcı aradığı aracı
+sırayla değil TÜRÜNE göre arıyor; palet artık dört gruba ayrıldı ve gruplar ince
+bir ayraçla ayrılıyor:
+
+1. **Kabuk** — Duvar, Oda, Kapı, Pencere.
+2. **Yapı elemanları** — Merdiven, Kolon, Kiriş, Kolon Havalandırması, Baca Şaftı.
+3. **Cihazlar** — Aydınlatma, Pano, Menfez, Ana Kesme Şalteri, Yangın Söndürücü,
+   Alarm Cihazı, Deprem Sensörü.
+4. **Notlar ve yardımcılar** — Ölçüm, Metin, Serbest Çizim, Silgi. Hiçbiri binanın
+   parçasını çizmiyor: ölçü okur, not düşer, siler. Silgi de burada — yapı
+   elemanı EKLEMİYOR, kaldırıyor.
+
+Kullanıcının listesinde geçmeyen ikisi buraya yerleşti: Yangın Söndürücü
+(3. grup — sembol/cihaz), Metin (4. grup — not).
+
+**Seçim Aracı paletten ÇIKARILDI.** Aynı kip tuvalin altındaki yüzen çubukta
+zaten var (K54) ve orada El aracıyla yan yana duruyor — sol tuşun ne yapacağını
+söyleyen iki düğme aynı yerde olmalı. İki palette birden dururken kullanıcı
+hangisinin "asıl" olduğunu bilemiyordu.
+
+Yine de bir ARAÇ olarak duruyor: varsayılan odur (`DEFAULT_TOOL_ID`), durum
+çubuğu adını yazar, bütün seçim hook'ları `SELECTION_TOOL_ID` ile ona bakar. Bu
+yüzden `ARCHITECTURE_TOOLS` (var olan araçlar) ile `ARCHITECTURE_TOOL_GROUPS`
+(palette görünenler) artık AYNI KÜME DEĞİL — ikisini karıştıran kod, palette
+olmayan bir araca ikon aramaya kalkar.
+
+`ARCHITECTURE_TOOLS` = palettekiler + palette görünmeyen seçim aracı; kimlik
+türeten (`ToolId`), ikon zorlayan (`TOOL_ICONS`) ve ad çözen (`getToolLabel`)
+taraflar onu okuyor. Gruplar yalnız YERLEŞİM bilgisi.
+
+Düzleştirmenin dönüş tipi ELLE yazıldı — `flatMap` demet tiplerini genişletiyor
+ve `ToolId` `string`e düşüyordu; o hâlde "olmayan araç kimliği" derleme hatası
+vermezdi (`TOOL_ICONS` kaydının tüm araçları zorlaması da bu tipe dayanıyor).
+
+Ayraç `<nav>`ın içinde grupların ARASINDA duruyor, ızgaranın içinde değil: iki
+sütunlu tek ızgarada çizgi bir hücreyi işgal ederdi. Her grup kendi ızgarası ve
+kendi `role="group"` + `aria-label`'ı — ekran okuyucu grubu duyar, ekranda
+yalnız çizgi görünür.
