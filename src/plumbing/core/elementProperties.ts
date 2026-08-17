@@ -27,6 +27,12 @@ export type InsulationProperties = {
  * "Tüketim noktası" tesisat_eleman.md'de iki kez geçiyor — kullanıcı onayıyla
  * (2026-08) bunlar İKİ ayrı alan: sayacın zaten bağlı olduğu (giriş) hat ve
  * yeni kurulacak (çıkış) hat için birer serbest metin notu.
+ *
+ * `meterOrder`/abone-birim alanları (2026-08, backend'in "Birim / Cihaz
+ * Bilgileri" raporu ihtiyacı): 1 daire = 1 sayaç, aynı katta birden fazla
+ * sayaç olabilir — `meterOrder` bunların backend sıralamasını/ayrımını taşır.
+ * Sayısal alanlar diğer opsiyonel ölçülerle (`PipeLineProperties.startHeightCm`)
+ * AYNI konvansiyonu izler: "henüz girilmedi" `0`, `null` değil.
  */
 export type GasMeterProperties = {
   classLabel: string
@@ -35,6 +41,13 @@ export type GasMeterProperties = {
   isIndoor: boolean
   isAccessible247: boolean
   hasCorrector: boolean
+  meterOrder: number
+  unitNumber: string
+  subscriberName: string
+  subscriberNo: string
+  flowCubicMeterPerHour: number
+  pressureMbar: number
+  areaSquareMeters: number
 }
 
 /**
@@ -70,13 +83,18 @@ export type SolenoidValveProperties = {
   model: string
 }
 
-/** capacity/power birimi dokümanda yok — serbest metin, sayısal alan ZORLANMAZ. */
+/**
+ * capacity/power birimi dokümanda yok — serbest metin, sayısal alan
+ * ZORLANMAZ. `flowCubicMeterPerHour` ("Debi") bunlardan AYRI: backend
+ * raporunun net m³/h değeri istediği, birimi belli tek alan (2026-08).
+ */
 export type StoveProperties = {
   brand: string
   model: string
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }
 
 /**
@@ -102,6 +120,7 @@ export type SpaceHeaterProperties = {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }
 
 export type CombiBoilerProperties = {
@@ -111,6 +130,7 @@ export type CombiBoilerProperties = {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }
 
 /** tesisat_eleman.md: Kombi ile "aynı" alan seti. */
@@ -121,6 +141,7 @@ export type WaterHeaterProperties = {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }
 
 /**
@@ -135,6 +156,7 @@ export type BoilerProperties = {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }
 
 /**
@@ -158,4 +180,5 @@ export type OtherApplianceProperties = {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }

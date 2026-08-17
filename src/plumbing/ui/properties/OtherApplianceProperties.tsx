@@ -1,5 +1,7 @@
 import type { Id } from '../../../core/model'
+import { getCommonNumber } from '../../../core/propertyFields'
 import { useCadStore } from '../../../store/cadStore'
+import { PropertyNumberField } from '../../../ui/properties/PropertyNumberField'
 import { PropertySelectField } from '../../../ui/properties/PropertySelectField'
 import { PropertyTextField } from '../../../ui/properties/PropertyTextField'
 import {
@@ -19,6 +21,7 @@ const EMPTY_OTHER_APPLIANCE: OtherAppliancePropertiesData = {
   description: '',
   capacity: '',
   power: '',
+  flowCubicMeterPerHour: 0,
 }
 
 const OTHER_APPLIANCE_KIND_OPTIONS = (
@@ -52,15 +55,19 @@ export function OtherApplianceProperties({ elementIds }: OtherAppliancePropertie
 
   // Yalnız DEĞİŞEN alan yazılır, elemanın diğer alt-alanları KENDİ mevcut
   // değerinden korunur (RegulatorProperties'teki gerekçeyle aynı).
-  const commitField = (field: keyof OtherAppliancePropertiesData) => (value: string) => {
+  const commitField = (field: keyof OtherAppliancePropertiesData) => (value: string | number) => {
     patchElements(elementIds, (element) => ({
       otherAppliance: { ...EMPTY_OTHER_APPLIANCE, ...element.otherAppliance, [field]: value },
     }))
     return true
   }
 
-  const commonValue = (field: keyof OtherAppliancePropertiesData) =>
-    getCommonString(selected.map((element) => element.otherAppliance?.[field] ?? ''))
+  const commonValue = (
+    field: 'type' | 'classLabel' | 'brand' | 'model' | 'description' | 'capacity' | 'power',
+  ) => getCommonString(selected.map((element) => element.otherAppliance?.[field] ?? ''))
+
+  const commonFlow = () =>
+    getCommonNumber(selected.map((element) => element.otherAppliance?.flowCubicMeterPerHour ?? 0))
 
   return (
     <div>
@@ -113,6 +120,12 @@ export function OtherApplianceProperties({ elementIds }: OtherAppliancePropertie
         value={commonValue('power')}
         targetKey={targetKey}
         onCommit={commitField('power')}
+      />
+      <PropertyNumberField
+        label="Debi (m³/h)"
+        valueCm={commonFlow()}
+        targetKey={targetKey}
+        onCommit={commitField('flowCubicMeterPerHour')}
       />
     </div>
   )

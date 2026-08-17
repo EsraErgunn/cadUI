@@ -1,5 +1,7 @@
 import type { Id } from '../../../core/model'
+import { getCommonNumber } from '../../../core/propertyFields'
 import { useCadStore } from '../../../store/cadStore'
+import { PropertyNumberField } from '../../../ui/properties/PropertyNumberField'
 import { PropertySelectField } from '../../../ui/properties/PropertySelectField'
 import { PropertyTextField } from '../../../ui/properties/PropertyTextField'
 import {
@@ -16,6 +18,7 @@ const EMPTY_BOILER: BoilerPropertiesData = {
   description: '',
   capacity: '',
   power: '',
+  flowCubicMeterPerHour: 0,
 }
 
 const APPLIANCE_TYPE_OPTIONS = (Object.entries(APPLIANCE_TYPE_LABELS) as [ApplianceType, string][]).map(
@@ -41,15 +44,19 @@ export function BoilerProperties({ elementIds }: BoilerPropertiesProps) {
 
   // Yalnız DEĞİŞEN alan yazılır, elemanın diğer alt-alanları KENDİ mevcut
   // değerinden korunur (RegulatorProperties'teki gerekçeyle aynı).
-  const commitField = (field: keyof BoilerPropertiesData) => (value: string) => {
+  const commitField = (field: keyof BoilerPropertiesData) => (value: string | number) => {
     patchElements(elementIds, (element) => ({
       boiler: { ...EMPTY_BOILER, ...element.boiler, [field]: value },
     }))
     return true
   }
 
-  const commonValue = (field: keyof BoilerPropertiesData) =>
-    getCommonString(selected.map((element) => element.boiler?.[field] ?? ''))
+  const commonValue = (
+    field: 'applianceType' | 'brand' | 'model' | 'description' | 'capacity' | 'power',
+  ) => getCommonString(selected.map((element) => element.boiler?.[field] ?? ''))
+
+  const commonFlow = () =>
+    getCommonNumber(selected.map((element) => element.boiler?.flowCubicMeterPerHour ?? 0))
 
   return (
     <div>
@@ -92,6 +99,12 @@ export function BoilerProperties({ elementIds }: BoilerPropertiesProps) {
         value={commonValue('power')}
         targetKey={targetKey}
         onCommit={commitField('power')}
+      />
+      <PropertyNumberField
+        label="Debi (m³/h)"
+        valueCm={commonFlow()}
+        targetKey={targetKey}
+        onCommit={commitField('flowCubicMeterPerHour')}
       />
     </div>
   )

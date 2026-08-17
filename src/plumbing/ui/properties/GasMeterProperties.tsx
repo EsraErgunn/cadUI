@@ -1,6 +1,8 @@
 import type { Id } from '../../../core/model'
+import { getCommonNumber } from '../../../core/propertyFields'
 import { useCadStore } from '../../../store/cadStore'
 import { PropertyCheckboxField } from '../../../ui/properties/PropertyCheckboxField'
+import { PropertyNumberField } from '../../../ui/properties/PropertyNumberField'
 import { PropertyTextField } from '../../../ui/properties/PropertyTextField'
 import type { GasMeterProperties as GasMeterPropertiesData } from '../../core/elementProperties'
 import { getCommonBoolean, getCommonString } from '../../core/propertyFields'
@@ -12,6 +14,13 @@ const EMPTY_GAS_METER: GasMeterPropertiesData = {
   isIndoor: false,
   isAccessible247: false,
   hasCorrector: false,
+  meterOrder: 0,
+  unitNumber: '',
+  subscriberName: '',
+  subscriberNo: '',
+  flowCubicMeterPerHour: 0,
+  pressureMbar: 0,
+  areaSquareMeters: 0,
 }
 
 type GasMeterPropertiesProps = {
@@ -29,18 +38,22 @@ export function GasMeterProperties({ elementIds }: GasMeterPropertiesProps) {
 
   // Yalnız DEĞİŞEN alan yazılır, elemanın diğer alt-alanları KENDİ mevcut
   // değerinden korunur (RegulatorProperties'teki gerekçeyle aynı).
-  const commitField = (field: keyof GasMeterPropertiesData) => (value: string | boolean) => {
+  const commitField = (field: keyof GasMeterPropertiesData) => (value: string | boolean | number) => {
     patchElements(elementIds, (element) => ({
       gasMeter: { ...EMPTY_GAS_METER, ...element.gasMeter, [field]: value },
     }))
     return true
   }
 
-  const commonString = (field: 'classLabel' | 'inletConsumptionPoint' | 'outletConsumptionPoint') =>
-    getCommonString(selected.map((element) => element.gasMeter?.[field] ?? ''))
+  const commonString = (
+    field: 'classLabel' | 'inletConsumptionPoint' | 'outletConsumptionPoint' | 'unitNumber' | 'subscriberName' | 'subscriberNo',
+  ) => getCommonString(selected.map((element) => element.gasMeter?.[field] ?? ''))
 
   const commonBoolean = (field: 'isIndoor' | 'isAccessible247' | 'hasCorrector') =>
     getCommonBoolean(selected.map((element) => element.gasMeter?.[field] ?? false))
+
+  const commonNumber = (field: 'meterOrder' | 'flowCubicMeterPerHour' | 'pressureMbar' | 'areaSquareMeters') =>
+    getCommonNumber(selected.map((element) => element.gasMeter?.[field] ?? 0))
 
   return (
     <div>
@@ -79,6 +92,48 @@ export function GasMeterProperties({ elementIds }: GasMeterPropertiesProps) {
         checked={commonBoolean('hasCorrector')}
         targetKey={targetKey}
         onCommit={commitField('hasCorrector')}
+      />
+      <PropertyNumberField
+        label="Sıra No"
+        valueCm={commonNumber('meterOrder')}
+        targetKey={targetKey}
+        onCommit={commitField('meterOrder')}
+      />
+      <PropertyTextField
+        label="Birim"
+        value={commonString('unitNumber')}
+        targetKey={targetKey}
+        onCommit={commitField('unitNumber')}
+      />
+      <PropertyTextField
+        label="Abone Adı"
+        value={commonString('subscriberName')}
+        targetKey={targetKey}
+        onCommit={commitField('subscriberName')}
+      />
+      <PropertyTextField
+        label="Abone No"
+        value={commonString('subscriberNo')}
+        targetKey={targetKey}
+        onCommit={commitField('subscriberNo')}
+      />
+      <PropertyNumberField
+        label="Debi (m³/h)"
+        valueCm={commonNumber('flowCubicMeterPerHour')}
+        targetKey={targetKey}
+        onCommit={commitField('flowCubicMeterPerHour')}
+      />
+      <PropertyNumberField
+        label="Basınç (mbar)"
+        valueCm={commonNumber('pressureMbar')}
+        targetKey={targetKey}
+        onCommit={commitField('pressureMbar')}
+      />
+      <PropertyNumberField
+        label="Alan (m²)"
+        valueCm={commonNumber('areaSquareMeters')}
+        targetKey={targetKey}
+        onCommit={commitField('areaSquareMeters')}
       />
     </div>
   )

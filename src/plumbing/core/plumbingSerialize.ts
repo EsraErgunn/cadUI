@@ -72,6 +72,13 @@ function toGasMeterJson(properties: GasMeterProperties) {
     isIndoor: properties.isIndoor,
     isAccessible247: properties.isAccessible247,
     hasCorrector: properties.hasCorrector,
+    meterOrder: properties.meterOrder,
+    unitNumber: properties.unitNumber,
+    subscriberName: properties.subscriberName,
+    subscriberNo: properties.subscriberNo,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
+    pressureMbar: properties.pressureMbar,
+    areaSquareMeters: properties.areaSquareMeters,
   }
 }
 
@@ -103,6 +110,7 @@ function toStoveJson(properties: StoveProperties) {
     description: properties.description,
     capacity: properties.capacity,
     power: properties.power,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
   }
 }
 
@@ -114,6 +122,7 @@ function toBurnerApplianceJson(properties: {
   description: string
   capacity: string
   power: string
+  flowCubicMeterPerHour: number
 }) {
   return {
     applianceType: properties.applianceType,
@@ -122,6 +131,7 @@ function toBurnerApplianceJson(properties: {
     description: properties.description,
     capacity: properties.capacity,
     power: properties.power,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
   }
 }
 
@@ -134,6 +144,7 @@ function toOtherApplianceJson(properties: OtherApplianceProperties) {
     description: properties.description,
     capacity: properties.capacity,
     power: properties.power,
+    flowCubicMeterPerHour: properties.flowCubicMeterPerHour,
   }
 }
 
@@ -150,6 +161,12 @@ const insulationPropertiesSchema = z.object({
   description: z.string(),
 })
 
+/**
+ * meterOrder/abone-birim/ölçü alanları SONRADAN eklendi (2026-08): eski
+ * kayıtlarda `gasMeter` nesnesi var ama bu alanlar yok. `.default()` ile
+ * dosya YİNE açılır (projectDataSchema'daki `heightCm`/`axisId` deseniyle
+ * aynı gerekçe); bir sonraki kayıtta `toGasMeterJson` tam alan kümesini yazar.
+ */
 const gasMeterPropertiesSchema = z.object({
   classLabel: z.string(),
   inletConsumptionPoint: z.string(),
@@ -157,6 +174,13 @@ const gasMeterPropertiesSchema = z.object({
   isIndoor: z.boolean(),
   isAccessible247: z.boolean(),
   hasCorrector: z.boolean(),
+  meterOrder: z.number().default(0),
+  unitNumber: z.string().default(''),
+  subscriberName: z.string().default(''),
+  subscriberNo: z.string().default(''),
+  flowCubicMeterPerHour: z.number().default(0),
+  pressureMbar: z.number().default(0),
+  areaSquareMeters: z.number().default(0),
 })
 
 const filterKitPropertiesSchema = z.object({
@@ -176,12 +200,14 @@ const solenoidValvePropertiesSchema = z.object({
   model: z.string(),
 })
 
+/** `flowCubicMeterPerHour` ("Debi") SONRADAN eklendi — aynı `.default(0)` göç deseni. */
 const stovePropertiesSchema = z.object({
   brand: z.string(),
   model: z.string(),
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
+  flowCubicMeterPerHour: z.number().default(0),
 })
 
 const burnerAppliancePropertiesSchema = z.object({
@@ -191,6 +217,7 @@ const burnerAppliancePropertiesSchema = z.object({
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
+  flowCubicMeterPerHour: z.number().default(0),
 })
 
 const otherAppliancePropertiesSchema = z.object({
@@ -201,6 +228,7 @@ const otherAppliancePropertiesSchema = z.object({
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
+  flowCubicMeterPerHour: z.number().default(0),
 })
 
 export const installationElementSchema = z.object({
