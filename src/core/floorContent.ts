@@ -34,6 +34,7 @@ export type FloorContentCounts = {
   symbolCount: number
   areaObjectCount: number
   beamCount: number
+  textCount: number
   /** Düşey eksende süren alan nesneleri — silme uyarısı bunlara bakar (KK-13). */
   flueShaftCount: number
   columnVentilationCount: number
@@ -49,6 +50,7 @@ export const EMPTY_FLOOR_CONTENT_COUNTS: FloorContentCounts = {
   symbolCount: 0,
   areaObjectCount: 0,
   beamCount: 0,
+  textCount: 0,
   flueShaftCount: 0,
   columnVentilationCount: 0,
   pipeSegmentCount: 0,
@@ -82,6 +84,7 @@ export function getFloorContentCounts(
     ).length,
     areaObjectCount: areaObjects.length,
     beamCount: source.beams.filter((beam) => floorIds.has(beam.floorId)).length,
+    textCount: source.texts.filter((text) => floorIds.has(text.floorId)).length,
     // Baca şaftı ve kolon havalandırması düşey eksende sürer; katı silinince
     // alt/üst kattaki karşılıkları aynı eksende kalmaz (KK-13). İki tür AYRI
     // sayılıyor çünkü uyarı ikisini adıyla söylüyor.
@@ -115,7 +118,9 @@ export function getFloorContent(source: FloorContentSource, floorId: Id): FloorC
       // Alan nesnesi (merdiven/kolon/baca şaftı) mimarinin parçası: duvarı
       // olmayan ama merdiveni olan kat "boş" gösterilmemeli.
       source.areaObjects.some((areaObject) => areaObject.floorId === floorId) ||
-      source.beams.some((beam) => beam.floorId === floorId),
+      source.beams.some((beam) => beam.floorId === floorId) ||
+      // Metin de mimarinin parçası: yalnız not düşülmüş bir kat "boş" değildir.
+      source.texts.some((text) => text.floorId === floorId),
     hasInstallation:
       source.installationElements.some((element) => element.floorId === floorId) ||
       source.installationLines.some((line) => line.floorId === floorId),

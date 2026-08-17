@@ -2,8 +2,9 @@ import type { ArchitectureTarget } from './architectureHover'
 import { getAreaObjectCorners } from './areaObject'
 import { getBeamEnds } from './beam'
 import type { PlanPoint } from './coords'
-import type { AreaObject, Beam, Id, Opening, Point, PointSymbol, Wall } from './model'
+import type { AreaObject, Beam, Id, Opening, Point, PointSymbol, TextLabel, Wall } from './model'
 import { getSymbolPose } from './symbolPlacement'
+import { getTextLabelCorners } from './textLabel'
 import { getWallEnds } from './wall'
 import { getWallFrameAtOffsetCm } from './wallPath'
 
@@ -12,7 +13,7 @@ import { getWallFrameAtOffsetCm } from './wallPath'
  * kendi başına taşınması `usePointDragTool`'un işi ve grup dönüşümünde duvarıyla
  * birlikte gelir. Vurgu hedefi (`ArchitectureTarget`) köşeyi de içerir, seçim içermez.
  */
-export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area' | 'beam'
+export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area' | 'beam' | 'text'
 
 export type SelectionItem = {
   kind: SelectableKind
@@ -98,12 +99,14 @@ export function pruneSelection(
   symbols: readonly PointSymbol[],
   areaObjects: readonly AreaObject[],
   beams: readonly Beam[],
+  texts: readonly TextLabel[],
 ): Selection {
   const pruned = selection.filter((item) => {
     if (item.kind === 'wall') return walls.some((wall) => wall.id === item.id)
     if (item.kind === 'opening') return openings.some((opening) => opening.id === item.id)
     if (item.kind === 'area') return areaObjects.some((areaObject) => areaObject.id === item.id)
     if (item.kind === 'beam') return beams.some((beam) => beam.id === item.id)
+    if (item.kind === 'text') return texts.some((text) => text.id === item.id)
     return symbols.some((symbol) => symbol.id === item.id)
   })
   return pruned.length === selection.length ? selection : pruned
@@ -219,6 +222,17 @@ export function getBeamsInRect(rect: PlanRect, beams: readonly Beam[]): Id[] {
     .map((beam) => beam.id)
 }
 
+/**
+ * Metin, dört köşesi de çerçevede kalıyorsa seçilir — alan nesnesiyle aynı
+ * kural. Kutu yazının GERÇEK genişliğinden değil `core/textLabel.ts`'teki kaba
+ * tahminden geliyor (core yazı tipini tanımaz); tahmin cömert tarafta.
+ */
+export function getTextLabelsInRect(rect: PlanRect, texts: readonly TextLabel[]): Id[] {
+  return texts
+    .filter((text) => getTextLabelCorners(text).every((corner) => isPointInRect(corner, rect)))
+    .map((text) => text.id)
+}
+
 /** Çerçevenin kapsadığı her şey — tek geçişte, çağıran üç fonksiyonu ayrı sarmasın. */
 export function getSelectionInRect(
   rect: PlanRect,
@@ -228,6 +242,7 @@ export function getSelectionInRect(
   symbols: readonly PointSymbol[],
   areaObjects: readonly AreaObject[],
   beams: readonly Beam[],
+  texts: readonly TextLabel[],
 ): Selection {
   return [
     ...getWallsInRect(rect, walls, points).map((id): SelectionItem => ({ kind: 'wall', id })),
@@ -239,6 +254,7 @@ export function getSelectionInRect(
     ),
     ...getAreaObjectsInRect(rect, areaObjects).map((id): SelectionItem => ({ kind: 'area', id })),
     ...getBeamsInRect(rect, beams).map((id): SelectionItem => ({ kind: 'beam', id })),
+    ...getTextLabelsInRect(rect, texts).map((id): SelectionItem => ({ kind: 'text', id })),
   ]
 }
 

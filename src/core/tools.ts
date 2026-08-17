@@ -33,7 +33,7 @@ export const ARCHITECTURE_TOOLS = [
   { id: 'stairs', label: 'Merdiven Ekle' },
   // Yapısal kolon — gaz kolonu (Riser) DEĞİL. İkisi de "kolon" diye anılıyor.
   { id: 'structuralColumn', label: 'Kolon Ekle' },
-  { id: 'text', label: 'Metin Ekle', isPlanned: true },
+  { id: 'text', label: 'Metin Ekle' },
   { id: 'beam', label: 'Kiriş Ekle' },
   { id: 'measure', label: 'Ölçüm' },
   { id: 'vent', label: 'Menfez Ekle' },
@@ -56,6 +56,7 @@ export const DOOR_TOOL_ID: ToolId = 'door'
 export const WINDOW_TOOL_ID: ToolId = 'window'
 export const ERASER_TOOL_ID: ToolId = 'eraser'
 export const BEAM_TOOL_ID: ToolId = 'beam'
+export const TEXT_TOOL_ID: ToolId = 'text'
 export const MEASURE_TOOL_ID: ToolId = 'measure'
 
 export function getToolLabel(toolId: ToolId): string {

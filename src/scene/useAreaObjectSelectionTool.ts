@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -80,6 +81,8 @@ export function useAreaObjectSelectionTool(): void {
       if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
       // Ad etiketi gövdenin DIŞINDA ve serbestçe taşınabiliyor: o basış etiketin.
       if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Metin de gövdesiz ve serbest: üstüne basıldıysa jest metnin (K81).
+      if (findTextLabelAtPointer(event.planPoint)) return
 
       const target = resolveArchitectureTarget(event.planPoint, readContext())
       if (!target || target.kind !== 'area') return

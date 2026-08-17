@@ -3957,3 +3957,56 @@ her ölçüden sonra aracı yeniden seçtirmek gereksiz olurdu. Tamamlanmış ö
 Renk duvar ölçülerinden AYRI (`ARCHITECTURE_COLORS.measurement`): duvar ölçüsü
 kalıcı bir kotalama katmanı, ölçüm ise o an alınan geçici bir okuma — aynı
 renkte olsalardı ölçüm çizime yazılmış sanılırdı.
+
+### K81 — Metin: plana serbestçe konan NOT, dünya boyunda
+
+Palette pasif duran "Metin Ekle" (K79) çalışır hâle geldi. Model sözleşmesine
+yeni bir kalıcı tip eklendi — `TextLabel { id, floorId, x, y, text, heightCm,
+angleDeg }` — ve `ProjectData.texts` dizisi.
+
+**Yazı boyu DÜNYA biriminde (`heightCm`), ekran pikseli değil.** Metin çizimin
+bir parçası, üstünde yüzen bir arayüz öğesi değil: zoom'da duvarlarla birlikte
+büyür ve PDF'e planla aynı oranda basar ("25 cm yazı yüksekliği" teknik çizimin
+standardı). Oda adı ve ölçü yazıları bunun AKSİNE ekran-sabit, çünkü onlar
+çizimden TÜREYEN okuma yardımcıları — kullanıcının yazdığı not değil.
+
+**Serileştirme mevcut deseni izliyor:** `texts` de `.default([])` alıyor, böylece
+alan yokken kaydedilmiş çizimler açılmaya devam ediyor; `serializeProjectData`
+alanı her zaman yazdığı için bit-bit turu korunuyor. `docs/sample-project.json`
+kabul testinin dayanağı olduğu için oraya da `"texts":[]` eklendi.
+
+**Kapsam (kullanıcı seçti):** koy / yaz / seç / taşı / sil. Grup dönüşümü ve
+Ctrl+D bu turda YOK — metin şimdilik tek tek taşınıyor.
+
+**Kutuyu BOŞALTIP onaylamak metni SİLER** (kullanıcı isteği). Yazısı olmayan bir
+not, kullanıcının orada bir şey istemediğinin en açık ifadesi; eski yazıyı geri
+getirmek onu şaşırtırdı. Yanlışlıkla konan metnin çıkış kapısı da bu. Silme
+`deleteSelection` üzerinden gidiyor ki jest tek Ctrl+Z adımı olsun.
+
+Kuralın TEK adresi `isBlankText`: düzenleme kutusu "silecek miyim", store
+"yazacak mıyım" diye aynı fonksiyonu soruyor. Ayrışsalardı boşaltılan metin ne
+silinir ne yazılır, eski hâliyle geri gelirdi. Store hâlâ boş metin YAZMIYOR —
+görünmez ve tutulamaz bir nesne planda hayalet bırakır; silme yolu ayrı.
+
+**Yerleştirmenin ardından SEÇİM aracına dönülüyor** (K42'nin sağ tık kuralının
+buradaki karşılığı): metin arka arkaya konan bir şey değil, konup yazılan bir
+şey. Araç açık kalsaydı kullanıcı kutuya yazarken tuvale her tıkladığında yeni
+bir metin doğardı.
+
+**Metin hedef çözümleme zincirinde (`resolveArchitectureTarget`) YOK.** O zincir
+duvar/açıklık/sembol/alan nesnesi için kurulmuş bir öncelik sırası ve metin
+oraya girseydi bir notun üstüne düşen duvar seçilemez olurdu. Bunun bedeli
+`AreaObjectNameLabels`taki tuzağın aynısı: diğer hook'lar metnin üstünü "boşluk"
+sanıp çerçeve seçimi başlatıyordu. Çözüm de aynı — `findTextLabelAtPointer`
+jesti sahipleniyor ve beş hook onu çağırıp erken dönüyor (K44'ün dersi, bu
+kod tabanında beşinci kez).
+
+Tutma kutusu yazının GERÇEK genişliğinden değil kaba bir tahminden geliyor
+(`core/textLabel.ts`, karakter genişliği ≈ yüksekliğin 0.6'sı): core troika'yı
+ve DOM'u tanımaz. Tahmin bilerek CÖMERT — dar bir kutu metni tutulamaz yapardı,
+geniş olan yalnız biraz eli açık davranır.
+
+Düzenleme kutusu `RoomNameEditor`ün birebir deseni: drei `<Html>`, NATIVE
+dinleyici (React'in onKeyDown'ı ayrı react-dom kökünden store'a yazınca R3F
+ağacı yeniden çizilmiyor), taslak yerel state'te (her harf ayrı Ctrl+Z adımı
+olmasın).

@@ -124,6 +124,7 @@ describe('geri al / yinele', () => {
       symbols: [],
       areaObjects: [],
       beams: [],
+      texts: [],
       installationElements: [],
       installationLines: [],
       installationConnections: [],

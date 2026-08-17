@@ -10,6 +10,7 @@ import type {
   Point,
   PointSymbol,
   Room,
+  TextLabel,
   Wall,
 } from '../core/model'
 
@@ -37,6 +38,7 @@ export type TrackedProjectState = {
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
   beams: Beam[]
+  texts: TextLabel[]
 }
 
 /**
@@ -58,6 +60,7 @@ export function partializeProjectState(state: CadState): TrackedProjectState {
     symbols: state.symbols,
     areaObjects: state.areaObjects,
     beams: state.beams,
+    texts: state.texts,
   }
 }
 
@@ -87,6 +90,7 @@ export function areProjectStatesEqual(
     past.rooms === next.rooms &&
     past.symbols === next.symbols &&
     past.areaObjects === next.areaObjects &&
-    past.beams === next.beams
+    past.beams === next.beams &&
+    past.texts === next.texts
   )
 }

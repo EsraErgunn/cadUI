@@ -55,6 +55,12 @@ type SymbolDrag = {
  * Taşınan alan nesnelerinin GEÇİCİ ötelemesi. draggingSymbols ile aynı gerekçe:
  * sürükleme boyunca cadStore'a yazılmaz, tek yazım bırakma anında olur.
  */
+type AreaObjectDrag = {
+  areaObjectIds: Id[]
+  dxCm: number
+  dyCm: number
+}
+
 /**
  * İki noktalı ölçüm. `end === null` iken ikinci nokta imleçte, lastik bant
  * çizilir; kondu mu ölçü donar ve Esc'e ya da araç değişimine kadar durur.
@@ -64,8 +70,9 @@ type Measurement = {
   end: PlanPoint | null
 }
 
-type AreaObjectDrag = {
-  areaObjectIds: Id[]
+/** Taşınan metinlerin GEÇİCİ ötelemesi. AreaObjectDrag ile aynı gerekçe. */
+type TextDrag = {
+  textIds: Id[]
   dxCm: number
   dyCm: number
 }
@@ -129,6 +136,14 @@ type ArchitectureUiState = {
    * Tek temizleme kapısı `clearMeasurement`.
    */
   measurement: Measurement | null
+  /**
+   * Düzenleme kutusu açık olan metin (K81). Oda adındaki `editingRoom` ile aynı
+   * gerekçe: taslak yazı kutunun kendi state'inde, store'a yalnız kapanışta
+   * yazılır — her tuş ayrı bir Ctrl+Z adımı olmasın.
+   */
+  editingTextId: Id | null
+  /** Taşınan metinlerin GEÇİCİ ötelemesi; draggingAreaObjects ile aynı sözleşme. */
+  draggingTexts: TextDrag | null
   draggingPoint: PointDrag | null
   draggingWall: WallDrag | null
   draggingSymbols: SymbolDrag | null
@@ -179,6 +194,8 @@ type ArchitectureUiState = {
   setAreaObjectHandleHover: (kind: AreaObjectHandleKind | null) => void
   setHover: (hover: ArchitectureTarget | null) => void
   setEditingRoom: (roomId: Id | null) => void
+  setEditingText: (textId: Id | null) => void
+  setDraggingTexts: (drag: TextDrag | null) => void
 }
 
 /**
@@ -208,6 +225,8 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
     editingRoomId: null,
+    editingTextId: null,
+    draggingTexts: null,
 
     setSelection: (selection) =>
       set((draft) => {
@@ -314,6 +333,16 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setEditingRoom: (roomId) =>
       set((draft) => {
         draft.editingRoomId = roomId
+      }),
+
+    setEditingText: (textId) =>
+      set((draft) => {
+        draft.editingTextId = textId
+      }),
+
+    setDraggingTexts: (drag) =>
+      set((draft) => {
+        draft.draggingTexts = drag
       }),
   })),
 )

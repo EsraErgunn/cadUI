@@ -148,6 +148,9 @@ export function removeFloorArchitectureInDraft(draft: CadState, floorId: Id): vo
   draft.areaObjects = draft.areaObjects.filter((areaObject) => areaObject.floorId !== floorId)
   // Kiriş de kat taşır ve mimarinin parçası — alan nesnesiyle aynı gerekçe.
   draft.beams = draft.beams.filter((beam) => beam.floorId !== floorId)
+  // Metin bir NOT ama katın notu: kat gidince onunla gider, yoksa hangi plana
+  // ait olduğu belirsiz bir yazı ortada kalırdı.
+  draft.texts = draft.texts.filter((text) => text.floorId !== floorId)
 }
 
 /** Katın TESİSAT çizimini siler. Gerekçesi için bkz. removeFloorArchitectureInDraft. */

@@ -239,6 +239,28 @@ export type Beam = {
 }
 
 /**
+ * Kullanıcının plana serbestçe koyduğu NOT (K81). Hiçbir şeye bağlı değil:
+ * duvara, odaya, nesneye tutunmaz — konumu kendi taşır.
+ *
+ * `heightCm` DÜNYA boyudur, ekran pikseli değil: metin çizimin bir parçası,
+ * üstünde yüzen bir arayüz öğesi değil. Zoom'da duvarlarla birlikte büyür ve
+ * PDF'e planla aynı oranda basar ("25 cm yazı yüksekliği" teknik çizimin
+ * standardı). Oda adı ve ölçü yazıları bunun AKSİNE ekran-sabit, çünkü onlar
+ * çizimden türeyen okuma yardımcıları.
+ */
+export type TextLabel = {
+  id: Id
+  floorId: Id
+  x: number
+  y: number
+  text: string
+  /** Yazı yüksekliği (cm) — dünya boyu. */
+  heightCm: number
+  /** 0-359, x ekseninden saat yönünün tersine (AreaObject ile aynı sözleşme). */
+  angleDeg: number
+}
+
+/**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
  *
  * Tesisat üçlüsü (`installationElements/Lines/Connections`) BURADAN yönetilir
@@ -260,6 +282,7 @@ export type ProjectData = {
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
   beams: Beam[]
+  texts: TextLabel[]
   installationElements: InstallationElement[]
   installationLines: InstallationLine[]
   installationConnections: InstallationConnection[]

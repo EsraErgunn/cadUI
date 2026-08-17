@@ -30,6 +30,7 @@ const project: ProjectData = {
   symbols: [],
   areaObjects: [],
   beams: [],
+  texts: [],
   installationElements: [],
   installationLines: [],
   installationConnections: [],

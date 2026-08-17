@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
@@ -81,6 +82,11 @@ export function useSelectionTool(): void {
       if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
       // Ad etiketi gövdenin DIŞINDA ve serbestçe taşınabiliyor: o basış etiketin.
       if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Metin `resolveArchitectureTarget` zincirinde YOK (K81): oraya girseydi
+      // bir notun üstüne düşen duvar seçilemez olurdu. Sonuç olarak hedef
+      // çözümlemesi metnin üstünü "boşluk" sayıyor ve çerçeve seçimi başlıyordu
+      // — ad etiketiyle birebir aynı tuzak, çözümü de aynı: jesti metin alır.
+      if (findTextLabelAtPointer(event.planPoint)) return
 
       anchor = event.planPoint
       isAdditive = event.shiftKey
@@ -116,6 +122,7 @@ export function useSelectionTool(): void {
         (areaObject) => areaObject.floorId === cad.activeFloorId,
       )
       const floorBeams = cad.beams.filter((beam) => beam.floorId === cad.activeFloorId)
+      const floorTexts = cad.texts.filter((text) => text.floorId === cad.activeFloorId)
       const framed = getSelectionInRect(
         rect,
         floorWalls,
@@ -124,6 +131,7 @@ export function useSelectionTool(): void {
         floorSymbols,
         floorAreaObjects,
         floorBeams,
+        floorTexts,
       )
 
       ui.setSelection(wasAdditive ? mergeSelection(ui.selection, framed) : framed)
@@ -198,6 +206,7 @@ export function useSelectionTool(): void {
           state.symbols,
           state.areaObjects,
           state.beams,
+          state.texts,
         )
         // pruneSelection değişiklik yoksa AYNI diziyi döndürür; kontrol bu yüzden
         // referans karşılaştırması ve her store değişiminde yeni dizi yazılmaz.

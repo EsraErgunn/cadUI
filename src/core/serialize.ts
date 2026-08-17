@@ -10,6 +10,7 @@ import type {
   PointSymbol,
   ProjectData,
   Room,
+  TextLabel,
   Wall,
 } from './model'
 import {
@@ -159,6 +160,16 @@ const beamSchema = z.object({
   label: z.string(),
 })
 
+const textLabelSchema = z.object({
+  id: idSchema,
+  floorId: idSchema,
+  x: z.number(),
+  y: z.number(),
+  text: z.string(),
+  heightCm: z.number(),
+  angleDeg: z.number(),
+})
+
 /**
  * Modele SONRADAN eklenen diziler `.default([])` taşır: depodaki çizimler o
  * alanlar yokken kaydedildi ve zorunlu tutulursa "expected array, received
@@ -180,6 +191,7 @@ export const projectDataSchema = z.object({
   symbols: z.array(pointSymbolSchema).default([]),
   areaObjects: z.array(areaObjectSchema).default([]),
   beams: z.array(beamSchema).default([]),
+  texts: z.array(textLabelSchema).default([]),
   // Tesisat üçlüsü de SONRADAN eklendi (aynı gerekçe): depodaki hiçbir çizimde
   // henüz yok, zorunlu tutulursa hiçbiri açılmaz.
   installationElements: z.array(installationElementSchema).default([]),
@@ -243,6 +255,7 @@ export function serializeProjectData(data: ProjectData): string {
     symbols: data.symbols.map(toPointSymbolJson),
     areaObjects: data.areaObjects.map(toAreaObjectJson),
     beams: data.beams.map(toBeamJson),
+    texts: data.texts.map(toTextLabelJson),
     installationElements: data.installationElements.map(toInstallationElementJson),
     installationLines: data.installationLines.map(toInstallationLineJson),
     installationConnections: data.installationConnections.map(toInstallationConnectionJson),
@@ -327,6 +340,18 @@ function toBeamJson(beam: Beam) {
     y2: beam.y2,
     thicknessCm: beam.thicknessCm,
     label: beam.label,
+  }
+}
+
+function toTextLabelJson(text: TextLabel) {
+  return {
+    id: text.id,
+    floorId: text.floorId,
+    x: text.x,
+    y: text.y,
+    text: text.text,
+    heightCm: text.heightCm,
+    angleDeg: text.angleDeg,
   }
 }
 

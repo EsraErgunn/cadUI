@@ -19,6 +19,7 @@ export function useFloorContentSource(): FloorContentSource {
   const symbols = useCadStore((state) => state.symbols)
   const areaObjects = useCadStore((state) => state.areaObjects)
   const beams = useCadStore((state) => state.beams)
+  const texts = useCadStore((state) => state.texts)
   const installationElements = useCadStore((state) => state.installationElements)
   const installationLines = useCadStore((state) => state.installationLines)
 
@@ -31,6 +32,7 @@ export function useFloorContentSource(): FloorContentSource {
       symbols,
       areaObjects,
       beams,
+      texts,
       installationElements,
       installationLines,
     }),
@@ -42,6 +44,7 @@ export function useFloorContentSource(): FloorContentSource {
       symbols,
       areaObjects,
       beams,
+      texts,
       installationElements,
       installationLines,
     ],
