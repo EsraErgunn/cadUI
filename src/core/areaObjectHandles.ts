@@ -173,6 +173,12 @@ export function getAreaObjectAngleFromPointer(target: PlanPoint, center: PlanPoi
  * +x (genişlik) ve +y (uzunluk) yönlerine izdüşürülür. Böylece döndürülmüş
  * nesnede de kullanıcı kenara paralel büyütür.
  *
+ * **İmleç sabit köşeyi GEÇEBİLİR.** Karşı tarafa geçilince nesne o yöne büyümeye
+ * devam eder — 100 → 0 → 100 kesintisiz. Eskiden izdüşüm asgari boyda
+ * kelepçeleniyordu ve nesne sıfırda kilitleniyordu; kullanıcı yalnız sağa ve
+ * aşağı boyutlandırabiliyordu. Boyut POZİTİF kalır, yön merkeze taşınır (aşağıda).
+ * İki eksen bağımsız: yalnız yatayda geçmek dikeyi etkilemez.
+ *
  * ⚠️ **Yalnız ÇAP taşıyan tipte (kolon havalandırması) iki ölçü EŞİTLENİR.**
  * Ayrı yazıldıklarında, aşağı doğru sürükleme yalnız `lengthCm`'i büyütüyordu;
  * çapı `min(width, length)` olduğu için daire BÜYÜMÜYOR, ama merkez kaydığı
@@ -203,9 +209,18 @@ export function resizeAreaObjectFromCorner(
   const vY = cos
 
   // Sürüklenen köşe sabit köşeden +genişlik (u) ve −uzunluk (v) uzakta; uzunluk
-  // izdüşümü bu yüzden ters işaretli okunur.
-  const projectedWidthCm = Math.max(minSizeCm, dx * uX + dy * uY)
-  const projectedLengthCm = Math.max(minSizeCm, -(dx * vX + dy * vY))
+  // izdüşümü bu yüzden ters işaretli okunur. İşaret KORUNUR: imleç sabit köşeyi
+  // geçtiğinde izdüşüm negatife düşer ve nesne karşı yöne büyümeye devam eder.
+  const signedWidthCm = dx * uX + dy * uY
+  const signedLengthCm = -(dx * vX + dy * vY)
+
+  // Boyut her zaman POZİTİF; hangi yöne büyüdüğü işarette taşınır ve merkeze
+  // uygulanır. Negatif genişlik/uzunluk modele hiç girmez — sınır kutusu,
+  // çarpışma sınavı ve geometri üretimi hep pozitif ölçü varsayıyor.
+  const widthSign = signedWidthCm < 0 ? -1 : 1
+  const lengthSign = signedLengthCm < 0 ? -1 : 1
+  const projectedWidthCm = Math.max(minSizeCm, Math.abs(signedWidthCm))
+  const projectedLengthCm = Math.max(minSizeCm, Math.abs(signedLengthCm))
 
   // Daire tek ölçü taşır: iki izdüşümün büyüğü çap olur (bkz. yukarıdaki uyarı).
   const isDiameterOnly = !hasAreaObjectRectangleSize(type)
@@ -213,10 +228,12 @@ export function resizeAreaObjectFromCorner(
   const widthCm = isDiameterOnly ? diameterCm : projectedWidthCm
   const lengthCm = isDiameterOnly ? diameterCm : projectedLengthCm
 
-  // Merkez = sabit köşe + yarım genişlik (+u) + yarım uzunluk (−v).
+  // Merkez = sabit köşe + yarım genişlik (±u) + yarım uzunluk (∓v). İşaretler
+  // olmasaydı nesne sabit köşenin daima sağ-altında kalır, imleç karşı tarafa
+  // geçtiğinde asgari boyda KİLİTLENİRDİ.
   return {
-    x: fixedCorner.x + (widthCm / 2) * uX - (lengthCm / 2) * vX,
-    y: fixedCorner.y + (widthCm / 2) * uY - (lengthCm / 2) * vY,
+    x: fixedCorner.x + widthSign * (widthCm / 2) * uX - lengthSign * (lengthCm / 2) * vX,
+    y: fixedCorner.y + widthSign * (widthCm / 2) * uY - lengthSign * (lengthCm / 2) * vY,
     widthCm,
     lengthCm,
   }
