@@ -6,6 +6,7 @@ import { DrawSurface } from './DrawSurface'
 import { FloorBelowGhost } from './FloorBelowGhost'
 import { Grid } from './Grid'
 import { SCENE_COLORS } from './sceneTheme'
+import { useCameraZoomTracker } from './useCameraZoom'
 import { useViewportControls } from './useViewportControls'
 import { ArchitectureGhost, InstallationGhost } from '../plumbing/scene/Ghosts'
 import { PlumbingLayer } from '../plumbing/scene/PlumbingLayer'
@@ -14,6 +15,12 @@ import { useUiStore } from '../store/uiStore'
 /** Hook'lar <Canvas> içinde çalışmak zorunda; bu sarmalayıcı onun için var. */
 function ViewportControls() {
   useViewportControls()
+  return null
+}
+
+/** Zoom'u kare başına tek kez yoklayan kaynak; aynı sebeple <Canvas> içinde. */
+function CameraZoomTracker() {
+  useCameraZoomTracker()
   return null
 }
 
@@ -27,6 +34,7 @@ export function SceneRoot() {
       <color attach="background" args={[SCENE_COLORS.background]} />
       <Cameras />
       <ViewportControls />
+      <CameraZoomTracker />
       {isGridVisible && <Grid />}
       {/* Her görünüm KARŞI katmanı soluk gösterir. İkisi de burada, görünüm
           anahtarının yanında: hayalet çizen katmanın parçası değil, görünümün

@@ -47,18 +47,21 @@ const NO_RAYCAST = () => null
  */
 export function LengthText({ label, zoom }: { label: string; zoom: number }) {
   return (
-    <Text
-      font={FONT_URL}
-      rotation={FLAT_ROTATION}
-      fontSize={LABEL_SIZE_PX / zoom}
-      color={PLUMBING_COLORS.measurementLabel}
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={RENDER_ORDER.measurement}
-      raycast={NO_RAYCAST}
-    >
-      {label}
-    </Text>
+    // Ekran-sabit boy ölçekle: `fontSize` her değişiminde troika metni yeniden
+    // dizer, ölçek yalnız matrisi günceller (bkz. scene/WallDimensionLabels).
+    <group rotation={FLAT_ROTATION} scale={1 / zoom}>
+      <Text
+        font={FONT_URL}
+        fontSize={LABEL_SIZE_PX}
+        color={PLUMBING_COLORS.measurementLabel}
+        anchorX="center"
+        anchorY="middle"
+        renderOrder={RENDER_ORDER.measurement}
+        raycast={NO_RAYCAST}
+      >
+        {label}
+      </Text>
+    </group>
   )
 }
 

@@ -78,19 +78,24 @@ function ElementNameLabel({ element, zoom }: ElementNameLabelProps) {
         toneMapped={false}
         raycast={NO_RAYCAST}
       />
-      <Text
-        font={FONT_URL}
+      {/* Ekran-sabit boy ölçekle, fontSize ile değil (bkz. scene/WallDimensionLabels). */}
+      <group
         position={planToThree(anchor, ELEMENT_LABEL_ELEVATION_CM)}
         rotation={FLAT_ROTATION}
-        fontSize={ELEMENT_LABEL_SIZE_PX / zoom}
-        color={PLUMBING_COLORS.elementLabelInk}
-        anchorX="center"
-        anchorY="middle"
-        renderOrder={RENDER_ORDER.label}
-        raycast={NO_RAYCAST}
+        scale={1 / zoom}
       >
-        {metadata.label}
-      </Text>
+        <Text
+          font={FONT_URL}
+          fontSize={ELEMENT_LABEL_SIZE_PX}
+          color={PLUMBING_COLORS.elementLabelInk}
+          anchorX="center"
+          anchorY="middle"
+          renderOrder={RENDER_ORDER.label}
+          raycast={NO_RAYCAST}
+        >
+          {metadata.label}
+        </Text>
+      </group>
     </>
   )
 }

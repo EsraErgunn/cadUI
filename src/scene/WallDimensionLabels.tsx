@@ -143,21 +143,30 @@ function DimensionText({
   zoom: number
 }) {
   return (
-    <Text
-      font={FONT_URL}
+    // Ekran-sabit boy fontSize ile DEĞİL ölçekle veriliyor: `fontSize` her
+    // değiştiğinde troika metni yeniden dizip tamponları GPU'ya yeniden
+    // yüklüyor, zoom sırasında her etiket için kare başına. Ölçek yalnız
+    // matrisi günceller. Anchor center/middle ve iç kaydırma olmadığı için
+    // sonuç birebir aynı: `LABEL_SIZE_PX * (1/zoom)`.
+    <group
       position={planToThree(row.position, HANDLE_ELEVATION_CM)}
       // Z ekseni etrafındaki dönüş yazıyı duvara PARALEL tutar; yatırma
       // (X) önce uygulanıyor, sıra değişirse yazı düzlemden kalkar.
       rotation={[FLAT_ROTATION_X, 0, row.angleDeg * DEG_TO_RAD]}
-      fontSize={LABEL_SIZE_PX / zoom}
-      color={kind === 'opening' ? ARCHITECTURE_COLORS.openingDimension : ARCHITECTURE_COLORS.wall}
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={RENDER_ORDER.measurement}
-      raycast={NO_RAYCAST}
+      scale={1 / zoom}
     >
-      {formatLengthMeters(row.lengthCm)}
-    </Text>
+      <Text
+        font={FONT_URL}
+        fontSize={LABEL_SIZE_PX}
+        color={kind === 'opening' ? ARCHITECTURE_COLORS.openingDimension : ARCHITECTURE_COLORS.wall}
+        anchorX="center"
+        anchorY="middle"
+        renderOrder={RENDER_ORDER.measurement}
+        raycast={NO_RAYCAST}
+      >
+        {formatLengthMeters(row.lengthCm)}
+      </Text>
+    </group>
   )
 }
 
