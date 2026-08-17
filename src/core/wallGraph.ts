@@ -2,6 +2,7 @@ import type { PlanPoint } from './coords'
 import type { Id, Opening, Point, Wall } from './model'
 import { getOpeningSpan } from './opening'
 import {
+  buildPointIndex,
   getSegmentLength,
   getWallEnds,
   MIN_WALL_LENGTH_CM,
@@ -142,6 +143,11 @@ export function findWallSplits(
     if (segment) segments.set(wall.id, segment)
   }
 
+  // Aşağıdaki çift döngü duvar çifti başına uç noktası çözüyor; havuzu her
+  // seferinde taramak toplamı O(N²·P) yapıyordu. İndeks çağrıya YEREL: bu
+  // fonksiyon immer draft'ıyla da çağrılabiliyor ve draft yerinde değişir.
+  const pointIndex = buildPointIndex(points)
+
   const splits = new Map<Id, WallSplitPoint[]>()
 
   for (let index = 0; index < floorWalls.length; index += 1) {
@@ -164,7 +170,7 @@ export function findWallSplits(
           // Ortak köşe zaten düğüm; bölmeye gerek yok.
           if (guestPointId === host.p1Id || guestPointId === host.p2Id) continue
 
-          const guestPoint = points.find((candidate) => candidate.id === guestPointId)
+          const guestPoint = pointIndex.get(guestPointId)
           if (!guestPoint) continue
 
           const offsetCm = getOffsetOnSegment(hostSegment, guestPoint)
