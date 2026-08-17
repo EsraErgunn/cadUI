@@ -35,7 +35,7 @@ export const ARCHITECTURE_TOOLS = [
   { id: 'structuralColumn', label: 'Kolon Ekle' },
   { id: 'text', label: 'Metin Ekle', isPlanned: true },
   { id: 'beam', label: 'Kiriş Ekle' },
-  { id: 'measure', label: 'Ölçüm', isPlanned: true },
+  { id: 'measure', label: 'Ölçüm' },
   { id: 'vent', label: 'Menfez Ekle' },
   { id: 'freeDraw', label: 'Serbest Çizim Araçları', isPlanned: true },
   { id: 'columnVentilation', label: 'Kolon Havalandırması Ekle' },
@@ -56,6 +56,7 @@ export const DOOR_TOOL_ID: ToolId = 'door'
 export const WINDOW_TOOL_ID: ToolId = 'window'
 export const ERASER_TOOL_ID: ToolId = 'eraser'
 export const BEAM_TOOL_ID: ToolId = 'beam'
+export const MEASURE_TOOL_ID: ToolId = 'measure'
 
 export function getToolLabel(toolId: ToolId): string {
   const tool = ARCHITECTURE_TOOLS.find((candidate) => candidate.id === toolId)
