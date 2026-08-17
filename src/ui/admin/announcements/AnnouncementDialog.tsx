@@ -9,7 +9,7 @@ import {
   ANNOUNCEMENT_TITLE_MAX_LENGTH,
   type Announcement,
 } from '../../../api/adminDashboard'
-import { MOCK_REGIONS } from '../../../api/adminDashboardMock'
+import { MOCK_SCOPE_NAMES } from '../../../api/adminDashboardMock'
 import { AdminDialog } from '../AdminDialog'
 import { NoticeBar } from '../NoticeBar'
 import { adminButtonVariants } from '../adminVariants'
@@ -20,10 +20,10 @@ import { TextField } from '../form/TextField'
 
 const DIALOG_TITLE = 'Duyuru Yayınla'
 
-const ALL_REGIONS_OPTION_LABEL = 'Tüm bölgeler'
+const ALL_SCOPES_OPTION_LABEL = 'Tüm kapsamlar'
 
-/** TODO(esra): duyurunun bölge listesi gerçek uçtan gelecek; bugün mock. */
-const REGION_OPTIONS = MOCK_REGIONS.map((region) => ({ value: region, label: region }))
+/** TODO(esra): duyurunun kapsam listesi gerçek uçtan gelecek; bugün mock. */
+const SCOPE_OPTIONS = MOCK_SCOPE_NAMES.map((name) => ({ value: name, label: name }))
 
 interface AnnouncementDialogProps {
   onClose: () => void
@@ -78,14 +78,14 @@ export function AnnouncementDialog({ onClose, onPublished }: AnnouncementDialogP
           />
 
           <SelectField
-            id={fieldElementId('region')}
+            id={fieldElementId('scopeName')}
             label="Kapsam"
-            value={form.values.region}
-            options={REGION_OPTIONS}
-            placeholder={ALL_REGIONS_OPTION_LABEL}
-            hint="Bölge seçilmezse duyuru tüm bölgelerdeki kullanıcılara gösterilir."
-            error={form.errors.region}
-            onChange={(value) => form.setValue('region', value)}
+            value={form.values.scopeName}
+            options={SCOPE_OPTIONS}
+            placeholder={ALL_SCOPES_OPTION_LABEL}
+            hint="Kapsam seçilmezse duyuru tüm kullanıcılara gösterilir."
+            error={form.errors.scopeName}
+            onChange={(value) => form.setValue('scopeName', value)}
           />
 
           <TextAreaField

@@ -24,7 +24,7 @@ const ITEMS = [
     body: '19 Temmuz Pazar 02:00–06:00 arasında sistem bakımda olacaktır.',
     publishedAt: '2026-07-11T06:00:00.000Z',
     source: 'Sistem',
-    region: null,
+    scopeName: null,
   },
   {
     id: 1,
@@ -32,7 +32,7 @@ const ITEMS = [
     body: 'Yeni versiyon yayında. Lidar ile mimari tarama bu sürümle geldi.',
     publishedAt: '2026-06-19T09:00:00.000Z',
     source: 'Teknhelogos',
-    region: 'Ege',
+    scopeName: 'AKSA',
   },
 ]
 
@@ -84,7 +84,7 @@ describe('duyuru listesi', () => {
 
     // Adet veri gelince başlığa düşer; yükleme sırasında "…" yazıyor.
     await waitFor(() => expect(heading).toHaveTextContent('Duyurular (2)'))
-    expect(screen.getByText(/tüm bölgelerde görünen duyurular/)).toBeInTheDocument()
+    expect(screen.getByText(/görünen tüm duyurular/)).toBeInTheDocument()
   })
 
   it('duyurular TAM metniyle listelenir — kartın kısaltması burada uygulanmaz', async () => {
@@ -99,9 +99,9 @@ describe('duyuru listesi', () => {
     const items = await findAnnouncementItems()
 
     expect(items[0]).toHaveTextContent('Sistem')
-    expect(items[0]).toHaveTextContent('Tüm bölgeler')
+    expect(items[0]).toHaveTextContent('Tüm kapsamlar')
     expect(items[1]).toHaveTextContent('Teknhelogos')
-    expect(items[1]).toHaveTextContent('Ege')
+    expect(items[1]).toHaveTextContent('AKSA')
   })
 
   it('sistem duyurusu amber kenarlıkla ayrışır', async () => {
@@ -118,17 +118,20 @@ describe('duyuru listesi', () => {
     expect(await screen.findByText(/11\.07\.2026/)).toBeInTheDocument()
   })
 
-  // Kapsam seçicisi kaldırıldı (K31): liste her zaman tüm duyuruları gösterir,
-  // adres çubuğuna elle `?region=` yazılsa bile uca bölge gitmez.
+  // Coğrafi bölge kavramı kalktı: adres çubuğuna elle `?region=` yazılsa bile
+  // uca bölge gitmez, kapsam yalnız grup/firma olabilir.
   it('uca bölge kapsamı taşımaz', async () => {
     renderPage({ route: `${ANNOUNCEMENTS_PATH}?region=Ege` })
 
     await screen.findByRole('heading', { name: /Duyurular/ })
     expect(dashboardApi.getAnnouncements).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: { type: 'global' } }),
+      expect.anything(),
+    )
+    expect(dashboardApi.getAnnouncements).toHaveBeenCalledWith(
       expect.not.objectContaining({ region: expect.anything() }),
       expect.anything(),
     )
-    expect(screen.getByText(/tüm bölgelerde görünen duyurular/)).toBeInTheDocument()
   })
 
   it('hiç duyuru yokken boş durum mesajı çıkar', async () => {

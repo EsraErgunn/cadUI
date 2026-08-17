@@ -3,18 +3,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ANNOUNCEMENT_PAGE_SIZE,
   ANNOUNCEMENT_SUMMARY_MAX_LENGTH,
+  GLOBAL_SCOPE,
   MANAGEMENT_ANNOUNCEMENT_SOURCE,
   MAX_ANNOUNCEMENTS,
-  MAX_REGION_ROWS,
+  MAX_DENSITY_ROWS,
   SYSTEM_ANNOUNCEMENT_SOURCE,
   getAnnouncements,
   getDashboardSummary,
   publishAnnouncement,
   truncateAnnouncementSummary,
+  type AdminScope,
 } from '../adminDashboard'
+import {
+  MOCK_SCOPE_NAMES,
+  allMockScopeFacts,
+  queryMockDayActivity,
+} from '../adminDashboardMock'
 import { clearStoredAnnouncements } from '../announcementStore'
 import { toDayKey } from '../dayKey'
-import { ApiError } from '../http'
+import { ApiError, NetworkError } from '../http'
 
 const LONG_BODY = `${'kelime '.repeat(40)}son`
 
@@ -38,14 +45,15 @@ const RAW_SUMMARY = {
     projectFirmUserCount: 24804,
   },
   today: { newProjectCount: 11, approvedCount: 3, rejectedCount: 0 },
-  regionDensity: [
-    { regionId: 1, regionName: 'Ege', projectCount: 8 },
-    { regionId: 2, regionName: 'Marmara', projectCount: 28 },
-    { regionId: 3, regionName: 'Akdeniz', projectCount: 22 },
-    { regionId: 4, regionName: 'İç Anadolu', projectCount: 12 },
-    { regionId: 5, regionName: 'Karadeniz', projectCount: 16 },
-    { regionId: 6, regionName: 'Doğu Anadolu', projectCount: 4 },
-    { regionId: 7, regionName: 'Güneydoğu Anadolu', projectCount: 2 },
+  densityBy: 'group',
+  density: [
+    { id: 1, name: 'AKMERCAN', projectCount: 8 },
+    { id: 2, name: 'AKSA', projectCount: 28 },
+    { id: 3, name: 'ÇEDAŞ', projectCount: 22 },
+    { id: 4, name: 'DOĞUGAZ', projectCount: 12 },
+    { id: 5, name: 'ENERYA', projectCount: 16 },
+    { id: 6, name: 'GAZDAŞ', projectCount: 4 },
+    { id: 7, name: 'TOROSGAZ', projectCount: 2 },
   ],
   generatedAt: '2026-08-11T06:48:06.186985Z',
 }
@@ -117,7 +125,7 @@ describe('getDashboardSummary', () => {
   it('özet ucuna gider', async () => {
     const fetchMock = stubFetch(RAW_SUMMARY)
 
-    await getDashboardSummary(TODAY_KEY, null)
+    await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/dashboard')
   })
@@ -129,28 +137,65 @@ describe('getDashboardSummary', () => {
   it('gün anahtarını sorguya EKLEMEZ', async () => {
     const fetchMock = stubFetch(RAW_SUMMARY)
 
-    await getDashboardSummary(TODAY_KEY, null)
+    await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(String(fetchMock.mock.calls[0][0])).not.toContain('date=')
   })
 
-  /**
-   * Kapsam da GİTMİYOR: uç coğrafi `regionId` alıyor, üst bardaki kapsam ise
-   * gaz dağıtım GRUP firması (K43) — grup kimliğini `regionId` diye göndermek
-   * sunucuya yanlış soru sormak olurdu.
-   */
-  it('kapsamı sorguya EKLEMEZ', async () => {
+  /** Grup kapsamı YALNIZ `gdGroupId` gönderir; `gdFirmId` ile birlikte ASLA. */
+  it('grup kapsamını gdGroupId olarak gönderir', async () => {
     const fetchMock = stubFetch(RAW_SUMMARY)
 
-    await getDashboardSummary(TODAY_KEY, 2)
+    await getDashboardSummary(TODAY_KEY, { type: 'group', groupId: 2 })
 
-    expect(String(fetchMock.mock.calls[0][0])).not.toContain('group=')
+    const url = String(fetchMock.mock.calls[0][0])
+    expect(url).toContain('gdGroupId=2')
+    expect(url).not.toContain('gdFirmId')
+  })
+
+  /** Firma kapsamı YALNIZ `gdFirmId` gönderir; `gdGroupId` ile birlikte ASLA. */
+  it('firma kapsamını gdFirmId olarak gönderir', async () => {
+    const fetchMock = stubFetch(RAW_SUMMARY)
+
+    await getDashboardSummary(TODAY_KEY, { type: 'firm', firmId: 42 })
+
+    const url = String(fetchMock.mock.calls[0][0])
+    expect(url).toContain('gdFirmId=42')
+    expect(url).not.toContain('gdGroupId')
+  })
+
+  // Kapsam yokken parametre HİÇ yazılmaz; boş `gdGroupId=` ayrı anlam taşıyabilir.
+  it('sistem genelinde hiçbir kapsam parametresi yazılmaz', async () => {
+    const fetchMock = stubFetch(RAW_SUMMARY)
+
+    await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
+
+    const url = String(fetchMock.mock.calls[0][0])
+    expect(url).not.toContain('gdGroupId')
+    expect(url).not.toContain('gdFirmId')
+    expect(url).not.toContain('?')
+  })
+
+  // Coğrafi bölge kavramı sunucudan kalktı; hiçbir kapsam onu yazmamalı.
+  it('hiçbir kapsamda regionId gönderilmez', async () => {
+    const scopes: AdminScope[] = [
+      GLOBAL_SCOPE,
+      { type: 'group', groupId: 2 },
+      { type: 'firm', firmId: 42 },
+    ]
+
+    for (const scope of scopes) {
+      vi.unstubAllGlobals()
+      const fetchMock = stubFetch(RAW_SUMMARY)
+      await getDashboardSummary(TODAY_KEY, scope)
+      expect(String(fetchMock.mock.calls[0][0])).not.toContain('region')
+    }
   })
 
   it('sunucunun alan adlarını arayüzünkilere çevirir', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const summary = await getDashboardSummary(TODAY_KEY, null)
+    const summary = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(summary.counts).toEqual({
       gasDistributionUsers: 2926,
@@ -160,22 +205,75 @@ describe('getDashboardSummary', () => {
     expect(summary.today).toEqual({ newProjects: 11, approved: 3, rejected: 0 })
   })
 
-  // KK-5: en fazla beş bölge, büyükten küçüğe. Sunucu sırasız dönse de garanti.
+  // KK-5: en fazla beş satır, büyükten küçüğe. Sunucu sırasız dönse de garanti.
   it('yoğunluğu büyükten küçüğe sıralar ve beş satıra indirir', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { regionDensity } = await getDashboardSummary(TODAY_KEY, null)
-    const counts = regionDensity.map((row) => row.count)
+    const { density } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
-    expect(regionDensity).toHaveLength(MAX_REGION_ROWS)
-    expect(counts).toEqual([28, 22, 16, 12, 8])
+    expect(density).toHaveLength(MAX_DENSITY_ROWS)
+    expect(density.map((row) => row.projectCount)).toEqual([28, 22, 16, 12, 8])
+  })
+
+  // Satır alanları sunucununkilerle AYNI: kimlik, ad ve proje adedi.
+  it('yoğunluk satırını olduğu gibi taşır', async () => {
+    stubFetch(RAW_SUMMARY)
+
+    const { density } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
+
+    expect(density[0]).toEqual({ id: 2, name: 'AKSA', projectCount: 28 })
+  })
+
+  it('kırılımın boyutunu taşır — kart başlığı buna bağlı', async () => {
+    stubFetch({ ...RAW_SUMMARY, densityBy: 'firm' })
+
+    const { densityBy } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
+
+    expect(densityBy).toBe('firm')
+  })
+
+  /**
+   * Beklenmeyen kırılım adı bütün paneli düşürmez: alan yalnız başlığı seçiyor,
+   * sayılar yine doğru. Sunucu bir gün başka bir kırılım eklerse ekran çalışır.
+   */
+  it('tanınmayan densityBy değeri gruba düşer', async () => {
+    stubFetch({ ...RAW_SUMMARY, densityBy: 'GasDistributionGroup' })
+
+    const { densityBy } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
+
+    expect(densityBy).toBe('group')
+  })
+
+  // Sunucu yoğunluğu boş dönebilir; kart "veri yok" der, ekran ölmez.
+  it('boş yoğunluk listesi hata değildir', async () => {
+    stubFetch({ ...RAW_SUMMARY, density: [] })
+
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).resolves.toHaveProperty(
+      'density',
+      [],
+    )
+  })
+
+  /**
+   * `generatedAt` arayüzde kullanılmıyor; sunucu onu kaldırdığında ekranın
+   * sınırda patlaması gösterilmeyen bir alan uğruna alınacak bedel değil.
+   */
+  it('kullanılmayan generatedAt eksikse yine çözülür', async () => {
+    stubFetch({
+      summary: RAW_SUMMARY.summary,
+      today: RAW_SUMMARY.today,
+      densityBy: RAW_SUMMARY.densityBy,
+      density: RAW_SUMMARY.density,
+    })
+
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).resolves.toHaveProperty('counts')
   })
 
   // KK-6: en fazla iki duyuru, yeniden eskiye.
   it('duyuruları yeniden eskiye sıralar ve ikiye indirir', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { announcements } = await getDashboardSummary(TODAY_KEY, null)
+    const { announcements } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(announcements).toHaveLength(MAX_ANNOUNCEMENTS)
     expect(announcements.map((item) => item.id)).toEqual([2, 1])
@@ -191,12 +289,12 @@ describe('getDashboardSummary', () => {
     await publishAnnouncement({
       title: 'Uzun duyuru',
       body: LONG_BODY,
-      region: null,
+      scopeName: null,
       isSystem: false,
     })
 
     stubFetch(RAW_SUMMARY)
-    const { announcements } = await getDashboardSummary(TODAY_KEY, null)
+    const { announcements } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(announcements[0].summary.length).toBeLessThanOrEqual(
       ANNOUNCEMENT_SUMMARY_MAX_LENGTH + 1,
@@ -207,7 +305,7 @@ describe('getDashboardSummary', () => {
   it('sistem kaynağını olduğu gibi taşır — amber kenarlık buna bağlı', async () => {
     stubFetch(RAW_SUMMARY)
 
-    const { announcements } = await getDashboardSummary(TODAY_KEY, null)
+    const { announcements } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(announcements[0].source).toBe(SYSTEM_ANNOUNCEMENT_SOURCE)
   })
@@ -216,91 +314,86 @@ describe('getDashboardSummary', () => {
   it('sıfır sayacı düşürmez', async () => {
     stubFetch(RAW_SUMMARY)
 
-    expect((await getDashboardSummary(TODAY_KEY, null)).today.rejected).toBe(0)
+    expect((await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).today.rejected).toBe(0)
   })
 
   it('sözleşme bozulursa sınırda patlar', async () => {
     stubFetch({ counts: { gasDistributionUsers: 1 } })
 
-    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toThrow()
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toThrow()
   })
 })
 
 /**
- * Uç henüz açılmadı. 404 gelince ekran ölmesin diye mock'a düşülüyor; ama
- * 401/403 ve 5xx GEÇİRİLİYOR — süresi dolmuş oturumda sahte veriyle dolu
- * çalışan bir ekran, hata ekranından çok daha kötü olurdu.
+ * Özet ucu ARTIK VAR: hiçbir durum kod mock'una yutulmuyor. Eskiden 404/501 ve
+ * ağ hatası örnek veriye düşüyordu; uç açıldıktan sonra bu davranış sürseydi
+ * gerçek bir arıza ekranda "çalışıyor" gibi görünürdü.
  */
-describe('uç yokken mock’a düşme', () => {
-  it('404 dönerse mock veriyle çözülür, hata fırlatmaz', async () => {
+describe('özet hatası yutulmaz', () => {
+  it('404 mock’a DÜŞMEZ — yol yanlışsa görünmeli', async () => {
     stubStatus(404)
 
-    const summary = await getDashboardSummary(TODAY_KEY, null)
-
-    expect(summary.regionDensity.length).toBeGreaterThan(0)
-    expect(summary.counts.projectFirms).toBeGreaterThan(0)
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toBeInstanceOf(ApiError)
   })
 
-  it('501 dönerse de mock veriyle çözülür', async () => {
+  it('501 mock’a DÜŞMEZ', async () => {
     stubStatus(501)
 
-    await expect(getDashboardSummary(TODAY_KEY, null)).resolves.toHaveProperty('counts')
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toBeInstanceOf(ApiError)
   })
 
-  it('API’ye hiç ulaşılamazsa mock veriyle çözülür', async () => {
+  it('API’ye hiç ulaşılamazsa hata ekranı görünür', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
-    await expect(getDashboardSummary(TODAY_KEY, null)).resolves.toHaveProperty('counts')
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toBeInstanceOf(NetworkError)
   })
 
-  // Kalkan şey SÜZGEÇ; "Bölge Bazlı Yoğunluk" kartının verisi duruyor (KK-5).
-  it('mock’a düşerken bölge yoğunluğu birden çok bölge verir', async () => {
-    stubStatus(404)
-
-    const summary = await getDashboardSummary(TODAY_KEY, null)
-
-    expect(summary.regionDensity.length).toBeGreaterThan(1)
-  })
-
-  /**
-   * "Bugün" sayaçları yalnız İSTENEN GÜNE ait kayıtları sayar. Mock hareketleri
-   * uygulamanın açıldığı güne yazılı olduğu için başka bir gün sorulduğunda üç
-   * sayaç da sıfır döner — gece yarısı ekranda görülecek davranış budur.
-   */
-  it('başka bir gün sorulduğunda bugün sayaçları sıfırlanır', async () => {
-    stubStatus(404)
-
-    const summary = await getDashboardSummary(OTHER_DAY_KEY, null)
-
-    expect(summary.today).toEqual({ newProjects: 0, approved: 0, rejected: 0 })
-    expect(summary.regionDensity).toHaveLength(0)
-  })
-
-  it('gün değişse de birikimli sayılar sıfırlanmaz', async () => {
-    stubStatus(404)
-
-    const summary = await getDashboardSummary(OTHER_DAY_KEY, null)
-
-    // Kullanıcı/firma adetleri devreden toplamlar; güne bağlı değiller.
-    expect(summary.counts.projectFirms).toBeGreaterThan(0)
-  })
-
-  it('401 mock’a YUTULMAZ — oturum düşmüşken sahte veri gösterilmez', async () => {
+  it('401 yutulmaz — oturum düşmüşken sahte veri gösterilmez', async () => {
     stubStatus(401)
 
-    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toBeInstanceOf(ApiError)
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toBeInstanceOf(ApiError)
   })
 
-  it('403 mock’a YUTULMAZ', async () => {
+  it('403 yutulmaz', async () => {
     stubStatus(403)
 
-    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toBeInstanceOf(ApiError)
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toBeInstanceOf(ApiError)
   })
 
-  it('500 mock’a YUTULMAZ — gerçek hata ekranı görünmeli', async () => {
+  it('500 yutulmaz — gerçek hata ekranı görünmeli', async () => {
     stubStatus(500)
 
-    await expect(getDashboardSummary(TODAY_KEY, null)).rejects.toBeInstanceOf(ApiError)
+    await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+/**
+ * Mock gövde SİLİNMEDİ: `VITE_API_URL` tanımsızken (backend'siz geliştirme)
+ * ekran hâlâ ondan besleniyor. Artık `getDashboardSummary` üzerinden
+ * sınanamıyor — testte API kökü tanımlı — bu yüzden kaynak doğrudan sorgulanıyor.
+ */
+describe('mock gövde gün kapsamı', () => {
+  /**
+   * "Bugün" sayaçları yalnız İSTENEN GÜNE ait kayıtları sayar. Mock hareketleri
+   * uygulamanın açıldığı güne yazılı olduğu için başka bir gün sorulduğunda hiç
+   * kayıt dönmez — gece yarısı ekranda görülecek davranış budur.
+   */
+  it('başka bir gün sorulduğunda hareket kalmaz', () => {
+    expect(queryMockDayActivity(TODAY_KEY)).not.toHaveLength(0)
+    expect(queryMockDayActivity(OTHER_DAY_KEY)).toHaveLength(0)
+  })
+
+  it('gün değişse de birikimli sayılar sıfırlanmaz', () => {
+    // Kullanıcı/firma adetleri devreden toplamlar; güne bağlı değiller.
+    expect(allMockScopeFacts()).not.toHaveLength(0)
+  })
+
+  // Kapsam seçilince yalnız o kapsamın satırları kalır (KK-2).
+  it('kapsam mock kayıtları daraltır', () => {
+    const scoped = allMockScopeFacts(MOCK_SCOPE_NAMES[0])
+
+    expect(scoped).toHaveLength(1)
+    expect(scoped[0].name).toBe(MOCK_SCOPE_NAMES[0])
   })
 })
 
@@ -312,7 +405,7 @@ describe('publishAnnouncement', () => {
   const DRAFT = {
     title: 'Test Duyurusu',
     body: 'Duyuru gövdesi.',
-    region: null,
+    scopeName: null,
     isSystem: false,
   }
 
@@ -331,12 +424,16 @@ describe('publishAnnouncement', () => {
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
   })
 
-  it('uç yokken mock’a düşer ve duyuru özet yanıtında görünür', async () => {
+  it('uç yokken yerel depoya düşer ve duyuru özet yanıtında görünür', async () => {
     stubStatus(404)
     const title = `Yeni Duyuru ${Date.now()}`
 
     const published = await publishAnnouncement({ ...DRAFT, title })
-    const summary = await getDashboardSummary(TODAY_KEY, null)
+
+    // Özet ucu GERÇEK: 404 artık yutulmuyor, gövde yeniden kurulmalı.
+    vi.unstubAllGlobals()
+    stubFetch(RAW_SUMMARY)
+    const summary = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
 
     expect(published.title).toBe(title)
     // En yeni duyuru listenin başında: sıralama yeniden eskiye (KK-6).
@@ -378,7 +475,7 @@ describe('publishAnnouncement', () => {
 describe('getAnnouncements', () => {
   const QUERY = {
     textQuery: '',
-    groupId: null,
+    scope: GLOBAL_SCOPE,
     page: 1,
     pageSize: ANNOUNCEMENT_PAGE_SIZE,
   }
@@ -396,23 +493,27 @@ describe('getAnnouncements', () => {
 
   it('arama ve kapsam yalnız doluyken sorguya girer', async () => {
     const withFilters = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
-    await getAnnouncements({ ...QUERY, textQuery: 'bakım', groupId: 2 })
+    await getAnnouncements({
+      ...QUERY,
+      textQuery: 'bakım',
+      scope: { type: 'group', groupId: 2 },
+    })
     expect(String(withFilters.mock.calls[0][0])).toContain('q=bak')
-    expect(String(withFilters.mock.calls[0][0])).toContain('group=2')
+    expect(String(withFilters.mock.calls[0][0])).toContain('gdGroupId=2')
 
     vi.unstubAllGlobals()
     const withoutFilters = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
     await getAnnouncements(QUERY)
     expect(String(withoutFilters.mock.calls[0][0])).not.toContain('q=')
-    expect(String(withoutFilters.mock.calls[0][0])).not.toContain('group=')
+    expect(String(withoutFilters.mock.calls[0][0])).not.toContain('gdGroupId')
   })
 
   // Sunucu sırasız dönerse liste sessizce karışmasın (özet ucuyla aynı gerekçe).
   it('sunucu sırasız dönse de yeniden eskiye sıralar', async () => {
     stubFetch({
       items: [
-        { id: 1, title: 'Eski', body: 'a', publishedAt: '2026-05-02T10:30:00.000Z', source: 'X', region: null },
-        { id: 2, title: 'Yeni', body: 'b', publishedAt: '2026-07-11T06:00:00.000Z', source: 'X', region: null },
+        { id: 1, title: 'Eski', body: 'a', publishedAt: '2026-05-02T10:30:00.000Z', source: 'X', scopeName: null },
+        { id: 2, title: 'Yeni', body: 'b', publishedAt: '2026-07-11T06:00:00.000Z', source: 'X', scopeName: null },
       ],
       totalCount: 2,
       page: 1,
@@ -452,15 +553,15 @@ describe('getAnnouncements', () => {
     expect(page.totalCount).toBeGreaterThan(1)
   })
 
-  // Süzgeç kalktı ama duyurunun KENDİ bölgesi duruyor: kartta rozet olarak
-  // görünüyor, listede hepsi bir arada.
-  it('bölgeli ve bölgesiz duyuruların hepsi listelenir', async () => {
+  // Duyurunun KENDİ kapsamı duruyor: kartta rozet olarak görünüyor, listede
+  // hepsi bir arada.
+  it('kapsamlı ve kapsamsız duyuruların hepsi listelenir', async () => {
     stubStatus(404)
 
     const page = await getAnnouncements(QUERY)
 
-    expect(page.items.some((item) => item.region === null)).toBe(true)
-    expect(page.items.some((item) => item.region !== null)).toBe(true)
+    expect(page.items.some((item) => item.scopeName === null)).toBe(true)
+    expect(page.items.some((item) => item.scopeName !== null)).toBe(true)
   })
 
   it('500 mock’a YUTULMAZ', async () => {

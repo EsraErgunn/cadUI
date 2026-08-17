@@ -18,8 +18,9 @@ const dashboardApi = vi.hoisted(() => ({
   publishAnnouncement: vi.fn(),
 }))
 const permissionsApi = vi.hoisted(() => ({ getMyPermissions: vi.fn() }))
-/** Kapsam kimliğini ADA çeviren liste; başlıktaki bölge adı buradan geliyor. */
-const firmsApi = vi.hoisted(() => ({ getFirmGroups: vi.fn() }))
+/** Kapsam kimliğini ADA çeviren listeler; başlıktaki kapsam adı buradan geliyor.
+    Firma listesi de gerekiyor: kapsam tek bir gaz dağıtım firması olabilir. */
+const firmsApi = vi.hoisted(() => ({ getFirmGroups: vi.fn(), fetchAllFirms: vi.fn() }))
 
 vi.mock('../../api/adminDashboard', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/adminDashboard')>()),
@@ -36,12 +37,13 @@ vi.mock('../../api/adminFirms', async (importOriginal) => ({
 const SUMMARY = {
   counts: { gasDistributionUsers: 2926, projectFirms: 11838, projectFirmUsers: 24804 },
   today: { newProjects: 11, approved: 3, rejected: 0 },
-  regionDensity: [
-    { region: 'Marmara', count: 28 },
-    { region: 'Akdeniz', count: 22 },
-    { region: 'Karadeniz', count: 16 },
-    { region: 'İç Anadolu', count: 12 },
-    { region: 'Ege', count: 8 },
+  densityBy: 'group',
+  density: [
+    { id: 2, name: 'AKSA', projectCount: 28 },
+    { id: 3, name: 'ÇEDAŞ', projectCount: 22 },
+    { id: 5, name: 'ENERYA', projectCount: 16 },
+    { id: 4, name: 'DOĞUGAZ', projectCount: 12 },
+    { id: 1, name: 'AKMERCAN', projectCount: 8 },
   ],
   announcements: [
     {
@@ -71,13 +73,16 @@ const PUBLISHED = {
   source: 'Yönetim',
 }
 
-function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS } = {}) {
-  dashboardApi.getDashboardSummary.mockResolvedValue(SUMMARY)
+function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS, summary = SUMMARY } = {}) {
+  dashboardApi.getDashboardSummary.mockResolvedValue(summary)
   dashboardApi.publishAnnouncement.mockResolvedValue(PUBLISHED)
   permissionsApi.getMyPermissions.mockResolvedValue(permissions)
   firmsApi.getFirmGroups.mockResolvedValue([
     { id: 1, name: 'AKMERCAN' },
     { id: 2, name: 'AKSA' },
+  ])
+  firmsApi.fetchAllFirms.mockResolvedValue([
+    { id: 20, dfirmNo: 1204, groupId: 2, groupName: 'AKSA', name: 'AKSA-Ankara' },
   ])
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -119,7 +124,9 @@ describe('KK-1 ekran açılışı', () => {
     expect(await screen.findByRole('heading', { name: 'Genel Bakış' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Anasayfa' })).toBeInTheDocument()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent('tüm bölgeler')
+    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent(
+      'tüm gruplar ve firmalar',
+    )
   })
 
   it('sağ üstte "Duyuru Yayınla" bulunur ve etkindir', async () => {
@@ -142,10 +149,10 @@ describe('KK-1 ekran açılışı', () => {
 })
 
 /**
- * KK-2 — bölge kapsamı üst bardan geliyor ve `group` anahtarında duruyor
- * (docs/kararlar.md K44). Eski `region` anahtarı artık okunmuyor.
+ * KK-2 — kapsam üst bardan geliyor: grup `group`, tek firma `gdfirm` anahtarında
+ * (docs/kararlar.md K44). Coğrafi bölge kavramı kalktı, `region` okunmuyor.
  */
-describe('bölge kapsamı', () => {
+describe('kapsam', () => {
   it('kapsam yokken sistem genelini ister ve öyle yazar', async () => {
     renderPage()
 
@@ -153,30 +160,51 @@ describe('bölge kapsamı', () => {
 
     expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
       expect.any(String),
-      null,
+      { type: 'global' },
       expect.anything(),
     )
-    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent('tüm bölgeler')
+    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent(
+      'tüm gruplar ve firmalar',
+    )
   })
 
-  it('kapsam seçiliyken grup kimliğini uca geçirir', async () => {
+  it('grup kapsamını uca geçirir', async () => {
     renderPage({ route: '/admin?group=2' })
 
     await screen.findByRole('heading', { name: 'Genel Bakış' })
 
     expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
       expect.any(String),
-      2,
+      { type: 'group', groupId: 2 },
       expect.anything(),
     )
   })
 
-  // Sayılar süzülmüşken "tüm bölgeler" demek yanlış olurdu.
-  it('seçili bölgenin adını başlığa yazar', async () => {
+  // Firma kapsamı ayrı bir hâl: uca `gdFirmId` gidiyor, `gdGroupId` DEĞİL.
+  it('firma kapsamını uca geçirir', async () => {
+    renderPage({ route: '/admin?gdfirm=20' })
+
+    await screen.findByRole('heading', { name: 'Genel Bakış' })
+
+    expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
+      expect.any(String),
+      { type: 'firm', firmId: 20 },
+      expect.anything(),
+    )
+  })
+
+  // Sayılar süzülmüşken "tüm gruplar ve firmalar" demek yanlış olurdu.
+  it('seçili grubun adını başlığa yazar', async () => {
     renderPage({ route: '/admin?group=2' })
 
-    // Grup listesi sonra çözülüyor; ilk kare hâlâ "tüm bölgeler" diyor.
+    // Grup listesi sonra çözülüyor; ilk kare hâlâ kapsamsız metni gösteriyor.
     expect(await screen.findByText(/Sistem geneli durum —.*AKSA/)).toBeInTheDocument()
+  })
+
+  it('seçili firmanın adını başlığa yazar', async () => {
+    renderPage({ route: '/admin?gdfirm=20' })
+
+    expect(await screen.findByText(/Sistem geneli durum —.*AKSA-Ankara/)).toBeInTheDocument()
   })
 
   // Eski anahtar sessizce kapsam kurmasın: adres çubuğunda kalmış olabilir.
@@ -185,7 +213,14 @@ describe('bölge kapsamı', () => {
 
     await screen.findByRole('heading', { name: 'Genel Bakış' })
 
-    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent('tüm bölgeler')
+    expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
+      expect.any(String),
+      { type: 'global' },
+      expect.anything(),
+    )
+    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent(
+      'tüm gruplar ve firmalar',
+    )
   })
 })
 
@@ -210,10 +245,12 @@ describe('KK-3 özet kartları', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('kapsam bilgisi her kartta "Tüm bölgeler için" yazar', async () => {
+  it('kapsam bilgisi her kartta "Tüm gruplar ve firmalar için" yazar', async () => {
     renderPage()
 
-    expect((await screen.findAllByText('Tüm bölgeler için')).length).toBeGreaterThan(0)
+    expect(
+      (await screen.findAllByText('Tüm gruplar ve firmalar için')).length,
+    ).toBeGreaterThan(0)
   })
 })
 
@@ -255,28 +292,38 @@ describe('KK-4 bugün kartı', () => {
     await screen.findByRole('region', { name: 'Bugün' })
     expect(dashboardApi.getDashboardSummary).toHaveBeenCalledWith(
       toDayKey(new Date()),
-      null,
+      { type: 'global' },
       expect.anything(),
     )
   })
 })
 
-// KK-5 — Bölge bazlı yoğunluk
-describe('KK-5 bölge bazlı yoğunluk', () => {
-  it('en fazla beş bölge, büyükten küçüğe, çubuk en yükseğe oranlı', async () => {
+// KK-5 — kırılım bazlı yoğunluk
+describe('KK-5 yoğunluk kartı', () => {
+  it('en fazla beş satır, büyükten küçüğe, çubuk en yükseğe oranlı', async () => {
     renderPage()
-    const card = await screen.findByRole('region', { name: 'Bölge Bazlı Yoğunluk' })
+    const card = await screen.findByRole('region', { name: 'Grup Bazlı Yoğunluk' })
 
     const labels = within(card)
       .getAllByRole('term')
       .map((node) => node.textContent)
-    expect(labels).toEqual(['Marmara', 'Akdeniz', 'Karadeniz', 'İç Anadolu', 'Ege'])
+    expect(labels).toEqual(['AKSA', 'ÇEDAŞ', 'ENERYA', 'DOĞUGAZ', 'AKMERCAN'])
 
     const bars = card.querySelectorAll('progress')
     expect(bars).toHaveLength(5)
     // En yüksek değer çubuğu tam dolu: value === max.
     expect(bars[0].getAttribute('value')).toBe(bars[0].getAttribute('max'))
     expect(within(card).getByText('Bugün gelen projeler')).toBeInTheDocument()
+  })
+
+  /** Başlık kırılımın boyutundan geliyor: firma kapsamında sunucu firmaları
+      döndürüyor ve kart bunu söylemeli. */
+  it('firma kırılımında başlık firmayı söyler', async () => {
+    renderPage({ summary: { ...SUMMARY, densityBy: 'firm' } })
+
+    expect(
+      await screen.findByRole('region', { name: 'Firma Bazlı Yoğunluk' }),
+    ).toBeInTheDocument()
   })
 })
 
@@ -337,16 +384,16 @@ describe('KK-7 hızlı işlemler', () => {
     expect(within(card).getAllByRole('link')).toHaveLength(4)
   })
 
-  it('ekranı hazır olmayan kısayol "Yakında" rozetiyle işaretlenir', async () => {
+  // Rozet KALDIRILDI: "Proje Firması Ekle" ekranı yazıldığı hâlde "Yakında"
+  // diyordu, yani çalışan bir ekranı hazır değil gösteriyordu.
+  it('hiçbir kısayol "Yakında" rozeti taşımaz', async () => {
     renderPage()
     const card = await screen.findByRole('region', { name: 'Hızlı İşlemler' })
 
-    const comingSoon = await within(card).findByRole('link', { name: /Proje Firması Ekle/ })
-    expect(comingSoon).toHaveTextContent('Yakında')
-    // Hazır ekranın kısayolunda rozet YOK.
-    expect(within(card).getByRole('link', { name: /Gaz Dağıtım Firması Ekle/ })).not.toHaveTextContent(
-      'Yakında',
-    )
+    await within(card).findByRole('link', { name: /Gaz Dağıtım Firması Ekle/ })
+    for (const link of within(card).getAllByRole('link')) {
+      expect(link).not.toHaveTextContent('Yakında')
+    }
   })
 
   it('ekranı olmayan kısayol "bu ekran gelecektir" sayfasını açar', async () => {
@@ -399,9 +446,8 @@ describe('duyuru yayınlama', () => {
     expect(dashboardApi.publishAnnouncement).not.toHaveBeenCalled()
   })
 
-  // Kapsam seçicisi kalktığı için form "tüm bölgeler" ile açılır (K31);
-  // duyurunun KENDİ bölgesi kutuda seçilmeye devam ediyor.
-  it('form tüm bölgeler kapsamıyla açılır', async () => {
+  // Form kapsamsız açılır; duyurunun KENDİ kapsamı kutuda seçilmeye devam ediyor.
+  it('form kapsamsız açılır', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -420,7 +466,7 @@ describe('duyuru yayınlama', () => {
     expect(dashboardApi.publishAnnouncement).toHaveBeenCalledWith({
       title: 'Yeni Duyuru',
       body: 'Duyuru gövdesi.',
-      region: null,
+      scopeName: null,
       isSystem: false,
     })
     // Diyalog kapanır, sayfada olumlu bildirim kalır.

@@ -4,15 +4,22 @@ import { useSearchParams } from 'react-router-dom'
 /**
  * Yönetici listelerinin URL query anahtarları.
  *
- * Ayrı bir `region` anahtarı YOK: üst bardaki bölge kapsamı da gaz dağıtım
- * GRUBUNU seçiyor ve aynı `group` anahtarını yazıyor. İki anahtar olsaydı aynı
- * ekranda üst bar "AKSA", sayfa içi filtre "ENERYA" diyebilirdi — hangisinin
- * kazandığı belirsiz kalırdı (docs/kararlar.md K31'in kaldırdığı coğrafi bölge
- * kavramı geri gelmiyor, kapsam grup firması).
+ * Coğrafi `region` anahtarı YOK ve geri gelmeyecek — kavram sunucudan tümüyle
+ * kalktı. Üst bardaki kapsam grup seçtiğinde liste ekranının grup filtresiyle
+ * AYNI `group` anahtarını yazıyor: iki ayrı anahtar olsaydı aynı ekranda üst bar
+ * "AKSA", sayfa içi filtre "ENERYA" diyebilirdi ve hangisinin kazandığı
+ * belirsiz kalırdı.
  */
 export const ADMIN_PARAM_KEYS = {
   nameQuery: 'q',
   groupName: 'group',
+  /**
+   * Üst bardaki kapsam TEK bir gaz dağıtım firmasıysa onun kimliği. `group` ile
+   * birlikte yazılmaz (sunucu `gdGroupId`+`gdFirmId` ikilisini kabul etmiyor).
+   * Proje firması süzgecinin `firm` anahtarıyla KARIŞTIRILMAZ: o başka bir
+   * varlık, bu gaz dağıtım firması.
+   */
+  scopeFirm: 'gdfirm',
   sortKey: 'sort',
   sortDir: 'dir',
   page: 'page',
@@ -49,10 +56,11 @@ export function parsePage(raw: string | null): number {
 }
 
 /**
- * Grup filtresi KİMLİK taşıyor; bozuk/eski değer filtresiz sayılır. Üst bardaki
- * bölge kapsamı ile liste filtresi aynı anahtarı okuduğu için tek yerde.
+ * Kapsam/filtre anahtarlarındaki KİMLİK; bozuk veya eski değer "seçim yok"
+ * sayılır. Grup, kapsam firması ve liste filtresi aynı kuralı okuduğu için
+ * tek yerde.
  */
-export function parseGroupId(raw: string | null): number | null {
+export function parseScopeId(raw: string | null): number | null {
   const parsed = Number(raw)
   return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }

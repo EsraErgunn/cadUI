@@ -24,8 +24,8 @@ const EMPTY_MESSAGE = 'Henüz yayınlanmış duyuru yok. "Duyuru Yayınla" ile i
 const EMPTY_SEARCH_MESSAGE =
   'Aramaya uyan duyuru bulunamadı. Aramayı değiştirip tekrar deneyin.'
 
-/** Kapsam sabit: üst bardaki bölge seçicisi kaldırıldı (docs/kararlar.md K31). */
-const PAGE_DESCRIPTION = 'Kullanıcı ekranlarında tüm bölgelerde görünen duyurular'
+/** Liste kapsamdan bağımsız: duyuru varlığı sunucuda yok, süzgeç de yok. */
+const PAGE_DESCRIPTION = 'Kullanıcı ekranlarında görünen tüm duyurular'
 
 /**
  * Duyuru listesi. Anasayfadaki kart en yeni iki duyuruyu gösteriyor, bu ekran
