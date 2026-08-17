@@ -1791,6 +1791,36 @@ okunuyor); iki yön bilerek farklı.
 pencereleri (`FloorCopyDialog`, `FloorManagementDialog`, `AddFloorMenu`) hâlâ
 `FLOOR_FOCUS_RING`'i kullanıyor.
 
+**Kabul kriterlerinin karşılığı.** "Kat Yönetimi ve Kat Kopyalama" talebi üç
+kriteri şeride yazmıştı; bu karar üçünü aynı biçimde etkilemiyor, kırılım
+aşağıda. Şeridi arayan bir göz kontrolü bu üç maddeyi "eksik" diye yazmasın —
+KK-21/KK-23 kapsam dışı, KK-22 duruyor.
+
+- **KK-21 — KAPSAM DIŞI.** Şeridin kendisi (yatay düğme dizisi, dolu vurgulu
+  aktif kat) yok. Taşıdığı iki bilgi `ui/canvas/FloorSelect.tsx`'te yaşıyor:
+  aktif kat açılırın düğmesinde yazıyor, boş katlar açılır listede içi boş
+  halkayla ayrılıyor. Katın eklenmesi/silinmesi/adı/sırası değişince liste
+  zaten `cadStore`'dan türediği için anında güncel — kriterin "anında
+  güncellenir" şartı sunum değiştiği hâlde korundu.
+- **KK-22 — DURUYOR, yalnız tıklama yüzeyi değişti.** Aktif kat değiştirmenin
+  dört yolundan üçü kriterin istediği gibi çalışıyor: menüdeki "Üst/Alt Kata
+  Geç", Page Up/Page Down (`pages/useEditorShortcuts.ts`) ve "Katlar"
+  penceresi. Dördüncüsü "şeritteki kata tıklama" yerine açılırdan kat seçme
+  oldu. Kriterin geri kalanı aynen geçerli ve yazılı: çizim alanı terk
+  edilmiyor, aktif katın altındaki kat soluk gösteriliyor
+  (`scene/FloorBelowGhost.tsx`, `SceneRoot.tsx`), durum çubuğu güncelleniyor
+  (`StatusBar.tsx`).
+- **KK-23 — KONUSUZ KALDI.** Kriter "kat sayısı şeride sığmadığında şerit
+  kayar, aktif kat görünür kalır" diyor; taşan bir şerit olmadığı için
+  karşılanacak bir şey de yok. Aynı sorunun açılırdaki karşılığı listenin
+  kendi içinde kaydırılmasıyla çözüldü (`max-h-64 overflow-y-auto`) — 40 katlı
+  binada liste ekranı taşmıyor.
+
+Talep metni ile kod arasındaki bu fark BİLEREK bırakıldı: docx sabit, karar
+sonradan verildi. Sıradaki revizyonda talep metni güncellenecekse KK-21 ve
+KK-23 düşürülür, KK-22'nin "şeritteki bir kata tıkladığında" ifadesi "kat
+seçiciden bir kat seçtiğinde" olur.
+
 ### K56 — Görünüm açılırına nesne adı ve oda adı anahtarları
 
 `Nesne adları` (alan nesnesi etiketleri, K50) ve `Oda adları` eklendi. İkisi de

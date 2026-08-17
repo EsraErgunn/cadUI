@@ -15,17 +15,20 @@ En alt katın altı yoktur, `undefined` döner.
 
 - **"Katlar" penceresi** listeyi EN ÜST kat başta gösterir (`reverse()`):
   kullanıcı binayı kesitten okuyor.
-- **Kat şeridi** (çizim alanının sol üstü) soldan sağa AŞAĞIDAN YUKARIYA dizer,
-  yani dizinin KENDİ sırası — çevirmez. Şeritte kat bir eksen üzerinde okunuyor.
+- **Kat seçici** (`ui/canvas/FloorSelect.tsx`, tuvalin alt-orta çubuğunda)
+  AŞAĞIDAN YUKARIYA dizer, yani dizinin KENDİ sırası — çevirmez.
 
-Yani şerit ile pencere birbirinin tersidir; pencerede en üstteki kat listenin
-başında, şeritte sağ uçtadır (madde 20). Veri yapısı hiçbiri için çevrilmez.
+Yani seçici ile pencere birbirinin tersidir; pencerede en üstteki kat listenin
+başında, seçicide listenin sonundadır. Veri yapısı hiçbiri için çevrilmez.
 
-Şeritte çizimi olmayan kat içi BOŞ halka işaretiyle ayrılır ve aktif kat DOLU
-biçimde vurgulanır — ikisi de renkten bağımsız okunur. Kat sayısı sığmadığında
-şerit yatay kayar ve aktif kat `scrollIntoView` ile görünür konuma getirilir.
+⚠️ Bu iki yön KALDIRILAN kat şeridinden devralındı. Şerit (çizim alanının sol
+üstü, KK-21…KK-23) K55 ile silindi ve taşıdığı iki bilgi seçiciye geçti: aktif
+kat düğmenin üstünde yazıyor, çizimi olmayan kat açılır listede içi BOŞ halka
+işaretiyle ayrılıyor (işaret renkten bağımsız okunsun diye). Kat sayısı
+sığmadığında artık yatay kayan bir şerit yok — açılır listenin kendisi
+kaydırılıyor (`max-h-64 overflow-y-auto`), `scrollIntoView` gerekmiyor.
 
-Geçiş ANINDA uygulanır (şerit, menü, Page Up/Down); yalnız "Katlar" penceresi
+Geçiş ANINDA uygulanır (seçici, menü, Page Up/Down); yalnız "Katlar" penceresi
 içindeki aktif kat değişikliği "Uygula"yı bekler — pencere taslak üzerinde
 çalışıyor, bkz. [floor-plan-draft](./floor-plan-draft.md).
 
@@ -72,7 +75,8 @@ gerekirdi ve biri atlandığında JSON sessizce tutarsız kalırdı — `Opening
 `activeFloorId` hem `ProjectData`'da hem zundo anlık görüntüsünde DURUR ama
 `areProjectStatesEqual` onu KARŞILAŞTIRMAZ (`store/history.ts`).
 
-- Sekmeye tıklamak çizim verisini değiştirmez → `revision` artmaz → adım yazılmaz.
+- Kat seçiciden kat değiştirmek çizim verisini değiştirmez → `revision` artmaz
+  → adım yazılmaz.
   Yoksa Ctrl+Z kullanıcıyı başka kata ışınlardı.
 - Kat silme `activeFloorId`'yi kaydırır ama `markDirty` çağırdığı için zaten
   kaydediliyor; geri alındığında alan anlık görüntüden eski değerine döner.
@@ -102,7 +106,7 @@ Oda `floorId` TAŞIMAZ (kimliği duvar id kümesi, K31), bu yüzden kata göre d
 ## Ad çakışması
 
 Aynı ad iki katta kabul edilmez (`isFloorNameTaken`) — kat adı kullanıcının
-katları ayırt etme yolu, durum çubuğu ve sekme şeridi onu gösteriyor.
+katları ayırt etme yolu, durum çubuğu ve kat seçici onu gösteriyor.
 Karşılaştırma yalnız boşluk kırpar, `toLowerCase()` UYGULAMAZ:
 bkz. [turkish-collation](./turkish-collation.md).
 
@@ -112,4 +116,4 @@ olduğu için sayıya bakmak numarayı hemen kaydırırdı.
 
 **Dosya:** core/floors.ts + core/floorElevation.ts (saf) · store/floorOps.ts
 (draft) · store/floorSlice.ts (action) · ui/FloorManagementDialog.tsx ·
-ui/FloorStrip.tsx · scene/FloorBelowGhost.tsx
+ui/canvas/FloorSelect.tsx · scene/FloorBelowGhost.tsx
