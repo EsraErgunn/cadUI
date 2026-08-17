@@ -3,31 +3,34 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
 import { resolvePlacementPosition } from './placementSnap'
-import { getSnapRadiusCm } from './snapRadius'
+import { getSnapRadiusCm, getWallEdgeGapCm } from './snapRadius'
 import { getSymbolMetadata } from './symbolLoader'
 import type { PlanPoint } from '../../core/coords'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-import { snapToNearestAngle } from '../core/angleSnap'
+import { resolveFreeEndAttachment } from '../core/elementAttach'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
-import { advanceChain, rewindChain, startChain } from '../core/lineChain'
+import { advanceChain, startChain } from '../core/lineChain'
 import { isSamePoint } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
 import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSnap'
-import { resolveRightClick, type RightClickInput } from '../core/pointerGestures'
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
-import { createWallParallelLock } from '../core/wallParallelLock'
+import { findNearestWallCorner, findNearestWallParallel } from '../core/wallSnap'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
 const LEFT_BUTTON = 0
 
-/** Adım geri alınırken yalnız boru silinir; paylaşılan sabit dizi ayırmaz. */
-const NO_ELEMENT_IDS = [] as const
+/**
+ * `resolveFreeEndAttachment` bir yarıçap içinde arar; branşmanın ikinci tıkı az
+ * önce yazılan `branchStub`'ın ucuyla TAM ÇAKIŞIYOR (mesafe 0) — büyük bir sabit
+ * yeterli, zoom'a bağlı gerçek yakalama yarıçapına ihtiyaç yok.
+ */
+const BRANCH_METER_ATTACH_RADIUS_CM = 100_000
 
 /** İmlecin yakalandığı yer. Sahne bunu vurgular; biçim türe göre değişir. */
 export type LineToolSnap =
@@ -71,8 +74,11 @@ function toAttachment(snap: LineToolSnap): LineEndAttachment {
  * bitişte yazılıyordu; adımlar ayrı olunca her boru tek başına seçilebiliyor,
  * silinebiliyor ve kendi çapını alabiliyor.
  *
- * Jestler: sol tık adımı yazar ve köşe bırakır · tek sağ tık SON ADIMI geri
- * alır · çift sağ tık çizimi bitirir ve Seçim aracına döner · Esc çizimi
+ * Jestler: sol tık adımı yazar ve köşe bırakır · sağ tık İKİ ADIMLI (duvar
+ * aracıyla aynı desen, K84): zincir sürerken tek sağ tık orada DURDURUR
+ * (yazılmış adımlar KALIR, geri alınmaz — yalnız taslak temizlenir), araç
+ * aktif kalır ki başka bir yerden hemen yeni bir boruya başlanabilsin;
+ * taslak boşken sağ tık araçtan çıkar (Seçim aracına döner) · Esc çizimi
  * bırakır (yazılmış adımlar kalır, araç aktif kalır) · porta ya da mevcut bir
  * boruya sol tık zinciri orada bağlayıp BİTİRİR, araç aktif kalır.
  */
@@ -86,39 +92,37 @@ export function useLineTool(): LineToolState {
   useEffect(() => {
     if (!kind || !(camera instanceof OrthographicCamera)) return undefined
 
-    let pendingRightClickAtMs: number | null = null
-    let timerId: number | undefined
-    /** Duvara paralel yakalamanın histerezisli hâli (kararlılık, bkz. dosyanın kendisi). */
-    const wallLock = createWallParallelLock()
-
-    const clearTimer = () => {
-      if (timerId === undefined) return
-      window.clearTimeout(timerId)
-      timerId = undefined
-    }
-
     const readDraft = () => usePlumbingUiStore.getState().draftLine
     const writeDraft = (draft: LineDraft | null) =>
       usePlumbingUiStore.getState().setDraftLine(draft)
 
     /**
-     * Öncelik: port > mevcut boru > duvara paralel yön > 45°'lik açı yardımı >
-     * ızgara. Ctrl ızgarayı kapatır (eleman sürüklemesiyle aynı jest) ama
-     * port/boru/duvar yakalamasını kapatmaz: bağlantı kurmak serbest
-     * konumlandırmadan daha güçlü bir niyettir.
+     * Öncelik: port > mevcut boru > duvar köşesi (keskin) > yön kelepçesi
+     * (yalnız bir duvar YAKINDAYKEN) > tamamen serbest imleç. Ctrl ızgarayı
+     * kapatır (eleman sürüklemesiyle aynı jest) ama port/boru/köşe/yön
+     * yakalamasını kapatmaz: bağlantı kurmak serbest konumlandırmadan daha
+     * güçlü bir niyettir.
      *
-     * Duvar yakalaması BAĞLANTI KAYDI ÜRETMEZ (`snap: null`) ve BELİRLİ BİR
-     * NOKTAYA da yapıştırmaz (kullanıcı isteği, 2026-08) — yalnız zincirin
-     * ANCHOR'ından çıkan köşeyi en yakın duvarın AÇISINA paralel bir doğruya
-     * kelepçeler (`findNearestWallParallel` + `wallParallelLock`, SIKI ve
-     * kalıcı). Duvar yokken (ya da yeterince yakın değilken) genel bir
-     * yardımcı devreye girer: yön en yakın 45°'lik hedefe YALNIZ yakınken
-     * yakalanır (`snapToNearestAngle`, TOLERANSLI ve her karede yeniden
-     * hesaplanır) — "her zaman dümdüz ilerlemesin, 45/90 de yapsın, biraz
-     * oynasın" (kullanıcı isteği). Zincirin İLK noktasında (henüz anchor
-     * yokken, yani `draftLine` boşken) ikisinin de bu adımda etkisi yok —
-     * yön iki noktalı bir segmentin özelliği, tek bir başlangıç noktasının
-     * değil; ilk nokta düz ızgaraya düşer.
+     * **Borular her zaman serbest hareket eder** (kullanıcı isteği, 2026-08):
+     * eskiden duvar yokken bile dünya eksenine (yatay/dikey) zorlanıyordu; bu
+     * kısıtlama KALKTI — bir duvar `radiusCm` içinde DEĞİLSE imleç ÇAPRAZ dahil
+     * aynen izlenir. Yalnız bir duvar YAKINDAYKEN yön o duvarın AÇISINA
+     * paralel ya da dik iki eksenden imlece en yakın olana kelepçelenir
+     * (`findNearestWallParallel`) — bu da HER karede yeniden hesaplanır,
+     * KİLİTLENMEZ ("hiçbir zaman tek eksene yapışmasın"): imleç iki eksene
+     * yakınken kare kare farklı eksen seçilebilir, bu kasıtlı.
+     *
+     * Duvarın KENDİSİ (gövdesi VE köşeleri) YASAKLI ALAN — boru asla üstüne
+     * binmez: gövdeye `getWallEdgeGapCm` kadar (ekran pikseli) yaklaşabilir,
+     * köşeye (uç/T/X birleşim) toleranstaysa yapışma bunun ÖNÜNE geçer ve
+     * KESKİNdir, ama sonuç yine köşenin kendisi değil oradaki duvarların
+     * payını temizleyen bir nokta (`findNearestWallCorner`). Bunların hiçbiri
+     * BAĞLANTI KAYDI ÜRETMEZ (`snap: null`) — yalnız konumu/yönü kelepçeler.
+     * Zincirin İLK noktasında (henüz anchor yokken, yani `draftLine` boşken)
+     * bunların hiçbirinin etkisi yok — yön iki noktalı bir segmentin özelliği,
+     * tek bir başlangıç noktasının değil; ilk nokta düz ızgaraya düşer (bir
+     * hedefe düşmezse ve ön eleman gerekmiyorsa jest zaten `startDraft`te
+     * reddedilir, bkz. aşağı).
      */
     const resolveSnap = (
       event: DrawSurfacePointerEvent,
@@ -127,48 +131,68 @@ export function useLineTool(): LineToolState {
       const radiusCm = getSnapRadiusCm(zoom)
       const cad = useCadStore.getState()
       const draftLine = readDraft()
-      const floorElements = cad.installationElements.filter(
-        (element) => element.floorId === cad.activeFloorId,
-      )
 
-      const port = findNearestFreePort(
-        floorElements,
-        cad.installationConnections,
-        getSymbolMetadata,
-        event.planPoint,
-        radiusCm,
-      )
-      if (port) return { point: port.position, snap: { kind: 'port', position: port.position, port } }
+      // Branşman hiçbir porta/boruya BAĞLANMAZ, onlara YAKALANMAZ da (kullanıcı
+      // isteği, 2026-08: "diğer borulara ek yapılmasın"): kendi sayacını kendisi
+      // getiriyor, var olan bir boruya `lineSplit` ile girseydi o boruyu
+      // ORTASINDAN ayırırdı. Yakalama da kapalı — bağ KURMAYAN bir mıknatıs,
+      // borunun üstüne oturmuş ama ona bağlı OLMAYAN bir branşman bırakırdı.
+      // Duvar kelepçesi (aşağıda) açık kalır: o bir bağ değil, yalnız konum.
+      if (kind !== 'branch') {
+        const floorElements = cad.installationElements.filter(
+          (element) => element.floorId === cad.activeFloorId,
+        )
 
-      // Zincirin ucunun ÜSTÜNDE oturduğu boru aday değildir: kullanıcı oradan
-      // geliyor: kısa bir adım yeni köşeyi kaçınılmaz olarak o borunun yakalama
-      // yarıçapına düşürür ve adım, az önce yazdığı boruyu AYIRARAK biterdi.
-      const anchorLineId =
-        draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
-      // Baca/havalandırma aday DEĞİL: gaz borusu onlara yapışsaydı `lineSplit`
-      // kanalı ortasından ayırır ve içine bir gaz düğümü açardı.
-      const floorLines = cad.installationLines.filter(
-        (line) =>
-          line.floorId === cad.activeFloorId &&
-          line.id !== anchorLineId &&
-          isGasCarryingKind(line.kind),
-      )
-      const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
-      if (line) return { point: line.position, snap: { kind: 'line', position: line.position, line } }
+        const port = findNearestFreePort(
+          floorElements,
+          cad.installationConnections,
+          getSymbolMetadata,
+          event.planPoint,
+          radiusCm,
+        )
+        if (port) {
+          return { point: port.position, snap: { kind: 'port', position: port.position, port } }
+        }
+
+        // Zincirin ucunun ÜSTÜNDE oturduğu boru aday değildir: kullanıcı oradan
+        // geliyor: kısa bir adım yeni köşeyi kaçınılmaz olarak o borunun yakalama
+        // yarıçapına düşürür ve adım, az önce yazdığı boruyu AYIRARAK biterdi.
+        const anchorLineId =
+          draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
+        // Baca/havalandırma aday DEĞİL: gaz borusu onlara yapışsaydı `lineSplit`
+        // kanalı ortasından ayırır ve içine bir gaz düğümü açardı.
+        const floorLines = cad.installationLines.filter(
+          (line) =>
+            line.floorId === cad.activeFloorId &&
+            line.id !== anchorLineId &&
+            isGasCarryingKind(line.kind),
+        )
+        const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
+        if (line) {
+          return { point: line.position, snap: { kind: 'line', position: line.position, line } }
+        }
+      }
 
       if (!event.ctrlKey && draftLine) {
         const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
-        const wall = wallLock.resolve(floorWalls, cad.points, draftLine.anchor, event.planPoint, radiusCm)
+        const clearanceCm = getWallEdgeGapCm(zoom)
+
+        // Duvar KÖŞESİ (uç/T/X birleşim) toleranstaysa yapışma KESKİN — yön
+        // kelepçesinin önüne geçer (kullanıcı isteği, 2026-08: "duvar
+        // köşelerinde yapışma keskin olsun", "duvar üstü yasaklı alan").
+        const corner = findNearestWallCorner(floorWalls, cad.points, event.planPoint, radiusCm, clearanceCm)
+        if (corner) return { point: corner, snap: null }
+
+        // Bir duvar YAKINDAYSA (yarıçap içinde) yön onun AÇISINA paralel/dik
+        // iki eksenden imlece en yakın olana kelepçelenir — HER karede
+        // yeniden, kilitlenmeden.
+        const wall = findNearestWallParallel(floorWalls, cad.points, draftLine.anchor, event.planPoint, radiusCm, clearanceCm)
         if (wall) return { point: wall.position, snap: null }
 
-        // Duvar YOKKEN de kullanıcı düzgün açılarla çizebilsin diye (kullanıcı
-        // isteği: "her zaman dümdüz ilerlemesin, 45/90 derece de yapsın, biraz
-        // oynasın") — bu, wallLock'un aksine SIKI DEĞİL: yalnız hedef açıya
-        // yakınken yakalar (`ANGLE_SNAP_TOLERANCE_DEG`), uzaktaysa imleç
-        // serbest kalır. Izgaraya değil AÇIYA yakalar; mesafe imleçten
-        // aynen gelir, ayrıca ızgaraya yuvarlanmaz.
-        const angled = snapToNearestAngle(draftLine.anchor, event.planPoint)
-        if (angled) return { point: angled, snap: null }
+        // Duvar yakında DEĞİLSE boru TAMAMEN serbest: imleç çapraz dahil
+        // aynen izlenir (kullanıcı isteği, 2026-08: "borular her zaman
+        // serbest hareket edebilsin", "duvara snap değilse serbest çizim").
+        return { point: event.planPoint, snap: null }
       }
 
       const point = event.ctrlKey ? event.planPoint : resolvePlacementPosition(event.planPoint, zoom)
@@ -177,19 +201,30 @@ export function useLineTool(): LineToolState {
 
     /**
      * İlk tıklama. Hat bir hedefe düştüyse başı oraya bağlanır; düşmediyse ve o
-     * araç bir ÖN ELEMAN istiyorsa (branşman → sayaç, ilk boru → servis kutusu)
-     * önce eleman yerleştirilir ve hat onun çıkış portundan başlar.
+     * araç bir ÖN ELEMAN istiyorsa (ilk boru → servis kutusu) önce eleman
+     * yerleştirilir ve hat onun çıkış portundan başlar.
+     *
+     * Branşman burada AYRI: HİÇBİR hedefe bağlanmaz, her zaman yer seviyesinde
+     * SERBEST bir nokta bırakır — sayaç ve arasındaki vanalı mavi kesikli kol
+     * ikinci tıkta gelir (`commitBranchGroundStep`). `resolveSnap` branşmanda
+     * zaten `snap: null` döndürüyor; buradaki sıra o kuralı görünür kılıyor.
      *
      * Eleman kendi adımında yazılır: ayrı bir Ctrl+Z ile geri alınır. Hat ile
      * aynı adıma sokulsaydı yarım bırakılan (Esc'lenen) çizimde eleman da
      * kaybolurdu — oysa kullanıcı onu görerek koydu.
      */
-    const startDraft = (point: PlanPoint, snap: LineToolSnap | null): LineDraft => {
+    const startDraft = (point: PlanPoint, snap: LineToolSnap | null): LineDraft | null => {
+      if (kind === 'branch') return { kind, ...startChain(point, null) }
+
       if (snap) return { kind, ...startChain(point, toAttachment(snap)) }
 
       const cad = useCadStore.getState()
-      const seedType = getLineSeedElementType(kind, hasServiceBox(cad.installationElements))
-      if (!seedType) return { kind, ...startChain(point, null) }
+      const seedType = getLineSeedElementType(hasServiceBox(cad.installationElements))
+      // Hiçbir hedefe düşmedi ve bu araç bir ön eleman da koymuyorsa (servis
+      // kutusu zaten var): boş yere bağlantısız bir başlangıç YAZILMAZ — boru
+      // her zaman bir porta, mevcut bir boruya ya da (ilk boru için) yeni
+      // konacak servis kutusuna bağlı başlar (kullanıcı isteği, 2026-08).
+      if (!seedType) return null
 
       const metadata = getSymbolMetadata(seedType)
       const seedPort = getSeedPort(metadata)
@@ -208,11 +243,88 @@ export function useLineTool(): LineToolState {
     }
 
     /**
+     * Branşmanın İLK adımı: `draft.anchor` yer seviyesinde serbest bırakılmış
+     * bir noktadır (`startTarget` null — startDraft'ta kurulan tek durum).
+     * Önce o noktadan tıklanan yere kadar mavi kesikli bir `branchStub` çizilir,
+     * sonra sayaç (+ araya giren vana) bu kolun ucuna `resolveFreeEndAttachment`
+     * ile AYNI mekanizmayla eklenir (palet'ten sayaç yerleştirmeyle birebir) —
+     * geometri iki kez yazılmasın diye.
+     *
+     * Sayaç konunca zincir onun ÇIKIŞ portundan DEVAM eder: branşman yerleşince
+     * boru döşeme hemen başlar ve o boru branşmandan ÇIKAR (kullanıcı isteği,
+     * 2026-08). Borunun başka bir yerden başlaması mümkün değil — branşman
+     * aracında port/boru yakalaması kapalı (bkz. `resolveSnap`), yani sayacın
+     * çıkışı bu araçtaki TEK boru çıkış noktasıdır.
+     *
+     * `snap` burada bilerek yok sayılır: bu adımın ucu her zaman TAZE yerleşen
+     * sayacın giriş portu olur, kullanıcının tıkladığı nokta yalnız YÖNÜ verir
+     * (tıpkı `resolveFreeEndAttachment`'ın var olan bir hattı uzatması gibi).
+     */
+    const commitBranchGroundStep = (draft: LineDraft, point: PlanPoint) => {
+      const written = useCadStore.getState().addLine({
+        kind: 'branchStub',
+        points: [draft.anchor, point],
+        pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
+        startTarget: draft.startTarget ?? undefined,
+      })
+      if (!written) return
+
+      const cadAfterStub = useCadStore.getState()
+      const stubLine = cadAfterStub.installationLines.find(
+        (candidate) => candidate.id === written.lineId,
+      )
+      if (!stubLine) {
+        writeDraft(null)
+        return
+      }
+
+      const attachment = resolveFreeEndAttachment(
+        [stubLine],
+        cadAfterStub.installationConnections,
+        getSymbolMetadata,
+        'gasMeter',
+        point,
+        BRANCH_METER_ATTACH_RADIUS_CM,
+      )
+      const meterId = attachment ? useCadStore.getState().placeElementAtLineEnd(attachment) : null
+      if (!meterId) {
+        writeDraft(null)
+        return
+      }
+
+      const metadata = getSymbolMetadata('gasMeter')
+      const outputPort = getSeedPort(metadata)
+      const meter = useCadStore
+        .getState()
+        .installationElements.find((candidate) => candidate.id === meterId)
+
+      if (!meter || !outputPort) {
+        writeDraft(null)
+        return
+      }
+
+      // Boru sayacın ÇIKIŞ portundan başlar (yukarıdaki nota bkz.).
+      writeDraft({
+        kind: 'branch',
+        ...startChain(getPortWorldPosition(meter, outputPort, metadata), {
+          kind: 'port',
+          elementId: meterId,
+          portId: outputPort.id,
+        }),
+      })
+    }
+
+    /**
      * Bir adımı (iki köşe arası boru) yazar. Hedefe bağlanarak biten adım
      * zinciri KAPATIR — bağlantı kurulduysa çizilecek bir şey kalmamıştır ve
      * araç aktif kalır.
      */
     const commitStep = (draft: LineDraft, point: PlanPoint, snap: LineToolSnap | null) => {
+      if (draft.kind === 'branch' && draft.startTarget === null) {
+        commitBranchGroundStep(draft, point)
+        return
+      }
+
       const written = useCadStore.getState().addLine({
         kind: draft.kind,
         points: [draft.anchor, point],
@@ -225,38 +337,37 @@ export function useLineTool(): LineToolState {
       writeDraft(snap ? null : { kind: draft.kind, ...advanceChain(draft, point, written) })
     }
 
-    /** Çizimi bırakır; yazılmış adımlar KALIR (her biri kendi başına bir borudur). */
-    const finishChain = () => {
+    /** Taslak boşken sağ tık: araçtan çıkar, Seçim aracına döner. */
+    const exitTool = () => {
       writeDraft(null)
       useUiStore.getState().setActiveTool(INSTALLATION_SELECTION_TOOL_ID)
     }
 
-    /** Tek sağ tık: son ADIMI siler ve ucu o adımın başına geri oturtur. */
-    const undoLastStep = () => {
-      const draft = readDraft()
-      if (!draft) return
-
-      const rewound = rewindChain(draft)
-      if (rewound.removedLineId !== null) {
-        useCadStore.getState().removeSelection(NO_ELEMENT_IDS, [rewound.removedLineId])
-      }
-      writeDraft(rewound.chain && { kind: draft.kind, ...rewound.chain })
+    /**
+     * Zincir sürerken sağ tık: taslağı orada DURDURUR. Yazılmış adımlar
+     * KALIR (her biri kendi başına bir borudur, geri alınmaz) — yalnız
+     * "bir sonraki köşe nereye bağlanacak" taslağı silinir. Araç aktif
+     * kalır ki başka bir noktadan hemen yeni bir boruya başlanabilsin
+     * (kullanıcı isteği, 2026-08: "tek sağ tık son noktayı geri almasın,
+     * orayı durdursun").
+     */
+    const stopChain = () => {
+      writeDraft(null)
     }
 
-    const applyRightClick = (input: RightClickInput) => {
-      const resolution = resolveRightClick(pendingRightClickAtMs, input)
-      pendingRightClickAtMs = resolution.pendingSinceMs
-
-      clearTimer()
-      if (resolution.scheduleInMs !== null) {
-        timerId = window.setTimeout(
-          () => applyRightClick({ kind: 'timeout' }),
-          resolution.scheduleInMs,
-        )
+    /**
+     * Sağ tık İKİ ADIMLI (duvar aracıyla aynı desen, K84): zincir sürerken
+     * onu durdurur, taslak boşken araçtan çıkar. Tek adıma indirilseydi
+     * zincirin sonunu getirmek aracı da kapatırdı ve arka arkaya boru
+     * çizmek imkânsızlaşırdı.
+     */
+    const applyRightClick = () => {
+      const draft = readDraft()
+      if (draft) {
+        stopChain()
+        return
       }
-
-      if (resolution.action === 'undoPoint') undoLastStep()
-      if (resolution.action === 'finish') finishChain()
+      exitTool()
     }
 
     const unsubscribe = subscribeDrawSurface({
@@ -278,7 +389,9 @@ export function useLineTool(): LineToolState {
         const draft = readDraft()
 
         if (!draft) {
-          writeDraft(startDraft(resolved.point, resolved.snap))
+          const started = startDraft(resolved.point, resolved.snap)
+          // Boş yere bağlantısız tık: yazılacak bir şey yok, jest sessizce düşer.
+          if (started) writeDraft(started)
           return
         }
 
@@ -289,22 +402,17 @@ export function useLineTool(): LineToolState {
       },
 
       // contextmenu'yü DrawSurface yakalayıp preventDefault ediyor.
-      onContextMenu: () => applyRightClick({ kind: 'click', atMs: performance.now() }),
+      onContextMenu: () => applyRightClick(),
 
       // Esc devam eden zinciri BIRAKIR; yazılmış adımlar kalır (her sol tık
       // kendi borusunu yazdı, kullanıcı onları görerek koydu — tıpkı başlangıç
       // elemanı gibi). Araç aktif kalır ki paleti yeniden seçmeden yeni bir
       // zincire başlanabilsin.
-      onCancel: () => {
-        clearTimer()
-        pendingRightClickAtMs = null
-        writeDraft(null)
-      },
+      onCancel: () => writeDraft(null),
     })
 
     return () => {
       unsubscribe()
-      clearTimer()
       // Araç değişince yarım hat asılı kalmasın.
       writeDraft(null)
       cursorRef.current = null

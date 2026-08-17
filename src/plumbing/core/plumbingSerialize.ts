@@ -352,7 +352,7 @@ function toInstallationLineSegmentJson(segment: InstallationLineSegment) {
 export const installationLineSchema = z.object({
   id: idSchema,
   floorId: idSchema,
-  kind: z.enum(['pipe', 'branch', 'applianceStub', 'chimney', 'ventilationDuct']),
+  kind: z.enum(['pipe', 'branch', 'branchStub', 'applianceStub', 'chimney', 'ventilationDuct']),
   pipeTypeName: z.enum(PIPE_TYPE_NAMES),
   points: z.array(installationLinePointSchema),
   segments: z.array(installationLineSegmentSchema),

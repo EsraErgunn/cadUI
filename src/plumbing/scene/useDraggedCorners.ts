@@ -19,20 +19,38 @@ const NO_DRAGGED_CORNERS: ReadonlyMap<Id, DraggedCorner> = new Map()
  *
  * Bir hattın iki ucu aynı köşede buluşamayacağı için (sıfır boy adım yazılmaz)
  * hat başına tek kayıt yeterli.
+ *
+ * İKİNCİ kaynak: döndürme tutamacının `followers`'ı (`elementRotateHandle.ts`
+ * → branşmandaki sayaç gibi iki porttan bağlı elemanlar) — pivotun DIŞINDA
+ * kalan ucun bağlı olduğu hat noktası da AYNI haritaya, aynı zincirleme
+ * yayılımla (`getLinkedLinePoints`) eklenir; iki kaynak birbirini EZMEZ, ikisi
+ * aynı anda aktif olamaz (köşe sürüklemesi ve eleman döndürmesi ayrı araçlar).
  */
 export function useDraggedCorners(
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
 ): ReadonlyMap<Id, DraggedCorner> {
-  const drag = usePlumbingUiStore((state) => state.draggingLineCorner)
+  const cornerDrag = usePlumbingUiStore((state) => state.draggingLineCorner)
+  const rotateDrag = usePlumbingUiStore((state) => state.elementRotateDrag)
+  const rotateFollowers = rotateDrag?.followers
 
   return useMemo(() => {
-    if (!drag) return NO_DRAGGED_CORNERS
+    if (!cornerDrag && (!rotateFollowers || rotateFollowers.length === 0)) return NO_DRAGGED_CORNERS
 
     const corners = new Map<Id, DraggedCorner>()
-    for (const link of getLinkedLinePoints(lines, connections, drag.lineId, drag.pointId)) {
-      corners.set(link.lineId, { pointId: link.pointId, position: drag.position })
+
+    if (cornerDrag) {
+      for (const link of getLinkedLinePoints(lines, connections, cornerDrag.lineId, cornerDrag.pointId)) {
+        corners.set(link.lineId, { pointId: link.pointId, position: cornerDrag.position })
+      }
     }
+
+    for (const follower of rotateFollowers ?? []) {
+      for (const link of getLinkedLinePoints(lines, connections, follower.lineId, follower.pointId)) {
+        corners.set(link.lineId, { pointId: link.pointId, position: follower.position })
+      }
+    }
+
     return corners
-  }, [drag, lines, connections])
+  }, [cornerDrag, rotateFollowers, lines, connections])
 }

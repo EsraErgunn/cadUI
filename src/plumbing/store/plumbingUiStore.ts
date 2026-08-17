@@ -39,8 +39,22 @@ export type LabelDrag = { elementId: Id; offsetCm: PlanPoint }
  * cadStore'a yazılmaz, sahne elemanı geçici açı+konumuyla çizer. Boruya/porta
  * bağlı elemanlarda `position` de değişir — tutunduğu nokta dünyada sabit
  * kalsın diye (`core/elementRotateHandle.ts` → `getElementAnchorOffset`).
+ *
+ * `followers`: pivotun DIŞINDA ikinci bir bağlantısı olan eleman (ör.
+ * branşmandaki sayaç — hem giriş hem çıkış portundan bağlı) döndürülürken bu
+ * ucun bağlı olduğu hat noktasının geçici hedef konumu. `useDraggedCorners`
+ * bunu okuyup ilgili hattı oraya çeker — boş dizi çoğu elemanda (tek/hiç
+ * tutunma) hiçbir şey değiştirmez.
  */
-export type ElementRotateDrag = { elementId: Id; angleDeg: number; position: PlanPoint }
+export type ElementRotateDrag = {
+  elementId: Id
+  angleDeg: number
+  position: PlanPoint
+  // Immer draft'ı `readonly` diziyi yazılabilir taslağa çeviremiyor (aynı
+  // gerekçe `ApplianceOutlet.position`'da, installationModel.ts) — bu yüzden
+  // burada `readonly` DEĞİL.
+  followers: { lineId: Id; pointId: Id; position: PlanPoint }[]
+}
 
 /**
  * Devam eden çizim: hangi araçla + zincirin nerede kaldığı. Zincirin nasıl
@@ -61,6 +75,15 @@ export type LineDraft = LineChain & {
  * okuma. Kaydedilen JSON'a girmez, `markDirty` çağırmaz, Ctrl+Z'ye takılmaz.
  */
 export type Measurement = { start: PlanPoint; end: PlanPoint | null }
+
+/**
+ * Servis kutusu silme onayı beklerken tutulan kapsam — `deletionActions.ts` →
+ * `requestSelectionDeletion` tarafından ÖNCEDEN hesaplanır (kutuya bağlı TÜM
+ * gaz ağı, bkz. `core/installationReachability.ts`). Silme iki ayrı yerden
+ * tetiklenebildiği için (klavye Delete, panel "Sil" düğmesi) tek karar noktası
+ * burada — ikisi ayrı yerel state tutsaydı biri onay istemeyi unuturdu.
+ */
+export type PendingServiceBoxDeletion = { elementIds: Id[]; lineIds: Id[] }
 
 type PlumbingUiState = {
   selectedElementIds: Id[]
@@ -120,6 +143,10 @@ type PlumbingUiState = {
   /** symbolLoader.ts'in doldurduğu asset hataları — sessiz catch yerine görünür durum. */
   assetErrors: Partial<Record<InstallationElementType, string>>
   setAssetError: (type: InstallationElementType, message: string) => void
+  /** Onay bekleyen servis kutusu silme kapsamı; boş = diyalog kapalı. */
+  pendingServiceBoxDeletion: PendingServiceBoxDeletion | null
+  requestServiceBoxDeletion: (request: PendingServiceBoxDeletion) => void
+  cancelServiceBoxDeletion: () => void
 }
 
 /**
@@ -153,6 +180,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     pasteStepCount: 0,
     measurement: null,
     assetErrors: {},
+    pendingServiceBoxDeletion: null,
 
     setSelectedElements: (elementIds) =>
       set((draft) => {
@@ -266,6 +294,16 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     setAssetError: (type, message) =>
       set((draft) => {
         draft.assetErrors[type] = message
+      }),
+
+    requestServiceBoxDeletion: (request) =>
+      set((draft) => {
+        draft.pendingServiceBoxDeletion = request
+      }),
+
+    cancelServiceBoxDeletion: () =>
+      set((draft) => {
+        draft.pendingServiceBoxDeletion = null
       }),
   })),
 )

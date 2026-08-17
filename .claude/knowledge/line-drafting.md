@@ -30,21 +30,25 @@ yazdığı boruyu AYIRARAK zinciri kapatırdı.
 |---|---|---|
 | Sol tık | Adımı YAZAR ve köşe bırakır (port snap > mevcut boru > duvar ekseni > ızgara) | aktif kalır |
 | Sol tık **boş bir porta / mevcut boruya** | Adımı yazar, oraya bağlar, zinciri BİTİRİR | **aktif kalır** |
-| Tek sağ tık | Son ADIMI siler, uç bir önceki köşeye döner | aktif kalır |
-| Çift sağ tık | Zinciri bitirir (yazılmış adımlar kalır) | Seçim aracına döner |
+| Sağ tık (zincir sürerken, taslak DOLU) | Taslağı orada DURDURUR — yazılmış adımlar KALIR, geri ALINMAZ | **aktif kalır** — başka bir yerden hemen yeni zincire başlanır |
+| Sağ tık (taslak BOŞ) | Araçtan çıkar | Seçim aracına döner |
 | Esc | Zinciri BIRAKIR — yazılmış adımlar kalır, silinmez | aktif kalır |
 
 Esc'in artık geri aldığı bir şey yok: her adım kullanıcının görerek koyduğu
-kalıcı bir borudur (başlangıç elemanıyla aynı gerekçe). Yanlış adım tek sağ tıkla
-ya da Ctrl+Z ile gider.
+kalıcı bir borudur (başlangıç elemanıyla aynı gerekçe). Yanlış adımı silmek için
+elemanı seçip Delete/Ctrl+Z kullanılır — sağ tık artık "geri alma" değil "durdurma".
 
-Tek/çift ayrımı saf fonksiyonda: `core/pointerGestures.ts` → `resolveRightClick`.
-İlk sağ tık kararı `DOUBLE_CLICK_WINDOW_MS` (300 ms) erteler; pencere içinde ikinci
-tık gelirse "bitir", gelmezse "geri al". `setTimeout` hook'ta kalır, karar saf
-fonksiyonda — yoksa jest ancak elle denenerek doğrulanabilirdi (Risk R6).
-
-Sınır anı (tam 300 ms) gerçek akışta zamanlayıcıyla yarışır; testte saf fonksiyon
-doğrudan sınanır, zamanlayıcılı akış üzerinden değil.
+Sağ tık artık İKİ ADIMLI ama tek/çift TIK AYRIMI **yok** (duvar aracıyla aynı
+desen, K84): karar tek bir sağ tıkla, taslağın dolu/boş oluşuna bakarak anında
+verilir (`useLineTool.ts` → `applyRightClick`). Eskiden burada `core/
+pointerGestures.ts` → `resolveRightClick` ile tek/çift sağ tık ayrımı vardı
+(`DOUBLE_CLICK_WINDOW_MS` = 300 ms bekleyip "tek → geri al, çift → bitir"
+kararı veriyordu) — kullanıcı bunu "tek sağ tık son noktayı geri almasın, orayı
+durdursun" diye AÇIKÇA reddetti (2026-08). `pointerGestures.ts` hâlâ duruyor
+çünkü `useDischargeTool.ts` (tahliye borusu) onu kullanmaya devam ediyor — o
+akış TEK bir çok noktalı hat biriktirip bitişte yazıyor (`useLineTool`'daki
+"her adım kendi borusu" modeliyle aynı değil), oradaki geri-al/bitir ayrımı
+hâlâ geçerli bir tasarım. `useLineTool` için yeniden kullanma.
 
 `contextmenu`'yü `DrawSurface` yakalayıp `preventDefault` ediyor — araç hook'unda
 ikinci kez yakalanmaz.
@@ -52,8 +56,19 @@ ikinci kez yakalanmaz.
 `useEscapeToSelectionTool` polyline araçlarını **atlar**: hat aracında Esc taslağı
 siler ama araçtan çıkmaz. Yerleştirme araçlarında davranış eskisi gibi.
 
+**Tuzak — `useRightClickReturnsToSelection`:** mimari ve tesisat araçları AYNI
+`useUiStore.activeToolId`'i paylaşıyor, bu hook `ArchitectureLayer`'da mount
+edilip HER sağ tıkta çalışıyor ve KARA LİSTE'deki (`SELECTION_TOOL_ID`,
+`WALL_TOOL_ID`) dışındaki her aracı Seçim aracına düşürüyor. Boru aracı bu
+listede yoksa kendi iki adımlı sağ tık jesti hiç çalışmadan araç kapanır — çift
+katmanlı "kim önce davranıyor" hatası. `INSTALLATION_PIPE_TOOL_ID` bu listeye
+eklendi; yeni bir tesisat aracı kendi sağ tık jestini yazarsa aynı listeye
+eklenmesi gerekir.
+
 > 2026-08'de kısa süre "tek sağ tık bitirir, Esc son noktada bitirir" denendi ve
-> şartname metni gelince **geri alındı**. Değiştirmeden önce şartnameye bak.
+> şartname metni gelince geri alındı; sonra "tek sağ tık son adımı siler, çift
+> sağ tık bitirir" tasarımına geçildi. O da kullanıcı geri bildirimiyle
+> yukarıdaki "durdur, silme" modeline döndü — değiştirmeden önce bu geçmişe bak.
 
 ## Çizgi kalınlığı ve rengi
 
@@ -383,6 +398,47 @@ Baca/havalandırma kanalı (aynı `free` modun diğer türleri) bu davranışın
 DIŞINDA bırakıldı — onlar cihazın deşarj portundan ayrı bir güzergah aracıyla
 çizilir, bu akıştan hiç geçmez; `free` modda arka arkaya eleman eklenebilmesi
 (araç aktif kalması) onlar için hâlâ geçerli.
+
+## Boru duvardan uzakken TAMAMEN serbest, kilit YOK, duvarın üstü (köşe dahil) yasak (2026-08, üçüncü düzeltme — ÖNCEKİ İKİ KARARI SÜPÜRÜR)
+
+Yukarıdaki **"Duvar kilidi SIKI + kalıcı"** ve **"Duvar YOKKEN genel 45°'lik açı
+yardımı"** bölümleri BAYATLADI, `wallParallelLock.ts`/`angleSnap.ts` silindi.
+Kullanıcı iki turda netleştirdi: "borular her zaman serbest hareket edebilsin",
+"hiçbir zaman tek eksene yapışmasın", "duvara snap değilse serbest çizim" —
+yani hem SIKI duvar kilidi hem TOLERANSLI 45° yardımı hem de (aradaki, bu
+oturumda kısa süre denenip geri alınan) TOLERANSSIZ dünya-ekseni kelepçesi
+YANLIŞ çıktı. Güncel model tek katmanlı ve **kilitsiz**:
+
+- Bir duvar `radiusCm` (yakalama yarıçapı) içindeyse yön o duvarın AÇISINA
+  paralel/dik iki eksenden imlece en yakın olana kelepçelenir
+  (`core/wallSnap.ts` → `findNearestWallParallel`) — HER karede yeniden
+  hesaplanır, önceki karar hiç hatırlanmaz (kilit YOK, "wall lock" nesnesi de
+  YOK). İmleç iki eksene yakınken kare kare farklı eksen seçilebilir; bu artık
+  KASITLI, hata değil.
+- Duvar `radiusCm` içinde değilse boru **tamamen serbest**: imleç çapraz dahil
+  aynen izlenir, hiçbir açı/eksen kelepçesi yok.
+- `core/orthogonalAxis.ts` → `projectOntoClosestOrthogonalAxis` hâlâ duruyor
+  ama artık YALNIZ duvara yakınken çağrılır (`getWallParallelPosition`
+  içinden) — dünya ekseni (0°/90°) fikri koddan tamamen kalktı.
+- CLAUDE.md'deki "borular duvarlara paralel (yatay/dikey)" cümlesi bu yeni
+  kurala göre güncellendi: kısıt yalnız duvara YAKINKEN geçerli.
+
+**Duvarın üstü — gövdesi VE köşeleri — YASAKLI ALAN** (yeni, 2026-08): boru
+hiçbir zaman tam duvar ekseninde/köşesinde durmaz.
+- Gövdeye yakınken pay artık sabit 5cm değil, EKRAN PİKSELİ
+  (`scene/snapRadius.ts` → `WALL_EDGE_GAP_PX`/`getWallEdgeGapCm`, `≈2px`) —
+  her zoom'da "neredeyse bitişik ama asla üstüne binmiyor" hissi sabit kalır.
+  Uygulayan fonksiyon `core/wallSnap.ts` → `applyWallEdgeClearance`
+  (`WALL_CLEARANCE_CM` sabiti kalktı, artık çağıranın verdiği `clearanceCm`).
+- Köşeye (uç/T/X birleşim) yakınken yapışma KESKİN ama sonuç köşenin KENDİSİ
+  DEĞİL: `findNearestWallCorner` en yakın köşeyi bulur, sonra orada BİRLEŞEN
+  duvarların HER BİRİ için `applyWallEdgeClearance`'ı sırayla uygulayıp imleç
+  tarafına doğru iter. Dik köşelerde tam sonuç verir (iki duvarın payını da
+  tam karşılar); dik olmayan birleşimlerde yaklaşık bir çözüm — kapsam dışı.
+- Aynı fonksiyon (`applyWallEdgeClearance`/`findNearestWallFace`) köşe
+  taşımasında da kullanılıyor (`useSelectionTool.ts` → `resolveCornerPosition`,
+  bkz. plumbing-selection.md) — çizim ve taşıma AYNI "duvar üstü yasak" kuralına
+  uyar, iki ayrı payla ayrışmaz.
 
 ## Köşe işareti KARE, cap'ler YUVARLAK (2026-08, görsel düzeltme)
 

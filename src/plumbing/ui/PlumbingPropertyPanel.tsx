@@ -22,6 +22,7 @@ import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { PropertyPanelShell } from '../../ui/properties/PropertyPanelShell'
 import { getPlumbingPropertyPanelTitle, getPlumbingSelectionKind } from '../core/propertyFields'
+import { requestSelectionDeletion } from '../store/deletionActions'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /**
@@ -40,7 +41,6 @@ export function PlumbingPropertyPanel() {
   const clearSelection = usePlumbingUiStore((state) => state.clearSelection)
   const installationElements = useCadStore((state) => state.installationElements)
   const installationLines = useCadStore((state) => state.installationLines)
-  const removeSelection = useCadStore((state) => state.removeSelection)
   const activeViewId = useUiStore((state) => state.activeViewId)
 
   // Görünüm değişince panel KAPANIR — mimarideki K53 kuralı burada da geçerli
@@ -54,17 +54,26 @@ export function PlumbingPropertyPanel() {
     clearSelection()
   }, [activeViewId, clearSelection])
 
-  const kind = getPlumbingSelectionKind(
-    selectedElementIds,
-    selectedLineIds,
-    installationElements,
-    installationLines,
-  )
+  // `clearSelection` yalnız BİR SONRAKİ render'da (passive effect, paint'ten
+  // SONRA) işler; o araya denk gelen karede panel eski seçimle -ve mimari
+  // görünümündeyken tesisat alanlarıyla- hâlâ açık ve DÜZENLENEBİLİR kalırdı.
+  // Görünüm kontrolü burada, render'ın kendisinde: efekt beklemeden kapatır.
+  const isInstallationView = activeViewId === 'installation'
+
+  const kind = isInstallationView
+    ? getPlumbingSelectionKind(
+        selectedElementIds,
+        selectedLineIds,
+        installationElements,
+        installationLines,
+      )
+    : { scope: 'none' as const }
   const isOpen = kind.scope !== 'none'
 
+  // Seçimde servis kutusu varsa doğrudan silinmez, önce onay istenir (bkz.
+  // deletionActions.ts).
   const handleDelete = () => {
-    removeSelection(selectedElementIds, selectedLineIds)
-    clearSelection()
+    requestSelectionDeletion(selectedElementIds, selectedLineIds)
   }
 
   return (

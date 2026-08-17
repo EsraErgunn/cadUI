@@ -264,7 +264,29 @@ const apiProjectListItemSchema = z.object({
   updatedAt: z.string(),
 })
 
-const apiProjectPageSchema = pagedResultSchema(apiProjectListItemSchema)
+/**
+ * Uç şu an (2026-08-17 ölçüldü) sayfalı zarf DEĞİL, düz dizi dönüyor —
+ * Swagger'daki "PagedResult" sözleşmesi henüz uygulanmamış. Liste ekranı
+ * `requestJson`'un şema doğrulamasına bu yüzden takılıp sonsuz "yükleniyor"da
+ * kalıyordu (schema.safeParse başarısız → ApiError → react-query sessizce
+ * tekrar dener, ağ sekmesinde aynı `/api/projects` isteği art arda görülür).
+ * Sayfalama SUNUCUDA olana kadar iki gövde biçimi de kabul edilir; dizi
+ * geldiğinde toplam/sayfa istemci tarafında türetilir.
+ */
+const apiProjectPageSchema = z.union([
+  z.array(apiProjectListItemSchema),
+  pagedResultSchema(apiProjectListItemSchema),
+])
+
+function toApiProjectPage(
+  raw: z.infer<typeof apiProjectPageSchema>,
+  requestedPage: number,
+  requestedPageSize: number,
+): { items: z.infer<typeof apiProjectListItemSchema>[]; totalCount: number; page: number; pageSize: number } {
+  if (!Array.isArray(raw)) return raw
+
+  return { items: raw, totalCount: raw.length, page: requestedPage, pageSize: requestedPageSize }
+}
 
 /**
  * Sunucunun durum kodu ↔ arayüzün kodu. `status-counts` yanıtının anahtarları
@@ -409,10 +431,11 @@ export async function listProjects(
   appendParam(search, 'Page', query.page)
   appendParam(search, 'PageSize', query.pageSize)
 
-  const page = await requestJson(
+  const raw = await requestJson(
     { method: 'GET', path: `/api/projects?${search.toString()}`, signal },
     apiProjectPageSchema,
   )
+  const page = toApiProjectPage(raw, query.page, query.pageSize)
 
   return projectPageSchema.parse({
     items: filterBySearch(page.items.map(mapApiProject), query.search),

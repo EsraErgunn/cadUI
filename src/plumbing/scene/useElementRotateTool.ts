@@ -14,6 +14,7 @@ import {
   getElementAnchorOffset,
   getElementRotateAnchorLocal,
   isPointerOnElementRotateHandle,
+  type ElementRotateFollower,
 } from '../core/elementRotateHandle'
 import type { InstallationElement } from '../core/installationModel'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
@@ -60,9 +61,11 @@ type RotateGrab = {
   elementId: InstallationElement['id']
   metadata: SymbolMetadata
   scale: number
-  anchorLocal: readonly [number, number]
+  pivotLocal: readonly [number, number]
   /** Elemanın tutunduğu noktanın DÜNYA konumu — döndürme boyunca SABİT kalır. */
   anchorWorld: PlanPoint
+  /** Pivotun dışında kalan tutunma — varsa, döndürme boyunca YENİ port konumuna çekilir. */
+  followers: readonly ElementRotateFollower[]
 }
 
 /**
@@ -103,22 +106,23 @@ export function useElementRotateTool(): void {
 
       const metadata = getLoadedSymbol(hit.type).metadata
       const cad = useCadStore.getState()
-      const anchorLocal = getElementRotateAnchorLocal(
+      const anchors = getElementRotateAnchorLocal(
         hit.id,
         metadata,
         cad.installationConnections,
         cad.installationLines,
       )
       // findSelectedElementRotateHandle zaten eledi — burada yalnız savunma.
-      if (!anchorLocal) return
+      if (!anchors) return
 
-      const offset = getElementAnchorOffset(hit, metadata, anchorLocal, hit.angleDeg)
+      const offset = getElementAnchorOffset(hit, metadata, anchors.pivotLocal, hit.angleDeg)
       grab = {
         elementId: hit.id,
         metadata,
         scale: hit.scale,
-        anchorLocal,
+        pivotLocal: anchors.pivotLocal,
         anchorWorld: { x: hit.position.x + offset.x, y: hit.position.y + offset.y },
+        followers: anchors.followers,
       }
     }
 
@@ -134,13 +138,36 @@ export function useElementRotateTool(): void {
       const offset = getElementAnchorOffset(
         { scale: grab.scale },
         grab.metadata,
-        grab.anchorLocal,
+        grab.pivotLocal,
         angleDeg,
       )
+      const position = { x: grab.anchorWorld.x - offset.x, y: grab.anchorWorld.y - offset.y }
+
+      // Takipçi(ler): pivotun aksine dünyada SABİT KALMAZ, elemanla birlikte
+      // döner — yeni port konumu her karede yeniden hesaplanır (`InstallationLineMesh.tsx`
+      // → `useDraggedCorners`, bağlı hattı bu konuma çeker, boru gerilir).
+      // `grab` bir `let`; TS bunu kapanan ok fonksiyonuna daraltılmış taşımaz —
+      // yerel `const` takma ad şart (yoksa `possibly undefined`).
+      const activeGrab = grab
+      const followers = activeGrab.followers.map((follower) => {
+        const followerOffset = getElementAnchorOffset(
+          { scale: activeGrab.scale },
+          activeGrab.metadata,
+          follower.local,
+          angleDeg,
+        )
+        return {
+          lineId: follower.lineId,
+          pointId: follower.pointId,
+          position: { x: position.x + followerOffset.x, y: position.y + followerOffset.y },
+        }
+      })
+
       usePlumbingUiStore.getState().setElementRotateDrag({
         elementId: grab.elementId,
         angleDeg,
-        position: { x: grab.anchorWorld.x - offset.x, y: grab.anchorWorld.y - offset.y },
+        position,
+        followers,
       })
     }
 
@@ -153,7 +180,7 @@ export function useElementRotateTool(): void {
       endDrag()
       if (!drag) return
 
-      useCadStore.getState().rotateElement(elementId, drag.angleDeg, drag.position)
+      useCadStore.getState().rotateElement(elementId, drag.angleDeg, drag.position, drag.followers)
     }
 
     // Esc sürüklemeyi iptal eder: eleman eski açısında kalır, store'a yazılmadı.

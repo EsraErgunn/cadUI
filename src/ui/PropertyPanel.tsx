@@ -51,7 +51,13 @@ export function PropertyPanel() {
     clearSelection()
   }, [activeViewId, clearSelection])
 
-  const kind = getPropertySelectionKind(selection)
+  // `clearSelection` yalnız BİR SONRAKİ render'da (passive effect, paint'ten
+  // SONRA) işler; o araya denk gelen karede panel eski seçimle -ve tesisat
+  // görünümündeyken mimari alanlarıyla- hâlâ açık ve DÜZENLENEBİLİR kalırdı.
+  // Görünüm kontrolü burada, render'ın kendisinde: efekt beklemeden kapatır.
+  const isArchitectureView = activeViewId === 'architecture'
+
+  const kind = isArchitectureView ? getPropertySelectionKind(selection) : 'none'
   const wallIds = getSelectedIds(selection, 'wall')
   const openingIds = getSelectedIds(selection, 'opening')
   const symbolIds = getSelectedIds(selection, 'symbol')

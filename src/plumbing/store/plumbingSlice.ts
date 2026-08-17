@@ -164,8 +164,18 @@ export type PlumbingSlice = {
    * hesaplanır, yoksa gövde borudan kopardı. Çağıran (`useElementRotateTool.ts`)
    * ikisini BİRLİKTE hesaplayıp geçirir; kapsam denetimi (döndürülebilir mi)
    * de orada.
+   *
+   * `followers`: pivotun DIŞINDA ikinci bir porttan bağlı elemanlarda (ör.
+   * branşmandaki sayaç) o ucun bağlı olduğu hat noktasının YENİ konumu — AYNI
+   * yazımda (tek `set`/`record`) uygulanır, yoksa döndürme + hat güncellemesi
+   * iki ayrı Ctrl+Z adımına bölünürdü. Çoğu elemanda boş dizi.
    */
-  rotateElement: (elementId: Id, angleDeg: number, position: PlanPoint) => void
+  rotateElement: (
+    elementId: Id,
+    angleDeg: number,
+    position: PlanPoint,
+    followers?: readonly { lineId: Id; pointId: Id; position: PlanPoint }[],
+  ) => void
   undoPlumbing: () => void
   redoPlumbing: () => void
 }
@@ -899,7 +909,7 @@ export const createPlumbingSlice: StateCreator<
       if (isChanged) record()
     },
 
-    rotateElement: (elementId, angleDeg, position) => {
+    rotateElement: (elementId, angleDeg, position, followers = []) => {
       let isChanged = false
 
       set((draft) => {
@@ -907,17 +917,23 @@ export const createPlumbingSlice: StateCreator<
           (candidate) => candidate.id === elementId,
         )
         if (!element) return
-        if (
+
+        const isElementSame =
           element.angleDeg === angleDeg &&
           element.position.x === position.x &&
           element.position.y === position.y
-        ) {
-          return
-        }
+        if (isElementSame && followers.length === 0) return
 
         element.angleDeg = angleDeg
         element.position = position
         isChanged = true
+
+        for (const follower of followers) {
+          const line = draft.installationLines.find((candidate) => candidate.id === follower.lineId)
+          const point = line?.points.find((candidate) => candidate.id === follower.pointId)
+          if (point) point.position = follower.position
+        }
+
         markDirty(draft)
       })
 

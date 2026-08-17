@@ -1,20 +1,18 @@
-import type { InstallationElement, InstallationLineKind } from './installationModel'
+import type { InstallationElement } from './installationModel'
 import type { InstallationElementType, SymbolMetadata, SymbolPortDefinition } from './symbolMetadata'
 
 /**
  * Hat çiziminin ilk tıklamasında ÖNCE yerleştirilecek eleman; yoksa null.
  *
- * - Branşman her zaman sayaçla gelir: branşman hattı sayaçtan başlar, önce sayaç
- *   konur sonra boru ondan devam eder.
  * - Boru, projede hiç servis kutusu yokken kutuyu kendisi koyar — tesisat servis
  *   kutusundan başlar ve kullanıcı "önce kutuyu ekle" diye engellenmez.
  *   Kutu zaten varsa boru serbest başlar; servis kutusu proje başına TEKTİR.
+ * - Branşman burada YOK: ilk tıkta hiç eleman koymaz, yer seviyesinde serbest
+ *   bir nokta bırakır. Sayaç ikinci tıkta, o noktayla arasına vanalı mavi
+ *   kesikli bir kol (`branchStub`) girerek eklenir — bkz. `useLineTool.ts`
+ *   → `commitBranchGroundStep`.
  */
-export function getLineSeedElementType(
-  kind: InstallationLineKind,
-  hasServiceBox: boolean,
-): InstallationElementType | null {
-  if (kind === 'branch') return 'gasMeter'
+export function getLineSeedElementType(hasServiceBox: boolean): InstallationElementType | null {
   return hasServiceBox ? null : 'serviceBox'
 }
 
