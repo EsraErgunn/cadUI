@@ -34,34 +34,17 @@ describe('AdminSidebar', () => {
   })
 
   /**
-   * Hangi maddenin beklediği zamanla değişiyor (Evraklar, sonra Poliçeler
-   * yazılınca rozetleri düştü); test etiket sabitlemek yerine bayrağı okuyor —
-   * bugün menüde bekleyen madde kalmadı, yarın eklenirse kendiliğinden kapsar.
+   * "Yakında" rozeti KALKTI: menüdeki her maddenin ekranı yazıldı ve rozet,
+   * çalışan bir ekranı "hazır değil" gösteriyordu. Test regresyon koruması —
+   * rozet geri gelirse burası kırmızıya döner.
    */
-  it('rozet YALNIZ ekranı hazır olmayan maddede görünür', () => {
+  it('hiçbir menü maddesi "Yakında" rozeti taşımaz', () => {
     renderSidebar()
 
     for (const item of ADMIN_NAV_ITEMS) {
       const link = screen.getByRole('link', { name: new RegExp(item.label) })
-      if (item.isComingSoon === true) {
-        expect(link).toHaveTextContent('Yakında')
-        continue
-      }
       expect(link).not.toHaveTextContent('Yakında')
     }
-  })
-
-  // Ekranı yazılan madde rozetini KAYBETMELİ; rozet kalsaydı çalışan bir ekran
-  // "hazır değil" görünürdü.
-  it('ekranı yazılmış madde rozet taşımaz', () => {
-    renderSidebar()
-
-    expect(screen.getByRole('link', { name: /Proje Firmaları/ })).not.toHaveTextContent('Yakında')
-    // Belge madde 1: menü etiketi "Firma Kullanıcıları" değil "Proje Firması
-    // Kullanıcıları" — sistemde gaz dağıtım firması kullanıcıları da var.
-    expect(
-      screen.getByRole('link', { name: /Proje Firması Kullanıcıları/ }),
-    ).not.toHaveTextContent('Yakında')
   })
 
   it('bulunulan sayfanın maddesi işaretlenir', () => {

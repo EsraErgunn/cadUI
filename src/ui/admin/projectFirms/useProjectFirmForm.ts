@@ -4,7 +4,7 @@ import {
   removeAuthorization,
   toAuthorizationPayloads,
   type ProjectFirmAuthorization,
-} from './projectFirmAuthorizations'
+} from './authorizationDraft'
 import {
   PROJECT_FIRM_ERRORS,
   buildEmptyProjectFirmValues,
@@ -19,7 +19,11 @@ import {
 import { findTakenProjectFirmErrors } from './projectFirmUniqueness'
 import { ApiError } from '../../../api/http'
 import type { ProjectFirm } from '../../../api/projectFirmDto'
-import { createProjectFirm, saveProjectFirmAuthorizations } from '../../../api/projectFirmForm'
+import {
+  createProjectFirm,
+  saveProjectFirmAuthorizations,
+  updateProjectFirm,
+} from '../../../api/projectFirmForm'
 
 const SUBMIT_ERROR_MESSAGE = 'Firma kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
 
@@ -73,6 +77,18 @@ export interface UseProjectFirmFormOptions {
    * liste çekilemediğinde kaydetmek engellenmemeli.
    */
   existingFirms: readonly ProjectFirm[]
+  /**
+   * GÜNCELLEME kipi: dolu ise `PUT /api/projectfirms/{id}`, boş ise `POST`.
+   * Kimlik ayrıca benzersizlik ön kontrolünde kaydın kendisini eliyor.
+   */
+  firmId?: number | null
+  /**
+   * Formun açılış değerleri — güncellemede TEKİL uç yanıtından türetilir
+   * (`toProjectFirmFormValues`). Mount anında verilir, sonradan gelen veriyi
+   * state'e taşıyan bir efekt YOK: o efekt, kullanıcı yazmaya başladıysa
+   * yazdığını silerdi (`ProjectFirmUserFormPage` ile aynı gerekçe).
+   */
+  initialValues?: ProjectFirmFormValues
 }
 
 export interface ProjectFirmForm {
@@ -100,13 +116,17 @@ export interface ProjectFirmForm {
 
 /**
  * Yeni proje firması formunun durumu. Doğrulama `projectFirmSchema`'da,
- * yetkilendirme listesinin kuralları `projectFirmAuthorizations`'ta; burada
+ * yetkilendirme listesinin kuralları `authorizationDraft`'ta; burada
  * yalnız durum yönetimi var.
  */
 export function useProjectFirmForm({
   existingFirms,
+  firmId = null,
+  initialValues,
 }: UseProjectFirmFormOptions): ProjectFirmForm {
-  const [values, setValues] = useState<ProjectFirmFormValues>(buildEmptyProjectFirmValues)
+  const [values, setValues] = useState<ProjectFirmFormValues>(
+    () => initialValues ?? buildEmptyProjectFirmValues(),
+  )
   const [errors, setErrors] = useState<ProjectFirmErrors>({})
   const [authorizations, setAuthorizations] = useState<ProjectFirmAuthorization[]>([])
   const [authorizationError, setAuthorizationError] = useState<string | null>(null)
@@ -170,13 +190,20 @@ export function useProjectFirmForm({
   const submit = useCallback(async (): Promise<ProjectFirmSaveResult | null> => {
     setSubmitError(null)
 
+    const isUpdate = firmId !== null
+
     const { errors: fieldErrors, data } = validateProjectFirm(values)
     // Benzersizlik yalnız alan kuralları geçtiğinde bakılır: yarım girilmiş bir
     // numaranın "kullanımda" denmesi kullanıcıyı yanlış yere bakmaya iterdi.
-    const takenErrors = data === null ? {} : findTakenProjectFirmErrors(existingFirms, data)
+    const takenErrors =
+      data === null ? {} : findTakenProjectFirmErrors(existingFirms, data, firmId)
     const nextErrors = { ...fieldErrors, ...takenErrors }
+    // Yetkilendirme zorunluluğu YALNIZ eklemede: `PUT /api/projectfirms/{id}`
+    // yetki kayıtlarını taşımıyor ve tekil uç onları geri vermiyor, bu yüzden
+    // güncelleme ekranı bölümü hiç göstermiyor. Kural orada da aransaydı hiçbir
+    // güncelleme kaydedilemezdi.
     const nextAuthorizationError =
-      authorizations.length === 0 ? PROJECT_FIRM_ERRORS.noAuthorization : null
+      !isUpdate && authorizations.length === 0 ? PROJECT_FIRM_ERRORS.noAuthorization : null
 
     setErrors(nextErrors)
     setAuthorizationError(nextAuthorizationError)
@@ -189,15 +216,24 @@ export function useProjectFirmForm({
 
     setIsSubmitting(true)
     try {
-      const firmId = await createProjectFirm(toProjectFirmPayload(data))
+      const payload = toProjectFirmPayload(data)
+
+      if (isUpdate) {
+        await updateProjectFirm(firmId, payload)
+        // Güncellemede yetkilendirme gönderilmiyor (uç taşımıyor); "bekleyen"
+        // uyarısı da çıkmaz, yoksa her kaydetmede yanlış uyarı görünürdü.
+        return { firmId, arePendingAuthorizations: false }
+      }
+
+      const createdId = await createProjectFirm(payload)
       // Firma kaydı BAŞARILI olduktan sonra çalışır; buradaki bir hata firmayı
       // geri almaz, bu yüzden kullanıcıyı listeye götürmeyi engellemiyor.
       const { arePersisted } = await saveProjectFirmAuthorizations(
-        firmId,
+        createdId,
         toAuthorizationPayloads(authorizations),
       )
 
-      return { firmId, arePendingAuthorizations: !arePersisted }
+      return { firmId: createdId, arePendingAuthorizations: !arePersisted }
     } catch (error) {
       setSubmitError(buildSubmitError(error, values.isSoleProprietorship))
       // Sunucunun reddettiği ayar onay kutusunda: odak oraya taşınır ki
@@ -209,7 +245,7 @@ export function useProjectFirmForm({
     } finally {
       setIsSubmitting(false)
     }
-  }, [authorizations, existingFirms, values])
+  }, [authorizations, existingFirms, firmId, values])
 
   const clearFocusRequest = useCallback(() => setFocusField(null), [])
   const clearSubmitError = useCallback(() => setSubmitError(null), [])

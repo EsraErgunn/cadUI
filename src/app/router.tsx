@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
 import { AdminHomePage } from '../pages/AdminHomePage'
 import { AnnouncementsPage } from '../pages/AnnouncementsPage'
-import { ComingSoonPage } from '../pages/ComingSoonPage'
 import { DocumentListPage } from '../pages/DocumentListPage'
 import { EditorPage } from '../pages/EditorPage'
 import { GasDistributionFirmFormPage } from '../pages/GasDistributionFirmFormPage'
@@ -16,6 +15,7 @@ import { NewProjectPage } from '../pages/NewProjectPage'
 import { PolicyListPage } from '../pages/PolicyListPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
+import { ProjectFirmUpdatePage } from '../pages/ProjectFirmUpdatePage'
 import { ProjectFirmUserFormPage } from '../pages/ProjectFirmUserFormPage'
 import { ProjectFirmUsersPage } from '../pages/ProjectFirmUsersPage'
 import { ProjectFirmsPage } from '../pages/ProjectFirmsPage'
@@ -33,6 +33,7 @@ import {
   PROJECT_CREATE_PATH,
   PROJECT_FIRMS_PATH,
   PROJECT_FIRM_CREATE_PATH,
+  PROJECT_FIRM_UPDATE_ROUTE,
   PROJECT_FIRM_USERS_PATH,
   PROJECT_FIRM_USER_CREATE_PATH,
 } from '../ui/admin/adminNavItems'
@@ -120,13 +121,9 @@ export function AppRouter() {
           {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
               hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
               kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
-          {/* Firma adının hedefi; güncelleme ekranı kendi issue'sunda gelecek.
-              Rota olmasaydı tıklama yakalayıcı route'a düşüp kullanıcıyı proje
-              listesine atardı. */}
-          <Route
-            path={`${PROJECT_FIRMS_PATH}/:firmId`}
-            element={<ComingSoonPage title="Proje Firması Güncelle" section="Firmalar" />}
-          />
+          {/* Firma adının hedefi. Kayıt TEKİL uçtan çekilir, form onunla
+              doldurulur ve `PUT /api/projectfirms/{id}` ile kaydedilir. */}
+          <Route path={PROJECT_FIRM_UPDATE_ROUTE} element={<ProjectFirmUpdatePage />} />
           <Route path={DOCUMENTS_PATH} element={<DocumentListPage />} />
           {/* Statik parça dinamik olandan ÖNCE eşleşir kuralı burada gerekmiyor:
               /new'in dinamik kardeşi yok. Proje kimliği yolda değil query'de

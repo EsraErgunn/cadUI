@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 
+import { FirmRowActions } from './FirmRowActions'
 import type { GasDistributionFirm, GasFirmSortKey } from '../../../api/adminFirms'
 import type { DataTableColumn } from '../DataTable'
 import { gasFirmUpdatePath } from '../adminNavItems'
@@ -11,7 +12,9 @@ const NO_GROUP_PLACEHOLDER = '-'
 export const FIRM_TABLE_CAPTION =
   'Gaz dağıtım firmaları listesi. Sütun başlıkları sıralamayı değiştirir.'
 
-export const FIRM_COLUMNS: DataTableColumn<GasDistributionFirm, GasFirmSortKey>[] = [
+type FirmColumn = DataTableColumn<GasDistributionFirm, GasFirmSortKey>
+
+const DATA_COLUMNS: FirmColumn[] = [
   {
     key: 'dfirmNo',
     label: 'DFirm No',
@@ -43,3 +46,39 @@ export const FIRM_COLUMNS: DataTableColumn<GasDistributionFirm, GasFirmSortKey>[
     ),
   },
 ]
+
+interface FirmColumnsOptions {
+  /** İstek süren satır; o satırın düğmesi kilitlenir. */
+  pendingFirmId: number | null
+  /**
+   * Yazma yetkisi olmayan kullanıcıda İşlemler sütunu HİÇ çizilmez — pasif
+   * düğme göstermek, tıklayınca 403 alacak bir yol açık bırakmak olurdu.
+   * Karar yalnız GÖRÜNÜRLÜK içindir; denetim sunucuda (`useIsAdmin`).
+   */
+  canManage: boolean
+  onDeactivate: (firm: GasDistributionFirm) => void
+}
+
+export function buildFirmColumns({
+  pendingFirmId,
+  canManage,
+  onDeactivate,
+}: FirmColumnsOptions): FirmColumn[] {
+  if (!canManage) return DATA_COLUMNS
+
+  return [
+    ...DATA_COLUMNS,
+    {
+      key: 'actions',
+      label: 'İşlemler',
+      cellClassName: 'text-right',
+      cell: (firm) => (
+        <FirmRowActions
+          firm={firm}
+          isPending={pendingFirmId === firm.id}
+          onDeactivate={onDeactivate}
+        />
+      ),
+    },
+  ]
+}

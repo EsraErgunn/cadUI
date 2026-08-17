@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DfirmNoTakenError,
   createGasDistributionFirm,
+  deactivateGasDistributionFirm,
   getGasDistributionFirm,
   getNextDfirmNo,
   updateGasDistributionFirm,
@@ -140,6 +141,32 @@ describe('updateGasDistributionFirm', () => {
     stubFetch(jsonResponse({ message: 'Bu firma numarası zaten kullanılıyor.' }, 409))
 
     await expect(updateGasDistributionFirm(42, PAYLOAD)).rejects.toBeInstanceOf(DfirmNoTakenError)
+  })
+})
+
+/** DELETE fiziksel silme değil, pasifleştirme; yanıt GÖVDESİZ geliyor. */
+describe('deactivateGasDistributionFirm', () => {
+  it('DELETE ucuna gider', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 200 }))
+
+    await deactivateGasDistributionFirm(42)
+
+    expect(requestOf(fetchMock).method).toBe('DELETE')
+    expect(requestOf(fetchMock).url).toContain('/api/gasdistributionfirms/42')
+  })
+
+  // `requestJson` kullanılsaydı boş gövdede `json()` patlar ve işlem sunucuda
+  // BAŞARILIYKEN çağıran hata görürdü.
+  it('boş gövdeli 200 yanıtı hata sayılmaz', async () => {
+    stubFetch(new Response(null, { status: 200 }))
+
+    await expect(deactivateGasDistributionFirm(42)).resolves.toBeUndefined()
+  })
+
+  it('404 yanıtını ApiError olarak geçirir', async () => {
+    stubFetch(jsonResponse({ message: 'Firma bulunamadı.' }, 404))
+
+    await expect(deactivateGasDistributionFirm(42)).rejects.toBeInstanceOf(ApiError)
   })
 })
 

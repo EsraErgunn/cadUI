@@ -1,7 +1,6 @@
 import { Moon, Sun } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
-import { ComingSoonBadge } from './ComingSoonBadge'
 import { ADMIN_HOME_PATH, ADMIN_NAV_ITEMS, type AdminNavItem } from './adminNavItems'
 import { adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
 import { useTheme } from './useTheme'
@@ -29,7 +28,6 @@ function AdminNavEntry({ item }: { item: AdminNavItem }) {
         <>
           <Icon aria-hidden className="size-4 shrink-0" />
           <span className="min-w-0 flex-1">{item.label}</span>
-          {item.isComingSoon === true && <ComingSoonBadge />}
           {isActive && <span className="sr-only">(bulunulan sayfa)</span>}
         </>
       )}
