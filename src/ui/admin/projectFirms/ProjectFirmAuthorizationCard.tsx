@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 
 import { AuthorizationList } from './AuthorizationList'
 import { GasDistributionFirmPicker } from './GasDistributionFirmPicker'
-import type { ProjectFirmAuthorization } from './projectFirmAuthorizations'
+import type { ProjectFirmAuthorization } from './authorizationDraft'
 import { useProjectFirmAuthorizationDraft } from './useProjectFirmAuthorizationDraft'
 import { adminButtonVariants } from '../adminVariants'
 import { FieldError } from '../form/FieldError'

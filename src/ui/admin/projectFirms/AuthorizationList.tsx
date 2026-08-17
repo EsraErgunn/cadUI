@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react'
 
-import type { ProjectFirmAuthorization } from './projectFirmAuthorizations'
+import type { ProjectFirmAuthorization } from './authorizationDraft'
 import { adminIconButtonVariants } from '../adminVariants'
 
 interface AuthorizationListProps {

@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 
-import type { AuthorizationGasFirm } from './projectFirmAuthorizations'
+import type { AuthorizationGasFirm } from './authorizationDraft'
 import {
   ADMIN_CHECKBOX,
   adminFieldVariants,
@@ -35,7 +35,7 @@ interface GasDistributionFirmPickerProps {
  *
  * Etiket belgeden geldiği gibi "G.D Firması Bölgeleri" kalıyor; kutulardaki
  * kayıtlar coğrafi bölge değil bölge lisanslı FİRMA ve adları "AKSA-ADANA"
- * biçiminde geliyor (bkz. projectFirmAuthorizations → formatAuthorizationGasFirmName).
+ * biçiminde geliyor (bkz. authorizationDraft → formatAuthorizationGasFirmName).
  *
  * `FieldFrame` KULLANILMIYOR: onun etiketi `htmlFor` ile TEK bir girdiye bağlanır,
  * burada ise bir kutu kümesi var. Etiket bunun yerine `role="group"` kabına

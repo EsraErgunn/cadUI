@@ -9,7 +9,7 @@ import {
   formatAuthorizationGasFirmName,
   type AuthorizationGasFirm,
   type ProjectFirmAuthorization,
-} from './projectFirmAuthorizations'
+} from './authorizationDraft'
 import {
   getFirmGroups,
   getGasDistributionFirmsByGroup,
