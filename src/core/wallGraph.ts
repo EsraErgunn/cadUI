@@ -4,9 +4,10 @@ import { getOpeningSpan } from './opening'
 import {
   buildPointIndex,
   getSegmentLength,
-  getWallEnds,
+  getWallEndsFrom,
   MIN_WALL_LENGTH_CM,
   type MovedWallSegment,
+  type PointIndex,
 } from './wall'
 
 /** Kayan nokta payı: snap noktayı zaten doğrunun ÜSTÜNE koyuyor, eşik dar olmalı. */
@@ -32,8 +33,9 @@ export type WallSplitPoint = {
 
 type Segment = { p1: PlanPoint; p2: PlanPoint; lengthCm: number }
 
-function readSegment(wall: Wall, points: readonly Point[]): Segment | undefined {
-  const ends = getWallEnds(wall, points)
+/** Duvar döngüsü içinde çağrılıyor: uçlar indeksten çözülür, havuz taranmaz. */
+function readSegment(wall: Wall, pointIndex: PointIndex): Segment | undefined {
+  const ends = getWallEndsFrom(wall, pointIndex)
   if (!ends) return undefined
 
   const lengthCm = getSegmentLength(ends.p1, ends.p2)
@@ -136,17 +138,17 @@ export function findWallSplits(
   points: readonly Point[],
   floorId: Id,
 ): Map<Id, WallSplitPoint[]> {
+  // Hem aşağıdaki segment döngüsü hem çift döngü duvar başına uç çözüyor;
+  // havuzu her seferinde taramak toplamı O(N²·P) yapıyordu. İndeks çağrıya
+  // YEREL: bu fonksiyon immer draft'ıyla da çağrılabiliyor, draft yerinde değişir.
+  const pointIndex = buildPointIndex(points)
+
   const floorWalls = walls.filter((wall) => wall.floorId === floorId)
   const segments = new Map<Id, Segment>()
   for (const wall of floorWalls) {
-    const segment = readSegment(wall, points)
+    const segment = readSegment(wall, pointIndex)
     if (segment) segments.set(wall.id, segment)
   }
-
-  // Aşağıdaki çift döngü duvar çifti başına uç noktası çözüyor; havuzu her
-  // seferinde taramak toplamı O(N²·P) yapıyordu. İndeks çağrıya YEREL: bu
-  // fonksiyon immer draft'ıyla da çağrılabiliyor ve draft yerinde değişir.
-  const pointIndex = buildPointIndex(points)
 
   const splits = new Map<Id, WallSplitPoint[]>()
 
@@ -248,13 +250,15 @@ export function findBlockingOpening(
   if (candidateLengthCm < MIN_WALL_LENGTH_CM) return undefined
   const candidateSegment: Segment = { p1: candidate.p1, p2: candidate.p2, lengthCm: candidateLengthCm }
 
+  const pointIndex = buildPointIndex(points)
+
   for (const wall of walls) {
     if (wall.floorId !== floorId) continue
 
     const wallOpenings = openings.filter((opening) => opening.wallId === wall.id)
     if (wallOpenings.length === 0) continue
 
-    const wallSegment = readSegment(wall, points)
+    const wallSegment = readSegment(wall, pointIndex)
     if (!wallSegment) continue
 
     // Kolineer veya kesişmiyor: undefined, bu duvar için sorun yok.
@@ -316,6 +320,9 @@ export function findBlockingOpeningOnMovedWalls(
   openings: readonly Opening[],
   floorId: Id,
 ): Opening | undefined {
+  // İç içe iki döngü: indeks dışarıda BİR kez kurulur.
+  const pointIndex = buildPointIndex(points)
+
   for (const moved of movedSegments) {
     const movedOpenings = openings.filter((opening) => opening.wallId === moved.wallId)
     if (movedOpenings.length === 0) continue
@@ -327,7 +334,7 @@ export function findBlockingOpeningOnMovedWalls(
     for (const wall of stationaryWalls) {
       if (wall.floorId !== floorId) continue
 
-      const wallSegment = readSegment(wall, points)
+      const wallSegment = readSegment(wall, pointIndex)
       if (!wallSegment) continue
 
       // Roller ters: aday SABİT duvar, açıklığı taşıyan (B) ise TAŞINAN duvar.

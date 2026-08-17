@@ -1,6 +1,14 @@
 import type { PlanPoint } from './coords'
 import type { Id, Point, Wall } from './model'
-import { getSegmentLength, getWallEnds, getWallsAtPoint, MIN_WALL_LENGTH_CM } from './wall'
+import {
+  getSegmentLength,
+  getWallEnds,
+  getWallEndsFrom,
+  getWallsAtPoint,
+  MIN_WALL_LENGTH_CM,
+  type PointIndex,
+  type WallEnds,
+} from './wall'
 
 /**
  * Duvarın çizilen şekli: eksen doğru parçası + yarıçap (kapsül). Uçlar YUVARLAK
@@ -18,7 +26,19 @@ export type WallCapsule = {
 }
 
 export function getWallCapsule(wall: Wall, points: readonly Point[]): WallCapsule | undefined {
-  const ends = getWallEnds(wall, points)
+  return toCapsule(wall, getWallEnds(wall, points))
+}
+
+/**
+ * `getWallCapsule`'ün indeksli hâli. Duvar listesi çizen bileşenler bunu
+ * kullanır: kapsül duvar başına çağrıldığı için havuzu her seferinde taramak
+ * kare başına O(N·P) ederdi.
+ */
+export function getWallCapsuleFrom(wall: Wall, pointIndex: PointIndex): WallCapsule | undefined {
+  return toCapsule(wall, getWallEndsFrom(wall, pointIndex))
+}
+
+function toCapsule(wall: Wall, ends: WallEnds | undefined): WallCapsule | undefined {
   if (!ends) return undefined
 
   // Kazara çift tıklamayla oluşan sıfır boy segment çizilmez.

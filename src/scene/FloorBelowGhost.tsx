@@ -8,10 +8,11 @@ import { toOpeningFillPositions } from './openingFill'
 import { SCENE_COLORS } from './sceneTheme'
 import { planToThree, type PlanPoint } from '../core/coords'
 import { getFloorBelowId } from '../core/floors'
-import type { OpeningType, Point, Wall } from '../core/model'
+import type { OpeningType, Wall } from '../core/model'
 import { getOpeningOutline } from '../core/opening'
 import { getOpeningSymbol, type OpeningSymbolRole } from '../core/openingSymbol'
-import { getWallCapsule } from '../core/wallShape'
+import { buildPointIndex, type PointIndex } from '../core/wall'
+import { getWallCapsuleFrom } from '../core/wallShape'
 import { useCadStore } from '../store/cadStore'
 
 /**
@@ -26,8 +27,8 @@ const GHOST_STROKE_WIDTHS: Record<OpeningSymbolRole, number> = {
 
 const GHOST_SYMBOL_ELEVATION_CM = FLOOR_BELOW_GHOST_ELEVATION_CM + OPENING_SYMBOL_LIFT_CM
 
-function GhostWall({ wall, points }: { wall: Wall; points: readonly Point[] }) {
-  const capsule = getWallCapsule(wall, points)
+function GhostWall({ wall, pointIndex }: { wall: Wall; pointIndex: PointIndex }) {
+  const capsule = getWallCapsuleFrom(wall, pointIndex)
   if (!capsule) return null
 
   return (
@@ -128,6 +129,8 @@ export function FloorBelowGhost() {
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const walls = useCadStore((state) => state.walls)
   const points = useCadStore((state) => state.points)
+  // Havuz BİR kez indekslenir; hayalet duvar başına taransaydı O(N·P) olurdu.
+  const pointIndex = buildPointIndex(points)
   const openings = useCadStore((state) => state.openings)
 
   const floorBelowId = getFloorBelowId(floors, activeFloorId)
@@ -155,7 +158,7 @@ export function FloorBelowGhost() {
   return (
     <group name="floor-below-ghost">
       {ghostWalls.map((wall) => (
-        <GhostWall key={wall.id} wall={wall} points={points} />
+        <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} />
       ))}
 
       {ghostOpenings.map((opening) => (

@@ -11,6 +11,7 @@ import { findRoomFaces } from '../../core/room'
 import { insetRoomPolygon } from '../../core/roomFill'
 import { getWallSetKey } from '../../core/roomIdentity'
 import { getSymbolPose, getSymbolsOnFloor } from '../../core/symbolPlacement'
+import { buildPointIndex } from '../../core/wall'
 import { useCadStore } from '../../store/cadStore'
 
 /*
@@ -34,6 +35,8 @@ import { useCadStore } from '../../store/cadStore'
 export function ArchitectureGhost() {
   const walls = useCadStore((state) => state.walls)
   const points = useCadStore((state) => state.points)
+  // Havuz BİR kez indekslenir; hayalet duvar başına taransaydı O(N·P) olurdu.
+  const pointIndex = buildPointIndex(points)
   const openings = useCadStore((state) => state.openings)
   const rooms = useCadStore((state) => state.rooms)
   const beams = useCadStore((state) => state.beams)
@@ -106,7 +109,7 @@ export function ArchitectureGhost() {
       ))}
 
       {floorWalls.map((wall) => (
-        <GhostWall key={wall.id} wall={wall} points={points} />
+        <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} />
       ))}
 
       {openingGhosts.map((opening) => (

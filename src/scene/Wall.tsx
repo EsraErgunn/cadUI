@@ -4,9 +4,10 @@ import { RENDER_ORDER, WALL_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { planToThree } from '../core/coords'
-import type { Point, Wall as WallData } from '../core/model'
+import type { Wall as WallData } from '../core/model'
 import { isSelected } from '../core/selection'
-import { getWallCapsule } from '../core/wallShape'
+import { buildPointIndex, type PointIndex } from '../core/wall'
+import { getWallCapsuleFrom } from '../core/wallShape'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
@@ -35,7 +36,8 @@ const TONE_BOOSTS_CM: Record<WallTone, number> = {
 
 type WallProps = {
   wall: WallData
-  points: readonly Point[]
+  /** Havuz indeksi, dizi değil: kapsül duvar başına uç çözüyor (bkz. wallShape). */
+  pointIndex: PointIndex
   tone: WallTone
 }
 
@@ -49,8 +51,8 @@ type WallProps = {
  * Duvarlar birbirinin üstüne çizilir ve birleşim hesabı YAPILMAZ: hepsi aynı
  * opak renkte olduğu için çakışma görünmez, kavşak kendiliğinden dolar (K23).
  */
-export function Wall({ wall, points, tone }: WallProps) {
-  const capsule = getWallCapsule(wall, points)
+export function Wall({ wall, pointIndex, tone }: WallProps) {
+  const capsule = getWallCapsuleFrom(wall, pointIndex)
   if (!capsule) return null
 
   return (
@@ -94,6 +96,8 @@ export function Walls() {
 
   const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
   const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
+  // Havuz BİR kez indekslenir; duvar başına taransaydı kare başına O(N·P) olurdu.
+  const pointIndex = buildPointIndex(points)
 
   // Seçim vurgudan baskın: seçili duvarın üstündeyken mavi kalır, açılmaz.
   const toneOf = (wallId: WallData['id']): WallTone => {
@@ -104,7 +108,7 @@ export function Walls() {
   return (
     <group name="walls">
       {floorWalls.map((wall) => (
-        <Wall key={wall.id} wall={wall} points={points} tone={toneOf(wall.id)} />
+        <Wall key={wall.id} wall={wall} pointIndex={pointIndex} tone={toneOf(wall.id)} />
       ))}
     </group>
   )

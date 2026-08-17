@@ -3,9 +3,10 @@ import { Line } from '@react-three/drei'
 import { ARCHITECTURE_GHOST_ELEVATION_CM, ARCHITECTURE_GHOST_SYMBOL_LIFT_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import { planToThree, type PlanPoint, type ThreePosition } from '../../core/coords'
-import type { OpeningType, Point, Wall as WallData } from '../../core/model'
+import type { OpeningType, Wall as WallData } from '../../core/model'
 import { getOpeningSymbol, type OpeningSymbolRole } from '../../core/openingSymbol'
-import { getWallCapsule } from '../../core/wallShape'
+import { type PointIndex } from '../../core/wall'
+import { getWallCapsuleFrom } from '../../core/wallShape'
 import { RENDER_ORDER } from '../../scene/layers'
 import { toOpeningFillPositions } from '../../scene/openingFill'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
@@ -54,8 +55,8 @@ function GhostLine({ points, lineWidth }: GhostLineProps) {
  * Hayalet duvar = soluk renkli kapsül. scene/Wall.tsx ile AYNI geometri: mimari
  * görünümde union yok, duvarlar üst üste çizilir ve kavşak kendiliğinden dolar (K23).
  */
-export function GhostWall({ wall, points }: { wall: WallData; points: readonly Point[] }) {
-  const capsule = getWallCapsule(wall, points)
+export function GhostWall({ wall, pointIndex }: { wall: WallData; pointIndex: PointIndex }) {
+  const capsule = getWallCapsuleFrom(wall, pointIndex)
   if (!capsule) return null
 
   return (
