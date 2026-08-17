@@ -52,12 +52,20 @@ export function PlumbingPropertyPanel() {
     clearSelection()
   }, [activeViewId, clearSelection])
 
-  const kind = getPlumbingSelectionKind(
-    selectedElementIds,
-    selectedLineIds,
-    installationElements,
-    installationLines,
-  )
+  // `clearSelection` yalnız BİR SONRAKİ render'da (passive effect, paint'ten
+  // SONRA) işler; o araya denk gelen karede panel eski seçimle -ve mimari
+  // görünümündeyken tesisat alanlarıyla- hâlâ açık ve DÜZENLENEBİLİR kalırdı.
+  // Görünüm kontrolü burada, render'ın kendisinde: efekt beklemeden kapatır.
+  const isInstallationView = activeViewId === 'installation'
+
+  const kind = isInstallationView
+    ? getPlumbingSelectionKind(
+        selectedElementIds,
+        selectedLineIds,
+        installationElements,
+        installationLines,
+      )
+    : { scope: 'none' as const }
   const isOpen = kind.scope !== 'none'
 
   // Seçimde servis kutusu varsa doğrudan silinmez, önce onay istenir (bkz.

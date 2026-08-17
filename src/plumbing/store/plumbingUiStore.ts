@@ -39,8 +39,22 @@ export type LabelDrag = { elementId: Id; offsetCm: PlanPoint }
  * cadStore'a yazılmaz, sahne elemanı geçici açı+konumuyla çizer. Boruya/porta
  * bağlı elemanlarda `position` de değişir — tutunduğu nokta dünyada sabit
  * kalsın diye (`core/elementRotateHandle.ts` → `getElementAnchorOffset`).
+ *
+ * `followers`: pivotun DIŞINDA ikinci bir bağlantısı olan eleman (ör.
+ * branşmandaki sayaç — hem giriş hem çıkış portundan bağlı) döndürülürken bu
+ * ucun bağlı olduğu hat noktasının geçici hedef konumu. `useDraggedCorners`
+ * bunu okuyup ilgili hattı oraya çeker — boş dizi çoğu elemanda (tek/hiç
+ * tutunma) hiçbir şey değiştirmez.
  */
-export type ElementRotateDrag = { elementId: Id; angleDeg: number; position: PlanPoint }
+export type ElementRotateDrag = {
+  elementId: Id
+  angleDeg: number
+  position: PlanPoint
+  // Immer draft'ı `readonly` diziyi yazılabilir taslağa çeviremiyor (aynı
+  // gerekçe `ApplianceOutlet.position`'da, installationModel.ts) — bu yüzden
+  // burada `readonly` DEĞİL.
+  followers: { lineId: Id; pointId: Id; position: PlanPoint }[]
+}
 
 /**
  * Devam eden çizim: hangi araçla + zincirin nerede kaldığı. Zincirin nasıl

@@ -12,6 +12,24 @@ export type MoveTargets = {
 }
 
 /**
+ * Porta bağlı bir hat ucunun HEMEN yanındaki (aradaki tek segmentin öbür
+ * ucundaki) nokta — branşmandaki vana gibi bir armatür orada oturuyorsa
+ * (`elementAttach.ts` → `resolveFreeEndAttachment`: "vana hattın ESKİ
+ * ucundaki düğüme oturur") o armatür elemana YAPIŞIK sayılır. Hat 2'den az
+ * noktalıysa (olmaz ama savunma) komşu yoktur.
+ */
+function getGlueNeighborPointId(
+  lines: readonly InstallationLine[],
+  lineId: Id,
+  end: InstallationConnection['end'],
+): Id | undefined {
+  const line = lines.find((candidate) => candidate.id === lineId)
+  if (!line || line.points.length < 2) return undefined
+
+  return end === 'start' ? line.points[1]?.id : line.points.at(-2)?.id
+}
+
+/**
  * Bir taşıma jestinin neyi kaydıracağı — TEK hesapta, sıraya bağlı olmadan.
  *
  * Model üç bağ tanır ve hepsi KAYNAKTIR (birleşen şeyler ayrılamaz):
@@ -68,6 +86,14 @@ export function resolveMoveTargets(
     if (!elementIds.has(targetElementId)) continue
 
     addPoint(getLineEndPointId(lines, connection.lineId, connection.end))
+
+    // Bağlı ucun komşusu bir armatüre oturuyorsa (branşmanla gelen vana gibi)
+    // o da AYNI kaymayla gelir: aradaki kısa parça esneyen bir boru değil,
+    // elemana yapışık bir montaj payı — kullanıcı isteği (2026-08): "branşmanla
+    // gelen vana branşmanın portuna yapışsın". Alt döngü (armatür→elemanIds)
+    // bu noktayı zaten okuyor, burada yalnız pointIds'e katılması yeter.
+    const glueNeighborPointId = getGlueNeighborPointId(lines, connection.lineId, connection.end)
+    if (glueNeighborPointId !== undefined) addPoint(glueNeighborPointId)
   }
 
   for (const line of lines) {
@@ -82,6 +108,12 @@ export function resolveMoveTargets(
   // Kaynak kapanışı: bağ İKİ YÖNLÜ okunur. Kayıt "B'nin ucu A'nın köşesine
   // tutunuyor" diye tek yönlü yazılıyor ama fiziksel olarak orası TEK düğümdür;
   // hangi taraf kayarsa öteki de kaymalı.
+  //
+  // Branşmanın ana hatta tutunan YER ucu da buna DAHİL (kullanıcı isteği,
+  // 2026-08): branşman sürüklenince ana borunun bağlantı KÖŞESİ onu takip eder
+  // ve boru orada bükülür — borunun geri kalanı yerinde kalır, kayan yalnız o
+  // tek köşedir. Bu bağ bir ara tek yönlü yapılmıştı (ana boru çapa sayılsın
+  // diye); o zaman branşman boruyu yerinde bırakıp KOPUYORDU, geri alındı.
   let isChanged = true
   while (isChanged) {
     isChanged = false

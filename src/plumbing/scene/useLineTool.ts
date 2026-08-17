@@ -131,34 +131,47 @@ export function useLineTool(): LineToolState {
       const radiusCm = getSnapRadiusCm(zoom)
       const cad = useCadStore.getState()
       const draftLine = readDraft()
-      const floorElements = cad.installationElements.filter(
-        (element) => element.floorId === cad.activeFloorId,
-      )
 
-      const port = findNearestFreePort(
-        floorElements,
-        cad.installationConnections,
-        getSymbolMetadata,
-        event.planPoint,
-        radiusCm,
-      )
-      if (port) return { point: port.position, snap: { kind: 'port', position: port.position, port } }
+      // Branşman hiçbir porta/boruya BAĞLANMAZ, onlara YAKALANMAZ da (kullanıcı
+      // isteği, 2026-08: "diğer borulara ek yapılmasın"): kendi sayacını kendisi
+      // getiriyor, var olan bir boruya `lineSplit` ile girseydi o boruyu
+      // ORTASINDAN ayırırdı. Yakalama da kapalı — bağ KURMAYAN bir mıknatıs,
+      // borunun üstüne oturmuş ama ona bağlı OLMAYAN bir branşman bırakırdı.
+      // Duvar kelepçesi (aşağıda) açık kalır: o bir bağ değil, yalnız konum.
+      if (kind !== 'branch') {
+        const floorElements = cad.installationElements.filter(
+          (element) => element.floorId === cad.activeFloorId,
+        )
 
-      // Zincirin ucunun ÜSTÜNDE oturduğu boru aday değildir: kullanıcı oradan
-      // geliyor: kısa bir adım yeni köşeyi kaçınılmaz olarak o borunun yakalama
-      // yarıçapına düşürür ve adım, az önce yazdığı boruyu AYIRARAK biterdi.
-      const anchorLineId =
-        draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
-      // Baca/havalandırma aday DEĞİL: gaz borusu onlara yapışsaydı `lineSplit`
-      // kanalı ortasından ayırır ve içine bir gaz düğümü açardı.
-      const floorLines = cad.installationLines.filter(
-        (line) =>
-          line.floorId === cad.activeFloorId &&
-          line.id !== anchorLineId &&
-          isGasCarryingKind(line.kind),
-      )
-      const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
-      if (line) return { point: line.position, snap: { kind: 'line', position: line.position, line } }
+        const port = findNearestFreePort(
+          floorElements,
+          cad.installationConnections,
+          getSymbolMetadata,
+          event.planPoint,
+          radiusCm,
+        )
+        if (port) {
+          return { point: port.position, snap: { kind: 'port', position: port.position, port } }
+        }
+
+        // Zincirin ucunun ÜSTÜNDE oturduğu boru aday değildir: kullanıcı oradan
+        // geliyor: kısa bir adım yeni köşeyi kaçınılmaz olarak o borunun yakalama
+        // yarıçapına düşürür ve adım, az önce yazdığı boruyu AYIRARAK biterdi.
+        const anchorLineId =
+          draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
+        // Baca/havalandırma aday DEĞİL: gaz borusu onlara yapışsaydı `lineSplit`
+        // kanalı ortasından ayırır ve içine bir gaz düğümü açardı.
+        const floorLines = cad.installationLines.filter(
+          (line) =>
+            line.floorId === cad.activeFloorId &&
+            line.id !== anchorLineId &&
+            isGasCarryingKind(line.kind),
+        )
+        const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
+        if (line) {
+          return { point: line.position, snap: { kind: 'line', position: line.position, line } }
+        }
+      }
 
       if (!event.ctrlKey && draftLine) {
         const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
@@ -191,18 +204,19 @@ export function useLineTool(): LineToolState {
      * araç bir ÖN ELEMAN istiyorsa (ilk boru → servis kutusu) önce eleman
      * yerleştirilir ve hat onun çıkış portundan başlar.
      *
-     * Branşman burada AYRI: hiçbir hedefe düşmediyse önce eleman koymaz, yer
-     * seviyesinde SERBEST bir nokta bırakır — sayaç ve arasındaki vanalı mavi
-     * kesikli kol ikinci tıkta gelir (`commitBranchGroundStep`).
+     * Branşman burada AYRI: HİÇBİR hedefe bağlanmaz, her zaman yer seviyesinde
+     * SERBEST bir nokta bırakır — sayaç ve arasındaki vanalı mavi kesikli kol
+     * ikinci tıkta gelir (`commitBranchGroundStep`). `resolveSnap` branşmanda
+     * zaten `snap: null` döndürüyor; buradaki sıra o kuralı görünür kılıyor.
      *
      * Eleman kendi adımında yazılır: ayrı bir Ctrl+Z ile geri alınır. Hat ile
      * aynı adıma sokulsaydı yarım bırakılan (Esc'lenen) çizimde eleman da
      * kaybolurdu — oysa kullanıcı onu görerek koydu.
      */
     const startDraft = (point: PlanPoint, snap: LineToolSnap | null): LineDraft | null => {
-      if (snap) return { kind, ...startChain(point, toAttachment(snap)) }
-
       if (kind === 'branch') return { kind, ...startChain(point, null) }
+
+      if (snap) return { kind, ...startChain(point, toAttachment(snap)) }
 
       const cad = useCadStore.getState()
       const seedType = getLineSeedElementType(hasServiceBox(cad.installationElements))
@@ -234,7 +248,13 @@ export function useLineTool(): LineToolState {
      * Önce o noktadan tıklanan yere kadar mavi kesikli bir `branchStub` çizilir,
      * sonra sayaç (+ araya giren vana) bu kolun ucuna `resolveFreeEndAttachment`
      * ile AYNI mekanizmayla eklenir (palet'ten sayaç yerleştirmeyle birebir) —
-     * geometri iki kez yazılmasın diye. Zincir sayacın ÇIKIŞ portundan devam eder.
+     * geometri iki kez yazılmasın diye.
+     *
+     * Sayaç konunca zincir onun ÇIKIŞ portundan DEVAM eder: branşman yerleşince
+     * boru döşeme hemen başlar ve o boru branşmandan ÇIKAR (kullanıcı isteği,
+     * 2026-08). Borunun başka bir yerden başlaması mümkün değil — branşman
+     * aracında port/boru yakalaması kapalı (bkz. `resolveSnap`), yani sayacın
+     * çıkışı bu araçtaki TEK boru çıkış noktasıdır.
      *
      * `snap` burada bilerek yok sayılır: bu adımın ucu her zaman TAZE yerleşen
      * sayacın giriş portu olur, kullanıcının tıkladığı nokta yalnız YÖNÜ verir
@@ -283,6 +303,7 @@ export function useLineTool(): LineToolState {
         return
       }
 
+      // Boru sayacın ÇIKIŞ portundan başlar (yukarıdaki nota bkz.).
       writeDraft({
         kind: 'branch',
         ...startChain(getPortWorldPosition(meter, outputPort, metadata), {
