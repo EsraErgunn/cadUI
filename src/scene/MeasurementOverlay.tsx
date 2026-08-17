@@ -61,19 +61,24 @@ function MeasurementText({
   zoom: number
 }) {
   return (
-    <Text
-      font={FONT_URL}
+    // Ekran-sabit boy ölçekle, fontSize ile değil (bkz. WallDimensionLabels).
+    <group
       position={planToThree(position, HANDLE_ELEVATION_CM)}
       rotation={FLAT_ROTATION}
-      fontSize={LABEL_SIZE_PX / zoom}
-      color={ARCHITECTURE_COLORS.measurement}
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={RENDER_ORDER.measurement}
-      raycast={NO_RAYCAST}
+      scale={1 / zoom}
     >
-      {label}
-    </Text>
+      <Text
+        font={FONT_URL}
+        fontSize={LABEL_SIZE_PX}
+        color={ARCHITECTURE_COLORS.measurement}
+        anchorX="center"
+        anchorY="middle"
+        renderOrder={RENDER_ORDER.measurement}
+        raycast={NO_RAYCAST}
+      >
+        {label}
+      </Text>
+    </group>
   )
 }
 

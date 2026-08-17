@@ -23,6 +23,7 @@ function projectWithWall(): ProjectData {
     symbols: [],
     areaObjects: [],
     beams: [],
+    texts: [],
     installationElements: [],
     installationLines: [],
     installationConnections: [],

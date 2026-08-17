@@ -83,21 +83,27 @@ function CornerAngles() {
       {annotations.map((annotation) => (
         <Fragment key={annotation.key}>
           <CornerAngleMarker annotation={annotation} radiusCm={MARKER_RADIUS_PX / zoom} />
-          <Text
-            font={FONT_URL}
+          {/* Ekran-sabit boy ölçekle veriliyor, fontSize ile değil: fontSize her
+              değişiminde troika metni yeniden dizer (bkz. WallDimensionLabels). */}
+          <group
             position={planToThree(annotation.position, HANDLE_ELEVATION_CM)}
             // Ölçü yazısının aksine duvara PARALEL dönmez: açı iki duvara birden
             // ait, birine hizalamak öbürüne yanlış bakardı. Yatay kalır.
             rotation={FLAT_ROTATION}
-            fontSize={LABEL_SIZE_PX / zoom}
-            color={ARCHITECTURE_COLORS.cornerAngle}
-            anchorX="center"
-            anchorY="middle"
-            renderOrder={RENDER_ORDER.measurement}
-            raycast={NO_RAYCAST}
+            scale={1 / zoom}
           >
-            {formatAngleDegrees(annotation.angleDeg)}
-          </Text>
+            <Text
+              font={FONT_URL}
+              fontSize={LABEL_SIZE_PX}
+              color={ARCHITECTURE_COLORS.cornerAngle}
+              anchorX="center"
+              anchorY="middle"
+              renderOrder={RENDER_ORDER.measurement}
+              raycast={NO_RAYCAST}
+            >
+              {formatAngleDegrees(annotation.angleDeg)}
+            </Text>
+          </group>
         </Fragment>
       ))}
     </group>

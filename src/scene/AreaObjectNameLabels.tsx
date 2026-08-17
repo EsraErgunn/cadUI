@@ -87,19 +87,24 @@ function AreaObjectNameLabel({ areaObject, shape, zoom }: AreaObjectNameLabelPro
         toneMapped={false}
         raycast={NO_RAYCAST}
       />
-      <Text
-        font={FONT_URL}
+      {/* Ekran-sabit boy ölçekle, fontSize ile değil (bkz. WallDimensionLabels). */}
+      <group
         position={planToThree(anchor, HANDLE_ELEVATION_CM)}
         rotation={FLAT_ROTATION}
-        fontSize={AREA_OBJECT_LABEL_SIZE_PX / zoom}
-        color={ARCHITECTURE_COLORS.areaObjectStroke}
-        anchorX="center"
-        anchorY="middle"
-        renderOrder={RENDER_ORDER.label}
-        raycast={NO_RAYCAST}
+        scale={1 / zoom}
       >
-        {text}
-      </Text>
+        <Text
+          font={FONT_URL}
+          fontSize={AREA_OBJECT_LABEL_SIZE_PX}
+          color={ARCHITECTURE_COLORS.areaObjectStroke}
+          anchorX="center"
+          anchorY="middle"
+          renderOrder={RENDER_ORDER.label}
+          raycast={NO_RAYCAST}
+        >
+          {text}
+        </Text>
+      </group>
     </>
   )
 }
