@@ -11,6 +11,8 @@ import { PointSymbol, type PointSymbolTone } from './PointSymbol'
 import { Rooms } from './Room'
 import { RoomTool } from './RoomTool'
 import { SelectionMarquee } from './SelectionMarquee'
+import { TextLabelEditor } from './TextLabelEditor'
+import { TextLabels } from './TextLabels'
 import { Walls } from './Wall'
 import { WallDimensionLabels } from './WallDimensionLabels'
 import { WallTool } from './WallTool'
@@ -26,6 +28,8 @@ import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
+import { useTextSelectionTool } from './useTextSelectionTool'
+import { useTextTool } from './useTextTool'
 import { DEFAULT_AREA_OBJECT_SIZE_CM } from '../core/areaObject'
 import { DEFAULT_BEAM_THICKNESS_CM } from '../core/beam'
 import { getOpeningOutline } from '../core/opening'
@@ -291,6 +295,25 @@ function Measurement() {
   return <MeasurementOverlay {...useMeasurementTool()} />
 }
 
+/**
+ * Metinleri çizer, yerleştirme ve seçim/taşıma/düzenleme araçlarını çalıştırır.
+ * AreaObjects ile aynı desen: hook'lar <Canvas> içinde koşmak zorunda.
+ */
+function Texts() {
+  useTextTool()
+  useTextSelectionTool()
+  const texts = useCadStore((state) => state.texts)
+  const editingTextId = useArchitectureUiStore((state) => state.editingTextId)
+  const editing = texts.find((text) => text.id === editingTextId)
+
+  return (
+    <>
+      <TextLabels />
+      {editing && <TextLabelEditor text={editing} />}
+    </>
+  )
+}
+
 /** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
 export function ArchitectureLayer() {
   // Oda adı düzenleme jesti; hook <Canvas> içinde çalışmak zorunda (kamera okuyor).
@@ -315,6 +338,7 @@ export function ArchitectureLayer() {
       {/* Tutamaklar ve seçim çerçevesi en üstte: altındaki her şeyin üzerinde görünmeli. */}
       <PointHandles />
       <AreaObjectHandles />
+      <Texts />
       {/* Ad etiketleri tutamaçlarla aynı katmanda: her şeyin üstünde okunmalı. */}
       <AreaObjectNameLabels />
       {/* Ölçüler tutamaçların ALTINDA (RENDER_ORDER.measurement < handle): sayı

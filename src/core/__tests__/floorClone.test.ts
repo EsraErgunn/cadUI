@@ -69,7 +69,16 @@ const areaObjects: AreaObject[] = [
   },
 ]
 
-const source: FloorCloneSource = { points, walls, openings, rooms, symbols, areaObjects, beams: [] }
+const source: FloorCloneSource = {
+  points,
+  walls,
+  openings,
+  rooms,
+  symbols,
+  areaObjects,
+  beams: [],
+  texts: [],
+}
 
 function makeTakeId(start = 100) {
   let next = start
@@ -236,6 +245,7 @@ const verticalAxisSource: FloorCloneSource = {
   rooms: [],
   symbols: [],
   beams: [],
+  texts: [],
   areaObjects: [
     {
       id: 20,

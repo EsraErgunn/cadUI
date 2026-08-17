@@ -20,6 +20,7 @@ const emptySource: FloorContentSource = {
   symbols: [],
   areaObjects: [],
   beams: [],
+  texts: [],
   installationElements: [],
   installationLines: [],
 }

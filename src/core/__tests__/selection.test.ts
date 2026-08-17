@@ -86,13 +86,13 @@ describe('pruneSelection', () => {
   it('silinmiş nesneyi seçimden düşürür', () => {
     const selection: Selection = [wallItem, { kind: 'wall', id: 999 }]
 
-    expect(pruneSelection(selection, walls, openings, [], [], [])).toEqual([wallItem])
+    expect(pruneSelection(selection, walls, openings, [], [], [], [])).toEqual([wallItem])
   })
 
   it('değişiklik yoksa AYNI diziyi döndürür — gereksiz render olmasın', () => {
     const selection: Selection = [wallItem]
 
-    expect(pruneSelection(selection, walls, openings, [], [], [])).toBe(selection)
+    expect(pruneSelection(selection, walls, openings, [], [], [], [])).toBe(selection)
   })
 })
 
@@ -162,7 +162,7 @@ describe('getSelectionInRect', () => {
   it('duvar ve açıklıkları tek geçişte toplar', () => {
     const rect = toPlanRect({ x: -100, y: -100 }, { x: 1000, y: 1000 })
 
-    const selection = getSelectionInRect(rect, walls, openings, points, [], [], [])
+    const selection = getSelectionInRect(rect, walls, openings, points, [], [], [], [])
 
     expect(getSelectedIds(selection, 'wall')).toHaveLength(walls.length)
     expect(getSelectedIds(selection, 'opening')).toEqual([WINDOW_12_ID])

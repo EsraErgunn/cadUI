@@ -15,6 +15,7 @@ const emptyProject: ProjectData = {
   symbols: [],
   areaObjects: [],
   beams: [],
+  texts: [],
   installationElements: [],
   installationLines: [],
   installationConnections: [],
@@ -27,7 +28,7 @@ describe('serializeProjectData', () => {
       '{"nextUniqueId":2,"activeFloorId":1,' +
         '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
         '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],"areaObjects":[],' +
-        '"beams":[],"installationElements":[],"installationLines":[],' +
+        '"beams":[],"texts":[],"installationElements":[],"installationLines":[],' +
         '"installationConnections":[]}',
 
     )
@@ -266,7 +267,7 @@ describe('düşey eksen kimliği turu (K63)', () => {
       '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
       '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],' +
       '"areaObjects":[{"id":20,"type":"flueShaft","floorId":1,"x":200,"y":200,' +
-      '"widthCm":100,"lengthCm":100,"angleDeg":0,"label":"BS-01"}],"beams":[],' +
+      '"widthCm":100,"lengthCm":100,"angleDeg":0,"label":"BS-01"}],"beams":[],"texts":[],' +
       '"installationElements":[],"installationLines":[],"installationConnections":[]}'
 
     const parsed = parseProjectJson(legacy)

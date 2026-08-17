@@ -203,6 +203,7 @@ describe('kalıcılık', () => {
       symbols: saved,
       areaObjects: [],
       beams: [],
+      texts: [],
       installationElements: [],
       installationLines: [],
       installationConnections: [],

@@ -46,6 +46,11 @@ export const ARCHITECTURE_COLORS = {
    */
   measurement: '#0f766e',
   /**
+   * Kullanıcının yazdığı metin (K81). Duvardan KOYU: not, çizimin altında
+   * kalmamalı — okunmak için konmuş.
+   */
+  text: '#1f2937',
+  /**
    * Köşe açısı yazısı ve geometrik işareti (K77): BORDO (kullanıcı seçti).
    * Kendi rengi var çünkü aynı köşede ölçü ve açı yan yana düşebiliyor.
    *

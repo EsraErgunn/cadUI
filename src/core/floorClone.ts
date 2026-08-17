@@ -10,6 +10,7 @@ import type {
   PointSymbol,
   Room,
   SymbolAttachment,
+  TextLabel,
   Wall,
 } from './model'
 import { getNextSymbolLabel } from './pointSymbol'
@@ -28,6 +29,7 @@ export type FloorArchitecture = {
   symbols: PointSymbol[]
   areaObjects: AreaObject[]
   beams: Beam[]
+  texts: TextLabel[]
 }
 
 export type FloorCloneSource = {
@@ -38,6 +40,7 @@ export type FloorCloneSource = {
   symbols: readonly PointSymbol[]
   areaObjects: readonly AreaObject[]
   beams: readonly Beam[]
+  texts: readonly TextLabel[]
 }
 
 /** Katta çizim var mı? Kopya yalnız BOŞ kata aktarılır (CLAUDE.md ürün kuralı). */
@@ -47,7 +50,8 @@ export function isFloorEmpty(source: FloorCloneSource, floorId: Id): boolean {
     !source.walls.some((wall) => wall.floorId === floorId) &&
     !source.symbols.some((symbol) => isSymbolOnFloor(symbol, floorId, source.walls)) &&
     !source.areaObjects.some((areaObject) => areaObject.floorId === floorId) &&
-    !source.beams.some((beam) => beam.floorId === floorId)
+    !source.beams.some((beam) => beam.floorId === floorId) &&
+    !source.texts.some((text) => text.floorId === floorId)
   )
 }
 
@@ -93,6 +97,7 @@ export function cloneFloorArchitecture(
     (areaObject) => areaObject.floorId === sourceFloorId,
   )
   const sourceBeams = source.beams.filter((beam) => beam.floorId === sourceFloorId)
+  const sourceTexts = source.texts.filter((text) => text.floorId === sourceFloorId)
 
   // Köşeler ÖNCE: duvarın uçları onların yeni id'lerini isteyecek.
   const pointRemap = createIdRemap(
@@ -215,5 +220,14 @@ export function cloneFloorArchitecture(
     })
   }
 
-  return { points, walls, openings, rooms, symbols, areaObjects, beams }
+  // Metin de kimseye bağlı değil, ama etiketi YENİDEN ÜRETİLMEZ: kirişin
+  // "K1/K2" gibi otomatik kodunun aksine metnin içeriği kullanıcının yazdığı
+  // şeydir — kopyada değişmesi, kullanıcının yazısını silmek olurdu.
+  const texts: TextLabel[] = sourceTexts.map((text) => ({
+    ...text,
+    id: takeId(),
+    floorId: targetFloorId,
+  }))
+
+  return { points, walls, openings, rooms, symbols, areaObjects, beams, texts }
 }

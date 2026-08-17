@@ -23,6 +23,7 @@ import { createPointSymbolActions, pruneSymbolsInDraft } from './pointSymbolOps'
 import type { PointSymbolActions } from './pointSymbolOps'
 import { markDirty, takeNextId } from './projectMeta'
 import { createSelectionActions } from './selectionOps'
+import { createTextLabelActions, type TextLabelActions } from './textLabelOps'
 import { createTransformActions } from './transformOps'
 import type { PlanPoint } from '../core/coords'
 import { type Id } from '../core/model'
@@ -43,7 +44,8 @@ export type { AddedWall, AddWallChainInput, AddWallInput, WallEnd } from './arch
 export type ArchitectureSlice = ArchitectureData &
   PointSymbolActions &
   AreaObjectActions &
-  BeamActions & {
+  BeamActions &
+  TextLabelActions & {
   addWall: (input: AddWallInput) => AddedWall | undefined
   addWallChain: (input: AddWallChainInput) => void
   movePoint: (pointId: Id, position: PlanPoint) => void
@@ -181,6 +183,7 @@ export const createArchitectureSlice: StateCreator<
   ...createPointSymbolActions(set),
   ...createAreaObjectActions(set),
   ...createBeamActions(set),
+  ...createTextLabelActions(set),
 
   deleteWall: (wallId) =>
     set((draft) => {

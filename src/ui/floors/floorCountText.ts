@@ -19,6 +19,9 @@ export function formatArchitectureCounts(counts: FloorContentCounts): string {
     [counts.areaObjectCount, 'alan nesnesi'],
     // Kiriş alan nesnesi DEĞİL (çizgisel, ayrı model) — kendi kalemi olarak yazılır.
     [counts.beamCount, 'kiriş'],
+    // Metin çizim değil NOT ama kat silinince o da gidiyor: dökümde görünmezse
+    // kullanıcı yazdıklarını kaybettiğini ancak sonradan fark ederdi.
+    [counts.textCount, 'metin'],
   ])
 }
 
