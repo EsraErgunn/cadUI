@@ -66,6 +66,10 @@ export type InstallationElement = {
 export type InstallationLineKind =
   | 'pipe'
   | 'branch'
+  // Branşmanın yer seviyesindeki ilk noktasını sayacın giriş portuna bağlayan
+  // parça — applianceStub'la aynı gerekçeyle ayrı tür: gövde her zaman mavi ve
+  // kesikli çizilir (K-branşman).
+  | 'branchStub'
   | 'applianceStub'
   | 'chimney'
   | 'ventilationDuct'

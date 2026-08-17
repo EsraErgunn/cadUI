@@ -24,6 +24,12 @@ export const PLUMBING_COLORS = {
    */
   applianceStub: '#ef4444',
   /**
+   * Branşmanın yer seviyesi noktasını sayacın giriş portuna bağlayan parça:
+   * applianceStub'la AYNI gerekçe (çap sınıfından bağımsız, hep kesikli), ama
+   * seçim mavisinden (#2d7ff9) ayrılsın diye daha koyu bir mavi.
+   */
+  branchStub: '#1d4ed8',
+  /**
    * Baca kanalı: koyu nötr. Çap paletiyle, applianceStub kırmızısıyla (#ef4444),
    * seçim mavisiyle (#2d7ff9), snap yeşiliyle (#0aa06e) ve marka sarısıyla
    * çakışmaz. Kanal planın ALTYAPISI — gaz hattı kadar bağırmamalı.

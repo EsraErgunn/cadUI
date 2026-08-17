@@ -111,7 +111,10 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
 
 - Giriş yapmadan hiçbir sayfaya erişilemez (RequireAuth).
 - Hatalı giriş: hesabın var olup olmadığını ele vermeyen GENEL hata mesajı.
-- Borular duvarlara paralel (yatay/dikey), hat üzerinden başlar. Duvar+boru üst üste binmez.
+- Boru duvara YAKINKEN (yakalama yarıçapı içinde) o duvara paralel/dik gider;
+  yakında değilken TAMAMEN SERBEST (çapraz dahil) — hat üzerinden başlar.
+  Duvarın üstü (gövde VE köşe) yasaklı alan, boru asla üst üste binmez
+  (bkz. knowledge/line-drafting.md, 2026-08 üçüncü düzeltme).
 - Cihaza bağlanmamış boru ucu UYARIYLA gösterilir ama çalışmayı ENGELLEMEZ (severity: warning).
 - Bir kat mimarisi başka katlara kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
   Hedefte içerik varsa kullanıcı seçer: üzerine yaz (aynı TÜRDEN çizim silinir) ya da o katı

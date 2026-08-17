@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
 import { resolvePlacementPosition } from './placementSnap'
-import { getSnapRadiusCm } from './snapRadius'
+import { getSnapRadiusCm, getWallEdgeGapCm } from './snapRadius'
 import { getLoadedSymbol } from './symbolLoader'
 import { findSelectedElementRotateHandle } from './useElementRotateTool'
 import type { PlanPoint } from '../../core/coords'
@@ -31,6 +31,7 @@ import { getLinesInRect, pickLineAt } from '../core/linePicking'
 import { findNearestPointOnLines } from '../core/lineSnap'
 import { resolveMoveTargets } from '../core/moveTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
+import { findNearestWallCorner, findNearestWallFace } from '../core/wallSnap'
 import {
   copySelectionToClipboard,
   cutSelectionToClipboard,
@@ -410,10 +411,31 @@ export function useSelectionTool(): SelectionToolState {
       handleElementPointerDown(event, target)
     }
 
-    /** Sürüklenen köşenin/yeni köşenin yeri — grid'e yapışır, Ctrl serbest bırakır. */
+    /**
+     * Sürüklenen köşenin yeri — HER ZAMAN serbest (ızgaraya kilitli değil, tek
+     * kısıtı Ctrl'siz duvara yapışma): önce duvar KÖŞESİ toleranstaysa KESKİN
+     * (tam köşe koordinatı), yoksa duvarın GÖVDESİ toleranstaysa yüzüne
+     * `getWallEdgeGapCm` payla (ekran pikseli) mıknatıslanır, ikisi de yoksa
+     * imleç aynen izlenir (kullanıcı isteği, 2026-08: "borular her zaman
+     * serbest hareket edebilsin"). Ctrl duvar yakalamasını da kapatır — tıpkı
+     * eleman sürüklemesindeki ızgara kapatma jestiyle aynı.
+     */
     const resolveCornerPosition = (event: DrawSurfacePointerEvent): PlanPoint => {
+      if (event.ctrlKey) return event.planPoint
+
       const { zoom } = readCameraViewport(camera)
-      return event.ctrlKey ? event.planPoint : resolvePlacementPosition(event.planPoint, zoom)
+      const radiusCm = getSnapRadiusCm(zoom)
+      const gapCm = getWallEdgeGapCm(zoom)
+      const cad = useCadStore.getState()
+      const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
+
+      const corner = findNearestWallCorner(floorWalls, cad.points, event.planPoint, radiusCm, gapCm)
+      if (corner) return corner
+
+      const face = findNearestWallFace(floorWalls, cad.points, event.planPoint, radiusCm, gapCm)
+      if (face) return face
+
+      return event.planPoint
     }
 
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {

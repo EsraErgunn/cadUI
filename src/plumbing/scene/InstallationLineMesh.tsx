@@ -176,13 +176,16 @@ function PipeLineMesh({
 }: InstallationLineMeshProps) {
   const isGhost = tone === 'ghost'
   const isApplianceStub = line.kind === 'applianceStub'
+  const isBranchStub = line.kind === 'branchStub'
   const widthPx = getLineWidthPx(line.pipeTypeName, zoom)
   const colorHex =
     isSelected && !isGhost
       ? SCENE_COLORS.selection
       : isApplianceStub
         ? PLUMBING_COLORS.applianceStub
-        : getLineColor(line.pipeTypeName)
+        : isBranchStub
+          ? PLUMBING_COLORS.branchStub
+          : getLineColor(line.pipeTypeName)
 
   const points = useDraggedLinePoints(line, draggedCorner)
 
@@ -206,7 +209,7 @@ function PipeLineMesh({
         widthPx={widthPx}
         renderOrder={isGhost ? RENDER_ORDER.installationGhost : RENDER_ORDER.pipe}
         isGhost={isGhost}
-        isDashed={isApplianceStub}
+        isDashed={isApplianceStub || isBranchStub}
       />
 
       {/* Uç işaretleri hayalette çizilmez: mimari görünümde tesisat salt bağlamdır.

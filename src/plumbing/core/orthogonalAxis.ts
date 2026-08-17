@@ -8,10 +8,11 @@ const DEG_TO_RAD = Math.PI / 180
  * cursor'ın adaya olan DİK uzaklığı en küçük olanla yapılır (klasik "ortho
  * lock": iki dik eksenden biri, üçüncü bir açı asla üretilmez).
  *
- * Duvar kilidiyle (`wallSnap.ts`) VE duvar yokkenki genel kelepçeyle
- * (`angleSnap.ts`) PAYLAŞILAN tek hesap — ikisi de "anchor'dan çıkan iki dik
- * eksenden birini seç" sorusunu soruyor, farkları yalnız `baseAngleDeg`'in
- * nereden geldiği (duvarın açısı / dünya ekseni).
+ * KİLİTSİZ: her çağrı bağımsızdır, önceki karar hatırlanmaz — kullanıcı
+ * isteği (2026-08): "hiçbir zaman tek eksene yapışmasın", hangi eksenin
+ * kullanılacağı HER karede imlece göre yeniden seçilir. Yalnız `wallSnap.ts`
+ * duvara yakınken (bir duvar bulunduğunda) çağrılır; duvar yokken boru
+ * tamamen serbesttir (`useLineTool.ts`), bu fonksiyona hiç uğramaz.
  */
 export function projectOntoClosestOrthogonalAxis(
   baseAngleDeg: number,

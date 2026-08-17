@@ -38,4 +38,5 @@ export const INSTALLATION_LINE_KIND_LABELS: Record<InstallationLineKind, string>
   chimney: 'Baca',
   ventilationDuct: 'Havalandırma Kanalı',
   applianceStub: 'Cihaz Kolu',
+  branchStub: 'Branşman Kolu',
 }
