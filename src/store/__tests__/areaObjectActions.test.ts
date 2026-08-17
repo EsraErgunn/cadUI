@@ -40,8 +40,8 @@ describe('addAreaObject', () => {
       type: 'structuralColumn',
       x: 120,
       y: 80,
-      widthCm: 100,
-      lengthCm: 100,
+      widthCm: 50,
+      lengthCm: 50,
       angleDeg: 0,
       label: 'K-01',
     })
@@ -52,9 +52,9 @@ describe('addAreaObject', () => {
 
     expect(findAreaObject(id!)).toMatchObject({
       type: 'columnVentilation',
-      // Baca şaftının iç çemberinden bir tık küçük çap.
-      widthCm: 80,
-      lengthCm: 80,
+      // Baca şaftından bağımsız kendi varsayılanı.
+      widthCm: 40,
+      lengthCm: 40,
       label: 'KH-01',
     })
   })
@@ -153,7 +153,7 @@ describe('resizeAreaObject', () => {
       .resizeAreaObject(id!, { x: 10, y: 10, widthCm: 0, lengthCm: 100 })
 
     expect(isResized).toBe(false)
-    expect(findAreaObject(id!)).toMatchObject({ x: 0, y: 0, widthCm: 100 })
+    expect(findAreaObject(id!)).toMatchObject({ x: 0, y: 0, widthCm: 50 })
   })
 
   it('sonuç bir kapının üstüne düşerse reddedilir (K35/K36)', () => {
@@ -173,7 +173,7 @@ describe('resizeAreaObject', () => {
       .resizeAreaObject(id!, { x: 200, y: 150, widthCm: 100, lengthCm: 400 })
 
     expect(isResized).toBe(false)
-    expect(findAreaObject(id!)).toMatchObject({ y: 300, lengthCm: 100 })
+    expect(findAreaObject(id!)).toMatchObject({ y: 300, lengthCm: 50 })
   })
 })
 
