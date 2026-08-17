@@ -16,9 +16,11 @@ import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 
 type FloatingToolbarProps = {
-  /** Kat geçişi EditorPage'in `goToFloor`'u — menü ve klavye de aynı fonksiyonu
-   *  çağırıyor, burada ikinci bir kopyası yazılmıyor. */
+  /** Kat geçişi ve kat pencereleri EditorPage'de; klavye kısayolları da aynı
+   *  fonksiyonları çağırıyor, burada ikinci bir kopyası yazılmıyor. */
   onGoToFloor: (direction: FloorDirection) => void
+  onOpenFloorManagement: () => void
+  onOpenFloorCopy: () => void
 }
 
 /**
@@ -31,7 +33,11 @@ type FloatingToolbarProps = {
  * ÖZEL olanlar burada dallanır — snap yalnız mimaride, Görünüm menüsünün
  * maddeleri ise `ViewOptionsMenu` içinde görünüme göre seçilir.
  */
-export function FloatingToolbar({ onGoToFloor }: FloatingToolbarProps) {
+export function FloatingToolbar({
+  onGoToFloor,
+  onOpenFloorManagement,
+  onOpenFloorCopy,
+}: FloatingToolbarProps) {
   const activeToolId = useUiStore((state) => state.activeToolId)
   const setActiveTool = useUiStore((state) => state.setActiveTool)
   const isPanModeActive = useUiStore((state) => state.isPanModeActive)
@@ -118,24 +124,28 @@ export function FloatingToolbar({ onGoToFloor }: FloatingToolbarProps) {
 
         <span className={CANVAS_BAR_DIVIDER} aria-hidden />
 
+        {/* Oklar KOMŞU kata (bir alt/bir üst) tek tıkla götürür — çizerken en sık
+            yapılan geçiş bu. Ortadaki açılır ise uzak kata atlamak, boş katı
+            görmek ve kat pencerelerini açmak için. */}
         <button
           type="button"
           onClick={() => onGoToFloor('down')}
           disabled={!hasFloorBelow}
-          title="Alt kata geç"
+          title="Alt kata geç (Page Down)"
           aria-label="Alt kata geç"
           className={canvasBarButtonVariants()}
         >
           <ChevronDown size={16} strokeWidth={1.8} aria-hidden />
         </button>
-        {/* Kat adı AÇILIR: sol üstteki şerit kaldırıldığı için tüm katların
-            listesi ve boş-kat rozetleri buraya taşındı (K55). */}
-        <FloorSelect />
+        <FloorSelect
+          onOpenFloorManagement={onOpenFloorManagement}
+          onOpenFloorCopy={onOpenFloorCopy}
+        />
         <button
           type="button"
           onClick={() => onGoToFloor('up')}
           disabled={!hasFloorAbove}
-          title="Üst kata geç"
+          title="Üst kata geç (Page Up)"
           aria-label="Üst kata geç"
           className={canvasBarButtonVariants()}
         >

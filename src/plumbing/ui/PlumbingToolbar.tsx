@@ -28,7 +28,9 @@ export function PlumbingToolbar() {
   return (
     // Kısayol ipucu paletin ALTINA yapışsın diye sütun: nav yalnız araçları
     // sarmalar, ipucu araç değil (nav'ın içinde olsaydı palete araç gibi girerdi).
-    <div className="flex shrink-0 flex-col border-r border-ink bg-surface">
+    // Zemin ve kenarlık YOK: mimari paletle aynı gerekçe, ikisini de
+    // EditorSidebar taşıyor.
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Mimari paletle aynı iskelet: araçlar 2 sütuna otomatik sarar. */}
       <nav aria-label="Araç paleti" className="grid grid-cols-2 content-start gap-1 p-1.5">
         {INSTALLATION_TOOLS.map((tool) => (

@@ -5,8 +5,10 @@
  */
 export const SCENE_COLORS = {
   background: '#ffffff',
-  gridMinor: '#eaeef4',
-  gridMajor: '#cbd3e0',
+  /* Izgara ÇOK açık: çizimin altındaki kağıt, okunacak bir katman değil. Daha
+     koyu tonda duvarlarla yarışıyor ve ekran kalabalık görünüyordu. */
+  gridMinor: '#f4f7fa',
+  gridMajor: '#f2f5f9',
   selection: '#2d7ff9',
   /** Duvarın TEK rengi — kontur yok, düz dolgu (K23). */
   wallFill: '#6b7280',

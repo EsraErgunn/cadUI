@@ -10,6 +10,19 @@ import { FloatingToolbar } from '../canvas/FloatingToolbar'
 
 const UPPER_FLOOR_ID = 14
 
+/** Çubuğun üç geri çağrısı da çoğu testte önemsiz; ilgilenen test kendi
+ *  casusunu geçirir. */
+function renderToolbar(overrides: Partial<React.ComponentProps<typeof FloatingToolbar>> = {}) {
+  return render(
+    <FloatingToolbar
+      onGoToFloor={vi.fn()}
+      onOpenFloorManagement={vi.fn()}
+      onOpenFloorCopy={vi.fn()}
+      {...overrides}
+    />,
+  )
+}
+
 beforeEach(() => {
   useCadStore.setState({
     floors: [
@@ -30,7 +43,7 @@ beforeEach(() => {
 
 describe('FloatingToolbar — ortak kontroller', () => {
   it('el düğmesi pan modunu açar, seçim düğmesi kapatır', async () => {
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: 'El aracı' }))
     expect(useUiStore.getState().isPanModeActive).toBe(true)
@@ -39,16 +52,9 @@ describe('FloatingToolbar — ortak kontroller', () => {
     expect(useUiStore.getState().isPanModeActive).toBe(false)
   })
 
-  it('en alttaki katta "alt kata geç" pasif — geçiş döngüsel değil', () => {
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
-
-    expect(screen.getByRole('button', { name: 'Alt kata geç' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Üst kata geç' })).toBeEnabled()
-  })
-
   it('geçmiş boşken geri al/yinele pasif', () => {
     useCadStore.temporal.getState().clear()
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     expect(screen.getByRole('button', { name: 'Geri al' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Yinele' })).toBeDisabled()
@@ -60,18 +66,18 @@ describe('FloatingToolbar — ortak kontroller', () => {
  */
 describe('FloatingToolbar — görünüme göre değişenler', () => {
   it('snap düğmesi YALNIZ mimaride var', () => {
-    const { unmount } = render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    const { unmount } = renderToolbar()
     expect(screen.getByRole('button', { name: 'Izgaraya yakala' })).toBeInTheDocument()
     unmount()
 
     useUiStore.setState({ activeViewId: 'installation' })
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     expect(screen.queryByRole('button', { name: 'Izgaraya yakala' })).not.toBeInTheDocument()
   })
 
   it('Görünüm menüsü mimaride nesne/oda adlarını gösterir', async () => {
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
 
@@ -82,7 +88,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
   it('Görünüm menüsü tesisatta ölçü/eleman adlarını gösterir', async () => {
     useUiStore.setState({ activeViewId: 'installation' })
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
 
@@ -95,7 +101,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
   })
 
   it('menüdeki madde tıklanınca ilgili bayrak değişir', async () => {
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
     const before = useUiStore.getState().isRoomNamesVisible
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
@@ -106,7 +112,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
   it('kapı/pencere ölçüleri maddesi bayrağı çevirir', async () => {
     useUiStore.setState({ isDimensionsVisible: true, isOpeningDimensionsVisible: true })
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' }))
@@ -118,7 +124,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
     // İki anahtar bağımsız: kullanıcı yalnız açıklık genişliklerini görmek
     // isteyebilir, bunun için duvar ölçülerini açmak zorunda kalmamalı.
     useUiStore.setState({ isDimensionsVisible: false, isOpeningDimensionsVisible: false })
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
     const item = screen.getByRole('menuitemcheckbox', { name: 'Kapı/pencere ölçüleri' })
@@ -133,7 +139,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
   it('açılar maddesi bayrağı çevirir ve diğer katmanlara dokunmaz', async () => {
     useUiStore.setState({ isCornerAnglesVisible: false, isDimensionsVisible: false })
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Açılar' }))
@@ -144,7 +150,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
   it('kapı/pencere ölçüleri maddesi tesisatta YOK', async () => {
     useUiStore.setState({ activeViewId: 'installation' })
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+    renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
 
@@ -155,14 +161,48 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 })
 
 describe('FloatingToolbar — kat seçici', () => {
-  it('açılır tüm katları listeler ve seçim aktif katı değiştirir', async () => {
-    render(<FloatingToolbar onGoToFloor={vi.fn()} />)
+  // Düğmenin erişilebilir adı hem etiketi hem aktif katı söyler: görünen metin
+  // artık "Katlar 2", aktif kat yalnız açılırın içinde işaretli.
+  const floorButtonName = /^Katlar, aktif kat/
 
-    // Düğmenin erişilebilir adı GÖRÜNEN metin (aktif kat adı); `title` yalnız
-    // ipucu. Ekran okuyucu "Zemin Kat, menü" duyar, ki doğrusu bu.
-    await userEvent.click(screen.getByRole('button', { name: 'Zemin Kat' }))
+  it('açılır tüm katları listeler ve seçim aktif katı değiştirir', async () => {
+    renderToolbar()
+
+    await userEvent.click(screen.getByRole('button', { name: floorButtonName }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: /1\. Kat/ }))
 
     expect(useCadStore.getState().activeFloorId).toBe(UPPER_FLOOR_ID)
+  })
+
+  it('oklar komşu kata götürür, uçtaki yön pasif', async () => {
+    // Geçiş döngüsel değil (floors.ts sözleşmesi): zemin kattayken aşağısı yok.
+    const onGoToFloor = vi.fn()
+    renderToolbar({ onGoToFloor })
+
+    expect(screen.getByRole('button', { name: 'Alt kata geç' })).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Üst kata geç' }))
+    expect(onGoToFloor).toHaveBeenCalledWith('up')
+  })
+
+  it('düğmede kat sayısı yazar', () => {
+    renderToolbar()
+
+    expect(screen.getByRole('button', { name: floorButtonName })).toHaveTextContent('Katlar2')
+  })
+
+  it('kat yönetimi ve kat kopyalama açılırdan açılır', async () => {
+    // Üst bardaki "Katlar" menüsü kalkınca bu iki pencerenin tek girişi burası.
+    const onOpenFloorManagement = vi.fn()
+    const onOpenFloorCopy = vi.fn()
+    renderToolbar({ onOpenFloorManagement, onOpenFloorCopy })
+
+    await userEvent.click(screen.getByRole('button', { name: floorButtonName }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /Kat Yönetimi/ }))
+    expect(onOpenFloorManagement).toHaveBeenCalledTimes(1)
+
+    await userEvent.click(screen.getByRole('button', { name: floorButtonName }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /Kat Kopyalama/ }))
+    expect(onOpenFloorCopy).toHaveBeenCalledTimes(1)
   })
 })

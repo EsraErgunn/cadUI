@@ -66,6 +66,15 @@
   --color-canvas-overlay: #ffffff;
   --color-canvas-overlay-edge: #cbd3e0;
   --color-canvas-overlay-ink: #5b6675;
+  /* Aynı ailenin koyu metin tonu: kart düğmelerinin etiketi, `ink`in beyaz
+     zemindeki karşılığı. */
+  --color-canvas-overlay-ink-strong: #24303f;
+  /* Beyaz zeminde soluk metin (pasif düğme, kısayol etiketi). */
+  --color-canvas-overlay-ink-muted: #97a1b0;
+  /* Bu iki renk `success`/`danger`in AÇIK tema değerleri ve koyu temada
+     DEĞİŞMEZ — üstünde durdukları yüzey de değişmiyor. */
+  --color-canvas-overlay-success: #157347;
+  --color-canvas-overlay-danger: #b3251a;
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }

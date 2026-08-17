@@ -1,82 +1,41 @@
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import type { FloorDirection } from '../core/floors'
-import {
-  redoActiveView,
-  undoActiveView,
-  useCanRedoActiveView,
-  useCanUndoActiveView,
-} from '../store/activeViewHistory'
-import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
-import { useUiStore } from '../store/uiStore'
-import { chromeButtonVariants } from './controls/buttonVariants'
+import { EditorActions } from './menu/EditorActions'
 import { MenuDropdown } from './menu/MenuDropdown'
-import { ShortcutButtons } from './menu/ShortcutButtons'
 import { ViewSwitcher } from './menu/ViewSwitcher'
+import { editorBarButtonVariants } from './menu/editorBarVariants'
 import {
   CLOSE_EDITOR_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
-  FLOOR_COPY_ITEM_ID,
-  FLOOR_DOWN_ITEM_ID,
-  FLOOR_MANAGEMENT_ITEM_ID,
-  FLOOR_MENU_ID,
-  FLOOR_UP_ITEM_ID,
   IMPORT_ITEM_ID,
-  REDO_ITEM_ID,
   SAVE_ITEM_ID,
-  SHOW_DIMENSIONS_ITEM_ID,
-  SHOW_ELEMENT_LABELS_ITEM_ID,
-  SHOW_GRID_ITEM_ID,
-  UNDO_ITEM_ID,
 } from './menu/menuDefinitions'
+import { MENU_ICONS } from './menu/menuIcons'
 
 type MenuBarProps = {
   onCloseEditor: () => void
   onSave: () => void
   onImport: () => void
   onExport: () => void
-  onOpenFloorManagement: () => void
-  onOpenFloorCopy: () => void
-  /** Pencere açmaz, aktif katı değiştirir (madde 1). */
-  onGoToFloor: (direction: FloorDirection) => void
   isSaving: boolean
 }
 
-export function MenuBar({
-  onCloseEditor,
-  onSave,
-  onImport,
-  onExport,
-  onOpenFloorManagement,
-  onOpenFloorCopy,
-  onGoToFloor,
-  isSaving,
-}: MenuBarProps) {
+/**
+ * Üst bar üç öbeğe indi: solda projeden çıkış + kalan iki menü (Dosya, Araçlar),
+ * ortada sahne değiştirici, sağda proje eylemleri.
+ *
+ * Düzenle/Görünüm/Katlar menüleri KALKTI: geri al-yinele, görünüm anahtarları ve
+ * kat geçişi tuvalin ALT çubuğuna taşındı (K54/K55) — çizerken el orada, üst
+ * bara çıkmak için çizimi bırakmak gerekiyordu. Kayıt Geçmişi ise Düzenle'nin
+ * tek kalan maddesiydi, sağdaki eylem öbeğine kendi düğmesi olarak geçti.
+ *
+ * Barın kendi zemini YOK: sayfa zemininin üstünde duruyor, düğmeler tek tek kart.
+ */
+export function MenuBar({ onCloseEditor, onSave, onImport, onExport, isSaving }: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const floorCount = useCadStore((state) => state.floors.length)
-  const isDirty = useCadStore(selectIsProjectDirty)
-  const canUndo = useCanUndoActiveView()
-  const canRedo = useCanRedoActiveView()
-  const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
-  const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
-  const isElementLabelsVisible = useUiStore((state) => state.isElementLabelsVisible)
-  const toggleElementLabelsVisible = useUiStore((state) => state.toggleElementLabelsVisible)
-  const isGridVisible = useUiStore((state) => state.isGridVisible)
-  const toggleGridVisible = useUiStore((state) => state.toggleGridVisible)
   const barRef = useRef<HTMLElement>(null)
-
-  // Yapılamayacak komutlar pasif görünür ama menüden KALKMAZ: kullanıcı
-  // "Geri Al diye bir şey var mı" diye aramasın.
-  const unavailableItemIds = new Set<string>()
-  if (!canUndo) unavailableItemIds.add(UNDO_ITEM_ID)
-  if (!canRedo) unavailableItemIds.add(REDO_ITEM_ID)
-
-  const checkedItemIds = new Set<string>()
-  if (isDimensionsVisible) checkedItemIds.add(SHOW_DIMENSIONS_ITEM_ID)
-  if (isElementLabelsVisible) checkedItemIds.add(SHOW_ELEMENT_LABELS_ITEM_ID)
-  if (isGridVisible) checkedItemIds.add(SHOW_GRID_ITEM_ID)
 
   useEffect(() => {
     if (openMenuId === null) return undefined
@@ -106,86 +65,60 @@ export function MenuBar({
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === IMPORT_ITEM_ID) onImport()
     if (itemId === EXPORT_ITEM_ID) onExport()
-    if (itemId === UNDO_ITEM_ID) undoActiveView()
-    if (itemId === REDO_ITEM_ID) redoActiveView()
-    if (itemId === FLOOR_MANAGEMENT_ITEM_ID) onOpenFloorManagement()
-    if (itemId === FLOOR_COPY_ITEM_ID) onOpenFloorCopy()
-    if (itemId === FLOOR_UP_ITEM_ID) onGoToFloor('up')
-    if (itemId === FLOOR_DOWN_ITEM_ID) onGoToFloor('down')
-    if (itemId === SHOW_DIMENSIONS_ITEM_ID) toggleDimensionsVisible()
-    if (itemId === SHOW_ELEMENT_LABELS_ITEM_ID) toggleElementLabelsVisible()
-    if (itemId === SHOW_GRID_ITEM_ID) toggleGridVisible()
   }
 
   return (
-    <header
-      ref={barRef}
-      className="flex shrink-0 items-center gap-1 border-b border-edge bg-surface px-2 py-1.5"
-    >
+    <header ref={barRef} className="flex shrink-0 items-center gap-2 px-4 py-2.5">
+      {/* Tek çerçevesiz düğme: bu bir menü değil, ekrandan ÇIKIŞ — kartların
+          arasında durursa aynı öbekten sayılır. */}
       <button
         type="button"
         onClick={onCloseEditor}
-        className={chromeButtonVariants()}
+        className={`${editorBarButtonVariants()} mr-2 font-medium text-canvas-overlay-ink-strong`}
       >
         <ArrowLeft size={16} strokeWidth={1.8} aria-hidden />
         Projeler
       </button>
 
-      <span className="mx-1 h-5 w-px bg-edge" />
-
-      <nav className="flex items-center gap-0.5" aria-label="Ana menü">
-        {EDITOR_MENUS.map((menu) => (
-          <div key={menu.id} className="relative">
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={openMenuId === menu.id}
-              onClick={() => setOpenMenuId((current) => (current === menu.id ? null : menu.id))}
-              className={chromeButtonVariants({
-                tone: openMenuId === menu.id ? 'active' : 'plain',
-              })}
-            >
-              {menu.label}
-              {menu.id === FLOOR_MENU_ID && (
-                <span className="rounded-full bg-surface-sunken px-1.5 text-xs font-semibold text-ink-muted">
-                  {floorCount}
-                </span>
+      <nav className="flex items-center gap-2" aria-label="Ana menü">
+        {EDITOR_MENUS.map((menu) => {
+          const Icon = MENU_ICONS[menu.id]
+          return (
+            <div key={menu.id} className="relative">
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={openMenuId === menu.id}
+                onClick={() => setOpenMenuId((current) => (current === menu.id ? null : menu.id))}
+                className={editorBarButtonVariants({
+                  tone: openMenuId === menu.id ? 'active' : 'card',
+                })}
+              >
+                {Icon && <Icon size={16} strokeWidth={1.8} aria-hidden />}
+                {menu.label}
+                <ChevronDown
+                  size={14}
+                  strokeWidth={2}
+                  aria-hidden
+                  className="text-canvas-overlay-ink"
+                />
+              </button>
+              {openMenuId === menu.id && (
+                <MenuDropdown menu={menu} onSelectItem={handleSelectItem} />
               )}
-            </button>
-            {openMenuId === menu.id && (
-              <MenuDropdown
-                menu={menu}
-                onSelectItem={handleSelectItem}
-                unavailableItemIds={unavailableItemIds}
-                checkedItemIds={checkedItemIds}
-              />
-            )}
-          </div>
-        ))}
+            </div>
+          )
+        })}
       </nav>
 
+      {/* İki esnek boşluk: sahne değiştirici, iki yandaki öbeklerin genişliğinden
+          BAĞIMSIZ olarak barın ortasında kalsın (Kaydet "Kaydediliyor…" olunca
+          öbek genişliyor, tek boşlukla ortadaki düğmeler kayardı). */}
       <div className="flex-1" />
-      <ShortcutButtons />
-      <div className="flex-1" />
-
-      {/* Kirliyken de basılabilir kalır: kullanıcı istediği an sürüm alabilmeli. */}
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={isSaving}
-        aria-label={isDirty ? 'Kaydet (kaydedilmemiş değişiklik var)' : 'Kaydet'}
-        title="Kaydet (Ctrl+S)"
-        className={chromeButtonVariants()}
-      >
-        <Save size={16} strokeWidth={1.8} aria-hidden />
-        {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
-        {/* Uyarı göstergesi (KK-16). Marka sarısı kabukta serbest — yasak olan
-            tuvale girmesi. Renk tek başına anlam taşımasın diye aria-label da var. */}
-        {isDirty && <span aria-hidden className="size-2 rounded-full bg-brand" />}
-      </button>
-
-      <span className="mx-1 h-5 w-px bg-edge" />
       <ViewSwitcher />
+      <div className="flex-1" />
+
+      <EditorActions onSave={onSave} isSaving={isSaving} />
     </header>
   )
 }
