@@ -2,7 +2,7 @@
 
 **Durum:** Ekran yazıldı, sunucu tarafının büyük kısmı YOK. Bu belge backend'den
 istenecekleri tek yerde toplar. Envanter `localhost:5193` OpenAPI'sinden
-çıkarıldı (2026-08-11) ve cadapi entity'leriyle karşılaştırıldı.
+çıkarıldı (**2026-08-16**, 37 yol) ve cadapi entity'leriyle karşılaştırıldı.
 
 Sözleşme taslağı FRONTEND önerisidir; alan adları backend'le kesinleşecek.
 
@@ -13,25 +13,79 @@ Sözleşme taslağı FRONTEND önerisidir; alan adları backend'le kesinleşecek
 Ekrana taşınan alanlar: `id`, `name`, `description`, `code`, `cityName`,
 `districtName`, `addressLine`, `blockLotParcel`, `createdAt`, `updatedAt`.
 
-Yanıttaki `projectFirmAuthorizationId` ve `gasDistributionFirmRegionId`
-KULLANILAMIYOR: bu kimlikleri ada/firmaya çözen bir uç yok (aynı boşluk
-K49'daki sabitin de sebebi).
+`ProjectDetailDto` 2026-08-16 itibarıyla ÇOK daha geniş: `projectTypeName`,
+`heatingTypeName`, `buildingUsageTypeName`, `isPermitProject`, `apartmentCount`,
+`workplaceCount`, `areaSquareMeters`, `capacity`, `serviceBoxPressureMbar`,
+`coverNote`, `connectionObject` de geliyor. 1 numaralı ucun kapsamı bu yüzden
+daraldı — aşağıdaki tabloya bak.
+
+Yanıttaki `gasDistributionFirmRegionId` alanı **`gasDistributionFirmId` oldu**
+(bölge kavramı kalktı, K79). `projectFirmAuthorizationId` ise artık ÇÖZÜLEBİLİR:
+`GET /api/project-firm-authorizations` açıldı (bkz.
+`api-eksikleri-proje-firmalari.md`).
 
 ## Eksik uçlar
 
 | # | Uç (öneri) | Ne besleyecek | Karşılığı olan entity |
 |---|---|---|---|
-| 1 | `GET /api/projects/{id}/detail` | Durum, tesisat no, proje/ısınma tipi, müstakil, ruhsat, mahalle, sokak/kapı no, firma mühendisi + GDF kayıt no + yeter no, onay bilgileri, teknik değerler | `Project` (+`Building`, `Code`) — alanların bir kısmı tabloda VAR |
+| 1 | `GET /api/projects/{id}/detail` | **Kapsam daraldı** — tip/teknik alanlar artık `GET /api/projects/{id}`'de. Kalan eksikler: **durum**, tesisat no, mahalle, sokak/kapı no, firma mühendisi + GDF kayıt no + yeter no, onay bilgileri | `Project` (+`Building`, `Code`) — alanların bir kısmı tabloda VAR |
 | 2 | `GET /api/projects/{id}/units` | Birim / Cihaz tablosu (14 sütun) | `ProjectUnit`, `Device` — **tablolar var, controller yok** |
-| 3 | `GET /api/projects/{id}/operation-history` | İşlem geçmişi sekmesi | `OperationHistory` — **tablo var** (`UserId`, `OperationKodId`, `RoleSnapshot`, `Description`) |
+| 3 | ~~`GET /api/projects/{id}/operation-history`~~ | **AÇILDI** → `GET /api/projects/{projectId}/history`, düz dizi (`OperationHistoryListItemDto[]`). Bağlanmadan önce aşağıdaki S3'e cevap gerekiyor | `OperationHistory` |
 | 4 | `GET /api/projects/{id}/docs` | Evrak listesi | `Doc` + `ProjectDoc` — **tablolar var** |
 | 5 | `GET /api/projects/{id}/policies` | Poliçe listesi | `Policy` (ProjectUnit'e bağlı) — **tablo var** |
-| 6 | `POST /api/projects/{id}/decision` | Onay / ret / revizyon; onay kodu üretir, durumu günceller, geçmişe kayıt düşer, firmaya bildirim gönderir | — |
+| 6 | ~~`POST /api/projects/{id}/decision`~~ | **KISMEN AÇILDI** → tek uç değil, üç ayrı uç: `POST .../submit`, `.../approve`, `.../reject` (`{ description }` zorunlu). Revizyon YOK, onay kodu dönmüyor — S4/S5 | — |
 | 7 | `GET /api/projects/{id}/zpd` | "Zetacad Proje Dosyası" indirme | — |
 | 8 | `GET /api/projects/{id}/report.pdf` | "PDF İndir" / "PDF Rapor Al" | — |
 
 Frontend'deki bayraklar: `src/api/unimplementedEndpoints.ts`. Uç açılınca
 oradaki satır silinir ve çağıran dosya derleme hatası verir.
+
+## Backend'e sorulacaklar (2026-08-16, açılan uçlar sonrası)
+
+Aşağıdaki üçü cevaplanmadan `projectHistory` ve `projectDecision` bayrakları
+kaldırılamaz — uçlar VAR ama gövdeleri bu sorular olmadan doğru yazılamaz.
+
+### S3 — `operationCode` hangi değerleri alıyor?
+
+`OperationHistoryListItemDto.operationCode` Swagger'da yalnız `string`. Arayüzün
+`HistoryOperation` union'ı bugün BEŞ değer varsayıyor (`projeKayit`,
+`projeGuncelleme`, `projeOnay`, `projeRet`, `revizyonTalebi`) ve bu bir TAHMİN.
+Tam liste gerekiyor; `z.enum` tanımadığı kodda satırı düşürür.
+
+İkinci soru: yanıt `operationName`'i de taşıyor (sunucu tarafı Türkçe etiket).
+Etiketin sahibi kim — sunucu mu, arayüzdeki `HISTORY_OPERATION_LABELS` mi? İkisi
+birden kalırsa aynı metin iki yerde ayrışır.
+
+Üçüncüsü: arayüzün geçmiş tablosunda **dosya tipi** sütunu var
+(`ProjectHistoryRow.fileType`: `'pdf' | 'zpd'`). Yanıtta karşılığı YOK. Sütun
+kalkacak mı, yoksa uca alan mı eklenecek?
+
+### S4 — Onay kodu onaydan sonra nereden okunacak?
+
+`POST /api/projects/{projectId}/approve` **gövdesiz 200** dönüyor.
+`ProjectDetailDto`'da ne onay kodu ne de `status` alanı var (`status`/
+`statusName` yalnız `ProjectListItemDto`'da). KK-11 onayda bir onay kodu
+üretilmesini istiyor; arayüzdeki `ProjectDecisionResult.approvalCode` bugün
+karşılanamıyor.
+
+Seçenekler: (a) `approve` yanıtı `{ approvalCode, status }` döndürsün,
+(b) `ProjectDetailDto`'ya `status` + `approvalCode` eklensin. Biri seçilmeden
+onay ekranı sonucu kullanıcıya doğru gösteremez.
+
+### S5 — Revizyon talebi için uç planlanıyor mu?
+
+Arayüzün `ProjectDecision` tipi üç değerli: `approve` / `reject` /
+`requestRevision`. Sunucuda **`requestRevision`'ın karşılığı yok** — yalnız
+`submit`/`approve`/`reject` var ve `ProjectStatusCountsDto` da dört durum
+sayıyor (`draft`, `pendingApproval`, `approved`, `rejected`).
+
+Bu, aşağıdaki "Revizyon İstendi durumu yok" maddesinin uç tarafındaki yüzü:
+kod grubuna beşinci kayıt eklenecekse ona yazan bir uç da (`POST
+.../request-revision`) gerekiyor.
+
+**Ters yönde bir eksik daha:** sunucuda `POST .../submit` (onaya gönder) VAR ama
+arayüzün karar modelinde yok. `ProjectDecision` bu geçişi de kapsayacak şekilde
+genişletilmeli.
 
 ## Karara bağlanması gereken iki konu
 

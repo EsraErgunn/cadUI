@@ -79,9 +79,20 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   (K68) — sol menüde "Projeler" işaretli kalsın. Poliçe sihirbazının durumu
   URL'de DEĞİL (K65) — "durum URL'de" kuralı LİSTE ekranları içindir; poliçe
   LİSTESİ (K69) o kurala uyar.
+  Coğrafi BÖLGE kavramı sunucudan TÜMÜYLE kalktı: `/api/regions`,
+  `/api/gasdistributionfirms/{id}/regions` ve `GasDistributionFirmRegionId` YOK
+  (yerine `GasDistributionFirmId`). Bölgeler ekranı, `useRegionParam` ve
+  `RegionDensityCard` silindi — bu adlarla yeni kod yazma.
+  Panelin KAPSAMI üç hâlli ve ayrık birleşim (`AdminScope`, ucun kendi
+  dosyasında — `api/adminDashboard.ts`): sistem
+  geneli / grup firması (`gdGroupId`, URL'de `group`) / tek gaz dağıtım firması
+  (`gdFirmId`, URL'de `gdfirm`). İki parametre ASLA birlikte gitmez. Üst bardaki
+  seçici iki düzeyli (`adminScopeOptions.ts`), seçenekleri mevcut İKİ uçtan
+  birleştirir — yeni uç açma. Gaz dağıtım firmasının DELETE'i sunucuda
+  soft-delete ama arayüzde "Sil" der (bilinçli).
   (bkz. knowledge/access-control.md, knowledge/admin-list-state.md,
   knowledge/project-detail.md, knowledge/documents-screens.md,
-  knowledge/policy-wizard.md)
+  knowledge/policy-wizard.md, knowledge/admin-scope.md)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.

@@ -134,3 +134,37 @@ komple ölmesi yerine mock veriyle çalışmaya devam ediyor.
 
 `getNextDfirmNo()` HER ZAMAN mock: sunucuda karşılığı henüz yok, uç açılınca
 gövdesi `requestJson`'a dönecek, imza değişmeyecek.
+
+## Firma silme = sunucuda PASİFLEŞTİRME, arayüzde "Sil"
+
+`DELETE /api/gasdistributionfirms/{id}` kaydı SİLMİYOR, pasifleştiriyor; pasif
+kayıt `GET`'te artık dönmüyor.
+
+Arayüzün dili yine de **"Sil"** — bölge ekranındaki "Pasifleştir" tercihinden
+BİLİNÇLİ sapma (kullanıcı kararı): firma ekranında kullanıcıya tanıdık gelen
+eylem adı isteniyor. Kaydın gerçekte korunduğu bilgisi kaybolmuyor, onay
+diyaloğunun açıklamasına taşındı ("kayıt veritabanından kaldırılmaz ve firmaya
+bağlı veriler korunur"). Teknik ad (`deactivateGasDistributionFirm`) gerçeği
+söylemeye devam ediyor: bir gün gerçek DELETE gelirse iki katman ayrışmasın.
+
+İki ekranın metni bu yüzden AYRI: Bölgeler "Pasifleştir", firmalar "Sil".
+
+Uç `adminFirmForm.ts`'te (`deactivateGasDistributionFirm`) — dosya artık firmanın
+ekle/güncelle değil YAZMA uçlarını toplar. Yanıt GÖVDESİZ olduğu için
+`requestJson` değil **`requestVoid`**: boş gövdede `response.json()` patlar ve
+işlem sunucuda başarılıyken kullanıcı hata görürdü.
+
+Sözleşmede 404 dışında iş kuralı durumu yok — bölgedeki "kullanımda" 409'unun
+karşılığı olmadığı için ayrı bir hata tipi (`RegionInUseError` dengi) AÇILMADI.
+`useGasFirmActions` yalnız 404'ü ayrı metne bağlar, gerisi tek genel mesaja
+düşer; `describeRegionError` eşlemesi bu yüzden kopyalanmadı.
+
+Satır eylemi yalnız "Pasifleştir": güncelleme ekranına firma adı sütunundaki
+bağlantı zaten gidiyor. İşlemler sütunu yönetici olmayan kullanıcıda HİÇ
+çizilmez (`useIsAdmin`) — karar yalnız görünürlük, denetim sunucuda.
+
+**Bölge yetkileri** (`/api/gasdistributionfirms/{firmId}/regions`,
+`/api/gasdistributionfirmregions/{id}`) ve **grup firması CRUD'u**
+(`/api/gasdistributiongroups` POST/PUT/DELETE) için istemcide EKRAN YOK: gruplar
+yalnız `getFirmGroups` ile seçim kutusu besliyor. Uçları varsayarak bağlama —
+önce ekran kararı gerekir.

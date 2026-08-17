@@ -3106,10 +3106,9 @@ ilsiz bir ilçe listesi yok. İl değişince ilçe seçimi TEMİZLENİR — eski
 ilin listesinde bulunmaz, ekranda geçerliymiş gibi durup sessizce yanlış kayıt
 üretirdi (aynı kural yetki satırındaki firma ikilisinde de var, K45).
 
-`projectFirmAuthorizationId` hâlâ SABİT (1): bu kimlikleri listeleyen uç yok,
-`/api/projectfirms` yalnız firmayı döndürüyor, yetki bağını değil. Sabit tahmin
-değil — veritabanında bugün tek kayıt var. Uç açılınca form değeri seçilen
-firmadan türetecek.
+~~`projectFirmAuthorizationId` hâlâ SABİT (1)~~ — **kalktı (2026-08-16)**:
+`GET /api/project-firm-authorizations` açıldı, kimlik seçilen firma çiftinden
+çözülüyor (`resolveProjectFirmAuthorizationId`). Kuralın tamamı K86'da.
 
 Yanıt şeması yalnız çağıranın ihtiyacı olan alanları zorunlu tutuyor: sunucu
 `cityName`/`districtName` de türetip döndürüyor ama form onları kullanmıyor,
@@ -4113,3 +4112,476 @@ aynı jesti paylaşması, kullanıcının hangisinde ne yapacağını hatırlama
 gereksiz kılıyor. Sağ tık odada TEK adımda çıkarır: dikdörtgen bir zincir değil,
 tek atımlık bir jest — yarım kalanı iptal etmekle araçtan çıkmak aynı anda
 olabilir.
+
+## 2026-08 · Projeler listesinin gerçek uca bağlanması
+
+### K70 — Sekme rozetleri de listeyle AYNI uçtan sayılıyor
+
+`GET /api/projects` Swagger'da doğrulandı (2026-08-14): **query parametresi
+almıyor**, gövdesi beş alan — `id, name, code (null olabilir), createdAt,
+updatedAt`. Liste zaten bu uca gidiyordu; sorun ucun etrafında kalan mock
+artıklarıydı.
+
+`getProjectStatusCounts` hâlâ `projectsMock`'un uydurma veri kümesini sayıyordu:
+ekran kendi kendisiyle çelişiyordu — rozet "Onaylanan 7" derken o sekme boş
+açılıyor, "Taslak 12" derken listede üç gerçek kayıt görünüyordu. Rozetler artık
+listeyle aynı uçtan türüyor. Uç durum döndürmediği için **tüm kayıtlar taslak
+hanesine** yazılıyor, diğer üç durum SIFIR. Uydurma bir dağılım üretmek,
+sunucuda olmayan projeleri var göstermek olurdu.
+
+Bedeli: sayfa aynı param'sız ucu iki kez çağırıyor (liste + rozet, ayrı React
+Query anahtarları). Sunucu sayım ucu ya da durum alanı verdiğinde tek isteğe
+inecek. Uca `page`/`q`/`sort` EKLENMEDİ: sunucu tanımadığı parametreyi sessizce
+atar, arayüz süzülmüş sanırdı — bu yüzden süzme/sıralama/sayfalama istemcide
+kaldı (CLAUDE.md "sayfalama sunucuda" kuralının bilinçli, geçici istisnası).
+
+### K71 — Uçtan gelmeyen alan `null`; tireyi VERİ değil TABLO yazar
+
+`mapApiProject` uçta karşılığı olmayan alanlara `'—'` **metnini** yazıyordu.
+İki sorun: tip yalan söylüyordu (`firmName: string`, oysa sunucu böyle bir alan
+döndürmüyor) ve gösterim kararı veri katmanına sızmıştı. Alanlar artık `null`,
+tireyi tablo çiziyor (`EmptyValue`) — aynı tablodaki "Bina Kodu"/"G.D Firması"
+zaten öyle yapıyordu, o yüzden bu bir sadeleşme: boş hücrelerin hepsi artık aynı
+görünüyor ve ekran okuyucu "Değer yok" duyuyor. "Proje Tipi"/"Isınma Tipi"
+rozeti yalnız DEĞER VARKEN çiziliyor; içi tire dolu boş rozet kalktı.
+
+`hasDocuments` hâlâ `false` ve bu bir VARSAYIM (ikon "evrak yok" diyor, sunucu
+demedi) — kaynağı evrak ucu, bu adımın kapsamı dışında, kodda TODO ile işaretli.
+
+### Devreden çıkan mock
+
+`projectsMock.ts` **silinmedi** ama listeye bakan yüzeyi kalmadı:
+`queryMockProjects`, `queryMockProjectStatusCounts`, `deleteMockProject` ve
+`createMockProject` (dördü de artık çağrılmıyordu ya da bu adımda çağrılmaz
+oldu) yardımcılarıyla birlikte kaldırıldı — dosya 475 → 327 satır. Kalanlar:
+"Onaya Gönder" (`submitMockProject`, uç yok), ilçe/firma/tip/mühendis lookup'ları
+(ayrı uçlar) ve evrak+poliçe mock'larının ORTAK proje tohumu
+(`getMockProjectSeeds`) — bu üçü silinirse üç ekran birden boşalır.
+
+Hâlâ mock olduğu için ekranda duran ama HİÇBİR kaydı elemeyen iki filtre var:
+ilçe ve proje firması (uç bu alanları döndürmüyor). Bilinen sınır, ayrı adım.
+
+## 2026-08 · Güncellenen Swagger: sunucu taraflı liste + il/ilçe süzgeci
+
+### K72 — Süzme, sıralama ve sayfalama SUNUCUYA geçti
+
+Swagger güncellendi (2026-08-14): `GET /api/projects` artık sayfalı zarf
+(`items/totalCount/page/pageSize`) döndürüyor ve on parametre alıyor —
+`Status, DateFrom, DateTo, CityId, DistrictId, ProjectFirmId, SortBy, SortDir,
+Page, PageSize`. K70'in "istemcide süzüyoruz" istisnası KALKTI; `listProjects`
+diziyi artık dilimlemiyor, CLAUDE.md'nin "sayfalama sunucu taraflı" kuralı
+gerçekten uygulanıyor. Satır ayrıca `status/statusName/projectTypeName/
+heatingTypeName` taşıyor: proje ve ısınma tipi sütunları KOD değil AD alıyor
+(rozet bilinmeyen kodu ham gösterdiği için değişiklik gerekmedi).
+
+Sekme rozetleri de gerçek uca bağlandı (`GET /api/projects/status-counts`);
+yanıt anahtarları `draft/pendingApproval/approved/rejected` → arayüzün dört
+koduna çevriliyor. K70'teki "listeden türet" çözümü kalktı.
+
+**İKİ ÇIKARIM, tek sabitte:** `Status` parametresine gönderilen değer
+(`Draft|PendingApproval|Approved|Rejected`) ve `SortBy` değerleri
+(`updatedAt|createdAt|name`) Swagger'da tanımlı DEĞİL — `status-counts`
+anahtarları ilkini destekliyor ama ikisi de doğrulanmadı. Sunucu başka bir
+biçim istiyorsa yalnız `SERVER_STATUS_CODES` sözlüğü / `SortBy` satırı değişir.
+
+**Tarih dönüşümü:** uç `date-time` istiyor, URL'de gün duruyor. Sınırlar YEREL
+saatle kuruluyor (`new Date(y, m, d)`), çünkü `new Date('2026-08-01')` UTC gece
+yarısı sayılır ve +03'te günü geriye kaydırırdı; bitiş günü 23:59:59.999 ile
+KAPSAYICI.
+
+**ARAMA parametresi YOK.** Sözleşmede `q`/`Search` bulunmuyor. Kutu kaldırılmadı
+(UI değiştirilmeyecekti) ama sayfalama sunucuya geçtiği için arama artık YALNIZ
+görüntülenen sayfayı süzüyor ve `totalCount` süzülmemiş adedi göstermeye devam
+ediyor — bilinen ve İSTENMEYEN sınır. Uca `Q` eklenmeli; eklenince
+`filterBySearch` silinip parametre `buildFilterParams`'a taşınacak.
+
+### K73 — Liste süzgecine İL eklendi, ilçe ona bağlandı
+
+İlçe listesini veren tek uç `GET /api/cities/{cityId}/districts`, yani ilsiz
+ilçe listesi YOK. Bu yüzden liste ekranına da il süzgeci eklendi: il seçilmeden
+ilçe kutusu pasif ve istek atılmıyor, il değişince seçili ilçe düşüyor, il
+etiketi kaldırılınca ilçe de kalkıyor. Mock `getDistricts`/`queryMockDistricts`
+kalktı (`MOCK_DISTRICTS` sabiti evrak/poliçe tohumları için duruyor).
+
+İl/ilçe sorguları FİLTRE ÇUBUĞUNUN İÇİNDE: ilçe listesi TASLAK ile bağlı
+(kullanıcı "Filtrele"ye basmadan da doğru ilçeleri görmeli). Sayfa yalnız
+etiketlerin adını çözmek için UYGULANMIŞ değerlerle aynı sorguları kuruyor;
+anahtarlar aynı olduğu için önbellek paylaşılıyor, ikinci bir istek çıkmıyor.
+
+### K74 — İş başlama/bitiş ve yetkili mühendis alanları KALDIRILDI
+
+`ProjectCreateDto` bu üç alanı taşımıyor (Swagger doğruladı): form onları
+topluyor, doğruluyor, kullanıcıya zorunlu diyor ama uca HİÇ göndermiyordu —
+kullanıcının doldurduğu veri sessizce kayboluyordu. Üçü de UI'dan, form
+durumundan, şemadan, varsayılanlardan ve `CreateProjectPayload`'dan kalktı.
+
+Birlikte düşenler: bitiş tarihini başlamadan türeten `deriveEndDate`/`addMonths`
+(ve "+2 ay" kuralı), `isEndBeforeStart` çapraz doğrulaması, mühendis listesi
+zinciri (`getFirmEngineers`, `FirmEngineer`, `mapFirmEngineer`,
+`queryMockFirmEngineers` ve mock mühendisler) ile `useNewProjectForm`'un `today`
+seçeneği. Proje firması değişince artık yalnız GD firması temizleniyor.
+
+**Proje DETAY ekranındaki "Firma Mühendisi" AYRI bir alandır** (`engineerName`,
+mock extras) ve silinmedi.
+
+### Sıradaki iş: POST gövdesi
+
+Uç bu alanları da kabul ediyor ama form onları hâlâ göndermiyor:
+`description`, `apartmentCount`, `workplaceCount`, `areaSquareMeters`,
+`capacity`, `serviceBoxPressureMbar`, `coverNote`, `connectionObject`,
+`isPermitProject`. Ayrıca proje/ısınma/bina kullanımı tipi artık KOD DEĞİL
+`...CodeId` (integer) isteniyor; formdaki metin kodları (`ILAVE`, `bireysel`)
+bunlara çevrilemiyor çünkü kod grubu ucu (`GET /api/codes/by-group-name/...`)
+elimizde yok. Gövde bu yüzden bu turda genişletilmedi — kapsam GET tarafıydı.
+
+### K75 — Proje Firması süzgeci gerçek uca bağlandı
+
+Liste ekranının firma kutusu mock `getProjectFirms`ten (`MOCK_PROJECT_FIRMS`)
+besleniyordu; artık **`getProjectFirmList`** → `GET /api/projectfirms`. Yeni bir
+API modülü yazılmadı: uç, şeması (`projectFirmDto.ts`, `title` → `name`) ve
+`hasApiBaseUrl` yedeği zaten proje firmaları ekranı için vardı. `queryKey` de
+ORTAK (`['projectFirmList']`) — aynı liste iki ekranda ikinci kez indirilmiyor.
+Seçim `ProjectFirmId` olarak uca gidiyor, temizlenince parametre düşüyor
+(`buildFilterParams` boş değeri hiç yazmıyor).
+
+Mock `getProjectFirms` **SİLİNMEDİ**: Evraklar listesinin firma süzgeci ve yeni
+proje formunun firma kutusu hâlâ ona bağlı. Evrak satırları mock firma
+kimlikleriyle (11–15) tohumlandığı için o süzgeci gerçek uca çevirmek, evrak
+listesini hiçbir kaydın eşleşmediği bir hâle sokardı — ayrı iş.
+
+Hata durumu `FilterSelect`'in mevcut yüzeyiyle: liste çekilemezse kutu pasif ve
+altında "Firma listesi yüklenemedi." Boş bir kutu "sistemde firma yok" gibi
+okunuyordu. (İl/ilçe kutuları bu şeridi HENÜZ almadı — aynı desen, ayrı adım.)
+
+### K76 — Gösterge panosu özeti: `gdGroupId` gönderiliyor, mock yedeği kalktı
+
+`GET /api/admin/dashboard` sözleşmesi değişti ve K48'de yazılan iki kısıt da
+ortadan kalktı.
+
+**Yoğunluk alanı yeniden adlandı.** `regionDensity: [{ regionId, regionName,
+projectCount }]` → **`density: [{ id, name, projectCount }]`**, yanında kırılımın
+hangi boyutta yapıldığını söyleyen `densityBy` var. Eşleme yine tek yerde
+(`adminDashboard.ts` → `toDashboardSummary`); ekranın iç sözleşmesi
+(`DashboardSummary`) DEĞİŞMEDİ, bu yüzden kartlar ve `AdminHomePage` hiç
+dokunulmadan çalışıyor.
+
+**Kapsam artık UCA GİDİYOR.** Uç `gdGroupId` alıyor — bu tam olarak üst bardaki
+gaz dağıtım GRUP firmasının kimliği (K43), yani K48'de "gönderemeyiz" denen
+coğrafi `regionId` değil. Süzme sunucuda; istemci gelen diziyi daraltmıyor.
+Kapsam yokken parametre HİÇ yazılmıyor: boş bir `gdGroupId=` sunucuda ayrı anlam
+taşıyabilir, "tümü" demek için parametrenin yokluğu kullanılıyor.
+
+`dayKey` hâlâ gitmiyor: "bugün" sayaçlarını sunucu kendi gününe göre hesaplıyor,
+anahtar istemcide yalnız TanStack Query anahtarı olarak yaşıyor.
+
+**404/501/ağ hatası → mock yedeği KALDIRILDI.** Uç yokken ekran ölmesin diye
+konulmuştu; uç açıldıktan sonra sürseydi gerçek bir arıza (yanlış yol, kapalı
+API, bozuk dağıtım) ekranda "çalışıyor" gibi görünürdü. Artık hata `QueryError`
+şeridine düşüyor. `isMissingEndpoint`/`warnOnceAboutMissingEndpoint` duruyor ama
+YALNIZ duyuru yollarına ait — duyuru varlığı sunucuda hâlâ yok (K48).
+
+**Mock gövde SİLİNMEDİ.** `VITE_API_URL` tanımsızken (backend'siz geliştirme)
+ekran hâlâ `adminDashboardMock.ts`'ten besleniyor ve bölge kapsamı orada da
+çalışıyor. Değişen tek şey: bu yola artık yalnız API kökü yokken giriliyor,
+gerçek ucun hatasıyla değil.
+
+`densityBy` ve `generatedAt` şemada ZORUNLU DEĞİL: arayüz ikisini de
+kullanmıyor, sunucu birini kaldırdığında bütün ekranın sınırda patlaması
+gösterilmeyen bir alan uğruna alınacak bedel değil (K49 ile aynı gerekçe).
+Duyurular hâlâ yerel depodan geliyor, kart tek bir `DashboardSummary` alıyor —
+kartların iki ayrı yükleme durumu yönetmesine gerek yok.
+
+## 2026-08 · Bölge tanımları
+
+### K77 — Bölgeler ekranı AÇILDI; "bölge" artık iki ayrı şey ve ikisi de kalıyor
+
+`/api/regions` sunucuda VAR ve dört ucu birden veriyor (liste, ekle, güncelle,
+pasifleştir). K31 bu ucu 404 diye kaldırmıştı, K43 de "bölgeleri listeleyen uç
+hâlâ yok" diye yazıyordu — ikisi de artık geçersiz.
+
+**Bağlanacak bir ekran YOKTU.** K31 `getRegions`'ı, bölge alanını ve filtreyi
+tümüyle silmişti; ortada mock'tan gerçeğe çevrilecek bir yüzey kalmamıştı. Bu
+yüzden iş "entegrasyon" değil, mevcut liste ekranı desenleriyle ekranı KURMAK
+oldu: `/admin/regions`, sol menüde "Bölgeler".
+
+**İki "bölge" kavramı bilinçli olarak yan yana duruyor:**
+
+| Yüzey | Ne seçer | Kaynak |
+|---|---|---|
+| Üst bardaki kapsam seçicisi | gaz dağıtım GRUP firması (AKSA, ENERYA…) | `/api/gasdistributiongroups` (K43) |
+| Bölgeler ekranı | coğrafi bölge KAYDI | `/api/regions` |
+
+K31'in uyardığı çakışma bu: aynı kelime iki şeyi gösteriyor. Üst bar yine de
+BAĞLANMADI, çünkü kapsam kavramı K43'te grup firması olarak sabitlendi ve URL'de
+liste süzgeçleriyle aynı `group` anahtarını paylaşıyor — coğrafi bölgeye çevirmek
+bir ürün kararı ister, yeniden adlandırma değil. **Açık soru:** kapsam seçicisi
+`/api/regions`'a mı geçmeli, yoksa iki eksen birden mi gerekiyor?
+
+**DELETE = pasifleştirme.** Sunucu soft-delete yapıyor, `GET` yalnız aktifleri
+döndürüyor. Arayüz bu yüzden "Sil" demiyor, **"Pasifleştir"** diyor ve onay
+diyaloğu "kayıt silinmez" diye yazıyor: geri dönüşü olmayan bir işlem yaptığını
+sanan kullanıcı, olmayan bir riski üstlenir. Fonksiyon adı da `deleteRegion`
+değil `deactivateRegion`.
+
+**409 iki farklı iş kuralı taşıyor, uca göre ayrışıyor.** POST/PUT'ta kod
+çakışması (`RegionCodeTakenError` → Kod alanının hatası olur), DELETE'te "bölge
+kullanımda" (`RegionInUseError` → ne yapılacağını söyleyen şerit). İkisi de
+METNE değil DURUM KODUNA bakarak tanınıyor (`DfirmNoTakenError` deseni). 403
+ayrı bir metin alıyor: "bağlantınızı kontrol edin" demek, yetkisi olmayan
+kullanıcıyı sonsuz tekrar denemeye iterdi.
+
+**`http.ts`'e `requestVoid` eklendi.** PUT ve DELETE gövdesiz 200 dönüyor;
+`requestJson` boş gövdede `response.json()` ile `SyntaxError` fırlatıyor ve bu
+`ApiError` olmadığı için genel hataya düşüyordu — yani işlem SUNUCUDA
+BAŞARILIYKEN kullanıcı "kaydedilemedi" görecekti. `projects.ts` bu boşluğu
+yorumda zaten not etmişti (`deleteProject`, "uç 204'e dönerse http.ts'in gövde
+okuması ayarlanacak"). Yeni bir istemci değil, `requestJson`'ın kardeşi.
+
+**Liste durumu URL'de DEĞİL** — çünkü durum YOK. Uç filtresiz, sayfalamasız düz
+bir dizi döndürüyor ve kayıt referans verisi ölçeğinde. İstemcide sayfalama
+kurmak "sayfalama sunucu taraflı, istemci gelen diziyi dilimlemez" kuralını
+çiğnerdi. Sıralama istemcide ve Türkçe (`toSortedRegions`) — bu dilimleme değil,
+sunucunun 'Ç'yi 'D'den sonra vermesinin düzeltilmesi (`toSortedFirmGroups` ile
+aynı gerekçe). Uç sayfalı hâle gelirse `useFirmListParams` deseni eklenir.
+
+**Yazma düğmeleri yönetici olmayanda HİÇ ÇİZİLMİYOR** (`useIsAdmin`), pasif
+durmuyorlar: pasif düğme, tıklayınca 403 alacak bir yolu açık bırakmak olurdu.
+Karar yalnız GÖRÜNÜRLÜK; denetim sunucuda ve 403 yine de ele alınıyor.
+
+Mock gövde `regionsMock.ts`'te ve YALNIZ `VITE_API_URL` tanımsızken çalışıyor —
+uçların 404'ünde düşülmüyor (K76'daki gösterge panosu kararıyla aynı çizgi).
+
+### K78 — Çıkış sunucuya da gidiyor; yönlendirme oturumun TÜREVİ
+
+`logout()` vardı ama yalnız `setAuthSession(undefined)` çağırıyordu ve **hiçbir
+yerden çağrılmıyordu** — ölü koddu. Arayüzde çıkış eylemi hiç yoktu.
+
+`POST /api/auth/logout` bağlandı. Uç kullanıcının TÜM token'larını geçersiz
+kılıyor; yerel temizlik tek başına yeterli değildi, token başka sekmede/istemcide
+süresi dolana kadar geçerli kalıyordu. İstek gövdesiz, yanıt gövdesiz →
+`requestVoid` (K77'de eklendi); `requestJson` boş gövdede patlar ve çıkış
+SUNUCUDA başarılıyken hata görünürdü.
+
+**Yönlendirme elle YAPILMIYOR.** `useNavigate` de `window.location` da yok:
+oturum düşünce `authToken.ts` aboneleri uyanıyor, `useAuthSession` yeni değeri
+veriyor ve `RequireAuth` girişe yönlendiriyor. Yani oturumu temizlemek
+yönlendirmenin KENDİSİ. İkinci bir yönlendirme yazmak, süresi dolan token
+yolundan (http.ts 401'de aynı mekanizmayı kullanıyor) farklı davranan bir çıkış
+demekti — iki yol, iki ayrı bozulma noktası.
+
+**Yerel oturum HER DURUMDA temizleniyor (`finally`).** Kullanıcı "çık" dedi;
+istek ağ hatasıyla düşerse bile bu makinede oturumu açık bırakmak — paylaşılan
+bir bilgisayarda — sunucudaki token'ın süresi dolana kadar geçerli kalmasından
+daha kötü. Bu özellikten ÖNCEKİ davranış zaten tam olarak buydu: sunucu çağrısı
+hiç yoktu. Hata yine de YUTULMUYOR, çağırana geçiyor.
+
+**401 hata sayılmıyor.** Token zaten geçersizse istenen sonuç gerçekleşmiş
+demektir; `http.ts` 401'de oturumu kendisi düşürüyor ve `RequireAuth` girişe
+götürüyor. Kullanıcıya "çıkılamadı" demek, çıkmışken kalmış gibi göstermek olurdu.
+
+Arayüzde kullanıcı bloğu bir MENÜYE dönüştürülmedi: yanındaki bildirim
+düğmesiyle aynı `adminIconButtonVariants` varyantında tek bir ikon düğmesi
+eklendi (`aria-label="Oturumu Sonlandır"`). İstek uçarken düğme kilitleniyor —
+ikinci istek ilkinin token'ı düşürdüğü ana denk gelip gereksiz bir 401 üretirdi.
+
+Üst bardaki "Administrator / Sistem Yöneticisi" metni HÂLÂ SABİT, oturumdan
+gelmiyor. Kapsam dışı bırakıldı; ayrı iş.
+
+
+## 2026-08 · Bölge kavramının kalkması ve kapsam modeli
+
+### K79 — Coğrafi bölge sunucudan TÜMÜYLE kalktı
+
+`/api/regions` (dört uç) ve `/api/gasdistributionfirms/{firmId}/regions` artık
+YOK; `GasDistributionFirmRegion` ilişkisi de kaldırıldı, `ProjectDetailDto`
+alanı `GasDistributionFirmRegionId` → **`GasDistributionFirmId`** oldu.
+
+K77 ile yazılan Bölgeler ekranı (`api/regions.ts`, `regionsMock.ts`,
+`ui/admin/regions/`) ve K31'den kalan `useRegionParam` SİLİNDİ. Olmayan bir uca
+istek atmak arızadır; ekranı bırakmak "çalışıyor gibi görünen" bir yol açık
+bırakırdı. Sol menüde madde, router'da rota kalmadı.
+
+Kalan `region` geçişleri BİLİNÇLİ: `docs/kararlar.md`'deki tarihsel kayıtlar
+(K31/K43/K76/K77) ve `projects.ts`'teki "sözleşme değişti" notu neden böyle
+olduğunu anlatıyor; `adminDashboard.test.ts`'teki "hiçbir kapsamda regionId
+gönderilmez" testi ise regresyon koruması.
+
+### K80 — Kapsam: global / grup / firma, ayrık birleşim
+
+`GET /api/admin/dashboard` iki opsiyonel parametre alıyor — `gdGroupId` ve
+`gdFirmId` — ve **ikisi birlikte gönderilemiyor**. Model bu yüzden ayrık:
+
+```ts
+type AdminScope =
+  | { type: 'global' }
+  | { type: 'group'; groupId: number }
+  | { type: 'firm'; firmId: number }
+```
+
+`{ groupId?: number; firmId?: number }` biçimi geçersiz hâli (ikisi birden dolu)
+TİPTE MÜMKÜN kılardı ve hata ancak sunucuda görünürdü. Sorguyu `adminDashboard.ts`
+içindeki (dışa açık olmayan) `withScopeQuery` kuruyor; global kapsamda parametre
+HİÇ yazılmaz.
+
+**Kapsam için `src/api` altında AYRI dosya açılmıyor.** Bir tur `adminScope.ts`
+denendi ve kaldırıldı: API sözleşmesinin sahibi backend, arayüzde uç başına yeni
+bir soyutlama katmanı kurulmuyor. Tip ve sorgu kurucusu, o parametreyi alan ucun
+kendi dosyasında yaşıyor. UI tarafındaki `useAdminScopeParam` (URL durumu) ve
+`adminScopeOptions` (seçenek hiyerarşisi) API katmanı DEĞİL, `ui/admin/` altında.
+
+URL'de grup `group` (liste süzgeciyle ORTAK anahtar), firma `gdfirm` (liste
+karşılığı yok; proje firması süzgecinin `firm` anahtarıyla karıştırılmamalı).
+Biri yazılırken öbürü siliniyor. Sorgu anahtarı kapsamın TAMAMINI taşıyor →
+grup ile firma kapsamı ayrı önbellek girdisi.
+
+### K81 — Üst bar seçicisi iki düzeyli, yeni uç YOK
+
+Seçenekler mevcut iki uçtan birleşiyor: `/api/gasdistributiongroups` +
+`/api/gasdistributionfirms` (satır zaten `groupId`/`groupName` taşıyor). Her
+grubun altında kendi firmaları; `<optgroup label>` tıklanabilir olmadığı için
+grubun KENDİSİ ilk satır olarak ayrıca yazılıyor ("AKSA (tümü)"). Değer türü de
+taşıyor (`group:5` / `firm:42`) — aynı sayı hem grup hem firma kimliği olabilir.
+
+Sıralama İSTEMCİDE ve Türkçe (hem gruplar hem her grubun firmaları): sunucu
+'Ç'yi 'D'den sonra veriyor ve firma ucunda `sort` yok. Grubu olmayan firmalar
+sonda ayrı başlıkta — elenselerdi kapsamları hiç seçilemezdi.
+
+### K82 — Yoğunluk: `densityBy` + `density`, tanınmayan değer gruba düşer
+
+`regionDensity: [{ region, count }]` yerine `densityBy: 'group' | 'firm'` ve
+`density: [{ id, name, projectCount }]`. Satır artık ekranın iç tipinde de
+sunucunun alan adlarını taşıyor; kart başlığı `densityBy`'dan geliyor
+("Grup/Firma Bazlı Yoğunluk"), satır anahtarı `id` (iki kaydın adı aynı olabilir).
+
+`densityBy` şemada `z.enum(['group','firm']).catch('group')`: bu alan sayıları
+değil METNİ seçiyor, tanınmayan bir değer yüzünden bütün panelin hata ekranına
+dönmesi orantısız olurdu. **TODO(esra): canlı yanıtta değer teyit edilecek** —
+K76 döneminde gerçek yanıt `'GasDistributionGroup'` diyordu.
+
+## 2026-08 · Firma listeleri sayfalı zarfa geçti (K27 emekliliği bekliyor)
+
+### K83 — `/api/gasdistributionfirms` ve `/api/projectfirms` artık zarf döndürüyor
+
+İkisi de düz dizi vermeyi bıraktı, `{ items, totalCount, page, pageSize }`
+döndürüyor ve `SortBy`/`SortDir`/`Page`/`PageSize` (+ sırasıyla
+`GasDistributionGroupId` ve `GasDistributionFirmId`/`GasDistributionGroupId`)
+almaya başladı. Şemalar `z.array(...)` olduğu için **her iki liste de doğrulama
+sınırında patlıyordu**: firma listesi, proje firmaları listesi, üst bardaki
+kapsam seçici, Yeni Proje açılırları, proje listesi süzgeci ve benzersizlik ön
+kontrolü aynı anda ölüydü.
+
+Şemalar `pagedResultSchema` ile zarfa çevrildi. **Davranış bilinçli olarak AYNI
+kaldı**: süzme/sıralama/sayfalama hâlâ istemcide.
+
+### K84 — Varsayılan `pageSize` 30, tavan 100 → sayfalar toplanıyor
+
+Ölçüldü (2026-08-16, gerçek uç): parametresiz çağrı `pageSize: 30` dönüyor ve
+`PageSize=1000` isteği **sessizce `pageSize: 100`'e kırpılıyor**. Yani "tek
+istekte hepsini al" mümkün değil, büyük `PageSize` göndermek de yetmiyor.
+
+`fetchAllFirms` ve `getProjectFirmList` bu yüzden `listQuery.fetchAllPages` ile
+sayfaları SIRAYLA topluyor: ilk yanıtın `totalCount`'u kaç sayfa gerektiğini
+söylüyor, sayfa boyutu istenen değil **dönen** değerden okunuyor (sunucu
+kırpıyor), boş sayfa gelirse döngü duruyor ve 200 sayfalık güvenlik tavanı var.
+
+Tek sayfayla yetinilmedi çünkü bu iki fonksiyonun on bir çağıranının HEPSİ tüm
+listeyi varsayıyor. En keskini benzersizlik ön kontrolü
+(`findTakenProjectFirmErrors`): 30. kayıttan sonrası görünmeseydi form "bu vergi
+numarası boşta" der ve MÜKERRER kayıt açtırırdı. Diğerleri (kapsam seçici,
+açılırlar, istemci tarafı süzme) sessizce eksik liste gösterirdi.
+
+### K85 — K27 emekliliği BEKLİYOR, ekran ekran yapılacak
+
+`Page`/`PageSize` bugün yalnız "hepsini topla" amacıyla gidiyor; `SortBy`/
+`SortDir` hiç kullanılmıyor ve ekranın sayfa boyutu uca YANSITILMIYOR. Yani K27
+(istemci tarafı süzme/sıralama/sayfalama) hâlâ yürürlükte.
+
+Sunucu tarafına geçiş tek seferde YAPILMADI: her liste ekranının kendi filtre
+sözleşmesi, arama alanı ve sıralama anahtarları var; hepsini aynı anda çevirmek
+altı ekranı birden riske atardı. Geçiş ekran ekran ve ayrı yapılacak — o zaman
+`fetchAllPages` çağrıları teker teker düşecek.
+
+## 2026-08 · Yetki ucunun kalan üç bağı
+
+### K86 — Süresi dolmuş yetki kuralının TEK kapısı: `getEffectiveAuthorizations`
+
+`GET /api/project-firm-authorizations` artık dört yeri besliyor: proje
+oluştururken yazılan `projectFirmAuthorizationId`, Yeni Proje formunun G.D.
+firması açılırı, kullanıcı yetki satırının proje firması açılırı (KK-20) ve
+proje firmaları listesindeki "G.D. Firması" sütunu.
+
+Uçta `onlyValid` ya da tarih süzgeci YOK, yani "süresi dolmuş yetki sayılmaz"
+kuralı istemcide. Dördü de tek fonksiyondan geçiyor
+(`isAuthorizationEffectiveAt` → `getEffectiveAuthorizations`); ikinci bir tarih
+karşılaştırması yazılmadı. Sebep kuralın sınırda incelmesi: geçerlilik GÜN
+bazlı ve iki uçta da dahil, damgalar dilim eki taşımadığı için UTC varsayılıyor.
+Bu kadar ince bir kuralın ikinci kopyası kaçınılmaz olarak farklı davranırdı ve
+fark ancak gün sınırındaki bir kayıtta görünürdü.
+
+### K87 — KK-20 daraltması `/api/projectfirms?GasDistributionFirmId=` ile DEĞİL, yetki ucuyla
+
+Yetki satırındaki proje firması açılırı artık seçilen G.D. firmasına daralıyor.
+Daraltmayı iki uç da verebilirdi:
+
+| | `/api/projectfirms?GasDistributionFirmId=` | `/api/project-firm-authorizations?GasDistributionFirmId=` |
+|---|---|---|
+| Satır | doğrudan firma | yetki kaydı → tekilleştirme gerekir |
+| `validFrom`/`validTo` | YOK | var |
+
+Kısa yol firma satırı döndürdüğü için tekilleştirme istemiyor ve ilk bakışta
+daha uygun. **Ama geçerlilik tarihi taşımıyor.** Uçta `onlyValid` de olmadığına
+göre süzme istemcide yapılmak zorunda; o hâlde tarihleri getiren tek kaynak
+yetki ucu. Kısa yol seçilseydi süresi dolmuş bir yetkiyle bağlı firma da
+seçenek olarak çıkardı ve hata ancak kaydetmeye basınca görünürdü — Yeni Proje
+formunda tam olarak bu yaşandığı için K86 kuralı konmuştu.
+
+Tekilleştirme "derdi" ölçüldüğünde üç satır: `getAuthorizedGasFirms`'in aynası
+(`toFirmOptions`) iki yönde de aynı Map'i kullanıyor. Yani kısa yolun tek
+avantajı bedava değil, sadece görünmez bir doğruluk kaybı karşılığındaydı.
+
+Mock kullanıcı tohumu (`seedFromRealFirms`) bu daraltmadan MUAF: tohum tüm
+firmaları istiyor, `getProjectFirmList`'ten alıyor. Eskiden `getAuthorizedProjectFirms(0)`
+çağırıyordu ve daraltma bağlanınca sessizce boş liste dönerdi.
+
+### K88 — "G.D. Firması" sütunu doldu ve ÇOĞUL
+
+Proje firmaları listesindeki sütun artık "-" değil. Bağı kuran tek uç olmadığı
+için birleştirme istemcide: `GET /api/projectfirms` firmayı, yetki ucu bağı
+veriyor, `buildProjectFirmRows` satırda birleştiriyor (`ProjectFirmRow`).
+
+Alan `gasFirm | null` değil `gasFirms: []`: bir proje firması aynı anda birden
+fazla G.D. firmasında yetkili olabiliyor. Tekil bırakılsaydı çağıranın "ilk
+yetki" gibi sessiz bir seçim yapması gerekirdi ve kullanıcı firmanın diğer
+yetkilerini hiç görmezdi. Hücrede adlar ALT ALTA (`<ul>`) — virgülle ayrılmış
+bağlantılar hem gözle hem ekran okuyucuda tek bağlantıya benziyor.
+
+Yetkisi olmayan firma listeden DÜŞMEZ, hücresi "-" kalır: iç birleştirme
+yapılsaydı liste sessizce firma kaybederdi. Yetki sorgusu AYRI anahtarda ve
+listeyi BEKLETMİYOR — firma listesi altı ekranda ortak anahtarla paylaşılıyor
+(K75), yetki isteği o anahtara eklenseydi bağa ihtiyacı olmayan beş ekran da
+ikinci isteği çekerdi. Bağ çekilemezse sütun boş kalır ve "hiç yetkisi yok" gibi
+okunur; bu yüzden kapatılabilir bir uyarı şeridi farkı söylüyor.
+
+Boş hücre "yetki yok" gibi bir METİN yazmaz, projenin ortak `EmptyValue`
+işaretini çizer. Tablonun kendi yerel tiresi de aynı turda oraya bağlandı —
+yerel sürüm ekran okuyucuya "-" diye okunuyordu, ortak bileşen işareti
+`aria-hidden` yapıp yerine "Değer yok" veriyor.
+
+Filtre panelindeki iki kutunun pasiflik SEBEBİ artık ayrı, ipuçları da ayrıldı:
+yeterlilik durumunda veri yok, G.D. firmasında veri var ama süzgeç bağlanmadı
+(KK-5 kararına bağlı).
+
+### K89 — KK-5 satır kararı: satır = FİRMA kalıyor
+
+Veri geldiği hâlde "her yetki ayrı satır" (KK-5) UYGULANMADI. Engel veri değil,
+ekranın eylem modeli: İşlemler sütunu firma bazlı ("Sil" firmayı siliyor), yetki
+bazlı bir eylem sunulamıyor çünkü yetki yazma yolu S1/S2 yüzünden hâlâ mock, ve
+düzleştirme aynı yıkıcı düğmeyi bir firma için N kez gösterirdi.
+
+Denenen alternatifler ve neden seçilmedikleri: "Sil yalnız firmanın ilk
+satırında" → tekrarlayan ad + "neden burada düğme yok" belirsizliği; "İşlemler
+sütunu tümüyle kalksın" → listeden silme yeteneği kaybolur.
+
+Karar S1/S2 netleşince yeniden değerlendirilecek; analiste sorulacak soru
+docs/api-eksikleri-proje-firmalari.md **S7**: satırlar yetki bazlı olursa yetki
+başına hangi eylemler sunulacak?
