@@ -23,6 +23,7 @@ import {
   FLOOR_MANAGEMENT_ITEM_ID,
   FLOOR_MENU_ID,
   FLOOR_UP_ITEM_ID,
+  IMPORT_ITEM_ID,
   REDO_ITEM_ID,
   SAVE_ITEM_ID,
   SHOW_DIMENSIONS_ITEM_ID,
@@ -34,6 +35,7 @@ import {
 type MenuBarProps = {
   onCloseEditor: () => void
   onSave: () => void
+  onImport: () => void
   onExport: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
@@ -45,6 +47,7 @@ type MenuBarProps = {
 export function MenuBar({
   onCloseEditor,
   onSave,
+  onImport,
   onExport,
   onOpenFloorManagement,
   onOpenFloorCopy,
@@ -101,6 +104,7 @@ export function MenuBar({
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
     if (itemId === SAVE_ITEM_ID) onSave()
+    if (itemId === IMPORT_ITEM_ID) onImport()
     if (itemId === EXPORT_ITEM_ID) onExport()
     if (itemId === UNDO_ITEM_ID) undoActiveView()
     if (itemId === REDO_ITEM_ID) redoActiveView()

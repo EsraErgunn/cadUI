@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useCloseEditor } from './useCloseEditor'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
+import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
@@ -25,6 +26,8 @@ export function EditorPage() {
   const activeViewId = useUiStore((state) => state.activeViewId)
   const { isSaving, error, save } = useProjectPersistence()
   const exportProject = useProjectExport()
+  const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
+    useProjectImport()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const handleSave = () => void save()
@@ -52,11 +55,22 @@ export function EditorPage() {
       <MenuBar
         onCloseEditor={closeEditor}
         onSave={handleSave}
+        onImport={triggerImport}
         onExport={exportProject}
         onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
         onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
         onGoToFloor={goToFloor}
         isSaving={isSaving}
+      />
+
+      {/* Menüden tetiklenir (Dosya > İçe Aktar); görünür bir seçici yerine
+          gizli input kullanmak tarayıcının kendi dosya diyaloğunu verir. */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={handleFileSelected}
       />
 
       {error && (
@@ -65,6 +79,15 @@ export function EditorPage() {
           className="shrink-0 border-b border-edge bg-surface-sunken px-3 py-1.5 text-sm text-danger"
         >
           {error}
+        </p>
+      )}
+
+      {importError && (
+        <p
+          role="alert"
+          className="shrink-0 border-b border-edge bg-surface-sunken px-3 py-1.5 text-sm text-danger"
+        >
+          {importError}
         </p>
       )}
 

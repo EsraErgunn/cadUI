@@ -5,7 +5,7 @@ import type {
   InstallationElement,
   InstallationLine,
 } from './installationModel'
-import { getLineEndPointId, getLinkedLinePoints } from './lineCornerLink'
+import { getLinkedLinePoints } from './lineCornerLink'
 import type { PipeTypeName } from './pipeTypes'
 import { isBurnerAppliance } from './symbolMetadata'
 import type { InstallationElementType } from './symbolMetadata'
@@ -69,6 +69,27 @@ function findLine(lines: readonly InstallationLine[], lineId: Id): InstallationL
   return lines.find((line) => line.id === lineId)
 }
 
+/**
+ * Bir elemanın `out` portuna bağlı hat ucu — sayacın kendi başlangıcı İÇİN de,
+ * araya giren GEÇİŞ elemanları (regülatör, süzme sayaç, filtre kiti, solenoid
+ * vana…) İÇİN de aynı arama. Bunlar `onLine` modunda genelde `inlineElementId`
+ * ile boruya oturur, ama model bunu ZORUNLU kılmaz — port zinciriyle ayrı
+ * elemanlar olarak da bağlanabilirler (bkz. docs/sample-project.json), bu
+ * yüzden yalnız inline armatürleri değil, port zincirindeki ARA elemanları da
+ * atlamadan geçmek gerekir.
+ */
+function findOutConnection(
+  connections: readonly InstallationConnection[],
+  elementId: Id,
+): InstallationConnection | undefined {
+  return connections.find(
+    (connection) =>
+      connection.target.kind === 'port' &&
+      connection.target.elementId === elementId &&
+      connection.target.portId === 'out',
+  )
+}
+
 /** Ocak'ta (Stove) hermetik/bacalı ayrımı YOK — `undefined` döner, "Baca" boş kalır. */
 function getApplianceType(element: InstallationElement): ApplianceType | undefined {
   switch (element.type) {
@@ -121,35 +142,66 @@ function traceMeterSubtree(
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
 ): MeterSubtree {
-  const outConnection = connections.find(
-    (connection) =>
-      connection.target.kind === 'port' &&
-      connection.target.elementId === meterId &&
-      connection.target.portId === 'out',
-  )
+  const outConnection = findOutConnection(connections, meterId)
   if (!outConnection) return { pipeTypeName: null, fittingElementIds: [], devices: [] }
-
-  const startPointId = getLineEndPointId(lines, outConnection.lineId, outConnection.end)
-  if (startPointId === undefined) return { pipeTypeName: null, fittingElementIds: [], devices: [] }
 
   const visitedLineIds = new Set<Id>()
   const visitedElementIds = new Set<Id>([meterId])
   const fittingElementIds: Id[] = []
   const devices: MeterReportDevice[] = []
   let pipeTypeName: PipeTypeName | null = null
+  const queue: Id[] = [outConnection.lineId]
 
-  const queue: { lineId: Id; entryPointId: Id }[] = [
-    { lineId: outConnection.lineId, entryPointId: startPointId },
-  ]
+  const enqueueElementOutput = (elementId: Id) => {
+    const nextOut = findOutConnection(connections, elementId)
+    if (nextOut) queue.push(nextOut.lineId)
+  }
+
+  /**
+   * Bir hattın TEK ucu. İKİ şey AYNI köşede birden olabilir, biri diğerini
+   * ELEMEZ: uç bir elemanın portuna bağlı OLABİLİR ("port") VE aynı köşeye
+   * başka hatlar da branşmanla tutunmuş OLABİLİR ("line") — bkz.
+   * sample-project.json: solenoid vananın ÇIKIŞ portu tam da altı cihaza
+   * dallanan ortak köşenin kendisi. Bu yüzden ikisi de her uçta ayrı ayrı
+   * kontrol edilir, biri bulununca diğeri atlanmaz.
+   */
+  const handleEnd = (lineId: Id, end: InstallationConnection['end'], pointId: Id) => {
+    const ownConnection = connections.find((c) => c.lineId === lineId && c.end === end)
+    if (ownConnection?.target.kind === 'port') {
+      const targetElementId = getTargetElementId(ownConnection.target)
+      const targetElement =
+        targetElementId === null ? undefined : findElement(elements, targetElementId)
+      if (targetElement && !visitedElementIds.has(targetElement.id)) {
+        visitedElementIds.add(targetElement.id)
+        if (isBurnerAppliance(targetElement.type)) {
+          devices.push(buildDevice(targetElement))
+        } else if (targetElement.type !== 'gasMeter') {
+          // Geçiş elemanı (regülatör, süzme sayaç, filtre kiti, solenoid vana,
+          // manometre…): armatür olarak kaydedilir ve KENDİ çıkış portundan
+          // devam edilir — burada durursak ardındaki hiçbir cihaza ulaşılmaz.
+          fittingElementIds.push(targetElement.id)
+          enqueueElementOutput(targetElement.id)
+        }
+        // gasMeter hedefi bilerek YOK SAYILIR: komşu dairenin sayacına geçilmez.
+      }
+    }
+
+    const linked = getLinkedLinePoints(lines, connections, lineId, pointId)
+    for (const link of linked) {
+      if (link.lineId === lineId) continue
+      if (visitedLineIds.has(link.lineId)) continue
+      queue.push(link.lineId)
+    }
+  }
 
   while (queue.length > 0) {
-    const current = queue.shift()
-    if (!current) break
-    if (visitedLineIds.has(current.lineId)) continue
+    const lineId = queue.shift()
+    if (lineId === undefined) break
+    if (visitedLineIds.has(lineId)) continue
 
-    const line = findLine(lines, current.lineId)
+    const line = findLine(lines, lineId)
     if (!line || NON_GAS_LINE_KINDS.has(line.kind)) continue
-    visitedLineIds.add(current.lineId)
+    visitedLineIds.add(lineId)
     pipeTypeName ??= line.pipeTypeName
 
     for (const point of line.points) {
@@ -161,34 +213,8 @@ function traceMeterSubtree(
 
     const startId = line.points[0]?.id
     const endId = line.points.at(-1)?.id
-    if (current.entryPointId !== startId && current.entryPointId !== endId) continue
-    const otherEnd = current.entryPointId === startId ? 'end' : 'start'
-    const otherEndPointId = otherEnd === 'end' ? endId : startId
-    if (otherEndPointId === undefined) continue
-
-    const portConnection = connections.find(
-      (connection) =>
-        connection.lineId === current.lineId &&
-        connection.end === otherEnd &&
-        connection.target.kind === 'port',
-    )
-    if (portConnection) {
-      const targetElementId = getTargetElementId(portConnection.target)
-      const targetElement = targetElementId === null ? undefined : findElement(elements, targetElementId)
-      if (targetElement && !visitedElementIds.has(targetElement.id)) {
-        visitedElementIds.add(targetElement.id)
-        if (isBurnerAppliance(targetElement.type)) devices.push(buildDevice(targetElement))
-        // gasMeter hedefi bilerek YOK SAYILIR: komşu dairenin sayacına geçilmez.
-      }
-      continue
-    }
-
-    const linked = getLinkedLinePoints(lines, connections, current.lineId, otherEndPointId)
-    for (const link of linked) {
-      if (link.lineId === current.lineId) continue
-      if (visitedLineIds.has(link.lineId)) continue
-      queue.push({ lineId: link.lineId, entryPointId: link.pointId })
-    }
+    if (startId !== undefined) handleEnd(lineId, 'start', startId)
+    if (endId !== undefined) handleEnd(lineId, 'end', endId)
   }
 
   return { pipeTypeName, fittingElementIds, devices }

@@ -122,7 +122,7 @@ function toBurnerApplianceJson(properties: {
   description: string
   capacity: string
   power: string
-  flowCubicMeterPerHour: number
+  flowCubicMeterPerHour?: number
 }) {
   return {
     applianceType: properties.applianceType,
@@ -163,9 +163,11 @@ const insulationPropertiesSchema = z.object({
 
 /**
  * meterOrder/abone-birim/ölçü alanları SONRADAN eklendi (2026-08): eski
- * kayıtlarda `gasMeter` nesnesi var ama bu alanlar yok. `.default()` ile
- * dosya YİNE açılır (projectDataSchema'daki `heightCm`/`axisId` deseniyle
- * aynı gerekçe); bir sonraki kayıtta `toGasMeterJson` tam alan kümesini yazar.
+ * kayıtlarda `gasMeter` nesnesi var ama bu alanlar yok. `.optional()` —
+ * `.default()` DEĞİL: `axisId`/`labelOffsetCm` (model.ts) ile AYNI gerekçe,
+ * varsayılan bir değer YAZSAYDI docs/sample-project.json gibi eski dosyalar
+ * hiç dokunulmamışken bile "bit bit aynı" kabul testini kırardı (yokluk,
+ * sıfır DEĞİLDİR). Alan yalnız kullanıcı gerçekten dokunup kaydedince yazılır.
  */
 const gasMeterPropertiesSchema = z.object({
   classLabel: z.string(),
@@ -174,13 +176,13 @@ const gasMeterPropertiesSchema = z.object({
   isIndoor: z.boolean(),
   isAccessible247: z.boolean(),
   hasCorrector: z.boolean(),
-  meterOrder: z.number().default(0),
-  unitNumber: z.string().default(''),
-  subscriberName: z.string().default(''),
-  subscriberNo: z.string().default(''),
-  flowCubicMeterPerHour: z.number().default(0),
-  pressureMbar: z.number().default(0),
-  areaSquareMeters: z.number().default(0),
+  meterOrder: z.number().optional(),
+  unitNumber: z.string().optional(),
+  subscriberName: z.string().optional(),
+  subscriberNo: z.string().optional(),
+  flowCubicMeterPerHour: z.number().optional(),
+  pressureMbar: z.number().optional(),
+  areaSquareMeters: z.number().optional(),
 })
 
 const filterKitPropertiesSchema = z.object({
@@ -200,14 +202,15 @@ const solenoidValvePropertiesSchema = z.object({
   model: z.string(),
 })
 
-/** `flowCubicMeterPerHour` ("Debi") SONRADAN eklendi — aynı `.default(0)` göç deseni. */
+/** `flowCubicMeterPerHour` ("Debi") SONRADAN eklendi — gasMeterPropertiesSchema'daki
+ * `.optional()` gerekçesiyle aynı, bit-bit tur için `.default()` KULLANILMAZ. */
 const stovePropertiesSchema = z.object({
   brand: z.string(),
   model: z.string(),
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
-  flowCubicMeterPerHour: z.number().default(0),
+  flowCubicMeterPerHour: z.number().optional(),
 })
 
 const burnerAppliancePropertiesSchema = z.object({
@@ -217,7 +220,7 @@ const burnerAppliancePropertiesSchema = z.object({
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
-  flowCubicMeterPerHour: z.number().default(0),
+  flowCubicMeterPerHour: z.number().optional(),
 })
 
 const otherAppliancePropertiesSchema = z.object({
@@ -228,7 +231,7 @@ const otherAppliancePropertiesSchema = z.object({
   description: z.string(),
   capacity: z.string(),
   power: z.string(),
-  flowCubicMeterPerHour: z.number().default(0),
+  flowCubicMeterPerHour: z.number().optional(),
 })
 
 export const installationElementSchema = z.object({
