@@ -4724,3 +4724,30 @@ okunursa bir draft proxy'si gelir; producer bitince state'e yazılan gerçek diz
 başka bir referans olur ve karşılaştırma HER ZAMAN "kirli" der. `loadProject`
 bu yüzden gelen `data`dan alıyor (aynı referanslar state'e yazılıyor),
 `markSaved` ise `getState()`ten.
+
+## 2026-08 · Duvar ölçüsü tek sayıya indi
+
+### K95 — İçten/dıştan ölçü KALDIRILDI (K74/K75 geri alındı)
+
+Duvar parçası artık TEK sayı yazıyor: kendi EKSEN boyu. `WallDimensionAnnotation`
+`innerLengthCm`/`innerPosition`/`outerLengthCm`/`outerPosition` yerine
+`lengthCm`/`position` taşıyor; `buildWallInteriorPoints` ve `interiorPoints`
+seçeneği tümüyle düştü.
+
+Sebep: kullanıcı planda yanlış çalıştığını bildirdi. Ekran görüntüsünde aynı
+duvarda `1,94 / 1,21` gibi farkı komşu kalınlığının yarısıyla açıklanamayacak
+kadar büyük çiftler ve `0,02 m` gibi sayılar vardı. Sayıların bir kısmı doğru
+iç/dış çiftiyken bir kısmı değildi ve kullanıcı ikisini ayırt edemiyordu —
+"hangisi gerçek boy" sorusu her etikette yeniden soruluyordu.
+
+K74'ün gerekçesi (imalatta ölçülen net açıklıktır) hâlâ geçerli, ama iki sayıyı
+yan yana yazmak o bilgiyi güvenilir biçimde vermiyordu. Doğru olan tek sayının
+yanlış olan iki sayıdan iyi olduğuna karar verildi; iç/dış ayrımı gerekirse
+ayrıca ve kendi başına ele alınacak.
+
+K76 (duvar ve açıklık anahtarlarının bağımsızlığı) ve K73 (duvarın açıklıklarla
+parçalara bölünmesi) DURUYOR — kaldırılan yalnız parça başına ikinci ölçü.
+
+Etiket okunur yönün SOL normaline yazılıyor; "oda tarafı" kavramı artık
+hesaplanmıyor, dolayısıyla `findRoomFaces` bu yoldan çıktı (kare başına oda
+çevrimi araması da gitti).

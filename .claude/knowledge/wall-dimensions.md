@@ -112,3 +112,18 @@ habersiz kalır — noktalar parametre olarak girer.
 etiketleri üst üste biniyor. Ekranda doğrulandı, bilinçli olarak bırakıldı: ekran
 boyuna göre eleyen bir eşik çözerdi ama kullanıcının görmek isteyebileceği sayıyı
 gizlerdi. Karar verilmeden eklenmesin.
+
+## K95 — içten/dıştan KALDIRILDI
+
+Yukarıdaki K74/K75 bölümleri artık GEÇMİŞ kaydıdır: duvar parçası tek sayı
+yazıyor, kendi EKSEN boyu. `innerLengthCm`/`outerLengthCm` ve `interiorPoints`
+yok; `WallDimensionAnnotation` = `lengthCm` + `position` (okunur yönün sol
+normali). `buildWallInteriorPoints` silindi, bu yolda `findRoomFaces` çağrısı
+kalmadı.
+
+Sebep: planda yanlış çalışıyordu — aynı duvarda komşu kalınlığının yarısıyla
+açıklanamayacak çiftler ve 2 cm'lik sayılar çıkıyordu; kullanıcı doğru çiftle
+bozuk olanı ayırt edemiyordu. Doğru tek sayı, yanlış iki sayıdan iyidir.
+
+K73 (açıklıkların duvarı parçalara bölmesi) ve K76 (iki anahtarın bağımsızlığı)
+DURUYOR.

@@ -1,19 +1,15 @@
 import { Text } from '@react-three/drei'
-import { useMemo } from 'react'
+
 
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
 import { useArchitecturePoints } from './useArchitecturePoints'
 import { useCameraZoom } from './useCameraZoom'
-import { planToThree, type PlanPoint } from '../core/coords'
+import { planToThree } from '../core/coords'
 import { formatLengthMeters } from '../core/lengthFormat'
 import type { Id } from '../core/model'
 import { getWallsAtPoint } from '../core/wall'
-import {
-  buildWallInteriorPoints,
-  getWallDimensionAnnotations,
-  type WallDimensionAnnotation,
-} from '../core/wallDimensions'
+import { getWallDimensionAnnotations, type WallDimensionAnnotation } from '../core/wallDimensions'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -30,7 +26,7 @@ const DEG_TO_RAD = Math.PI / 180
 const LABEL_SIZE_PX = 11
 /** Yazı ile duvar yüzü arasındaki ekran boşluğu. */
 const LABEL_GAP_PX = 9
-/** Bundan kısa bir iç ölçü yazılmaz: köşeler duvarı tümüyle yutmuştur. */
+/** Bundan kısa parçaya sayı yazılmaz. */
 const MIN_LABELED_LENGTH_CM = 1
 
 /** Ölçü yazısı tıklanmaz; duvar tutması saf geometriyle yapılıyor. */
@@ -63,13 +59,6 @@ function WallDimensions() {
   const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
   const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
 
-  // Oda çevrimi araması duvar/nokta değişmedikçe aynı sonucu verir; zoom her
-  // karede oynadığı için bunu ana hesapla birlikte koşturmak boşa iş olurdu.
-  const interiorPoints = useMemo(
-    () => buildWallInteriorPoints(walls, points, activeFloorId),
-    [walls, points, activeFloorId],
-  )
-
   const annotations = getWallDimensionAnnotations(walls, points, openings, {
     activeFloorId,
     gapCm: LABEL_GAP_PX / zoom,
@@ -79,67 +68,26 @@ function WallDimensions() {
     wallIds: isDimensionsVisible
       ? undefined
       : getEditedWallIds(walls, draggingPointId, draggingWallIds),
-    interiorPoints,
     isOpeningVisible: isOpeningDimensionsVisible,
   })
 
   return (
     <group name="wall-dimension-labels">
-      {annotations.flatMap((annotation) =>
-        getLabelRows(annotation).map((row) => (
-          <DimensionText key={row.key} row={row} kind={annotation.kind} zoom={zoom} />
-        )),
-      )}
+      {annotations
+        // Köşelerin yuttuğu kadar kısa parçaya sayı yazılmaz.
+        .filter((annotation) => annotation.lengthCm >= MIN_LABELED_LENGTH_CM)
+        .map((annotation) => (
+          <DimensionText key={annotation.key} annotation={annotation} zoom={zoom} />
+        ))}
     </group>
   )
 }
 
-type LabelRow = {
-  key: string
-  position: PlanPoint
-  angleDeg: number
-  lengthCm: number
-}
-
-/**
- * Bir parçanın yazılacak satırları. İç ölçü duvarın ODA tarafına, dış ölçü karşı
- * yanına düşer (K75) — konumları core hesaplıyor, burada yalnız hangisinin
- * yazılacağına karar veriliyor.
- *
- * İkisi eşitse (serbest uçlu duvar ya da iki açıklık arasında kalan parça) TEK
- * satır: aynı sayıyı duvarın iki yanına yazmak kullanıcıya "bunlar farklı" der
- * ve yalan söylerdi.
- */
-function getLabelRows(annotation: WallDimensionAnnotation): LabelRow[] {
-  const inner: LabelRow = {
-    key: `${annotation.key}-inner`,
-    position: annotation.innerPosition,
-    angleDeg: annotation.angleDeg,
-    lengthCm: annotation.innerLengthCm,
-  }
-
-  if (annotation.outerLengthCm - annotation.innerLengthCm < MIN_LABELED_LENGTH_CM) {
-    return [inner]
-  }
-
-  const outer: LabelRow = {
-    key: `${annotation.key}-outer`,
-    position: annotation.outerPosition,
-    angleDeg: annotation.angleDeg,
-    lengthCm: annotation.outerLengthCm,
-  }
-
-  // İç ölçü sıfıra düşmüşse (köşeler duvarı yutmuş) yalnız dış ölçü yazılır.
-  return annotation.innerLengthCm < MIN_LABELED_LENGTH_CM ? [outer] : [inner, outer]
-}
-
 function DimensionText({
-  row,
-  kind,
+  annotation,
   zoom,
 }: {
-  row: LabelRow
-  kind: WallDimensionAnnotation['kind']
+  annotation: WallDimensionAnnotation
   zoom: number
 }) {
   return (
@@ -149,22 +97,26 @@ function DimensionText({
     // matrisi günceller. Anchor center/middle ve iç kaydırma olmadığı için
     // sonuç birebir aynı: `LABEL_SIZE_PX * (1/zoom)`.
     <group
-      position={planToThree(row.position, HANDLE_ELEVATION_CM)}
+      position={planToThree(annotation.position, HANDLE_ELEVATION_CM)}
       // Z ekseni etrafındaki dönüş yazıyı duvara PARALEL tutar; yatırma
       // (X) önce uygulanıyor, sıra değişirse yazı düzlemden kalkar.
-      rotation={[FLAT_ROTATION_X, 0, row.angleDeg * DEG_TO_RAD]}
+      rotation={[FLAT_ROTATION_X, 0, annotation.angleDeg * DEG_TO_RAD]}
       scale={1 / zoom}
     >
       <Text
         font={FONT_URL}
         fontSize={LABEL_SIZE_PX}
-        color={kind === 'opening' ? ARCHITECTURE_COLORS.openingDimension : ARCHITECTURE_COLORS.wall}
+        color={
+          annotation.kind === 'opening'
+            ? ARCHITECTURE_COLORS.openingDimension
+            : ARCHITECTURE_COLORS.wall
+        }
         anchorX="center"
         anchorY="middle"
         renderOrder={RENDER_ORDER.measurement}
         raycast={NO_RAYCAST}
       >
-        {formatLengthMeters(row.lengthCm)}
+        {formatLengthMeters(annotation.lengthCm)}
       </Text>
     </group>
   )
@@ -172,7 +124,7 @@ function DimensionText({
 
 /**
  * Duvar ve açıklık ölçüleri. Yazı duvara paralel, ekseninden dik kaydırılmış ve
- * ekran boyunda sabit; iç ölçü odanın içine, dış ölçü karşı yanına düşer (K75).
+ * ekran boyunda sabit; tek sayı: duvarın eksen boyu (K95).
  *
  * İKİ BAĞIMSIZ anahtar (K76): Görünüm ▸ Ölçüler duvar parçalarını, Görünüm ▸
  * Kapı/pencere ölçüleri açıklık genişliklerini açar. Biri kapalıyken diğeri
