@@ -70,7 +70,7 @@ yerinde kalır ve kullanıcı "boşluğa bastım ama seçim olmadı" derdi. Tesi
 ⚠️ Oda ADI ile ALANI (m²) tek anahtar: aynı çapaya yazılmış tek öbek. Ad
 DÜZENLEME kutusu anahtardan etkilenmez — yazan kullanıcı yazdığını görmeli.
 
-## Kat seçici (K55)
+## Kat seçici (K55, K92)
 
 Sol üstteki `FloorStrip` KALDIRILDI; işini çubuktaki açılır devraldı. ↓/↑
 oklarının karşılamadığı iki şey oradan taşındı: **katların tam listesi** (uzak
@@ -79,14 +79,32 @@ kata tek adımda gitmek) ve **boş kat işareti** (içi boş halka).
 Sıra ALTTAN ÜSTE = store dizisinin kendi sırası. "Katlar" penceresi ters
 çevirir (bina kesitten okunuyor) — iki yön bilerek farklı.
 
+**K92:** Üst bardaki "Katlar" menüsü kalkınca (K90) `Kat Yönetimi (Ctrl+K)` ve
+`Kat Kopyalama (Ctrl+Shift+K)` listenin altına, ayraçtan sonra indi — bu iki
+pencerenin tek girişi burası. Yukarısı "hangi kattayım", aşağısı "katları
+değiştir".
+
+Düğme aktif katın adını değil `Katlar <sayı>` yazar (kalkan menünün rozeti de
+buraya geldi); aktif kat açılırın içinde işaretli. ⚠️ Erişilebilir ad İKİSİNİ
+birden söyler (`Katlar, aktif kat Zemin Kat`): görünen metin artık aktif katı
+söylemediği için ekran okuyucu kullanıcısı onu kaybederdi.
+
+↓/↑ okları bir tur kaldırılıp GERİ KONDU (kullanıcı kararı): komşu kata geçmek
+çizerken en sık yapılan hareket, açılır açıp madde seçmek onun yanında üç adım.
+
 `floors/floorVariants.ts` duruyor: kat pencereleri `FLOOR_FOCUS_RING`'i
 kullanmaya devam ediyor.
 
 ## Stil
 
 Vurgu SEÇİM rengi, marka sarısı DEĞİL (`ui/canvas/canvasBarVariants.ts`) —
-çubuk çizim alanının üstünde ve marka sarısı oraya giremez. Menü çubuğunun
-`chromeButtonVariants`'ı bu yüzden yeniden kullanılmadı.
+çubuk çizim alanının üstünde ve marka sarısı oraya giremez. Pencerelerin
+`chromeButtonVariants`'ı bu yüzden yeniden kullanılmadı. Üst barın da kendi
+varyantları var (`ui/menu/editorBarVariants.ts`, K91) — üçü ayrı yüzeyde
+duruyor, tek varyanta indirilmeye çalışılmasın.
+
+Çubuk tema DEĞİŞTİRİR (koyu temada koyu), üst bar değiştirmez — ayrım
+[editor-shell](./editor-shell.md)'de.
 
 Sarmalayıcı `pointer-events-none`, çubuğun kendisi `pointer-events-auto`:
 çubuğun iki yanındaki boşluk tuvale ait kalmalı (drei `<Html>` sarmalayıcısıyla
