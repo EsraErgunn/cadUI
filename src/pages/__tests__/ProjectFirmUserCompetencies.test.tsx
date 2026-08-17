@@ -135,6 +135,23 @@ describe('proje firmasının firmaya bağlılığı (KK-20)', () => {
       .toBeInTheDocument()
   })
 
+  /**
+   * Daraltma listeyi boşaltabilir (yetkisi olmayan ya da süresi dolmuş firma).
+   * Kutu sessizce boş açılırsa kullanıcı sebebini göremez.
+   */
+  it('yetkili proje firması yoksa sebebini yazar', async () => {
+    readApi.getAuthorizedProjectFirms.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderFormFlow()
+
+    await user.click(addRowButton())
+    await user.selectOptions(rowField(1, 'Gaz dağıtım firması'), '103')
+
+    expect(
+      await screen.findByText(/geçerli yetkisi olan proje firması yok/),
+    ).toBeInTheDocument()
+  })
+
   it('firma değişince proje firması seçimi temizlenir', async () => {
     const user = userEvent.setup()
     renderFormFlow()

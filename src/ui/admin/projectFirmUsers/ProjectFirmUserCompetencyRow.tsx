@@ -20,6 +20,30 @@ import { Switch } from '../form/Switch'
 const PLACEHOLDER_LABEL = 'Seçiniz'
 const EMPTY_VALUE = ''
 
+/**
+ * Daraltılmış liste boş kalabiliyor; kutu sessizce boş açılırsa kullanıcı
+ * sebebini göremez (Yeni Proje formundaki `NO_AUTHORIZED_GAS_FIRM` deseni).
+ * İki durumun sebebi farklı olduğu için mesaj da farklı.
+ */
+const PROJECT_FIRM_ERROR = 'Proje firması listesi yüklenemedi.'
+const NO_AUTHORIZED_PROJECT_FIRM =
+  'Bu gaz dağıtım firmasında geçerli yetkisi olan proje firması yok.'
+
+/** Veri gelmeden dönen boş liste TEK nesne; her render'da yeni `[]` üretilmesin. */
+const NO_FIRMS: FirmReference[] = []
+
+/** İki durum da kutuyu boş bırakıyor ama sebepleri farklı; mesaj da farklı olmalı. */
+function projectFirmHint(query: {
+  isError: boolean
+  isSuccess: boolean
+  data?: FirmReference[]
+}): string | null {
+  if (query.isError) return PROJECT_FIRM_ERROR
+  if (query.isSuccess && (query.data ?? NO_FIRMS).length === 0) return NO_AUTHORIZED_PROJECT_FIRM
+
+  return null
+}
+
 const CELL_CLASS = 'px-3 py-2 align-top'
 
 interface ProjectFirmUserCompetencyRowProps {
@@ -47,7 +71,7 @@ export function ProjectFirmUserCompetencyRow({
 }: ProjectFirmUserCompetencyRowProps) {
   // Proje firması listesi SEÇİLEN G.D. firmasına bağlı (KK-20); firma yokken
   // istek hiç çıkmaz. Aynı firmayı seçen satırlar aynı önbelleği paylaşır.
-  const { data: projectFirms, isPending } = useQuery({
+  const projectFirmsQuery = useQuery({
     queryKey: ['authorizedProjectFirms', row.gasFirmId],
     queryFn: ({ signal }) => getAuthorizedProjectFirms(row.gasFirmId ?? 0, signal),
     enabled: row.gasFirmId !== null,
@@ -55,6 +79,10 @@ export function ProjectFirmUserCompetencyRow({
 
   const hasGasFirm = row.gasFirmId !== null
   const tone = isDuplicate ? 'invalid' : 'plain'
+
+  const options = projectFirmsQuery.data ?? NO_FIRMS
+  const hint = projectFirmHint(projectFirmsQuery)
+  const hintId = `competency-project-firm-hint-${rowNumber}`
 
   return (
     <tr className="border-b border-edge last:border-0">
@@ -90,12 +118,13 @@ export function ProjectFirmUserCompetencyRow({
             }
             // Firma seçilmeden kutu PASİF (KK-20): seçenekleri neye göre
             // süzeceğini bilmeyen bir liste açmak yanıltıcı olurdu.
-            disabled={!hasGasFirm || isPending}
+            disabled={!hasGasFirm || projectFirmsQuery.isPending || projectFirmsQuery.isError}
             aria-label={fieldLabel(rowNumber, 'Proje firması')}
+            aria-describedby={hint === null ? undefined : hintId}
             className={adminFieldVariants({ tone, className: 'w-full pr-8' })}
           >
             <option value={EMPTY_VALUE}>{PLACEHOLDER_LABEL}</option>
-            {(projectFirms ?? []).map((firm) => (
+            {options.map((firm) => (
               <option key={firm.id} value={firm.id}>
                 {firm.name}
               </option>
@@ -104,6 +133,12 @@ export function ProjectFirmUserCompetencyRow({
 
           <FirmDetailShortcut projectFirmId={row.projectFirmId} rowNumber={rowNumber} />
         </div>
+
+        {hint !== null && (
+          <p id={hintId} className="mt-1 text-xs text-ink-muted">
+            {hint}
+          </p>
+        )}
       </td>
 
       <td className={CELL_CLASS}>

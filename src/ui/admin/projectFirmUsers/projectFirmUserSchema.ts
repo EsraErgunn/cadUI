@@ -1,8 +1,7 @@
 import { z } from 'zod'
 
 import { isValidPhone } from '../../../core/phone'
-
-export const PASSWORD_MIN_LENGTH = 8
+import { PASSWORD_RULE_MESSAGE, isStrongPassword } from '../form/passwordPolicy'
 
 /**
  * Formun TÜM hata metinleri.
@@ -11,9 +10,9 @@ export const PASSWORD_MIN_LENGTH = 8
  * (madde 12). Gerisi belgede yazmıyordu; proje firması formundaki kalıp
  * ("… zorunludur.") korunarak yazıldı ki iki ekran aynı dili konuşsun.
  *
- * ASSUMPTION: `passwordRule` metni belgede yok — kuralın kendisi var (KK-17:
- * en az 8 karakter, büyük/küçük harf, rakam, özel karakter). Kullanıcı hangi
- * koşulu sağlamadığını bilemeyeceği için dört koşul da tek cümlede sayılıyor.
+ * ASSUMPTION: `passwordRule` metni belgede yok — kuralın kendisi var (KK-17).
+ * Kuralın ve metnin sahibi artık `form/passwordPolicy.ts`: şifre değiştirme
+ * ekranı da aynı kuralı uyguluyor, ikinci kopya çıkarılmadı.
  */
 export const PROJECT_FIRM_USER_ERRORS = {
   email: 'E-mail zorunludur.',
@@ -23,7 +22,7 @@ export const PROJECT_FIRM_USER_ERRORS = {
   username: 'Kullanıcı adı zorunludur.',
   usernameTaken: 'Bu kullanıcı adı zaten kullanılmaktadır.',
   password: 'Şifre zorunludur.',
-  passwordRule: `Şifre en az ${PASSWORD_MIN_LENGTH} karakter olmalı; büyük harf, küçük harf, rakam ve özel karakter içermelidir.`,
+  passwordRule: PASSWORD_RULE_MESSAGE,
   phoneInvalid: 'Geçerli bir telefon numarası giriniz.',
 } as const
 
@@ -70,24 +69,10 @@ export const PROJECT_FIRM_USER_FIELD_ORDER: ProjectFirmUserField[] = [
 /** Tarayıcının `type="email"` kontrolüyle aynı kabaca kural (projectFirmSchema ile aynı gerekçe). */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const UPPERCASE_PATTERN = /[A-ZĞÜŞİÖÇ]/
-const LOWERCASE_PATTERN = /[a-zğüşıöç]/
-const DIGIT_PATTERN = /\d/
 /** "Özel karakter" = harf ve rakam dışı her görünür karakter. */
-const SPECIAL_PATTERN = /[^\p{L}\p{N}]/u
 
 function requiredText(message: string) {
   return z.string().refine((value) => value.trim() !== '', { message })
-}
-
-function isStrongPassword(value: string): boolean {
-  return (
-    value.length >= PASSWORD_MIN_LENGTH &&
-    UPPERCASE_PATTERN.test(value) &&
-    LOWERCASE_PATTERN.test(value) &&
-    DIGIT_PATTERN.test(value) &&
-    SPECIAL_PATTERN.test(value)
-  )
 }
 
 /**
