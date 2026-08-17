@@ -19,6 +19,8 @@ export const ADMIN_PARAM_KEYS = {
   tab: 'tab',
   dateFrom: 'from',
   dateTo: 'to',
+  /** İl süzgeci; ilçe ona bağlı (ilçe listesi ancak il seçilince gelir). */
+  city: 'city',
   district: 'district',
   projectFirm: 'firm',
   /** Proje firması kullanıcılarının "Yetki" süzgeci; "Tümü" hâlinde yazılmaz. */

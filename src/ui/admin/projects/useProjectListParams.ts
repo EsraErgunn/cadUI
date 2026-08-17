@@ -42,6 +42,7 @@ function parseLookupId(raw: string | null): number | null {
 export interface ProjectFilters {
   dateFrom: string
   dateTo: string
+  cityId: number | null
   districtId: number | null
   projectFirmId: number | null
   search: string
@@ -70,6 +71,7 @@ export function useProjectListParams(): ProjectListControls {
       status: parseStatus(searchParams.get(ADMIN_PARAM_KEYS.tab)),
       dateFrom: searchParams.get(ADMIN_PARAM_KEYS.dateFrom) ?? defaultRange.from,
       dateTo: searchParams.get(ADMIN_PARAM_KEYS.dateTo) ?? defaultRange.to,
+      cityId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.city)),
       districtId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.district)),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
       search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
@@ -97,7 +99,12 @@ export function useProjectListParams(): ProjectListControls {
         {
           dateFrom: filters.dateFrom === defaultRange.from ? null : filters.dateFrom,
           dateTo: filters.dateTo === defaultRange.to ? null : filters.dateTo,
-          district: filters.districtId === null ? null : String(filters.districtId),
+          city: filters.cityId === null ? null : String(filters.cityId),
+          // İl olmadan ilçe süzgeci anlamsız: ilçe listesi ile bağlı geliyor.
+          district:
+            filters.cityId === null || filters.districtId === null
+              ? null
+              : String(filters.districtId),
           projectFirm: filters.projectFirmId === null ? null : String(filters.projectFirmId),
           nameQuery: filters.search,
         },

@@ -5,6 +5,10 @@ import { lastMonthRange } from '../../adminDateRange'
 import { buildProjectFilterChips } from '../projectFilterChips'
 import type { ProjectFilters } from '../useProjectListParams'
 
+const CITIES: Lookup[] = [
+  { id: 6, name: 'Ankara' },
+  { id: 34, name: 'İstanbul' },
+]
 const DISTRICTS: Lookup[] = [
   { id: 1, name: 'Çankaya' },
   { id: 2, name: 'Keçiören' },
@@ -17,6 +21,7 @@ function makeFilters(overrides: Partial<ProjectFilters> = {}): ProjectFilters {
   return {
     dateFrom: defaultRange.from,
     dateTo: defaultRange.to,
+    cityId: null,
     districtId: null,
     projectFirmId: null,
     search: '',
@@ -28,6 +33,7 @@ function build(filters: ProjectFilters, onApply = vi.fn()) {
   return {
     chips: buildProjectFilterChips({
       filters,
+      cities: CITIES,
       districts: DISTRICTS,
       projectFirms: PROJECT_FIRMS,
       onApply,
@@ -42,9 +48,9 @@ describe('buildProjectFilterChips', () => {
   })
 
   it('varsayılan tarih aralığını filtre saymaz', () => {
-    const { chips } = build(makeFilters({ districtId: 1 }))
+    const { chips } = build(makeFilters({ cityId: 6, districtId: 1 }))
 
-    expect(chips.map((chip) => chip.key)).toEqual(['district'])
+    expect(chips.map((chip) => chip.key)).toEqual(['city', 'district'])
   })
 
   it('özel tarih aralığını gg.aa.yyyy biçiminde gösterir', () => {
@@ -68,19 +74,34 @@ describe('buildProjectFilterChips', () => {
     })
   })
 
-  it('ilçe ve firma kimliğini ada çevirir, kaldırınca null yapar', () => {
-    const filters = makeFilters({ districtId: 2, projectFirmId: 12 })
+  it('il, ilçe ve firma kimliğini ada çevirir, kaldırınca null yapar', () => {
+    const filters = makeFilters({ cityId: 6, districtId: 2, projectFirmId: 12 })
     const { chips, onApply } = build(filters)
 
-    expect(chips.map((chip) => chip.value)).toEqual(['Keçiören', 'Beyaz Tesisat A.Ş.'])
+    expect(chips.map((chip) => chip.value)).toEqual([
+      'Ankara',
+      'Keçiören',
+      'Beyaz Tesisat A.Ş.',
+    ])
+
+    chips[1].onRemove()
+    expect(onApply).toHaveBeenCalledWith({ ...filters, districtId: null })
+  })
+
+  // İlçe listesi İLE bağlı geliyor: il kalkınca elde ilçe listesi kalmıyor.
+  it('il etiketi kaldırılınca ilçe de düşer', () => {
+    const filters = makeFilters({ cityId: 6, districtId: 2 })
+    const { chips, onApply } = build(filters)
 
     chips[0].onRemove()
-    expect(onApply).toHaveBeenCalledWith({ ...filters, districtId: null })
+
+    expect(onApply).toHaveBeenCalledWith({ ...filters, cityId: null, districtId: null })
   })
 
   it('seçim kutusu kaynağı gelmemişken iç kimliği göstermez', () => {
     const chips = buildProjectFilterChips({
       filters: makeFilters({ districtId: 2 }),
+      cities: [],
       districts: [],
       projectFirms: [],
       onApply: vi.fn(),

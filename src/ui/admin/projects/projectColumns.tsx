@@ -64,7 +64,11 @@ export function buildProjectColumns({
         </Link>
       ),
     },
-    { key: 'firmName', label: 'Firma İsmi', cell: (project) => project.firmName },
+    {
+      key: 'firmName',
+      label: 'Firma İsmi',
+      cell: (project) => (project.firmName === null ? <EmptyValue /> : project.firmName),
+    },
     {
       key: 'buildingCode',
       label: 'Bina Kodu',
@@ -72,15 +76,19 @@ export function buildProjectColumns({
       cell: (project) =>
         project.buildingCode === null ? <EmptyValue /> : project.buildingCode,
     },
+    // Rozet YALNIZ değer varken çizilir: içi tire dolu boş bir rozet, aynı
+    // tablodaki diğer boş hücrelerden (Bina Kodu, G.D Firması) farklı görünüyordu.
     {
       key: 'projectType',
       label: 'Proje Tipi',
-      cell: (project) => <ProjectTypeBadge code={project.projectType} />,
+      cell: (project) =>
+        project.projectType === null ? <EmptyValue /> : <ProjectTypeBadge code={project.projectType} />,
     },
     {
       key: 'heatingType',
       label: 'Isınma Tipi',
-      cell: (project) => <HeatingTypeBadge value={project.heatingType} />,
+      cell: (project) =>
+        project.heatingType === null ? <EmptyValue /> : <HeatingTypeBadge value={project.heatingType} />,
     },
     {
       key: 'updatedAt',
