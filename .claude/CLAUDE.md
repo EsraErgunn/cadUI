@@ -143,7 +143,7 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
   içine yazılır (`widthCm`, `angleDeg`). Kısaltma yok (CAD terimleri hariç: bom, dxf).
   Dosya adı: bileşen `PascalCase.tsx`, geri kalan `camelCase.ts`.
 - CSS: `style={{...}}` (inline stil) yasak. Tailwind utility class (`className`) bu
-  kuralın dışında — proje zaten tailwindcss + class-variance-authority + tailwind-merge
+  kuralın dışında — proje zaten tailwindcss + class-variance-authority
   kullanıyor. Tekrar eden varyantlar `cva()` ile tanımlanır. Tailwind'in karşılamadığı
   özel CSS `src/styles/`'da ayrı dosyaya yazılır. İstisna: `scene/` içindeki R3F
   propları (`position`, `material` vb.) CSS değildir, bu kuralın kapsamı dışında.
