@@ -11,19 +11,21 @@ vi.mock('../../../api/projects', async (importOriginal) => ({
   createProject,
 }))
 
-const TODAY = new Date(2026, 7, 4)
+/** Kod kimlikleri kod grubu ucundan gelir; testte sayısal değerleri sözleşme değil. */
+const PROJECT_TYPE_CODE_ID = 3
+const HEATING_TYPE_CODE_ID = 8
+const BUILDING_USAGE_TYPE_CODE_ID = 12
 
 function fillValidValues(form: { setValue: ReturnType<typeof useNewProjectForm>['setValue'] }) {
   form.setValue('name', 'Yıldız Apartmanı')
   form.setValue('projectFirmId', 11)
   form.setValue('gasDistributionFirmId', 101)
-  form.setValue('engineerUserId', 501)
   form.setValue('cityId', 6)
   form.setValue('districtId', 64)
   form.setValue('address', 'Çankaya 12. Sokak No 5')
-  form.setValue('projectType', 'ILAVE')
-  form.setValue('heatingType', 'bireysel')
-  form.setValue('buildingUsageType', 'coklu')
+  form.setValue('projectTypeCodeId', PROJECT_TYPE_CODE_ID)
+  form.setValue('heatingTypeCodeId', HEATING_TYPE_CODE_ID)
+  form.setValue('buildingUsageTypeCodeId', BUILDING_USAGE_TYPE_CODE_ID)
 }
 
 beforeEach(() => {
@@ -33,156 +35,91 @@ beforeEach(() => {
 
 describe('useNewProjectForm', () => {
   it('varsayılan değerlerle açılır ve temizdir', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    expect(result.current.values.startDate).toBe('2026-08-04')
-    expect(result.current.values.endDate).toBe('2026-10-04')
     expect(result.current.values.serviceBoxPressureMbar).toBe(21)
     expect(result.current.isDirty).toBe(false)
   })
 
   it('bir alana dokununca kirlenir', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     act(() => result.current.setValue('name', 'A'))
 
     expect(result.current.isDirty).toBe(true)
   })
 
-  it('proje firması değişince mühendis ve GD firması temizlenir', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+  it('proje firması değişince GD firması temizlenir', () => {
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     act(() => {
       result.current.setValue('projectFirmId', 11)
     })
     act(() => {
-      result.current.setValue('engineerUserId', 501)
       result.current.setValue('gasDistributionFirmId', 101)
     })
     act(() => {
       result.current.setValue('projectFirmId', 12)
     })
 
-    expect(result.current.values.engineerUserId).toBeNull()
     expect(result.current.values.gasDistributionFirmId).toBeNull()
   })
 
-  it('başlama tarihi silinince bitiş tarihi de düşer', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
-
-    act(() => {
-      result.current.setValue('startDate', '')
-    })
-
-    expect(result.current.values.endDate).toBe('')
-  })
-
-  it('başlama tarihi değişince bitiş tarihi iki ay sonrası olarak yeniden hesaplanır', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
-
-    act(() => {
-      result.current.setValue('startDate', '2026-09-01')
-    })
-
-    expect(result.current.values.endDate).toBe('2026-11-01')
-  })
-
-  it('elle girilen bitiş tarihi, başlama sonradan değişince türetilene bırakır', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
-
-    act(() => {
-      result.current.setValue('endDate', '2026-09-01')
-    })
-    act(() => {
-      result.current.setValue('startDate', '2026-10-01')
-    })
-
-    // Sıra kuralı: bitişi önce girmek, başlama değişince anlamını yitirir.
-    expect(result.current.values.endDate).toBe('2026-12-01')
-  })
-
-  it('ay sonu başlangıcında bitiş tarihi taşmaz', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
-
-    act(() => {
-      result.current.setValue('startDate', '2026-12-31')
-    })
-
-    // 31 Aralık + 2 ay ham hesapta 3 Mart'a kayardı.
-    expect(result.current.values.endDate).toBe('2027-02-28')
-  })
-
-  it('aynı firma yeniden seçilirse mühendis korunur', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
-
-    act(() => {
-      result.current.setValue('projectFirmId', 11)
-    })
-    act(() => {
-      result.current.setValue('engineerUserId', 501)
-    })
-    act(() => {
-      result.current.setValue('projectFirmId', 11)
-    })
-
-    expect(result.current.values.engineerUserId).toBe(501)
-  })
-
   it('proje tipi seçenekleri gelince ilk seçenek varsayılan olur', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    act(() => result.current.applyProjectTypeOptions(['ILAVE', 'KOLON']))
+    act(() => result.current.applyProjectTypeOptions([3, 5]))
 
-    expect(result.current.values.projectType).toBe('ILAVE')
+    expect(result.current.values.projectTypeCodeId).toBe(3)
   })
 
   it('kullanıcı seçim yaptıysa gelen liste seçimi ezmez', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    act(() => result.current.setValue('projectType', 'KOLON'))
-    act(() => result.current.applyProjectTypeOptions(['ILAVE', 'KOLON']))
+    act(() => result.current.setValue('projectTypeCodeId', 5))
+    act(() => result.current.applyProjectTypeOptions([3, 5]))
 
-    expect(result.current.values.projectType).toBe('KOLON')
+    expect(result.current.values.projectTypeCodeId).toBe(5)
   })
 
   it('seçili tip Ayarlar’dan kaldırılmışsa seçim temizlenir', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    act(() => result.current.setValue('projectType', 'KOLON'))
-    act(() => result.current.applyProjectTypeOptions(['ILAVE', 'RUHSAT']))
+    act(() => result.current.setValue('projectTypeCodeId', 5))
+    act(() => result.current.applyProjectTypeOptions([3, 7]))
 
-    // Sunucuya listede olmayan kod gitmemeli; kullanıcı yeniden seçmeli.
-    expect(result.current.values.projectType).toBe('')
+    // Sunucuya listede olmayan kimlik gitmemeli; kullanıcı yeniden seçmeli.
+    expect(result.current.values.projectTypeCodeId).toBeNull()
   })
 
   it('temizlenen seçim sonraki liste tazelemesinde geri gelmez', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    act(() => result.current.setValue('projectType', 'KOLON'))
-    act(() => result.current.applyProjectTypeOptions(['ILAVE', 'RUHSAT']))
-    act(() => result.current.applyProjectTypeOptions(['ILAVE', 'RUHSAT']))
+    act(() => result.current.setValue('projectTypeCodeId', 5))
+    act(() => result.current.applyProjectTypeOptions([3, 7]))
+    act(() => result.current.applyProjectTypeOptions([3, 7]))
 
-    expect(result.current.values.projectType).toBe('')
+    expect(result.current.values.projectTypeCodeId).toBeNull()
   })
 
   it('boş liste gelirse mevcut seçim korunur', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    act(() => result.current.setValue('projectType', 'KOLON'))
+    act(() => result.current.setValue('projectTypeCodeId', 5))
     act(() => result.current.applyProjectTypeOptions([]))
 
-    expect(result.current.values.projectType).toBe('KOLON')
+    expect(result.current.values.projectTypeCodeId).toBe(5)
   })
 
   it('ısınma ve bina kullanımı tipi varsayılan almaz, boş açılır', () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
-    expect(result.current.values.heatingType).toBe('')
-    expect(result.current.values.buildingUsageType).toBe('')
+    expect(result.current.values.heatingTypeCodeId).toBeNull()
+    expect(result.current.values.buildingUsageTypeCodeId).toBeNull()
   })
 
   it('geçersiz formda createProject ÇAĞRILMAZ ve hatalar dolar', async () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     await act(async () => {
       await result.current.submit()
@@ -195,7 +132,7 @@ describe('useNewProjectForm', () => {
   })
 
   it('alan düzeltilince o alanın hatası kaybolur', async () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     await act(async () => {
       await result.current.submit()
@@ -206,7 +143,7 @@ describe('useNewProjectForm', () => {
   })
 
   it('geçerli formda doğru gövdeyle gönderir', async () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     act(() => fillValidValues(result.current))
     let created: unknown
@@ -220,24 +157,28 @@ describe('useNewProjectForm', () => {
       name: 'Yıldız Apartmanı',
       projectFirmId: 11,
       gasDistributionFirmId: 101,
-      engineerUserId: 501,
-      heatingType: 'bireysel',
+      projectTypeCodeId: PROJECT_TYPE_CODE_ID,
+      heatingTypeCodeId: HEATING_TYPE_CODE_ID,
+      buildingUsageTypeCodeId: BUILDING_USAGE_TYPE_CODE_ID,
       serviceBoxPressureMbar: 21,
     })
+    // Uçta karşılığı olmayan alanlar gövdeye HİÇ girmez.
+    for (const field of ['startDate', 'endDate', 'engineerUserId']) {
+      expect(createProject.mock.calls[0][0]).not.toHaveProperty(field)
+    }
   })
 
   it('admin olmayan kullanıcıda firma alanları gövdeye girmez', async () => {
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: false, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: false }))
 
     act(() => {
       result.current.setValue('name', 'Yıldız Apartmanı')
-      result.current.setValue('engineerUserId', 501)
       result.current.setValue('cityId', 6)
       result.current.setValue('districtId', 64)
       result.current.setValue('address', 'Çankaya 12. Sokak No 5')
-      result.current.setValue('projectType', 'ILAVE')
-      result.current.setValue('heatingType', 'bireysel')
-      result.current.setValue('buildingUsageType', 'coklu')
+      result.current.setValue('projectTypeCodeId', PROJECT_TYPE_CODE_ID)
+      result.current.setValue('heatingTypeCodeId', HEATING_TYPE_CODE_ID)
+      result.current.setValue('buildingUsageTypeCodeId', BUILDING_USAGE_TYPE_CODE_ID)
     })
     await act(async () => {
       await result.current.submit()
@@ -249,7 +190,7 @@ describe('useNewProjectForm', () => {
 
   it('sunucu hatasında form verisi korunur ve mesaj gösterilir', async () => {
     createProject.mockRejectedValue(new Error('500'))
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     act(() => fillValidValues(result.current))
     await act(async () => {
@@ -269,7 +210,7 @@ describe('useNewProjectForm', () => {
           release = () => resolve({ id: 1, pId: '1', status: 'taslak' })
         }),
     )
-    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true, today: TODAY }))
+    const { result } = renderHook(() => useNewProjectForm({ isAdmin: true }))
 
     act(() => fillValidValues(result.current))
     let pending: Promise<unknown> | undefined

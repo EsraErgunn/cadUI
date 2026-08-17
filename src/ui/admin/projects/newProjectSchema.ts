@@ -1,10 +1,6 @@
 import { z } from 'zod'
 
-import {
-  BUILDING_USAGE_TYPES,
-  HEATING_TYPES,
-  type CreateProjectPayload,
-} from '../../../api/projects'
+import type { CreateProjectPayload } from '../../../api/projects'
 
 /**
  * DİKKAT: `createNewProjectSchema` tek başına TAM doğrulama DEĞİLDİR — alanlar
@@ -33,10 +29,6 @@ export const NEW_PROJECT_ERRORS = {
   name: 'Proje adı zorunludur.',
   projectFirm: 'Proje firması zorunludur.',
   gasDistributionFirm: 'Gaz dağıtım firması zorunludur.',
-  startDate: 'İş başlama tarihi zorunludur.',
-  endDate: 'İş bitiş tarihi zorunludur.',
-  endBeforeStart: 'İş bitiş tarihi, başlama tarihinden önce olamaz.',
-  engineer: 'Yetkili mühendis zorunludur.',
   address: 'Adres zorunludur.',
   city: 'İl seçiniz.',
   district: 'İlçe seçiniz.',
@@ -56,10 +48,6 @@ export interface NewProjectFormValues {
   name: string
   projectFirmId: number | null
   gasDistributionFirmId: number | null
-  /** yyyy-aa-gg — native `input[type=date]`'in beklediği biçim. */
-  startDate: string
-  endDate: string
-  engineerUserId: number | null
   connectionObject: string
   cityId: number | null
   districtId: number | null
@@ -68,10 +56,11 @@ export interface NewProjectFormValues {
   workplaceCount: number
   areaSquareMeters: number
   parcelInfo: string
-  projectType: string
+  /** Kod grubu kayıtlarının KİMLİĞİ (bkz. api/codes.ts) — kod metni değil. */
+  projectTypeCodeId: number | null
   isPermitProject: boolean
-  heatingType: string
-  buildingUsageType: string
+  heatingTypeCodeId: number | null
+  buildingUsageTypeCodeId: number | null
   capacityCubicMeterPerHour: number
   serviceBoxPressureMbar: number
   coverNote: string
@@ -95,9 +84,6 @@ export const NEW_PROJECT_FIELD_ORDER: NewProjectField[] = [
   'name',
   'projectFirmId',
   'gasDistributionFirmId',
-  'startDate',
-  'endDate',
-  'engineerUserId',
   'connectionObject',
   'cityId',
   'districtId',
@@ -106,10 +92,10 @@ export const NEW_PROJECT_FIELD_ORDER: NewProjectField[] = [
   'workplaceCount',
   'areaSquareMeters',
   'parcelInfo',
-  'projectType',
+  'projectTypeCodeId',
   'isPermitProject',
-  'heatingType',
-  'buildingUsageType',
+  'heatingTypeCodeId',
+  'buildingUsageTypeCodeId',
   'capacityCubicMeterPerHour',
   'serviceBoxPressureMbar',
   'coverNote',
@@ -126,13 +112,16 @@ const nonNegativeNumber = z
     message: NEW_PROJECT_ERRORS.negative,
   })
 
-/** Sayılabilir alanlar (daire/işyeri adedi) kesirli olamaz. Kural ekranda da
-    var (girdi ondalık ayraç kabul etmiyor) ama sözleşme burada durur. */
+/**
+ * Formdaki sayısal alanların HEPSİ kesirsiz: uç karşılıklarının tümü int32
+ * (`ProjectCreateDto`), ondalık gövde 400 döner. Kural ekranda da var (girdi
+ * ondalık ayraç kabul etmiyor) ama sözleşme burada durur.
+ */
 const nonNegativeInteger = nonNegativeNumber.refine((value) => Number.isInteger(value), {
   message: NEW_PROJECT_ERRORS.integer,
 })
 
-const boundedCapacity = nonNegativeNumber.refine(
+const boundedCapacity = nonNegativeInteger.refine(
   (value) => value <= MAX_CAPACITY_CUBIC_METER_PER_HOUR,
   { message: NEW_PROJECT_ERRORS.maxCapacity },
 )
@@ -170,9 +159,6 @@ export function createNewProjectSchema({ isAdmin }: NewProjectSchemaOptions) {
       name: requiredText(NEW_PROJECT_ERRORS.name),
       projectFirmId,
       gasDistributionFirmId,
-      startDate: requiredText(NEW_PROJECT_ERRORS.startDate),
-      endDate: requiredText(NEW_PROJECT_ERRORS.endDate),
-      engineerUserId: requiredId(NEW_PROJECT_ERRORS.engineer),
       connectionObject: z.string(),
       // İl ve ilçe ZORUNLU: uç ikisini de alıyor ve adres bunlar olmadan
       // eksik kalıyor. `requiredId` null'ı reddedip tipi daraltıyor.
@@ -181,23 +167,18 @@ export function createNewProjectSchema({ isAdmin }: NewProjectSchemaOptions) {
       address: requiredText(NEW_PROJECT_ERRORS.address),
       apartmentCount: nonNegativeInteger,
       workplaceCount: nonNegativeInteger,
-      areaSquareMeters: nonNegativeNumber,
+      areaSquareMeters: nonNegativeInteger,
       parcelInfo: z.string(),
-      projectType: requiredText(NEW_PROJECT_ERRORS.projectType),
+      // Üç tip de kod grubundan geliyor: seçenekler sunucudan geldiği için
+      // arayüz kod listesini tanımaz, yalnız "seçildi mi" diye bakar.
+      projectTypeCodeId: requiredId(NEW_PROJECT_ERRORS.projectType),
       isPermitProject: z.boolean(),
-      heatingType: z.enum(HEATING_TYPES, { message: NEW_PROJECT_ERRORS.heatingType }),
-      buildingUsageType: z.enum(BUILDING_USAGE_TYPES, {
-        message: NEW_PROJECT_ERRORS.buildingUsageType,
-      }),
+      heatingTypeCodeId: requiredId(NEW_PROJECT_ERRORS.heatingType),
+      buildingUsageTypeCodeId: requiredId(NEW_PROJECT_ERRORS.buildingUsageType),
       capacityCubicMeterPerHour: boundedCapacity,
-      serviceBoxPressureMbar: nonNegativeNumber,
+      serviceBoxPressureMbar: nonNegativeInteger,
       coverNote: z.string(),
     })
-}
-
-/** Tarihler yyyy-aa-gg olduğu için düz metin karşılaştırması kronolojik sıralar. */
-function isEndBeforeStart(values: NewProjectFormValues): boolean {
-  return values.startDate !== '' && values.endDate !== '' && values.endDate < values.startDate
 }
 
 /** Yapısal tip: zod sürümleri arasında değişen `ZodIssue` adına bağlanmamak için. */
@@ -233,9 +214,8 @@ export interface NewProjectValidation {
 }
 
 /**
- * Formun TEK doğrulama girişi. Alan kuralları zod'da, alanlar arası kural
- * (bitiş ≥ başlama) burada: zod'un `refine`'ı nesnenin tamamı geçerliyken
- * çalıştığı için tarih hatası ancak ikinci turda görünürdü.
+ * Formun TEK doğrulama girişi. Alan kuralları zod'da; alanlar arası bir kural
+ * kalmadı (iş başlama/bitiş tarihleri uçta karşılığı olmadığı için kaldırıldı).
  */
 export function validateNewProject(
   values: NewProjectFormValues,
@@ -243,10 +223,6 @@ export function validateNewProject(
 ): NewProjectValidation {
   const result = createNewProjectSchema(options).safeParse(values)
   const errors: NewProjectErrors = result.success ? {} : collectErrors(result.error.issues)
-
-  if (errors.endDate === undefined && isEndBeforeStart(values)) {
-    errors.endDate = NEW_PROJECT_ERRORS.endBeforeStart
-  }
 
   const hasError = Object.keys(errors).length > 0
   return { errors, data: hasError || !result.success ? null : result.data }
@@ -259,8 +235,8 @@ function optionalText(value: string): string | null {
   return trimmed === '' ? null : trimmed
 }
 
-/** Şemadan GEÇMİŞ değerler: ısınma/bina tipi burada artık dar birleşim, mühendis
-    kimliği `null` değil. Gövde bu tipten kurulduğu için `as` gerekmiyor. */
+/** Şemadan GEÇMİŞ değerler: kod kimlikleri burada artık `number`, `null` değil.
+    Gövde bu tipten kurulduğu için `as` gerekmiyor. */
 export type NewProjectParsedValues = z.infer<ReturnType<typeof createNewProjectSchema>>
 
 /**
@@ -273,9 +249,6 @@ export function toCreateProjectPayload(
 ): CreateProjectPayload {
   const payload: CreateProjectPayload = {
     name: values.name.trim(),
-    startDate: values.startDate,
-    endDate: values.endDate,
-    engineerUserId: values.engineerUserId,
     connectionObject: optionalText(values.connectionObject),
     cityId: values.cityId,
     districtId: values.districtId,
@@ -284,10 +257,10 @@ export function toCreateProjectPayload(
     workplaceCount: values.workplaceCount,
     areaSquareMeters: values.areaSquareMeters,
     parcelInfo: optionalText(values.parcelInfo),
-    projectType: values.projectType,
+    projectTypeCodeId: values.projectTypeCodeId,
     isPermitProject: values.isPermitProject,
-    heatingType: values.heatingType,
-    buildingUsageType: values.buildingUsageType,
+    heatingTypeCodeId: values.heatingTypeCodeId,
+    buildingUsageTypeCodeId: values.buildingUsageTypeCodeId,
     capacityCubicMeterPerHour: values.capacityCubicMeterPerHour,
     serviceBoxPressureMbar: values.serviceBoxPressureMbar,
     coverNote: optionalText(values.coverNote),
