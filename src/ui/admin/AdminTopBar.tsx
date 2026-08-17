@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Bell, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { UserMenu } from './UserMenu'
 import { buildScopeOptionGroups, parseScopeValue, toScopeValue } from './adminScopeOptions'
 import { adminFieldVariants, adminIconButtonVariants } from './adminVariants'
 import { useAdminScopeParam } from './useAdminScopeParam'
@@ -117,10 +118,9 @@ export function AdminTopBar() {
         )}
       </button>
 
-      <div className="shrink-0 border-l border-edge pl-4 text-right leading-tight">
-        <p className="text-sm font-semibold text-ink">Administrator</p>
-        <p className="text-xs text-ink-muted">Sistem Yöneticisi</p>
-      </div>
+      {/* Çıkış artık ayrı bir ikon düğmesi değil, kullanıcı menüsünün içinde:
+          şifre değiştirme ikinci bir eylem getirince satır sıkışıyordu. */}
+      <UserMenu />
     </header>
   )
 }

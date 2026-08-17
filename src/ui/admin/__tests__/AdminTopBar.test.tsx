@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, useLocation } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { getAuthSession, setAuthSession } from '../../../api/authToken'
+import { LOGIN_PATH, RequireAuth } from '../../../app/RequireAuth'
 import { AdminTopBar } from '../AdminTopBar'
 import { GAS_DISTRIBUTION_FIRMS_PATH, PROJECT_FIRMS_PATH } from '../adminNavItems'
 
@@ -29,7 +31,7 @@ const FIRMS = [
   { id: 40, dfirmNo: 4, groupId: null, groupName: null, name: 'Bağımsız Gaz' },
 ]
 
-/** Kapsamın URL'e yazıldığını okumak için. */
+/** Kapsamın URL'e yazıldığı ve çıkışın yönlendirdiği testlerde adresi okumak için. */
 function LocationProbe() {
   const { pathname, search } = useLocation()
   return (
@@ -143,3 +145,146 @@ describe('AdminTopBar kapsam seçicisi', () => {
     expect(await screen.findByRole('option', { name: 'AKSA (tümü)' })).toBeInTheDocument()
   })
 })
+
+/**
+ * Çıkış eylemi. Yönlendirme burada elle YAPILMIYOR: oturum düşünce
+ * `RequireAuth` girişe götürüyor (`app/RequireAuth.tsx`) — bu testler o zinciri
+ * uçtan uca sınıyor, yalnız düğmenin tıklanabilirliğini değil.
+ */
+describe('AdminTopBar oturum sonlandırma', () => {
+  const SESSION = {
+    token: 'jwt-token',
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    fullName: 'Yönetici',
+    roleCode: 'Admin',
+  }
+
+  /** Üst barı gerçek koruma zinciriyle basar; adres çubuğu `LocationProbe`'ta. */
+  function renderProtectedTopBar(session = SESSION) {
+    setAuthSession(session)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    return render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[GAS_DISTRIBUTION_FIRMS_PATH]}>
+          <Routes>
+            <Route
+              path={GAS_DISTRIBUTION_FIRMS_PATH}
+              element={
+                <RequireAuth>
+                  <AdminTopBar />
+                </RequireAuth>
+              }
+            />
+            <Route path={LOGIN_PATH} element={<h1>Giriş</h1>} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  afterEach(() => {
+    setAuthSession(undefined)
+    localStorage.clear()
+    vi.unstubAllGlobals()
+  })
+
+  /** Çıkış artık ayrı ikon düğmesi değil; kullanıcı menüsünün maddesi. */
+  async function openUserMenu(): Promise<HTMLElement> {
+    await userEvent.click(screen.getByRole('button', { expanded: false }))
+    return screen.getByRole('menuitem', { name: 'Çıkış Yap' })
+  }
+
+  it('menü kullanıcının adını ve iki eylemi gösterir', async () => {
+    renderProtectedTopBar()
+
+    await userEvent.click(screen.getByRole('button', { expanded: false }))
+
+    expect(screen.getByRole('menuitem', { name: 'Şifre Değiştir' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Çıkış Yap' })).toBeInTheDocument()
+    // Yönetici rolünde GÖSTERİLEN ad sabit "Administrator"; oturumdaki gerçek ad
+    // (ortama göre "Demo" olabiliyor) üst barda yazılmıyor. Rol yine oturumdan.
+    expect(screen.getAllByText('Administrator').length).toBeGreaterThan(0)
+    expect(screen.queryByText(SESSION.fullName)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Sistem Yöneticisi').length).toBeGreaterThan(0)
+  })
+
+  it('yönetici olmayan rolde oturumdaki ad yazılır', async () => {
+    renderProtectedTopBar({ ...SESSION, fullName: 'Ayşe Demir', roleCode: 'ProjectFirmUser' })
+
+    await userEvent.click(screen.getByRole('button', { expanded: false }))
+
+    expect(screen.getAllByText('Ayşe Demir').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Administrator')).not.toBeInTheDocument()
+  })
+
+  it('tıklanınca çıkış ucuna gider', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderProtectedTopBar()
+
+    await userEvent.click(await openUserMenu())
+
+    await waitFor(() => {
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/auth/logout')
+    })
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe('POST')
+  })
+
+  it('başarılı çıkışta oturumu temizleyip giriş sayfasına yönlendirir', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })))
+    renderProtectedTopBar()
+
+    await userEvent.click(await openUserMenu())
+
+    expect(await screen.findByRole('heading', { name: 'Giriş' })).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(LOGIN_PATH)
+    expect(getAuthSession()).toBeUndefined()
+  })
+
+  // 401 = token zaten geçersiz; kullanıcı yine çıkmış olmalı, hata ekranı görmemeli.
+  it('401 dönse de giriş sayfasına yönlendirir', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'hata' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    renderProtectedTopBar()
+
+    await userEvent.click(await openUserMenu())
+
+    expect(await screen.findByRole('heading', { name: 'Giriş' })).toBeInTheDocument()
+    expect(getAuthSession()).toBeUndefined()
+  })
+
+  // Çift tıklama ikinci bir istek üretmemeli: ilkinin token'ı düşürdüğü ana
+  // denk gelip gereksiz bir 401 doğururdu.
+  it('istek uçarken ikinci çıkış isteği gitmez', async () => {
+    let releaseRequest = (): void => {}
+    const pending = new Promise<Response>((resolve) => {
+      releaseRequest = () => resolve(new Response(null, { status: 200 }))
+    })
+    const fetchMock = vi.fn().mockReturnValue(pending)
+    vi.stubGlobal('fetch', fetchMock)
+    renderProtectedTopBar()
+
+    await userEvent.click(await openUserMenu())
+
+    // Menü kapandı; kullanıcı yeniden açıp tekrar basıyor. İstek uçarken madde
+    // kilitli olduğu için ikinci istek gitmez.
+    const secondAttempt = await openUserMenu()
+    expect(secondAttempt).toBeDisabled()
+    await userEvent.click(secondAttempt)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    releaseRequest()
+    await waitFor(() => expect(getAuthSession()).toBeUndefined())
+  })
+})
+

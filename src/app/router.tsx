@@ -14,6 +14,7 @@ import { NewPolicyPage } from '../pages/NewPolicyPage'
 import { NewProjectFirmPage } from '../pages/NewProjectFirmPage'
 import { NewProjectPage } from '../pages/NewProjectPage'
 import { PolicyListPage } from '../pages/PolicyListPage'
+import { ProfilePage } from '../pages/ProfilePage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { ProjectFirmUserFormPage } from '../pages/ProjectFirmUserFormPage'
 import { ProjectFirmUsersPage } from '../pages/ProjectFirmUsersPage'
@@ -28,6 +29,7 @@ import {
   DOCUMENT_CREATE_PATH,
   POLICIES_PATH,
   POLICY_CREATE_ROUTE,
+  PROFILE_PATH,
   PROJECT_CREATE_PATH,
   PROJECT_FIRMS_PATH,
   PROJECT_FIRM_CREATE_PATH,
@@ -110,6 +112,10 @@ export function AppRouter() {
           />
 
           <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
+
+          {/* Kişi Bilgileri: üst bardaki kullanıcı menüsünden açılıyor, sol
+              menüde maddesi yok — kişisel ayar, yönetim bölümü değil. */}
+          <Route path={PROFILE_PATH} element={<ProfilePage />} />
 
           {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
               hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun

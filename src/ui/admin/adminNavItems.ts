@@ -103,6 +103,10 @@ export function parseProjectParam(raw: string | null): number | undefined {
 /** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
 export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
 
+/** Kişi Bilgileri ekranı; sol menüde madde YOK, üst bardaki kullanıcı
+    menüsünden açılıyor (kişisel ayar, yönetim bölümü değil). */
+export const PROFILE_PATH = `${ADMIN_HOME_PATH}/profile`
+
 export const PROJECT_CREATE_PATH = `${PROJECT_LIST_PATH}/new`
 
 /**

@@ -178,6 +178,19 @@ export async function requestJson<Schema extends z.ZodType>(
   return parsed.data
 }
 
+/**
+ * Gövdesi OLMAYAN başarı yanıtları için (`PUT`/`DELETE` → 200, boş gövde).
+ *
+ * `requestJson` burada KULLANILAMAZ: boş gövdede `response.json()` bir
+ * `SyntaxError` fırlatır, o da `ApiError` olmadığı için çağıran tarafta genel
+ * hataya düşer — yani işlem sunucuda BAŞARILIYKEN kullanıcı "kaydedilemedi"
+ * görürdü. Durum kodu denetimi ve 401'de oturumun düşmesi `send`'de olduğu gibi
+ * çalışmaya devam eder.
+ */
+export async function requestVoid(request: JsonRequest): Promise<void> {
+  await send(request)
+}
+
 /** Presigned URL gibi API DIŞI bir adresten ham metin çeker. */
 export async function fetchText(url: string, options?: RequestOptions): Promise<string> {
   let response: Response
