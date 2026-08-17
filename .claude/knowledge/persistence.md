@@ -43,3 +43,27 @@ bayrak olsaydı proje değişince onu sıfırlamak için effect içinde senkron
 yükleniyor" bilgisi render sırasında türüyor.
 
 Regresyon testi: `src/pages/__tests__/useProjectPersistence.test.tsx`.
+
+## gotcha: kirli işareti sayaçla hesaplanmaz (K94)
+
+`selectIsProjectDirty` kaydetme/yükleme anındaki İÇERİK anlık görüntüsüne bakar
+(`store/persistedContent.ts`), `revision` sayacına değil. Sayaç yalnız ileri
+gidiyor ve geri alma onu düşürmüyor (K71) — sayaca bakılırken "çiz + Ctrl+Z"
+yapan kullanıcı, çizimi kaydedilenle birebir aynıyken kaydetme uyarısı alıyordu.
+
+Karşılaştırma sığ referans karşılaştırması (immer + zundo referansları koruyor)
+ve anlık görüntü MİMARİ + TESİSAT dizilerinin hepsini taşıyor — yalnız mimari
+geçmişinin izlediği alt küme kullanılsaydı kaydedilmemiş tesisat işi "temiz"
+görünürdü. `nextUniqueId` (sayaç) ve `activeFloorId` (hangi kata bakıldığı)
+bilerek dışarıda.
+
+⚠️ **Anlık görüntüyü immer producer'ının İÇİNDEN alma.** `draft.walls` bir draft
+proxy'sidir; producer bitince state'e yazılan gerçek dizi başka bir referans
+olur ve karşılaştırma her zaman "kirli" der — düzeltilen hatanın aynısı.
+`markSaved` `getState()`ten, `loadProject` gelen `data`dan alıyor.
+
+⚠️ Test fixture'ı durumu `setState` ile kurduktan sonra `markSaved()` çağırmalı,
+yoksa her test kirli başlar (`store/__tests__/architectureFixture.ts`).
+
+`markDirty`/`revision` duruyor ama anlamı daraldı: "bir action gerçekten yazdı".
+Reddedilen işlemler onu artırmaz ve testler reddedilmeyi böyle sınar.

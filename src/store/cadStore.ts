@@ -15,6 +15,10 @@ import {
   partializeProjectState,
   type TrackedProjectState,
 } from './history'
+import {
+  isSamePersistedContent,
+  takePersistedContent,
+} from './persistedContent'
 import type { ProjectMetaSlice } from './projectMeta'
 import { createGroundFloor } from '../core/floors'
 import { DEFAULT_FLOOR_ID, type ProjectData } from '../core/model'
@@ -69,14 +73,23 @@ export const useCadStore = create<CadState>()(
         // olmazsa sabit sayaç var olan bir id'yi ikinci kez üretir ve hata vermez.
         nextUniqueId: deriveNextUniqueId(INITIAL_ARCHITECTURE_DATA),
         revision: 0,
-        savedRevision: 0,
+        // Gerçek başlangıç değeri store kurulduktan HEMEN SONRA yazılıyor
+        // (aşağıya bkz.): buradaki diziler slice'ların kendi başlangıç
+        // dizileriyle aynı referans olmadığı için proje açılışta kirli çıkardı.
+        savedContent: takePersistedContent(createEmptyProjectData()),
 
-        markSaved: () =>
+        // ⚠️ Anlık görüntü producer'ın DIŞINDAN alınıyor. İçeriden alınsaydı
+        // `draft.walls` bir immer draft proxy'si olurdu; producer bitince state'e
+        // yazılan gerçek dizi başka bir referans olur ve karşılaştırma HER ZAMAN
+        // "kirli" derdi — düzeltmeye çalıştığımız hatanın aynısı.
+        markSaved: () => {
+          const content = takePersistedContent(useCadStore.getState())
           set((draft) => {
-            draft.savedRevision = draft.revision
-          }),
+            draft.savedContent = content
+          })
+        },
 
-        // Yükleme "değişiklik" değildir: revision/savedRevision eşitlenir, yoksa
+        // Yükleme "değişiklik" değildir: içerik anlık görüntüsü tazelenir, yoksa
         // proje açılır açılmaz kirli görünür ve kullanıcı boşuna uyarılır.
         // nextUniqueId dosyadan gelir, veriden yeniden TÜRETİLMEZ — sayaç geriye
         // düşerse silinmiş bir id ikinci kez üretilir (knowledge/id-scheme.md).
@@ -97,7 +110,10 @@ export const useCadStore = create<CadState>()(
             draft.installationLines = data.installationLines
             draft.installationConnections = data.installationConnections
             draft.revision = 0
-            draft.savedRevision = 0
+            // `data`dan alınıyor, draft'tan DEĞİL: yukarıdaki atamalar tam bu
+            // dizileri state'e koyuyor, yani referanslar birebir aynı olur.
+            // Draft'tan okumak proxy verirdi (bkz. markSaved).
+            draft.savedContent = takePersistedContent(data)
           })
           // Geçmiş SIFIRLANIR: yükleme bir düzenleme değil, yeni bir başlangıç.
           // Temizlenmezse Ctrl+Z kullanıcıyı önceki projenin çizimine götürür.
@@ -123,12 +139,20 @@ export const useCadStore = create<CadState>()(
   ),
 )
 
+// Başlangıç anlık görüntüsü: slice'ların KENDİ başlangıç dizileriyle kurulur.
+// Producer'ın dışında ve düz nesneyle (draft proxy'si girmesin, bkz. markSaved).
+useCadStore.setState({ savedContent: takePersistedContent(useCadStore.getState()) })
+
 /**
  * Kaydedilmemiş değişiklik var mı? (issue 2.9 "kirli işaret sözleşmesi")
- * Duvar ve açıklık action'ları markDirty'yi çağırıyor; gerçekten true dönebilir.
+ *
+ * Sayaç DEĞİL İÇERİK karşılaştırılıyor: `revision` yalnız ileri gidiyor ve geri
+ * alma onu düşürmüyor (K71 bilinçli), bu yüzden "çiz + Ctrl+Z" yapan kullanıcı
+ * çizimi kaydedilenle birebir aynıyken kaydetme uyarısı alıyordu. Ayrıntı ve
+ * hangi alanların sayıldığı: persistedContent.ts.
  */
 export function selectIsProjectDirty(state: CadState): boolean {
-  return state.revision !== state.savedRevision
+  return !isSamePersistedContent(state, state.savedContent)
 }
 
 /** Geri al / yinele. Menü ve klavye kısayolu aynı fonksiyonu çağırır. */

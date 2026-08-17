@@ -42,12 +42,16 @@ export type TrackedProjectState = {
 }
 
 /**
- * Kirli işareti (`revision`/`savedRevision`) geçmişin DIŞINDA: geri alma onu
- * eski değerine döndürseydi, araya giren bir tesisat düzenlemesinden sonraki
- * Ctrl+Z sayacı geriye çeker ve KAYDEDİLMEMİŞ tesisat işi "temiz" görünürdü —
- * kullanıcı uyarı almadan kapatıp kaybederdi. Bedeli ters yönde: kaydedilen
- * noktaya kadar geri alınan proje kirli görünmeye devam eder, yani fazladan bir
- * kaydetme uyarısı. Fazladan uyarı, kaybolan işten iyidir.
+ * Kirli işareti geçmişin DIŞINDA ve artık SAYACA da bağlı değil: kirlilik
+ * kaydetme anındaki İÇERİĞE karşı hesaplanıyor (`store/persistedContent.ts`).
+ * Eski hâlinde `revision`/`savedRevision` karşılaştırılıyordu ve sayaç geri
+ * alınmadığı için, kaydedilen noktaya kadar geri alınan proje kirli görünmeye
+ * devam ediyordu — kullanıcı boşuna uyarılıyordu.
+ *
+ * Sayacı geçmişe SOKMAK çözüm değildi: araya giren bir tesisat düzenlemesinden
+ * sonraki Ctrl+Z sayacı geriye çeker ve KAYDEDİLMEMİŞ tesisat işi "temiz"
+ * görünürdü. İçerik karşılaştırması ikisini birden çözüyor, çünkü anlık görüntü
+ * tesisat dizilerini de taşıyor.
  */
 export function partializeProjectState(state: CadState): TrackedProjectState {
   return {

@@ -11,7 +11,6 @@ function resetEmpty() {
     openings: [],
     nextUniqueId: 2,
     revision: 0,
-    savedRevision: 0,
   })
   useCadStore.temporal.getState().clear()
 }

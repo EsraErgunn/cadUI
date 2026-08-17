@@ -129,7 +129,11 @@ describe('MenuBar', () => {
   })
 
   it('kaydedilmemiş değişiklik varken Kaydet düğmesinde uyarı gösterilir (KK-16)', () => {
-    useCadStore.setState((state) => ({ revision: state.revision + 1 }))
+    // Kirlilik İÇERİKTEN hesaplanıyor: `revision` artırmak yetmez, çizim
+    // verisinin gerçekten kaydedilenden farklı olması gerekir.
+    useCadStore.setState((state) => ({
+      points: [...state.points, { id: 1, floorId: 1, x: 0, y: 0 }],
+    }))
     renderMenuBar()
 
     // Gösterge yalnız renk değil: renk körü kullanıcı için ad da değişiyor.
