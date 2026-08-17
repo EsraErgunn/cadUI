@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useCadStore } from '../../store/cadStore'
-import { useUiStore } from '../../store/uiStore'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
 
@@ -13,9 +12,6 @@ function renderMenuBar(
   onSave = vi.fn(),
   onImport = vi.fn(),
   onExport = vi.fn(),
-  onOpenFloorManagement = vi.fn(),
-  onOpenFloorCopy = vi.fn(),
-  onGoToFloor = vi.fn(),
 ) {
   render(
     <MemoryRouter>
@@ -24,30 +20,23 @@ function renderMenuBar(
         onSave={onSave}
         onImport={onImport}
         onExport={onExport}
-        onOpenFloorManagement={onOpenFloorManagement}
-        onOpenFloorCopy={onOpenFloorCopy}
-        onGoToFloor={onGoToFloor}
         isSaving={false}
       />
     </MemoryRouter>,
   )
-  return {
-    onCloseEditor,
-    onSave,
-    onImport,
-    onExport,
-    onOpenFloorManagement,
-    onOpenFloorCopy,
-    onGoToFloor,
-  }
+  return { onCloseEditor, onSave, onImport, onExport }
 }
 
 describe('MenuBar', () => {
-  it('beş menü başlığını dokümandaki sırayla gösterir (KK-9)', () => {
+  it('yalnız Dosya ve Araçlar menüleri kalır', () => {
+    // Düzenle/Görünüm/Katlar tuvalin alt çubuğuna taşındı; üst bar proje
+    // düzeyindeki işlere daraldı.
     renderMenuBar()
     const nav = screen.getByRole('navigation', { name: 'Ana menü' })
-    const titles = within(nav).getAllByRole('button').map((button) => button.textContent)
-    expect(titles).toEqual(['Dosya', 'Düzenle', 'Görünüm', 'Katlar1', 'Araçlar'])
+    const titles = within(nav)
+      .getAllByRole('button')
+      .map((button) => button.textContent)
+    expect(titles).toEqual(['Dosya', 'Araçlar'])
   })
 
   it.each(EDITOR_MENUS.map((menu) => [menu.label, menu] as const))(
@@ -63,8 +52,6 @@ describe('MenuBar', () => {
       const expectedLabels = menu.groups.flatMap((group) =>
         group.items.map((item) => `${item.label}${item.shortcut ?? ''}`),
       )
-      // menuitem ve menuitemcheckbox karışık sırada geliyor; RTL role sorgusu
-      // tek rol aldığı için sırayı korumak adına DOM sırasından okuyoruz.
       const dropdown = screen.getByRole('menu', { name: label })
       const renderedLabels = [...dropdown.querySelectorAll('[role^="menuitem"]')].map(
         (item) => item.textContent,
@@ -122,11 +109,11 @@ describe('MenuBar', () => {
     const user = userEvent.setup()
     renderMenuBar()
 
-    await user.click(screen.getByRole('button', { name: /^Düzenle/ }))
-    expect(screen.getByRole('menu', { name: 'Düzenle' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    expect(screen.getByRole('menu', { name: 'Dosya' })).toBeInTheDocument()
 
     await user.click(document.body)
-    expect(screen.queryByRole('menu', { name: 'Düzenle' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menu', { name: 'Dosya' })).not.toBeInTheDocument()
   })
 
   it('Dosya > Kapat ve ← Projeler aynı akışı tetikler (KK-10)', async () => {
@@ -141,42 +128,14 @@ describe('MenuBar', () => {
     expect(onCloseEditor).toHaveBeenCalledTimes(2)
   })
 
-  it('geçmiş boşken Geri Al ve Yinele pasiftir', async () => {
-    // Madde menüden KALKMAZ, yalnız pasifleşir: kullanıcı komutu aramasın.
-    const user = userEvent.setup()
-    useCadStore.temporal.getState().clear()
-    renderMenuBar()
-
-    await user.click(screen.getByRole('button', { name: /^Düzenle/ }))
-
-    expect(screen.getByRole('menuitem', { name: 'Geri Al' })).toBeDisabled()
-    expect(screen.getByRole('menuitem', { name: 'Yinele' })).toBeDisabled()
-  })
-
-  it('geri alınacak adım varken Geri Al aktifleşir', async () => {
-    const user = userEvent.setup()
-    useCadStore.temporal.getState().clear()
-    // İzlenen bir alanı değiştirmek yeter: MenuBar'ın işi adımı KİMİN ürettiğini
-    // bilmek değil, geçmişin dolu olduğunu yansıtmak. İzlenen alanlar K71'den
-    // beri yalnız çizim dizileri — revision artırmak adım YAZMAZ.
-    useCadStore.setState((state) => ({
-      points: [...state.points, { id: 1, floorId: 1, x: 0, y: 0 }],
-    }))
-    renderMenuBar()
-
-    await user.click(screen.getByRole('button', { name: /^Düzenle/ }))
-
-    expect(screen.getByRole('menuitem', { name: 'Geri Al' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Yinele' })).toBeDisabled()
-  })
-
   it('kaydedilmemiş değişiklik varken Kaydet düğmesinde uyarı gösterilir (KK-16)', () => {
     useCadStore.setState((state) => ({ revision: state.revision + 1 }))
     renderMenuBar()
 
     // Gösterge yalnız renk değil: renk körü kullanıcı için ad da değişiyor.
-    expect(screen.getByRole('button', { name: 'Kaydet (kaydedilmemiş değişiklik var)' }))
-      .toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Kaydet (kaydedilmemiş değişiklik var)' }),
+    ).toBeInTheDocument()
   })
 
   it('değişiklik yokken uyarı gösterilmez', () => {
@@ -186,42 +145,13 @@ describe('MenuBar', () => {
     expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
   })
 
-  it('Katlar başlığında kat adedi rozeti gösterilir (issue 2.4)', () => {
-    renderMenuBar()
-    expect(screen.getByRole('button', { name: /^Katlar/ })).toHaveTextContent('Katlar1')
-  })
-
-  it('Görünüm > Ölçüleri Göster aktiftir ve işareti durumu yansıtır (KK-11)', async () => {
-    const user = userEvent.setup()
-    useUiStore.setState({ isDimensionsVisible: false })
+  it('Test Et, Gönder ve Kayıt Geçmişi görünür ama pasif (K79)', () => {
+    // Arkalarında henüz akış yok; düğme "bozuk" değil "henüz yok" demeli.
     renderMenuBar()
 
-    await user.click(screen.getByRole('button', { name: /^Görünüm/ }))
-    const item = screen.getByRole('menuitemcheckbox', { name: 'Ölçüleri Göster' })
-    expect(item).toBeEnabled()
-    expect(item).toHaveAttribute('aria-checked', 'false')
-
-    await user.click(item)
-    expect(useUiStore.getState().isDimensionsVisible).toBe(true)
-
-    await user.click(screen.getByRole('button', { name: /^Görünüm/ }))
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Ölçüleri Göster' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    )
-  })
-
-  it('Görünüm > Etiketleri Göster varsayılan açıktır ve tıklayınca kapanır', async () => {
-    const user = userEvent.setup()
-    useUiStore.setState({ isElementLabelsVisible: true })
-    renderMenuBar()
-
-    await user.click(screen.getByRole('button', { name: /^Görünüm/ }))
-    const item = screen.getByRole('menuitemcheckbox', { name: 'Etiketleri Göster' })
-    expect(item).toBeEnabled()
-    expect(item).toHaveAttribute('aria-checked', 'true')
-
-    await user.click(item)
-    expect(useUiStore.getState().isElementLabelsVisible).toBe(false)
+    expect(screen.getByRole('button', { name: 'Test Et' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Kayıt Geçmişi' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Hata Kontrolleri' })).toBeDisabled()
   })
 })

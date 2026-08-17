@@ -9,7 +9,6 @@ import {
   type ToolDefinition,
 } from '../../core/tools'
 import { useUiStore } from '../../store/uiStore'
-import { StatusBar } from '../StatusBar'
 import { Toolbar } from '../Toolbar'
 
 beforeEach(() => {
@@ -105,29 +104,19 @@ describe('Toolbar', () => {
 
   it('açılışta hiçbir palet aracı vurgulu DEĞİL — varsayılan seçim kipi (KK-7)', () => {
     // Seçim aracı palette olmadığı için (K83) vurgu da orada görünmüyor;
-    // aktif kipi yüzen çubuk ve durum çubuğu söylüyor.
-    render(
-      <>
-        <Toolbar />
-        <StatusBar />
-      </>,
-    )
+    // aktif kipi yüzen çubuk söylüyor (durum çubuğu kalktı).
+    render(<Toolbar />)
 
     const buttons = within(screen.getByRole('navigation', { name: 'Araç paleti' })).getAllByRole(
       'button',
     )
     for (const button of buttons) expect(button).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('Aktif araç: Seçim Aracı')
+    expect(useUiStore.getState().activeToolId).toBe(DEFAULT_TOOL_ID)
   })
 
-  it('araç tıklanınca vurgulanır ve durum çubuğu güncellenir (KK-7)', async () => {
+  it('araç tıklanınca vurgulanır (KK-7)', async () => {
     const user = userEvent.setup()
-    render(
-      <>
-        <Toolbar />
-        <StatusBar />
-      </>,
-    )
+    render(<Toolbar />)
 
     await user.click(screen.getByRole('button', { name: 'Duvar Çiz' }))
 
@@ -136,6 +125,6 @@ describe('Toolbar', () => {
       'true',
     )
     expect(screen.getByRole('button', { name: 'Oda Çiz' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('Aktif araç: Duvar Çiz')
+    expect(useUiStore.getState().activeToolId).toBe('drawWall')
   })
 })

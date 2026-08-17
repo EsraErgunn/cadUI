@@ -1,9 +1,9 @@
 import { Box, Building2, Wrench, type LucideIcon } from 'lucide-react'
 
+import { EDITOR_BAR_PANEL, editorBarButtonVariants } from './editorBarVariants'
 import { EDITOR_VIEWS, type ViewId } from '../../core/views'
 import { isPlumbingViewAvailable } from '../../plumbing/core/plumbingFlags'
 import { useUiStore } from '../../store/uiStore'
-import { chromeButtonVariants } from '../controls/buttonVariants'
 
 const VIEW_ICONS: Record<ViewId, LucideIcon> = {
   architecture: Building2,
@@ -27,7 +27,13 @@ export function ViewSwitcher() {
   const setActiveView = useUiStore((state) => state.setActiveView)
 
   return (
-    <div className="flex items-center gap-1" role="group" aria-label="Görünüm">
+    // Çerçeve içinde: barın ortasında duran bu üçlü tek bir "sahne seçici"
+    // olarak okunmalı, yanındaki bağımsız düğmelerle karışmamalı.
+    <div
+      className={`${EDITOR_BAR_PANEL} flex items-center gap-1 rounded-xl p-1`}
+      role="group"
+      aria-label="Görünüm"
+    >
       {EDITOR_VIEWS.map((view) => {
         const Icon = VIEW_ICONS[view.id]
         const isActive = view.id === activeViewId
@@ -40,7 +46,7 @@ export function ViewSwitcher() {
             aria-pressed={isActive}
             disabled={isViewDisabled(view.id)}
             onClick={() => setActiveView(view.id)}
-            className={chromeButtonVariants({
+            className={editorBarButtonVariants({
               tone: isActive ? 'active' : 'plain',
               shape: 'icon',
             })}
