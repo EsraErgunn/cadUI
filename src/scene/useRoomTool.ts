@@ -80,12 +80,26 @@ export function useRoomTool(): RoomToolState {
       publish(null, null, null)
     }
 
+    /**
+     * Jest TIKLA–TAŞI–TIKLA (K84), basılı tutmalı sürükleme DEĞİL: ilk tık bir
+     * köşeyi koyar, imleç karşı köşeyi taşır, ikinci tık odayı yerleştirir.
+     *
+     * Basılı tutma büyük odalarda tuvalin dışına taşıyordu — parmağı kaldırmadan
+     * kaydırmak gerekiyordu. Duvar aracı da tıkla-tıkla çalışıyor; iki çizim
+     * aracının aynı jesti paylaşması, kullanıcının hangisinde ne yapacağını
+     * hatırlamasını gereksiz kılıyor.
+     */
     const handlePointerDown = (event: DrawSurfacePointerEvent) => {
       if (event.button !== LEFT_BUTTON) return
 
       const snap = snapAt(event.planPoint, event)
-      originRef.current = snap.point
-      publish(snap.point, snap.point, snap.kind)
+      if (originRef.current === null) {
+        originRef.current = snap.point
+        publish(snap.point, snap.point, snap.kind)
+        return
+      }
+
+      commitRoom(originRef.current, snap.point)
     }
 
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
@@ -93,16 +107,13 @@ export function useRoomTool(): RoomToolState {
       publish(originRef.current, snap.point, snap.kind)
     }
 
-    const handlePointerUp = (event: DrawSurfacePointerEvent) => {
-      const origin = originRef.current
-      if (!origin || event.button !== LEFT_BUTTON) return
-
+    const commitRoom = (origin: PlanPoint, oppositeCorner: PlanPoint) => {
       const { zoom } = readCameraViewport(camera)
-      const corners = getRoomRectangleCorners(origin, snapAt(event.planPoint, event).point)
+      const corners = getRoomRectangleCorners(origin, oppositeCorner)
       endDrag()
 
-      // Sürüklenmemiş tek tıklama ya da çizim artığı kadar küçük dikdörtgen:
-      // hiçbir şey yazılmaz.
+      // İkinci tık ilkinin üstüne düştüyse ya da dikdörtgen çizim artığı kadar
+      // küçükse hiçbir şey yazılmaz.
       if (!corners) return
 
       const cad = useCadStore.getState()
@@ -141,9 +152,10 @@ export function useRoomTool(): RoomToolState {
     const unsubscribe = subscribeDrawSurface({
       onPointerDown: handlePointerDown,
       onPointerMove: handlePointerMove,
-      onPointerUp: handlePointerUp,
-      // Sağ tık ve Esc sürüklemeyi iptal eder; store'a yazılmadığı için geri
-      // alınacak bir şey de kalmaz.
+
+      // Sağ tık ve Esc yarım kalan dikdörtgeni iptal eder; store'a yazılmadığı
+      // için geri alınacak bir şey de kalmaz. Sağ tık AYRICA araçtan çıkarır —
+      // o kısım `useRightClickReturnsToSelection`'da, tek yerde (K84).
       onContextMenu: endDrag,
       onCancel: endDrag,
     })

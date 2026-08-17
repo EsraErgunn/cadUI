@@ -13,7 +13,7 @@ import {
   resolveSnap,
   type SnapKind,
 } from '../core/snap'
-import { WALL_TOOL_ID } from '../core/tools'
+import { SELECTION_TOOL_ID, WALL_TOOL_ID } from '../core/tools'
 import type { WallEnd } from '../store/architectureSlice'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -119,7 +119,21 @@ export function useWallTool(): WallToolState {
         publish(anchorPosition, snap.point, snap.kind)
       },
 
-      onContextMenu: () => endChain(),
+      /*
+       * Sağ tık İKİ ADIMLI (K84): zincir sürerken onu bitirir, boştayken araçtan
+       * çıkar. Tek adıma indirilseydi zincirin sonunu getirmek aracı da
+       * kapatırdı ve arka arkaya duvar çizmek imkânsızlaşırdı — diğer araçlarda
+       * o sorun yok, çünkü orada sağ tıkın başka bir işi yok
+       * (`useRightClickReturnsToSelection`).
+       */
+      onContextMenu: () => {
+        if (anchorRef.current !== null) {
+          endChain()
+          return
+        }
+        useUiStore.getState().setActiveTool(SELECTION_TOOL_ID)
+      },
+
       onCancel: () => endChain(),
     })
 

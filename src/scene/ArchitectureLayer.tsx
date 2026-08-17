@@ -26,6 +26,7 @@ import { useMeasurementTool } from './useMeasurementTool'
 import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
+import { useRightClickReturnsToSelection } from './useRightClickReturnsToSelection'
 import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
 import { useTextSelectionTool } from './useTextSelectionTool'
@@ -284,9 +285,14 @@ function Beams() {
   )
 }
 
-/** Çerçeve seçimi hook'u; <Canvas> içinde çalışmak zorunda (Openings ile aynı desen). */
+/**
+ * Çerçeve seçimi ve "sağ tık araçtan çıkar" kuralı (K84); ikisi de <Canvas>
+ * içinde çalışmak zorunda (Openings ile aynı desen). Sağ tık kuralı TEK yerde
+ * mount ediliyor — araç başına kopyalansaydı yeni araç eklendiğinde unutulurdu.
+ */
 function SelectionTool() {
   useSelectionTool()
+  useRightClickReturnsToSelection()
   return null
 }
 
