@@ -4873,3 +4873,48 @@ komşu kalınlığını düşüp sıfırda kelepçelediği için 42 cm'lik duvar
 yazıyordu. Ders: bir sayının saçmalığına bakmadan önce yanındaki sayıyla çift
 olup olmadığına bak. Kullanıcı K95+K96 sonrası planı denetledi, 20 cm altında
 parça yok.
+
+## 2026-08 · Sürüklerken kasma: duvar geometrisi kare başına yeniden yükleniyordu
+
+### K99 — `Wall` uçları SAYI olarak alır; kare başına değişen prop React Compiler önbelleğini çöpe atıyordu
+
+Belirti kullanıcıdan geldi: "çizimde kasma". Ölçüldü — 220 duvar / 100 odalı
+planda tek duvarı sürüklerken ortalama kare **156 ms**, yani ~6 fps.
+
+Sebep drei `<Line>`: geometriyi `points` dizisinin KİMLİĞİNE göre kuruyor,
+dizi değişince yeni `LineGeometry` ayırıp GPU tamponunu yükleyip eskisini imha
+ediyor. `Wall` bu diziyi kapsülünden türetiyordu ve kapsülü `pointIndex`'ten
+çözüyordu — `pointIndex` ise sürükleme boyunca HER KARE yeniden kuruluyor
+(`useArchitecturePoints` sürüklenen köşeleri geçici konumla döndürüyor). Sonuç:
+uçları hiç oynamayan duvarların geometrisi de her karede yeniden yükleniyordu.
+
+Çözüm prop sözleşmesini değiştirmek: `Wall` artık `pointIndex` değil dört
+koordinat (`p1x/p1y/p2x/p2y`) alıyor, kapsülü kapsayıcı çözüyor. Uçları
+oynamayan duvarın propları sayı olarak AYNI kaldığı için önbellek tutuyor.
+
+Ölçüm (aynı plan, aynı jest, tarayıcıda):
+
+| | önce | sonra |
+|---|---|---|
+| `bufferData` / kare | 1223,2 | 143,0 |
+| ortalama kare | 156,3 ms | 41,5 ms |
+| en kötü kare | 396,5 ms | 86,1 ms |
+| çizim çağrısı / kare | 379,1 | 379,1 |
+
+⚠️ **Bu projede React Compiler AÇIK** (`vite.config.ts`, `reactCompilerPreset`).
+Elle `useMemo`/`memo` yazmak çoğu yerde GEREKSİZ — derleyici zaten yapıyor.
+İlk teşhis "zoom sırasında geometri çöpü oluyor" idi ve YANLIŞ çıktı: derleyici
+çıktısında dizi zaten `[pointIndex, wall]` anahtarıyla önbellekteydi, zoom onu
+bozmuyordu. Ölçüm eski ve yeni kodu zoom senaryosunda birebir aynı verdi.
+
+**Ders:** derleyici önbelleği, ona verdiğin anahtarlar kadar iyi. Kare başına
+kimliği değişen TEK bir prop (burada `pointIndex`) o bileşendeki tüm
+önbelleklemeyi etkisiz bırakır. Performans ararken "memoize edilmiş mi" diye
+değil, "anahtarı ne kadar sık değişiyor" diye bak.
+
+⚠️ Ölçüm dev sunucuda alındı; kare süreleri koşudan koşuya oynuyor (41–58 ms).
+`bufferData` sayısı ise deterministik, karşılaştırma ona dayanmalı.
+
+Kalan: kare başına 143 tampon yüklemesi ve 379 çizim çağrısı DURUYOR. Bunlar
+duvarlardan değil, oda dolguları/ölçü yazıları/diğer katmanlardan geliyor;
+ayrıca ele alınacak (bkz. knowledge/render-performance.md).
