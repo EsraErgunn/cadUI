@@ -5252,3 +5252,49 @@ sol ve sağ odanın üst duvarları yerinde kaldı, iki klon doğdu, üç oda da
 
 `.claude/CLAUDE.md`'deki "Duvar ortak `Point` havuzunu paylaşır" sözleşmesi
 geçerli; bu karar o havuzun bir köşesinin İKİYE AYRILABİLECEĞİNİ ekliyor.
+
+## 2026-08 · Taşımanın bıraktığı artık düğümler
+
+### K103 — Taşıma sonrası eş doğrultulu parçalar birleşir, çakışan köşeler kaynar
+
+Duvar her taşındığında komşu kenar yeni köşede bölünüyor (K24, doğru davranış).
+Ama bir sonraki taşımada önceki bölme noktası geride kalıyordu: kullanıcı duvarı
+her oynattığında komşu kenar bir parça daha artıyor, düğümler birikiyordu
+(kullanıcı bildirimi).
+
+Üç ayrı sebep vardı, üçü de düzeltildi:
+
+**1. Aynı kesişimi isteyen komşular boşuna koparılıyordu.** Bölünmüş kenarın iki
+parçası eş doğrultulu olduğu için aynı noktayı istiyor — ortak köşe ikisini birden
+karşılıyor. "Kazananı seç, ötekini kopar" kuralı her harekette bir artık düğüm
+bırakıyordu. `planWallOffset` artık kesişimi kazananınkiyle AYNI olan komşuyu
+koparmıyor.
+
+**2. Artık ara düğümler temizleniyor** (`store/architectureWallMerge.ts` →
+`mergeCollinearWallsInDraft`): bir köşede YALNIZ iki duvar buluşuyor ve ikisi de
+aynı doğrultudaysa tek duvara birleşiyorlar. Küçük id kazanır (K34 kuralı),
+kaybedenin açıklıkları kazanana taşınır ve offset kazananın YENİ p1'ine göre
+yeniden hesaplanır (K10).
+
+⚠️ Kalınlığı veya yüksekliği FARKLI iki duvar birleştirilmez: kullanıcının
+bilerek koyduğu bir ayrım olabilir.
+
+⚠️ Yalnız TAŞIMA yolunda çağrılır. `splitWallsAtIntersections`'a konsaydı
+"bölünme geri birleşmez" sözleşmesi (knowledge/wall-graph.md) her yerde
+değişirdi; burada temizlenen yalnız taşımanın kendi ürettiği artık.
+
+**3. Çakışan köşeler kaynıyor** (`mergeCoincidentPointsInDraft`). Duvar eski
+yerine geri getirildiğinde kopmuş köşe klonunun ÜSTÜNE geliyor. Aynı yerdeki iki
+`Point` grafı kopuk bırakır (K24 ilkesi) ve aralarında sıfır boylu bir parça
+kalırdı. `mergePointInto` kaynatmayı, sıfır boy ve yinelenen duvarların elenmesini
+birlikte yapıyor.
+
+Tarayıcıda doğrulandı (üç oda: Y, X, Z; X'in üst duvarı):
+
+| adım | bölme parça sayısı |
+|---|---|
+| başlangıç | 1 |
+| aşağı ×3 (−50, −30, −20) | 2 (birikseydi 4 olurdu) |
+| yukarı +100, başa dönüş | **1** |
+
+Üç odanın adı (Y, X, Z) her adımda korundu.

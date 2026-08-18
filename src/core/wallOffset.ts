@@ -132,8 +132,18 @@ export function planWallOffset(
     )
 
     const winner = followers[0]
+    // AYNI kesişimi veren komşular birlikte gelir: ortak köşe hepsini karşılıyor,
+    // koparmak gereksiz. Duvar taşındıkça komşu kenar bölünüyor; sonraki taşımada
+    // o parçalar eş doğrultulu olduğu için aynı noktayı istiyor — biri koparılsaydı
+    // her harekette bir artık düğüm daha kalırdı (K102).
     const detaching = neighbours
-      .filter((candidate) => candidate.wallId !== winner?.wallId)
+      .filter(
+        (candidate) =>
+          candidate.wallId !== winner?.wallId &&
+          (candidate.meeting === undefined ||
+            winner === undefined ||
+            getSegmentLength(candidate.meeting, winner.meeting) > EPSILON),
+      )
       .map((candidate) => candidate.wallId)
 
     // Köşede kopan biri varsa, KISALAN kazanan da yerinde bırakılır: köşeyi

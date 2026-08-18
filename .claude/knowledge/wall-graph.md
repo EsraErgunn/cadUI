@@ -215,3 +215,19 @@ seçim blok olarak ötelenmeye devam eder.
 
 Kopma yalnız komşu taşınan duvara PARALEL olduğunda (kesişim yok). Köşede kopan
 biri varsa KISALAN kazanan da yerinde bırakılır, yoksa klonu havada bırakır.
+
+
+## Taşıma artığı düğümler temizlenir (K103)
+
+Duvar taşındıkça komşu kenar her seferinde yeni köşede bölünüyor; önceki bölme
+noktası geride kalırsa parça birikir. Üç önlem:
+
+1. `planWallOffset` kesişimi kazananınkiyle AYNI olan komşuyu koparmaz — bölünmüş
+   kenarın iki parçası aynı köşeyi istiyor, ortak köşe ikisini birden karşılar.
+2. `mergeCollinearWallsInDraft`: köşede yalnız iki duvar var ve eş doğrultuluysa
+   birleşir. Kalınlık/yükseklik farklıysa BİRLEŞMEZ. Açıklıklar taşınır (K10).
+3. `mergeCoincidentPointsInDraft`: duvar eski yerine dönünce kopan köşe klonunun
+   üstüne geliyor; aynı yerdeki iki nokta kaynar (K24 ilkesi).
+
+⚠️ Birleştirme YALNIZ taşıma yolunda. `splitWallsAtIntersections` içine konsaydı
+"bölünme geri birleşmez" sözleşmesi her yerde değişirdi.
