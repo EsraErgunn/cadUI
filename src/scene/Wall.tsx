@@ -1,4 +1,5 @@
 import { Line } from '@react-three/drei'
+import { memo, useMemo } from 'react'
 
 import { RENDER_ORDER, WALL_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
@@ -8,7 +9,7 @@ import { getWallLineWidthPx } from './wallStyle'
 import { planToThree } from '../core/coords'
 import type { Wall as WallData } from '../core/model'
 import { isSelected } from '../core/selection'
-import { buildPointIndex, type PointIndex } from '../core/wall'
+import { buildPointIndex } from '../core/wall'
 import { getWallCapsuleFrom } from '../core/wallShape'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
@@ -38,8 +39,16 @@ const TONE_BOOSTS_CM: Record<WallTone, number> = {
 
 type WallProps = {
   wall: WallData
-  /** Havuz indeksi, dizi değil: kapsül duvar başına uç çözüyor (bkz. wallShape). */
-  pointIndex: PointIndex
+  /**
+   * Uçlar SAYI olarak geliyor, indeks/nesne olarak değil. Kapsayıcı zaten
+   * indeksi tutuyor ve kapsülü çözebiliyor; buraya nesne geçirilseydi `memo`
+   * sürüklemede tamamen etkisiz kalırdı — havuz her karede değişiyor, oysa
+   * duvarların çoğunun UCU oynamıyor.
+   */
+  p1x: number
+  p1y: number
+  p2x: number
+  p2y: number
   tone: WallTone
   /** Kalınlık piksel cinsinden verildiği için zoom'a bağlı; kapsayıcı bir kez okur. */
   zoom: number
@@ -48,22 +57,35 @@ type WallProps = {
 /**
  * Duvar = yuvarlak uçlu tek bir kalın çizgi (kapsül). Konturu YOKTUR, düz renktir.
  *
+ * `memo`'lu: `Walls` hover, seçim ve zoom'a abone, yani bunlardan biri
+ * değiştiğinde kapsayıcı yeniden render oluyor. Memo olmadan tek duvarın
+ * üstüne gelmek TÜM duvarları render ediyordu.
+ *
  * Uç yuvarlaklığı ekran uzayında analitik hesaplanır — hiçbir zoom'da köşelenmez,
  * üçgenlenmiş geometri yoktur. Kalınlık `wallStyle.ts`'ten piksel cinsinden gelir.
  *
  * Duvarlar birbirinin üstüne çizilir ve birleşim hesabı YAPILMAZ: hepsi aynı
  * opak renkte olduğu için çakışma görünmez, kavşak kendiliğinden dolar (K23).
  */
-export function Wall({ wall, pointIndex, tone, zoom }: WallProps) {
-  const capsule = getWallCapsuleFrom(wall, pointIndex)
-  if (!capsule) return null
+export const Wall = memo(function Wall({ wall, p1x, p1y, p2x, p2y, tone, zoom }: WallProps) {
+  /*
+   * drei `<Line>` geometriyi `points` dizisinin KİMLİĞİNE göre kuruyor
+   * (useMemo bağımlılığı). Dizi her render'da yeniden yazılırsa duvar başına
+   * yeni `LineGeometry` ayrılıyor, GPU tamponu yükleniyor ve eskisi imha
+   * ediliyordu — zoom ve sürükleme boyunca KARE BAŞINA, duvar sayısı kadar.
+   * Dizi artık yalnız uçlar gerçekten oynayınca değişiyor.
+   */
+  const points = useMemo(
+    () => [
+      planToThree({ x: p1x, y: p1y }, WALL_ELEVATION_CM),
+      planToThree({ x: p2x, y: p2y }, WALL_ELEVATION_CM),
+    ],
+    [p1x, p1y, p2x, p2y],
+  )
 
   return (
     <Line
-      points={[
-        planToThree(capsule.p1, WALL_ELEVATION_CM),
-        planToThree(capsule.p2, WALL_ELEVATION_CM),
-      ]}
+      points={points}
       color={TONE_COLORS[tone]}
       // lineWidth kapsülün TAM genişliği, birimi EKRAN PİKSELİ (worldUnits YOK
       // — bkz. wallStyle.ts: o yol ekran kenarlarına doğru inceltiyordu).
@@ -87,7 +109,7 @@ export function Wall({ wall, pointIndex, tone, zoom }: WallProps) {
       userData={{ id: wall.id }}
     />
   )
-}
+})
 
 /** Aktif kattaki duvarlar. Store'daki dizileri olduğu gibi okur — türetilmiş dizi
  *  seçici döndürseydi her store değişiminde yeni referans çıkar ve gereksiz render olurdu. */
@@ -103,10 +125,15 @@ export function Walls() {
   // duvar sayısı kadar geri çağrım olurdu (useCameraZoom'un gerekçesi).
   const zoom = useCameraZoom()
 
-  const floorWalls = walls.filter((wall) => wall.floorId === activeFloorId)
+  const floorWalls = useMemo(
+    () => walls.filter((wall) => wall.floorId === activeFloorId),
+    [walls, activeFloorId],
+  )
   const hoveredWallId = hover?.kind === 'wall' ? hover.wallId : undefined
   // Havuz BİR kez indekslenir; duvar başına taransaydı kare başına O(N·P) olurdu.
-  const pointIndex = buildPointIndex(points)
+  // Kimliği de KARARLI olmalı: `Wall` artık `memo`'lu ve bunu prop olarak
+  // alıyor, her render yeni indeks vermek memo'yu tamamen etkisiz bırakırdı.
+  const pointIndex = useMemo(() => buildPointIndex(points), [points])
 
   // Seçim vurgudan baskın: seçili duvarın üstündeyken mavi kalır, açılmaz.
   const toneOf = (wallId: WallData['id']): WallTone => {
@@ -116,15 +143,25 @@ export function Walls() {
 
   return (
     <group name="walls">
-      {floorWalls.map((wall) => (
-        <Wall
-          key={wall.id}
-          wall={wall}
-          pointIndex={pointIndex}
-          tone={toneOf(wall.id)}
-          zoom={zoom}
-        />
-      ))}
+      {floorWalls.map((wall) => {
+        // Kapsül BURADA çözülüyor: `Wall` uçları sayı olarak alıyor (bkz.
+        // WallProps). Sıfır boy duvar kapsül üretmez ve hiç çizilmez.
+        const capsule = getWallCapsuleFrom(wall, pointIndex)
+        if (!capsule) return null
+
+        return (
+          <Wall
+            key={wall.id}
+            wall={wall}
+            p1x={capsule.p1.x}
+            p1y={capsule.p1.y}
+            p2x={capsule.p2.x}
+            p2y={capsule.p2.y}
+            tone={toneOf(wall.id)}
+            zoom={zoom}
+          />
+        )
+      })}
     </group>
   )
 }
