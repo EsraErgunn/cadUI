@@ -5298,3 +5298,38 @@ Tarayıcıda doğrulandı (üç oda: Y, X, Z; X'in üst duvarı):
 | yukarı +100, başa dönüş | **1** |
 
 Üç odanın adı (Y, X, Z) her adımda korundu.
+
+## 2026-08 · Geçersiz taşımada duvarın davranışı
+
+### K104 — Duvar geçersiz konuma HİÇ gitmez, son geçerli yerinde durur
+
+Geçersiz taşıma zaten reddediliyordu (K102: `freeEnd` / `collapse`). Ama ret
+yalnız BIRAKIŞTA uygulanıyordu; sürükleme boyunca duvar imleci geçersiz bölgeye
+kadar izliyor, orada kopmuş hâli gösteriyor ve bırakışta geri atıyordu.
+Kullanıcı çizimin yırtıldığını sanıyor, üstelik duvarı hiçbir yere
+bırakamıyordu (kullanıcı bildirimi).
+
+Artık geçerlilik HER `pointermove`'da sınanıyor: geçersizse öteleme
+GÜNCELLENMİYOR, duvar son geçerli konumunda kalıyor — fiziksel bir engele
+dayanmış gibi. Geri atma yok, kopmuş görüntü yok.
+
+⚠️ Açıklık reddi (K36) eski davranışında kaldı: orada engel konumun kendisinde
+ve "biraz daha ilerlet, sığar" mantığı geçerli, imlece yapışmak yardımcı oluyor.
+Burada engel YÖNÜN kendisinde — yapışkanlık yalnız kullanıcıyı kilitliyordu.
+
+Ölçüldü (X'in sol-üst duvarı sola çekilirken; solda Y'nin üst duvarı kısalıyor):
+
+| imleç | duvarın gittiği |
+|---|---|
+| −150 … −300 | takip ediyor |
+| −350 | durdu |
+| −400 | durdu |
+
+Bırakışta duvar son geçerli konumuna yerleşti, üç oda korundu.
+
+⚠️ Sürükleme hesabı `scene/wallDragDelta.ts`'e çıktı: `useWallSelectionTool`
+200 satır sınırını aşmıştı. Davranış değişmedi.
+
+⚠️ Geçerlilik artık kare başına sınanıyor. Maliyet duvar sayısında doğrusal
+(`applyWallMove` + uç başına `isEndAttached`); çizim ölçeğinde ölçülebilir bir
+etkisi görülmedi, ama plan çok büyürse ilk bakılacak yer burasıdır.

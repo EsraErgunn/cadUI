@@ -1,5 +1,6 @@
 import type { PlanPoint } from './coords'
 import { normalizeZero } from './coords'
+import { snapPointToGrid } from './grid'
 import { getSegmentLength, MIN_WALL_LENGTH_CM } from './wall'
 
 /** Yön karşılaştırmaları için kayan nokta payı; snap zaten noktaları hizaya koyuyor. */
@@ -74,4 +75,20 @@ export function snapNormalMoveToGrid(
     dxCm: normalizeZero(snappedCm * normal.x),
     dyCm: normalizeZero(snappedCm * normal.y),
   }
+}
+
+/**
+ * Kısıtsız öteleme (çoklu seçim): p1 ızgaraya yapışır, aynı fark tüm seçime
+ * gider. Tek duvar sürüklemesi bunu KULLANMAZ — orada hareket duvarın
+ * normaline kilitli (`snapNormalMoveToGrid`).
+ */
+export function snapFreeMoveToGrid(
+  origin: PlanPoint,
+  dxCm: number,
+  dyCm: number,
+  stepCm: number,
+): { dxCm: number; dyCm: number } {
+  const target = { x: origin.x + dxCm, y: origin.y + dyCm }
+  const next = stepCm > 0 ? snapPointToGrid(target, stepCm) : target
+  return { dxCm: next.x - origin.x, dyCm: next.y - origin.y }
 }

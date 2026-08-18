@@ -231,3 +231,16 @@ noktası geride kalırsa parça birikir. Üç önlem:
 
 ⚠️ Birleştirme YALNIZ taşıma yolunda. `splitWallsAtIntersections` içine konsaydı
 "bölünme geri birleşmez" sözleşmesi her yerde değişirdi.
+
+
+## Geçersiz taşımada duvar durur (K104)
+
+Geçerlilik HER `pointermove`'da sınanır (`scene/wallDragDelta.ts` →
+`resolveWallDragDelta`). Geçersizse öteleme güncellenmez, duvar son geçerli
+konumunda kalır. Önceden ret yalnız bırakışta uygulanıyordu: duvar imleci
+geçersiz bölgeye kadar izliyor, kopmuş hâli gösteriyor, sonra geri atıyordu.
+
+⚠️ Açıklık reddi (K36) eski davranışında: orada "biraz daha ilerlet, sığar"
+mantığı geçerli. Burada engel yönün kendisinde, yapışkanlık kilitliyordu.
+
+⚠️ Kare başına sınama: maliyet duvar sayısında doğrusal.

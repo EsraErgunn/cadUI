@@ -9,48 +9,25 @@ import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
 import { findRoomLabelAt } from './useRoomNameTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
+import { resolveWallDragDelta } from './wallDragDelta'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
 } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
-import { pickGridLevel, snapPointToGrid } from '../core/grid'
 import type { Id } from '../core/model'
 import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { getWallMoveImpact } from '../core/wall'
 import { findBlockingOpeningForMove } from '../core/wallGraph'
-import { constrainDeltaToNormal, getWallNormal, snapNormalMoveToGrid } from '../core/wallMove'
+import { getWallNormal } from '../core/wallMove'
 import { findWallMoveBlocker } from '../core/wallMoveValidity'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
-
-/** `snapNormalMoveToGrid`'in konumsal imzasına uyacak kısıtlı öteleme çifti. */
-function constrainedPair(
-  raw: { dxCm: number; dyCm: number },
-  normal: PlanPoint,
-): readonly [number, number] {
-  const constrained = constrainDeltaToNormal(raw.dxCm, raw.dyCm, normal)
-  return [constrained.dxCm, constrained.dyCm] as const
-}
-
-/**
- * Kısıt yokken (çoklu seçim) eski davranış: p1 ızgaraya yapışır, aynı fark tüm
- * seçime gider.
- */
-function snapFreeMove(
-  origin: PlanPoint,
-  raw: { dxCm: number; dyCm: number },
-  stepCm: number,
-): { dxCm: number; dyCm: number } {
-  const target = { x: origin.x + raw.dxCm, y: origin.y + raw.dyCm }
-  const next = stepCm > 0 ? snapPointToGrid(target, stepCm) : target
-  return { dxCm: next.x - origin.x, dyCm: next.y - origin.y }
-}
 
 type WallGrab = {
   /** Taşınacak duvarlar: tutulan duvar seçimin parçasıysa TÜM seçim (KK-11). */
@@ -186,22 +163,17 @@ export function useWallSelectionTool(): void {
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
       if (!grab) return
 
-      const raw = {
-        dxCm: event.planPoint.x - grab.grabPoint.x,
-        dyCm: event.planPoint.y - grab.grabPoint.y,
-      }
-      const { zoom } = readCameraViewport(camera)
-      // Ctrl ızgarayı kapatır — usePointDragTool ile aynı jest.
-      const stepCm = event.ctrlKey ? 0 : pickGridLevel(zoom).minorCm
-
-      const moved = grab.normal
-        ? snapNormalMoveToGrid(
-            grab.originP1,
-            ...constrainedPair(raw, grab.normal),
-            grab.normal,
-            stepCm,
-          )
-        : snapFreeMove(grab.originP1, raw, stepCm)
+      // Geçersiz konumda `undefined` döner: duvar son geçerli yerinde durur (K102).
+      const moved = resolveWallDragDelta({
+        wallIds: grab.wallIds,
+        originP1: grab.originP1,
+        normal: grab.normal,
+        rawDxCm: event.planPoint.x - grab.grabPoint.x,
+        rawDyCm: event.planPoint.y - grab.grabPoint.y,
+        zoom: readCameraViewport(camera).zoom,
+        isGridDisabled: event.ctrlKey,
+      })
+      if (!moved) return
 
       useArchitectureUiStore.getState().setDraggingWall({
         wallIds: grab.wallIds,
@@ -252,11 +224,7 @@ export function useWallSelectionTool(): void {
       )
       if (blocking) return
 
-      // Çizimi yırtan bırakma da REDDEDİLİR (K102): taşınan duvarın ucu hiçbir
-      // duvara değmiyorsa duvar serbest kalır, bir duvar çizilemeyecek kadar
-      // kısalıyorsa sıfır boylu artıklar doğar ve yan odalar dolgusuyla
-      // etiketiyle birlikte kaybolur. Açıklık reddiyle aynı davranış: `grab`
-      // korunur, duvar imlece yapışık kalır.
+      // Sürükleme geçerli tutuldu; yine de sınanır, çizim jest sürerken değişmiş olabilir.
       const moveBlocker = isNormalConstrained
         ? findWallMoveBlocker(
             cad.walls,
@@ -267,9 +235,9 @@ export function useWallSelectionTool(): void {
             cad.activeFloorId,
           )
         : undefined
-      if (moveBlocker) return
 
       endDrag()
+      if (moveBlocker) return
 
       // Taşıma da bir dönüşüm: tek duvar ile çoklu seçim aynı yoldan geçer,
       // yoksa "birden çok duvar taşındığında ne oluyor" iki yerde yanıtlanırdı.
