@@ -31,6 +31,7 @@ import type {
   LineEndAttachment,
 } from '../core/installationModel'
 import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
+import { GAS_METER_DEFAULT_HEIGHT_CM } from '../core/lineElevation'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import type { PipeLineProperties } from '../core/lineProperties'
@@ -866,6 +867,20 @@ export const createPlumbingSlice: StateCreator<
 
         line.points = extended.points
         line.segments = extended.segments
+
+        // Bu eylem YALNIZ sayaç için kullanılır (`attachModes.ts`: `lineEnd`
+        // yalnız gasMeter'da) — saha uygulamasında sayaç duvara ~2 m'de monte
+        // edilir, borunun varsayılan zemin kotunda (0) kalması gerçekçi
+        // olmazdı (kullanıcı isteği, 2026-08). Düz kot: eğim yok, K102'nin
+        // `+`/`- ile kullanıcı sonradan değiştirebilir.
+        if (line.kind === 'pipe') {
+          line.pipe = {
+            description: '',
+            ...line.pipe,
+            startHeightCm: GAS_METER_DEFAULT_HEIGHT_CM,
+            endHeightCm: GAS_METER_DEFAULT_HEIGHT_CM,
+          }
+        }
 
         // Vana hattın ESKİ ucundaki düğüme oturur; hat uzadığı için o düğüm artık
         // boru ile eleman ARASINDA kalır ("aralarına vana konur").

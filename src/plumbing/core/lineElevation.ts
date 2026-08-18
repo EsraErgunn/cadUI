@@ -1,4 +1,4 @@
-import type { InstallationLine, LineEndAttachment } from './installationModel'
+import type { InstallationConnection, InstallationLine, LineEndAttachment } from './installationModel'
 import { getSegmentLengthCm, isSamePoint } from './lineGeometry'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
@@ -8,6 +8,13 @@ export const PIPE_HEIGHT_STEP_CM = 25
 
 /** Art arda tuşlamanın kotu sonsuza taşımaması için sağduyu sınırı. */
 const MAX_PIPE_HEIGHT_CM = 2000
+
+/**
+ * Sayaç boş bir boru ucuna takılınca (`placeElementAtLineEnd`) o borunun
+ * varsayılan kotu (kullanıcı isteği, 2026-08): sayaç saha uygulamasında
+ * duvara ~2 m'de monte edilir, borusuz her zaman zemin kotunda (0) başlamazdı.
+ */
+export const GAS_METER_DEFAULT_HEIGHT_CM = 200
 
 export function clampPipeHeightCm(heightCm: number): number {
   if (heightCm > MAX_PIPE_HEIGHT_CM) return MAX_PIPE_HEIGHT_CM
@@ -95,6 +102,52 @@ export function getInlineElementElevationCm(elementId: Id, lines: readonly Insta
     return getElevationAtOffsetCm(positions, line.pipe.startHeightCm, line.pipe.endHeightCm, offsetCm)
   }
   return 0
+}
+
+/**
+ * Bir elemanın belirli GİRİŞ portuna bağlı boru (varsa) + hangi ucundan
+ * bağlandığı. Sayaç gibi `lineEnd` ile takılan elemanlarda elemanın kendisi
+ * hattın ÜSTÜNDE bir düğüm DEĞİLDİR (`inlineElementId` araya giren VANAda
+ * durur) — kotu bu yüzden `getInlineElementElevationCm` ile OKUNAMAZ, ayrı bir
+ * yoldan (`installationConnections`'taki `port` hedefinden) bulunması gerekir.
+ * `portId` zorunlu: bir elemanın birden çok port bağlantısı olabilir (giriş VE
+ * çıkışa ayrı borular), yalnız elementId ile arasak yanlışlıkla çıkış borusunu
+ * bulabilirdik.
+ */
+export function findElementInputLine(
+  elementId: Id,
+  inputPortId: string,
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): { line: InstallationLine; end: 'start' | 'end' } | null {
+  const connection = connections.find(
+    (candidate) =>
+      candidate.target.kind === 'port' &&
+      candidate.target.elementId === elementId &&
+      candidate.target.portId === inputPortId,
+  )
+  if (!connection) return null
+
+  const line = lines.find((candidate) => candidate.id === connection.lineId)
+  return line ? { line, end: connection.end } : null
+}
+
+/**
+ * Girişindeki borunun kotu (K102) — yalnız `pipe` türünde anlamlı, yoksa `0`.
+ * `findElementInputLine`'ın döndürdüğü UCA (`start`/`end`) göre doğru alan
+ * okunur; borunun kotu düz olmayabilir (kullanıcı sonradan tek ucu değiştirmiş
+ * olabilir), o yüzden her iki alan da değil, TAM o uç okunur.
+ */
+export function getElementInputElevationCm(
+  elementId: Id,
+  inputPortId: string,
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): number {
+  const found = findElementInputLine(elementId, inputPortId, lines, connections)
+  if (!found || found.line.kind !== 'pipe' || !found.line.pipe) return 0
+
+  return found.end === 'start' ? found.line.pipe.startHeightCm : found.line.pipe.endHeightCm
 }
 
 /**
