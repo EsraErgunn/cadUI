@@ -4918,3 +4918,48 @@ değil, "anahtarı ne kadar sık değişiyor" diye bak.
 Kalan: kare başına 143 tampon yüklemesi ve 379 çizim çağrısı DURUYOR. Bunlar
 duvarlardan değil, oda dolguları/ölçü yazıları/diğer katmanlardan geliyor;
 ayrıca ele alınacak (bkz. knowledge/render-performance.md).
+## 2026-08 · Oda dolgusu kare başına GPU'ya yeniden yükleniyordu
+
+### K100 — Oda dolgu tamponu poligonun DEĞERİNE göre önbellekte
+
+K99'un (duvar çizgisi) aynısının oda tarafı. `RoomShape` dolguyu JSX içinde
+üretiyordu:
+
+```tsx
+<bufferAttribute attach="attributes-position" args={[toFillPositions(fillCorners), 3]} />
+```
+
+`toFillPositions` poligonu üçgenleyip YENİ bir `Float32Array` döndürüyor.
+`fillCorners` ise üstteki `shapes` türetmesinden geliyor ve o `points`'e bağlı —
+sürükleme boyunca her kare değişiyor. Sonuç: sürüklenen duvara komşu OLMAYAN
+odaların dolgusu da her karede yeniden üçgenlenip GPU'ya yükleniyordu.
+
+Çözüm `useStableFillPositions`: tampon poligonun KOORDİNAT DEĞERLERİNDEN
+üretilen bir anahtara göre `useMemo`'lanıyor. Poligon aynı kaldıkça referans
+korunuyor, r3f `bufferAttribute`'u yeniden kurmuyor.
+
+⚠️ `useMemo` bağımlılığı bilerek `fillCorners` DEĞİL `fillKey`; eslint uyarısı
+tek satırlık `eslint-disable-next-line` ile bastırıldı çünkü kural burada yanlış
+şeyi istiyor (kimliğe bakmak önbelleği anlamsız kılar).
+
+⚠️ Ref ile "son değeri sakla" denemesi ÖNCE yapıldı ve BIRAKILDI: bu projede
+`react-hooks/refs` render sırasında ref erişimini HATA sayıyor.
+
+Ölçüm (220 duvar / 100 oda, tek duvar sürüklenirken, tarayıcıda):
+
+| | önce | sonra |
+|---|---|---|
+| `bufferData` / kare (toplam) | 144,7 | 67,4 |
+| bunun oda dolgusu payı | 101,5 | 25,1 |
+
+Pay, odalar kaldırılıp ölçülen taban (42,3) çıkarılarak bulundu. Kalan 25,1
+büyük ölçüde meşru: sürüklenen duvara komşu iki odanın poligonu gerçekten her
+kare değişiyor, ayrıca oda ad/alan etiketi (troika) yeniden diziliyor.
+
+**Ölçü yazıları SORUN DEĞİL — ölçüldü, elendi.** Görünüm ▸ Ölçüler açıkken
+`bufferData` 43,1, kapalıyken 43,2: fark yok. Sadece çizim çağrısı artıyor
+(+34,6) ve kare süresinde ölçülebilir etki görülmedi. Oraya dokunmaya gerek yok.
+
+⚠️ Kare süreleri bu turda raporlanmadı: tarayıcı oturumu ölçüm sırasında
+kısıtlandı (boş sondaj bile 93 ms verdi) ve sayılar koşudan koşuya 20 kat
+oynadı. `bufferData` deterministik kaldı, karşılaştırma ona dayanıyor.
