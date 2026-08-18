@@ -4963,3 +4963,64 @@ kare değişiyor, ayrıca oda ad/alan etiketi (troika) yeniden diziliyor.
 ⚠️ Kare süreleri bu turda raporlanmadı: tarayıcı oturumu ölçüm sırasında
 kısıtlandı (boş sondaj bile 93 ms verdi) ve sayılar koşudan koşuya 20 kat
 oynadı. `bufferData` deterministik kaldı, karşılaştırma ona dayanıyor.
+
+## 2026-08 · Editör geç açılıyordu: bekleme tamamen İNDİRME
+
+### K101 — Editör parçası proje detay ekranında BOŞTA önden indiriliyor
+
+"Editör geç açılıyor" şikâyeti ölçüldü. Üretim derlemesinde (`vite preview`),
+proje detayından "Çizim Editöründe Aç"a basıp tuval görünene kadar:
+
+| | süre |
+|---|---|
+| tıklamadan tuvale (soğuk) | **2220 ms** |
+| bunun sadece parça indirmesi | **2129 ms** |
+| ayrıştırma + WebGL kurulumu + ilk çizim | ~90 ms |
+| tıklamadan tuvale (parça zaten inmişse) | **16 ms** |
+
+Yani beklemenin **%96'sı** 413 KB'lık `EditorPage` parçasını indirmek. Kodun
+ağırlığı, three.js'in kurulması, sahnenin çizilmesi — hiçbiri suçlu değil. Rota
+bazlı kod bölme zaten vardı ve doğruydu; eksik olan, parçanın NE ZAMAN
+indirildiğiydi.
+
+Çözüm: kullanıcı proje detay ekranındayken parçayı boşta indir. Editöre giriş
+K53'ten beri TEK noktada (`ProjectDetailHeader`), yani kullanıcı oradaysa
+editöre girmesi kuvvetle muhtemel.
+
+`src/app/editorChunk.ts` tek kapı: `importEditorPage()` hem `router.tsx`'in
+`lazy()`'si hem ısıtma tarafından çağrılıyor. Ayrı ayrı yazılsaydı biri
+taşındığında öbürü sessizce başka bir parçayı ısıtırdı.
+
+Isıtma `requestIdleCallback` ile boşta çalışır (detay ekranının kendi verisiyle
+yarışmasın), yoksa 300 ms'lik zamanlayıcıya düşer (Safari). Sonuç BEKLENMEZ,
+hata YUTULUR — kullanıcının gördüğü hiçbir şey buna bağlı değil; gerçekten
+gerektiğinde `router.tsx` aynı modülü tekrar ister ve hata Suspense sınırının
+içinde yüzeye çıkar. Efektin temizliği ısıtmayı iptal eder.
+
+Tarayıcıda doğrulandı (yeni derleme, önbellek boş):
+
+| | önce | sonra |
+|---|---|---|
+| tıklamadan tuvale | 2220 ms | **35,5 ms** |
+
+Detay ekranında hiç tıklanmadan parçanın indiği ölçümle görüldü (arka planda
+512,7 ms).
+
+⚠️ Bedeli: editöre hiç girmeyen kullanıcı 413 KB'ı boşa indirir. Detay
+ekranında olmak zaten güçlü bir niyet sinyali olduğu için kabul edildi. Veri
+tasarrufu kipine (`navigator.connection.saveData`) saygı duymak ayrı bir iş
+olarak açık bırakıldı.
+
+⚠️ **Isıtma yalnız DETAY EKRANINDAN geçen kullanıcıyı kurtarır.** Editör
+adresine doğrudan gelen (yer imi, sayfa yenileme, paylaşılan bağlantı) ısıtacak
+bir an bulamaz ve tam indirmeyi bekler — o yolda hâlâ ~2 saniye. Kapatmak
+isteyen, parçayı giriş sonrası kabukta ısıtmalı; o zaman editöre hiç girmeyen
+kullanıcılar da 413 KB indirir, takas bilinçli olarak yapılmadı.
+
+⚠️ Detay ekranında ısıtmanın bitmesine YETECEK kadar kalınmazsa (parça arka
+planda 512 ms sürdü) kullanıcı kalan kısmı bekler. Yine de hiç ısıtmamaktan iyi:
+indirme yarıda kesilmez, kaldığı yerden kullanılır.
+
+⚠️ Bu değişiklik B (mimari) fayının DIŞINDA: `src/app/router.tsx` ve
+`src/ui/admin/projectDetail/`. Ölçüm B tarafında çıktığı için burada yapıldı,
+gözden geçirmesi A'ya ait.
