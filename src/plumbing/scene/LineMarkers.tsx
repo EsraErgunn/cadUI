@@ -68,7 +68,7 @@ type LineEndMarkerProps = {
   widthCm: number
   isConnected: boolean
   colorHex: string
-  /** Boru kotu (K98) — işaret borunun ucundaki gerçek yükseklikte durur. */
+  /** Boru kotu (K102) — işaret borunun ucundaki gerçek yükseklikte durur. */
   elevationCm?: number
 }
 
@@ -92,7 +92,7 @@ type CornerMarkerProps = {
   position: PlanPoint
   widthCm: number
   colorHex: string
-  /** Boru kotu (K98) — işaret köşenin gerçek yüksekliğinde durur. */
+  /** Boru kotu (K102) — işaret köşenin gerçek yüksekliğinde durur. */
   elevationCm?: number
 }
 
@@ -124,7 +124,7 @@ type LineTerminalProps = {
   connections: readonly InstallationConnection[]
   widthCm: number
   colorHex: string
-  /** Boru kotu (K98) — işaret borunun ucundaki gerçek yükseklikte durur. */
+  /** Boru kotu (K102) — işaret borunun ucundaki gerçek yükseklikte durur. */
   elevationCm?: number
 }
 

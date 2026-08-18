@@ -37,7 +37,7 @@ type SymbolInstanceProps = {
    * her elemana ayrı ref üretilseydi seçim büyüdükçe ref sayısı da büyürdü.
    */
   dragDeltaRef?: RefObject<PlanPoint | null>
-  /** Boruya oturan elemanın kotu (K98) — türetilmiş, store'a yazılmaz. */
+  /** Boruya oturan elemanın kotu (K102) — türetilmiş, store'a yazılmaz. */
   elevationCm?: number
 }
 

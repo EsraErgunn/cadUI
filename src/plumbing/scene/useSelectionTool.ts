@@ -244,7 +244,7 @@ export function useSelectionTool(): SelectionToolState {
       const hit = findNearestPointOnLines(lines, event.planPoint, getSnapRadiusCm(zoom))
       if (hit?.pointId === undefined) return false
 
-      // Plan boyu SIFIR segmentin (kasıtlı dikey bağlantı, K98) ucu sürüklenmez:
+      // Plan boyu SIFIR segmentin (kasıtlı dikey bağlantı, K102) ucu sürüklenmez:
       // iki noktası çakışık olduğu için biri çekilince kolon eğik bir plan
       // borusuna dönüşürdü. Görünümü SABİT kalır — kot yalnız panelden/sayısal
       // kutudan değiştirilir. Gövdeye basış SÜZÜLMEZ (aşağıda `selectLine`),

@@ -57,7 +57,7 @@ export type AddLineInput = {
   /** Uç serbestse verilmez — bağlantı kaydının YOKLUĞU serbest demektir. */
   startTarget?: LineEndAttachment
   endTarget?: LineEndAttachment
-  /** Boru kotu (K98) — hat ile AYNI geçmiş adımında yazılır. */
+  /** Boru kotu (K102) — hat ile AYNI geçmiş adımında yazılır. */
   pipe?: PipeLineProperties
 }
 
@@ -123,7 +123,7 @@ export type PlumbingSlice = {
   moveLinePoint: (lineId: Id, pointId: Id, position: PlanPoint) => void
   /**
    * Özellik panelindeki "Boy (cm)" alanına yazılan hedefe göre boru ucunu
-   * TAŞIR ve bitiş kotunu (K98) TEK adımda günceller — `moveLinePoint` +
+   * TAŞIR ve bitiş kotunu (K102) TEK adımda günceller — `moveLinePoint` +
    * `patchLines`'ı ayrı çağırmak iki Ctrl+Z adımı açardı, oysa kullanıcı tek
    * bir sayı yazdı. Konum hesabı `core/lineElevation.ts` →
    * `resolvePipeResizeTarget`'ta (saf fonksiyon, testli).

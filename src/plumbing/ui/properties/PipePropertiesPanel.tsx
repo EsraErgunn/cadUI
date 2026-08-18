@@ -31,7 +31,7 @@ export function PipePropertiesPanel({ lineIds }: PipePropertiesPanelProps) {
 
   const targetKey = `pipe-${lineIds.join(',')}`
 
-  // Gerçek 3B boru boyu (K98): kot farkı Pisagor ile katılır, metraj plan
+  // Gerçek 3B boru boyu (K102): kot farkı Pisagor ile katılır, metraj plan
   // boyundan fazla göstermeli — BOM/malzeme dökümü buradan okuyacak.
   const lengthsCm = selected.map((line) =>
     Number(
@@ -105,7 +105,7 @@ export function PipePropertiesPanel({ lineIds }: PipePropertiesPanelProps) {
           ile aynı karar — uzunluk kalıcı veri değildir). Tek ve iki noktalı hatta
           DÜZENLENEBİLİR: yazılan 3B boya göre bitiş ucu GÜNCEL yönünü koruyarak
           kayar (`resolvePipeResizeTarget`) — saf yatayda yalnız plan uzar, saf
-          dikeyde (K98) yalnız kot değişir. */}
+          dikeyde (K102) yalnız kot değişir. */}
       <PropertyNumberField
         label="Boy (cm)"
         valueCm={getCommonNumber(lengthsCm)}

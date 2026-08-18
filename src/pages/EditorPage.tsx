@@ -109,7 +109,7 @@ export function EditorPage() {
             <SceneRoot />
             <OpeningToolOptions />
             {/* İki şerit aynı yerde ama asla birlikte görünmez: biri mimari
-                açıklık aracına, öteki tesisat boru aracına (K98) bağlı. */}
+                açıklık aracına, öteki tesisat boru aracına (K102) bağlı. */}
             <PipeElevationInput />
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
                 görünümünde de var (K57); izometrikte çizilecek bir şey yok,

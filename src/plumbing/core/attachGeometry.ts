@@ -114,7 +114,7 @@ export function findNearestSegment(
     for (let index = 0; index + 1 < line.points.length; index += 1) {
       const from = line.points[index].position
       const to = line.points[index + 1].position
-      // Plan boyu SIFIR segment (kasıtlı dikey bağlantı, K98) aday DEĞİL:
+      // Plan boyu SIFIR segment (kasıtlı dikey bağlantı, K102) aday DEĞİL:
       // `getUnitDirection` sıfıra böler ve sembol NaN konuma gidip sahneden
       // kaybolur. Süzgeç çağırana değil BURAYA konur — üç ayrı çağıranı var.
       if (isSamePoint(from, to)) continue
@@ -174,7 +174,7 @@ export function findNearestFreeLineEnd(
       // yalnız `isLineEndConnected`'e bakılsaydı kayıt komşu hatta durduğu
       // için burası boş uç sanılır ve sayaç zincirin ortasına takılırdı.
       if (hasLinkedLinePoint(connections, line.id, point.id)) continue
-      // Komşusuyla ÇAKIŞIK uç (plan boyu sıfır, K98) aday değil: yön
+      // Komşusuyla ÇAKIŞIK uç (plan boyu sıfır, K102) aday değil: yön
       // `atan2(0, 0)` ile 0 çıkar ve eleman rastgele bir yöne bakardı.
       if (isSamePoint(point.position, neighbor.position)) continue
 

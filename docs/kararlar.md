@@ -4838,7 +4838,7 @@ ayrıca ele alınacak.
 
 ## 2026-08 · Boruya düşey eksen — ikinci deneme, temizinden
 
-### K98 — Ayrı `riser` kind yerine var olan `pipe.startHeightCm/endHeightCm`
+### K102 — Ayrı `riser` kind yerine var olan `pipe.startHeightCm/endHeightCm`
 
 İlk deneme ayrı bir hat türüydü (`kind: 'riser'`, plan boyu SIFIR) ve sekiz
 ayrı yerde özel-durum koruması, kendi kat-geçiş menüsü, ayrı bir taslak
@@ -4871,7 +4871,7 @@ zıplıyor. Metraj artık `getLine3dLengthCm` ile gerçek 3B boru boyunu
 kullanıyor (plan boyu + kot farkının Pisagor bileşkesi). Portlar bilerek 2D
 kaldı. Ayrıntı: `knowledge/pipe-elevation.md`.
 
-### K98 ek — sayısal kot girişi ve düzenlenebilir "Boy" (aynı gün, ikinci tur)
+### K102 ek — sayısal kot girişi ve düzenlenebilir "Boy" (aynı gün, ikinci tur)
 
 Kullanıcı "+/- yeterli değil, tam sayı girebilmeliyim" dedi: `+`/`-` ile
 PAYLAŞILAN tek commit fonksiyonu (`store/pipeElevationActions.ts`) hem tuşu

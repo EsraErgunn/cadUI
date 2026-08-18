@@ -333,7 +333,7 @@ export function useLineTool(): LineToolState {
         pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
         startTarget: draft.startTarget ?? undefined,
         endTarget: snap ? toAttachment(snap) : undefined,
-        // Kot (K98) yalnız `pipe` türünde anlamlı — yatay adımda değişmez.
+        // Kot (K102) yalnız `pipe` türünde anlamlı — yatay adımda değişmez.
         pipe:
           draft.kind === 'pipe'
             ? { startHeightCm: draft.elevationCm, endHeightCm: draft.elevationCm, description: '' }
@@ -419,7 +419,7 @@ export function useLineTool(): LineToolState {
     })
 
     /**
-     * `+`/`-` (K98): zincir sürerken zincirin kotunu bir adım değiştirir.
+     * `+`/`-` (K102): zincir sürerken zincirin kotunu bir adım değiştirir.
      * Yazı alanındaysa (isTypingTarget) yok sayılır — `useSelectionTool`'daki
      * klavye dinleyicisiyle aynı korunma.
      */

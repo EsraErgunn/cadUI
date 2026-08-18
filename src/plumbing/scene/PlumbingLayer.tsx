@@ -39,7 +39,7 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
             isSelected={selectedElementIds.includes(element.id)}
             // Ref YALNIZ sürüklenen elemanlara gider: geri kalanı her frame konum yazmaz.
             dragDeltaRef={draggedElementIds.includes(element.id) ? dragDeltaRef : undefined}
-            // Boruya oturan eleman borunun kotunu izler (K98) — türetilmiş, store'a yazılmaz.
+            // Boruya oturan eleman borunun kotunu izler (K102) — türetilmiş, store'a yazılmaz.
             elevationCm={getInlineElementElevationCm(element.id, lines)}
           />
         ))}

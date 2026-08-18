@@ -1,6 +1,6 @@
 # Boru kotu (Z ekseni)
 
-**Tür:** decision · **Tarih:** 2026-08 · **İlgili:** K98
+**Tür:** decision · **Tarih:** 2026-08 · **İlgili:** K102
 
 ## Neden ayrı `riser` kind YOK
 
@@ -96,7 +96,7 @@ değil — metraj/malzeme dökümü gerçeği yansıtır.
 - `PipePropertiesPanel`'deki "Boy (cm)" artık DÜZENLENEBİLİR — ama yalnız
   TEK ve İKİ NOKTALI hatta (`resolvePipeResizeTarget`, `lineElevation.ts`):
   segmentin GÜNCEL 3B yönü korunarak ölçeklenir (saf yatayda yalnız plan
-  uzar, saf dikeyde K98 yalnız kot değişir, eğikte ikisi orantılı). Üç+
+  uzar, saf dikeyde K102 yalnız kot değişir, eğikte ikisi orantılı). Üç+
   noktalı (armatür oturmuş) ya da çoklu seçimde salt okunur kalır —
   `WallProperties.tsx`'teki "uzunluk komşu köşeyi de sürükler" gerekçesiyle
   aynı: hangi ucun hangi yöne kayacağı belirsizleşir.

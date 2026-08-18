@@ -11,7 +11,7 @@ const COLLINEAR_EPSILON_CM = 1e-6
  * yeterli (armatür payları/boru uzunlukları santimetre mertebesinde).
  */
 function isCollinear(a: InstallationLinePoint, b: InstallationLinePoint, c: InstallationLinePoint): boolean {
-  // Komşu segmentlerden biri PLAN boyu sıfırsa (kasıtlı dikey bağlantı, K98)
+  // Komşu segmentlerden biri PLAN boyu sıfırsa (kasıtlı dikey bağlantı, K102)
   // çapraz çarpım sıfır vektörle çarpılıp otomatik "doğrusal" çıkar — köşe
   // gürültü değil, silinmemeli.
   if (isSamePoint(a.position, b.position) || isSamePoint(b.position, c.position)) return false

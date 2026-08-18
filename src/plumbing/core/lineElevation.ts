@@ -3,7 +3,7 @@ import { getSegmentLengthCm, isSamePoint } from './lineGeometry'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 
-/** `+`/`-` tuşunun tek basışta değiştirdiği kot miktarı (K98). */
+/** `+`/`-` tuşunun tek basışta değiştirdiği kot miktarı (K102). */
 export const PIPE_HEIGHT_STEP_CM = 25
 
 /** Art arda tuşlamanın kotu sonsuza taşımaması için sağduyu sınırı. */
@@ -77,7 +77,7 @@ export function getLine3dLengthCm(
 /**
  * Boruya oturan (`inlineElementId`) bir elemanın kotu — borunun kendisi
  * yükselince/alçalınca vana/sayaç gibi armatürler görsel olarak izler.
- * Yalnız `pipe` türü hatlar kot taşır (K98); serbest duran ya da
+ * Yalnız `pipe` türü hatlar kot taşır (K102); serbest duran ya da
  * chimney/duct/branch üstünde oturan elemanlarda `0` döner. Sürükleme
  * ANINDAKİ canlı önizleme bunu OKUMAZ (ayrı bir kanaldan gelir,
  * `plumbingUiStore` sürükleme durumu) — yalnız COMMİT edilmiş hat verisini
@@ -101,7 +101,7 @@ export function getInlineElementElevationCm(elementId: Id, lines: readonly Insta
  * "Boy" alanına yazılan hedef 3B uzunluğa göre BİTİŞ noktasının yeni plan
  * konumu + yeni bitiş kotu. Segmentin GÜNCEL 3B yönü (plan + kot bileşkesi)
  * korunur, yalnız ölçeklenir — saf yatay boruda yalnız plan uzar/kısalır, saf
- * dikey bağlantıda (K98) yalnız kot değişir, eğik segmentte ikisi orantılı
+ * dikey bağlantıda (K102) yalnız kot değişir, eğik segmentte ikisi orantılı
  * değişir. Başlangıç noktası SABİT kalır.
  *
  * Güncel 3B uzunluk SIFIRSA (start === end konumda VE kotta) yön tanımsızdır,

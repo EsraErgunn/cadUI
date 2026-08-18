@@ -4,7 +4,7 @@ import { planToThree, type PlanPoint } from '../../core/coords'
 import { formatLengthMeters } from '../core/lengthFormat'
 
 /**
- * Plan boyu SIFIR bir boru segmenti (saf dikey bağlantı, K98) ortografik plan
+ * Plan boyu SIFIR bir boru segmenti (saf dikey bağlantı, K102) ortografik plan
  * görünümünden TEK NOKTA gibi görünür — çizgi yok, işaret yok. Bu glif orada
  * okunabilir bir kot etiketi bırakır (`▲0,75 m` / `▼0,50 m`), eski
  * `RiserMarkers.tsx`'in küçültülmüş hâli: yön/taban glifi yok, yalnız metin.

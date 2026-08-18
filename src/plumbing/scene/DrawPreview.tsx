@@ -241,7 +241,7 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
       />
       {/* Anlık uzunluk bandın ortasında; ölçü etiketleri kapalıyken de çıkar. */}
       <DraftLengthLabel anchor={anchor} cursorRef={cursorRef} zoom={zoom} />
-      {/* Zincirin o anki kotu (K98) — `+`/`- ile değiştirildikçe anchor'ın
+      {/* Zincirin o anki kotu (K102) — `+`/`- ile değiştirildikçe anchor'ın
           yanında okunur; sıfırsa gösterilmez (çoğu boru zaten döşeme kotunda). */}
       {elevationCm !== 0 && (
         <group position={planToThree(anchor, PREVIEW_ELEVATION_CM)}>

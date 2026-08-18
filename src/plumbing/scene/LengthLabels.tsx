@@ -99,7 +99,7 @@ function LineLengthLabels({ line, zoom, draggedCorner }: LineLengthLabelsProps) 
         const from = positions.get(segment.fromPointId)
         const to = positions.get(segment.toPointId)
         if (!from || !to) return null
-        // Plan boyu SIFIR segment (K98, dikey bağlantı) burada "0,00 m" yazmaz
+        // Plan boyu SIFIR segment (K102, dikey bağlantı) burada "0,00 m" yazmaz
         // — kotu `PipeElevationGlyph` (InstallationLineMesh.tsx) gösteriyor.
         if (isSamePoint(from, to)) return null
 

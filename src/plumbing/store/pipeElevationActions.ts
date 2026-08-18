@@ -5,7 +5,7 @@ import { clampPipeHeightCm, findMergeablePipeLineId, PIPE_HEIGHT_STEP_CM } from 
 
 /**
  * Zincirin ucundan AYNI plan konumunda, kotu hedefe değişmiş ikinci bir boru
- * yazar (K98) — normal sol-tık commit'iyle (`addLine`) AYNI yoldan geçer, ayrı
+ * yazar (K102) — normal sol-tık commit'iyle (`addLine`) AYNI yoldan geçer, ayrı
  * bir "kolon yaz" fonksiyonu yok. `useLineTool`'un `+`/`-` tuşu VE
  * `PipeElevationInput`'un sayısal kutusu bu TEK fonksiyonu çağırır — ikisi de
  * "zincirin kotunu değiştir" jestidir, yalnız hedefi hesaplama şekli farklı.

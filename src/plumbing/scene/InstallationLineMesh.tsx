@@ -192,7 +192,7 @@ function PipeLineMesh({
 
   const points = useDraggedLinePoints(line, draggedCorner)
 
-  // Kot (K98) yalnız `pipe` türünde ve normal (hayalet olmayan) çizimde
+  // Kot (K102) yalnız `pipe` türünde ve normal (hayalet olmayan) çizimde
   // uygulanır — mimari görünümdeki soluk iz düz kalır, karışıklık çıkarmaz.
   const elevationsCm = useMemo(
     () =>
@@ -274,7 +274,7 @@ function PipeLineMesh({
         </>
       )}
 
-      {/* Plan boyu SIFIR segment (K98) üstten TEK NOKTA görünür — çizgi yok,
+      {/* Plan boyu SIFIR segment (K102) üstten TEK NOKTA görünür — çizgi yok,
           kot okunmadan görünmez kalırdı. */}
       {!isGhost &&
         firstPoint &&

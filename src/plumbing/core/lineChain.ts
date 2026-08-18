@@ -23,7 +23,7 @@ export type LineChain = {
   anchor: PlanPoint
   /** Sıradaki borunun başı neye bağlanacak; serbestse null. */
   startTarget: LineEndAttachment | null
-  /** Zincirin O ANKİ kotu (K98) — `+`/`-` bunu değiştirir, yatay adım taşır. */
+  /** Zincirin O ANKİ kotu (K102) — `+`/`-` bunu değiştirir, yatay adım taşır. */
   elevationCm: number
   /** Bu jestte yazılmış adımlar, eskiden yeniye. */
   steps: LineChainStep[]
