@@ -72,7 +72,7 @@ describe('useArchitectureDraft — sürükleme önizlemesi', () => {
 
     // Bu, düzeltmenin ta kendisi: eskiden önizleme yalnız ötelemeyi uyguluyordu,
     // sol odanın üst duvarı jest boyunca EĞİLMİŞ görünüyor ve bırakınca birden
-    // düzeliyordu (K102).
+    // düzeliyordu (K103).
     expect(endsOf(topLeft.wallId)).toEqual(before)
   })
 

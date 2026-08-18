@@ -25,7 +25,7 @@ export type RoomReconciliation = {
  * Kimlik kuralı önce TAM küme eşitliği, tutmazsa ÇİFT YÖNLÜ TAM KAPSAMA + TEK
  * aday: yüz odanın alt kümesi YA DA üst kümesiyse ve böyle tek bir oda varsa aynı
  * odadır. Taşıma, odanın sınırındaki duvar sayısını iki yönde de değiştirebiliyor
- * (K102/K103) ve kullanıcının verdiği ad, odaya hiç dokunulmamışken siliniyordu.
+ * (K103/K104) ve kullanıcının verdiği ad, odaya hiç dokunulmamışken siliniyordu.
  *
  * Yaklaşık eşleşme (yüzde şu kadarı ortak) hâlâ YOK: uydurma bir eşik, sınır
  * durumlarda öngörülemez davranır. Kapsama ve teklik koşullarının ikisi de kesin.
@@ -64,7 +64,7 @@ export function reconcileRooms(
 
   // SONRA kapsama, ÇİFT YÖNLÜ: yüz odanın alt kümesi ya da odanın üst kümesiyse
   // aynı odadır. Duvar taşımak odanın sınırındaki duvar SAYISINI iki yönde de
-  // değiştirebiliyor (K102/K103):
+  // değiştirebiliyor (K103/K104):
   // - Kayıt yüzden GENİŞ kalır: bölünen duvarın iki parçası da kayda eklenir ama
   //   oda yalnız birini sınırında taşır.
   // - Yüz kayıttan GENİŞ olur: komşu odanın duvarı kopup bölününce artan parça

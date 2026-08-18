@@ -9,7 +9,7 @@ const EPSILON = 1e-6
 
 /**
  * Gereksiz ara düğümleri temizler: bir köşede YALNIZ İKİ duvar buluşuyor ve
- * ikisi de AYNI DOĞRULTUDAysa tek duvara birleştirilir (K102).
+ * ikisi de AYNI DOĞRULTUDAysa tek duvara birleştirilir (K103).
  *
  * Neden: duvar taşındıkça komşusu her seferinde yeni köşede bölünüyor. Bir
  * sonraki taşımada önceki bölme noktası geride kalıyordu — kullanıcı duvarı her
@@ -114,7 +114,7 @@ export function mergeCollinearWallsInDraft(draft: CadState): boolean {
 const COINCIDENT_EPSILON_CM = 1e-6
 
 /**
- * Aynı koordinata düşen köşeleri kaynatır (K102).
+ * Aynı koordinata düşen köşeleri kaynatır (K103).
  *
  * Taşımada kopan köşe, duvar eski yerine geri getirildiğinde klonunun ÜSTÜNE
  * geliyor. İki ayrı `Point` aynı yerde durursa duvarlar ekranda bitişik görünür

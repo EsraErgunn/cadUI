@@ -51,7 +51,7 @@ function WallDimensions() {
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
-  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K102).
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
   const { points, walls } = useArchitectureDraft()
   const zoom = useCameraZoom()
   const draggingPointId = useArchitectureUiStore((state) => state.draggingPoint?.pointId)

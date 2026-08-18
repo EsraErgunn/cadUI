@@ -115,7 +115,7 @@ export const Wall = memo(function Wall({ wall, p1x, p1y, p2x, p2y, tone, zoom }:
  *  seçici döndürseydi her store değişiminde yeni referans çıkar ve gereksiz render olurdu. */
 export function Walls() {
   // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
-  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K102).
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
   const { points, walls } = useArchitectureDraft()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)

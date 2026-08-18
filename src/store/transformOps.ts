@@ -63,7 +63,7 @@ export function getSelectionPivot(draft: CadState, selection: Selection): PlanPo
  * oynatır. Varsayılan bu.
  *
  * `isDetachingCorners` ile ötelemeyi BOYUNU değiştirerek karşılayamayan
- * komşular köşeden koparılır ve yerinde kalır (K102). Bayrak dışarıdan gelir
+ * komşular köşeden koparılır ve yerinde kalır (K103). Bayrak dışarıdan gelir
  * çünkü ölçüt öteleme YÖNÜNE bağlı: yalnız duvar sürükleme jesti onu açar,
  * döndürme ve aynalama tek bir yön tanımlamaz.
  *

@@ -53,7 +53,7 @@ function directionOf(from: PlanPoint, to: PlanPoint): PlanPoint | undefined {
  * Eski model duvarı KATI taşıyordu: iki köşe de aynı vektörle giderdi. Bu ancak
  * komşu duvar hareket yönüne paralelken işe yarıyor — dik açılı planlarda
  * tesadüfen hep doğru, EĞİK planda hiç doğru değil. Yamuk bir odada hiçbir duvar
- * hiçbir yöne taşınamıyordu (K102 düzeltmesi).
+ * hiçbir yöne taşınamıyordu (K103 düzeltmesi).
  *
  * Yeni model: duvar kendi doğrultusunu korur, ucu komşunun DOĞRUSU boyunca kayar.
  * Komşunun açısı korunur, yalnız boyu değişir — istenen davranış tam olarak bu.
@@ -135,7 +135,7 @@ export function planWallOffset(
     // AYNI kesişimi veren komşular birlikte gelir: ortak köşe hepsini karşılıyor,
     // koparmak gereksiz. Duvar taşındıkça komşu kenar bölünüyor; sonraki taşımada
     // o parçalar eş doğrultulu olduğu için aynı noktayı istiyor — biri koparılsaydı
-    // her harekette bir artık düğüm daha kalırdı (K102).
+    // her harekette bir artık düğüm daha kalırdı (K103).
     const detaching = neighbours
       .filter(
         (candidate) =>

@@ -105,7 +105,7 @@ export function Rooms() {
   const rooms = useCadStore((state) => state.rooms)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
-  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K102).
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
   const { points, walls } = useArchitectureDraft()
   const editingRoomId = useArchitectureUiStore((state) => state.editingRoomId)
 

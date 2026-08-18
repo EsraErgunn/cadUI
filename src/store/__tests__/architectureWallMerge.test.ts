@@ -12,7 +12,7 @@ import { useCadStore } from '../cadStore'
  *
  * X'in üst duvarı her taşındığında Y ve Z'nin ortak kenarı yeni köşede
  * bölünüyor. Bir sonraki taşımada önceki bölme noktası geride kalırsa kenar her
- * harekette bir parça daha artar — kullanıcı bildirimi (K102).
+ * harekette bir parça daha artar — kullanıcı bildirimi (K103).
  */
 function drawThreeRooms() {
   const add = (input: Parameters<ReturnType<typeof useCadStore.getState>['addWall']>[0]) =>
@@ -47,7 +47,7 @@ function verticalPieces(atX: number) {
   }).length
 }
 
-describe('taşıma artığı ara düğümler (K102)', () => {
+describe('taşıma artığı ara düğümler (K103)', () => {
   beforeEach(resetEmpty)
 
   it('kurulum: üç oda, bölmeler tek parça', () => {

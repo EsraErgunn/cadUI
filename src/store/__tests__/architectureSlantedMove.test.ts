@@ -13,7 +13,7 @@ import { useCadStore } from '../cadStore'
  *
  * Eski KATI öteleme modelinde bu planda hiçbir duvar hiçbir yöne taşınamıyordu:
  * komşular hareket yönüne paralel olmadığı için hepsi kopuyor, köşe hiçbir
- * gövdeye denk gelmiyordu (K102 düzeltmesi).
+ * gövdeye denk gelmiyordu (K103 düzeltmesi).
  */
 function drawTrapezoid() {
   const chain = (pointId: number, x: number, y: number) =>
@@ -46,7 +46,7 @@ function area() {
   return findRoomFaces(state.walls, state.points, state.activeFloorId)[0]?.areaCm2
 }
 
-describe('eğik duvarlı planda taşıma (K102)', () => {
+describe('eğik duvarlı planda taşıma (K103)', () => {
   beforeEach(resetEmpty)
 
   it('kurulum: tek yamuk oda', () => {

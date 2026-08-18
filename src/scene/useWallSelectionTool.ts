@@ -38,7 +38,7 @@ type WallGrab = {
   originP1: PlanPoint
   /**
    * Tutulan duvarın normali. TEK duvar sürüklenirken hareket buna kilitlenir
-   * (K102). Çoklu seçimde `undefined`: bir blokta ortak normal yok, orada
+   * (K103). Çoklu seçimde `undefined`: bir blokta ortak normal yok, orada
    * öteleme serbest kalır.
    */
   normal: PlanPoint | undefined
@@ -57,7 +57,7 @@ type WallGrab = {
  * iki köşeye birden gidiyor. İki köşe ayrı ayrı yapıştırılsaydı duvarın boyu ve
  * açısı sürüklerken bozulurdu.
  *
- * Tek duvar sürüklenirken hareket duvarın NORMALİNE kilitlidir (K102): duvar
+ * Tek duvar sürüklenirken hareket duvarın NORMALİNE kilitlidir (K103): duvar
  * kendi ekseni boyunca kaydırılamaz, çünkü o hareket boyu da açıyı da
  * değiştirmez — yalnız köşeleri komşuların üstünde kaydırıp geometriyi bozar.
  * Aynı jestte, ötelemeyi boyunu değiştirerek karşılayamayan komşular köşeden
@@ -163,7 +163,7 @@ export function useWallSelectionTool(): void {
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
       if (!grab) return
 
-      // Geçersiz konumda `undefined` döner: duvar son geçerli yerinde durur (K102).
+      // Geçersiz konumda `undefined` döner: duvar son geçerli yerinde durur (K103).
       const moved = resolveWallDragDelta({
         wallIds: grab.wallIds,
         originP1: grab.originP1,
@@ -242,11 +242,11 @@ export function useWallSelectionTool(): void {
       // Taşıma da bir dönüşüm: tek duvar ile çoklu seçim aynı yoldan geçer,
       // yoksa "birden çok duvar taşındığında ne oluyor" iki yerde yanıtlanırdı.
       //
-      // Kopma YALNIZ normale kilitli tek duvar sürüklemesinde (K102): çoklu
+      // Kopma YALNIZ normale kilitli tek duvar sürüklemesinde (K103): çoklu
       // seçimde blok katı hareket ediyor ve ortak bir normal yok, orada
       // komşuyu koparmanın geometrik gerekçesi de yok.
       // Tek duvar KENDİNE PARALEL kayar ve uçları komşularının doğrusuna oturur
-      // (K102); çoklu seçim blok olarak ötelenir, orada ortak normal yok.
+      // (K103); çoklu seçim blok olarak ötelenir, orada ortak normal yok.
       if (isNormalConstrained) {
         useCadStore.getState().offsetWall(wallIds[0], drag.dxCm, drag.dyCm)
         return

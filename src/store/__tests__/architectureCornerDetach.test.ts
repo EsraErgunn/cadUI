@@ -14,7 +14,7 @@ import { useCadStore } from '../cadStore'
  *
  * Ortanın üst duvarı YUKARI taşındığında (kendi normali) sol ve sağ odanın üst
  * duvarları YERİNDE kalmalı: onlar yatay, hareket dikey, yani ötelemeyi boylarını
- * değiştirerek karşılayamazlar (K102). Bölme duvarları dikey, harekete paralel —
+ * değiştirerek karşılayamazlar (K103). Bölme duvarları dikey, harekete paralel —
  * sadece uzarlar.
  */
 function drawThreeRooms() {
@@ -36,7 +36,7 @@ function drawThreeRooms() {
   return { topLeft, topMiddle, topRight, dividerLeft, dividerRight }
 }
 
-/** Normale kilitli sürüklemenin store karşılığı: paralel kaydırma (K102). */
+/** Normale kilitli sürüklemenin store karşılığı: paralel kaydırma (K103). */
 function normalMove(wallId: number, dxCm: number, dyCm: number) {
   return useCadStore.getState().offsetWall(wallId, dxCm, dyCm)
 }
@@ -61,7 +61,7 @@ function wallEnds(wallId: number) {
   return { p1: read(wall.p1Id), p2: read(wall.p2Id) }
 }
 
-describe('duvar normali boyunca taşıma ve köşe ayrılması (K102)', () => {
+describe('duvar normali boyunca taşıma ve köşe ayrılması (K103)', () => {
   beforeEach(resetEmpty)
 
   it('kurulum: üç oda ve ortak üst hiza', () => {
@@ -163,7 +163,7 @@ describe('duvar normali boyunca taşıma ve köşe ayrılması (K102)', () => {
 
     // Kopma sonrası bölünen komşu duvar yüzünden odanın KAYDI iki parçayı
     // birden içeriyor ama oda yalnız birini sınırında taşıyor; tam eşitlik
-    // tutmadığı için adlar siliniyordu (K102 regresyonu).
+    // tutmadığı için adlar siliniyordu (K103 regresyonu).
     expect(rooms().map((room) => room.name).sort()).toEqual(['Banyo', 'Mutfak', 'Salon'])
   })
 

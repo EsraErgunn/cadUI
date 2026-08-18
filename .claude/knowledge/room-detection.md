@@ -121,12 +121,12 @@ o seçimden türetilebilir.
 Karar defteri: `docs/kararlar.md` K31.
 
 
-## Kimlik eşleştirmesi iki geçişli (K102 eki)
+## Kimlik eşleştirmesi iki geçişli (K103 eki)
 
 Önce TAM küme eşitliği (K31), tutmazsa TAM KAPSAMA + TEK aday: yüzün duvarları
 bir odanınkinin alt kümesiyse ve böyle tek bir oda varsa aynı odadır.
 
-Gerekçe: duvar taşımada köşe kopunca (K102) komşu duvar bölünüyor ve odanın
+Gerekçe: duvar taşımada köşe kopunca (K103) komşu duvar bölünüyor ve odanın
 kaydı iki parçayı birden içeriyor, oysa oda yalnız birini sınırında taşıyor.
 Tam eşitlik tutmuyor, oda yeni sanılıyor ve kullanıcının verdiği ad siliniyordu.
 
@@ -135,7 +135,7 @@ Tam eşitlik tutmuyor, oda yeni sanılıyor ve kullanıcının verdiği ad silin
 eşleşen bir yüzün odasını çalabilir.
 
 
-## Oda kaydı yüzle birebir tutulmalı (K102)
+## Oda kaydı yüzle birebir tutulmalı (K103)
 
 `recomputeRoomsInDraft`'in "değişmediyse yazma" kestirmesi duvar KÜMESİNİ de
 karşılaştırır. Yalnız kimlik/sıra bakılırsa, duvar bölünmesinden gelen fazladan
@@ -149,13 +149,13 @@ dolgusu ve etiketi kaybolur.
 İÇERİĞİ de yüzle karşılaştırılmalı.
 
 
-## Kapsama ÇİFT YÖNLÜ (K105)
+## Kapsama ÇİFT YÖNLÜ (K106)
 
 Tam eşitlik tutmazsa: yüz odanın ALT kümesi ya da ÜST kümesiyse ve böyle tek bir
 oda varsa aynı odadır. Taşıma, odanın sınırındaki duvar sayısını iki yönde de
 değiştirebiliyor:
 
-- kayıt yüzden geniş: bölünen duvarın iki parçası da kayda ekleniyor (K102)
+- kayıt yüzden geniş: bölünen duvarın iki parçası da kayda ekleniyor (K103)
 - yüz kayıttan geniş: komşunun kopup bölünen duvarından artan parça sınıra giriyor
 
 ⚠️ Yaklaşık eşleşme YOK — bir yönde TAM kapsama + TEK aday, ikisi de kesin.

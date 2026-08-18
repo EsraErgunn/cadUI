@@ -30,7 +30,7 @@ export type WallDragInput = {
  *
  * Önceden imleci geçersiz konuma kadar izliyor, kopmuş hâli gösteriyor ve
  * bırakışta geri atıyordu — kullanıcı çizimin yırtıldığını sanıyor ve duvarı
- * hiçbir yere bırakamıyordu (K102).
+ * hiçbir yere bırakamıyordu (K103).
  */
 export function resolveWallDragDelta(
   input: WallDragInput,

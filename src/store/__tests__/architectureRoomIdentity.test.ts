@@ -6,7 +6,7 @@ import { useCadStore } from '../cadStore'
 
 /**
  * Yan yana üç oda (Y, X, Z). Kullanıcının verdiği ad ve odanın KİMLİĞİ, duvarlar
- * değişse bile oda var olduğu sürece korunmalı (K105).
+ * değişse bile oda var olduğu sürece korunmalı (K106).
  *
  *   -300,250 -- -100,250 -- 100,250 -- 300,250
  *      |   Y      |    X     |    Z     |
@@ -56,7 +56,7 @@ const identity = () =>
     .map((room) => `${room.id}:${room.name}`)
     .sort()
 
-describe('oda kimliği duvar taşımalarına dayanır (K105)', () => {
+describe('oda kimliği duvar taşımalarına dayanır (K106)', () => {
   beforeEach(resetEmpty)
 
   it('PAYLAŞILAN duvarı taşımak komşu odanın kimliğini bozmaz', () => {

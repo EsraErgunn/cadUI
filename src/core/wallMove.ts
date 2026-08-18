@@ -9,7 +9,7 @@ const EPSILON = 1e-6
 /**
  * Duvarın kendi eksenine DİK birim vektör.
  *
- * Taşıma yalnız bu doğrultuda yapılır (K102): duvarı kendi ekseni boyunca
+ * Taşıma yalnız bu doğrultuda yapılır (K103): duvarı kendi ekseni boyunca
  * kaydırmak boyunu da açısını da değiştirmez, sadece köşelerini komşuların
  * üstünde kaydırır — kullanıcının istediği bir hareket değil, kaza kaynağı.
  *

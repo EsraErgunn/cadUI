@@ -102,7 +102,7 @@ function isEndAttached(
 }
 
 /**
- * Taşıma çizimi bozacak mı? Geçersiz yerleştirme REDDEDİLİR (K13 deseni, K102).
+ * Taşıma çizimi bozacak mı? Geçersiz yerleştirme REDDEDİLİR (K13 deseni, K103).
  *
  * Paralel kaydırma modelinde komşular kesişime oturarak takip ettiği için kopma
  * artık nadir; geriye iki gerçek bozulma kalıyor:

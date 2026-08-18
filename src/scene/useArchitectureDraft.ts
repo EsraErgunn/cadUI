@@ -18,7 +18,7 @@ export type ArchitectureDraft = {
  * yapıyor; geçerlilik denetimi de aynı fonksiyondan geçiyor ve store yazımı da
  * aynı kopma kararını kullanıyor. Üçü ayrı hesaplasaydı ekranda görülen,
  * reddedilen ve yazılan geometri birbirini tutmazdı — nitekim önizleme kopmayı
- * hiç göstermediği için tam olarak bu oluyordu (K102).
+ * hiç göstermediği için tam olarak bu oluyordu (K103).
  *
  * ⚠️ Kopma klonlarının id'si NEGATİF ve geçici: store'a asla girmezler, yalnız
  * bu türetimde yaşarlar.

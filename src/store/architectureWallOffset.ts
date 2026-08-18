@@ -5,7 +5,7 @@ import type { Id } from '../core/model'
 import { planWallOffset } from '../core/wallOffset'
 
 /**
- * Duvarı kendine PARALEL kaydırır; uçları komşularının doğrusuna oturur (K102).
+ * Duvarı kendine PARALEL kaydırır; uçları komşularının doğrusuna oturur (K103).
  *
  * Kararın kendisi burada değil, `core/wallOffset.ts` → `planWallOffset`'ta:
  * sürükleme önizlemesi ve geçerlilik denetimi de aynı fonksiyondan geçiyor.

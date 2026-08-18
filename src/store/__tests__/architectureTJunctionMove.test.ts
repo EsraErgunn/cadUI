@@ -14,7 +14,7 @@ import { useCadStore } from '../cadStore'
  *              (400,0)
  *
  * Kollardan herhangi birini kendi normali boyunca taşımak GEÇERLİ olmalı: ortak
- * köşe kalan kolların doğrusunda kayar, kimse serbest kalmaz (K102).
+ * köşe kalan kolların doğrusunda kayar, kimse serbest kalmaz (K103).
  */
 function drawTJunction() {
   const chain = (pointId: number, x: number, y: number) =>
@@ -32,7 +32,7 @@ function blocker(wallId: number, dxCm: number, dyCm: number) {
   return findWallMoveBlocker(state.walls, state.points, wallId, dxCm, dyCm, state.activeFloorId)
 }
 
-describe('T kavşağında duvar taşıma (K102)', () => {
+describe('T kavşağında duvar taşıma (K103)', () => {
   beforeEach(resetEmpty)
 
   it('kurulum: üç kol ortak köşeyi paylaşır', () => {

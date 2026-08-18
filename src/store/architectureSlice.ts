@@ -62,7 +62,7 @@ export type ArchitectureSlice = ArchitectureData &
    */
   moveWall: (wallId: Id, dxCm: number, dyCm: number) => void
   /**
-   * Duvarı kendine PARALEL kaydırır; uçları komşularının doğrusuna oturur (K102).
+   * Duvarı kendine PARALEL kaydırır; uçları komşularının doğrusuna oturur (K103).
    * `moveWall`ın aksine duvarın BOYU değişebilir — eğik komşular arasında
    * kalan duvar uzar ya da kısalır, komşuların açısı korunur.
    */

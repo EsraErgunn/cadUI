@@ -129,7 +129,7 @@ duvardan açık renkli bir hale kalıyor.
 Tek duvarın gövdesinde sorun görünmez; belirti yalnız 3–4 kollu kavşakta okunur.
 Kapalıyken uçlar tırtıklanmıyor (MSAA açık), yani takas yok.
 
-## Normale kilitli taşıma ve köşe ayrılması (K102)
+## Normale kilitli taşıma ve köşe ayrılması (K103)
 
 Duvar YALNIZ kendi normali boyunca taşınır (`core/wallMove.ts` →
 `getWallNormal`, `constrainDeltaToNormal`). Kendi ekseni boyunca kaydırmak boyu
@@ -178,7 +178,7 @@ K24 onları geri birleştirir ve kopma boşa gider.
 T birleşimi kurar — yan odanın çevrimi böyle kapanıyor. Denk gelmezse oda düşer.
 
 
-## Çizimi yırtan taşıma reddedilir (K102)
+## Çizimi yırtan taşıma reddedilir (K103)
 
 `core/wallMoveValidity.ts` → `findWallMoveBlocker`. Jestte uygulanır
 (`useWallSelectionTool`), store action’ında değil — K36 ile aynı ayrım: `grab`
@@ -195,7 +195,7 @@ korunur, duvar imlece yapışık kalır.
 ⚠️ Önizleme, denetim ve store yazımı aynı simülasyondan geçer (`applyWallMove`).
 
 
-## Duvar taşıma modeli: PARALEL KAYDIRMA (K102, son hâli)
+## Duvar taşıma modeli: PARALEL KAYDIRMA (K103, son hâli)
 
 `core/wallOffset.ts` → `planWallOffset`. Duvar kendine paralel kayar, her ucu
 komşusunun DOĞRUSU boyunca kayarak yeni kesişime oturur. Komşunun açısı korunur,
@@ -217,7 +217,7 @@ Kopma yalnız komşu taşınan duvara PARALEL olduğunda (kesişim yok). Köşed
 biri varsa KISALAN kazanan da yerinde bırakılır, yoksa klonu havada bırakır.
 
 
-## Taşıma artığı düğümler temizlenir (K103)
+## Taşıma artığı düğümler temizlenir (K104)
 
 Duvar taşındıkça komşu kenar her seferinde yeni köşede bölünüyor; önceki bölme
 noktası geride kalırsa parça birikir. Üç önlem:
@@ -233,7 +233,7 @@ noktası geride kalırsa parça birikir. Üç önlem:
 "bölünme geri birleşmez" sözleşmesi her yerde değişirdi.
 
 
-## Geçersiz taşımada duvar durur (K104)
+## Geçersiz taşımada duvar durur (K105)
 
 Geçerlilik HER `pointermove`'da sınanır (`scene/wallDragDelta.ts` →
 `resolveWallDragDelta`). Geçersizse öteleme güncellenmez, duvar son geçerli

@@ -5076,7 +5076,7 @@ sebeple üç+ noktalı/çoklu seçimde salt okunur kaldı. Taşıma + kot TEK
 Ctrl+Z).
 ## 2026-08 · Duvar taşıma: normale kilitli hareket ve köşe ayrılması
 
-### K102 — Duvar YALNIZ kendi normali boyunca taşınır; ötelemeyi karşılayamayan komşu köşeden KOPAR
+### K103 — Duvar YALNIZ kendi normali boyunca taşınır; ötelemeyi karşılayamayan komşu köşeden KOPAR
 
 İki kural tek karar: hareketin kısıtı ile kopmanın ölçütü birbirinden türüyor.
 
@@ -5255,7 +5255,7 @@ geçerli; bu karar o havuzun bir köşesinin İKİYE AYRILABİLECEĞİNİ ekliyo
 
 ## 2026-08 · Taşımanın bıraktığı artık düğümler
 
-### K103 — Taşıma sonrası eş doğrultulu parçalar birleşir, çakışan köşeler kaynar
+### K104 — Taşıma sonrası eş doğrultulu parçalar birleşir, çakışan köşeler kaynar
 
 Duvar her taşındığında komşu kenar yeni köşede bölünüyor (K24, doğru davranış).
 Ama bir sonraki taşımada önceki bölme noktası geride kalıyordu: kullanıcı duvarı
@@ -5301,9 +5301,9 @@ Tarayıcıda doğrulandı (üç oda: Y, X, Z; X'in üst duvarı):
 
 ## 2026-08 · Geçersiz taşımada duvarın davranışı
 
-### K104 — Duvar geçersiz konuma HİÇ gitmez, son geçerli yerinde durur
+### K105 — Duvar geçersiz konuma HİÇ gitmez, son geçerli yerinde durur
 
-Geçersiz taşıma zaten reddediliyordu (K102: `freeEnd` / `collapse`). Ama ret
+Geçersiz taşıma zaten reddediliyordu (K103: `freeEnd` / `collapse`). Ama ret
 yalnız BIRAKIŞTA uygulanıyordu; sürükleme boyunca duvar imleci geçersiz bölgeye
 kadar izliyor, orada kopmuş hâli gösteriyor ve bırakışta geri atıyordu.
 Kullanıcı çizimin yırtıldığını sanıyor, üstelik duvarı hiçbir yere
@@ -5336,14 +5336,14 @@ etkisi görülmedi, ama plan çok büyürse ilk bakılacak yer burasıdır.
 
 ## 2026-08 · Oda adı duvar oynatınca kayboluyordu
 
-### K105 — Kimlik eşleştirmesi ÇİFT YÖNLÜ kapsama; ad ve id oda var oldukça korunur
+### K106 — Kimlik eşleştirmesi ÇİFT YÖNLÜ kapsama; ad ve id oda var oldukça korunur
 
 Kullanıcı bir odaya "X" dedikten sonra duvarlarla oynadıkça ad varsayılana
 dönüyor ve odanın id'si değişiyordu — oda hiç yok olmadığı hâlde.
 
 Sebep: taşıma, odanın sınırındaki duvar SAYISINI iki yönde de değiştirebiliyor.
 
-- **Kayıt yüzden GENİŞ kalır** (K102): bölünen duvarın iki parçası da kayda
+- **Kayıt yüzden GENİŞ kalır** (K103): bölünen duvarın iki parçası da kayda
   ekleniyor ama oda yalnız birini sınırında taşıyor.
 - **Yüz kayıttan GENİŞ olur** (bu karar): komşu odanın duvarı kopup bölününce
   artan parça bu odanın sınırına giriyor.
