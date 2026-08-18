@@ -1,9 +1,11 @@
 import { Check, FileDown, PencilRuler, X } from 'lucide-react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 import { MockValue } from '../MockValue'
 import { ProjectStatusChip } from './ProjectStatusChip'
 import type { ProjectDetail, ProjectDetailStatus } from '../../../api/projectDetail'
+import { prefetchEditorPage } from '../../../app/editorChunk'
 import { PROJECT_LIST_PATH } from '../../../pages/useCloseEditor'
 import { Breadcrumb } from '../Breadcrumb'
 import { ADMIN_HOME_PATH, projectEditorPath } from '../adminNavItems'
@@ -38,6 +40,10 @@ export function ProjectDetailHeader({
   onDownloadPdf,
 }: ProjectDetailHeaderProps) {
   const { server, extras } = detail
+
+  // Kullanıcı buradaysa editöre girmesi kuvvetle muhtemel: parçayı düğmeye
+  // basmadan indir. Soğuk geçiş 2220 ms, ısıtılmış geçiş 16 ms (K101).
+  useEffect(prefetchEditorPage, [])
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">

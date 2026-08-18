@@ -86,3 +86,41 @@ K99 ayrıca ortalama kareyi 156 ms → 41 ms getirmişti (o turda tarayıcı sa�
   Kapsül sınırları taştığı için kapatılmış; doğrusu `boundingSphere`'i kalınlık
   kadar şişirip kırpmayı geri açmak.
 - Kalan 42,3 taban `bufferData`: ızgara ve diğer katmanlar, henüz incelenmedi.
+
+## Editörün AÇILMASI ayrı bir konu (K101)
+
+Sürükleme performansıyla (K99/K100) karıştırma. "Editör geç açılıyor" şikâyeti
+ölçüldüğünde beklemenin **%96'sı** `EditorPage` parçasının indirilmesi çıktı
+(413 KB gzip, 2129 ms); ayrıştırma + WebGL kurulumu + ilk çizim toplam ~90 ms.
+
+Çözüm `src/app/editorChunk.ts`: proje detay ekranı parçayı `requestIdleCallback`
+ile önden indiriyor. Tıklamadan tuvale 2220 ms → 35,5 ms.
+
+⚠️ **Isıtma yalnız DETAY EKRANINDAN geçen kullanıcıyı kurtarır.** Editör
+adresine doğrudan gelen (yer imi, sayfa yenileme, paylaşılan bağlantı) ısıtacak
+bir an bulamaz ve tam indirmeyi bekler — o yolda hâlâ ~2 saniye. Kapatmak
+isteyen, parçayı giriş sonrası kabukta ısıtmalı; o zaman editöre hiç girmeyen
+kullanıcılar da 413 KB indirir, takas bilinçli olarak yapılmadı.
+
+⚠️ Detay ekranında ısıtmanın bitmesine YETECEK kadar kalınmazsa (parça arka
+planda 512 ms sürdü) kullanıcı kalan kısmı bekler. Yine de hiç ısıtmamaktan iyi:
+indirme yarıda kesilmez, kaldığı yerden kullanılır.
+
+⚠️ **Bu ölçüm dev sunucuda YAPILAMAZ.** Vite geliştirme kipinde paketleme
+yapmıyor, modülleri tek tek sunuyor; editöre geçişte yüzlerce ayrı istek çıkıyor
+ve sayılar kullanıcının gördüğüyle ilgisiz oluyor. `npm run build` + `npm run
+preview` (4173) üzerinden ölç.
+
+Ölçüm reçetesi: `PerformanceObserver` ile `resource` girdilerini dinle, editör
+bağlantısına `click()` at, `requestAnimationFrame` ile `document.querySelector('canvas')`
+belirene kadar bekle. Parçanın tıklanmadan indiğini `performance.getEntriesByType('resource')`
+içinde `EditorPage` araması doğrular.
+
+Paketin kendisi 1,47 MB (417 KB gzip), uygulamanın geri kalanının dört katı.
+İçi three.js + drei + three-stdlib + troika.
+
+⚠️ **Tesisat katmanını ayrı parçaya bölmek REDDEDİLDİ.** Bu bir tesisat çizim
+uygulaması; tesisat isteğe bağlı bir eklenti değil, ürünün kendisi. Editörü açan
+kullanıcı onu neredeyse her zaman kullanacak, yani bölme çoğu oturumda ikinci bir
+bekleme yaratır ve karşılığında hiçbir şey kazandırmaz. Isıtma zaten indirmeyi
+kullanıcının beklemediği bir ana taşıdı; paketin boyutu artık kritik yolda değil.
