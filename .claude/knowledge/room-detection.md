@@ -119,3 +119,31 @@ o seçimden türetilebilir.
 `core/room.ts` · `core/roomIdentity.ts` · `core/roomLabel.ts` ·
 `core/roomFill.ts` · `store/architectureRooms.ts` · `scene/Room.tsx`.
 Karar defteri: `docs/kararlar.md` K31.
+
+
+## Kimlik eşleştirmesi iki geçişli (K102 eki)
+
+Önce TAM küme eşitliği (K31), tutmazsa TAM KAPSAMA + TEK aday: yüzün duvarları
+bir odanınkinin alt kümesiyse ve böyle tek bir oda varsa aynı odadır.
+
+Gerekçe: duvar taşımada köşe kopunca (K102) komşu duvar bölünüyor ve odanın
+kaydı iki parçayı birden içeriyor, oysa oda yalnız birini sınırında taşıyor.
+Tam eşitlik tutmuyor, oda yeni sanılıyor ve kullanıcının verdiği ad siliniyordu.
+
+⚠️ Yaklaşık eşleşme hâlâ YOK — kapsama ve teklik koşullarının ikisi de kesin.
+⚠️ Tam eşitlik geçişi HEPSİ için önce koşar; yoksa kapsama araması kesin
+eşleşen bir yüzün odasını çalabilir.
+
+
+## Oda kaydı yüzle birebir tutulmalı (K102)
+
+`recomputeRoomsInDraft`'in "değişmediyse yazma" kestirmesi duvar KÜMESİNİ de
+karşılaştırır. Yalnız kimlik/sıra bakılırsa, duvar bölünmesinden gelen fazladan
+parça kayıtta kalır (yüzün üst kümesi olur) ve kestirme yazmadan çıkar.
+
+⚠️ Sonucu store'da değil ÇİZİMDE görünür: `Room.tsx` yüzü odayla TAM KÜME
+eşitliğiyle eşleştirir, tutmayınca yüzü hiç çizmez. Oda ölmez, GÖRÜNMEZ olur —
+dolgusu ve etiketi kaybolur.
+
+⚠️ Oda sayısı/alanı/adı doğru olduğu hâlde bu hata yaşanabilir; testte kaydın
+İÇERİĞİ de yüzle karşılaştırılmalı.

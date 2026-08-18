@@ -5074,3 +5074,181 @@ güncel 3B yönü korunarak ölçekleniyor. Yalnız tek ve iki noktalı hatta �
 sebeple üç+ noktalı/çoklu seçimde salt okunur kaldı. Taşıma + kot TEK
 `plumbingSlice.resizePipeEnd` adımında yazılıyor (bir kullanıcı eylemi = bir
 Ctrl+Z).
+## 2026-08 · Duvar taşıma: normale kilitli hareket ve köşe ayrılması
+
+### K102 — Duvar YALNIZ kendi normali boyunca taşınır; ötelemeyi karşılayamayan komşu köşeden KOPAR
+
+İki kural tek karar: hareketin kısıtı ile kopmanın ölçütü birbirinden türüyor.
+
+**1. Duvar kendine PARALEL kayar, uçları komşusunun DOĞRUSUNA oturur.**
+`core/wallOffset.ts` → `planWallOffset`.
+
+İlk sürüm duvarı KATI taşıyordu: iki köşe de aynı vektörle giderdi. Bu ancak
+komşu duvar hareket yönüne paralelken işe yarıyor — dik açılı planlarda
+tesadüfen hep doğru, EĞİK planda hiç doğru değil. Ölçüldü: yamuk bir odada
+(eğik yan kenarlar) hiçbir duvar hiçbir yöne taşınamıyordu, yatay üst ve alt
+duvarlar dahil; hepsi kopuyor ya da ret koruması tarafından engelleniyordu
+(kullanıcı bildirimi).
+
+Yeni modelde duvar kendi doğrultusunu korur, ucu komşunun doğrusu boyunca
+kayar. Komşunun AÇISI korunur, yalnız BOYU değişir — istenen davranış tam
+olarak buydu. Duvarı kendi ekseni boyunca sürüklemek hâlâ hiçbir şey yapmaz:
+öteleme normale izdüşürülüyor.
+
+⚠️ Bedeli: **taşınan duvarın BOYU değişebilir.** Yamukta aşağı inen duvar uzar,
+yukarı çıkan kısalır. Dik açılı planda boy hiç değişmez ve sonuç eski katı
+ötelemeyle BİREBİR aynı çıkar — bugüne kadar çalışan hiçbir şey bozulmadı.
+"Öteleme KATIDIR" ifadesi bu kararla kalkmıştır.
+
+⚠️ Kaydırma kendi eylemidir (`offsetWall`), `transformSelection` DEĞİL: iki uç
+farklı vektörlerle gittiği için tek bir `translate` dönüşümüyle ifade edilemez.
+Çoklu seçim eskisi gibi blok olarak ötelenir — orada ortak normal yok.
+
+**2. Kopma ölçütü: komşunun doğrusu KESİŞİYOR MU.** Kesişim varsa komşu o
+noktaya oturarak takip eder (açısı korunur, boyu değişir). Taşınan duvara
+PARALEL komşunun kesişimi yoktur — takip edemez, köşenin klonuna bağlanıp
+yerinde kalır. İlk görsellerdeki yan odaların üst duvarları tam olarak bu
+durumdaydı.
+
+Bir köşede kesişimi olan birden çok komşu varsa köşeyi ÖZGÜN köşeye en yakın
+kesişim belirler; kalanlar kopar, çünkü tek köşe hepsinin doğrusunda birden
+duramaz.
+
+⚠️ Köşede kopan biri varsa, KISALAN kazanan komşu da yerinde bırakılır. Köşeyi
+izleseydi eski köşeden geri çekilir ve orada kalan duvarı havada bırakırdı; yan
+odanın çevrimi kopar, oda dolgusu ve etiketiyle kaybolurdu. Yerinde kalınca tam
+boyunu korur, taşınan duvarın yeni ucu GÖVDESİNE denk gelir ve K24 oradan böler.
+
+Pratikte: taşınan duvara DİK komşular gelir, ONUNLA AYNI HİZADAKİLER kopar.
+Yan yana üç odada ortanın üst duvarı kaldırılınca bölme duvarları uzar, sol ve
+sağ odanın üst duvarları yerinde kalır — kullanıcının dokunmadığı odaların
+geometrisi artık bozulmuyor.
+
+**İkinci ölçüt: KISALAN paralel komşu da yerinde bırakılır** — ama yalnız o
+köşede kopan başka bir duvar varsa.
+
+İlk sürümde ölçüt tek başına paralellikti ve yön asimetrisi doğurdu: duvar
+YUKARI taşınınca bölme uzuyor, eski köşe onun gövdesinde kalıyor ve K24 orada T
+kuruyordu (3 oda ayakta). AŞAĞI çekilince bölme KISALIYOR, köşeden geri
+çekiliyor ve klonu havada bırakıyordu — yan odanın üst duvarı hiçbir şeye
+bağlanamıyor, çevrim kopuyor ve üç oda birden düşüyordu (kullanıcı bildirimi).
+
+Kısalan komşu yerinde bırakılınca tam boyunu koruyor, taşınan duvarın yeni ucu
+onun GÖVDESİNE denk geliyor ve K24 oradan bölüyor: hem yan oda hem taşınan
+duvarın odası kapanıyor.
+
+⚠️ "Köşede kopan var mı" koşulu şart: kapalı bir dikdörtgenin üst duvarını
+içeri çekerken yan duvarlar da kısalır ama orada kopan kimse yok. Koşulsuz
+uygulansaydı yan duvarlar yerinde kalır ve yukarı taşan güdük parçalar kalırdı.
+
+**Sürükleme ÖNİZLEMESİ de aynı kararı gösterir.** Önizleme (`scene/useArchitectureDraft.ts`)
+yalnız nokta havuzunu ötelemekle kalmıyor, kopan komşuları köşenin ÖNİZLEME
+KLONUNA bağlıyor. Kopma kararı store yazımıyla AYNI fonksiyondan geliyor
+(`planCornerDetachments`), yani ikisi ayrışamaz.
+
+İlk sürümde önizleme yalnız ötelemeyi uyguluyordu ve yalan söylüyordu: komşular
+jest boyunca eğilmiş görünüyor, kullanıcı bıraktığında geometri birden başka bir
+şeye dönüşüyordu (kullanıcı bildirimi). Duvar çizen HER yer önizlemeden hem
+noktayı hem DUVARI okumalı — yalnız noktayı okumak kopmayı göstermez.
+
+⚠️ Önizleme klonlarının id'si NEGATİF ve geçici; store'a asla girmez. Gerçek
+id'ler pozitif artan tamsayı olduğu için (KK-6) çakışma imkânsız.
+
+⚠️ **Oda tespiti KULLANILMIYOR.** İlk tasarım komşuları "taşınan duvarla aynı
+odayı paylaşıyor mu" diye ayırıyordu; `findRoomFaces` çağırmayı, odasız duvarlar
+için ayrı istisna kuralını ve eğik komşularda belirsizliği getiriyordu. Normal
+kısıtı gelince ölçüt kendiliğinden geometrik oldu ve bunların hepsi düştü.
+
+⚠️ **Shift'in bu işle ilgisi YOK.** Ara tasarımda kopma Shift'e bağlanmıştı;
+Shift `pointerdown`'da zaten "seçime ekle/çıkar" demek (KK-10) ve iki anlam
+çakışıyordu. Normale kilitli hareket ana davranış olunca kip kavramı gereksizleşti.
+
+⚠️ Kısıt YALNIZ tek duvar sürüklenirken. Çoklu seçimde blok katı hareket ediyor
+ve ortak bir normal yok; orada öteleme serbest, komşular eskisi gibi esner
+(`WallGrab.normal === undefined`). Döndürme ve aynalama da kapsam dışı: tek bir
+öteleme yönü tanımlamıyorlar, `transformSelectionInDraft` bayrağı yalnız
+`kind === 'translate'` iken okuyor.
+
+⚠️ Izgara yapışması kısıtı BOZMAMALI. Eksene paralel duvarda yalnız oynayan
+koordinat yuvarlanır; eğik duvarda normal boyunca alınan MESAFE yuvarlanır
+(`snapNormalMoveToGrid`). 2B ızgaraya yapıştırmak noktayı kısıt doğrusunun
+dışına atardı.
+
+**Oda kimliği eşleştirmesi genişledi (K31 eki).** Kopma + K24 bölmesi sonrası
+komşu odanın KAYDI bölünen duvarın iki parçasını birden içeriyor, oysa oda artık
+yalnız birini sınırında taşıyor. K31'in TAM KÜME EŞİTLİĞİ tutmuyor, oda "yeni
+doğmuş" sayılıyor ve kullanıcının verdiği ad — odaya hiç dokunulmamışken —
+siliniyordu (ölçüldü: üç odalı planda her taşımada iki ad kayboluyordu).
+
+`core/roomIdentity.ts` artık iki geçişli: ÖNCE tüm yüzler için tam eşitlik,
+SONRA eşleşmeyenler için TAM KAPSAMA + TEK aday — yüzün duvarları bir odanınkinin
+alt kümesiyse ve böyle tek bir oda varsa aynı odadır.
+
+⚠️ Bu, K31'in reddettiği "yaklaşık eşleşme" DEĞİL: uydurma bir yüzde eşiği yok,
+iki koşul da kesin. Birden çok oda kapsıyorsa hangisi olduğu belirsizdir,
+eşleşme yapılmaz ve yüz yeni oda olur. Odanın içinden duvar geçme senaryosu da
+bozulmaz: yeni yüzler o duvarı içerir, eski kayıt içermez, kapsama tutmaz.
+
+⚠️ Tam eşitlik geçişi HEPSİ için önce koşmalı; yoksa kapsama araması, kesin
+eşleşen bir yüzün odasını çalıp başka yüze verebilir.
+
+**Çizimi yırtan taşıma REDDEDİLİR** (`core/wallMoveValidity.ts` →
+`findWallMoveBlocker`). Açıklık reddiyle aynı davranış (K36): `grab` korunur,
+duvar imlece yapışık kalır, kullanıcı geçerli bir yere gelip tekrar tıklar.
+
+İki ret sebebi, ikisi de kullanıcı bildirimiyle çıktı:
+
+- **`freeEnd`** — taşınan duvarın ucu hiçbir duvara değmiyor. Köşe komşunun
+  GÖVDESİNE denk geldiği sürece K24 orada T kurar ve duvar bağlı kalır; komşunun
+  UCUNUN ötesine itilirse değecek gövde kalmaz ve duvar tek ya da çift taraflı
+  SERBEST kalır ("köşeleri kopuyor, bağımsız bir duvar haline geliyor").
+- **`collapse`** — bir duvar çizilemeyecek kadar kısalıyor. Duvarı komşusunun
+  üstüne itmek sıfır boylu duvarlar ve üst üste binen kopyalar üretiyordu; nokta
+  id'leri farklı olduğu için yineleme temizliği onları görmüyor, oda çevrimi
+  kopuyor ve yan odalar ŞEFFAF DOLGUSU ve ETİKETİYLE birlikte kayboluyordu.
+
+⚠️ İki denetim de "ÖNCEDEN de böyleydi" durumunu geçirir: yarım kalmış zinciri
+ya da zaten güdük bir duvarı taşımak yasaklanmamalı. Kural YENİ bir kopma veya
+çökme yaratmayı engelliyor, var olanı düzeltmeyi değil.
+
+⚠️ Denetim JESTTE (`useWallSelectionTool`), store action'ında değil. `moveWall`
+ve `transformSelection` ilkel kalır — K36 ile aynı ayrım.
+
+Önizleme, denetim ve store yazımı AYNI simülasyondan geçer (`applyWallMove` +
+`planCornerDetachments`). Üçü ayrı hesaplasaydı ekranda görülen, reddedilen ve
+yazılan geometri birbirini tutmazdı.
+
+⚠️ Klonlar özgün koordinatta doğuyor, kopma taşımadan ÖNCE yapılıyor. Yer
+değişmezse iki köşe üst üste kalır ve `splitWallsAtIntersections` onları anında
+geri birleştirir (K24) — kopma boşa gider.
+
+⚠️ Klon eski köşede kaldığından çoğu zaman komşunun GÖVDESİNE denk gelir ve K24
+orada T birleşimi kurar; yan odanın çevrimi böyle kapanıyor. Garanti değil —
+klon hiçbir gövdeye denk gelmezse o oda düşer. Bilinen sınır.
+
+**Oda KAYDI her zaman yüzle birebir tutulur.** `recomputeRoomsInDraft`'in
+"hiçbir şey değişmediyse yazma" kestirmesi yalnız kimliğe ve sıraya bakıyordu.
+Duvar bölününce `extendRoomsWithSplitPieces` iki parçayı da odanın kaydına
+ekliyor; oda parçalardan yalnız birini sınırında taşıyorsa kayıt yüzün ÜST
+KÜMESİ oluyor. Oda sayısı ve sırası değişmediği için kestirme yazmadan çıkıyor
+ve bayat kayıt kalıyordu.
+
+⚠️ Bunun sonucu STORE'DA değil ÇİZİMDE görünüyordu: `Room.tsx` yüzü odayla TAM
+KÜME eşitliğiyle eşleştiriyor, tutmayınca `if (!room) return []` ile yüzü hiç
+çizmiyor. Oda ölmüyor, GÖRÜNMEZ oluyordu — kullanıcı "odaların tanımı, şeffaf
+dolgusu ve etiketi kayboluyor" diye bildirdi. Kestirme artık duvar kümesini de
+karşılaştırıyor.
+
+⚠️ Ders: oda sayısını, alanını ve adını doğrulayan testler bunu KAÇIRDI —
+üçü de doğruydu. Kaydın İÇERİĞİNİN yüzle birebir olması ayrıca sınanmalı,
+çünkü çizim ona bağlı.
+
+Duvar kimliği korunuyor (yalnız `p1Id`/`p2Id` yeniden bağlanıyor), dolayısıyla
+kopan duvarın üstündeki açıklıklar ve odanın kimliği bozulmuyor.
+
+Tarayıcıda doğrulandı: üç odalı planda orta üst duvar ÇAPRAZ sürüklendi (110 px
+sağa + 100 px yukarı); duvar yalnız dikeyde 100 cm ilerledi, `x` kıpırdamadı,
+sol ve sağ odanın üst duvarları yerinde kaldı, iki klon doğdu, üç oda da ayakta.
+
+`.claude/CLAUDE.md`'deki "Duvar ortak `Point` havuzunu paylaşır" sözleşmesi
+geçerli; bu karar o havuzun bir köşesinin İKİYE AYRILABİLECEĞİNİ ekliyor.

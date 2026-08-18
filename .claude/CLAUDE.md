@@ -34,6 +34,9 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Veri modeli (core/model.ts — SÖZLEŞME, izinsiz değiştirme)
 
 - Duvar kendi koordinatını taşımaz. Ortak `Point` havuzunu `p1Id`/`p2Id` ile paylaşır.
+  Bir köşeyi PAYLAŞMAK bağlı kalmayı garanti ETMEZ: duvar kendi normali boyunca
+  taşınır ve ötelemeyi boyunu değiştirerek karşılayamayan komşu köşenin klonuna
+  bağlanıp yerinde kalır (K102, `core/wallMove.ts`, bkz. knowledge/wall-graph.md).
 - Kapı/pencere (`Opening`) yalnız duvara bağlıdır, `wallId` + `offsetCm` ile → duvar taşınınca birlikte gelir.
   Duvar BÖLÜNMEZ, açıklık tek parça duvarın üstünde bir deliktir. `offsetCm` açıklığın
   ORTASINI ölçer (p1 ucundan). Köşe payı = o uçta birleşen dik duvarın kalınlığı.

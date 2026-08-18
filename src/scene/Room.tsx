@@ -4,7 +4,7 @@ import { RoomLabel } from './RoomLabel'
 import { RoomNameEditor } from './RoomNameEditor'
 import { RENDER_ORDER, ROOM_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
-import { useArchitecturePoints } from './useArchitecturePoints'
+import { useArchitectureDraft } from './useArchitectureDraft'
 import { planToThree, type PlanPoint } from '../core/coords'
 import type { Id, Room as RoomData, Wall } from '../core/model'
 import { findRoomFaces, type RoomFace } from '../core/room'
@@ -103,10 +103,10 @@ function RoomShape({ roomId, face, name, fillCorners, isEditingName }: RoomShape
  */
 export function Rooms() {
   const rooms = useCadStore((state) => state.rooms)
-  const walls = useCadStore((state) => state.walls)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  // Sürüklenen köşe geçici konumuyla gelir; oda duvarların arkasında kalmasın.
-  const points = useArchitecturePoints()
+  // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K102).
+  const { points, walls } = useArchitectureDraft()
   const editingRoomId = useArchitectureUiStore((state) => state.editingRoomId)
 
   const shapes = useMemo(() => {

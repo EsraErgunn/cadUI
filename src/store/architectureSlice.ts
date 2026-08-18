@@ -6,6 +6,7 @@ import type { AddOpeningInput, OpeningTarget } from './architectureOpeningOps'
 import { createPropertyActions } from './architecturePropertyOps'
 import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
+import { applyWallOffsetInDraft } from './architectureWallOffset'
 import {
   appendWall,
   appendWallChain,
@@ -56,6 +57,12 @@ export type ArchitectureSlice = ArchitectureData &
    * Açıklıklar duvara offset'le bağlı olduğundan kendiliğinden gelir (K9).
    */
   moveWall: (wallId: Id, dxCm: number, dyCm: number) => void
+  /**
+   * Duvarı kendine PARALEL kaydırır; uçları komşularının doğrusuna oturur (K102).
+   * `moveWall`ın aksine duvarın BOYU değişebilir — eğik komşular arasında
+   * kalan duvar uzar ya da kısalır, komşuların açısı korunur.
+   */
+  offsetWall: (wallId: Id, dxCm: number, dyCm: number) => boolean
   /** Köşeyi başka bir köşeye kaynatır (sürüklerken üstüne bırakma). */
   mergePoint: (sourceId: Id, targetId: Id) => void
   deleteWall: (wallId: Id) => void
@@ -138,6 +145,23 @@ export const createArchitectureSlice: StateCreator<
       recomputeRoomsInDraft(draft)
       markDirty(draft)
     }),
+
+  offsetWall: (wallId, dxCm, dyCm) => {
+    let isApplied = false
+    set((draft) => {
+      isApplied = applyWallOffsetInDraft(draft, wallId, dxCm, dyCm)
+      if (!isApplied) return
+
+      // Komşu duvarlar kısalmış olabilir; sığmayan açıklık aynı adımda düşer (K16).
+      pruneOpeningsInDraft(draft)
+      // Taşınan duvar başkalarının üstünden geçmiş olabilir (K24).
+      splitWallsAtIntersections(draft)
+      // Bölmeden SONRA: oda çevrimi bölünmüş duvarları görmeli (K31).
+      recomputeRoomsInDraft(draft)
+      markDirty(draft)
+    })
+    return isApplied
+  },
 
   moveWall: (wallId, dxCm, dyCm) =>
     set((draft) => {

@@ -4,7 +4,7 @@ import { toPlainSnapshot } from './draftSnapshot'
 import { takeNextId } from './projectMeta'
 import { DEFAULT_ROOM_NAME, type Id, type Room } from '../core/model'
 import { findRoomFaces } from '../core/room'
-import { reconcileRooms } from '../core/roomIdentity'
+import { getWallSetKey, reconcileRooms } from '../core/roomIdentity'
 
 /**
  * Oda AKTİF KATA aittir ama `Room.floorId` yoktur — kat, çevrimindeki duvarlardan
@@ -51,9 +51,20 @@ export function recomputeRoomsInDraft(draft: CadState): boolean {
 
   // Hiçbir şey değişmediyse diziye DOKUNMA: yeni referans, geçmişe boş bir adım
   // ve gereksiz render demek (areProjectStatesEqual sığ karşılaştırma yapıyor).
-  if (removedRoomIds.length === 0 && createdCount === 0) {
-    const isSameOrder = rooms.every((room, index) => floorRooms[index]?.id === room.id)
-    if (isSameOrder && rooms.length === floorRooms.length) return false
+  //
+  // ⚠️ Kimlik yetmez, DUVAR KÜMESİ de karşılaştırılmalı. Duvar bölününce
+  // `extendRoomsWithSplitPieces` her iki parçayı da odanın kaydına ekliyor; oda
+  // parçalardan yalnız birini sınırında taşıyorsa kayıt yüzün ÜST KÜMESİ olur.
+  // Sayı ve sıra değişmediği için buradan yazmadan çıkılıyor, bayat kayıt
+  // kalıyordu — ve `Room.tsx` yüzü odayla TAM KÜME eşitliğiyle eşleştirdiği için
+  // o oda hiç çizilmiyordu: dolgusu ve etiketi kayboluyordu (kullanıcı bildirimi).
+  if (removedRoomIds.length === 0 && createdCount === 0 && rooms.length === floorRooms.length) {
+    const isUnchanged = rooms.every(
+      (room, index) =>
+        floorRooms[index]?.id === room.id &&
+        getWallSetKey(floorRooms[index].wallIds) === getWallSetKey(room.wallIds),
+    )
+    if (isUnchanged) return false
   }
 
   draft.rooms = [...otherFloorRooms, ...rooms]

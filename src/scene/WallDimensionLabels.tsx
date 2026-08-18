@@ -3,7 +3,7 @@ import { Text } from '@react-three/drei'
 
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
-import { useArchitecturePoints } from './useArchitecturePoints'
+import { useArchitectureDraft } from './useArchitectureDraft'
 import { useCameraZoom } from './useCameraZoom'
 import { planToThree } from '../core/coords'
 import { formatLengthMeters } from '../core/lengthFormat'
@@ -48,11 +48,11 @@ function getEditedWallIds(
 }
 
 function WallDimensions() {
-  const walls = useCadStore((state) => state.walls)
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  // Sürüklenen köşe geçici konumuyla gelir; ölçü jest boyunca canlı güncellenir.
-  const points = useArchitecturePoints()
+  // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K102).
+  const { points, walls } = useArchitectureDraft()
   const zoom = useCameraZoom()
   const draggingPointId = useArchitectureUiStore((state) => state.draggingPoint?.pointId)
   const draggingWallIds = useArchitectureUiStore((state) => state.draggingWall?.wallIds)
