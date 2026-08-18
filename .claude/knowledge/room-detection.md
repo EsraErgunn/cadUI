@@ -147,3 +147,18 @@ dolgusu ve etiketi kaybolur.
 
 ⚠️ Oda sayısı/alanı/adı doğru olduğu hâlde bu hata yaşanabilir; testte kaydın
 İÇERİĞİ de yüzle karşılaştırılmalı.
+
+
+## Kapsama ÇİFT YÖNLÜ (K105)
+
+Tam eşitlik tutmazsa: yüz odanın ALT kümesi ya da ÜST kümesiyse ve böyle tek bir
+oda varsa aynı odadır. Taşıma, odanın sınırındaki duvar sayısını iki yönde de
+değiştirebiliyor:
+
+- kayıt yüzden geniş: bölünen duvarın iki parçası da kayda ekleniyor (K102)
+- yüz kayıttan geniş: komşunun kopup bölünen duvarından artan parça sınıra giriyor
+
+⚠️ Yaklaşık eşleşme YOK — bir yönde TAM kapsama + TEK aday, ikisi de kesin.
+
+⚠️ K31 korunur: odanın içinden duvar geçince hiçbir yönde kapsama tutmaz, iki
+YENİ oda doğar.

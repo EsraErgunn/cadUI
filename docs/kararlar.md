@@ -5333,3 +5333,36 @@ Bırakışta duvar son geçerli konumuna yerleşti, üç oda korundu.
 ⚠️ Geçerlilik artık kare başına sınanıyor. Maliyet duvar sayısında doğrusal
 (`applyWallMove` + uç başına `isEndAttached`); çizim ölçeğinde ölçülebilir bir
 etkisi görülmedi, ama plan çok büyürse ilk bakılacak yer burasıdır.
+
+## 2026-08 · Oda adı duvar oynatınca kayboluyordu
+
+### K105 — Kimlik eşleştirmesi ÇİFT YÖNLÜ kapsama; ad ve id oda var oldukça korunur
+
+Kullanıcı bir odaya "X" dedikten sonra duvarlarla oynadıkça ad varsayılana
+dönüyor ve odanın id'si değişiyordu — oda hiç yok olmadığı hâlde.
+
+Sebep: taşıma, odanın sınırındaki duvar SAYISINI iki yönde de değiştirebiliyor.
+
+- **Kayıt yüzden GENİŞ kalır** (K102): bölünen duvarın iki parçası da kayda
+  ekleniyor ama oda yalnız birini sınırında taşıyor.
+- **Yüz kayıttan GENİŞ olur** (bu karar): komşu odanın duvarı kopup bölününce
+  artan parça bu odanın sınırına giriyor.
+
+İlk düzeltme yalnız BİRİNCİ yönü kapsıyordu (yüz ⊆ kayıt). Ölçüldü: üç odalı
+planda X'in üst duvarı iki kez oynatıldıktan sonra X ile Y'nin PAYLAŞTIĞI duvar
+taşınınca X'in üst duvarı kopup bölünüyor ve artan parça Y'nin yüzüne giriyor —
+yüz kaydın üst kümesi oluyor, eşleşme tutmuyor, Y yeni oda sayılıyordu.
+
+Kapsama artık ÇİFT YÖNLÜ: yüz odanın alt kümesi YA DA üst kümesiyse ve böyle
+TEK bir oda varsa aynı odadır.
+
+⚠️ Bu hâlâ K31'in reddettiği "yaklaşık eşleşme" DEĞİL: uydurma bir yüzde eşiği
+yok, iki koşul da kesin — bir yönde TAM kapsama ve TEK aday. Birden çok oda
+kapsıyorsa hangisi olduğu belirsizdir, eşleşme yapılmaz.
+
+⚠️ K31'in asıl senaryosu KORUNUR: odanın içinden duvar geçince yeni yüzler o
+duvarı içerir, eski kayıt içermez ve yüz eski kaydın tamamını da kapsamaz —
+hiçbir yönde kapsama tutmaz, iki YENİ oda doğar. Ayrı testle kilitlendi.
+
+Ölçüm: üç odalı planda on iki ardışık duvar taşıması boyunca üç odanın da id'si
+ve kullanıcının verdiği adı (Y, X, Z) hiç değişmedi.
