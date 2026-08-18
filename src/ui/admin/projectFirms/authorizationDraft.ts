@@ -65,13 +65,16 @@ export function formatAuthorizationGasFirmName(firm: {
  * eklenemez" ve "kayıtlar tek tek kaldırılabilir" diyor — ikisi de firma bazlı
  * kimlik istiyor. Tek satırda liste tutulsaydı "şunu çıkar" satırı bölmek
  * zorunda kalırdı.
+ *
+ * "Yeterlilik No" KALKTI (K102): kayıt iki ayrı numara taşıyordu (yeterlilik +
+ * sertifika), sözleşmede karşılığı olan tek numara `certificateNumber` —
+ * ikisini birden sormak kullanıcıya var olmayan bir ayrım yaptırıyordu.
  */
 export interface ProjectFirmAuthorization {
   groupId: number
   groupName: string
   gasDistributionFirmId: number
   gasDistributionFirmName: string
-  qualificationNumber: string
   certificateNumber: string | null
 }
 
@@ -79,13 +82,11 @@ export interface ProjectFirmAuthorization {
 export const AUTHORIZATION_ERRORS = {
   group: 'Grup firması seçiniz.',
   gasFirms: 'En az bir bölge seçiniz.',
-  qualificationNumber: 'Yeterlilik no zorunludur.',
 } as const
 
 export interface AuthorizationDraft {
   group: AuthorizationGroup
   gasFirms: AuthorizationGasFirm[]
-  qualificationNumber: string
   certificateNumber: string
 }
 
@@ -122,7 +123,6 @@ export function buildProjectFirmAuthorizations(
     groupName: draft.group.name,
     gasDistributionFirmId: gasFirm.id,
     gasDistributionFirmName: gasFirm.name,
-    qualificationNumber: draft.qualificationNumber.trim(),
     certificateNumber: certificateNumber === '' ? null : certificateNumber,
   }))
 }
@@ -142,7 +142,6 @@ export function toAuthorizationPayloads(
 ): ProjectFirmAuthorizationPayload[] {
   return authorizations.map((authorization) => ({
     gasDistributionFirmId: authorization.gasDistributionFirmId,
-    qualificationNumber: authorization.qualificationNumber,
     certificateNumber: authorization.certificateNumber,
   }))
 }

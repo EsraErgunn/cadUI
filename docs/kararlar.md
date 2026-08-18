@@ -5640,3 +5640,60 @@ oturumsuz kullanıcı korumalı yoldan giriş ekranına düşüyor mu.
 Oturumu düşen kullanıcı kirli çizimle pencereyi görür ve "Kaydet ve Çık" da 401
 alır; çıkış yolu var ("Kaydetmeden Çık"), kilitlenme değil.
 
+## 2026-08 · Proje firması alanlarının sadeleşmesi
+
+### K113 — Seri No, Yeter No ve Gsm KALKTI
+
+Liste ekranından üç sütun (`Seri No`, `Yeter No`, `Gsm`), formlardan iki alan
+(`serialNumber`, `qualificationNumber`) silindi.
+
+Üç sütun da HER SATIRDA "-" gösteriyordu: seri no ve Gsm yalnız detay
+yanıtında vardı, yeterlik numarasının uçta hiç karşılığı yoktu. Hep boş bir
+sütun, tabloyu geniş tutmaktan (`min-w-320` → `min-w-240`) başka bir iş
+görmüyordu.
+
+`serialNumber` isteğe artık HİÇ eklenmiyor — `null` gönderilmiyor, anahtar
+yazılmıyor. Seri no üzerine kurulu istemci taraflı benzersizlik ön kontrolü de
+kalktı; geriye yalnız vergi numarası kontrolü kaldı.
+
+"Yeterlilik No" ile birlikte yetki kaydındaki İKİ NUMARA sorunu da bitti
+(api-eksikleri-proje-firmalari.md → S1 KAPANDI): kayıt artık sunucunun tanıdığı
+tek numarayı taşıyor, `certificateNumber`. Alan zorunluydu ve sunucuda evi
+olmadığı için kullanıcının girdiği veri HER kayıtta sessizce kayboluyordu.
+
+⚠️ `accountingCode` (Cari Kodu) AYRI bir alandır ve KALDI. Seri no ile
+karıştırılmamalı — ikisi de "kod" gibi okunuyor.
+
+### K114 — Şahıs / tüzel ayrımı gövdeye kadar iniyor; maskeli T.C. yüklenmiyor
+
+Şahıs firması (`companyType = 1`) artık destekleniyor. §10 kuralı:
+
+- `companyType = 1` → `nationalIdNumber` zorunlu, `taxNumber` **null**
+- `companyType = 2` → `taxNumber` zorunlu (10 VEYA 11 hane), `nationalIdNumber` **null**
+
+T.C. doğrulaması İSTEMCİDE de yapılıyor (`core/nationalId.ts`): 11 hane, ilk
+hane ≠ 0, 10. ve 11. hane sağlaması. Yalnız hane sayısına bakılsaydı
+"11111111111" geçer ve sunucudan 400 dönerdi. Hane sayısı tutup sağlaması
+tutmayan numara AYRI mesaj alıyor — "11 haneli olmalıdır", 11 hane yazmış
+kullanıcıya bir şey söylemiyor.
+
+Seçim değişince kapanan alan hem EKRANDAN hem GÖVDEDEN temizleniyor. İki yerde
+birden yapılıyor çünkü tek noktaya güvenmek kırılgan: formdaki temizlik ekran
+için, `toProjectFirmPayload`'daki güvence için. Gizli ama dolu kalan alan
+sunucudan 400 döndürüyor.
+
+409 = aynı T.C. ile kayıtlı şahıs firması var. Mesaj ayırt edilebilir ve
+SİLİNMİŞ firmanın da numarayı rezerve tuttuğunu SÖYLÜYOR — yoksa kullanıcı
+listede arayıp bulamaz ve hatayı anlamsız sanardı. Hata genel şeride değil
+ALAN hatasına çevriliyor: çakışan şey belli bir alan.
+
+⚠️ **`GET /api/projectfirms/{id}` `nationalIdNumber`'ı MASKELİ döndürüyor**
+("*******1234") ve maskeli metin geri gönderilemez: şahısta sağlamayı
+tutturmaz, tüzelde "boş olmalı" kuralını çiğner — iki yönde de 400. Değer forma
+YÜKLENMİYOR; yüklemek, maskeli değerin gövdeye ulaşabildiği tek yoldu.
+Yüklememek hatayı yapısal olarak imkânsız kılıyor. Boşluğun sebebi alanın
+altında yazıyor, yoksa "veri kayboldu" diye okunurdu.
+
+Kişi Bilgileri ekranına da T.C. alanı eklendi (aynı koşullu kurallarla): o ekran
+firma gövdesini OKUNAN kayıttan kuruyordu, yani şahıs firmasının her kaydı 400
+alıyordu ve ekranda girdi bile yoktu.

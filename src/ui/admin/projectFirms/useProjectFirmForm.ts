@@ -27,34 +27,19 @@ import {
 
 const SUBMIT_ERROR_MESSAGE = 'Firma kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
 
-const BAD_REQUEST = 400
+const CONFLICT = 409
 
 /**
- * Şahıs şirketi seçiliyken gelen 400, sunucunun `companyType == 2` kuralıdır
- * (bkz. api/projectFirmForm.ts sözleşme notu).
+ * Şahıs firmasında gelen 409, aynı T.C. kimlik numarasıyla kayıtlı bir firma
+ * olduğu anlamına geliyor (§10). SİLİNMİŞ firma bile numarayı rezerve tuttuğu
+ * için kayıt listede görünmeyebiliyor — mesaj bunu ayrıca söylüyor.
  *
  * Eşleşme DURUM KODU + form durumuyla yapılıyor, sunucunun mesaj METNİYLE
  * değil: metin değişirse eşleştirme sessizce kırılırdı — gaz dağıtım
  * formundaki 409 kararının aynı gerekçesi.
  */
-function isSoleProprietorshipRejection(
-  error: unknown,
-  isSoleProprietorship: boolean,
-): boolean {
-  return isSoleProprietorship && error instanceof ApiError && error.status === BAD_REQUEST
-}
-
-/**
- * Sunucunun kendi Türkçe metni KORUNUYOR: genel bir cümleyle örtülseydi
- * kullanıcı neyi düzelteceğini bilemezdi. Şahıs şirketi yolunda önüne
- * sebebi söyleyen cümle ekleniyor.
- */
-function buildSubmitError(error: unknown, isSoleProprietorship: boolean): string {
-  if (!(error instanceof ApiError)) return SUBMIT_ERROR_MESSAGE
-
-  return isSoleProprietorshipRejection(error, isSoleProprietorship)
-    ? `${PROJECT_FIRM_ERRORS.soleProprietorshipUnsupported} (Sunucu yanıtı: ${error.message})`
-    : error.message
+function isNationalIdConflict(error: unknown, isSoleProprietorship: boolean): boolean {
+  return isSoleProprietorship && error instanceof ApiError && error.status === CONFLICT
 }
 
 /** Metin alanları; boolean alan ayrı bir çağrıdan geçiyor. */
@@ -155,10 +140,13 @@ export function useProjectFirmForm({
   )
 
   /**
-   * Belge madde 26: işaret kaldırılınca T.C. kimlik alanı TEMİZLENİR ve yeniden
-   * pasifleşir. İki alanın zorunluluğu da yer değiştirdiği için eski hataları
-   * burada düşüyor — kullanıcı, artık geçerli olmayan bir kuralın mesajını
-   * ekranda görmemeli.
+   * Seçim değişince KAPANAN alanın değeri ekrandan da silinir (§10). Temizlik
+   * İKİ YÖNLÜ: şahısa geçince vergi no, tüzele dönünce T.C. kimlik. Gizli ama
+   * dolu kalan bir alan gövdeye sızsa sunucu 400 dönerdi; ayrıca kullanıcı
+   * görmediği bir değerin kaydedildiğini fark edemezdi.
+   *
+   * İki alanın zorunluluğu yer değiştirdiği için eski hatalar da düşüyor —
+   * artık geçerli olmayan bir kuralın mesajı ekranda kalmamalı.
    */
   const setSoleProprietorship = useCallback(
     (isSoleProprietorship: boolean) => {
@@ -166,6 +154,7 @@ export function useProjectFirmForm({
       setValues((current) => ({
         ...current,
         isSoleProprietorship,
+        taxNumber: isSoleProprietorship ? '' : current.taxNumber,
         nationalId: isSoleProprietorship ? current.nationalId : '',
       }))
       clearFieldError('taxNumber')
@@ -235,12 +224,17 @@ export function useProjectFirmForm({
 
       return { firmId: createdId, arePendingAuthorizations: !arePersisted }
     } catch (error) {
-      setSubmitError(buildSubmitError(error, values.isSoleProprietorship))
-      // Sunucunun reddettiği ayar onay kutusunda: odak oraya taşınır ki
-      // kullanıcı mesajı okuyup hemen düzeltebilsin.
-      if (isSoleProprietorshipRejection(error, values.isSoleProprietorship)) {
-        setFocusField('isSoleProprietorship')
+      // 409 ALAN hatasına çevriliyor, şerit mesajına değil: çakışan şey belli
+      // bir alan ve kullanıcı düzeltmeyi orada yapacak.
+      if (isNationalIdConflict(error, values.isSoleProprietorship)) {
+        setErrors((current) => ({ ...current, nationalId: PROJECT_FIRM_ERRORS.nationalIdTaken }))
+        setFocusField('nationalId')
+        return null
       }
+
+      // Sunucunun kendi Türkçe metni KORUNUYOR: genel bir cümleyle örtülseydi
+      // kullanıcı neyi düzelteceğini bilemezdi.
+      setSubmitError(error instanceof ApiError ? error.message : SUBMIT_ERROR_MESSAGE)
       return null
     } finally {
       setIsSubmitting(false)

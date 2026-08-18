@@ -48,14 +48,20 @@ const USER = {
   gasDistributionFirmId: null,
 }
 
+/** Sağlaması TUTAN örnek; gerçek kişiden alınmadı, kuraldan üretildi. */
+const VALID_NATIONAL_ID = '12345678950'
+
+/**
+ * ŞAHIS firması (`companyType: 1`) ve kimlik numarası sunucudan MASKELİ
+ * geliyor — ekranın bu değeri forma yüklememesi ve geri göndermemesi gerekiyor.
+ */
 const FIRM = {
   id: 7,
   companyType: 1,
   title: 'Örnek Mühendislik Ltd. Şti.',
-  taxNumber: '1234567890',
-  nationalIdNumber: null,
+  taxNumber: null,
+  nationalIdNumber: '*******1234',
   accountingCode: 'CR-1',
-  serialNumber: '52120213',
   contactPerson: 'Yetkili Kişi',
   email: 'firma@ornek.local',
   phone: '02121112233',
@@ -109,8 +115,7 @@ describe('veri kaynakları', () => {
       expect(firmApi.getProjectFirm).toHaveBeenCalledWith(USER.projectFirmId, expect.anything())
     })
 
-    expect(await screen.findByLabelText(/Seri No/)).toHaveValue(FIRM.serialNumber)
-    expect(screen.getByLabelText(/Ünvan/)).toHaveValue(FIRM.title)
+    expect(await screen.findByLabelText(/Ünvan/)).toHaveValue(FIRM.title)
     expect(screen.getByLabelText(/Firma Yetkilisi/)).toHaveValue(FIRM.contactPerson)
     // Email KULLANICININ e-postası; firmanınki (farklı değer) kullanılmıyor.
     expect(screen.getByLabelText(/Email/)).toHaveValue(USER.email)
@@ -118,11 +123,12 @@ describe('veri kaynakları', () => {
     expect(screen.getByLabelText(/Telefon 2/)).toHaveValue('0555 999 88 77')
   })
 
-  // Sözleşmede karşılığı olmayan alanlar ekrana GİRMEZ.
-  it('Yeterlilik No ve Gsm alanları render edilmez', async () => {
+  // Sözleşmede karşılığı olmayan alanlar ekrana GİRMEZ (Seri No da kalktı, K102).
+  it('Seri No, Yeterlilik No ve Gsm alanları render edilmez', async () => {
     renderPage()
-    await screen.findByLabelText(/Seri No/)
+    await screen.findByLabelText(/Ünvan/)
 
+    expect(screen.queryByLabelText(/Seri No/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Yeterlilik/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Yeterlilik/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Gsm/i)).not.toBeInTheDocument()
@@ -156,6 +162,14 @@ describe('veri kaynakları', () => {
   })
 })
 
+/**
+ * Firma ŞAHIS firması: kimlik alanı zorunlu ve boş açılıyor (maskeli değer
+ * yüklenmiyor), yani kaydeden her test onu doldurmak zorunda.
+ */
+async function fillNationalId(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByLabelText(/Tc Kimlik No/), VALID_NATIONAL_ID)
+}
+
 describe('güncelleme', () => {
   it('telefon 1 değişince kullanıcı ucuna gider', async () => {
     const user = userEvent.setup()
@@ -164,6 +178,7 @@ describe('güncelleme', () => {
     const phone = await screen.findByLabelText(/Telefon 1/)
     await user.clear(phone)
     await user.type(phone, '05554443322')
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     await waitFor(() => {
@@ -186,6 +201,7 @@ describe('güncelleme', () => {
     const address = await screen.findByLabelText(/Adres/)
     await user.clear(address)
     await user.type(address, 'Yeni Adres 2')
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     await waitFor(() => {
@@ -194,10 +210,11 @@ describe('güncelleme', () => {
         // `email`/`phone` firma gövdesine EKRANDAN girmez; okunan kayıttan taşınır.
         {
           title: FIRM.title,
-          serialNumber: FIRM.serialNumber,
           contactPerson: FIRM.contactPerson,
           phone2: FIRM.phone2,
           address: 'Yeni Adres 2',
+          // Maskeli okunan değil, EKRANDAN girilen numara.
+          nationalIdNumber: VALID_NATIONAL_ID,
         },
       )
     })
@@ -214,6 +231,7 @@ describe('güncelleme', () => {
     usersApi.updateUser.mockRejectedValue(new ApiError(400, 'E-posta zaten kullanımda.'))
 
     await screen.findByLabelText(/Adres/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     // Sunucunun KENDİ mesajı gösterilir, ham JSON değil.
@@ -228,6 +246,7 @@ describe('güncelleme', () => {
     firmApi.updateProjectFirmContact.mockRejectedValue(new ApiError(400, 'Ünvan geçersiz.'))
 
     await screen.findByLabelText(/Adres/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     const notice = await screen.findByRole('status')
@@ -242,6 +261,7 @@ describe('güncelleme', () => {
     renderPage()
 
     await screen.findByLabelText(/Adres/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('güncellendi')
@@ -267,9 +287,73 @@ describe('güncelleme', () => {
     const address = await screen.findByLabelText(/Adres/)
     await user.clear(address)
     await user.type(address, 'Yeni Adres 3')
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('kaydedilemedi')
     expect(screen.getByLabelText(/Adres/)).toHaveValue('Yeni Adres 3')
+  })
+
+  // §10 + K103: alan yalnız şahıs firmasında ve okunan değer YÜKLENMEZ.
+  describe('T.C. kimlik alanı (§10)', () => {
+    it('şahıs firmasında görünür ve maskeli değeri yüklemez', async () => {
+      renderPage()
+
+      const nationalId = await screen.findByLabelText(/Tc Kimlik No/)
+      expect(nationalId).toHaveValue('')
+      // Boşluğun sebebi ekranda yazıyor; yoksa "veri kayboldu" gibi okunurdu.
+      expect(screen.getByText(/yeniden girin/i)).toBeInTheDocument()
+    })
+
+    it('tüzel firmada alan hiç çizilmez', async () => {
+      firmApi.getProjectFirm.mockResolvedValue({
+        ...FIRM,
+        companyType: 2,
+        taxNumber: '1234567890',
+        nationalIdNumber: null,
+      })
+      authApi.getCurrentUser.mockResolvedValue(ME)
+      usersApi.getUser.mockResolvedValue(USER)
+      usersApi.updateUser.mockResolvedValue(undefined)
+      firmApi.updateProjectFirmContact.mockResolvedValue(undefined)
+
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <MemoryRouter>
+            <ProfilePage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+
+      await screen.findByLabelText(/Ünvan/)
+      expect(screen.queryByLabelText(/Tc Kimlik No/)).not.toBeInTheDocument()
+    })
+
+    it('kimlik girilmeden kaydedilemez', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      await screen.findByLabelText(/Tc Kimlik No/)
+      await user.click(screen.getByRole('button', { name: 'Güncelle' }))
+
+      expect(await screen.findByText('Tc kimlik no zorunludur.')).toBeInTheDocument()
+      expect(firmApi.updateProjectFirmContact).not.toHaveBeenCalled()
+    })
+
+    // Sağlaması tutmayan numara sunucuda 400 alırdı; istemci de reddediyor.
+    it('sağlaması tutmayan kimliği reddeder', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      await user.type(await screen.findByLabelText(/Tc Kimlik No/), '11111111111')
+      await user.click(screen.getByRole('button', { name: 'Güncelle' }))
+
+      expect(
+        await screen.findByText('Geçerli bir T.C. kimlik numarası giriniz.'),
+      ).toBeInTheDocument()
+      expect(firmApi.updateProjectFirmContact).not.toHaveBeenCalled()
+    })
   })
 })

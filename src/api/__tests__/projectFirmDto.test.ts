@@ -31,19 +31,18 @@ describe('toProjectFirmListItem', () => {
   })
 
   /**
-   * Uçta karşılığı OLMAYAN alanlar. Bu test bilerek "null bekliyorum" diyor:
-   * backend liste DTO'suna bu alanları eklediğinde kırılıp eşlemenin
-   * güncellenmesi gerektiğini hatırlatsın (bkz. projectFirmDto.ts TODO).
+   * Uçta karşılığı olmayan alan KALMADI: Seri No, Yeter No ve Gsm sütunları
+   * kaldırıldı (K102), yani eşleme birebir ve `null` doğan alan yok.
    *
    * G.D. firması bağı bu listede ARTIK YOK: ayrı uçtan geliyor ve satıra
    * `projectFirmListQuery.buildProjectFirmRows` ekliyor.
    */
-  it('uçta bulunmayan alanları null bırakır', () => {
-    expect(toProjectFirmListItem(buildDto())).toMatchObject({
-      serialNumber: null,
-      qualificationNumber: null,
-      mobilePhone: null,
-    })
+  it('kaldırılan sütunları satıra hiç koymaz', () => {
+    const firm = toProjectFirmListItem(buildDto())
+
+    expect(firm).not.toHaveProperty('serialNumber')
+    expect(firm).not.toHaveProperty('qualificationNumber')
+    expect(firm).not.toHaveProperty('mobilePhone')
   })
 
   it('boş kalabilen alanları olduğu gibi taşır', () => {

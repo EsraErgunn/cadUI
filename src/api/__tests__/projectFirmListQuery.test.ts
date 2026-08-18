@@ -11,13 +11,10 @@ import {
 function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
   return {
     id: 1,
-    serialNumber: null,
-    qualificationNumber: null,
     name: 'FİRMA',
     authorizedPerson: null,
     email: null,
     phone: null,
-    mobilePhone: null,
     taxNumber: null,
     ...overrides,
   }

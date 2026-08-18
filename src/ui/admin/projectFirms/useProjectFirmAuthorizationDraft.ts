@@ -34,7 +34,6 @@ export const GAS_FIRM_SELECTION_CLEARED_NOTICE =
 export interface AuthorizationDraftErrors {
   group?: string
   gasFirms?: string
-  qualificationNumber?: string
 }
 
 export interface ProjectFirmAuthorizationDraft {
@@ -47,7 +46,6 @@ export interface ProjectFirmAuthorizationDraft {
   areGasFirmsPending: boolean
   gasFirmSearch: string
   checkedGasFirmIds: number[]
-  qualificationNumber: string
   certificateNumber: string
   errors: AuthorizationDraftErrors
   /** Grup değişiminde işaretlerin temizlendiğini duyuran metin; okununca kalır. */
@@ -57,7 +55,6 @@ export interface ProjectFirmAuthorizationDraft {
   toggleGasFirm: (gasDistributionFirmId: number) => void
   /** Görünen (süzülmüş) kayıtların tamamını işaretler veya işareti kaldırır. */
   toggleAllVisibleGasFirms: (isChecked: boolean) => void
-  setQualificationNumber: (value: string) => void
   setCertificateNumber: (value: string) => void
   add: () => void
 }
@@ -82,7 +79,6 @@ export function useProjectFirmAuthorizationDraft({
   const [groupId, setGroupIdValue] = useState('')
   const [gasFirmSearch, setGasFirmSearch] = useState('')
   const [checkedGasFirmIds, setCheckedGasFirmIds] = useState<number[]>([])
-  const [qualificationNumber, setQualificationNumber] = useState('')
   const [certificateNumber, setCertificateNumber] = useState('')
   const [errors, setErrors] = useState<AuthorizationDraftErrors>({})
   const [clearedNotice, setClearedNotice] = useState<string | null>(null)
@@ -176,9 +172,6 @@ export function useProjectFirmAuthorizationDraft({
 
     if (group === undefined) nextErrors.group = AUTHORIZATION_ERRORS.group
     if (selectedGasFirms.length === 0) nextErrors.gasFirms = AUTHORIZATION_ERRORS.gasFirms
-    if (qualificationNumber.trim() === '') {
-      nextErrors.qualificationNumber = AUTHORIZATION_ERRORS.qualificationNumber
-    }
 
     const duplicates = findDuplicateGasFirms(authorizations, selectedGasFirms)
     if (duplicates.length > 0) nextErrors.gasFirms = buildDuplicateGasFirmMessage(duplicates)
@@ -193,16 +186,14 @@ export function useProjectFirmAuthorizationDraft({
       buildProjectFirmAuthorizations({
         group,
         gasFirms: selectedGasFirms,
-        qualificationNumber,
         certificateNumber,
       }),
     )
 
     // ASSUMPTION: Belge "Ekle" sonrası taslağın ne olacağını söylemiyor.
-    // İşaretler ve numaralar sıfırlanır, GRUP kalır: kullanıcı çoğunlukla aynı
+    // İşaretler ve numara sıfırlanır, GRUP kalır: kullanıcı çoğunlukla aynı
     // grubun başka firmaları için ikinci bir kayıt ekliyor.
     setCheckedGasFirmIds([])
-    setQualificationNumber('')
     setCertificateNumber('')
     setClearedNotice(null)
   }, [
@@ -211,14 +202,8 @@ export function useProjectFirmAuthorizationDraft({
     checkedGasFirmIds,
     gasFirms,
     onAdd,
-    qualificationNumber,
     selectedGroup,
   ])
-
-  const setQualificationNumberValue = useCallback((value: string) => {
-    setQualificationNumber(value)
-    setErrors((current) => ({ ...current, qualificationNumber: undefined }))
-  }, [])
 
   return {
     groups: groups ?? [],
@@ -228,7 +213,6 @@ export function useProjectFirmAuthorizationDraft({
     areGasFirmsPending: selectedGroup !== null && areGasFirmsPending,
     gasFirmSearch,
     checkedGasFirmIds,
-    qualificationNumber,
     certificateNumber,
     errors,
     clearedNotice,
@@ -236,7 +220,6 @@ export function useProjectFirmAuthorizationDraft({
     setGasFirmSearch,
     toggleGasFirm,
     toggleAllVisibleGasFirms,
-    setQualificationNumber: setQualificationNumberValue,
     setCertificateNumber,
     add,
   }

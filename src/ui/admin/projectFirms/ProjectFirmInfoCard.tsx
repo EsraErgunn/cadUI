@@ -1,7 +1,6 @@
 import {
   Building2,
   CreditCard,
-  Hash,
   IdCard,
   Landmark,
   Mail,
@@ -13,7 +12,7 @@ import {
 import {
   NATIONAL_ID_LENGTH,
   PROJECT_FIRM_MAX_LENGTHS,
-  TAX_NUMBER_LENGTH,
+  TAX_NUMBER_MAX_LENGTH,
   projectFirmFieldId,
 } from './projectFirmSchema'
 import type { ProjectFirmForm } from './useProjectFirmForm'
@@ -31,15 +30,27 @@ const SECTION_TITLE = 'Firma Bilgileri'
 /** Belge madde 26: alan pasifken placeholder sebebini söyler. */
 const NATIONAL_ID_LOCKED_PLACEHOLDER = 'Şahıs şirketi seçilince aktif olur'
 
+/** Şahıs seçilince vergi no gövdeye HİÇ girmiyor (§10); alan da kapanıyor. */
+const TAX_NUMBER_LOCKED_PLACEHOLDER = 'Şahıs şirketinde kullanılmaz'
+
+/**
+ * Güncelleme ekranında alan BOŞ açılıyor çünkü sunucu numarayı maskeli
+ * döndürüyor (K103). Boşluk "veri kayboldu" gibi okunmasın diye sebebi yazıyor.
+ */
+const NATIONAL_ID_UPDATE_HINT =
+  'Güvenlik gereği mevcut numara gösterilmiyor; kaydetmek için yeniden girin.'
+
 interface ProjectFirmInfoCardProps {
   form: ProjectFirmForm
+  /** Güncelleme kipinde T.C. kimlik alanının boş açılma sebebi yazılır. */
+  isUpdate?: boolean
 }
 
 /**
  * Ekranın ikinci bölümü. Yerleşim mockup'takiyle aynı: etiketler solda sağa
  * hizalı, girdiler sağda, her girdinin içinde solda alanı temsil eden ikon.
  */
-export function ProjectFirmInfoCard({ form }: ProjectFirmInfoCardProps) {
+export function ProjectFirmInfoCard({ form, isUpdate = false }: ProjectFirmInfoCardProps) {
   const { values, errors, setValue } = form
   const isSole = values.isSoleProprietorship
 
@@ -71,19 +82,6 @@ export function ProjectFirmInfoCard({ form }: ProjectFirmInfoCardProps) {
       />
 
       <TextField
-        id={projectFirmFieldId('serialNumber')}
-        label="Seri No"
-        labelNote={REQUIRED_MARK}
-        layout="horizontal"
-        leftIcon={Hash}
-        placeholder="Seri numarası"
-        maxLength={PROJECT_FIRM_MAX_LENGTHS.serialNumber}
-        value={values.serialNumber}
-        error={errors.serialNumber}
-        onChange={(value) => setValue('serialNumber', value)}
-      />
-
-      <TextField
         id={projectFirmFieldId('authorizedPerson')}
         label="Yetkili Kişi"
         labelNote={REQUIRED_MARK}
@@ -112,16 +110,19 @@ export function ProjectFirmInfoCard({ form }: ProjectFirmInfoCardProps) {
         onChange={(value) => setValue('email', value)}
       />
 
+      {/* Şahıs firmasında vergi no gövdeye hiç gitmiyor (§10): alan yalnız
+          zorunluluktan çıkmıyor, KAPANIYOR — açık ama gönderilmeyen bir alan,
+          kullanıcıya yazdığının kaydedileceğini söyler. */}
       <TextField
         id={projectFirmFieldId('taxNumber')}
         label="Vergi No"
-        // Şahıs şirketinde zorunluluk T.C. kimlik numarasına geçiyor.
         labelNote={isSole ? undefined : REQUIRED_MARK}
         layout="horizontal"
         leftIcon={Landmark}
         inputMode="numeric"
-        placeholder="Vergi numarası"
-        maxLength={TAX_NUMBER_LENGTH}
+        placeholder={isSole ? TAX_NUMBER_LOCKED_PLACEHOLDER : 'Vergi numarası'}
+        maxLength={TAX_NUMBER_MAX_LENGTH}
+        isDisabled={isSole}
         value={values.taxNumber}
         error={errors.taxNumber}
         onChange={(value) => setValue('taxNumber', value)}
@@ -147,6 +148,7 @@ export function ProjectFirmInfoCard({ form }: ProjectFirmInfoCardProps) {
         placeholder={isSole ? 'T.C. kimlik numarası' : NATIONAL_ID_LOCKED_PLACEHOLDER}
         maxLength={NATIONAL_ID_LENGTH}
         isDisabled={!isSole}
+        hint={isSole && isUpdate ? NATIONAL_ID_UPDATE_HINT : undefined}
         value={values.nationalId}
         error={errors.nationalId}
         onChange={(value) => setValue('nationalId', value)}

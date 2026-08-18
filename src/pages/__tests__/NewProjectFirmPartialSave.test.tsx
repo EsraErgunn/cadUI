@@ -95,15 +95,16 @@ describe('yarım kayıt görünürlüğü', () => {
 })
 
 /**
- * Sunucunun doğrulayıcısı `companyType == 2` istiyor; şahıs şirketi işaretli
- * her kayıt gerçek ortamda 400 alacak. Ham sunucu metni tek başına neyi
- * düzelteceğini söylemiyordu.
+ * Şahıs firması ARTIK destekleniyor (§10). Kalan tek çakışma T.C. kimlik
+ * numarasının benzersizliği: sunucu 409 döndürüyor ve SİLİNMİŞ firma bile
+ * numarayı rezerve tutuyor, bu yüzden kullanıcı listede arayıp bulamıyor —
+ * mesaj bunu ayrıca söylemek zorunda.
  */
-describe('şahıs şirketi sunucuda desteklenmiyor', () => {
+describe('şahıs firmasında T.C. kimlik çakışması (409)', () => {
   async function saveAsSoleProprietorship() {
     const { ApiError } = await import('../../api/http')
     formApi.createProjectFirm.mockRejectedValueOnce(
-      new ApiError(400, 'Şu an yalnızca tüzel firma (CompanyType=2) eklenebilir.'),
+      new ApiError(409, 'Bu kimlik numarası kullanımda.'),
     )
 
     openForm()
@@ -111,25 +112,39 @@ describe('şahıs şirketi sunucuda desteklenmiyor', () => {
     await addAuthorization()
     await fillFirmInfo({ 'Vergi No': '' })
     await userEvent.click(screen.getByRole('checkbox', { name: 'Şahıs Şirketi' }))
-    await userEvent.type(screen.getByLabelText(/^Tc Kimlik No/), '12345678901')
+    await userEvent.type(screen.getByLabelText(/^Tc Kimlik No/), '12345678950')
 
     await save()
   }
 
-  it('sebebi söyleyen mesajı sunucu yanıtıyla birlikte gösterir', async () => {
+  // Genel şerit DEĞİL ALAN hatası: çakışan şey belli bir alan.
+  it('çakışmayı kimlik alanının hatası olarak gösterir', async () => {
     await saveAsSoleProprietorship()
 
-    const notice = await screen.findByRole('alert')
-    expect(notice).toHaveTextContent(PROJECT_FIRM_ERRORS.soleProprietorshipUnsupported)
-    // Sunucunun kendi metni de korunuyor: örtülseydi hata izlenemez olurdu.
-    expect(notice).toHaveTextContent('Şu an yalnızca tüzel firma (CompanyType=2) eklenebilir.')
+    expect(await screen.findByText(PROJECT_FIRM_ERRORS.nationalIdTaken)).toBeInTheDocument()
   })
 
-  it('odağı düzeltilecek onay kutusuna taşır ve veriyi korur', async () => {
+  it('odağı kimlik alanına taşır ve veriyi korur', async () => {
     await saveAsSoleProprietorship()
-    await screen.findByRole('alert')
+    await screen.findByText(PROJECT_FIRM_ERRORS.nationalIdTaken)
 
-    expect(screen.getByRole('checkbox', { name: 'Şahıs Şirketi' })).toHaveFocus()
-    expect(screen.getByLabelText(/^Tc Kimlik No/)).toHaveValue('12345678901')
+    const nationalId = screen.getByLabelText(/^Tc Kimlik No/)
+    expect(nationalId).toHaveFocus()
+    expect(nationalId).toHaveValue('12345678950')
+  })
+
+  // Şahıs seçilince vergi no alanı KAPANIYOR ve gövdeye hiç girmiyor (§10).
+  it('şahıs seçilince vergi no alanı kapanır ve temizlenir', async () => {
+    openForm()
+    await screen.findByRole('heading', { name: 'Firma Bilgileri' })
+    await fillFirmInfo()
+
+    const taxNumber = screen.getByLabelText(/^Vergi No/)
+    expect(taxNumber).toHaveValue('1234567890')
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Şahıs Şirketi' }))
+
+    expect(taxNumber).toBeDisabled()
+    expect(taxNumber).toHaveValue('')
   })
 })

@@ -148,7 +148,6 @@ describe('KK-3 — bölge seçimi', () => {
   it('bölge işaretlenmeden "Ekle" yetkilendirme eklemez', async () => {
     openForm()
     await selectGroup('AKSA')
-    await userEvent.type(screen.getByLabelText(/^Yeterlilik No/), 'YT-100')
 
     await userEvent.click(screen.getByRole('button', { name: 'Ekle' }))
 
@@ -156,15 +155,18 @@ describe('KK-3 — bölge seçimi', () => {
     expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
   })
 
-  it('yeterlilik numarası girilmeden "Ekle" yetkilendirme eklemez', async () => {
+  // "Yeterlilik No" kalktı (K102): kayıtta sertifika no dışında numara yok ve
+  // sertifika zorunlu değil, yani bölge seçiliyse "Ekle" çalışır.
+  it('yeterlilik no diye bir alan yoktur ve yokluğu eklemeyi engellemez', async () => {
     openForm()
     await selectGroup('AKSA')
     await userEvent.click(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' }))
 
+    expect(screen.queryByLabelText(/^Yeterlilik No/)).not.toBeInTheDocument()
+
     await userEvent.click(screen.getByRole('button', { name: 'Ekle' }))
 
-    expect(screen.getByText('Yeterlilik no zorunludur.')).toBeInTheDocument()
-    expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
+    expect(screen.queryByText('Henüz yetkilendirme eklenmedi.')).not.toBeInTheDocument()
   })
 })
 
@@ -175,8 +177,8 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     await addAuthorization()
 
     expect(screen.getByText('1 yetkilendirme eklendi.')).toBeInTheDocument()
-    // Yeterlilik ve sertifika bilgisi yalnız EKLENEN kayıtta yazıyor.
-    expect(screen.getByText(/AKSA · Yeterlilik No: YT-100 · Sertifika No: -/)).toBeInTheDocument()
+    // Sertifika bilgisi yalnız EKLENEN kayıtta yazıyor; "Yeterlilik No" kalktı (K102).
+    expect(screen.getByText(/AKSA · Sertifika No: -/)).toBeInTheDocument()
 
     await userEvent.click(
       screen.getByRole('button', { name: 'AKSA-GEMLİK yetkilendirmesini kaldır' }),
@@ -220,7 +222,7 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     await selectGroup('AKSA')
     await addAuthorization()
 
-    expect(screen.getByLabelText(/^Yeterlilik No/)).toHaveValue('')
+    expect(screen.getByLabelText(/^Sertifika No/)).toHaveValue('')
     expect(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' })).not.toBeChecked()
     expect(screen.getByRole('combobox')).toHaveValue('1')
   })

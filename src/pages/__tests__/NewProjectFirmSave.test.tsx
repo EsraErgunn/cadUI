@@ -76,15 +76,15 @@ describe('KK-5 — şahıs şirketi geçişi', () => {
     const nationalId = screen.getByLabelText(/^Tc Kimlik No/)
     expect(nationalId).toBeEnabled()
 
-    await userEvent.type(nationalId, '1a2345678901234')
-    expect(nationalId).toHaveValue('12345678901')
+    await userEvent.type(nationalId, '1a2345678950234')
+    expect(nationalId).toHaveValue('12345678950')
   })
 
   it('işaret kaldırılınca alan temizlenir ve yeniden pasifleşir', async () => {
     openForm()
     const checkbox = await screen.findByRole('checkbox', { name: 'Şahıs Şirketi' })
     await userEvent.click(checkbox)
-    await userEvent.type(screen.getByLabelText(/^Tc Kimlik No/), '12345678901')
+    await userEvent.type(screen.getByLabelText(/^Tc Kimlik No/), '12345678950')
 
     await userEvent.click(checkbox)
 
@@ -114,7 +114,7 @@ describe('KK-6 — zorunlu alan doğrulaması', () => {
 
     expect(formApi.createProjectFirm).not.toHaveBeenCalled()
     expect(screen.getByText(PROJECT_FIRM_ERRORS.name)).toBeInTheDocument()
-    expect(screen.getByText(PROJECT_FIRM_ERRORS.serialNumber)).toBeInTheDocument()
+    expect(screen.getByText(PROJECT_FIRM_ERRORS.taxNumber)).toBeInTheDocument()
     expect(screen.getByLabelText(/^Ünvan/)).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByLabelText(/^Ünvan/)).toHaveFocus()
   })
@@ -174,13 +174,19 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
     expect(formApi.createProjectFirm).not.toHaveBeenCalled()
   })
 
-  it('kullanılmış seri numarasında kaydetmez', async () => {
-    await fillReadyForm({ 'Seri No': EXISTING_PROJECT_FIRM.serialNumber ?? '' })
+  // Seri No ve Yeter No sütun/alan olarak tümüyle kalktı (K102).
+  it('formda Seri No alanı bulunmaz', async () => {
+    openForm()
+    await screen.findByRole('heading', { name: 'Firma Bilgileri' })
 
-    await save()
+    expect(screen.queryByLabelText(/^Seri No/)).not.toBeInTheDocument()
+  })
 
-    expect(screen.getByText(PROJECT_FIRM_ERRORS.serialNumberTaken)).toBeInTheDocument()
-    expect(formApi.createProjectFirm).not.toHaveBeenCalled()
+  it('yetkilendirme bölümünde Yeterlilik No alanı bulunmaz', async () => {
+    openForm()
+    await screen.findByRole('heading', { name: 'Firma Bilgileri' })
+
+    expect(screen.queryByLabelText(/^Yeterlilik No/)).not.toBeInTheDocument()
   })
 
   it('geçerli formda kaydeder, yetkilendirmeleri gönderir ve listeye döner', async () => {
@@ -196,13 +202,14 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
       expect.objectContaining({
         companyType: 2,
         name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
-        serialNumber: 'SR-001',
         taxNumber: '1234567890',
         phone: '05321000000',
       }),
     )
+    // Gövdede seri no anahtarı HİÇ yok; `null` bile gitmiyor.
+    expect(formApi.createProjectFirm.mock.calls[0][0]).not.toHaveProperty('serialNumber')
     expect(formApi.saveProjectFirmAuthorizations).toHaveBeenCalledWith(NEW_FIRM_ID, [
-      { gasDistributionFirmId: 11, qualificationNumber: 'YT-100', certificateNumber: null },
+      { gasDistributionFirmId: 11, certificateNumber: null },
     ])
     // Liste ekranı başarı mesajını bu durumdan üretiyor (useSavedFirmNotice).
     expect(screen.getByTestId('list-state')).toHaveTextContent(String(NEW_FIRM_ID))

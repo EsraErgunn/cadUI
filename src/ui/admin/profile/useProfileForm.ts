@@ -1,9 +1,17 @@
 import { useCallback, useState } from 'react'
 
 import { ApiError } from '../../../api/http'
-import type { ProjectFirmFullDto } from '../../../api/projectFirmDto'
+import {
+  PROJECT_FIRM_COMPANY_TYPES,
+  type ProjectFirmFullDto,
+} from '../../../api/projectFirmDto'
 import { updateProjectFirmContact } from '../../../api/projectFirmForm'
 import { toUserPayload, updateUser, type User } from '../../../api/users'
+import {
+  NATIONAL_ID_LENGTH,
+  isValidNationalId,
+  toNationalIdDigits,
+} from '../../../core/nationalId'
 import { toPhoneDigits } from '../../../core/phone'
 import type { NoticeTone } from '../NoticeBar'
 
@@ -17,11 +25,18 @@ import type { NoticeTone } from '../NoticeBar'
  * bulunmuyor, yani sunucu onu değiştirmiyor — salt okunur gösteriliyor.
  */
 export interface ProfileFormValues {
-  serialNumber: string
   title: string
   contactPerson: string
   email: string
   address: string
+  /**
+   * ŞAHIS firmasında zorunlu, tüzelde hiç kullanılmaz (§10). Alan bu ekrana
+   * SONRADAN eklendi: `PUT /api/projectfirms/{id}` numarayı gövdede istiyor ve
+   * ekranda girdi olmadığı için şahıs firmasının her kaydı 400 alıyordu.
+   *
+   * Değer sunucudan YÜKLENMEZ — yanıt onu maskeli döndürüyor (K103).
+   */
+  nationalId: string
   /** Kullanıcının kendi telefonu; HAM rakam (maske yalnız görüntüde). */
   userPhoneDigits: string
   /** Firmanın ikinci telefonu; HAM rakam. */
@@ -33,6 +48,9 @@ export type ProfileField = keyof ProfileFormValues
 export const PROFILE_ERRORS = {
   title: 'Ünvan zorunludur.',
   emailInvalid: 'Geçerli bir e-posta adresi giriniz.',
+  nationalId: 'Tc kimlik no zorunludur.',
+  nationalIdLength: `Tc kimlik numarası ${NATIONAL_ID_LENGTH} haneli olmalıdır.`,
+  nationalIdInvalid: 'Geçerli bir T.C. kimlik numarası giriniz.',
   phoneInvalid: 'Geçerli bir telefon numarası giriniz.',
   userSaveFailed: 'Kişi bilgileri kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
   firmSaveFailed: 'Firma bilgileri kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
@@ -59,10 +77,27 @@ const PHONE_DIGIT_COUNT = 11
 
 export type ProfileErrors = Partial<Record<ProfileField, string>>
 
-export function validateProfile(values: ProfileFormValues): ProfileErrors {
+/**
+ * Doğrulama firmanın TÜRÜNÜ bilmek zorunda: T.C. kimlik alanı yalnız şahıs
+ * firmasında zorunlu ve yalnız orada gövdeye giriyor (§10).
+ */
+export function validateProfile(
+  values: ProfileFormValues,
+  isSoleProprietorship = false,
+): ProfileErrors {
   const errors: ProfileErrors = {}
 
   if (values.title.trim() === '') errors.title = PROFILE_ERRORS.title
+
+  if (isSoleProprietorship) {
+    const nationalId = values.nationalId.trim()
+    if (nationalId === '') errors.nationalId = PROFILE_ERRORS.nationalId
+    else if (nationalId.length !== NATIONAL_ID_LENGTH) {
+      errors.nationalId = PROFILE_ERRORS.nationalIdLength
+    } else if (!isValidNationalId(nationalId)) {
+      errors.nationalId = PROFILE_ERRORS.nationalIdInvalid
+    }
+  }
 
   if (values.email.trim() !== '' && !EMAIL_PATTERN.test(values.email.trim())) {
     errors.email = PROFILE_ERRORS.emailInvalid
@@ -85,15 +120,23 @@ export function toProfileValues(
   firm: ProjectFirmFullDto | undefined,
 ): ProfileFormValues {
   return {
-    serialNumber: firm?.serialNumber ?? '',
     title: firm?.title ?? '',
     contactPerson: firm?.contactPerson ?? '',
     // Email KULLANICININ kendi e-postası; firmanınki bu ekranda kullanılmıyor.
     email: user.email ?? '',
     address: firm?.address ?? '',
+    // Sunucudaki değer MASKELİ ("*******1234"): yüklenmiyor, yeniden isteniyor.
+    nationalId: '',
     userPhoneDigits: toPhoneDigits(user.phone ?? ''),
     firmPhone2Digits: toPhoneDigits(firm?.phone2 ?? ''),
   }
+}
+
+/** Alana yazılabilecekleri kısıtlar: harf ve işaret girdiye HİÇ girmez. */
+function normalizeProfileValue(field: ProfileField, value: string): string {
+  if (field === 'userPhoneDigits' || field === 'firmPhone2Digits') return toPhoneDigits(value)
+  if (field === 'nationalId') return toNationalIdDigits(value)
+  return value
 }
 
 /** Boş metin sunucuya boş dize değil `null` gider ("girilmedi" tek biçimde). */
@@ -122,6 +165,8 @@ export interface ProfileNotice {
 export interface ProfileForm {
   values: ProfileFormValues
   errors: ProfileErrors
+  /** Firma şahıs firması mı — T.C. kimlik alanı yalnız o zaman görünür. */
+  isSoleProprietorship: boolean
   isSubmitting: boolean
   /** Hata ya da KISMİ başarı; ikisi de aynı şeritte, tonu ayırıyor. */
   submitNotice: ProfileNotice | null
@@ -154,14 +199,17 @@ export function useProfileForm({
 }: UseProfileFormOptions): ProfileForm {
   // Tembel başlatıcı: açılış değerleri bir KEZ alınır, sonraki render'larda
   // kullanıcının yazdığının üstüne binmez.
+  // Firma türü OKUNAN kayıttan; ekranda değiştirilemiyor (§10 kuralı bu ekranda
+  // bir seçim değil, verilen bir koşul).
+  const isSoleProprietorship = firm?.companyType === PROJECT_FIRM_COMPANY_TYPES.individual
+
   const [values, setValues] = useState<ProfileFormValues>(() => initialValues)
   const [errors, setErrors] = useState<ProfileErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitNotice, setSubmitNotice] = useState<ProfileNotice | null>(null)
 
   const setValue = useCallback((field: ProfileField, value: string) => {
-    const isPhone = field === 'userPhoneDigits' || field === 'firmPhone2Digits'
-    setValues((current) => ({ ...current, [field]: isPhone ? toPhoneDigits(value) : value }))
+    setValues((current) => ({ ...current, [field]: normalizeProfileValue(field, value) }))
 
     // Kullanıcı alanı düzeltirken eski hata ANINDA kalkar.
     setErrors((current) => {
@@ -175,7 +223,7 @@ export function useProfileForm({
   const submit = useCallback(async (): Promise<boolean> => {
     setSubmitNotice(null)
 
-    const nextErrors = validateProfile(values)
+    const nextErrors = validateProfile(values, isSoleProprietorship)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return false
 
@@ -204,10 +252,11 @@ export function useProfileForm({
         try {
           await updateProjectFirmContact(firm, {
             title: values.title.trim(),
-            serialNumber: optionalText(values.serialNumber),
             contactPerson: optionalText(values.contactPerson),
             phone2: optionalText(values.firmPhone2Digits),
             address: optionalText(values.address),
+            // Tüzel firmada `null`: alan gövdede dolu kalırsa sunucu 400 döner.
+            nationalIdNumber: isSoleProprietorship ? optionalText(values.nationalId) : null,
           })
         } catch (error) {
           // Kullanıcı tarafı YAZILDI: önbellek tazelenmeli, ama ekran "tamam"
@@ -226,7 +275,7 @@ export function useProfileForm({
     } finally {
       setIsSubmitting(false)
     }
-  }, [values, user, firm, onRefresh])
+  }, [values, user, firm, isSoleProprietorship, onRefresh])
 
   const reset = useCallback(() => {
     setValues(initialValues)
@@ -237,6 +286,7 @@ export function useProfileForm({
   return {
     values,
     errors,
+    isSoleProprietorship,
     isSubmitting,
     submitNotice,
     canEditFirmFields: firm !== undefined,

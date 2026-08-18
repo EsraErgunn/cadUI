@@ -3,7 +3,7 @@ import type { ProjectFirm, ProjectFirmPayload } from './projectFirmDto'
 /**
  * `VITE_API_URL` tanımlı değilken listeyi besleyen gövde.
  *
- * Uçta karşılığı OLMAYAN alanlar (Seri No, Yeter No, Gsm, G.D. firması) burada
+ * Uçta karşılığı OLMAYAN alan (G.D. firması bağı) burada
  * da BİLEREK `null`: mock zengin, gerçek yanıt fakir olsaydı geliştirici dolu
  * bir tablo görür, ekran gerçek uca bağlanınca sütunlar boşalırdı. Mock ile
  * gerçeğin davranışı aynı kalsın diye eksiklik burada da görünür.
@@ -80,8 +80,6 @@ function buildMockProjectFirms(): ProjectFirm[] {
       const index = suffixIndex * MOCK_CITIES.length + cityIndex
       firms.push({
         id: index + 1,
-        serialNumber: null,
-        qualificationNumber: null,
         name: `${city} ${suffix}`,
         authorizedPerson:
           index % UNAUTHORIZED_EVERY === 0
@@ -89,7 +87,6 @@ function buildMockProjectFirms(): ProjectFirm[] {
             : MOCK_AUTHORIZED_PEOPLE[index % MOCK_AUTHORIZED_PEOPLE.length],
         email: toMockEmail(city, index),
         phone: buildMockPhone(index),
-        mobilePhone: null,
         taxNumber: buildMockTaxNumber(index),
       })
     }
@@ -116,11 +113,6 @@ function nextMockProjectFirmId(): number {
   return mockProjectFirms.reduce((largest, firm) => Math.max(largest, firm.id), 0) + 1
 }
 
-/**
- * Eklenen kayıt listeye girer. `serialNumber` BURADA DA `null` bırakılmıyor —
- * gerçek liste ucu taşımasa da mock'un kendi içinde tutarlı olması, aynı
- * oturumda ikinci kez aynı seri numarasının denenmesini yakalanabilir kılıyor.
- */
 /**
  * Yetkilendirme kayıtları. Sunucuda bunları yazan uç YOK; mock oturum boyunca
  * bellekte tutuyor ki "kaydedildi" denen şey bir yere gitmiş olsun. Bugün
@@ -150,13 +142,10 @@ export function deleteMockProjectFirm(id: number): boolean {
 export function createMockProjectFirm(payload: ProjectFirmPayload): ProjectFirm {
   const created: ProjectFirm = {
     id: nextMockProjectFirmId(),
-    serialNumber: payload.serialNumber,
-    qualificationNumber: null,
     name: payload.name,
     authorizedPerson: payload.authorizedPerson,
     email: payload.email,
     phone: payload.phone,
-    mobilePhone: payload.mobilePhone,
     taxNumber: payload.taxNumber,
   }
 

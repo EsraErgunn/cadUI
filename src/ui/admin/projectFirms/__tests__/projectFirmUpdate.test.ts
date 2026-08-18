@@ -10,6 +10,9 @@ import {
 } from '../projectFirmSchema'
 import { findTakenProjectFirmErrors } from '../projectFirmUniqueness'
 
+/** Sağlaması TUTAN örnek; gerçek kişiden alınmadı, kuraldan üretildi. */
+const VALID_NATIONAL_ID = '12345678950'
+
 /** `GET /api/projectfirms/{id}` yanıtının sözleşmedeki tam şekli. */
 function buildDetail(overrides: Partial<ProjectFirmFullDto> = {}): ProjectFirmFullDto {
   return {
@@ -19,7 +22,6 @@ function buildDetail(overrides: Partial<ProjectFirmFullDto> = {}): ProjectFirmFu
     taxNumber: '1234567890',
     nationalIdNumber: null,
     accountingCode: 'CARI-1',
-    serialNumber: 'SR-001',
     contactPerson: 'Ahmet Yılmaz',
     email: 'bilgi@adana.com.tr',
     phone: '0532 100 00 00',
@@ -32,13 +34,10 @@ function buildDetail(overrides: Partial<ProjectFirmFullDto> = {}): ProjectFirmFu
 function buildListRow(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
   return {
     id: 7,
-    serialNumber: null,
-    qualificationNumber: null,
     name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
     authorizedPerson: 'Ahmet Yılmaz',
     email: 'bilgi@adana.com.tr',
     phone: '05321000000',
-    mobilePhone: null,
     taxNumber: '1234567890',
     ...overrides,
   }
@@ -51,7 +50,6 @@ describe('toProjectFirmFormValues', () => {
     expect(values).toEqual({
       name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
       accountingCode: 'CARI-1',
-      serialNumber: 'SR-001',
       authorizedPerson: 'Ahmet Yılmaz',
       email: 'bilgi@adana.com.tr',
       taxNumber: '1234567890',
@@ -66,28 +64,44 @@ describe('toProjectFirmFormValues', () => {
 
   it('null alanları boş dizeye çevirir', () => {
     const values = toProjectFirmFormValues(
-      buildDetail({ accountingCode: null, serialNumber: null, address: null, phone2: null }),
+      buildDetail({ accountingCode: null, address: null, phone2: null }),
     )
 
     expect(values.accountingCode).toBe('')
-    expect(values.serialNumber).toBe('')
     expect(values.address).toBe('')
     expect(values.phone2Digits).toBe('')
   })
 
-  it('companyType 1 ise şahıs şirketi işaretlenir ve kimlik taşınır', () => {
+  it('companyType 1 ise şahıs şirketi işaretlenir', () => {
     const values = toProjectFirmFormValues(
-      buildDetail({ companyType: 1, taxNumber: null, nationalIdNumber: '12345678901' }),
+      buildDetail({ companyType: 1, taxNumber: null, nationalIdNumber: VALID_NATIONAL_ID }),
     )
 
     expect(values.isSoleProprietorship).toBe(true)
-    expect(values.nationalId).toBe('12345678901')
+  })
+
+  /**
+   * Yanıttaki kimlik numarası MASKELİ geliyor ("*******1234") ve geri
+   * gönderilirse sunucu 400 döner. Yüklemek, maskeli değerin gövdeye
+   * ulaşabildiği tek yoldu; yüklememek hatayı yapısal olarak imkânsız kılıyor.
+   */
+  it('kimlik numarasını forma HİÇ yüklemez', () => {
+    const masked = toProjectFirmFormValues(
+      buildDetail({ companyType: 1, taxNumber: null, nationalIdNumber: '*******1234' }),
+    )
+    expect(masked.nationalId).toBe('')
+
+    // Maskesiz gelse bile yüklenmiyor: kural yanıtın biçimine bağlı değil.
+    const plain = toProjectFirmFormValues(
+      buildDetail({ companyType: 1, taxNumber: null, nationalIdNumber: VALID_NATIONAL_ID }),
+    )
+    expect(plain.nationalId).toBe('')
   })
 })
 
 /**
- * PUT gövdesi sözleşmenin ON BİR alanını da taşımalı: eksik gönderilen alan
- * sunucuda SİLİNİR (`PUT` kısmi güncelleme yapmıyor).
+ * PUT gövdesi sözleşmenin alanlarını taşımalı: eksik gönderilen alan sunucuda
+ * SİLİNİR (`PUT` kısmi güncelleme yapmıyor).
  */
 describe('PUT gövdesi', () => {
   it('sözleşmedeki tüm alanları sunucunun adlarıyla gönderir', () => {
@@ -100,7 +114,6 @@ describe('PUT gövdesi', () => {
       taxNumber: '1234567890',
       nationalIdNumber: null,
       accountingCode: 'CARI-1',
-      serialNumber: 'SR-001',
       contactPerson: 'Ahmet Yılmaz',
       email: 'bilgi@adana.com.tr',
       phone: '05321000000',
@@ -114,13 +127,13 @@ describe('PUT gövdesi', () => {
     const { data } = validateProjectFirm(toProjectFirmFormValues(detail))
     const dto = toProjectFirmPayloadDto(toProjectFirmPayload(data!))
 
-    expect(dto.serialNumber).toBe(detail.serialNumber)
     expect(dto.address).toBe(detail.address)
+    // Cari Kodu AYRI bir alan ve KALIYOR; seri no ile karıştırılmamalı.
     expect(dto.accountingCode).toBe(detail.accountingCode)
   })
 
   /** Sözleşmedeki alan KÜMESİ: fazlası da eksiği de sözleşme ihlali. */
-  it('gövde tam olarak sözleşmenin on bir alanını taşır', () => {
+  it('gövde tam olarak sözleşmenin on alanını taşır, seri no YOKTUR', () => {
     const { data } = validateProjectFirm(toProjectFirmFormValues(buildDetail()))
     const dto = toProjectFirmPayloadDto(toProjectFirmPayload(data!))
 
@@ -134,7 +147,6 @@ describe('PUT gövdesi', () => {
         'nationalIdNumber',
         'phone',
         'phone2',
-        'serialNumber',
         'taxNumber',
         'title',
       ].sort(),
@@ -142,36 +154,46 @@ describe('PUT gövdesi', () => {
   })
 
   /**
-   * TÜZEL firmada da kimlik numarası taşınır. Alan formda pasif ama değer
-   * state'te duruyor; gönderilmeseydi kayıt güncellendiğinde sunucudaki
-   * `nationalIdNumber` SİLİNİRDİ (PUT kısmi güncelleme yapmıyor).
+   * TÜZEL firmada kimlik numarası gövdeye `null` gider (§10). Okunan değeri
+   * korumak ARTIK YANLIŞ: yanıt maskeli geliyor ve maskeli metin "boş olmalı"
+   * kuralını çiğnediği için 400 dönerdi.
    */
-  it('tüzel firmanın kimlik numarası PUT gövdesinde korunur', () => {
-    const detail = buildDetail({ companyType: 2, nationalIdNumber: '12345678901' })
-    const values = toProjectFirmFormValues(detail)
-
-    expect(values.isSoleProprietorship).toBe(false)
-    expect(values.nationalId).toBe('12345678901')
-
-    const { data } = validateProjectFirm(values)
-    const dto = toProjectFirmPayloadDto(toProjectFirmPayload(data!))
-
-    expect(dto.nationalIdNumber).toBe('12345678901')
-    expect(dto.taxNumber).toBe('1234567890')
-  })
-
-  it('şahıs şirketi kaydı tur atınca kimliğini korur', () => {
-    const detail = buildDetail({
-      companyType: 1,
-      taxNumber: null,
-      nationalIdNumber: '12345678901',
-    })
+  it('tüzel firmada kimlik numarası null gider', () => {
+    const detail = buildDetail({ companyType: 2, nationalIdNumber: '*******1234' })
     const { data } = validateProjectFirm(toProjectFirmFormValues(detail))
     const dto = toProjectFirmPayloadDto(toProjectFirmPayload(data!))
 
+    expect(dto.nationalIdNumber).toBeNull()
+    expect(dto.taxNumber).toBe('1234567890')
+  })
+
+  it('şahıs firması yeniden girilen kimliği gönderir, vergi noyu boş bırakır', () => {
+    const detail = buildDetail({
+      companyType: 1,
+      taxNumber: null,
+      nationalIdNumber: '*******1234',
+    })
+    // Alan boş açılıyor; kullanıcı gerçek numarayı yeniden giriyor.
+    const values = { ...toProjectFirmFormValues(detail), nationalId: VALID_NATIONAL_ID }
+    const { data } = validateProjectFirm(values)
+    const dto = toProjectFirmPayloadDto(toProjectFirmPayload(data!))
+
     expect(dto.companyType).toBe(1)
-    expect(dto.nationalIdNumber).toBe('12345678901')
+    expect(dto.nationalIdNumber).toBe(VALID_NATIONAL_ID)
     expect(dto.taxNumber).toBeNull()
+  })
+
+  /** Boş bırakılan alan kaydetmeyi ENGELLER; maskeli değer sessizce gitmez. */
+  it('şahıs firmasında kimlik girilmeden kaydedilemez', () => {
+    const detail = buildDetail({
+      companyType: 1,
+      taxNumber: null,
+      nationalIdNumber: '*******1234',
+    })
+    const { errors, data } = validateProjectFirm(toProjectFirmFormValues(detail))
+
+    expect(data).toBeNull()
+    expect(errors.nationalId).toBe(PROJECT_FIRM_ERRORS.nationalId)
   })
 })
 

@@ -29,13 +29,10 @@ const LIST_PATH = '/admin/project-firms'
 function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
   return {
     id: 1,
-    serialNumber: null,
-    qualificationNumber: null,
     name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
     authorizedPerson: 'Ahmet Yılmaz',
     email: 'bilgi@adana.com.tr',
     phone: '05321000000',
-    mobilePhone: null,
     taxNumber: '1234567890',
     ...overrides,
   }
@@ -84,16 +81,11 @@ async function findTable() {
 }
 
 /** Belgedeki sekiz veri sütunu; "İşlemler" bunlara YETKİLİYSE eklenir. */
-const DATA_COLUMN_LABELS = [
-  'Seri No',
-  'Yeter No',
-  'Firma Adı',
-  'G.D. Firması',
-  'Yetkili',
-  'E-Mail',
-  'Telefon',
-  'Gsm',
-]
+/** Seri No, Yeter No ve Gsm sütunları kaldırıldı (K102). */
+const DATA_COLUMN_LABELS = ['Firma Adı', 'G.D. Firması', 'Yetkili', 'E-Mail', 'Telefon']
+
+/** Sütun kaymalarını elle saymamak için; "G.D. Firması" ikinci hücre. */
+const GAS_FIRM_CELL_INDEX = 1
 
 async function readHeaders(): Promise<(string | undefined)[]> {
   const table = await findTable()
@@ -186,19 +178,30 @@ describe('satır içeriği', () => {
   })
 
   /**
-   * Seri No / Yeter No / Gsm uçtan gelmiyor; hücre boş bırakılmaz, ortak
+   * Uçtan gelmeyen bağ G.D. Firması; hücre boş bırakılmaz, ortak
    * `EmptyValue` deseni çizilir (bkz. api/projectFirmDto.ts). Dördüncü hücre
    * (G.D. Firması) burada yetkisi olmadığı için boş — alan artık uçtan geliyor.
    */
-  it('karşılığı olmayan alanlarda boş değer gösterir', async () => {
+  /**
+   * Hep boş olan üç sütun kalktı (K102); geriye kalan tek boş hücre, yetkisi
+   * olmayan firmanın G.D. Firması sütunu.
+   */
+  it('yetkisi olmayan satırda boş değer gösterir', async () => {
     renderPage()
     const table = await findTable()
 
     const cells = within(table).getAllByRole('cell')
-    for (const index of [0, 1, 3, 7]) {
-      // İşaret `aria-hidden`; ekran okuyucuya okunan karşılığı sınanıyor.
-      expect(within(cells[index]).getByText('Değer yok')).toBeInTheDocument()
-    }
+    // İşaret `aria-hidden`; ekran okuyucuya okunan karşılığı sınanıyor.
+    expect(within(cells[GAS_FIRM_CELL_INDEX]).getByText('Değer yok')).toBeInTheDocument()
+  })
+
+  it('kaldırılan sütunlar hiç çizilmez', async () => {
+    renderPage()
+    const headers = await readHeaders()
+
+    expect(headers).not.toContain('Seri No')
+    expect(headers).not.toContain('Yeter No')
+    expect(headers).not.toContain('Gsm')
   })
 })
 
@@ -227,7 +230,7 @@ describe('G.D. firması sütunu', () => {
     const table = await findTable()
 
     // Sıralama Türkçe: 'Ç' 'D'den ÖNCE gelmeli.
-    const names = within(within(table).getAllByRole('cell')[3])
+    const names = within(within(table).getAllByRole('cell')[GAS_FIRM_CELL_INDEX])
       .getAllByRole('listitem')
       .map((item) => item.textContent)
     expect(names).toEqual(['Çorumgaz', 'Doğugaz'])
@@ -242,7 +245,9 @@ describe('G.D. firması sütunu', () => {
     })
     const table = await findTable()
 
-    expect(within(within(table).getAllByRole('cell')[3]).getAllByRole('listitem')).toHaveLength(1)
+    expect(
+      within(within(table).getAllByRole('cell')[GAS_FIRM_CELL_INDEX]).getAllByRole('listitem'),
+    ).toHaveLength(1)
   })
 
   /** Yetkisi olmayan firma listeden DÜŞMEZ; iç birleştirme yapılsaydı düşerdi. */
@@ -254,7 +259,9 @@ describe('G.D. firması sütunu', () => {
     const table = await findTable()
 
     expect(screen.getByText('Yetkisiz Mühendislik')).toBeInTheDocument()
-    expect(within(within(table).getAllByRole('cell')[3]).getByText('Değer yok')).toBeInTheDocument()
+    expect(
+      within(within(table).getAllByRole('cell')[GAS_FIRM_CELL_INDEX]).getByText('Değer yok'),
+    ).toBeInTheDocument()
   })
 
   /** Sütun boş kalınca "hiç yetkisi yok" gibi okunur; şerit farkı söylüyor. */

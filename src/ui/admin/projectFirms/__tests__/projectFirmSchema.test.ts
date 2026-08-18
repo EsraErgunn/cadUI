@@ -12,13 +12,15 @@ import {
 } from '../projectFirmSchema'
 import { findTakenProjectFirmErrors } from '../projectFirmUniqueness'
 
+/** Sağlaması TUTAN örnek; gerçek kişiden alınmadı, kuraldan üretildi. */
+const VALID_NATIONAL_ID = '12345678950'
+
 function buildValidValues(
   overrides: Partial<ProjectFirmFormValues> = {},
 ): ProjectFirmFormValues {
   return {
     ...buildEmptyProjectFirmValues(),
     name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
-    serialNumber: 'SR-001',
     authorizedPerson: 'Ahmet Yılmaz',
     email: 'bilgi@adana.com.tr',
     taxNumber: '1234567890',
@@ -30,13 +32,10 @@ function buildValidValues(
 function buildFirm(overrides: Partial<ProjectFirm> = {}): ProjectFirm {
   return {
     id: 1,
-    serialNumber: null,
-    qualificationNumber: null,
     name: 'FİRMA',
     authorizedPerson: null,
     email: null,
     phone: null,
-    mobilePhone: null,
     taxNumber: null,
     ...overrides,
   }
@@ -49,12 +48,16 @@ describe('zorunlu alanlar (KK-6)', () => {
     expect(data).toBeNull()
     expect(errors).toMatchObject({
       name: PROJECT_FIRM_ERRORS.name,
-      serialNumber: PROJECT_FIRM_ERRORS.serialNumber,
       authorizedPerson: PROJECT_FIRM_ERRORS.authorizedPerson,
       email: PROJECT_FIRM_ERRORS.email,
       taxNumber: PROJECT_FIRM_ERRORS.taxNumber,
       phoneDigits: PROJECT_FIRM_ERRORS.phone,
     })
+  })
+
+  // Seri no alanı tümüyle kalktı (K102): artık bir kuralı da yok.
+  it('seri no diye bir alan yoktur', () => {
+    expect(buildEmptyProjectFirmValues()).not.toHaveProperty('serialNumber')
   })
 
   it('opsiyonel alanlar boş bırakılabilir', () => {
@@ -95,17 +98,24 @@ describe('zorunlu alanlar (KK-6)', () => {
   })
 })
 
-describe('şahıs şirketi geçişi (KK-5)', () => {
-  it('işaretsizken vergi no zorunlu ve 10 hane, kimlik serbesttir', () => {
-    const short = validateProjectFirm(buildValidValues({ taxNumber: '12345' }))
-    expect(short.errors.taxNumber).toBe(PROJECT_FIRM_ERRORS.taxNumberLength)
-
+// §10: iki kimlik alanı birbirini dışlıyor.
+describe('şahıs / tüzel geçişi (§10)', () => {
+  it('tüzelde vergi no zorunlu, kimlik serbesttir', () => {
     const missing = validateProjectFirm(buildValidValues({ taxNumber: '' }))
     expect(missing.errors.taxNumber).toBe(PROJECT_FIRM_ERRORS.taxNumber)
     expect(missing.errors.nationalId).toBeUndefined()
   })
 
-  it('işaretliyken kimlik zorunlu ve 11 hane, vergi no serbesttir', () => {
+  // Vergi numarası 10 VEYA 11 hane; ikisi de geçerli.
+  it('tüzelde vergi no 10 ve 11 hane kabul eder, 9 haneyi reddeder', () => {
+    expect(validateProjectFirm(buildValidValues({ taxNumber: '1234567890' })).errors).toEqual({})
+    expect(validateProjectFirm(buildValidValues({ taxNumber: '12345678901' })).errors).toEqual({})
+
+    const short = validateProjectFirm(buildValidValues({ taxNumber: '123456789' }))
+    expect(short.errors.taxNumber).toBe(PROJECT_FIRM_ERRORS.taxNumberLength)
+  })
+
+  it('şahısta kimlik zorunlu ve 11 hane, vergi no serbesttir', () => {
     const values = buildValidValues({ isSoleProprietorship: true, taxNumber: '' })
 
     const missing = validateProjectFirm(values)
@@ -115,14 +125,34 @@ describe('şahıs şirketi geçişi (KK-5)', () => {
     const short = validateProjectFirm({ ...values, nationalId: '1234' })
     expect(short.errors.nationalId).toBe(PROJECT_FIRM_ERRORS.nationalIdLength)
 
-    const complete = validateProjectFirm({ ...values, nationalId: '12345678901' })
+    const complete = validateProjectFirm({ ...values, nationalId: VALID_NATIONAL_ID })
     expect(complete.errors).toEqual({})
+  })
+
+  /**
+   * Hane sayısı tutup SAĞLAMASI tutmayan numara ayrı mesaj alıyor: yalnız
+   * uzunluğa bakılsaydı "11111111111" geçer ve sunucudan 400 dönerdi.
+   */
+  it('şahısta sağlaması tutmayan kimliği reddeder', () => {
+    const { errors } = validateProjectFirm(
+      buildValidValues({ isSoleProprietorship: true, taxNumber: '', nationalId: '11111111111' }),
+    )
+
+    expect(errors.nationalId).toBe(PROJECT_FIRM_ERRORS.nationalIdInvalid)
+  })
+
+  it('şahısta ilk hanesi sıfır olan kimliği reddeder', () => {
+    const { errors } = validateProjectFirm(
+      buildValidValues({ isSoleProprietorship: true, taxNumber: '', nationalId: '01234567890' }),
+    )
+
+    expect(errors.nationalId).toBe(PROJECT_FIRM_ERRORS.nationalIdInvalid)
   })
 })
 
 describe('normalizeProjectFirmValue', () => {
   it('vergi ve kimlik alanına harf yazılamaz, hane sınırı aşılamaz', () => {
-    expect(normalizeProjectFirmValue('taxNumber', '12a34b567890999')).toBe('1234567890')
+    expect(normalizeProjectFirmValue('taxNumber', '12a34b567890999')).toBe('12345678909')
     expect(normalizeProjectFirmValue('nationalId', '1x2345678901234')).toBe('12345678901')
   })
 
@@ -143,16 +173,17 @@ describe('benzersizlik ön kontrolü (KK-8)', () => {
     expect(errors.taxNumber).toBe(PROJECT_FIRM_ERRORS.taxNumberTaken)
   })
 
-  /** Seri no bugün liste satırında `null` geliyor; kural yine de işlemeli —
-      aynı oturumda eklenen kayıt seri numarasını taşıyor. */
-  it('kullanılmış seri numarasını büyük/küçük harf duyarsız yakalar', () => {
-    const { data } = validateProjectFirm(buildValidValues({ serialNumber: 'sr-001' }))
-    const errors = findTakenProjectFirmErrors(
-      [buildFirm({ serialNumber: 'SR-001' })],
-      data!,
+  // Şahısta vergi no gövdeye hiç girmiyor; ön kontrol de yapılmamalı.
+  it('şahıs firmasında vergi numarası kontrolü yapılmaz', () => {
+    const { data } = validateProjectFirm(
+      buildValidValues({
+        isSoleProprietorship: true,
+        taxNumber: '1234567890',
+        nationalId: VALID_NATIONAL_ID,
+      }),
     )
 
-    expect(errors.serialNumber).toBe(PROJECT_FIRM_ERRORS.serialNumberTaken)
+    expect(findTakenProjectFirmErrors([buildFirm({ taxNumber: '1234567890' })], data!)).toEqual({})
   })
 
   it('çakışma yoksa hata üretmez', () => {
@@ -176,29 +207,56 @@ describe('toProjectFirmPayload', () => {
     })
   })
 
-  /**
-   * T.C. kimlik numarası KENDİ alanında gider. Uç `nationalIdNumber`'ı sonradan
-   * kabul etmeye başladı; asıl güvence değişmedi: numara `taxNumber` alanına
-   * YAZILMAZ, yoksa vergi numarası sütununa kimlik düşerdi.
-   */
-  it('şahıs şirketinde kimliği nationalIdNumber alanına yazar, vergi alanına yazmaz', () => {
+  // Seri no gövdeye HİÇ eklenmiyor; `null` bile gitmiyor (K102).
+  it('gövdede seri no anahtarı bulunmaz', () => {
+    const { data } = validateProjectFirm(buildValidValues())
+
+    expect(toProjectFirmPayload(data!)).not.toHaveProperty('serialNumber')
+  })
+
+  // Cari Kodu AYRI bir alan ve KALIYOR — seri no ile karıştırılmamalı.
+  it('muhasebe cari kodunu gövdeye taşır', () => {
+    const { data } = validateProjectFirm(buildValidValues({ accountingCode: 'CARI-42' }))
+
+    expect(toProjectFirmPayload(data!).accountingCode).toBe('CARI-42')
+  })
+
+  it('şahıs firmasında kimliği nationalIdNumber alanına yazar, vergi alanına yazmaz', () => {
     const { data } = validateProjectFirm(
       buildValidValues({
         isSoleProprietorship: true,
         taxNumber: '',
-        nationalId: '12345678901',
+        nationalId: VALID_NATIONAL_ID,
       }),
     )
     const payload = toProjectFirmPayload(data!)
 
-    expect(payload.nationalIdNumber).toBe('12345678901')
+    expect(payload.nationalIdNumber).toBe(VALID_NATIONAL_ID)
     expect(payload.taxNumber).toBeNull()
     expect(payload.companyType).toBe(1)
   })
 
-  /** Tüzel firmada kimlik alanı formda temizlenir; gövdeye `null` gider. */
-  it('tüzel firmada nationalIdNumber null gönderir', () => {
-    const { data } = validateProjectFirm(buildValidValues())
+  /**
+   * Kapalı alanın değeri GÖVDEDE de temizleniyor: formdaki temizliğe tek başına
+   * güvenilseydi, ileride eklenecek bir "değerleri koru" davranışı gizli ama
+   * dolu bir alan gönderir ve sunucu 400 dönerdi.
+   */
+  it('şahısta vergi no dolu kalsa bile gövdeye null gider', () => {
+    const { data } = validateProjectFirm(
+      buildValidValues({
+        isSoleProprietorship: true,
+        taxNumber: '1234567890',
+        nationalId: VALID_NATIONAL_ID,
+      }),
+    )
+
+    expect(toProjectFirmPayload(data!).taxNumber).toBeNull()
+  })
+
+  it('tüzelde kimlik dolu kalsa bile gövdeye null gider', () => {
+    const { data } = validateProjectFirm(
+      buildValidValues({ nationalId: VALID_NATIONAL_ID }),
+    )
 
     expect(toProjectFirmPayload(data!).nationalIdNumber).toBeNull()
   })

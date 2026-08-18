@@ -101,7 +101,7 @@ export function ProjectFirmUpdateForm({ firm }: ProjectFirmUpdateFormProps) {
 
       <form noValidate aria-label={FORM_LABEL} onSubmit={(event) => void handleSubmit(event)}>
         <fieldset disabled={form.isSubmitting} className="flex min-w-0 flex-col gap-5">
-          <ProjectFirmInfoCard form={form} />
+          <ProjectFirmInfoCard form={form} isUpdate />
 
           <div className="flex flex-wrap justify-end gap-3">
             <button

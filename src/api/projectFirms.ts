@@ -31,9 +31,9 @@ export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
 export const PROJECT_FIRM_PAGE_SIZE = 30
 
 /**
- * Sıralanabilir sütunlar. Karşılığı `null` gelen sütunlar (Seri No, Yeter No,
- * Gsm, G.D. Firması) sıralanabilir DEĞİL: hepsi aynı değeri taşıdığı için
- * başlığa tıklamak hiçbir şeyi değiştirmez, kullanıcıya bozuk görünürdü.
+ * Sıralanabilir sütunlar. `G.D. Firması` sıralanabilir DEĞİL: satır bağı ayrı
+ * uçtan geliyor ve çoğul, yani tek bir sıralama anahtarı üretmiyor. Karşılığı
+ * olmayan üç sütun (Seri No, Yeter No, Gsm) zaten kaldırıldı (K102).
  */
 export const PROJECT_FIRM_SORT_KEYS = ['name', 'authorizedPerson'] as const
 export type ProjectFirmSortKey = (typeof PROJECT_FIRM_SORT_KEYS)[number]
