@@ -2,6 +2,7 @@ import { DischargePreview } from './DischargePreview'
 import { DrawPreview, LineDraftPreview } from './DrawPreview'
 import { ElementNameLabels } from './ElementNameLabels'
 import { ElementRotateHandle } from './ElementRotateHandle'
+import { FloorLinkGlyphs } from './FloorLinkGlyph'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
@@ -78,6 +79,7 @@ export function PlumbingLayer() {
         dragDeltaRef={selection.dragDeltaRef}
       />
       <ElementRotateHandle />
+      <FloorLinkGlyphs />
       <DrawPreview {...preview} />
       <DrawingPortMarkers {...line} />
       <SplitLengthLabels {...line} />

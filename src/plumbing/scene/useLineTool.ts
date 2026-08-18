@@ -22,6 +22,7 @@ import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSna
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
 import { findNearestWallCorner, findNearestWallParallel } from '../core/wallSnap'
+import { commitDraftFloorLink } from '../store/floorLinkActions'
 import { commitDraftElevationStep } from '../store/pipeElevationActions'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
@@ -341,6 +342,22 @@ export function useLineTool(): LineToolState {
       })
       if (!written) return
 
+      // Kat bağlantısı yarım kalmış olabilir (`floorLinkActions.ts` →
+      // `commitDraftFloorLink`): hedef katta ilk adım tam bu ANDA yazıldı,
+      // eksik uç artık biliniyor. Yalnız bu katın (aktif kat) beklediği tarafta
+      // tamamlanır — başka bir kattan gelen eski bir bekleme burada tüketilmez.
+      const pending = usePlumbingUiStore.getState().pendingFloorLink
+      if (pending) {
+        const activeFloorId = useCadStore.getState().activeFloorId
+        if ('belowPointId' in pending && pending.aboveFloorId === activeFloorId) {
+          useCadStore.getState().addFloorPipeLink({ ...pending, abovePointId: written.startPointId })
+          usePlumbingUiStore.getState().setPendingFloorLink(null)
+        } else if ('abovePointId' in pending && pending.belowFloorId === activeFloorId) {
+          useCadStore.getState().addFloorPipeLink({ ...pending, belowPointId: written.startPointId })
+          usePlumbingUiStore.getState().setPendingFloorLink(null)
+        }
+      }
+
       writeDraft(snap ? null : { kind: draft.kind, ...advanceChain(draft, point, written) })
     }
 
@@ -435,6 +452,24 @@ export function useLineTool(): LineToolState {
       if (event.key === '-' || event.key === '_') {
         event.preventDefault()
         commitDraftElevationStep(-1)
+        return
+      }
+
+      // Kat bağlantısı (kullanıcı isteği, 2026-08): sahnedeki etiketin
+      // tıklanması güvenilir değil (bu araç `subscribeDrawSurface` ile HAM
+      // pointerdown'ı dinliyor, R3F'in kendi onClick sentetik olayıyla
+      // YARIŞIYOR — bkz. FloorLinkPrompt.tsx). PageUp/PageDown zaten "kattan
+      // kata geç"i taşıyor (`useEditorShortcuts.ts`) ve BAĞLANTI KURMADAN
+      // geçiyor; bu yüzden ok tuşları kullanılıyor, aynı tuş iki farklı işe
+      // binmesin diye.
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        commitDraftFloorLink('up')
+        return
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        commitDraftFloorLink('down')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -444,6 +479,9 @@ export function useLineTool(): LineToolState {
       window.removeEventListener('keydown', handleKeyDown)
       // Araç değişince yarım hat asılı kalmasın.
       writeDraft(null)
+      // Tamamlanmamış kat bağlantısı da düşer: hedef katta hiç adım
+      // yazılmadan araçtan çıkılırsa bekleyen taraf sonsuza dek asılı kalmasın.
+      usePlumbingUiStore.getState().setPendingFloorLink(null)
       cursorRef.current = null
       snapRef.current = null
     }

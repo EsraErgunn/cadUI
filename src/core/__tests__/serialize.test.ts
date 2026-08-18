@@ -19,6 +19,7 @@ const emptyProject: ProjectData = {
   installationElements: [],
   installationLines: [],
   installationConnections: [],
+  floorPipeLinks: [],
 }
 
 describe('serializeProjectData', () => {
@@ -29,7 +30,7 @@ describe('serializeProjectData', () => {
         '"floors":[{"id":1,"name":"Zemin Kat","heightCm":300,"isBasement":false}],' +
         '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],"areaObjects":[],' +
         '"beams":[],"texts":[],"installationElements":[],"installationLines":[],' +
-        '"installationConnections":[]}',
+        '"installationConnections":[],"floorPipeLinks":[]}',
 
     )
   })
@@ -61,6 +62,16 @@ describe('serializeProjectData', () => {
     expect(parsed.installationElements).toEqual([])
     expect(parsed.installationLines).toEqual([])
     expect(parsed.installationConnections).toEqual([])
+  })
+
+  it('kat bağlantı işaretleri OLMAYAN eski dosyayı açar', () => {
+    const legacy =
+      '{"nextUniqueId":2,"activeFloorId":1,"floors":[{"id":1,"name":"Zemin Kat"}],' +
+      '"points":[],"walls":[],"openings":[]}'
+
+    const parsed = parseProjectJson(legacy)
+
+    expect(parsed.floorPipeLinks).toEqual([])
   })
 
   it('eski dosya bir kez kaydedilince alanlar dosyaya yazılır', () => {
@@ -268,7 +279,8 @@ describe('düşey eksen kimliği turu (K63)', () => {
       '"points":[],"walls":[],"openings":[],"rooms":[],"symbols":[],' +
       '"areaObjects":[{"id":20,"type":"flueShaft","floorId":1,"x":200,"y":200,' +
       '"widthCm":100,"lengthCm":100,"angleDeg":0,"label":"BS-01"}],"beams":[],"texts":[],' +
-      '"installationElements":[],"installationLines":[],"installationConnections":[]}'
+      '"installationElements":[],"installationLines":[],"installationConnections":[],' +
+      '"floorPipeLinks":[]}'
 
     const parsed = parseProjectJson(legacy)
 

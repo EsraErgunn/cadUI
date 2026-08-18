@@ -261,6 +261,24 @@ export type TextLabel = {
 }
 
 /**
+ * Bir gaz borusu ucunun bir üstteki/alttaki katın bir boru ucuna bağlanması
+ * (kullanıcı isteği, 2026-08). Gerçek bir Riser/kolon GRAFİĞİ DEĞİL — hidrolik
+ * olarak birleştirmez, malzeme dökümünde iki ayrı uç olarak kalır; yalnız iki
+ * noktayı eşleştirip aralarında sahnede/UI'de geçiş kurar. `belowFloorId` her
+ * zaman `aboveFloorId`'nin ALTINDAKİ komşu kattır (`core/floors.ts` sıra
+ * kuralı). Kat kopyalanınca (floor-clone) bu kayıt TAŞINMAZ/KLONLANMAZ — Riser
+ * kararıyla aynı gerekçe (bkz. knowledge/floor-clone.md).
+ */
+export type FloorPipeLink = {
+  id: Id
+  belowFloorId: Id
+  aboveFloorId: Id
+  belowPointId: Id
+  abovePointId: Id
+  position: PlanPoint
+}
+
+/**
  * Dört kişi arasındaki sözleşme — izinsiz alan eklenmez.
  *
  * Tesisat üçlüsü (`installationElements/Lines/Connections`) BURADAN yönetilir
@@ -286,4 +304,5 @@ export type ProjectData = {
   installationElements: InstallationElement[]
   installationLines: InstallationLine[]
   installationConnections: InstallationConnection[]
+  floorPipeLinks: FloorPipeLink[]
 }

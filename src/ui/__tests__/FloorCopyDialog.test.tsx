@@ -39,6 +39,7 @@ beforeEach(() => {
     installationElements: [],
     installationLines: [],
     installationConnections: [],
+    floorPipeLinks: [],
     nextUniqueId: 100,
     revision: 0,
   })

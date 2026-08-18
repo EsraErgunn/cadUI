@@ -143,6 +143,7 @@ describe('geri al / yinele', () => {
       installationElements: [],
       installationLines: [],
       installationConnections: [],
+      floorPipeLinks: [],
     })
 
     expect(temporal().pastStates).toHaveLength(0)

@@ -7,7 +7,7 @@ import {
   type PlumbingSnapshot,
 } from './plumbingHistory'
 import type { PlanPoint } from '../../core/coords'
-import type { Id } from '../../core/model'
+import type { FloorPipeLink, Id } from '../../core/model'
 // cadStore ↔ plumbingSlice karşılıklı import eder; bu taraf tip-only olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
 import type { CadState } from '../../store/cadStore'
@@ -67,6 +67,9 @@ export type AddLineInput = {
  */
 export type AddLineResult = { lineId: Id; startPointId: Id; endPointId: Id }
 
+/** `addFloorPipeLink` girdisi — id `takeNextId`'den üretilir, çağıran vermez. */
+export type AddFloorPipeLinkInput = Omit<FloorPipeLink, 'id'>
+
 /** Cihazı boruya bağlayan kısa kol da normal bir borudur; ayrı bir hat türü yok. */
 const STUB_LINE_KIND: InstallationLineKind = 'applianceStub'
 
@@ -74,6 +77,7 @@ export type PlumbingSlice = {
   installationElements: InstallationElement[]
   installationLines: InstallationLine[]
   installationConnections: InstallationConnection[]
+  floorPipeLinks: FloorPipeLink[]
   /** Kat aktif kattan alınır: eleman iki yerde tutulan bir floorId ile ayrışmasın.
    *  Üretilen id döner — hat aracı ilk elemanı koyup portuna bağlanabilsin. */
   addElement: (input: AddElementInput) => Id
@@ -131,6 +135,8 @@ export type PlumbingSlice = {
   resizePipeEnd: (lineId: Id, endPointId: Id, position: PlanPoint, endHeightCm: number) => void
   /** Bir boru adımını kalıcı hâle getirir; 2 noktadan azı KAYDEDİLMEZ (null döner). */
   addLine: (input: AddLineInput) => AddLineResult | null
+  /** Bir borunun ucunu üst/alt kattaki bir boru ucuyla eşleştirir. Üretilen id döner. */
+  addFloorPipeLink: (input: AddFloorPipeLinkInput) => Id
   /** Boruya oturan armatür(ler): hedef parça sırayla ayrılır, her düğüme bir eleman biner. */
   placeOnLineElements: (attachment: OnLineAttachment) => void
   /** Boş boru ucuna eleman: araya vana girer, hat elemanın girişine uzar. Eleman id'si döner. */
@@ -198,6 +204,7 @@ export const INITIAL_PLUMBING_DATA: PlumbingSnapshot = {
   installationElements: [],
   installationLines: [],
   installationConnections: [],
+  floorPipeLinks: [],
 }
 
 export const createPlumbingSlice: StateCreator<
@@ -208,8 +215,14 @@ export const createPlumbingSlice: StateCreator<
 > = (set, get) => {
   /** Değişimden SONRA aynalanır — zundo bir önceki aynayı geçmişe iter. */
   const record = () => {
-    const { installationElements, installationLines, installationConnections } = get()
-    recordPlumbingHistory({ installationElements, installationLines, installationConnections })
+    const { installationElements, installationLines, installationConnections, floorPipeLinks } =
+      get()
+    recordPlumbingHistory({
+      installationElements,
+      installationLines,
+      installationConnections,
+      floorPipeLinks,
+    })
   }
 
   const restore = (snapshot: PlumbingSnapshot | null) => {
@@ -219,6 +232,7 @@ export const createPlumbingSlice: StateCreator<
       draft.installationElements = snapshot.installationElements
       draft.installationLines = snapshot.installationLines
       draft.installationConnections = snapshot.installationConnections
+      draft.floorPipeLinks = snapshot.floorPipeLinks
       markDirty(draft)
     })
   }
@@ -335,6 +349,15 @@ export const createPlumbingSlice: StateCreator<
       ) {
         return
       }
+
+      // Silinen hattın noktalarından biri bir kat bağlantısının ucuysa o
+      // bağlantı da gider — karşı taraf dursa bile artık eşleşecek bir uç kalmaz.
+      const removedPointIds = new Set(
+        removedLines.flatMap((line) => line.points.map((point) => point.id)),
+      )
+      draft.floorPipeLinks = draft.floorPipeLinks.filter(
+        (link) => !removedPointIds.has(link.belowPointId) && !removedPointIds.has(link.abovePointId),
+      )
 
       draft.installationElements = remainingElements
       draft.installationLines = remainingLines
@@ -784,6 +807,17 @@ export const createPlumbingSlice: StateCreator<
       })
       record()
       return created
+    },
+
+    addFloorPipeLink: (input) => {
+      let createdId: Id = 0
+      set((draft) => {
+        createdId = takeNextId(draft)
+        draft.floorPipeLinks.push({ id: createdId, ...input })
+        markDirty(draft)
+      })
+      record()
+      return createdId
     },
 
     // Ana eleman + refakatçileri + boru ayırmaları TEK set() içinde: kullanıcı

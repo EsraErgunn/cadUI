@@ -55,6 +55,7 @@ function createEmptyProjectData(): ProjectData {
     installationElements: [],
     installationLines: [],
     installationConnections: [],
+    floorPipeLinks: [],
   }
 }
 
@@ -109,6 +110,7 @@ export const useCadStore = create<CadState>()(
             draft.installationElements = data.installationElements
             draft.installationLines = data.installationLines
             draft.installationConnections = data.installationConnections
+            draft.floorPipeLinks = data.floorPipeLinks
             draft.revision = 0
             // `data`dan alınıyor, draft'tan DEĞİL: yukarıdaki atamalar tam bu
             // dizileri state'e koyuyor, yani referanslar birebir aynı olur.
@@ -202,5 +204,6 @@ export function selectProjectData(state: CadState): ProjectData {
     installationElements: state.installationElements,
     installationLines: state.installationLines,
     installationConnections: state.installationConnections,
+    floorPipeLinks: state.floorPipeLinks,
   }
 }

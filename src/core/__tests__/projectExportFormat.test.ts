@@ -20,6 +20,7 @@ const emptyProject: ProjectData = {
   installationElements: [],
   installationLines: [],
   installationConnections: [],
+  floorPipeLinks: [],
 }
 
 function projectWithMeter(): ProjectData {
