@@ -128,3 +128,119 @@ duvardan açık renkli bir hale kalıyor.
 
 Tek duvarın gövdesinde sorun görünmez; belirti yalnız 3–4 kollu kavşakta okunur.
 Kapalıyken uçlar tırtıklanmıyor (MSAA açık), yani takas yok.
+
+## Normale kilitli taşıma ve köşe ayrılması (K103)
+
+Duvar YALNIZ kendi normali boyunca taşınır (`core/wallMove.ts` →
+`getWallNormal`, `constrainDeltaToNormal`). Kendi ekseni boyunca kaydırmak boyu
+da açıyı da değiştirmiyor, sadece köşeleri komşuların üstünde kaydırıp
+geometriyi bozuyordu.
+
+Aynı jestte, ötelemeyi BOYUNU değiştirerek karşılayamayan komşular köşeden
+koparılır (`store/architectureDetach.ts` → `detachRigidCornersInDraft`). Ölçüt
+saf geometri: `canNeighbourAbsorbMove` — öteleme komşunun doğrultusuna paralelse
+komşu uzar/kısalır ve açısı korunur, değilse eğilmesi gerekir ve kopar.
+
+Pratikte: taşınan duvara **dik** komşular gelir, **aynı hizadakiler** kopar.
+
+İKİNCİ ölçüt: köşede kopan bir duvar varsa, KISALAN paralel komşu da yerinde
+bırakılır (`isMoveShorteningNeighbour`). Uzayan komşu köşeyi izlese de eski köşe
+gövdesinde kalır ve K24 T kurar; kısalan komşu köşeden geri çekilip klonu havada
+bırakıyordu — duvar AŞAĞI çekildiğinde yan odalar düşüyordu. "Köşede kopan var
+mı" koşulu şart: kapalı dikdörtgenin üst duvarını içeri çekerken yan duvarlar
+kısalır ama kopan yoktur, koşulsuz uygulansa yukarı taşan güdükler kalırdı.
+
+Sürükleme ÖNİZLEMESİ de aynı kararı gösterir (`scene/useArchitectureDraft.ts`):
+kopan komşular köşenin önizleme klonuna bağlanır, karar store yazımıyla AYNI
+fonksiyondan (`planCornerDetachments`) gelir. Duvar çizen her yer önizlemeden
+hem noktayı hem DUVARI okumalı; yalnız noktayı okumak kopmayı göstermez.
+
+⚠️ Önizleme klon id'leri NEGATİF ve geçici, store'a girmez.
+
+⚠️ Oda tespiti KULLANILMIYOR. Önceki tasarım "aynı odayı paylaşıyor mu" diye
+ayırıyordu; `findRoomFaces` çağrısını, odasız duvar istisnasını ve eğik komşu
+belirsizliğini getiriyordu. Normal kısıtıyla hepsi düştü.
+
+⚠️ Shift'in ilgisi YOK — kopma ana davranış. Ara tasarımda Shift'e bağlanmıştı
+ve `pointerdown`'daki "seçime ekle/çıkar" anlamıyla (KK-10) çakışıyordu.
+
+⚠️ Kısıt yalnız TEK duvar sürüklerken; çoklu seçimde ortak normal yok, öteleme
+serbest kalır (`WallGrab.normal === undefined`). Döndürme/aynalama kapsam dışı,
+bayrak yalnız `kind === 'translate'` iken okunur.
+
+⚠️ Izgara yapışması kısıtı bozmamalı: eksene paralel duvarda yalnız oynayan
+koordinat, eğik duvarda normal boyunca MESAFE yuvarlanır (`snapNormalMoveToGrid`).
+
+⚠️ Kopma taşımadan ÖNCE ama klonlar özgün koordinatta doğuyor; hareket yoksa
+K24 onları geri birleştirir ve kopma boşa gider.
+
+⚠️ Klon eski köşede kaldığından çoğu zaman komşunun gövdesine denk gelip K24 ile
+T birleşimi kurar — yan odanın çevrimi böyle kapanıyor. Denk gelmezse oda düşer.
+
+
+## Çizimi yırtan taşıma reddedilir (K103)
+
+`core/wallMoveValidity.ts` → `findWallMoveBlocker`. Jestte uygulanır
+(`useWallSelectionTool`), store action’ında değil — K36 ile aynı ayrım: `grab`
+korunur, duvar imlece yapışık kalır.
+
+- **`freeEnd`**: taşınan duvarın ucu hiçbir duvara değmiyor. Komşunun ucunun
+  ötesine itilince değecek gövde kalmıyor ve duvar serbest kalıyordu.
+- **`collapse`**: bir duvar MIN_WALL_LENGTH_CM altına iniyor. Duvarı komşusunun
+  üstüne itmek sıfır boylu duvarlar ve çakışan kopyalar üretiyor, oda çevrimi
+  kopuyor, yan odalar dolgusu ve etiketiyle kayboluyordu.
+
+⚠️ İkisi de "önceden de böyleydi" durumunu geçirir; kural YENİ bozulmayı önler.
+
+⚠️ Önizleme, denetim ve store yazımı aynı simülasyondan geçer (`applyWallMove`).
+
+
+## Duvar taşıma modeli: PARALEL KAYDIRMA (K103, son hâli)
+
+`core/wallOffset.ts` → `planWallOffset`. Duvar kendine paralel kayar, her ucu
+komşusunun DOĞRUSU boyunca kayarak yeni kesişime oturur. Komşunun açısı korunur,
+yalnız boyu değişir.
+
+⚠️ Eski KATI öteleme modeli TERK EDİLDİ. O model komşu hareket yönüne paralelken
+çalışıyordu — dik açılı planda tesadüfen hep doğru, EĞİK planda hiç doğru değil:
+yamuk odada hiçbir duvar hiçbir yöne taşınamıyordu. `canNeighbourAbsorbMove`,
+`isMoveShorteningNeighbour`, `planCornerDetachments` ve `store/architectureDetach.ts`
+SİLİNDİ — bu adlarla yeni kod yazma.
+
+⚠️ Taşınan duvarın BOYU değişebilir. Dik açılı planda değişmez.
+
+⚠️ Kaydırma kendi store eylemidir (`offsetWall`), `transformSelection` değil:
+iki uç farklı vektörlerle gidiyor, tek `translate` ile ifade edilemez. Çoklu
+seçim blok olarak ötelenmeye devam eder.
+
+Kopma yalnız komşu taşınan duvara PARALEL olduğunda (kesişim yok). Köşede kopan
+biri varsa KISALAN kazanan da yerinde bırakılır, yoksa klonu havada bırakır.
+
+
+## Taşıma artığı düğümler temizlenir (K104)
+
+Duvar taşındıkça komşu kenar her seferinde yeni köşede bölünüyor; önceki bölme
+noktası geride kalırsa parça birikir. Üç önlem:
+
+1. `planWallOffset` kesişimi kazananınkiyle AYNI olan komşuyu koparmaz — bölünmüş
+   kenarın iki parçası aynı köşeyi istiyor, ortak köşe ikisini birden karşılar.
+2. `mergeCollinearWallsInDraft`: köşede yalnız iki duvar var ve eş doğrultuluysa
+   birleşir. Kalınlık/yükseklik farklıysa BİRLEŞMEZ. Açıklıklar taşınır (K10).
+3. `mergeCoincidentPointsInDraft`: duvar eski yerine dönünce kopan köşe klonunun
+   üstüne geliyor; aynı yerdeki iki nokta kaynar (K24 ilkesi).
+
+⚠️ Birleştirme YALNIZ taşıma yolunda. `splitWallsAtIntersections` içine konsaydı
+"bölünme geri birleşmez" sözleşmesi her yerde değişirdi.
+
+
+## Geçersiz taşımada duvar durur (K105)
+
+Geçerlilik HER `pointermove`'da sınanır (`scene/wallDragDelta.ts` →
+`resolveWallDragDelta`). Geçersizse öteleme güncellenmez, duvar son geçerli
+konumunda kalır. Önceden ret yalnız bırakışta uygulanıyordu: duvar imleci
+geçersiz bölgeye kadar izliyor, kopmuş hâli gösteriyor, sonra geri atıyordu.
+
+⚠️ Açıklık reddi (K36) eski davranışında: orada "biraz daha ilerlet, sığar"
+mantığı geçerli. Burada engel yönün kendisinde, yapışkanlık kilitliyordu.
+
+⚠️ Kare başına sınama: maliyet duvar sayısında doğrusal.

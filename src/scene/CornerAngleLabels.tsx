@@ -3,7 +3,7 @@ import { Fragment } from 'react'
 
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
-import { useArchitecturePoints } from './useArchitecturePoints'
+import { useArchitectureDraft } from './useArchitectureDraft'
 import { useCameraZoom } from './useCameraZoom'
 import { formatAngleDegrees } from '../core/angleFormat'
 import { planToThree } from '../core/coords'
@@ -61,10 +61,10 @@ function getEditedPointIds(
 }
 
 function CornerAngles() {
-  const walls = useCadStore((state) => state.walls)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  // Sürüklenen köşe geçici konumuyla gelir; açı jest boyunca canlı güncellenir.
-  const points = useArchitecturePoints()
+  // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
+  const { points, walls } = useArchitectureDraft()
   const zoom = useCameraZoom()
   const isCornerAnglesVisible = useUiStore((state) => state.isCornerAnglesVisible)
   const draggingPointId = useArchitectureUiStore((state) => state.draggingPoint?.pointId)

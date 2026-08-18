@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react'
 
 import { RENDER_ORDER, WALL_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
-import { useArchitecturePoints } from './useArchitecturePoints'
+import { useArchitectureDraft } from './useArchitectureDraft'
 import { useCameraZoom } from './useCameraZoom'
 import { getWallLineWidthPx } from './wallStyle'
 import { planToThree } from '../core/coords'
@@ -114,9 +114,9 @@ export const Wall = memo(function Wall({ wall, p1x, p1y, p2x, p2y, tone, zoom }:
 /** Aktif kattaki duvarlar. Store'daki dizileri olduğu gibi okur — türetilmiş dizi
  *  seçici döndürseydi her store değişiminde yeni referans çıkar ve gereksiz render olurdu. */
 export function Walls() {
-  const walls = useCadStore((state) => state.walls)
-  // Sürüklenen köşe geçici konumuyla gelir; duvar imlecin arkasında kalmasın.
-  const points = useArchitecturePoints()
+  // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
+  // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
+  const { points, walls } = useArchitectureDraft()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)
   // Kararlı referansa abone olunur; seçili olup olmadığı render sırasında türetilir.

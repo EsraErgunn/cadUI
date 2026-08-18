@@ -60,8 +60,12 @@ export function getSelectionPivot(draft: CadState, selection: Selection): PlanPo
  * Seçimi taşır / döndürür / aynalar (KK-11).
  *
  * Seçilmemiş KOMŞU duvarlar esner: köşe paylaşıldığı için dönüşüm o köşeyi de
- * oynatır. Bu, tek duvar taşımanın (`moveWall`) bugünkü davranışının aynısı —
- * seçimi komşusundan koparmak duvar grafını yırtardı.
+ * oynatır. Varsayılan bu.
+ *
+ * `isDetachingCorners` ile ötelemeyi BOYUNU değiştirerek karşılayamayan
+ * komşular köşeden koparılır ve yerinde kalır (K103). Bayrak dışarıdan gelir
+ * çünkü ölçüt öteleme YÖNÜNE bağlı: yalnız duvar sürükleme jesti onu açar,
+ * döndürme ve aynalama tek bir yön tanımlamaz.
  *
  * ⚠️ **Açıklık koruması (K35/K36/K48) burada ÇALIŞMAZ** — ne duvarlar ne de alan
  * nesneleri için. Tek nesne sürüklemede kontrol var (`useWallSelectionTool`,

@@ -9,18 +9,20 @@ import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
 import { findRoomLabelAt } from './useRoomNameTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
+import { resolveWallDragDelta } from './wallDragDelta'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
 } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
-import { pickGridLevel, snapPointToGrid } from '../core/grid'
 import type { Id } from '../core/model'
 import { getSelectedIds, isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { getWallMoveImpact } from '../core/wall'
 import { findBlockingOpeningForMove } from '../core/wallGraph'
+import { getWallNormal } from '../core/wallMove'
+import { findWallMoveBlocker } from '../core/wallMoveValidity'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -34,6 +36,12 @@ type WallGrab = {
   grabPoint: PlanPoint
   /** Tutulan duvarın p1'i — ızgara yapışması bu köşe üzerinden yapılır. */
   originP1: PlanPoint
+  /**
+   * Tutulan duvarın normali. TEK duvar sürüklenirken hareket buna kilitlenir
+   * (K103). Çoklu seçimde `undefined`: bir blokta ortak normal yok, orada
+   * öteleme serbest kalır.
+   */
+  normal: PlanPoint | undefined
 }
 
 /**
@@ -48,6 +56,12 @@ type WallGrab = {
  * Öteleme KATIDIR: ham fark p1'e uygulanıp ızgaraya yapıştırılıyor, aynı fark
  * iki köşeye birden gidiyor. İki köşe ayrı ayrı yapıştırılsaydı duvarın boyu ve
  * açısı sürüklerken bozulurdu.
+ *
+ * Tek duvar sürüklenirken hareket duvarın NORMALİNE kilitlidir (K103): duvar
+ * kendi ekseni boyunca kaydırılamaz, çünkü o hareket boyu da açıyı da
+ * değiştirmez — yalnız köşeleri komşuların üstünde kaydırıp geometriyi bozar.
+ * Aynı jestte, ötelemeyi boyunu değiştirerek karşılayamayan komşular köşeden
+ * KOPARILIR ve yerinde kalır.
  */
 export function useWallSelectionTool(): void {
   const camera = useThree((state) => state.camera)
@@ -120,7 +134,8 @@ export function useWallSelectionTool(): void {
 
       const wall = context.walls.find((candidate) => candidate.id === target.wallId)
       const originP1 = context.points.find((point) => point.id === wall?.p1Id)
-      if (!wall || !originP1) return
+      const originP2 = context.points.find((point) => point.id === wall?.p2Id)
+      if (!wall || !originP1 || !originP2) return
 
       // Shift seçime ekler/çıkarır, düz tıklama seçimi değiştirir (KK-10).
       // Zaten seçiliyse düz tıklama seçimi KORUR: yoksa çoklu seçimi taşımak için
@@ -136,30 +151,34 @@ export function useWallSelectionTool(): void {
       // Tutulan duvar seçimin parçasıysa seçimin TAMAMI taşınır; değilse yalnız o.
       // (Yukarıdaki dal seçimi zaten bu duvara indirmiş olabilir.)
       const selectedWallIds = getSelectedIds(useArchitectureUiStore.getState().selection, 'wall')
+      const wallIds = selectedWallIds.includes(wall.id) ? selectedWallIds : [wall.id]
       grab = {
-        wallIds: selectedWallIds.includes(wall.id) ? selectedWallIds : [wall.id],
+        wallIds,
         grabPoint: event.planPoint,
         originP1: { x: originP1.x, y: originP1.y },
+        normal: wallIds.length === 1 ? getWallNormal(originP1, originP2) : undefined,
       }
     }
 
     const handlePointerMove = (event: DrawSurfacePointerEvent) => {
       if (!grab) return
 
-      const rawP1 = {
-        x: grab.originP1.x + (event.planPoint.x - grab.grabPoint.x),
-        y: grab.originP1.y + (event.planPoint.y - grab.grabPoint.y),
-      }
-      const { zoom } = readCameraViewport(camera)
-      // Ctrl ızgarayı kapatır — usePointDragTool ile aynı jest.
-      const nextP1 = event.ctrlKey
-        ? rawP1
-        : snapPointToGrid(rawP1, pickGridLevel(zoom).minorCm)
+      // Geçersiz konumda `undefined` döner: duvar son geçerli yerinde durur (K103).
+      const moved = resolveWallDragDelta({
+        wallIds: grab.wallIds,
+        originP1: grab.originP1,
+        normal: grab.normal,
+        rawDxCm: event.planPoint.x - grab.grabPoint.x,
+        rawDyCm: event.planPoint.y - grab.grabPoint.y,
+        zoom: readCameraViewport(camera).zoom,
+        isGridDisabled: event.ctrlKey,
+      })
+      if (!moved) return
 
       useArchitectureUiStore.getState().setDraggingWall({
         wallIds: grab.wallIds,
-        dxCm: nextP1.x - grab.originP1.x,
-        dyCm: nextP1.y - grab.originP1.y,
+        dxCm: moved.dxCm,
+        dyCm: moved.dyCm,
       })
     }
 
@@ -167,6 +186,7 @@ export function useWallSelectionTool(): void {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
       const { wallIds } = grab
+      const isNormalConstrained = grab.normal !== undefined
       const drag = useArchitectureUiStore.getState().draggingWall
 
       // Sürükleme boyunca cadStore'a hiç yazılmadı: tek yazım = tek markDirty =
@@ -204,10 +224,34 @@ export function useWallSelectionTool(): void {
       )
       if (blocking) return
 
+      // Sürükleme geçerli tutuldu; yine de sınanır, çizim jest sürerken değişmiş olabilir.
+      const moveBlocker = isNormalConstrained
+        ? findWallMoveBlocker(
+            cad.walls,
+            cad.points,
+            wallIds[0],
+            drag.dxCm,
+            drag.dyCm,
+            cad.activeFloorId,
+          )
+        : undefined
+
       endDrag()
+      if (moveBlocker) return
 
       // Taşıma da bir dönüşüm: tek duvar ile çoklu seçim aynı yoldan geçer,
       // yoksa "birden çok duvar taşındığında ne oluyor" iki yerde yanıtlanırdı.
+      //
+      // Kopma YALNIZ normale kilitli tek duvar sürüklemesinde (K103): çoklu
+      // seçimde blok katı hareket ediyor ve ortak bir normal yok, orada
+      // komşuyu koparmanın geometrik gerekçesi de yok.
+      // Tek duvar KENDİNE PARALEL kayar ve uçları komşularının doğrusuna oturur
+      // (K103); çoklu seçim blok olarak ötelenir, orada ortak normal yok.
+      if (isNormalConstrained) {
+        useCadStore.getState().offsetWall(wallIds[0], drag.dxCm, drag.dyCm)
+        return
+      }
+
       useCadStore.getState().transformSelection(
         wallIds.map((wallId) => ({ kind: 'wall', id: wallId })),
         { kind: 'translate', dxCm: drag.dxCm, dyCm: drag.dyCm },
