@@ -26,6 +26,25 @@ function toFillPositions(corners: readonly PlanPoint[]): Float32Array {
   return positions
 }
 
+/**
+ * Dolgu tamponunu, poligonun DEĞERLERİ değişmedikçe aynı referansta tutar.
+ *
+ * `fillCorners` her karede yeniden türetiliyor (üstteki `shapes` `points`'e
+ * bağlı, o da sürükleme boyunca her kare değişiyor). Referans değişince r3f
+ * `bufferAttribute`'u yeniden kuruyor ve üçgenlenmiş tampon GPU'ya yeniden
+ * yükleniyordu — ODA BAŞINA, KARE BAŞINA. Oysa sürüklenen duvara komşu olmayan
+ * odaların poligonu hiç değişmiyor.
+ *
+ * K99'un oda tarafı: önbelleğin anahtarı kimlik değil DEĞER olmalı.
+ */
+function useStableFillPositions(fillCorners: PlanPoint[] | undefined): Float32Array | undefined {
+  const fillKey = fillCorners ? fillCorners.map((corner) => `${corner.x},${corner.y}`).join(';') : ''
+
+  // Anahtar bilerek `fillCorners` DEĞİL `fillKey` — gerekçe yukarıda.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- kimlik değil DEĞER anahtarı
+  return useMemo(() => (fillCorners ? toFillPositions(fillCorners) : undefined), [fillKey])
+}
+
 type RoomShapeProps = {
   roomId: Id
   face: RoomFace
@@ -41,13 +60,14 @@ function RoomShape({ roomId, face, name, fillCorners, isEditingName }: RoomShape
   // duvar kalınlığı kadar küçültülmüş bir çizim ayrıntısı, odanın kendisi değil.
   const anchor = getRoomLabelAnchor(face.corners)
   const areaM2 = toSquareMetres(face.areaCm2)
+  const fillPositions = useStableFillPositions(fillCorners)
 
   return (
     <group>
-      {fillCorners && (
+      {fillPositions && (
         <mesh frustumCulled={false} renderOrder={RENDER_ORDER.room} raycast={() => null}>
           <bufferGeometry>
-            <bufferAttribute attach="attributes-position" args={[toFillPositions(fillCorners), 3]} />
+            <bufferAttribute attach="attributes-position" args={[fillPositions, 3]} />
           </bufferGeometry>
           {/* Saydam: ızgara odanın altından okunmaya devam etsin. depthWrite zaten
               kapalı, sıralamayı renderOrder belirliyor. */}
