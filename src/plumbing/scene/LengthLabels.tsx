@@ -15,7 +15,7 @@ import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import type { InstallationLine } from '../core/installationModel'
 import { formatLengthMeters } from '../core/lengthFormat'
-import { getMeasurementAnchor, getSegmentLengthCm } from '../core/lineGeometry'
+import { getMeasurementAnchor, getSegmentLengthCm, isSamePoint } from '../core/lineGeometry'
 
 /**
  * Font REPODAN gelir (RoomLabel ile aynı gerekçe): verilmezse troika varsayılanı
@@ -99,6 +99,9 @@ function LineLengthLabels({ line, zoom, draggedCorner }: LineLengthLabelsProps) 
         const from = positions.get(segment.fromPointId)
         const to = positions.get(segment.toPointId)
         if (!from || !to) return null
+        // Plan boyu SIFIR segment (K102, dikey bağlantı) burada "0,00 m" yazmaz
+        // — kotu `PipeElevationGlyph` (InstallationLineMesh.tsx) gösteriyor.
+        if (isSamePoint(from, to)) return null
 
         return (
           <group

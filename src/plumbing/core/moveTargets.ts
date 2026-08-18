@@ -13,10 +13,17 @@ export type MoveTargets = {
 
 /**
  * Porta bağlı bir hat ucunun HEMEN yanındaki (aradaki tek segmentin öbür
- * ucundaki) nokta — branşmandaki vana gibi bir armatür orada oturuyorsa
- * (`elementAttach.ts` → `resolveFreeEndAttachment`: "vana hattın ESKİ
- * ucundaki düğüme oturur") o armatür elemana YAPIŞIK sayılır. Hat 2'den az
- * noktalıysa (olmaz ama savunma) komşu yoktur.
+ * ucundaki) nokta — YALNIZ orada bir armatür oturuyorsa (`elementAttach.ts` →
+ * `resolveFreeEndAttachment`: "vana hattın ESKİ ucundaki düğüme oturur").
+ * O zaman aradaki kısa parça esneyen bir boru değil, elemana yapışık bir
+ * montaj payıdır. Hat 2'den az noktalıysa (olmaz ama savunma) komşu yoktur.
+ *
+ * Armatür KOŞULU şart: cihaz kolu (`applianceStub`) tam İKİ noktalıdır, yani
+ * "komşu" doğrudan kolun ana boruya tutunan ucudur. Koşulsuz eklenince cihazı
+ * sürüklemek o ucu, kaynak kapanışı da (aşağıdaki döngü) ana borunun köşesini
+ * ve üstündeki vanayı peşinden sürüklüyordu — kol hiç ESNEMEDEN bütün ağ
+ * geliyordu. Kullanıcı isteği (2026-08): eleman yalnız BAĞLANTI yerinden
+ * hareket etsin, boru o noktadan gerilsin.
  */
 function getGlueNeighborPointId(
   lines: readonly InstallationLine[],
@@ -26,7 +33,10 @@ function getGlueNeighborPointId(
   const line = lines.find((candidate) => candidate.id === lineId)
   if (!line || line.points.length < 2) return undefined
 
-  return end === 'start' ? line.points[1]?.id : line.points.at(-2)?.id
+  const neighbor = end === 'start' ? line.points[1] : line.points.at(-2)
+  if (!neighbor || neighbor.inlineElementId === undefined) return undefined
+
+  return neighbor.id
 }
 
 /**
@@ -87,11 +97,12 @@ export function resolveMoveTargets(
 
     addPoint(getLineEndPointId(lines, connection.lineId, connection.end))
 
-    // Bağlı ucun komşusu bir armatüre oturuyorsa (branşmanla gelen vana gibi)
+    // Bağlı ucun komşusunda bir armatür oturuyorsa (branşmanla gelen vana gibi)
     // o da AYNI kaymayla gelir: aradaki kısa parça esneyen bir boru değil,
     // elemana yapışık bir montaj payı — kullanıcı isteği (2026-08): "branşmanla
-    // gelen vana branşmanın portuna yapışsın". Alt döngü (armatür→elemanIds)
-    // bu noktayı zaten okuyor, burada yalnız pointIds'e katılması yeter.
+    // gelen vana branşmanın portuna yapışsın". Armatür YOKSA komşu gelmez, boru
+    // o bağlantı noktasından gerilir. Alt döngü (armatür→elemanIds) bu noktayı
+    // zaten okuyor, burada yalnız pointIds'e katılması yeter.
     const glueNeighborPointId = getGlueNeighborPointId(lines, connection.lineId, connection.end)
     if (glueNeighborPointId !== undefined) addPoint(glueNeighborPointId)
   }

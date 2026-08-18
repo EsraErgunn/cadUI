@@ -19,9 +19,9 @@ export function useEscapeToSelectionTool(): void {
       onCancel: () => {
         const { activeToolId, setActiveTool } = useUiStore.getState()
         if (activeToolId === INSTALLATION_SELECTION_TOOL_ID) return
-        // Hat aracında Esc yarım hattı iptal eder ama araç AKTİF KALIR (şartname):
-        // kullanıcı paleti yeniden seçmeden yeni hatta başlayabilsin. İptalin
-        // kendisi useLineTool'da.
+        // Hat aracında Esc'in kendisi useLineTool'da: taslağı iptal eder VE artık
+        // (kullanıcı isteği, 2026-08) Seçim aracına döner — burada İKİNCİ kez
+        // işlenmesin diye pas geçilir, yoksa çift `setActiveTool` çağrısı olurdu.
         if (getLineKind(activeToolId)) return
         setActiveTool(INSTALLATION_SELECTION_TOOL_ID)
       },

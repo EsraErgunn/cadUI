@@ -50,6 +50,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   kutusu/baca serbesttir (`free`). Boruya oturan eleman `InstallationLinePoint.inlineElementId`
   ile düğüme bağlanır — armatür = düğüm, ayrı bağlantı kaydı DEĞİL.
   (bkz. knowledge/element-attach.md)
+- Boru kotu ayrı bir hat türü DEĞİL: var olan `InstallationLine.pipe.startHeightCm`/
+  `endHeightCm` render'a bağlandı (K102). Saf dikey bağlantı (aynı plan konumunda iki
+  nokta, farklı kot) hâlâ mümkün — riski yalnız iki dosyada, genel "sıfır uzunluklu
+  segment" koruması olarak ele alınır, `riser` adlı ayrı bir tür YOK.
+  (bkz. knowledge/pipe-elevation.md)
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
 - Servis kutusu (`ServiceBox`) kökte TEK nesne (dizi değil) → "tek servis kutusu" kuralı yapı gereği.
 - Kolon (`Riser`) kat dışında, kökte. Kat kopyalanınca KLONLANMAZ; `toFloorId` uzatılır.

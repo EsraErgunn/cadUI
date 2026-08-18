@@ -27,6 +27,7 @@ import { pruneElementIds } from '../core/elementSelection'
 import type { InstallationElement } from '../core/installationModel'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
+import { isSamePoint } from '../core/lineGeometry'
 import { getLinesInRect, pickLineAt } from '../core/linePicking'
 import { findNearestPointOnLines } from '../core/lineSnap'
 import { resolveMoveTargets } from '../core/moveTargets'
@@ -202,15 +203,23 @@ export function useSelectionTool(): SelectionToolState {
     ) => {
       const lines = readFloorLines()
       const connections = readConnections()
+      const elements = readFloorElements()
       const targets = resolveMoveTargets(lines, connections, elementIds, lineIds)
-      const movableElementIds = [...targets.elementIds].filter(
-        (id) => !isFixedCompanionValve(lines, connections, id),
+      const movableElementIds = [...targets.elementIds].filter((id) => {
+        const type = elements.find((element) => element.id === id)?.type
+        return type === undefined || !isFixedCompanionValve(lines, connections, id, type)
+      })
+      const rigidLines = lines.filter((line) =>
+        line.points.every((point) => targets.pointIds.has(point.id)),
       )
-      const rigidLineIds = lines
-        .filter((line) => line.points.every((point) => targets.pointIds.has(point.id)))
-        .map((line) => line.id)
+      const rigidLineIds = rigidLines.map((line) => line.id)
 
-      grab = { elementIds: movableElementIds, lineIds: [...lineIds], anchorPosition, pointerOrigin }
+      grab = {
+        elementIds: movableElementIds,
+        lineIds: [...lineIds],
+        anchorPosition,
+        pointerOrigin,
+      }
       setDraggedElementIds(movableElementIds)
       setDraggedLineIds(rigidLineIds)
     }
@@ -234,6 +243,20 @@ export function useSelectionTool(): SelectionToolState {
       const lines = readFloorLines()
       const hit = findNearestPointOnLines(lines, event.planPoint, getSnapRadiusCm(zoom))
       if (hit?.pointId === undefined) return false
+
+      // Plan boyu SIFIR segmentin (kasıtlı dikey bağlantı, K102) ucu sürüklenmez:
+      // iki noktası çakışık olduğu için biri çekilince kolon eğik bir plan
+      // borusuna dönüşürdü. Görünümü SABİT kalır — kot yalnız panelden/sayısal
+      // kutudan değiştirilir. Gövdeye basış SÜZÜLMEZ (aşağıda `selectLine`),
+      // yalnız köşe sürüklemesi engellenir.
+      const hitLine = lines.find((line) => line.id === hit.lineId)
+      if (
+        hitLine &&
+        hitLine.points.length === 2 &&
+        isSamePoint(hitLine.points[0].position, hitLine.points[1].position)
+      ) {
+        return false
+      }
 
       const connections = readConnections()
       const anchored = getPortAnchoredPointIds(lines, connections)
@@ -331,7 +354,7 @@ export function useSelectionTool(): SelectionToolState {
       // BAŞARIYLA sonuç dönerdi — sırası ters olsaydı kilit hiç devreye girmezdi.
       if (
         elementIds.length === 1 &&
-        isFixedCompanionValve(readFloorLines(), readConnections(), target.id)
+        isFixedCompanionValve(readFloorLines(), readConnections(), target.id, target.type)
       ) {
         return
       }
@@ -495,10 +518,11 @@ export function useSelectionTool(): SelectionToolState {
       // BASILAN eleman yakalanır, kayma ondan türetilir: grup kendi içindeki
       // göreli düzenini korur, her eleman ayrı ayrı ızgaraya çekilmez.
       const snappedAnchor = event.ctrlKey ? rawAnchor : resolvePlacementPosition(rawAnchor, zoom)
-      dragDeltaRef.current = {
+      const delta = {
         x: snappedAnchor.x - grab.anchorPosition.x,
         y: snappedAnchor.y - grab.anchorPosition.y,
       }
+      dragDeltaRef.current = delta
     }
 
     const finishMarquee = (event: DrawSurfacePointerEvent) => {

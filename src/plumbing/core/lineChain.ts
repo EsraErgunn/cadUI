@@ -10,6 +10,7 @@ export type LineChainStep = {
   lineId: Id
   anchor: PlanPoint
   startTarget: LineEndAttachment | null
+  elevationCm: number
 }
 
 /**
@@ -22,6 +23,8 @@ export type LineChain = {
   anchor: PlanPoint
   /** Sıradaki borunun başı neye bağlanacak; serbestse null. */
   startTarget: LineEndAttachment | null
+  /** Zincirin O ANKİ kotu (K102) — `+`/`-` bunu değiştirir, yatay adım taşır. */
+  elevationCm: number
   /** Bu jestte yazılmış adımlar, eskiden yeniye. */
   steps: LineChainStep[]
 }
@@ -29,27 +32,34 @@ export type LineChain = {
 /** Yazılan borunun zincirlemek için gereken kimliği (`plumbingSlice.addLine` döner). */
 export type WrittenLineStep = { lineId: Id; endPointId: Id }
 
-export function startChain(anchor: PlanPoint, startTarget: LineEndAttachment | null): LineChain {
-  return { anchor, startTarget, steps: [] }
+export function startChain(
+  anchor: PlanPoint,
+  startTarget: LineEndAttachment | null,
+  elevationCm = 0,
+): LineChain {
+  return { anchor, startTarget, elevationCm, steps: [] }
 }
 
 /**
  * Bir adım yazıldıktan sonraki zincir. Sıradaki adımın başı yazılan borunun
  * UCUNA bağlanır: bağlanmasaydı iki adım aynı köşeyi paylaştığını bilmez,
  * köşe sürüklenince komşu boru eski yerinde kalıp KOPARDI
- * (bkz. `lineCornerLink.ts`).
+ * (bkz. `lineCornerLink.ts`). `elevationCm` verilmezse zincirin ANKİ kotu
+ * aynen taşınır (yatay adım) — dikey adımda çağıran yeni değeri geçirir.
  */
 export function advanceChain(
   chain: LineChain,
   point: PlanPoint,
   written: WrittenLineStep,
+  elevationCm: number = chain.elevationCm,
 ): LineChain {
   return {
     anchor: point,
     startTarget: { kind: 'linePoint', lineId: written.lineId, pointId: written.endPointId },
+    elevationCm,
     steps: [
       ...chain.steps,
-      { lineId: written.lineId, anchor: chain.anchor, startTarget: chain.startTarget },
+      { lineId: written.lineId, anchor: chain.anchor, startTarget: chain.startTarget, elevationCm: chain.elevationCm },
     ],
   }
 }
@@ -70,6 +80,7 @@ export function rewindChain(chain: LineChain): {
     chain: {
       anchor: lastStep.anchor,
       startTarget: lastStep.startTarget,
+      elevationCm: lastStep.elevationCm,
       steps: chain.steps.slice(0, -1),
     },
     removedLineId: lastStep.lineId,

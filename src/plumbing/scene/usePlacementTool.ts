@@ -25,6 +25,7 @@ import {
   getPlacementElementType,
   INSTALLATION_PIPE_TOOL_ID,
 } from '../core/installationTools'
+import { startChain } from '../core/lineChain'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getSeedPort } from '../core/lineSeed'
 import { DEFAULT_ELEMENT_ANGLE_DEG } from '../core/placement'
@@ -189,9 +190,11 @@ export function usePlacementTool(): PlacementPreviewState {
       if (outputPort) {
         usePlumbingUiStore.getState().setDraftLine({
           kind: 'pipe',
-          anchor: getPortWorldPosition(element, outputPort, metadata),
-          startTarget: { kind: 'port', elementId: element.id, portId: outputPort.id },
-          steps: [],
+          ...startChain(getPortWorldPosition(element, outputPort, metadata), {
+            kind: 'port',
+            elementId: element.id,
+            portId: outputPort.id,
+          }),
         })
       }
       useUiStore.getState().setActiveTool(INSTALLATION_PIPE_TOOL_ID)

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, type ComponentRef } from 'react'
 import { InterleavedBufferAttribute, type Group } from 'three'
 
 import { PipeLine } from './InstallationLineMesh'
-import { DraftLengthLabel } from './LengthLabels'
+import { DraftLengthLabel, LengthText } from './LengthLabels'
 import { getLineColor, getLineWidthPx } from './lineStyle'
 import { PREVIEW_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
@@ -15,6 +15,7 @@ import type { PlacementPreviewState } from './usePlacementTool'
 import { planToThree, type ThreePosition } from '../../core/coords'
 import { RENDER_ORDER } from '../../scene/layers'
 import { getElementAttachMode } from '../core/attachModes'
+import { formatLengthMeters } from '../core/lengthFormat'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
@@ -202,6 +203,7 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
   const zoom = useCameraZoom()
 
   const anchor = draft?.anchor
+  const elevationCm = draft?.kind === 'pipe' ? draft.elevationCm : 0
 
   useFrame(() => {
     const rubberBand = rubberBandRef.current
@@ -239,6 +241,13 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
       />
       {/* Anlık uzunluk bandın ortasında; ölçü etiketleri kapalıyken de çıkar. */}
       <DraftLengthLabel anchor={anchor} cursorRef={cursorRef} zoom={zoom} />
+      {/* Zincirin o anki kotu (K102) — `+`/`- ile değiştirildikçe anchor'ın
+          yanında okunur; sıfırsa gösterilmez (çoğu boru zaten döşeme kotunda). */}
+      {elevationCm !== 0 && (
+        <group position={planToThree(anchor, PREVIEW_ELEVATION_CM)}>
+          <LengthText label={`Kot: ${formatLengthMeters(elevationCm)}`} zoom={zoom} />
+        </group>
+      )}
     </group>
   )
 }

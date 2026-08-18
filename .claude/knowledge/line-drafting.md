@@ -32,11 +32,18 @@ yazdığı boruyu AYIRARAK zinciri kapatırdı.
 | Sol tık **boş bir porta / mevcut boruya** | Adımı yazar, oraya bağlar, zinciri BİTİRİR | **aktif kalır** |
 | Sağ tık (zincir sürerken, taslak DOLU) | Taslağı orada DURDURUR — yazılmış adımlar KALIR, geri ALINMAZ | **aktif kalır** — başka bir yerden hemen yeni zincire başlanır |
 | Sağ tık (taslak BOŞ) | Araçtan çıkar | Seçim aracına döner |
-| Esc | Zinciri BIRAKIR — yazılmış adımlar kalır, silinmez | aktif kalır |
+| Esc | Zinciri BIRAKIR — yazılmış adımlar kalır, silinmez | **Seçim aracına döner** (2026-08 değişikliği, aşağı bkz.) |
 
 Esc'in artık geri aldığı bir şey yok: her adım kullanıcının görerek koyduğu
 kalıcı bir borudur (başlangıç elemanıyla aynı gerekçe). Yanlış adımı silmek için
 elemanı seçip Delete/Ctrl+Z kullanılır — sağ tık artık "geri alma" değil "durdurma".
+
+⚠️ **Esc artık araçtan da çıkar (kullanıcı isteği, 2026-08):** ilk tasarımda
+"aktif kalır" idi (duvar aracıyla K84 tutarlılığı için) ama kullanıcı Esc'in
+imlece/Seçim aracına dönmesini istedi. `useLineTool.ts` → `onCancel` artık
+`exitTool()` çağırıyor (taslak boşken sağ tıkla AYNI yol).
+`useEscapeToSelectionTool` hâlâ hat araçlarını PAS GEÇİYOR (çift `setActiveTool`
+çağrısı olmasın diye) — dönüşün TEK sahibi `useLineTool`.
 
 Sağ tık artık İKİ ADIMLI ama tek/çift TIK AYRIMI **yok** (duvar aracıyla aynı
 desen, K84): karar tek bir sağ tıkla, taslağın dolu/boş oluşuna bakarak anında

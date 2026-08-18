@@ -6,6 +6,7 @@ import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm, getWallEdgeGapCm } from './snapRadius'
 import { getSymbolMetadata } from './symbolLoader'
 import type { PlanPoint } from '../../core/coords'
+import { isTypingTarget } from '../../core/domEvents'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
@@ -21,6 +22,7 @@ import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSna
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
 import { findNearestWallCorner, findNearestWallParallel } from '../core/wallSnap'
+import { commitDraftElevationStep } from '../store/pipeElevationActions'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
 const LEFT_BUTTON = 0
@@ -331,6 +333,11 @@ export function useLineTool(): LineToolState {
         pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
         startTarget: draft.startTarget ?? undefined,
         endTarget: snap ? toAttachment(snap) : undefined,
+        // Kot (K102) yalnız `pipe` türünde anlamlı — yatay adımda değişmez.
+        pipe:
+          draft.kind === 'pipe'
+            ? { startHeightCm: draft.elevationCm, endHeightCm: draft.elevationCm, description: '' }
+            : undefined,
       })
       if (!written) return
 
@@ -406,13 +413,35 @@ export function useLineTool(): LineToolState {
 
       // Esc devam eden zinciri BIRAKIR; yazılmış adımlar kalır (her sol tık
       // kendi borusunu yazdı, kullanıcı onları görerek koydu — tıpkı başlangıç
-      // elemanı gibi). Araç aktif kalır ki paleti yeniden seçmeden yeni bir
-      // zincire başlanabilsin.
-      onCancel: () => writeDraft(null),
+      // elemanı gibi). Kullanıcı isteği (2026-08): Esc imlece (Seçim aracına)
+      // DÖNER — taslak boşken sağ tıkla aynı jest, `exitTool` yeniden kullanılır.
+      onCancel: () => exitTool(),
     })
+
+    /**
+     * `+`/`-` (K102): zincir sürerken zincirin kotunu bir adım değiştirir.
+     * Yazı alanındaysa (isTypingTarget) yok sayılır — `useSelectionTool`'daki
+     * klavye dinleyicisiyle aynı korunma.
+     */
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return
+      if (!readDraft()) return
+
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault()
+        commitDraftElevationStep(1)
+        return
+      }
+      if (event.key === '-' || event.key === '_') {
+        event.preventDefault()
+        commitDraftElevationStep(-1)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       unsubscribe()
+      window.removeEventListener('keydown', handleKeyDown)
       // Araç değişince yarım hat asılı kalmasın.
       writeDraft(null)
       cursorRef.current = null

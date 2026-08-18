@@ -68,17 +68,19 @@ type LineEndMarkerProps = {
   widthCm: number
   isConnected: boolean
   colorHex: string
+  /** Boru kotu (K102) — işaret borunun ucundaki gerçek yükseklikte durur. */
+  elevationCm?: number
 }
 
 /** Hattın ucu bağlı mı serbest mi (KK-7). */
-function LineEndMarker({ position, widthCm, isConnected, colorHex }: LineEndMarkerProps) {
+function LineEndMarker({ position, widthCm, isConnected, colorHex, elevationCm = 0 }: LineEndMarkerProps) {
   const material = useMarkerMaterial(colorHex)
 
   return (
     <mesh
       geometry={isConnected ? CONNECTED_DISC_GEOMETRY : FREE_RING_GEOMETRY}
       material={material}
-      position={planToThree(position, LINE_ELEVATION_CM + LINE_END_MARKER_LIFT_CM)}
+      position={planToThree(position, LINE_ELEVATION_CM + LINE_END_MARKER_LIFT_CM + elevationCm)}
       scale={widthCm * (isConnected ? CONNECTED_MARKER_SCALE : FREE_MARKER_SCALE)}
       renderOrder={RENDER_ORDER.fitting}
       raycast={() => null}
@@ -90,6 +92,8 @@ type CornerMarkerProps = {
   position: PlanPoint
   widthCm: number
   colorHex: string
+  /** Boru kotu (K102) — işaret köşenin gerçek yüksekliğinde durur. */
+  elevationCm?: number
 }
 
 /**
@@ -98,14 +102,14 @@ type CornerMarkerProps = {
  * (bağlı/serbest ayrımı) kasıtlı olarak AYRI: köşede bağlantı durumu
  * gösterilmez, hep aynı kare yama (bkz. `CORNER_SQUARE_GEOMETRY`).
  */
-export function CornerMarker({ position, widthCm, colorHex }: CornerMarkerProps) {
+export function CornerMarker({ position, widthCm, colorHex, elevationCm = 0 }: CornerMarkerProps) {
   const material = useMarkerMaterial(colorHex)
 
   return (
     <mesh
       geometry={CORNER_SQUARE_GEOMETRY}
       material={material}
-      position={planToThree(position, LINE_ELEVATION_CM + LINE_END_MARKER_LIFT_CM)}
+      position={planToThree(position, LINE_ELEVATION_CM + LINE_END_MARKER_LIFT_CM + elevationCm)}
       scale={widthCm * CORNER_MARKER_SCALE}
       renderOrder={RENDER_ORDER.fitting}
       raycast={() => null}
@@ -120,6 +124,8 @@ type LineTerminalProps = {
   connections: readonly InstallationConnection[]
   widthCm: number
   colorHex: string
+  /** Boru kotu (K102) — işaret borunun ucundaki gerçek yükseklikte durur. */
+  elevationCm?: number
 }
 
 /**
@@ -137,13 +143,21 @@ export function LineTerminal({
   connections,
   widthCm,
   colorHex,
+  elevationCm,
 }: LineTerminalProps) {
   const role = getLineEndRole(connections, lineId, point.id, end)
 
   // Armatür oturan köşe kendi sembolüyle zaten işaretli; üstüne nokta konmaz.
   if (role === 'corner') {
     if (point.inlineElementId !== undefined) return null
-    return <CornerMarker position={point.position} widthCm={widthCm} colorHex={colorHex} />
+    return (
+      <CornerMarker
+        position={point.position}
+        widthCm={widthCm}
+        colorHex={colorHex}
+        elevationCm={elevationCm}
+      />
+    )
   }
 
   return (
@@ -152,6 +166,7 @@ export function LineTerminal({
       widthCm={widthCm}
       colorHex={colorHex}
       isConnected={role === 'port'}
+      elevationCm={elevationCm}
     />
   )
 }

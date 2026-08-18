@@ -5024,3 +5024,53 @@ indirme yarıda kesilmez, kaldığı yerden kullanılır.
 ⚠️ Bu değişiklik B (mimari) fayının DIŞINDA: `src/app/router.tsx` ve
 `src/ui/admin/projectDetail/`. Ölçüm B tarafında çıktığı için burada yapıldı,
 gözden geçirmesi A'ya ait.
+
+## 2026-08 · Boruya düşey eksen — ikinci deneme, temizinden
+
+### K102 — Ayrı `riser` kind yerine var olan `pipe.startHeightCm/endHeightCm`
+
+İlk deneme ayrı bir hat türüydü (`kind: 'riser'`, plan boyu SIFIR) ve sekiz
+ayrı yerde özel-durum koruması, kendi kat-geçiş menüsü, ayrı bir taslak
+zinciri, pano/kat-kopyalama istisnaları gerektiriyordu. Kullanıcı geri
+aldırdı, "temizinden" istedi.
+
+Keşifte ortaya çıktı: `InstallationLine.pipe.startHeightCm`/`endHeightCm`
+ZATEN vardı, salt açıklayıcıydı — hiçbir geometri/render kodu okumuyordu.
+Çizim kuralı gereği ("K-W: her sol tık kendi borusunu yazar") tipik bir hat
+2 noktalıdır, yani start/end height kullanıcının "her noktada yükseklik"
+isteğinin karşılığıdır. Yeni model alanı ya da ayrı tür GEREKMEDİ — var olan
+alanlar render'a bağlandı (`plumbing/core/lineElevation.ts`).
+
+Sonuç: ayrı kind kalkınca pano/kat-kopyalama/etiket sözlüğü/panel dallanması
+gibi altı özel-durumun hiçbiri gerekmedi (`pipe` zaten hepsini kapsıyor).
+Kalan tek risk — aynı plan konumunda iki nokta (saf dikey bağlantı) — yalnız
+İKİ dosyada (`attachGeometry.ts`, `lineSimplify.ts`), "riser" adı olmadan,
+genel "sıfır uzunluklu segment" koruması olarak ele alındı.
+
+`+`/`-` ayrı bir "kolon yaz" fonksiyonuna İHTİYAÇ DUYMADI: normal sol-tık
+commit yoluyla (`addLine`) aynı konumda ikinci bir nokta yazıyor, zincir
+kotu `LineChain.elevationCm`'de taşınıyor. Kat geçişi bu kotu KENDİLİĞİNDEN
+DEĞİŞTİRMİYOR — otomatik kolon ya da özel bir kat-geçiş menüsü bu turda
+kapsam dışı bırakıldı.
+
+Boruya oturan elemanlar (vana, sayaç…) borunun kotunu `getInlineElementElevationCm`
+ile TÜRETEREK izliyor (store'a yazılmıyor, kural 4); bilinen sınır: `onLine`
+sürükleme sırasındaki canlı önizleme bunu okumuyor, bırakılınca doğru kota
+zıplıyor. Metraj artık `getLine3dLengthCm` ile gerçek 3B boru boyunu
+kullanıyor (plan boyu + kot farkının Pisagor bileşkesi). Portlar bilerek 2D
+kaldı. Ayrıntı: `knowledge/pipe-elevation.md`.
+
+### K102 ek — sayısal kot girişi ve düzenlenebilir "Boy" (aynı gün, ikinci tur)
+
+Kullanıcı "+/- yeterli değil, tam sayı girebilmeliyim" dedi: `+`/`-` ile
+PAYLAŞILAN tek commit fonksiyonu (`store/pipeElevationActions.ts`) hem tuşu
+hem yeni sayısal kutuyu (`PipeElevationInput.tsx`) besliyor — iki ayrı "kolon
+yaz" yolu açılmadı. Zincirin devamının o kottan başlaması zaten çalışıyordu,
+ek koda gerek kalmadı.
+
+"Boy (cm)" alanı da düzenlenebilir oldu (`resolvePipeResizeTarget`): segmentin
+güncel 3B yönü korunarak ölçekleniyor. Yalnız tek ve iki noktalı hatta —
+`WallProperties.tsx`'in "uzunluk komşu köşeyi sürükler" gerekçesiyle aynı
+sebeple üç+ noktalı/çoklu seçimde salt okunur kaldı. Taşıma + kot TEK
+`plumbingSlice.resizePipeEnd` adımında yazılıyor (bir kullanıcı eylemi = bir
+Ctrl+Z).
