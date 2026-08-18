@@ -5,6 +5,7 @@ import type { Group } from 'three'
 
 import { DischargeRunMesh } from './DischargeRunMesh'
 import { LineTerminal, CornerMarker } from './LineMarkers'
+import { PipeElevationGlyph } from './PipeElevationGlyph'
 import { getLineColor, getLineWidthPx, toWidthCm } from './lineStyle'
 import { INSTALLATION_GHOST_ELEVATION_CM, LINE_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
@@ -17,6 +18,8 @@ import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
 import type { InstallationConnection, InstallationLine, InstallationLinePoint } from '../core/installationModel'
+import { getLinePointElevationsCm } from '../core/lineElevation'
+import { isSamePoint } from '../core/lineGeometry'
 import { isDischargeKind } from '../core/lineKinds'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
@@ -189,17 +192,36 @@ function PipeLineMesh({
 
   const points = useDraggedLinePoints(line, draggedCorner)
 
+  // Kot (K98) yalnız `pipe` türünde ve normal (hayalet olmayan) çizimde
+  // uygulanır — mimari görünümdeki soluk iz düz kalır, karışıklık çıkarmaz.
+  const elevationsCm = useMemo(
+    () =>
+      line.kind === 'pipe' && line.pipe && !isGhost
+        ? getLinePointElevationsCm(
+            points.map((point) => point.position),
+            line.pipe.startHeightCm,
+            line.pipe.endHeightCm,
+          )
+        : points.map(() => 0),
+    [isGhost, line.kind, line.pipe, points],
+  )
+
   // Referans kararlı tutulur: drei <Line> `points` değişince geometriyi yeniden ayırır.
   const positions = useMemo(
     () =>
-      points.map((point) =>
-        planToThree(point.position, isGhost ? INSTALLATION_GHOST_ELEVATION_CM : LINE_ELEVATION_CM),
+      points.map((point, index) =>
+        planToThree(
+          point.position,
+          (isGhost ? INSTALLATION_GHOST_ELEVATION_CM : LINE_ELEVATION_CM) + elevationsCm[index],
+        ),
       ),
-    [isGhost, points],
+    [elevationsCm, isGhost, points],
   )
 
   const firstPoint = points[0]
   const lastPoint = points.at(-1)
+  const firstElevationCm = elevationsCm[0]
+  const lastElevationCm = elevationsCm.at(-1)
 
   return (
     <group>
@@ -223,6 +245,7 @@ function PipeLineMesh({
             connections={connections}
             widthCm={toWidthCm(widthPx, zoom)}
             colorHex={colorHex}
+            elevationCm={firstElevationCm}
           />
           <LineTerminal
             point={lastPoint}
@@ -231,23 +254,40 @@ function PipeLineMesh({
             connections={connections}
             widthCm={toWidthCm(widthPx, zoom)}
             colorHex={colorHex}
+            elevationCm={lastElevationCm}
           />
           {/* Ara köşeler (kırılma noktaları): boru yalnız buralardan (ve
               uçlarından) tutulabiliyor — armatür oturan köşe kendi sembolüyle
               zaten işaretli, burada ikinci bir nokta çizip üst üste bindirmez. */}
           {points.slice(1, -1).map(
-            (point) =>
+            (point, index) =>
               point.inlineElementId === undefined && (
                 <CornerMarker
                   key={point.id}
                   position={point.position}
                   widthCm={toWidthCm(widthPx, zoom)}
                   colorHex={colorHex}
+                  elevationCm={elevationsCm[index + 1]}
                 />
               ),
           )}
         </>
       )}
+
+      {/* Plan boyu SIFIR segment (K98) üstten TEK NOKTA görünür — çizgi yok,
+          kot okunmadan görünmez kalırdı. */}
+      {!isGhost &&
+        firstPoint &&
+        lastPoint &&
+        points.length === 2 &&
+        isSamePoint(firstPoint.position, lastPoint.position) && (
+          <PipeElevationGlyph
+            position={firstPoint.position}
+            fromHeightCm={firstElevationCm ?? 0}
+            toHeightCm={lastElevationCm ?? 0}
+            zoom={zoom}
+          />
+        )}
     </group>
   )
 }

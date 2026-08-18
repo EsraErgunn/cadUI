@@ -304,3 +304,45 @@ yukarı-aşağı dalgalanan bir çizgi, viewBox 40×16). Çapa dalganın TAM ORT
 (`origin: [20, 8]`) — üstte de altta da eşit miktarda dalga var, dikey ayna
 görüntüsü YİNE aynı desen gibi görünür. Bu şekil YAPISI GEREĞİ "ters"
 duramaz: yön belirsizliği doğuran asimetri en baştan yok edildi.
+
+## Kol GERİLİR, ağ peşinden GELMEZ (2026-08 düzeltmesi)
+
+Cihazı sürüklemek kolun KARŞI ucunu, oradan da (kaynak kapanışıyla) ana
+borunun köşesini ve üstündeki otomatik vanayı sürüklüyordu — kol hiç
+esnemiyor, bütün ağ geliyordu.
+
+Sebep `moveTargets.ts` → `getGlueNeighborPointId`: kendi yorumu "orada bir
+ARMATÜR oturuyorsa" derken kod komşuyu KOŞULSUZ ekliyordu. `applianceStub` tam
+iki noktalı olduğu için o "komşu" doğrudan kolun ana boruya tutunan köküydü.
+Artık komşu yalnız `inlineElementId` taşıyorsa eklenir:
+
+- cihaz (`nearestLine`) sürüklenince yalnız kolun cihaz UCU kayar, kök + ana
+  boru + vanası yerinde kalır → kol bağlantı noktasından gerilir;
+- sayaç (`lineEnd`) sürüklenince aradaki otomatik vana HÂLÂ yapışık gelir
+  (o komşu gerçekten armatürlü) — 2026-08'in "branşmanla gelen vana portuna
+  yapışsın" isteği bozulmadı.
+
+`core/__tests__/moveTargets.test.ts` her iki hâli de kilitliyor.
+
+## Tuzak: `isFixedCompanionValve` TÜRE bakmıyordu, filtre kitini donduruyordu (2026-08)
+
+Kullanıcı bildirimi: "filtre kit boru üzerinde hareket etmiyor". Sebep
+sürükleme/kaydırma geometrisi DEĞİL, etkileşim katmanındaki kilit:
+`useSelectionTool` bir elemana basıldığında önce `isFixedCompanionValve` sorar
+ve `true` ise jesti hiç BAŞLATMAZ (sayaç/cihazla gelen otomatik vana fareyle
+taşınamaz kuralı, K-W3).
+
+O sınav ise saf bir KONUM sınavıydı: "düğüm dizinin ilk/son elemanı" ya da
+"porta bağlı bir ucun HEMEN yanında". Servis kutusu/sayaç portuna bağlı bir
+borunun İLK parçasına konan filtre kiti tam bu tarife uyuyor — yani `onLine`
+bir eleman, yalnızca nereye düştüğü yüzünden otomatik vana sanılıp
+donduruluyordu. Aynı şey manometre/izolasyon/süzme sayaç için de geçerliydi.
+
+Düzeltme: fonksiyon artık `elementType` de alıyor ve `ATTACHED_VALVE_TYPE`
+dışındaki her tür için ERKEN `false` dönüyor. Konum sınavı olduğu gibi kaldı.
+`core/__tests__/elementAttach.test.ts` üç hâli kilitliyor (bitişik vana sabit,
+aynı yerdeki filtre kiti serbest, hat ucundaki filtre kiti serbest).
+
+**Genel ders:** "şu eleman özeldir" kuralını KONUMDAN çıkarmak, o konuma
+düşebilen her elemanı sessizce aynı kovaya atar — kural türe aitse tür de
+sorulmalı.

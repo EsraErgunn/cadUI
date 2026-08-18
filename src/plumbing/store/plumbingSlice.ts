@@ -33,6 +33,7 @@ import type {
 import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
+import type { PipeLineProperties } from '../core/lineProperties'
 import { findCollapsiblePassThroughIndex } from '../core/lineSimplify'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
 import { resolveMoveTargets } from '../core/moveTargets'
@@ -56,6 +57,8 @@ export type AddLineInput = {
   /** Uç serbestse verilmez — bağlantı kaydının YOKLUĞU serbest demektir. */
   startTarget?: LineEndAttachment
   endTarget?: LineEndAttachment
+  /** Boru kotu (K98) — hat ile AYNI geçmiş adımında yazılır. */
+  pipe?: PipeLineProperties
 }
 
 /**
@@ -118,6 +121,14 @@ export type PlumbingSlice = {
    * oturan bir armatür (`inlineElementId`) varsa o da birlikte gelir.
    */
   moveLinePoint: (lineId: Id, pointId: Id, position: PlanPoint) => void
+  /**
+   * Özellik panelindeki "Boy (cm)" alanına yazılan hedefe göre boru ucunu
+   * TAŞIR ve bitiş kotunu (K98) TEK adımda günceller — `moveLinePoint` +
+   * `patchLines`'ı ayrı çağırmak iki Ctrl+Z adımı açardı, oysa kullanıcı tek
+   * bir sayı yazdı. Konum hesabı `core/lineElevation.ts` →
+   * `resolvePipeResizeTarget`'ta (saf fonksiyon, testli).
+   */
+  resizePipeEnd: (lineId: Id, endPointId: Id, position: PlanPoint, endHeightCm: number) => void
   /** Bir boru adımını kalıcı hâle getirir; 2 noktadan azı KAYDEDİLMEZ (null döner). */
   addLine: (input: AddLineInput) => AddLineResult | null
   /** Boruya oturan armatür(ler): hedef parça sırayla ayrılır, her düğüme bir eleman biner. */
@@ -406,7 +417,12 @@ export const createPlumbingSlice: StateCreator<
    *  dizinle kuruyor). Çizim ve cihaz kolu aynı yoldan geçer. */
   const pushLine = (
     draft: Pick<CadState, 'installationLines' | 'activeFloorId' | 'nextUniqueId'>,
-    input: { kind: InstallationLineKind; pipeTypeName: PipeTypeName; points: readonly PlanPoint[] },
+    input: {
+      kind: InstallationLineKind
+      pipeTypeName: PipeTypeName
+      points: readonly PlanPoint[]
+      pipe?: PipeLineProperties
+    },
   ): { lineId: Id; pointIds: Id[] } => {
     const points: InstallationLinePoint[] = input.points.map((position) => ({
       id: takeNextId(draft),
@@ -426,6 +442,7 @@ export const createPlumbingSlice: StateCreator<
       pipeTypeName: input.pipeTypeName,
       points,
       segments,
+      ...(input.pipe ? { pipe: input.pipe } : {}),
     })
     return { lineId: id, pointIds: points.map((point) => point.id) }
   }
@@ -686,6 +703,53 @@ export const createPlumbingSlice: StateCreator<
       if (isMoved) record()
     },
 
+    resizePipeEnd: (lineId, endPointId, position, endHeightCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+
+        const linked = getLinkedLinePoints(
+          draft.installationLines,
+          draft.installationConnections,
+          lineId,
+          endPointId,
+        )
+        const anchored = getPortAnchoredPointIds(
+          draft.installationLines,
+          draft.installationConnections,
+        )
+        if (linked.some((link) => anchored.has(link.pointId))) return
+
+        for (const link of linked) {
+          const linkedLine = draft.installationLines.find((candidate) => candidate.id === link.lineId)
+          const point = linkedLine?.points.find((candidate) => candidate.id === link.pointId)
+          if (!point) continue
+          if (point.position.x === position.x && point.position.y === position.y) continue
+
+          point.position = position
+          isChanged = true
+
+          if (point.inlineElementId !== undefined) {
+            const element = draft.installationElements.find(
+              (candidate) => candidate.id === point.inlineElementId,
+            )
+            if (element) element.position = position
+          }
+        }
+
+        if (!line.pipe || line.pipe.endHeightCm !== endHeightCm) {
+          line.pipe = { description: '', startHeightCm: 0, ...line.pipe, endHeightCm }
+          isChanged = true
+        }
+
+        if (isChanged) markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
     // Hat + her nokta + her segment + bağlantı kayıtları TEK set() içinde üretilir:
     // tek geçmiş adımı, tek Ctrl+Z (Risk R11). Bir boru ADIMI = bir adım (K-W).
     addLine: (input) => {
@@ -697,6 +761,7 @@ export const createPlumbingSlice: StateCreator<
           kind: input.kind,
           pipeTypeName: input.pipeTypeName ?? DEFAULT_PIPE_TYPE_NAME,
           points: input.points,
+          pipe: input.pipe,
         })
 
         const attachments = [

@@ -321,7 +321,9 @@ export function resolveOnLineSlide(
 
 /**
  * Sayaç/cihazla BİRLİKTE gelen otomatik vana taşınamaz: ana elemanın konumuna
- * bağlıdır. İki yerleşim şekli var, ikisi de burada tanınır:
+ * bağlıdır. Sınav KONUMA bakar, o yüzden türü de sorulur — aynı yerde duran
+ * başka bir `onLine` eleman bu kurala GİRMEZ. İki yerleşim şekli var, ikisi de
+ * burada tanınır:
  * - `resolveNearestLineAttachment`: vana hattın TAM UCUNDA oturur (hat
  *   uzamaz, cihaz ayrı bir kolla bağlanır) → nokta dizinin ilk/son elemanı.
  * - `resolveFreeEndAttachment`: vana hattın ESKİ ucunda oturur ama hat
@@ -333,7 +335,15 @@ export function isFixedCompanionValve(
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
   elementId: Id,
+  elementType: InstallationElementType,
 ): boolean {
+  // Tür denetimi ÖNCE: kural yalnız otomatik VANA içindir, oysa aşağıdaki sınav
+  // saf KONUM sınavıdır. Türe bakılmadığı sürece boru üstündeki başka bir
+  // `onLine` eleman (filtre kiti, manometre, izolasyon…) yalnızca porta bağlı
+  // bir ucun yanına düştüğü için donuyordu — kullanıcı bildirimi (2026-08):
+  // "filtre kit boru üzerinde hareket etmiyor".
+  if (elementType !== ATTACHED_VALVE_TYPE) return false
+
   for (const line of lines) {
     const index = line.points.findIndex((point) => point.inlineElementId === elementId)
     if (index === -1) continue

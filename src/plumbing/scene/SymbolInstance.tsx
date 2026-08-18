@@ -37,6 +37,8 @@ type SymbolInstanceProps = {
    * her elemana ayrı ref üretilseydi seçim büyüdükçe ref sayısı da büyürdü.
    */
   dragDeltaRef?: RefObject<PlanPoint | null>
+  /** Boruya oturan elemanın kotu (K98) — türetilmiş, store'a yazılmaz. */
+  elevationCm?: number
 }
 
 /**
@@ -80,6 +82,7 @@ export function SymbolInstance({
   tone = 'normal',
   isSelected = false,
   dragDeltaRef,
+  elevationCm = 0,
 }: SymbolInstanceProps) {
   const isGhost = tone === 'ghost'
   const groupRef = useRef<Group>(null)
@@ -103,9 +106,9 @@ export function SymbolInstance({
     () =>
       planToThree(
         rotateDrag?.position ?? element.position,
-        isGhost ? INSTALLATION_GHOST_ELEVATION_CM : SYMBOL_ELEVATION_CM,
+        isGhost ? INSTALLATION_GHOST_ELEVATION_CM : SYMBOL_ELEVATION_CM + elevationCm,
       ),
-    [element.position, rotateDrag?.position, isGhost],
+    [element.position, rotateDrag?.position, isGhost, elevationCm],
   )
   const rotationY = (rotateDrag?.angleDeg ?? element.angleDeg) * DEG_TO_RAD
   const renderOrder = isGhost ? RENDER_ORDER.installationGhost : RENDER_ORDER.equipment
@@ -118,7 +121,7 @@ export function SymbolInstance({
     groupRef.current.position.set(
       ...planToThree(
         { x: element.position.x + delta.x, y: element.position.y + delta.y },
-        SYMBOL_ELEVATION_CM,
+        SYMBOL_ELEVATION_CM + elevationCm,
       ),
     )
   })

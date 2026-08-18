@@ -6,6 +6,7 @@ import { useProjectExport } from './useProjectExport'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
+import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
 import { ServiceBoxDeleteDialog } from '../plumbing/ui/ServiceBoxDeleteDialog'
 import { SceneRoot } from '../scene/SceneRoot'
@@ -107,6 +108,9 @@ export function EditorPage() {
           <main className="relative min-w-0 flex-1 overflow-hidden">
             <SceneRoot />
             <OpeningToolOptions />
+            {/* İki şerit aynı yerde ama asla birlikte görünmez: biri mimari
+                açıklık aracına, öteki tesisat boru aracına (K98) bağlı. */}
+            <PipeElevationInput />
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
                 görünümünde de var (K57); izometrikte çizilecek bir şey yok,
                 orada tuval etkileşimi de yok. */}
