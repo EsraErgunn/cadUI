@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
+import { importEditorPage } from './editorChunk'
 import { LoginPage } from '../pages/LoginPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
 import { AdminLayout } from '../ui/admin/AdminLayout'
@@ -31,7 +32,8 @@ import {
  * gereksiz bir bekleme karesi eklerdi. `AdminLayout` da statik — kabuk her
  * yönetici rotasında zaten gerekli, ayrı parçaya çıkarmak fazladan istek olurdu.
  */
-const EditorPage = lazy(async () => ({ default: (await import('../pages/EditorPage')).EditorPage }))
+// `import()` ifadesi editorChunk.ts'te: detay ekranı da aynı parçayı ısıtıyor.
+const EditorPage = lazy(async () => ({ default: (await importEditorPage()).EditorPage }))
 const RegisterPage = lazy(async () => ({
   default: (await import('../pages/RegisterPage')).RegisterPage,
 }))

@@ -4836,6 +4836,195 @@ kapı/pencere olduğundan dar görünür. Kiriş ve alan nesnesi konturları da 
 `worldUnits` yolunda (AreaObject.tsx, Beam.tsx) — aynı iki kusur onlarda da var,
 ayrıca ele alınacak.
 
+## 2026-08 · Kavşaktaki hale
+
+### K98 — Duvarlarda `alphaToCoverage` KAPALI: kavşaktaki hale bundandı
+
+Duvar `<Line>`'ının kenar yumuşatması artık örtme (coverage) maskesiyle değil,
+materyalin kendi harmanlamasıyla yapılıyor.
+
+Eski yorum "duvarlar tek renk olduğu için çakışan kenarlarda dikiş oluşmaz"
+diyordu ve İKİ duvarın gövdesi kısmen çakışırken bu doğruydu. Gözden kaçan
+durum KAVŞAK: orada birden çok yuvarlak UÇ aynı noktada üst üste biniyor. Her
+uç ayrı bir çizim ve örnek maskesini ekleyerek değil YAZARAK koyuyor; kenar
+alfaları birbirine yakın olduğu için hepsi aşağı yukarı aynı örnek altkümesini
+dolduruyor ve birleşim tam örtmeye ulaşmıyordu. Sonuç: kavşakta zeminin sızdığı,
+duvardan açık renkli bir hale.
+
+Belirti kullanıcıdan geldi ("köşelerde gölgemsi görüntü") ve dört kollu
+kesişimde gözle seçiliyordu; iki kollu L köşesinde eksik örtme çok küçük olduğu
+için fark edilmiyordu.
+
+Kapatmanın bilinen riski shader'ın kenarı sert `discard` etmesi ve yuvarlak
+uçların tırtıklanmasıydı; tarayıcıda bakıldı, uçlar düzgün kaldı (MSAA açık).
+
+⚠️ Bu ayarı geri açan, kavşak halesini de geri getirir.
+
+"Tek duvar çizdim iki oldu" şikâyeti bu haleyle birlikte KAPANDI. Belirtinin
+iki kaynağı varmış ve ikisi de görseldi:
+
+1. Kavşaktaki hale, ayrı bir parça gibi okunuyordu (bu karar).
+2. Aynı parçaya yazılan ikinci ve yanlış sayı (K95'te kaldırılan içten ölçü).
+
+⚠️ "Kıymık duvar" diye bir sorun ÇIKMADI, arama oraya boşuna gitti. Şüphe
+ekrandaki `0,02 m` / `0,10 m` gibi etiketlerden doğmuştu; onlar minicik duvarlar
+değil, `0,42 m` / `0,50 m` ile ÇİFT hâlinde duran bozuk içten ölçülerdi — K74
+komşu kalınlığını düşüp sıfırda kelepçelediği için 42 cm'lik duvar "0,02 m"
+yazıyordu. Ders: bir sayının saçmalığına bakmadan önce yanındaki sayıyla çift
+olup olmadığına bak. Kullanıcı K95+K96 sonrası planı denetledi, 20 cm altında
+parça yok.
+
+## 2026-08 · Sürüklerken kasma: duvar geometrisi kare başına yeniden yükleniyordu
+
+### K99 — `Wall` uçları SAYI olarak alır; kare başına değişen prop React Compiler önbelleğini çöpe atıyordu
+
+Belirti kullanıcıdan geldi: "çizimde kasma". Ölçüldü — 220 duvar / 100 odalı
+planda tek duvarı sürüklerken ortalama kare **156 ms**, yani ~6 fps.
+
+Sebep drei `<Line>`: geometriyi `points` dizisinin KİMLİĞİNE göre kuruyor,
+dizi değişince yeni `LineGeometry` ayırıp GPU tamponunu yükleyip eskisini imha
+ediyor. `Wall` bu diziyi kapsülünden türetiyordu ve kapsülü `pointIndex`'ten
+çözüyordu — `pointIndex` ise sürükleme boyunca HER KARE yeniden kuruluyor
+(`useArchitecturePoints` sürüklenen köşeleri geçici konumla döndürüyor). Sonuç:
+uçları hiç oynamayan duvarların geometrisi de her karede yeniden yükleniyordu.
+
+Çözüm prop sözleşmesini değiştirmek: `Wall` artık `pointIndex` değil dört
+koordinat (`p1x/p1y/p2x/p2y`) alıyor, kapsülü kapsayıcı çözüyor. Uçları
+oynamayan duvarın propları sayı olarak AYNI kaldığı için önbellek tutuyor.
+
+Ölçüm (aynı plan, aynı jest, tarayıcıda):
+
+| | önce | sonra |
+|---|---|---|
+| `bufferData` / kare | 1223,2 | 143,0 |
+| ortalama kare | 156,3 ms | 41,5 ms |
+| en kötü kare | 396,5 ms | 86,1 ms |
+| çizim çağrısı / kare | 379,1 | 379,1 |
+
+⚠️ **Bu projede React Compiler AÇIK** (`vite.config.ts`, `reactCompilerPreset`).
+Elle `useMemo`/`memo` yazmak çoğu yerde GEREKSİZ — derleyici zaten yapıyor.
+İlk teşhis "zoom sırasında geometri çöpü oluyor" idi ve YANLIŞ çıktı: derleyici
+çıktısında dizi zaten `[pointIndex, wall]` anahtarıyla önbellekteydi, zoom onu
+bozmuyordu. Ölçüm eski ve yeni kodu zoom senaryosunda birebir aynı verdi.
+
+**Ders:** derleyici önbelleği, ona verdiğin anahtarlar kadar iyi. Kare başına
+kimliği değişen TEK bir prop (burada `pointIndex`) o bileşendeki tüm
+önbelleklemeyi etkisiz bırakır. Performans ararken "memoize edilmiş mi" diye
+değil, "anahtarı ne kadar sık değişiyor" diye bak.
+
+⚠️ Ölçüm dev sunucuda alındı; kare süreleri koşudan koşuya oynuyor (41–58 ms).
+`bufferData` sayısı ise deterministik, karşılaştırma ona dayanmalı.
+
+Kalan: kare başına 143 tampon yüklemesi ve 379 çizim çağrısı DURUYOR. Bunlar
+duvarlardan değil, oda dolguları/ölçü yazıları/diğer katmanlardan geliyor;
+ayrıca ele alınacak (bkz. knowledge/render-performance.md).
+## 2026-08 · Oda dolgusu kare başına GPU'ya yeniden yükleniyordu
+
+### K100 — Oda dolgu tamponu poligonun DEĞERİNE göre önbellekte
+
+K99'un (duvar çizgisi) aynısının oda tarafı. `RoomShape` dolguyu JSX içinde
+üretiyordu:
+
+```tsx
+<bufferAttribute attach="attributes-position" args={[toFillPositions(fillCorners), 3]} />
+```
+
+`toFillPositions` poligonu üçgenleyip YENİ bir `Float32Array` döndürüyor.
+`fillCorners` ise üstteki `shapes` türetmesinden geliyor ve o `points`'e bağlı —
+sürükleme boyunca her kare değişiyor. Sonuç: sürüklenen duvara komşu OLMAYAN
+odaların dolgusu da her karede yeniden üçgenlenip GPU'ya yükleniyordu.
+
+Çözüm `useStableFillPositions`: tampon poligonun KOORDİNAT DEĞERLERİNDEN
+üretilen bir anahtara göre `useMemo`'lanıyor. Poligon aynı kaldıkça referans
+korunuyor, r3f `bufferAttribute`'u yeniden kurmuyor.
+
+⚠️ `useMemo` bağımlılığı bilerek `fillCorners` DEĞİL `fillKey`; eslint uyarısı
+tek satırlık `eslint-disable-next-line` ile bastırıldı çünkü kural burada yanlış
+şeyi istiyor (kimliğe bakmak önbelleği anlamsız kılar).
+
+⚠️ Ref ile "son değeri sakla" denemesi ÖNCE yapıldı ve BIRAKILDI: bu projede
+`react-hooks/refs` render sırasında ref erişimini HATA sayıyor.
+
+Ölçüm (220 duvar / 100 oda, tek duvar sürüklenirken, tarayıcıda):
+
+| | önce | sonra |
+|---|---|---|
+| `bufferData` / kare (toplam) | 144,7 | 67,4 |
+| bunun oda dolgusu payı | 101,5 | 25,1 |
+
+Pay, odalar kaldırılıp ölçülen taban (42,3) çıkarılarak bulundu. Kalan 25,1
+büyük ölçüde meşru: sürüklenen duvara komşu iki odanın poligonu gerçekten her
+kare değişiyor, ayrıca oda ad/alan etiketi (troika) yeniden diziliyor.
+
+**Ölçü yazıları SORUN DEĞİL — ölçüldü, elendi.** Görünüm ▸ Ölçüler açıkken
+`bufferData` 43,1, kapalıyken 43,2: fark yok. Sadece çizim çağrısı artıyor
+(+34,6) ve kare süresinde ölçülebilir etki görülmedi. Oraya dokunmaya gerek yok.
+
+⚠️ Kare süreleri bu turda raporlanmadı: tarayıcı oturumu ölçüm sırasında
+kısıtlandı (boş sondaj bile 93 ms verdi) ve sayılar koşudan koşuya 20 kat
+oynadı. `bufferData` deterministik kaldı, karşılaştırma ona dayanıyor.
+
+## 2026-08 · Editör geç açılıyordu: bekleme tamamen İNDİRME
+
+### K101 — Editör parçası proje detay ekranında BOŞTA önden indiriliyor
+
+"Editör geç açılıyor" şikâyeti ölçüldü. Üretim derlemesinde (`vite preview`),
+proje detayından "Çizim Editöründe Aç"a basıp tuval görünene kadar:
+
+| | süre |
+|---|---|
+| tıklamadan tuvale (soğuk) | **2220 ms** |
+| bunun sadece parça indirmesi | **2129 ms** |
+| ayrıştırma + WebGL kurulumu + ilk çizim | ~90 ms |
+| tıklamadan tuvale (parça zaten inmişse) | **16 ms** |
+
+Yani beklemenin **%96'sı** 413 KB'lık `EditorPage` parçasını indirmek. Kodun
+ağırlığı, three.js'in kurulması, sahnenin çizilmesi — hiçbiri suçlu değil. Rota
+bazlı kod bölme zaten vardı ve doğruydu; eksik olan, parçanın NE ZAMAN
+indirildiğiydi.
+
+Çözüm: kullanıcı proje detay ekranındayken parçayı boşta indir. Editöre giriş
+K53'ten beri TEK noktada (`ProjectDetailHeader`), yani kullanıcı oradaysa
+editöre girmesi kuvvetle muhtemel.
+
+`src/app/editorChunk.ts` tek kapı: `importEditorPage()` hem `router.tsx`'in
+`lazy()`'si hem ısıtma tarafından çağrılıyor. Ayrı ayrı yazılsaydı biri
+taşındığında öbürü sessizce başka bir parçayı ısıtırdı.
+
+Isıtma `requestIdleCallback` ile boşta çalışır (detay ekranının kendi verisiyle
+yarışmasın), yoksa 300 ms'lik zamanlayıcıya düşer (Safari). Sonuç BEKLENMEZ,
+hata YUTULUR — kullanıcının gördüğü hiçbir şey buna bağlı değil; gerçekten
+gerektiğinde `router.tsx` aynı modülü tekrar ister ve hata Suspense sınırının
+içinde yüzeye çıkar. Efektin temizliği ısıtmayı iptal eder.
+
+Tarayıcıda doğrulandı (yeni derleme, önbellek boş):
+
+| | önce | sonra |
+|---|---|---|
+| tıklamadan tuvale | 2220 ms | **35,5 ms** |
+
+Detay ekranında hiç tıklanmadan parçanın indiği ölçümle görüldü (arka planda
+512,7 ms).
+
+⚠️ Bedeli: editöre hiç girmeyen kullanıcı 413 KB'ı boşa indirir. Detay
+ekranında olmak zaten güçlü bir niyet sinyali olduğu için kabul edildi. Veri
+tasarrufu kipine (`navigator.connection.saveData`) saygı duymak ayrı bir iş
+olarak açık bırakıldı.
+
+⚠️ **Isıtma yalnız DETAY EKRANINDAN geçen kullanıcıyı kurtarır.** Editör
+adresine doğrudan gelen (yer imi, sayfa yenileme, paylaşılan bağlantı) ısıtacak
+bir an bulamaz ve tam indirmeyi bekler — o yolda hâlâ ~2 saniye. Kapatmak
+isteyen, parçayı giriş sonrası kabukta ısıtmalı; o zaman editöre hiç girmeyen
+kullanıcılar da 413 KB indirir, takas bilinçli olarak yapılmadı.
+
+⚠️ Detay ekranında ısıtmanın bitmesine YETECEK kadar kalınmazsa (parça arka
+planda 512 ms sürdü) kullanıcı kalan kısmı bekler. Yine de hiç ısıtmamaktan iyi:
+indirme yarıda kesilmez, kaldığı yerden kullanılır.
+
+⚠️ Bu değişiklik B (mimari) fayının DIŞINDA: `src/app/router.tsx` ve
+`src/ui/admin/projectDetail/`. Ölçüm B tarafında çıktığı için burada yapıldı,
+gözden geçirmesi A'ya ait.
+
 ## 2026-08 · Boruya düşey eksen — ikinci deneme, temizinden
 
 ### K102 — Ayrı `riser` kind yerine var olan `pipe.startHeightCm/endHeightCm`

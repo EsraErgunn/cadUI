@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -66,8 +66,12 @@ describe('FloorCopyDialog — kaynak ve içerik (KK-15)', () => {
 
     // Satır koşullu değil: madde 15 kaynak özetini ÜÇ satır olarak tanımlıyor,
     // "yok" da bir cevap — satırın kaybolması kullanıcıya soru bıraktırırdı.
-    expect(screen.getByText('Düşey')).toBeInTheDocument()
-    expect(screen.getByText('yok')).toBeInTheDocument()
+    // Sorgu SATIRA daraltılıyor: varsayılan sahnede hem "Tesisat" hem "Düşey"
+    // satırı "yok" yazıyor, düz metin sorgusu ikisini birden bulup hata veriyordu.
+    const label = screen.getByText('Düşey')
+    const row = label.parentElement
+    expect(row).not.toBeNull()
+    expect(within(row!).getByText('yok')).toBeInTheDocument()
   })
 
   it('baca şaftı ve kolon havalandırmasını "Düşey" satırında adıyla sayar', () => {

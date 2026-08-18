@@ -140,3 +140,62 @@ export function getRoomLabelAnchor(corners: readonly PlanPoint[]): PlanPoint {
 export function toSquareMetres(areaCm2: number): number {
   return areaCm2 / CM2_PER_M2
 }
+
+/**
+ * Rozetin ÖLÇÜLERİ — `scene/RoomLabel.tsx` ile elle senkron tutulur.
+ *
+ * Gerçek genişlik troika'nın yazıyı dizmesinden çıkıyor ama core troika'yı (ve
+ * DOM'u) tanımaz; tutma dikdörtgeni için kaba tahmin yeter — `textLabel.ts`
+ * ile aynı yaklaşım ve aynı karakter oranı.
+ */
+const NAME_SIZE_CM = 26
+const AREA_SIZE_CM = 20
+const LINE_GAP_CM = 6
+const BADGE_PADDING_X_CM = 22
+const BADGE_PADDING_Y_CM = 14
+/** Harf genişliğinin yüksekliğe oranı (Roboto ~0.55, cömert tarafa yuvarlandı). */
+const CHARACTER_WIDTH_RATIO = 0.6
+/** "999.99 m²" — alan satırı ad kısa olsa da rozeti bu kadar geniş tutar. */
+const AREA_TEXT_LENGTH = 9
+
+/**
+ * Oda ad rozetinin çapa noktasına göre yarım ölçüleri. Rozet DÖNMEZ (etiket hep
+ * ekrana paralel), bu yüzden eksen hizalı bir kutu yeterli.
+ *
+ * Ad `anchorY="bottom"` ile çapanın ÜSTÜNDE, alan satırı `anchorY="top"` ile
+ * altında duruyor; kutu bu yüzden çapa etrafında simetrik DEĞİL.
+ */
+export function getRoomLabelBounds(name: string): {
+  halfWidthCm: number
+  aboveCm: number
+  belowCm: number
+} {
+  const nameWidthCm = name.length * NAME_SIZE_CM * CHARACTER_WIDTH_RATIO
+  const areaWidthCm = AREA_TEXT_LENGTH * AREA_SIZE_CM * CHARACTER_WIDTH_RATIO
+
+  return {
+    halfWidthCm: Math.max(nameWidthCm, areaWidthCm) / 2 + BADGE_PADDING_X_CM,
+    aboveCm: NAME_SIZE_CM + BADGE_PADDING_Y_CM,
+    belowCm: LINE_GAP_CM + AREA_SIZE_CM + BADGE_PADDING_Y_CM,
+  }
+}
+
+/**
+ * İmleç bir oda ad rozetinin üstünde mi? Üstündeyse jest ETİKETİNDİR: çerçeve
+ * seçimi başlamamalı, çünkü rozet tuvalde serbest duran bir hedef ve öncelik
+ * zincirine kaydedilmezse "boşluk" sayılır (K44'ün tekrar eden dersi; alan
+ * nesnesi ad etiketi ve metin de aynı sebeple zincire eklenmişti).
+ */
+export function isPointInRoomLabel(
+  target: PlanPoint,
+  anchor: PlanPoint,
+  name: string,
+): boolean {
+  const { halfWidthCm, aboveCm, belowCm } = getRoomLabelBounds(name)
+
+  return (
+    Math.abs(target.x - anchor.x) <= halfWidthCm &&
+    target.y - anchor.y <= aboveCm &&
+    anchor.y - target.y <= belowCm
+  )
+}

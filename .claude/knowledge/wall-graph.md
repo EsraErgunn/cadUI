@@ -117,3 +117,14 @@ açıklık öbür uçta aranır.
   ileride "seçili iki parçayı birleştir" komutu gerekebilir.
 - **Maliyet duvar sayısında karesel.** Çizim ölçeğinde sorun değil; büyürse
   rbush ile aday daraltma gerekir (geometry SKILL'i).
+
+## gotcha: kavşakta `alphaToCoverage` hale yapar (K98)
+
+`scene/Wall.tsx` duvarları drei `<Line>` + `worldUnits` ile çiziyor.
+`alphaToCoverage` AÇIK olmamalı: kavşakta birden çok yuvarlak UÇ üst üste
+biniyor, her uç örnek maskesini ekleyerek değil yazarak koyuyor ve benzer kenar
+alfaları aynı altkümeyi doldurduğu için birleşim tam örtmüyor — kavşakta
+duvardan açık renkli bir hale kalıyor.
+
+Tek duvarın gövdesinde sorun görünmez; belirti yalnız 3–4 kollu kavşakta okunur.
+Kapalıyken uçlar tırtıklanmıyor (MSAA açık), yani takas yok.

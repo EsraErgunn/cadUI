@@ -354,3 +354,26 @@ scene/useAreaObjectSelectionTool.ts · scene/AreaObject.tsx ·
 scene/ArchitectureLayer.tsx · ui/properties/AreaObjectProperties.tsx ·
 ui/PropertyPanel.tsx · (ilgisiz düzeltme) ui/floors/useFloorPlanDraft.ts ·
 docs/sample-project.json
+
+## Boyutlandırma sabit köşenin ÖTESİNE geçebilir
+
+`resizeAreaObjectFromCorner` (core/areaObjectHandles.ts) dört tipin de ORTAK
+yolu: kolon, baca şaftı, kolon havalandırması, merdiven. Düzeltme burada
+yapıldı, tip başına değil.
+
+İmleç sabit köşeyi (sol-üst) geçince nesne karşı yöne büyümeye DEVAM eder:
+100 → 0 → 100 kesintisiz. Eskiden izdüşüm `Math.max(minSize, ...)` ile
+kelepçeleniyordu ve nesne sıfırda kilitleniyordu — kullanıcı yalnız sağa ve
+aşağı boyutlandırabiliyordu.
+
+⚠️ **Genişlik/uzunluk her zaman POZİTİF.** Yön negatif ölçüyle değil, MERKEZE
+uygulanan işaretle taşınır (`widthSign`/`lengthSign`). Negatif ölçü modele
+girseydi sınır kutusu, çarpışma sınavı ve geometri üretimi bozulurdu — hepsi
+pozitif ölçü varsayıyor.
+
+İki eksen BAĞIMSIZ: yalnız yatayda geçmek dikeyi çevirmez. Daire tipinde de
+çalışır (çap iki izdüşümün büyüğü, K52), merkez imlecin bulunduğu çeyreğe geçer.
+
+Sabit köşe sürükleme boyunca kaymaz çünkü `useAreaObjectHandleTool` her karede
+basış anındaki şekilden (`grab.origin`) hesaplıyor; canlı şekilden hesaplansaydı
+çevirme anında çapa kayardı.

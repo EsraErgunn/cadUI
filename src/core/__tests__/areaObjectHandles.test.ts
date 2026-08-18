@@ -198,13 +198,15 @@ describe('resizeAreaObjectFromCorner', () => {
     expect(fixedAfter.y).toBeCloseTo(fixedBefore.y, 5)
   })
 
-  it('imleç sabit köşenin ötesine geçse bile boyut en az sınırın altına düşmez', () => {
+  it('boyut asgari sınırın altına düşmez — imleç TAM sabit köşedeyken', () => {
+    // Ötesine geçmek artık nesneyi karşı yöne büyütüyor (aşağıdaki describe);
+    // asgari sınır yalnız köşenin TAM üstünde, iki izdüşüm de sıfırken devrede.
     const object = makeAreaObject()
 
     const next = resizeAreaObjectFromCorner(
       'structuralColumn',
       object,
-      { x: -200, y: 200 },
+      { x: -50, y: 50 },
       MIN_AREA_OBJECT_SIZE_CM,
       ZOOM,
     )
@@ -259,5 +261,72 @@ describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır
 
     expect(next.widthCm).toBeCloseTo(100, 6)
     expect(next.lengthCm).toBeCloseTo(200, 6)
+  })
+})
+
+/**
+ * İmleç sabit köşeyi geçince nesne karşı yöne büyümeye devam eder; eskiden
+ * asgari boyda kilitleniyor ve yalnız sağa/aşağı boyutlandırılabiliyordu.
+ *
+ * Fixture 100×100, merkezi orijinde, açı 0 → sabit köşe (sol-üst) = (-50, 50).
+ */
+describe('resizeAreaObjectFromCorner — sabit köşenin ÖTESİNE geçiş', () => {
+  const resize = (target: { x: number; y: number }, type: AreaObject['type'] = 'structuralColumn') =>
+    resizeAreaObjectFromCorner(type, makeAreaObject(), target, MIN_AREA_OBJECT_SIZE_CM, ZOOM)
+
+  it('yatayda karşı tarafa geçince SOLA büyür, sağ kenarı sabit köşede kalır', () => {
+    const next = resize({ x: -150, y: -150 })
+
+    expect(next.widthCm).toBe(100)
+    // Merkez sabit köşenin SOLUNDA: nesne -150 ile -50 arasında.
+    expect(next.x).toBe(-100)
+    expect(next.x + next.widthCm / 2).toBe(-50)
+  })
+
+  it('dikeyde karşı tarafa geçince YUKARI büyür, alt kenarı sabit köşede kalır', () => {
+    const next = resize({ x: 150, y: 150 })
+
+    expect(next.lengthCm).toBe(100)
+    expect(next.y).toBe(100)
+    expect(next.y - next.lengthCm / 2).toBe(50)
+  })
+
+  it('iki eksende birden geçilebilir', () => {
+    const next = resize({ x: -150, y: 150 })
+
+    expect(next).toMatchObject({ x: -100, y: 100, widthCm: 100, lengthCm: 100 })
+  })
+
+  it('eksenler BAĞIMSIZ: yalnız yatayda geçmek dikeyi çevirmez', () => {
+    const next = resize({ x: -150, y: -150 })
+
+    // Uzunluk hâlâ sabit köşenin altına doğru.
+    expect(next.y - next.lengthCm / 2).toBeLessThan(50)
+  })
+
+  it('sıfırdan geçiş KESİNTİSİZ: genişlik 100 → 0 → 100', () => {
+    // Sabit köşe x = -50; imleç sağdan sola yürüyor.
+    const widths = [50, -10, -50, -90, -150].map((x) => resize({ x, y: -150 }).widthCm)
+
+    // 100 → 40 → (asgari) → 40 → 100: sıfırda kilitlenmiyor, karşı yönde büyüyor.
+    expect(widths[0]).toBe(100)
+    expect(widths[1]).toBe(40)
+    expect(widths[2]).toBe(MIN_AREA_OBJECT_SIZE_CM)
+    expect(widths[3]).toBe(40)
+    expect(widths[4]).toBe(100)
+  })
+
+  it('daire tipinde de çalışır: çap pozitif, merkez karşı tarafa geçer', () => {
+    const next = resize({ x: -150, y: -150 }, 'columnVentilation')
+
+    expect(next.widthCm).toBe(next.lengthCm)
+    expect(next.widthCm).toBeGreaterThan(0)
+    expect(next.x).toBeLessThan(-50)
+  })
+
+  it('geçilmediğinde davranış AYNI kalır (gerileme koruması)', () => {
+    const next = resize({ x: 150, y: -150 })
+
+    expect(next).toMatchObject({ x: 50, y: -50, widthCm: 200, lengthCm: 200 })
   })
 })
