@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { addWall, resetEmpty } from './roomFixture'
-import { findWallMoveBlocker } from '../../core/wallMoveValidity'
+import { findWallMoveBlocker } from '../architectureWallMoveValidity'
 import { useCadStore } from '../cadStore'
 
 /**
@@ -28,8 +28,7 @@ function drawTJunction() {
 }
 
 function blocker(wallId: number, dxCm: number, dyCm: number) {
-  const state = useCadStore.getState()
-  return findWallMoveBlocker(state.walls, state.points, wallId, dxCm, dyCm, state.activeFloorId)
+  return findWallMoveBlocker(useCadStore.getState(), wallId, dxCm, dyCm)
 }
 
 describe('T kavşağında duvar taşıma (K103)', () => {

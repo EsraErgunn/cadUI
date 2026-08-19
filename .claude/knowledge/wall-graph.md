@@ -244,3 +244,53 @@ geçersiz bölgeye kadar izliyor, kopmuş hâli gösteriyor, sonra geri atıyord
 mantığı geçerli. Burada engel yönün kendisinde, yapışkanlık kilitliyordu.
 
 ⚠️ Kare başına sınama: maliyet duvar sayısında doğrusal.
+
+
+## Denetim ARA duruma değil GERÇEK sonuca bakar (K107)
+
+Öteleme boru hattı tek gövdede: `store/architectureWallMoveValidity.ts` →
+`runWallOffsetInDraft` = geometri → köşe kaynatma → açıklık budama → kavşak
+bölme → eş doğrultulu birleştirme → oda hesabı.
+
+- `offsetWall` bunu store'a YAZMAK için çağırır.
+- `findWallMoveBlocker` ATILABİLİR bir kopyada DENEMEK için çağırır.
+
+Tek gövde olması şart: denetim kendi sırasını izleseydi kabul ettiği çizim ile
+yazılan çizim ayrışırdı — K103'te bir kez yaşandı.
+
+Engeller sonuca sorulur: `collapse` (temizlikten SAĞ ÇIKAN kısa duvar),
+`freeEnd` (uç havada), `roomLost` (var olan oda yok oldu). Serbest uç oda
+kaybından ÖNCE sorulur; duvarı havada bırakan taşıma çevrimi de kopardığı için
+ikisi birden doğru çıkıyor ve asıl kusur serbest uçtur.
+
+Düzelttiği hata: çıkıntılı odanın üst duvarı komşularının hizasına
+oturtulamıyordu. Hizada çıkıntı duvarları sıfır boya iniyor, eski denetim bunu
+`collapse` sayıyordu — oysa kaynatma onları temizliyor ve üç oda da yaşıyor.
+
+⚠️ Kopya ÖĞE ÖĞE alınır, yalnız diziler değil: boru hattı nokta koordinatını,
+duvar ucunu ve açıklık offset'ini YERİNDE değiştiriyor. Sığ dizi kopyası
+bırakılsaydı denetim hiç onaylanmamış bir hareketi gerçek store'a yazardı.
+
+⚠️ Önizleme `core/wallMoveDraft.ts` → `applyWallMove` temizliği KOŞTURMAZ,
+yalnız geometriyi üretir; çıktısı geçerlilik kararına dayanak OLAMAZ. Eski adı
+`core/wallMoveValidity.ts` idi, bu adla kod yazma.
+
+⚠️ Kare başına tam boru hattı koşuyor (kopya + bölme + oda hesabı). K105'in
+"maliyet duvar sayısında doğrusal" notu artık iyimser; ölçülmesi gereken açık iş.
+
+⚠️ `roomLost` oda SAYISINA bakar, KİMLİĞE değil. Oda id'si taşımada meşru
+biçimde değişebiliyor (K106 eşleştirmesi duvar kümesi çok oynayınca tutmuyor);
+kimliğe bakan denetim paylaşılan duvarı olan iki odada duvarı tamamen
+kilitlemişti. Ölçüm: id [12,20] → [12,25], oda sayısı 2 → 2.
+
+
+## Açıklık/sembol de önizleme duvarından çözülür (K108)
+
+Duvar ÇİZEN ya da duvara OTURAN her şey `useArchitectureDraft()` kullanmalı —
+hem nokta hem duvar. Yalnız noktayı almak (`useArchitecturePoints`) kopmayı
+GÖRMEZ: kopan komşu store'da özgün köşeye bakar, o köşe draft'ta taşınmıştır ve
+açıklık taşınan köşeye uzanan hayali bir duvara oturup eğilir (kullanıcı
+bildirimi: yan duvarlardaki kapı/pencereler sürüklerken eğiliyor, bırakınca
+düzeliyordu).
+
+`useArchitecturePoints` yalnız NOKTA çizen yerde doğru (`PointHandle`).

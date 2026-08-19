@@ -6,11 +6,7 @@ import type { AddOpeningInput, OpeningTarget } from './architectureOpeningOps'
 import { createPropertyActions } from './architecturePropertyOps'
 import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
-import {
-  mergeCoincidentPointsInDraft,
-  mergeCollinearWallsInDraft,
-} from './architectureWallMerge'
-import { applyWallOffsetInDraft } from './architectureWallOffset'
+import { runWallOffsetInDraft } from './architectureWallMoveValidity'
 import {
   appendWall,
   appendWallChain,
@@ -153,21 +149,12 @@ export const createArchitectureSlice: StateCreator<
   offsetWall: (wallId, dxCm, dyCm) => {
     let isApplied = false
     set((draft) => {
-      isApplied = applyWallOffsetInDraft(draft, wallId, dxCm, dyCm)
+      // Geometri, temizlik ve oda hesabının SIRASI burada değil boru hattında:
+      // geçerlilik denetimi de aynı gövdeyi atılabilir bir kopyada koşturuyor,
+      // böylece kabul edilen çizim ile yazılan çizim ayrışamıyor (K107).
+      isApplied = runWallOffsetInDraft(draft, wallId, dxCm, dyCm)
       if (!isApplied) return
 
-      // Kopan köşe eski yerine döndüyse klonunun üstüne gelmiştir: aynı yerdeki
-      // iki nokta grafı kopuk bırakır (K24 ilkesi), önce kaynatılır.
-      mergeCoincidentPointsInDraft(draft)
-      // Komşu duvarlar kısalmış olabilir; sığmayan açıklık aynı adımda düşer (K16).
-      pruneOpeningsInDraft(draft)
-      // Taşınan duvar başkalarının üstünden geçmiş olabilir (K24).
-      splitWallsAtIntersections(draft)
-      // Bölmeden SONRA: önceki taşımaların bıraktığı gereksiz ara düğümler
-      // temizlenir, yoksa komşu kenar her harekette bir parça daha artardı.
-      mergeCollinearWallsInDraft(draft)
-      // Oda çevrimi bölünmüş VE birleştirilmiş duvarları görmeli (K31).
-      recomputeRoomsInDraft(draft)
       markDirty(draft)
     })
     return isApplied
