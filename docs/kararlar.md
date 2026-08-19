@@ -5514,3 +5514,45 @@ Liste DTO'su kullanıcı adı taşımıyor (`CreatedByUserId` yansımıyor), bu 
 satırda tarih + etiketten fazlası YOK. "Kim kaydetti" istenirse önce uç
 değişmeli — uydurulmadı.
 
+## 2026-08 · Çıkışta kaydedilmemiş değişiklik uyarısı
+
+### K110 — Uyarı İKİ ayrı mekanizmayla; biri ötekinin yerini tutmuyor
+
+Ürün kuralı tek cümle ("kaydedilmemiş değişiklik varsa kullanıcı uyarılır") ama
+editörden iki farklı şekilde çıkılıyor ve tek bir kanca ikisini birden
+yakalamıyor:
+
+- **Sekme kapatma / yenileme / adres çubuğu** → `beforeunload`
+  (`useUnsavedChangesWarning`). Tarayıcı kendi genel sorusunu sorar; özel metin
+  yazılmıyor çünkü tarayıcılar onu yok sayıyor.
+- **"← Projeler" / Dosya ▸ Kapat** → editörün kendi onay penceresi. `beforeunload`
+  burada HİÇ tetiklenmez: yalnız belge boşaltılırken çalışıyor, React Router
+  gezinmesi belgeyi boşaltmıyor.
+
+`useBlocker` kullanılamadı — router `BrowserRouter`, veri router'ı değil. Bu bir
+kayıp değil: editörden çıkışın tek yolu "Projeler"/"Kapat" ve o eylem zaten tek
+yerde toplanmış (`useCloseEditor`, KK-10.3).
+
+**Dinleyici yalnız kirliyken kuruluyor.** Sürekli kayıtlı bir `beforeunload`
+bazı tarayıcılarda geri-ileri önbelleğini (bfcache) devre dışı bırakıyor; ayrıca
+temiz projeden çıkarken soru sordurma riski taşıyor.
+
+**Pencerede üç seçenek var, iki değil:** Vazgeç / Kaydetmeden Çık /
+**Kaydet ve Çık**. Üçüncüsü olmasaydı kullanıcı pencereyi kapatıp Kaydet'e
+basmak ve çıkışı tekrarlamak zorundaydı — uyarının amacı işi kurtarmak,
+kullanıcıyı geri yollamak değil. "Kaydet ve Çık" YALNIZ sunucu kaydı kabul
+edince çıkıyor; başarısız kayıtta çıkılsaydı kurtarılmaya çalışılan iş tam da
+orada kaybolurdu. Hata pencerenin İÇİNDE gösteriliyor, üst bardaki şerit
+pencerenin arkasında kalıyor.
+
+**Temizken soru sorulmaz.** Her çıkışta pencere açmak uyarıyı gürültüye çevirir
+ve kullanıcı okumadan kapatmayı öğrenir. Kirlilik ölçütü içerik karşılaştırması
+(K94), sayaç değil — "çiz + Ctrl+Z" yapan kullanıcı çıkarken uyarı almıyor.
+
+⚠️ Akış `EditorPage`'in içinde bırakılmadı (`useEditorExit`): orada kalsaydı
+dallanmayı sınamak için tüm R3F sahnesini kurmak gerekirdi.
+
+⚠️ Penceredeki hata `hasSaveFailed` ile kapılı. `useProjectPersistence.error`
+daha eski bir yükleme hatasını da taşıyabiliyor ve pencere açılır açılmaz
+alakasız bir uyarı göstermek soruyu bulandırırdı.
+

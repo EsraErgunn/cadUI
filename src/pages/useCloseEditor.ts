@@ -6,9 +6,11 @@ export const PROJECT_LIST_PATH = '/projects'
  * "← Projeler" butonu ve Dosya > Kapat aynı akışı tetikler (KK-10.3);
  * tek yerde durması ikisinin zamanla ayrışmasını önler.
  *
- * Onay istenmiyor çünkü selectIsProjectDirty bu issue'da her zaman false döner
- * (KK-10.2). Tarayıcı geri tuşu ve yenileme de engellenmez (KK-10.4) — bunun için
- * bilerek beforeunload/blocker KAYDEDİLMİYOR.
+ * Bu hook yalnız GEZİNİR; kaydedilmemiş değişiklik onayı çağıranda
+ * (EditorPage → UnsavedChangesDialog). Ayrım bilinçli: "çıkmayı iste" ile
+ * "çık" farklı adımlar, onay penceresinin "Kaydetmeden Çık" düğmesi de sonuçta
+ * buraya geliyor. Tarayıcı kapatma/yenileme ayrı yoldan uyarılıyor
+ * (`useUnsavedChangesWarning`) — `beforeunload` router gezinmesinde tetiklenmez.
  */
 export function useCloseEditor(): () => void {
   const navigate = useNavigate()
