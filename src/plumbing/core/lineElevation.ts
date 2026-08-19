@@ -16,6 +16,14 @@ const MAX_PIPE_HEIGHT_CM = 2000
  */
 export const GAS_METER_DEFAULT_HEIGHT_CM = 200
 
+/**
+ * Servis kutusundan çıkan İLK boru ve sayaç ÇIKIŞINDAN devam eden branşman
+ * borusunun varsayılan başlangıç kotu (kullanıcı isteği, 2026-08): sayaçla
+ * (`GAS_METER_DEFAULT_HEIGHT_CM`) AYNI değer — saha uygulamasında boru zaten
+ * duvar hizasında ~2 m'de gider, sıfırdan başlayıp sayaçta aniden zıplamaz.
+ */
+export const PIPE_SEED_HEIGHT_CM = GAS_METER_DEFAULT_HEIGHT_CM
+
 export function clampPipeHeightCm(heightCm: number): number {
   if (heightCm > MAX_PIPE_HEIGHT_CM) return MAX_PIPE_HEIGHT_CM
   if (heightCm < -MAX_PIPE_HEIGHT_CM) return -MAX_PIPE_HEIGHT_CM

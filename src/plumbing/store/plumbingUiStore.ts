@@ -76,14 +76,14 @@ export type LineDraft = LineChain & {
  */
 export type Measurement = { start: PlanPoint; end: PlanPoint | null }
 
-/**
- * Servis kutusu silme onayı beklerken tutulan kapsam — `deletionActions.ts` →
- * `requestSelectionDeletion` tarafından ÖNCEDEN hesaplanır (kutuya bağlı TÜM
- * gaz ağı, bkz. `core/installationReachability.ts`). Silme iki ayrı yerden
- * tetiklenebildiği için (klavye Delete, panel "Sil" düğmesi) tek karar noktası
- * burada — ikisi ayrı yerel state tutsaydı biri onay istemeyi unuturdu.
- */
-export type PendingServiceBoxDeletion = { elementIds: Id[]; lineIds: Id[] }
+/** Kaskad gerektiren silme onayı beklerken tutulan kapsam (`deletionActions.ts` →
+ * `requestSelectionDeletion` önceden hesaplar: servis kutusu = bağlı TÜM gaz
+ * ağı, sayaç = çıkışındaki alt ağ). `kind` diyalog metnini seçer. */
+export type PendingCascadeDeletion = {
+  kind: 'serviceBox' | 'gasMeter'
+  elementIds: Id[]
+  lineIds: Id[]
+}
 
 /**
  * `commitDraftFloorLink` (`floorLinkActions.ts`) hedef kata geçtiğinde
@@ -155,10 +155,10 @@ type PlumbingUiState = {
   /** symbolLoader.ts'in doldurduğu asset hataları — sessiz catch yerine görünür durum. */
   assetErrors: Partial<Record<InstallationElementType, string>>
   setAssetError: (type: InstallationElementType, message: string) => void
-  /** Onay bekleyen servis kutusu silme kapsamı; boş = diyalog kapalı. */
-  pendingServiceBoxDeletion: PendingServiceBoxDeletion | null
-  requestServiceBoxDeletion: (request: PendingServiceBoxDeletion) => void
-  cancelServiceBoxDeletion: () => void
+  /** Onay bekleyen kaskad silme kapsamı; boş = diyalog kapalı. */
+  pendingCascadeDeletion: PendingCascadeDeletion | null
+  requestCascadeDeletion: (request: PendingCascadeDeletion) => void
+  cancelCascadeDeletion: () => void
   /** Yarım kalan kat bağlantısı; boş = beklenen yok (bkz. `PendingFloorLink`). */
   pendingFloorLink: PendingFloorLink | null
   setPendingFloorLink: (link: PendingFloorLink | null) => void
@@ -195,7 +195,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     pasteStepCount: 0,
     measurement: null,
     assetErrors: {},
-    pendingServiceBoxDeletion: null,
+    pendingCascadeDeletion: null,
     pendingFloorLink: null,
 
     setSelectedElements: (elementIds) =>
@@ -312,14 +312,14 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
         draft.assetErrors[type] = message
       }),
 
-    requestServiceBoxDeletion: (request) =>
+    requestCascadeDeletion: (request) =>
       set((draft) => {
-        draft.pendingServiceBoxDeletion = request
+        draft.pendingCascadeDeletion = request
       }),
 
-    cancelServiceBoxDeletion: () =>
+    cancelCascadeDeletion: () =>
       set((draft) => {
-        draft.pendingServiceBoxDeletion = null
+        draft.pendingCascadeDeletion = null
       }),
 
     setPendingFloorLink: (link) =>

@@ -15,6 +15,7 @@ import { resolveFreeEndAttachment } from '../core/elementAttach'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { advanceChain, startChain } from '../core/lineChain'
+import { PIPE_SEED_HEIGHT_CM } from '../core/lineElevation'
 import { isSamePoint } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
@@ -241,7 +242,13 @@ export function useLineTool(): LineToolState {
 
       return {
         kind,
-        ...startChain(startPoint, { kind: 'port', elementId, portId: seedPort.id }),
+        // Servis kutusundan çıkan İLK boru varsayılan kotu 200cm'de başlar
+        // (kullanıcı isteği, 2026-08) — sayaçla aynı değer, bkz. PIPE_SEED_HEIGHT_CM.
+        ...startChain(
+          startPoint,
+          { kind: 'port', elementId, portId: seedPort.id },
+          PIPE_SEED_HEIGHT_CM,
+        ),
       }
     }
 
@@ -306,14 +313,16 @@ export function useLineTool(): LineToolState {
         return
       }
 
-      // Boru sayacın ÇIKIŞ portundan başlar (yukarıdaki nota bkz.).
+      // Boru sayacın ÇIKIŞ portundan başlar (yukarıdaki nota bkz.); varsayılan
+      // kot sayacın mont kotuyla AYNI (PIPE_SEED_HEIGHT_CM) — sıfırdan başlayıp
+      // sayaçta aniden zıplamaz.
       writeDraft({
         kind: 'branch',
-        ...startChain(getPortWorldPosition(meter, outputPort, metadata), {
-          kind: 'port',
-          elementId: meterId,
-          portId: outputPort.id,
-        }),
+        ...startChain(
+          getPortWorldPosition(meter, outputPort, metadata),
+          { kind: 'port', elementId: meterId, portId: outputPort.id },
+          PIPE_SEED_HEIGHT_CM,
+        ),
       })
     }
 

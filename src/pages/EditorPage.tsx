@@ -6,9 +6,9 @@ import { useProjectExport } from './useProjectExport'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
+import { CascadeDeleteDialog } from '../plumbing/ui/CascadeDeleteDialog'
 import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
-import { ServiceBoxDeleteDialog } from '../plumbing/ui/ServiceBoxDeleteDialog'
 import { SceneRoot } from '../scene/SceneRoot'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -135,7 +135,7 @@ export function EditorPage() {
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
 
-      <ServiceBoxDeleteDialog />
+      <CascadeDeleteDialog />
     </div>
   )
 }

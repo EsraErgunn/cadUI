@@ -50,6 +50,8 @@ type MeterSubtree = {
   pipeTypeName: PipeTypeName | null
   fittingElementIds: Id[]
   devices: MeterReportDevice[]
+  /** Sayacın ÇIKIŞINDAN erişilen borular — kaskad silmede kullanılır (bkz. `collectMeterDownstreamInstallation`). */
+  lineIds: Id[]
 }
 
 /** Gaz TAŞIMAYAN hat türleri izlenmez (baca/havalandırma — CLAUDE.md K27/webcad-format). */
@@ -143,7 +145,7 @@ function traceMeterSubtree(
   connections: readonly InstallationConnection[],
 ): MeterSubtree {
   const outConnection = findOutConnection(connections, meterId)
-  if (!outConnection) return { pipeTypeName: null, fittingElementIds: [], devices: [] }
+  if (!outConnection) return { pipeTypeName: null, fittingElementIds: [], devices: [], lineIds: [] }
 
   const visitedLineIds = new Set<Id>()
   const visitedElementIds = new Set<Id>([meterId])
@@ -217,7 +219,22 @@ function traceMeterSubtree(
     if (endId !== undefined) handleEnd(lineId, 'end', endId)
   }
 
-  return { pipeTypeName, fittingElementIds, devices }
+  return { pipeTypeName, fittingElementIds, devices, lineIds: [...visitedLineIds] }
+}
+
+/** Sayaç silme kaskadı: ÇIKIŞINDAN erişilen ağ (armatür/cihaz/boru) da gider —
+ * sayaç dalın tek girişi, komşu sayaca geçilmez (`traceMeterSubtree` kuralı). */
+export function collectMeterDownstreamInstallation(
+  meterId: Id,
+  elements: readonly InstallationElement[],
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): { elementIds: Id[]; lineIds: Id[] } {
+  const subtree = traceMeterSubtree(meterId, elements, lines, connections)
+  return {
+    elementIds: [meterId, ...subtree.fittingElementIds, ...subtree.devices.map((d) => d.elementId)],
+    lineIds: subtree.lineIds,
+  }
 }
 
 /**

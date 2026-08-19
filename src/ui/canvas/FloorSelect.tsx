@@ -74,8 +74,9 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Etiket "Katlar" + kat SAYISI; aktif katın adı açılırın içinde işaretli
-          duruyor. Kalkan "Katlar" menüsündeki rozet de buraya geldi. */}
+      {/* Düğme metni aktif kat adı (hangi kattayız her an görünür kalsın diye) +
+          kat SAYISI; açılırda da aynı kat işaretli duruyor. Kalkan "Katlar"
+          menüsündeki rozet de buraya geldi. */}
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -86,7 +87,7 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
         className={canvasBarButtonVariants({ shape: 'label', tone: isOpen ? 'active' : 'plain' })}
       >
         <Layers size={16} strokeWidth={1.8} aria-hidden />
-        Katlar
+        {activeFloorName || 'Katlar'}
         <span className="text-xs font-semibold text-ink-disabled">{floors.length}</span>
         <ChevronDown size={14} strokeWidth={2} aria-hidden />
       </button>
