@@ -1,6 +1,13 @@
 import { LoaderCircle } from 'lucide-react'
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import {
+  Navigate,
+  Outlet,
+  Route,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+} from 'react-router-dom'
 
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
 import { importEditorPage } from './editorChunk'
@@ -103,109 +110,127 @@ function RouteFallback() {
   )
 }
 
-export function AppRouter() {
+/**
+ * Tek sınır: hangi rotaya gidilirse gidilsin parçası inerken aynı ara ekran
+ * görünür, her rotaya ayrı Suspense sarmak gerekmiyor. Veri router'ında
+ * `<Routes>` sarmalayıcısı olmadığı için KÖK ROTA'nın elemanı olarak duruyor.
+ */
+function SuspenseLayout() {
   return (
-    <BrowserRouter>
-      {/* Tek sınır: hangi rotaya gidilirse gidilsin parçası inerken aynı ara
-          ekran görünür, her rotaya ayrı Suspense sarmak gerekmiyor. */}
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
-        {/* Korumasız olan YALNIZ bu ikisi; gerisi RequireAuth'un altında. */}
-        <Route path={LOGIN_PATH} element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <Suspense fallback={<RouteFallback />}>
+      <Outlet />
+    </Suspense>
+  )
+}
 
-        {/* Proje listesi yönetici kabuğunun altında ama yolu /projects kalıyor:
-            editörden çıkış (useCloseEditor) ve sol menü bu yola bağlı. Yol
-            taşınırsa iki ayrı yerde kırılma olurdu. Koruma kabuğun DIŞINDA:
-            giriş yapmamış kullanıcıya menü/üst bar bir an bile görünmesin. */}
-        <Route
-          element={
-            <RequireAuth>
-              <AdminLayout />
-            </RequireAuth>
-          }
-        >
-          <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
-          {/* Statik parça dinamik olandan önce eşleşir (React Router sıralaması),
-              yoksa /projects/new detayı "new" kimliğiyle açmaya çalışırdı. */}
-          <Route path={PROJECT_CREATE_PATH} element={<NewProjectPage />} />
-          {/* Proje detayı kabuğun İÇİNDE: sol menü ve üst bar duruyor, kırılım
-              "Anasayfa / Projeler / Proje Detay" (KK-1). */}
-          <Route path={`${PROJECT_LIST_PATH}/:projectId`} element={<ProjectDetailPage />} />
-          {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Poliçe bölümünün
-              altında DEĞİL projenin altında (K68): sihirbaz bir projenin işlemi,
-              sol menüde "Projeler" işaretli kalmalı. */}
-          <Route path={POLICY_CREATE_ROUTE} element={<NewPolicyPage />} />
-        </Route>
+/**
+ * Veri router'ı (`createBrowserRouter`), düz `BrowserRouter` DEĞİL: gezinmeyi
+ * durdurabilen `useBlocker` yalnız burada çalışıyor ve editör kaydedilmemiş
+ * çizimle çıkılırken tarayıcının GERİ tuşunu da yakalamak zorunda (K111).
+ * Rota ağacı JSX olarak kalıyor — `createRoutesFromElements` aynı ağacı okuyor,
+ * yolların ve sıralama yorumlarının hiçbiri değişmedi.
+ */
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<SuspenseLayout />}>
+      {/* Korumasız olan YALNIZ bu ikisi; gerisi RequireAuth'un altında. */}
+      <Route path={LOGIN_PATH} element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-        {/* Editör kabuk dışında: tam ekran çizim alanı. Detay ekranı
-            /projects/:projectId adresini devraldığı için editör alt yolda (K53). */}
+      {/* Proje listesi yönetici kabuğunun altında ama yolu /projects kalıyor:
+          editörden çıkış (useCloseEditor) ve sol menü bu yola bağlı. Yol
+          taşınırsa iki ayrı yerde kırılma olurdu. Koruma kabuğun DIŞINDA:
+          giriş yapmamış kullanıcıya menü/üst bar bir an bile görünmesin. */}
+      <Route
+        element={
+          <RequireAuth>
+            <AdminLayout />
+          </RequireAuth>
+        }
+      >
+        <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
+        {/* Statik parça dinamik olandan önce eşleşir (React Router sıralaması),
+            yoksa /projects/new detayı "new" kimliğiyle açmaya çalışırdı. */}
+        <Route path={PROJECT_CREATE_PATH} element={<NewProjectPage />} />
+        {/* Proje detayı kabuğun İÇİNDE: sol menü ve üst bar duruyor, kırılım
+            "Anasayfa / Projeler / Proje Detay" (KK-1). */}
+        <Route path={`${PROJECT_LIST_PATH}/:projectId`} element={<ProjectDetailPage />} />
+        {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Poliçe bölümünün
+            altında DEĞİL projenin altında (K68): sihirbaz bir projenin işlemi,
+            sol menüde "Projeler" işaretli kalmalı. */}
+        <Route path={POLICY_CREATE_ROUTE} element={<NewPolicyPage />} />
+      </Route>
+
+      {/* Editör kabuk dışında: tam ekran çizim alanı. Detay ekranı
+          /projects/:projectId adresini devraldığı için editör alt yolda (K53). */}
+      <Route
+        path="/projects/:projectId/editor"
+        element={
+          <RequireAuth>
+            <EditorPage />
+          </RequireAuth>
+        }
+      />
+
+      {/* Yönetici ekranları ortak kabuğu paylaşır; giriş sonrası buraya otomatik
+          yönlendirme YOK — firma listesine yalnız sol menüden gelinir. */}
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth>
+            <AdminLayout />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<AdminHomePage />} />
+        <Route path="gas-distribution-firms" element={<GasDistributionFirmsPage />} />
+        {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+            yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
+        <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
+        <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
+
+        <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
+        {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+            yoksa /new güncelleme rotasına "new" kimliğiyle düşerdi. */}
+        <Route path={PROJECT_FIRM_CREATE_PATH} element={<NewProjectFirmPage />} />
+
+        <Route path={PROJECT_FIRM_USERS_PATH} element={<ProjectFirmUsersPage />} />
+        {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+            yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
+        <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ProjectFirmUserFormPage />} />
         <Route
-          path="/projects/:projectId/editor"
-          element={
-            <RequireAuth>
-              <EditorPage />
-            </RequireAuth>
-          }
+          path={`${PROJECT_FIRM_USERS_PATH}/:userId`}
+          element={<ProjectFirmUserFormPage />}
         />
 
-        {/* Yönetici ekranları ortak kabuğu paylaşır; giriş sonrası buraya otomatik
-            yönlendirme YOK — firma listesine yalnız sol menüden gelinir. */}
-        <Route
-          path="/admin"
-          element={
-            <RequireAuth>
-              <AdminLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<AdminHomePage />} />
-          <Route path="gas-distribution-firms" element={<GasDistributionFirmsPage />} />
-          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
-              yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
-          <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
-          <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
+        <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
 
-          <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
-          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
-              yoksa /new güncelleme rotasına "new" kimliğiyle düşerdi. */}
-          <Route path={PROJECT_FIRM_CREATE_PATH} element={<NewProjectFirmPage />} />
+        {/* Kişi Bilgileri: üst bardaki kullanıcı menüsünden açılıyor, sol
+            menüde maddesi yok — kişisel ayar, yönetim bölümü değil. */}
+        <Route path={PROFILE_PATH} element={<ProfilePage />} />
 
-          <Route path={PROJECT_FIRM_USERS_PATH} element={<ProjectFirmUsersPage />} />
-          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
-              yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
-          <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ProjectFirmUserFormPage />} />
-          <Route
-            path={`${PROJECT_FIRM_USERS_PATH}/:userId`}
-            element={<ProjectFirmUserFormPage />}
-          />
+        {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
+            hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
+            kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
+        {/* Firma adının hedefi. Kayıt TEKİL uçtan çekilir, form onunla
+            doldurulur ve `PUT /api/projectfirms/{id}` ile kaydedilir. */}
+        <Route path={PROJECT_FIRM_UPDATE_ROUTE} element={<ProjectFirmUpdatePage />} />
+        <Route path={DOCUMENTS_PATH} element={<DocumentListPage />} />
+        {/* Statik parça dinamik olandan ÖNCE eşleşir kuralı burada gerekmiyor:
+            /new'in dinamik kardeşi yok. Proje kimliği yolda değil query'de
+            (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor. */}
+        <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
 
-          <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
+        {/* Poliçe LİSTESİ: bütün projelerin poliçeleri. Oluşturma akışı burada
+            DEĞİL, projenin altında (K68). */}
+        <Route path={POLICIES_PATH} element={<PolicyListPage />} />
+      </Route>
 
-          {/* Kişi Bilgileri: üst bardaki kullanıcı menüsünden açılıyor, sol
-              menüde maddesi yok — kişisel ayar, yönetim bölümü değil. */}
-          <Route path={PROFILE_PATH} element={<ProfilePage />} />
+      <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
+    </Route>,
+  ),
+)
 
-          {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
-              hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
-              kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
-          {/* Firma adının hedefi. Kayıt TEKİL uçtan çekilir, form onunla
-              doldurulur ve `PUT /api/projectfirms/{id}` ile kaydedilir. */}
-          <Route path={PROJECT_FIRM_UPDATE_ROUTE} element={<ProjectFirmUpdatePage />} />
-          <Route path={DOCUMENTS_PATH} element={<DocumentListPage />} />
-          {/* Statik parça dinamik olandan ÖNCE eşleşir kuralı burada gerekmiyor:
-              /new'in dinamik kardeşi yok. Proje kimliği yolda değil query'de
-              (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor. */}
-          <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
-
-          {/* Poliçe LİSTESİ: bütün projelerin poliçeleri. Oluşturma akışı burada
-              DEĞİL, projenin altında (K68). */}
-          <Route path={POLICIES_PATH} element={<PolicyListPage />} />
-        </Route>
-
-        <Route path="*" element={<Navigate to={PROJECT_LIST_PATH} replace />} />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
-  )
+export function AppRouter() {
+  return <RouterProvider router={router} />
 }

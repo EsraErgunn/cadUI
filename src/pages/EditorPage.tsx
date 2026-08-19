@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useBlocker } from 'react-router-dom'
 
 import { useCloseEditor } from './useCloseEditor'
 import { useEditorExit } from './useEditorExit'
@@ -38,9 +39,23 @@ export function EditorPage() {
   const isDirty = useCadStore(selectIsProjectDirty)
   const handleSave = () => void save()
 
-  // Sekme kapatma / yenileme; uygulama içi çıkış onay penceresinde.
+  // Sekme kapatma / yenileme tarayıcının kendi sorusuyla; uygulama İÇİ her
+  // çıkış (düğme, menü, geri tuşu) aşağıdaki engelle.
   useUnsavedChangesWarning(isDirty)
-  const exit = useEditorExit({ isDirty, save, close: closeEditor })
+
+  const blocker = useBlocker(isDirty)
+  const exitBlocker = useMemo(
+    () => ({
+      isBlocked: blocker.state === 'blocked',
+      // Kaydettikten sonra proje temiz olsa bile engel 'blocked' kalıyor
+      // (getBlocker var olan durumu sıfırlamıyor), ama engel hiç kurulmamışsa
+      // gidilecek yer bilinmediği için düz kapanışa düşülüyor.
+      proceed: () => (blocker.state === 'blocked' ? blocker.proceed() : closeEditor()),
+      reset: () => blocker.reset?.(),
+    }),
+    [blocker, closeEditor],
+  )
+  const exit = useEditorExit({ blocker: exitBlocker, save })
 
   /**
    * Etiketli kayıt: pencere ancak sunucu kabul edince kapanıyor. Hemen
@@ -84,7 +99,7 @@ export function EditorPage() {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl bg-canvas-overlay">
         <MenuBar
-          onCloseEditor={exit.requestClose}
+          onCloseEditor={closeEditor}
           onSave={handleSave}
           onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}

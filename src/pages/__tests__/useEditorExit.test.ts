@@ -1,85 +1,85 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { useEditorExit } from '../useEditorExit'
+import { useEditorExit, type ExitBlocker } from '../useEditorExit'
 
-function setup(isDirty: boolean, saveResult = true) {
+function setup(isBlocked: boolean, saveResult = true) {
   const save = vi.fn().mockResolvedValue(saveResult)
-  const close = vi.fn()
+  const proceed = vi.fn()
+  const reset = vi.fn()
+  const blocker: ExitBlocker = { isBlocked, proceed, reset }
   const { result, rerender } = renderHook(
-    (props: { isDirty: boolean }) => useEditorExit({ isDirty: props.isDirty, save, close }),
-    { initialProps: { isDirty } },
+    (props: { blocker: ExitBlocker }) => useEditorExit({ blocker: props.blocker, save }),
+    { initialProps: { blocker } },
   )
-  return { result, rerender, save, close }
+  return { result, rerender, save, proceed, reset }
 }
 
 describe('useEditorExit', () => {
-  it('değişiklik yokken soru sormadan çıkar', () => {
-    // Her çıkışta pencere açmak uyarıyı gürültüye çevirir.
-    const { result, close } = setup(false)
+  it('gezinme durdurulmadıysa pencere açılmaz', () => {
+    // Temiz projede engel hiç kurulmuyor; her çıkışta soru sormak gürültü olurdu.
+    const { result } = setup(false)
 
-    act(() => result.current.requestClose())
-
-    expect(close).toHaveBeenCalledTimes(1)
     expect(result.current.isPromptOpen).toBe(false)
   })
 
-  it('kaydedilmemiş değişiklik varken önce sorar, kendiliğinden ÇIKMAZ', () => {
-    const { result, close } = setup(true)
-
-    act(() => result.current.requestClose())
+  it('durdurulmuş gezinme pencereyi açar', () => {
+    const { result } = setup(true)
 
     expect(result.current.isPromptOpen).toBe(true)
-    expect(close).not.toHaveBeenCalled()
   })
 
-  it('"Kaydetmeden Çık" kaydetmeden çıkar', async () => {
-    const { result, save, close } = setup(true)
-    act(() => result.current.requestClose())
+  it('"Kaydetmeden Çık" kaydetmeden gezinmeyi sürdürür', () => {
+    const { result, save, proceed } = setup(true)
 
     act(() => result.current.discardAndClose())
 
-    expect(close).toHaveBeenCalledTimes(1)
+    expect(proceed).toHaveBeenCalledTimes(1)
     expect(save).not.toHaveBeenCalled()
   })
 
-  it('"Kaydet ve Çık" önce kaydeder, sonra çıkar', async () => {
-    const { result, save, close } = setup(true)
-    act(() => result.current.requestClose())
+  it('"Vazgeç" gezinmeyi iptal eder', () => {
+    const { result, proceed, reset } = setup(true)
+
+    act(() => result.current.cancel())
+
+    expect(reset).toHaveBeenCalledTimes(1)
+    expect(proceed).not.toHaveBeenCalled()
+  })
+
+  it('"Kaydet ve Çık" önce kaydeder, sonra gezinmeyi sürdürür', async () => {
+    const { result, save, proceed } = setup(true)
 
     await act(async () => {
       await result.current.saveAndClose()
     })
 
     expect(save).toHaveBeenCalledTimes(1)
-    expect(close).toHaveBeenCalledTimes(1)
+    expect(proceed).toHaveBeenCalledTimes(1)
   })
 
-  it('kaydetme başarısızsa ÇIKMAZ, pencere hatayla açık kalır', async () => {
+  it('kaydetme başarısızsa gezinme SÜRDÜRÜLMEZ, hata pencerede kalır', async () => {
     // Başarısız kayıtta çıkılsaydı uyarının kurtarmaya çalıştığı iş tam da
     // orada kaybolurdu.
-    const { result, close } = setup(true, false)
-    act(() => result.current.requestClose())
+    const { result, proceed } = setup(true, false)
 
     await act(async () => {
       await result.current.saveAndClose()
     })
 
-    expect(close).not.toHaveBeenCalled()
+    expect(proceed).not.toHaveBeenCalled()
     expect(result.current.isPromptOpen).toBe(true)
     expect(result.current.hasSaveFailed).toBe(true)
   })
 
-  it('vazgeçilip yeniden sorulunca önceki hata taşınmaz', async () => {
+  it('vazgeçilince önceki denemenin hatası taşınmaz', async () => {
     const { result } = setup(true, false)
-    act(() => result.current.requestClose())
     await act(async () => {
       await result.current.saveAndClose()
     })
     expect(result.current.hasSaveFailed).toBe(true)
 
     act(() => result.current.cancel())
-    act(() => result.current.requestClose())
 
     expect(result.current.hasSaveFailed).toBe(false)
   })

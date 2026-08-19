@@ -5533,6 +5533,9 @@ yakalamıyor:
 kayıp değil: editörden çıkışın tek yolu "Projeler"/"Kapat" ve o eylem zaten tek
 yerde toplanmış (`useCloseEditor`, KK-10.3).
 
+⚠️ **Bu son cümle YANLIŞTI ve K111 onu düzeltti:** tarayıcının GERİ tuşu da bir
+çıkış yolu ve uyarısız çıkıyordu.
+
 **Dinleyici yalnız kirliyken kuruluyor.** Sürekli kayıtlı bir `beforeunload`
 bazı tarayıcılarda geri-ileri önbelleğini (bfcache) devre dışı bırakıyor; ayrıca
 temiz projeden çıkarken soru sordurma riski taşıyor.
@@ -5555,4 +5558,39 @@ dallanmayı sınamak için tüm R3F sahnesini kurmak gerekirdi.
 ⚠️ Penceredeki hata `hasSaveFailed` ile kapılı. `useProjectPersistence.error`
 daha eski bir yükleme hatasını da taşıyabiliyor ve pencere açılır açılmaz
 alakasız bir uyarı göstermek soruyu bulandırırdı.
+
+### K111 — Router veri router'ına taşındı; uyarıyı açan şey DÜĞME değil durdurulmuş GEZİNME
+
+K110 uyarıyı "Projeler"/"Kapat" eylemine bağlamıştı. Kullanıcı bildirdi:
+**tarayıcının geri tuşu uyarı vermeden çıkıyordu.** İki sebebi vardı ve ikisi de
+K110'un varsayımındaydı:
+
+- `beforeunload` yalnız belge boşaltılırken çalışıyor; geri tuşu SPA içinde
+  belgeyi boşaltmadan rota değiştiriyor, oradan hiç geçmiyor.
+- Uyarı düğmeye bağlıydı, geri tuşu ise düğmeye uğramıyor.
+
+Gezinmeyi durdurabilen tek yer router. `useBlocker` de yalnız VERİ router'ında
+çalışıyor, bu yüzden `src/app/router.tsx` `BrowserRouter`'dan
+`createBrowserRouter` + `RouterProvider`'a taşındı. Göç dar tutuldu: rota ağacı
+JSX olarak duruyor (`createRoutesFromElements` aynı ağacı okuyor), yollar ve
+sıralama yorumları değişmedi; tek yapısal fark `<Routes>`i saran `<Suspense>`in
+artık kök rotanın elemanı olması (`SuspenseLayout`).
+
+Kazanç sadece geri tuşu değil: **çıkışın tek kapısı** oldu. Düğme, menü,
+geri/ileri ve ileride eklenecek her uygulama içi bağlantı aynı engelden geçiyor;
+"yeni bir çıkış yolu eklendi ama uyarı yazılmadı" hatası artık mümkün değil.
+`useCloseEditor` sade gezinme olarak kaldı — onay eklenirse aynı soru iki
+yerden sorulurdu.
+
+⚠️ `useEditorExit` React Router'ın `Blocker` tipine bağlanmadı, kendi
+`ExitBlocker` arayüzünü alıyor: bağlansaydı dallanmayı sınamak için testte tüm
+rota ağacını kurmak gerekirdi.
+
+⚠️ `AppRouter` hiçbir testte render edilmiyordu; göç ancak tarayıcıda fark
+edilirdi. Bir duman testi eklendi (`src/app/__tests__/AppRouter.test.tsx`):
+oturumsuz kullanıcı korumalı yoldan giriş ekranına düşüyor mu.
+
+⚠️ Bilinen uç durum: engel `RequireAuth`'un 401 yönlendirmesini de durduruyor.
+Oturumu düşen kullanıcı kirli çizimle pencereyi görür ve "Kaydet ve Çık" da 401
+alır; çıkış yolu var ("Kaydetmeden Çık"), kilitlenme değil.
 
