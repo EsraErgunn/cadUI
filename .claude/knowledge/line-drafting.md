@@ -492,3 +492,25 @@ köşelidir — pipe segmentinin yönüne göre döndürülen gerçek bir miter 
 bilerek yapılmadı (kapsam dışı, karmaşıklığı haklı çıkarmıyor). Hat UCU
 işaretleri (`LineEndMarker`, bağlı/serbest) bu değişikliğin DIŞINDA — onlar
 "nereye tutunduğu" anlamını taşıyor, boru gövdesinin şeklini değil.
+
+## ⚠️ Tuzak: `findNearestWallFace` uç yakınında köşeyi "ovalleştiriyordu" (2026-08, düzeltme)
+
+Yukarıdaki "yüze KESKİN yapışma" eklendikten sonra köşeye YAKIN ama
+`findNearestWallCorner`ın toleransının (`radiusCm`) dışında kalan noktalarda
+bir regresyon çıktı: `findNearestWallFace`in izdüşümü `projectOntoSegment` ile
+UCA KELEPÇELİ kalıyordu (segment dışı imleç → en yakın nokta = duvarın ucu),
+sonra o TEK duvarın payı kadar dışa itiliyordu. Bu ersatz "yüz" noktası
+cursor'a bazen gerçek köşe noktasından ya da `findNearestWallParallel`'in iki
+duvarı BİRDEN hesaba katan sonucundan daha yakın çıkıyor ve önce
+çalışıyordu (`useLineTool.ts`/`useSelectionTool.ts` sırası: köşe → yüz → yön
+kelepçesi) — kullanıcı bunu "duvarlarımız oval [kapsül], ama biz köşelerine
+DİKDÖRTGEN gibi yapışıyorduk, bu gitti" diye tarif etti: tek duvarın
+kelepçelenmiş ucuna çekilen nokta iki duvarın kesiştiği gerçek (dikdörtgen
+hissi veren) köşeden farklı bir yerde duruyordu.
+
+Düzeltme: `findNearestWallFace` artık izdüşümü UCA kelepçelenen duvarları
+(`projection.offsetCm` 0 veya duvar boyu) aday olarak ELEMİYOR — o bölge
+`findNearestWallCorner`/`findNearestWallParallel`e ait, ikisi de köşede
+birleşen İKİ duvarı da hesaba katıyor. Yüz mıknatısı yalnız duvarın GERÇEK
+GÖVDESİNDE (uçlar hariç) aktif kalıyor; K59'daki asıl amacı (45° dahil her
+açıda düz gövdeye keskin yapışma) bozmuyor.

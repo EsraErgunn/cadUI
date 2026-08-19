@@ -167,6 +167,9 @@ export function findNearestWallCorner(
   return position
 }
 
+/** Bunun altındaki/üstündeki offsetCm izdüşümün UCA kelepçelendiğini gösterir. */
+const CLAMPED_END_EPSILON_CM = 1e-6
+
 /**
  * İmleç bir duvarın GÖVDESİNE yakınken, imlecin bulunduğu TARAFTAKİ yüzün
  * (eksenden `wall.thickness/2 + gapCm`) üzerinde imlece en yakın nokta —
@@ -174,6 +177,14 @@ export function findNearestWallCorner(
  * değil, AKTİF bir mıknatıs: yarıçap içindeyse imleç yüzden uzakta olsa bile
  * sonuç yüze çekilir. Serbest köşe taşımasında (`useSelectionTool`) kullanılır
  * — orada bir anchor/yön yok, yalnız tek bir nokta imleci izliyor.
+ *
+ * UÇLARDA (izdüşüm ucA KELEPÇELİYSE) aday DEĞİL: orası köşenin işi. Duvarlar
+ * kapsül (yuvarlak uçlu, bkz. knowledge/capsule-walls.md) render edilse de
+ * köşe yakalaması İKİ duvarı birden hesaba katan `findNearestWallCorner`/
+ * `findNearestWallParallel`e ait — tek duvarın ucundan kelepçeli bir yüz
+ * noktası cursor'a bazen bu ikisinden daha yakın çıkıyor ve köşeyi "oval"
+ * tek-duvar yüzeyine çeviriyordu (kullanıcı bulgusu: dikdörtgen köşe hissi
+ * kayboldu).
  */
 export function findNearestWallFace(
   walls: readonly Wall[],
@@ -190,6 +201,13 @@ export function findNearestWallFace(
     if (!ends) continue
 
     const projection = projectOntoSegment(ends.p1, ends.p2, cursor)
+    const wallLengthCm = getSegmentLengthCm(ends.p1, ends.p2)
+    if (
+      projection.offsetCm <= CLAMPED_END_EPSILON_CM ||
+      projection.offsetCm >= wallLengthCm - CLAMPED_END_EPSILON_CM
+    ) {
+      continue
+    }
     const wallAngleDeg = getSegmentAngleDeg(ends.p1, ends.p2)
     const normal = getWallNormal(wallAngleDeg)
     const faceOffsetCm = wall.thickness / 2 + gapCm

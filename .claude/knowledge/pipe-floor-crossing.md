@@ -81,6 +81,19 @@ aşağı inen boru zaten 0'a, o katın tabanına yaklaşır). Yeni kattaki tasla
 hâlâ SIFIR kottan başlar (`startChain(position, null, 0)`) — yalnız terk
 edilen taraf yükselir, giren taraf değil.
 
+## Sahne ipucu KALDIRILDI (2026-08)
+
+`FloorLinkPrompt.tsx`, zincirin ucunda HER borunun her adımında "↑ Üst Kata
+Bağla / ↓ Alt Kata Bağla" yazan bir metin ipucuydu — kendisi de 2026-08'de
+kullanıcı isteğiyle eklenmişti ("HER ZAMAN görünen ipucu"). Kullanıcı sonradan
+bunun her çizimde gereksiz gürültü olduğunu söyledi; dosya silindi,
+`DrawPreview.tsx`'teki render'ı kaldırıldı. **Fonksiyonellik etkilenmedi**:
+gerçek tetikleyici hep ok tuşlarıydı (`useLineTool.ts` → `handleKeyDown`),
+etiket yalnızca hatırlatıyordu. Kalıcı rozet (`FloorLinkGlyph.tsx` →
+`FloorLinkGlyphs`, zaten kurulmuş bir `FloorPipeLink`in üstündeki ▲/▼ işareti)
+AYRI bir bileşen ve DOKUNULMADI — o "burada bir kat bağlantısı var" bilgisini
+taşıyor, "bağlayabilirsin" ipucunu değil.
+
 ## Kilit — floor-link uçları taşınamaz
 
 `FloorPipeLink.belowPointId`/`abovePointId` artık port-çapa deseninin
