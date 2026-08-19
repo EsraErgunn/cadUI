@@ -19,7 +19,7 @@ export type VersionHistorySource = {
 
 /**
  * Kayıt geçmişi — K90'da bilerek pasif bırakılan düğmenin arkası. WebCAD'deki
- * gibi düğmenin ALTINDAN açılan liste (K107): kayıtlar tarih + saat, etiketli
+ * gibi düğmenin ALTINDAN açılan liste (K109): kayıtlar tarih + saat, etiketli
  * olanlar ayraçtan sonra adıyla. Satır seçilince o sürümün çizimi MinIO'dan
  * çekilip editöre yüklenir.
  *

@@ -1,4 +1,4 @@
-# Kayıt geçmişi: sürüm listesi ve geçmişten yükleme (K107)
+# Kayıt geçmişi: sürüm listesi ve geçmişten yükleme (K109)
 
 Editörün sağ üstündeki **Kayıt Geçmişi** düğmesi K90'da yer tutucuydu; artık
 gerçek uca bağlı. Liste düğmenin ALTINDAN açılır (WebCAD'deki "Düzenle ▸ Kayıt

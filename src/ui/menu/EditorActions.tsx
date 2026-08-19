@@ -19,7 +19,7 @@ type EditorActionsProps = {
  * pasif duruyor — "0 hata" yazmak, çalıştırılmamış bir kontrolü geçmiş gibi
  * gösterirdi (palet dürüstlüğü, K79). Kayıt Geçmişi o öbekten AYRILDI: arkasına
  * gerçek bir uç bağlandı (GET /api/projects/{id}/versions), kendi açılır
- * listesini taşıyor (K107).
+ * listesini taşıyor (K109).
  */
 export function EditorActions({ onSave, isSaving, versionHistory }: EditorActionsProps) {
   const isDirty = useCadStore(selectIsProjectDirty)

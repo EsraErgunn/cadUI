@@ -4609,7 +4609,7 @@ kaldırıldı (`ui/AxisIndicator.tsx`). Menü çubuğunun ortasındaki üç pasi
 (`menu/ShortcutButtons.tsx`) yerini Test Et / Gönder'e bıraktı.
 
 **Test Et, Gönder, Hata Kontrolleri ve Kayıt Geçmişi görünür ama PASİF.**
-(Kayıt Geçmişi 2026-08'de bağlandı — bkz. K107; kalan üçü hâlâ pasif.)
+(Kayıt Geçmişi 2026-08'de bağlandı — bkz. K109; kalan üçü hâlâ pasif.)
 Arkalarında akış yok — `core/validate.ts` bugün boş dosya. K79'un palet
 dürüstlüğü kuralı: düğme "bozuk" değil "henüz yok" demeli. "Hata Kontrolleri"
 bağımsız bir eylem değil, Test Et'in SONUCUNU gösterecek yer; doğrulama hattı
@@ -5368,9 +5368,92 @@ hiçbir yönde kapsama tutmaz, iki YENİ oda doğar. Ayrı testle kilitlendi.
 Ölçüm: üç odalı planda on iki ardışık duvar taşıması boyunca üç odanın da id'si
 ve kullanıcının verdiği adı (Y, X, Z) hiç değişmedi.
 
+### K107 — Taşıma denetimi ARA duruma değil GERÇEK sonuca bakar
+
+Kullanıcı bildirimi: çıkıntılı bir odanın (üç oda: Y | X | Z, X'in üstü 200 cm
+yukarıda) üst duvarı komşularının hizasına GETİRİLEMİYORDU. Köşeden çekince
+oluyor, duvarı sürükleyince olmuyordu — hareket kısıtlanmış hissettiriyordu.
+
+Sebep: `findWallMoveBlocker` temizlik ÖNCESİ ara duruma bakıyordu. Duvar hizaya
+oturunca X'i yukarı taşıyan iki çıkıntı duvarı sıfır boya iniyor ve denetim
+bunu `collapse` sayıyordu. Oysa `offsetWall` hemen ardından kaynatmayı
+çalıştırıp o duvarları temizliyor ve çizim düzgün kalıyor. Yani denetim,
+store'un ASLA YAZMADIĞI bir hâl yüzünden meşru bir hareketi reddediyordu.
+
+Ölçüldü (tam hiza = 200 aşağı): `offsetWall` doğrudan çağrıldığında duvar 12→10,
+nokta 10→8, **oda 3→3**, 1 cm'den kısa duvar 0, kopma yok. Engel yalnız
+denetimdeydi. Reddedilen bant tam hizanın ±1 cm'i (`MIN_WALL_LENGTH_CM`).
+
+Düzeltme: öteleme boru hattı TEK gövdeye alındı — `runWallOffsetInDraft`
+(`store/architectureWallMoveValidity.ts`): geometri → köşe kaynatma → açıklık
+budama → kavşak bölme → eş doğrultulu birleştirme → oda hesabı. `offsetWall`
+bunu store'a yazmak için, `findWallMoveBlocker` ise ATILABİLİR bir kopyada
+denemek için çağırır. Tek gövde olması şart: denetim başka bir sıra izleseydi
+kabul ettiği çizim ile yazılan çizim yine ayrışırdı.
+
+Sorular artık sonuca sorulur:
+- `collapse`: temizlikten SAĞ ÇIKAN, 1 cm'den kısa duvar var.
+- `freeEnd`: taşınan duvarın bir ucu hiçbir duvara değmiyor.
+- `roomLost`: var olan bir oda yok oldu (YENİ) — duvarı komşusunun üstüne
+  itmek çevrimi koparıyor, yan oda dolgusuyla ve etiketiyle kayboluyordu. Eski
+  `collapse` kuralının koruduğu asıl zarar buydu; artık doğrudan ölçülüyor.
+
+⚠️ Serbest uç ODA KAYBINDAN ÖNCE sorulur: duvarı havada bırakan taşıma çevrimi
+de kopardığı için ikisi birden doğru çıkıyor, kullanıcıya sebebi bildiren asıl
+kusur serbest uç — oda kaybı onun sonucu.
+
+⚠️ Kopya ÖĞE ÖĞE alınır, yalnız diziler değil: `applyWallOffsetInDraft` nokta
+koordinatını, `mergeCollinearWallsInDraft` duvar ucunu ve açıklık offset'ini
+YERİNDE değiştiriyor. Sığ dizi kopyası bırakılsaydı denetim hiç onaylanmamış
+bir hareketi gerçek store'a yazardı.
+
+⚠️ Önizleme (`core/wallMoveDraft.ts` → `applyWallMove`) temizliği KOŞTURMAZ,
+yalnız geometriyi üretir; adı bu yüzden `wallMoveValidity` değil artık ve
+çıktısı geçerlilik kararına dayanak OLAMAZ. Görüntüyü bozmuyor: sıfır boya inen
+duvar kapsül üretmediği için zaten çizilmiyor.
+
+⚠️ 0 ile 1 cm arasındaki "kıymık" bant hâlâ reddedilir — o boyda duvar temizlikten
+sağ çıkar ve çizilemeyecek kadar kısadır. Izgara açıkken erişilemez, sorun değil.
+
+⚠️ `roomLost` oda SAYISINA bakar, KİMLİĞE değil. İlk hâli id karşılaştırıyordu
+ve meşru hareketleri reddediyordu: taşıma bir odanın duvar kümesini yeterince
+değiştirdiğinde K106'nın eşleştirmesi tutmuyor, oda AYNI YERDE dururken yeni bir
+id alıyor. Paylaşılan duvarı olan iki odada (alt oda x=0..350, üst oda
+x=100..500, ortak kenar y=250) duvar HİÇBİR yöne oynatılamaz olmuştu; ölçüldü:
+id [12,20] → [12,25] ama oda sayısı 2 → 2, yani iki oda da yaşıyordu
+(kullanıcı bildirimi). Sayının ARTMASI serbest — duvarı odanın içinden geçirmek
+çevrimi ikiye böler, bu kullanıcının kendi kararıdır (K31).
+
+### K108 — Açıklık ve sembol de ÖNİZLEME duvarından çözülür
+
+Kullanıcı bildirimi: duvar sürüklenirken YAN duvarlardaki kapı/pencereler
+eğiliyor, bırakınca doğru hâline dönüyordu. Duvarların kendisi doğruydu —
+yalnız açıklıklar oynuyordu.
+
+Sebep: `ArchitectureLayer.tsx` → `Openings` noktaları ÖNİZLEMEDEN
+(`useArchitecturePoints`), duvarları ise STORE'dan okuyordu. Kopan komşu
+önizlemede köşe klonuna bağlanır ama store'daki hâli hâlâ ÖZGÜN köşeye bakar —
+ve o köşe draft'ta taşınmıştır. Açıklık böylece taşınan köşeye uzanan HAYALİ bir
+duvara oturup jest boyunca eğiliyordu. Bırakınca store bağlantısı düzeliyor ve
+açıklık yerine oturuyordu; kullanıcının gördüğü "zıplama" buydu.
+
+Bu, K103'te duvarlar için düzeltilen hatanın açıklıklarda kalan artığı:
+`useArchitectureDraft`'in kendi başlığı zaten "duvar ÇİZEN her yer bunu
+kullanmalı, yalnız noktayı okumak kopmayı görmez" diyor. `Openings` ve
+`PointSymbols` bu kurala uymuyordu.
+
+Düzeltme: ikisi de `useArchitectureDraft()` ile hem noktayı hem DUVARI
+önizlemeden alır. `useArchitecturePoints` geriye yalnız `PointHandle`'da kaldı —
+orası yalnız nokta çiziyor, duvar bağlantısı okumuyor, doğru kullanım.
+
+⚠️ Test `useArchitectureDraft.test.ts`'te veri düzeyinde kilitlendi (aynı
+açıklığın konturu önizleme duvarıyla DEĞİŞMEZ, store duvarıyla değişir). Sahne
+bileşenini render eden bir test YOK: biri `Openings`'i tekrar store duvarına
+bağlarsa süit bunu yakalamaz.
+
 ## 2026-08 · Kayıt geçmişi bağlandı
 
-### K107 — Sürüm listesi gerçek uca bağlandı; düğmenin ALTINDAN açılır, sürüm seçmek çizimi YÜKLER
+### K109 — Sürüm listesi gerçek uca bağlandı; düğmenin ALTINDAN açılır, sürüm seçmek çizimi YÜKLER
 
 K90 "Kayıt Geçmişi" düğmesini görünür ama pasif bırakmıştı: arkasında akış
 yoktu. Akış artık var — cadapi `ProjectVersionsController` üç ucu da veriyor

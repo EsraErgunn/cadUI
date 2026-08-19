@@ -16,7 +16,7 @@ import { TextLabels } from './TextLabels'
 import { Walls } from './Wall'
 import { WallDimensionLabels } from './WallDimensionLabels'
 import { WallTool } from './WallTool'
-import { useArchitecturePoints } from './useArchitectureDraft'
+import { useArchitectureDraft } from './useArchitectureDraft'
 import { useAreaObjectLabelTool } from './useAreaObjectLabelTool'
 import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
 import { useAreaObjectTool } from './useAreaObjectTool'
@@ -49,9 +49,12 @@ function Openings() {
   // Yalnız KARARLI referanslara abone olunur. selectWallsOnFloor/
   // selectOpeningsOnWall her çağrıda yeni dizi üretir; buraya konsalardı
   // Object.is her store değişiminde false döner ve sonsuz render olurdu.
-  // Köşe sürüklenirken açıklık da duvarla birlikte gelsin diye ortak havuzdan okunur.
-  const points = useArchitecturePoints()
-  const walls = useCadStore((state) => state.walls)
+  // Köşe sürüklenirken açıklık da duvarla birlikte gelsin diye ortak havuzdan
+  // okunur. Duvar BAĞLANTISI da önizlemeden gelmeli: yalnız noktayı draft'tan
+  // almak kopmayı görmez — kopan komşu store'da hâlâ ÖZGÜN köşeye bakar, o köşe
+  // ise draft'ta taşınmıştır. Açıklık böylece taşınan köşeye uzanan HAYALİ bir
+  // duvara oturup sürükleme boyunca eğiliyordu (K108).
+  const { points, walls } = useArchitectureDraft()
   const openings = useCadStore((state) => state.openings)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const selection = useArchitectureUiStore((state) => state.selection)
@@ -92,8 +95,8 @@ function PointSymbols() {
   const preview = usePointSymbolTool()
   usePointSymbolSelectionTool()
   const symbols = useCadStore((state) => state.symbols)
-  const symbolWalls = useCadStore((state) => state.walls)
-  const symbolPoints = useArchitecturePoints()
+  // Açıklıkla aynı gerekçe (K108): duvara oturan sembol de kopmayı görmeli.
+  const { points: symbolPoints, walls: symbolWalls } = useArchitectureDraft()
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const hover = useArchitectureUiStore((state) => state.hover)
   const selection = useArchitectureUiStore((state) => state.selection)
