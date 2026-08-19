@@ -90,17 +90,14 @@ export interface ProjectFirmUserQuery {
   authorityType: AuthorityType | null
   /** İşaretliyken kullanıcı AKTİF ve yetki satırı AKTİF olanlar (KK-4). */
   onlyActive: boolean
+  /**
+   * Üst bardaki KAPSAM, gaz dağıtım firması kimliklerine açılmış hâliyle;
+   * `null` = sistem geneli (daraltma yok). Dizi (küme değil): sorgu react-query
+   * anahtarının parçası ve `Set` kararlı biçimde serileşmiyor.
+   */
+  gasFirmIds: number[] | null
   page: number
   pageSize: number
-}
-
-/** Yetki satırının istek gövdesindeki karşılığı. */
-export interface ProjectFirmUserCompetencyPayload {
-  gasDistributionFirmId: number
-  projectFirmId: number
-  authorityType: AuthorityType
-  gdfRegistrationNumber: string | null
-  isActive: boolean
 }
 
 /**
@@ -109,6 +106,12 @@ export interface ProjectFirmUserCompetencyPayload {
  * `password` güncellemede boş gelebilir: boşsa şifre DEĞİŞMEZ (KK-25). Bu ayrım
  * `null` ile taşınıyor, boş dizeyle değil — boş dize "şifreyi sil" gibi
  * okunabilirdi.
+ *
+ * KULLANICI düzeyinde `isActive` YOK: alan formdan kalktı.
+ *
+ * Yetki satırları da gövdede YOK: "Kullanıcı Yetkinlikleri" bölümü formdan
+ * kaldırıldı ve sunucuda o satırları yazan bir uç zaten yok — gövdede boş bir
+ * alan bırakmak, olmayan bir sözleşmeyi varmış gibi gösterirdi.
  */
 export interface ProjectFirmUserPayload {
   fullName: string
@@ -117,6 +120,4 @@ export interface ProjectFirmUserPayload {
   /** HAM rakamlar ("05551234567") ya da girilmediyse `null`. */
   phone: string | null
   password: string | null
-  isActive: boolean
-  competencies: ProjectFirmUserCompetencyPayload[]
 }

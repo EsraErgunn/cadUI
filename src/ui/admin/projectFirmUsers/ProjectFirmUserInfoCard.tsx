@@ -6,18 +6,12 @@ import { PHONE_PLACEHOLDER } from '../../../core/phone'
 import { FormCard } from '../form/FormCard'
 import { PasswordField } from '../form/PasswordField'
 import { PhoneField } from '../form/PhoneField'
-import { SwitchField } from '../form/SwitchField'
 import { TextField } from '../form/TextField'
 
 const SECTION_TITLE = 'Kullanıcı Bilgileri'
 
 /** Belge: zorunlu alanların etiketinin yanında "*" gösterilir. */
 const REQUIRED_MARK = '*'
-
-/** Belge madde 12 / KK-15: kayıttan sonra kullanıcı adı değiştirilemez. */
-const USERNAME_READONLY_HINT = 'Kullanıcı adı oluşturulduktan sonra değiştirilemez.'
-
-const USERNAME_HINT = 'Ad soyaddan üretilir; kaydetmeden önce değiştirebilirsiniz.'
 
 /** Belge madde 13 / KK-25. */
 const PASSWORD_UPDATE_HINT = 'Boş bırakılırsa şifre değişmez.'
@@ -79,7 +73,6 @@ export function ProjectFirmUserInfoCard({ form }: ProjectFirmUserInfoCardProps) 
         leftIcon={UserCircle}
         placeholder="kullanici.adi"
         value={values.username}
-        hint={isUpdate ? USERNAME_READONLY_HINT : USERNAME_HINT}
         error={errors.username}
         // Salt okunur, `disabled` DEĞİL: alan odaklanabilir ve kopyalanabilir
         // kalmalı — kullanıcı adı destek konuşmalarında okunan bir bilgi.
@@ -98,14 +91,6 @@ export function ProjectFirmUserInfoCard({ form }: ProjectFirmUserInfoCardProps) 
         hint={isUpdate ? PASSWORD_UPDATE_HINT : undefined}
         error={errors.password}
         onChange={(value) => setValue('password', value)}
-      />
-
-      <SwitchField
-        id={projectFirmUserFieldId('isActive')}
-        label="Aktif"
-        layout="horizontal"
-        value={values.isActive}
-        onChange={(value) => setValue('isActive', value)}
       />
     </FormCard>
   )

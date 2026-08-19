@@ -2,23 +2,12 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  CREATE_PATH,
-  LIST_PATH,
-  MOCK_GAS_FIRMS,
-  MOCK_PROJECT_FIRMS,
-  buildDetail,
-  renderFormFlow,
-} from './projectFirmUserFixture'
+import { CREATE_PATH, LIST_PATH, buildDetail, renderFormFlow } from './projectFirmUserFixture'
 
 /** Etiket "Şifre" ya da "Şifre *"; göz düğmesinin adıyla ("Şifreyi göster") karışmasın. */
 const PASSWORD_LABEL = /^Şifre( \*)?$/
 
-const readApi = vi.hoisted(() => ({
-  getProjectFirmUser: vi.fn(),
-  getCompetencyGasFirms: vi.fn(),
-  getAuthorizedProjectFirms: vi.fn(),
-}))
+const readApi = vi.hoisted(() => ({ getProjectFirmUser: vi.fn() }))
 const formApi = vi.hoisted(() => ({
   saveProjectFirmUser: vi.fn(),
   findTakenProjectFirmUserFields: vi.fn(),
@@ -35,8 +24,6 @@ vi.mock('../../api/projectFirmUserForm', async (importOriginal) => ({
 }))
 
 beforeEach(() => {
-  readApi.getCompetencyGasFirms.mockResolvedValue(MOCK_GAS_FIRMS)
-  readApi.getAuthorizedProjectFirms.mockResolvedValue(MOCK_PROJECT_FIRMS)
   readApi.getProjectFirmUser.mockResolvedValue(buildDetail())
   formApi.findTakenProjectFirmUserFields.mockResolvedValue({
     isEmailTaken: false,
@@ -49,17 +36,11 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-/** Zorunlu alanları doldurup tek bir geçerli yetki satırı ekler. */
+/** Zorunlu alanları doldurur. */
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/^Email/), 'yeni.kullanici@firma.com')
   await user.type(screen.getByLabelText(/^Adı Soyadı/), 'Selin Arslan')
   await user.type(screen.getByLabelText(PASSWORD_LABEL), 'Guclu.Sifre1')
-
-  await user.click(screen.getByRole('button', { name: 'Yeni Yetkinlik Ekle' }))
-  await user.selectOptions(screen.getByLabelText(/Gaz dağıtım firması/), '103')
-  await waitFor(() => expect(screen.getByLabelText(/Proje firması/)).toBeEnabled())
-  await user.selectOptions(screen.getByLabelText(/Proje firması/), '201')
-  await user.selectOptions(screen.getByLabelText(/1\. yetki satırı — Yetki/), 'firmEngineer')
 }
 
 // KK-16: benzersizlik sunucuda denetlenir.
@@ -113,10 +94,6 @@ describe('kaydetme ve iptal (KK-24)', () => {
         email: 'yeni.kullanici@firma.com',
         fullName: 'Selin Arslan',
         username: 'selin.arslan',
-        isActive: true,
-        competencies: [
-          expect.objectContaining({ gasDistributionFirmId: 103, projectFirmId: 201 }),
-        ],
       }),
       null,
     )
@@ -181,13 +158,6 @@ describe('güncelleme (KK-25)', () => {
         1001,
       ),
     )
-  })
-
-  it('kayıtlı yetki satırı tabloda görünür', async () => {
-    renderFormFlow(`${LIST_PATH}/1001`)
-
-    await waitFor(() => expect(screen.getByLabelText(/Gaz dağıtım firması/)).toHaveValue('103'))
-    expect(screen.getByLabelText(/GDF kayıt no/)).toHaveValue('512')
   })
 })
 

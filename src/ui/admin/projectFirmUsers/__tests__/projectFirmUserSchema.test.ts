@@ -15,7 +15,6 @@ function buildValues(overrides: Partial<ProjectFirmUserFormValues> = {}): Projec
     fullName: 'Tolga Ertek',
     username: 'tolga.ertek',
     password: 'Guclu.Sifre1',
-    isActive: true,
     ...overrides,
   }
 }

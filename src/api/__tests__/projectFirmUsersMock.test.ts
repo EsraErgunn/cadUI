@@ -32,6 +32,7 @@ function buildQuery(overrides: Partial<ProjectFirmUserQuery> = {}): ProjectFirmU
     nameQuery: '',
     authorityType: null,
     onlyActive: false,
+    gasFirmIds: null,
     page: 1,
     pageSize: PROJECT_FIRM_USER_PAGE_SIZE,
     ...overrides,

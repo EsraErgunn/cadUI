@@ -56,14 +56,6 @@ export async function getCompetencyGasFirms(signal?: AbortSignal): Promise<FirmR
 }
 
 /**
- * Yetki satırındaki proje firması seçenekleri — SEÇİLEN G.D. firmasında bugün
- * yeterliliği olanlar (KK-20). Gövdesi `projectFirmAuthorizations.ts`'te, Yeni
- * Proje formundaki aynasının yanında: iki açılır da tek geçerlilik kuralından
- * geçsin diye. Ekranın API yüzeyi tek modül kalsın diye buradan dışa veriliyor.
- */
-export { getAuthorizedProjectFirms } from './projectFirmAuthorizations'
-
-/**
  * Kullanıcı satırlarının dayandığı gerçek firma listeleri; ikisi paralel çekilir.
  *
  * Proje firmaları burada YETKİ ucundan değil `getProjectFirmList`'ten geliyor:

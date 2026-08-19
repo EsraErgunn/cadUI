@@ -62,12 +62,7 @@ const FIRST_COMPETENCY_ID = 5001
 let mockUsers: MockUser[] = []
 let areUsersSeeded = false
 
-/** Tohumlama sırasında görülen gerçek firmalar; kaydedilen satırın adını çözer. */
-let knownGasFirms: readonly FirmReference[] = []
-let knownProjectFirms: readonly FirmReference[] = []
-
 let nextUserId = FIRST_USER_ID + MOCK_FULL_NAMES.length
-let nextCompetencyId = FIRST_COMPETENCY_ID + 1000
 
 function buildMockUsers(gasFirms: FirmReference[], projectFirms: FirmReference[]): MockUser[] {
   let competencyId = FIRST_COMPETENCY_ID
@@ -113,9 +108,6 @@ export function seedProjectFirmUsers(
   gasFirms: readonly FirmReference[],
   projectFirms: readonly FirmReference[],
 ): void {
-  knownGasFirms = gasFirms
-  knownProjectFirms = projectFirms
-
   if (areUsersSeeded) return
   if (gasFirms.length === 0 || projectFirms.length === 0) return
 
@@ -155,6 +147,12 @@ function matchesCompetency(
   query: ProjectFirmUserQuery,
 ): boolean {
   if (query.onlyActive && !competency.isActive) return false
+  // Kapsam yetki satırının G.D. firmasına bakıyor: kullanıcı birden çok
+  // firmada yetkiliyse yalnız kapsamdaki satırları görünsün.
+  if (query.gasFirmIds !== null && !query.gasFirmIds.includes(competency.gasFirm.id)) {
+    return false
+  }
+
   return query.authorityType === null || competency.authorityType === query.authorityType
 }
 
@@ -208,26 +206,6 @@ export function findMockTakenFields(
   }
 }
 
-function toCompetencies(payload: ProjectFirmUserPayload): ProjectFirmUserCompetency[] {
-  return payload.competencies.map((competency) => ({
-    id: nextCompetencyId++,
-    gasFirm: findKnownFirm(knownGasFirms, competency.gasDistributionFirmId),
-    projectFirm: findKnownFirm(knownProjectFirms, competency.projectFirmId),
-    authorityType: competency.authorityType,
-    gdfRegistrationNumber: competency.gdfRegistrationNumber,
-    isActive: competency.isActive,
-  }))
-}
-
-/**
- * Kaydedilen satır yalnız KİMLİK taşıyor; listede adı göstermek için tohumlama
- * sırasında görülen firmalar arasında aranır. Bulunamazsa kimlik metne
- * çevrilir — uydurma bir ad basmaktansa kaydın hangi firmaya bağlandığı görünsün.
- */
-function findKnownFirm(firms: readonly FirmReference[], firmId: number): FirmReference {
-  return firms.find((firm) => firm.id === firmId) ?? { id: firmId, name: `#${firmId}` }
-}
-
 export function createMockProjectFirmUser(payload: ProjectFirmUserPayload): number {
   const id = nextUserId++
   mockUsers.push({
@@ -236,8 +214,12 @@ export function createMockProjectFirmUser(payload: ProjectFirmUserPayload): numb
     username: payload.username,
     email: payload.email,
     phone: payload.phone,
-    isActive: payload.isActive,
-    competencies: toCompetencies(payload),
+    // Gövde artık kullanıcı düzeyinde aktiflik taşımıyor; yeni kayıt aktif açılır.
+    isActive: true,
+    // Yetki satırı formdan kalktı: yeni kayıt yetkisiz açılır. Liste bir SATIRI
+    // yetki kaydı olarak gösterdiği için bu kullanıcı listede görünmez —
+    // uydurma bir yetki satırı üretmek yerine eksiklik olduğu gibi duruyor.
+    competencies: [],
   })
 
   return id
@@ -250,6 +232,6 @@ export function updateMockProjectFirmUser(userId: number, payload: ProjectFirmUs
   user.fullName = payload.fullName
   user.email = payload.email
   user.phone = payload.phone
-  user.isActive = payload.isActive
-  user.competencies = toCompetencies(payload)
+  // `isActive` ve yetki satırları gövdeden kalktı: güncelleme ikisine de
+  // DOKUNMAZ.
 }
