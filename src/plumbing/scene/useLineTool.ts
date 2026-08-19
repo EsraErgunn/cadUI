@@ -483,13 +483,12 @@ export function useLineTool(): LineToolState {
       if (isTypingTarget(event.target)) return
       if (!readDraft()) return
 
-      // Kat bağlantısı (kullanıcı isteği, 2026-08): sahnedeki etiketin
-      // tıklanması güvenilir değil (bu araç `subscribeDrawSurface` ile HAM
+      // Kat bağlantısı (kullanıcı isteği, 2026-08): tıklanabilir bir sahne
+      // ögesi güvenilir olmazdı (bu araç `subscribeDrawSurface` ile HAM
       // pointerdown'ı dinliyor, R3F'in kendi onClick sentetik olayıyla
-      // YARIŞIYOR — bkz. FloorLinkPrompt.tsx). PageUp/PageDown zaten "kattan
-      // kata geç"i taşıyor (`useEditorShortcuts.ts`) ve BAĞLANTI KURMADAN
-      // geçiyor; bu yüzden ok tuşları kullanılıyor, aynı tuş iki farklı işe
-      // binmesin diye.
+      // YARIŞIYOR). PageUp/PageDown zaten "kattan kata geç"i taşıyor
+      // (`useEditorShortcuts.ts`) ve BAĞLANTI KURMADAN geçiyor; bu yüzden ok
+      // tuşları kullanılıyor, aynı tuş iki farklı işe binmesin diye.
       if (event.key === 'ArrowUp') {
         event.preventDefault()
         commitDraftFloorLink('up')
