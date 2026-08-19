@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetPlumbingHistory } from '../../plumbing/store/plumbingHistory'
 import { INITIAL_PLUMBING_DATA } from '../../plumbing/store/plumbingSlice'
+import { usePlumbingUiStore } from '../../plumbing/store/plumbingUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { useEditorShortcuts } from '../useEditorShortcuts'
@@ -228,5 +229,28 @@ describe('kat kısayolları (madde 1)', () => {
 
     expect(handlers.onGoToFloor).not.toHaveBeenCalled()
     expect(handlers.onOpenFloorManagement).not.toHaveBeenCalled()
+  })
+
+  it('ok yukarı/aşağı da aktif katı değiştirir (PageUp/PageDown ile AYNI yön)', async () => {
+    const handlers = renderFloorHarness()
+
+    await userEvent.keyboard('{ArrowUp}')
+    await userEvent.keyboard('{ArrowDown}')
+
+    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(1, 'up')
+    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(2, 'down')
+  })
+
+  it('tesisatta aktif bir taslak hat varken ok tuşları kat DEĞİŞTİRMEZ — kat bağlantısı kurar (useLineTool.ts)', async () => {
+    const handlers = renderFloorHarness()
+    usePlumbingUiStore.setState({
+      draftLine: { kind: 'pipe', anchor: { x: 0, y: 0 }, startTarget: null, elevationCm: 0, steps: [] },
+    })
+
+    await userEvent.keyboard('{ArrowDown}')
+
+    expect(handlers.onGoToFloor).not.toHaveBeenCalled()
+
+    usePlumbingUiStore.setState({ draftLine: null })
   })
 })

@@ -120,5 +120,95 @@ artık başka bir noktadayız, yeni boru yazılır (beklenen).
 `core/ports.ts` → `getPortWorldPosition` kot TAŞIMAZ. Port bir plan bağlantı
 noktası tanımlar; kot yalnız render/attach katmanında (yukarıdaki
 `getInlineElementElevationCm`) ayrıca hesaplanır. Zincir devam ederken yeni
-bir borunun başlangıç kotu her zaman `elevationCm = 0`'dan başlar — önceki
+bir borunun başlangıç kotu genelde `elevationCm = 0`'dan başlar — önceki
 elemanın oturduğu kot taşınmaz (kapsam dışı, gerekirse sonraki turda eklenir).
+İKİ İSTİSNA aşağıda.
+
+## Servis kutusu ve branşman varsayılan kotu (kullanıcı isteği, 2026-08)
+
+`elevationCm = 0` yerine iki AYRI sabit kullanılır (`core/lineElevation.ts`):
+
+1. `SERVICE_BOX_SEED_HEIGHT_CM = 15`: servis kutusunu KENDİLİĞİNDEN
+   yerleştiren ilk boru (`useLineTool.ts` → `startDraft`,
+   `getLineSeedElementType`) bu kotta başlar — kutu zemine yakın çıkar, 0
+   değil ama sayaç kotuyla (200) da AYNI değildir.
+2. `BRANCH_SEED_HEIGHT_CM = GAS_METER_DEFAULT_HEIGHT_CM` (=200): branşman
+   aracı sayacı yerleştirdikten SONRA devam eden boru (`useLineTool.ts` →
+   `commitBranchGroundStep`, sayacın çıkış portundan) sayaçla AYNI kotta
+   başlar — sıfırdan başlayıp sayaçta zıplamaz.
+
+Aynı kot MAVİ KESİKLİ KOLA (`branchStub`, yer noktasından sayacın giriş
+portuna) da yazılır — `commitBranchGroundStep`'in `addLine` çağrısı artık
+`pipe: {startHeightCm/endHeightCm: BRANCH_SEED_HEIGHT_CM}` geçiyor. Kolun
+UCUNA oturan sayaç da aynı kotu alır: `plumbingSlice.placeElementAtLineEnd`
+eskiden yalnız `line.kind === 'pipe'`de kot yazıyordu, `branchStub` de artık
+dahil (bu eylem zaten YALNIZ sayaç için kullanılıyor, `attachModes.ts`) —
+yoksa branşman aracıyla eklenen sayaç 0 kotta kalıyordu, paletten var olan
+bir `pipe` hattına sürüklenen sayaç 200 alıyordu; iki yol farklı davranıyordu.
+
+⚠️ **Yazma yetmiyor, OKUMA da genişlemeli:** `branchStub`'a `pipe` yazmak tek
+başına yeterSİZDİ — `getInlineElementElevationCm` (armatürün/sayacın kotu) ve
+`getElementInputElevationCm` (elemanın giriş hattının kotu) `line.kind ===
+'pipe'` koşuluyla GATE'liydi, `branchStub` üstündeki veriyi görmezden gelip
+`0` dönüyordu (panel/render "kot eklenmemiş gibi" davranıyordu — kullanıcının
+"branşmanın defaultu 200 değil" bulgusu buradan). İkisi de artık ortak
+`hasTwoEndedPipeElevation(line)` (`pipe` VEYA `branchStub`, `line.pipe`
+dolu) üzerinden okuyor — yeni bir "kind listesi" YAZILDIĞI her yerde
+tekrarlanmasın diye TEK yardımcı.
+
+## Hedefe bağlı YENİ boru, hedefin O ANKİ kotunu devralır
+
+`resolveSeedElevationCm(target, elements, lines, connections)`: `pipe` aracı
+BOŞ YERE değil bir HEDEFE (`snap`) bağlı başlarken (`useLineTool.ts` →
+`startDraft`) artık `elevationCm = 0` değil bu fonksiyonun döndürdüğü değerle
+başlar (kullanıcı isteği, 2026-08):
+
+- Hedef bir **servis kutusu** portuysa → `SERVICE_BOX_SEED_HEIGHT_CM` (kutu
+  kendi kotunu TAŞIMAZ, sabit varsayılan).
+- Hedef bir **sayaç** portuysa → o sayaca ZATEN bağlı bir hat varsa onun
+  kotu (`getElementInputElevationCm`, kullanıcı sonradan değiştirmiş
+  olabilir — GÜNCEL değer okunur), hiç hat yoksa `GAS_METER_DEFAULT_HEIGHT_CM`.
+- Hedef mevcut bir **hattın köşesi/segmenti**yse (`linePoint`/`lineSplit`) →
+  `pipe`/`branchStub` ORANLA (`getElevationAtOffsetCm`, o noktadaki
+  enterpolasyon), `branch` DÜZ tek değerle (`branch.elevationCm`).
+- Hedef bir **deşarj ağzı** (`outlet`, baca/havalandırma) ise → `0`, gaz
+  taşımaz.
+
+Yalnız `pipe` aracı bu yoldan geçer — `branch` aracı zaten hiç `snap`
+ARAMAZ (kendi ground-free-point akışı, `commitBranchGroundStep`, sabit
+`BRANCH_SEED_HEIGHT_CM` kullanır).
+
+## Elemanın KENDİSİ de kotu izlemeli — yalnız borusu değil
+
+⚠️ **Bulunan ikinci boşluk (kullanıcı bulgusu, 2026-08):** yukarıdaki hepsi
+BORUNUN veri modelini doğru dolduruyordu ama SAHNEDE (3B) yalnız `onLine`
+armatürler (`getInlineElementElevationCm`) o kotu görsel olarak izliyordu —
+servis kutusu (`free`) ve sayaç (`lineEnd`) `PlumbingLayer.tsx` →
+`InstallationElements`'te HER ZAMAN `elevationCm=0` alıyordu: kutunun çıkış
+borusu 15cm'e, sayacın giriş borusu 200cm'e yükselse bile elemanın kendi
+sembolü zeminde çiziliyordu. "Z ekseninde kullandığımız her şey için
+geçerli" (kullanıcı) — yani tutunma biçiminden (onLine/lineEnd/nearestLine/
+free) bağımsız TEK bir kot kaynağı gerekiyordu.
+
+Çözüm: `getElementElevationCm(elementId, lines, connections)`
+(`core/lineElevation.ts`) — `PlumbingLayer.tsx`'teki eski
+`getInlineElementElevationCm` çağrısının YERİNE geçti (ikisi de dışa açık
+kalıyor, ikincisi hâlâ inline-özel testlerde/başka yerlerde kullanılabilir).
+Sıra: ÖNCE `inlineElementId` (armatür bir boru DÜĞÜMÜdür, mevcut davranış
+korunur), yoksa elemana bağlı HERHANGİ bir port bağlantısı — o hattın
+UCUNDAKİ (`start`/`end`, hangi ucunda bağlıysa) kotu alır. İkisi de yoksa
+(henüz hiçbir şeye bağlanmamış tamamen serbest eleman) `0`.
+
+⚠️ Bu, yakıcı cihazları (`nearestLine`, kısa kolla bağlı) da kapsar — cihazın
+kolu kesikli KIRMIZI (`applianceStub`) çizilir ama `applianceStub`
+`hasTwoEndedPipeElevation`'a GİRMEZ (yalnız `pipe`/`branchStub`), yani cihaz
+bugün hâlâ `0`'da kalır; bu turda yalnız servis kutusu + sayaç bulgusu
+giderildi, cihaz kolu ayrı bir karar gerektirirse (`applianceStub`'a da kot
+eklensin mi) sonraki tura bırakıldı.
+
+Branşman kendisi (`branchStub` + sayaç öncesi kol) hâlâ kot TAŞIMAZ (yalnız
+`pipe` türü iki uçlu kot alır, K102) — ama sayaç SONRASI devam eden boru artık
+`kind: 'branch'` olsa da `InstallationLine.branch.elevationCm` alanına
+`draft.elevationCm` yazılıyor (`commitStep`, `plumbingSlice.pushLine`/`addLine`
+`branch` alanını artık kabul ediyor) — önceden bu alan YALNIZ property
+panelinden elle dolduruluyordu, çizim sırasında hiç yazılmıyordu.

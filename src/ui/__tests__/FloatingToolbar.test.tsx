@@ -161,8 +161,8 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 })
 
 describe('FloatingToolbar — kat seçici', () => {
-  // Düğmenin erişilebilir adı hem etiketi hem aktif katı söyler: görünen metin
-  // artık "Katlar 2", aktif kat yalnız açılırın içinde işaretli.
+  // Düğmenin erişilebilir adı hem etiketi hem aktif katı söyler; görünen metin
+  // artık aktif kat adı + sayı (ör. "Zemin Kat 2"), hangi kattayız her an okunsun diye.
   const floorButtonName = /^Katlar, aktif kat/
 
   it('açılır tüm katları listeler ve seçim aktif katı değiştirir', async () => {
@@ -185,10 +185,10 @@ describe('FloatingToolbar — kat seçici', () => {
     expect(onGoToFloor).toHaveBeenCalledWith('up')
   })
 
-  it('düğmede kat sayısı yazar', () => {
+  it('düğmede aktif kat adı ve kat sayısı yazar', () => {
     renderToolbar()
 
-    expect(screen.getByRole('button', { name: floorButtonName })).toHaveTextContent('Katlar2')
+    expect(screen.getByRole('button', { name: floorButtonName })).toHaveTextContent('Zemin Kat2')
   })
 
   it('kat yönetimi ve kat kopyalama açılırdan açılır', async () => {

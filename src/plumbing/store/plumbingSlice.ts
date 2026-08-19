@@ -34,7 +34,7 @@ import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCorner
 import { GAS_METER_DEFAULT_HEIGHT_CM } from '../core/lineElevation'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
-import type { PipeLineProperties } from '../core/lineProperties'
+import type { BranchLineProperties, PipeLineProperties } from '../core/lineProperties'
 import { findCollapsiblePassThroughIndex } from '../core/lineSimplify'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
 import { resolveMoveTargets } from '../core/moveTargets'
@@ -60,6 +60,8 @@ export type AddLineInput = {
   endTarget?: LineEndAttachment
   /** Boru kotu (K102) — hat ile AYNI geçmiş adımında yazılır. */
   pipe?: PipeLineProperties
+  /** Branşman kotu — hat ile AYNI geçmiş adımında yazılır. */
+  branch?: BranchLineProperties
 }
 
 /**
@@ -446,6 +448,7 @@ export const createPlumbingSlice: StateCreator<
       pipeTypeName: PipeTypeName
       points: readonly PlanPoint[]
       pipe?: PipeLineProperties
+      branch?: BranchLineProperties
     },
   ): { lineId: Id; pointIds: Id[] } => {
     const points: InstallationLinePoint[] = input.points.map((position) => ({
@@ -467,6 +470,7 @@ export const createPlumbingSlice: StateCreator<
       points,
       segments,
       ...(input.pipe ? { pipe: input.pipe } : {}),
+      ...(input.branch ? { branch: input.branch } : {}),
     })
     return { lineId: id, pointIds: points.map((point) => point.id) }
   }
@@ -786,6 +790,7 @@ export const createPlumbingSlice: StateCreator<
           pipeTypeName: input.pipeTypeName ?? DEFAULT_PIPE_TYPE_NAME,
           points: input.points,
           pipe: input.pipe,
+          branch: input.branch,
         })
 
         const attachments = [
@@ -872,8 +877,10 @@ export const createPlumbingSlice: StateCreator<
         // yalnız gasMeter'da) — saha uygulamasında sayaç duvara ~2 m'de monte
         // edilir, borunun varsayılan zemin kotunda (0) kalması gerçekçi
         // olmazdı (kullanıcı isteği, 2026-08). Düz kot: eğim yok, K102'nin
-        // `+`/`- ile kullanıcı sonradan değiştirebilir.
-        if (line.kind === 'pipe') {
+        // `+`/`- ile kullanıcı sonradan değiştirebilir. `branchStub` de dahil
+        // (kullanıcı isteği, 2026-08): branşman aracında sayaç HEP bu koldan
+        // takılır, oradan geldiyse de kot atlanmamalı.
+        if (line.kind === 'pipe' || line.kind === 'branchStub') {
           line.pipe = {
             description: '',
             ...line.pipe,

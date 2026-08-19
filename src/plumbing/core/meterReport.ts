@@ -9,7 +9,7 @@ import { getLinkedLinePoints } from './lineCornerLink'
 import type { PipeTypeName } from './pipeTypes'
 import { isBurnerAppliance } from './symbolMetadata'
 import type { InstallationElementType } from './symbolMetadata'
-import type { Id } from '../../core/model'
+import type { FloorPipeLink, Id } from '../../core/model'
 
 /**
  * Sayaç bazlı "Birim / Cihaz Bilgileri" çıktısı — backend'in tükettiği JSON bu
@@ -50,6 +50,8 @@ type MeterSubtree = {
   pipeTypeName: PipeTypeName | null
   fittingElementIds: Id[]
   devices: MeterReportDevice[]
+  /** Sayacın ÇIKIŞINDAN erişilen borular — kaskad silmede kullanılır (bkz. `collectMeterDownstreamInstallation`). */
+  lineIds: Id[]
 }
 
 /** Gaz TAŞIMAYAN hat türleri izlenmez (baca/havalandırma — CLAUDE.md K27/webcad-format). */
@@ -129,21 +131,32 @@ function buildDevice(element: InstallationElement): MeterReportDevice {
   }
 }
 
+function findLineIdByPointId(lines: readonly InstallationLine[], pointId: Id): Id | undefined {
+  return lines.find((line) => line.points.some((point) => point.id === pointId))?.id
+}
+
 /**
  * Bir sayacın `out` portundan başlayıp gaz hattı grafiğinde ileri doğru gezinir.
  * Armatürler (`inlineElementId`) yol boyunca toplanır ama dallanma yaratmaz;
  * BAŞKA bir sayaca ya da yakıcı cihaza varılınca o dal biter. Köşe/branşman
  * gezinmesi `lineCornerLink.ts`'teki (taşıma yayılımının da kullandığı) ORTAK
  * `getLinkedLinePoints` ile yapılır — ikinci bir bağlantı-grafiği yazılmaz.
+ *
+ * `floorPipeLinks` VARSAYILAN BOŞ: `buildMeterReport` bunu HİÇ vermez —
+ * malzeme dökümü kat bağlantısının İKİ AYRI UCUNU birbirine karıştırmamalı
+ * (model.ts notu, "hidrolik olarak birleştirmez"). Yalnız
+ * `collectMeterDownstreamInstallation` (silme kaskadı) doldurur: kaynağı
+ * silinince karşı kattaki devam borusu köksüz kalmasın diye.
  */
 function traceMeterSubtree(
   meterId: Id,
   elements: readonly InstallationElement[],
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
+  floorPipeLinks: readonly FloorPipeLink[] = [],
 ): MeterSubtree {
   const outConnection = findOutConnection(connections, meterId)
-  if (!outConnection) return { pipeTypeName: null, fittingElementIds: [], devices: [] }
+  if (!outConnection) return { pipeTypeName: null, fittingElementIds: [], devices: [], lineIds: [] }
 
   const visitedLineIds = new Set<Id>()
   const visitedElementIds = new Set<Id>([meterId])
@@ -192,6 +205,19 @@ function traceMeterSubtree(
       if (visitedLineIds.has(link.lineId)) continue
       queue.push(link.lineId)
     }
+
+    for (const floorLink of floorPipeLinks) {
+      const pairedPointId =
+        floorLink.belowPointId === pointId
+          ? floorLink.abovePointId
+          : floorLink.abovePointId === pointId
+            ? floorLink.belowPointId
+            : undefined
+      if (pairedPointId === undefined) continue
+
+      const pairedLineId = findLineIdByPointId(lines, pairedPointId)
+      if (pairedLineId !== undefined && !visitedLineIds.has(pairedLineId)) queue.push(pairedLineId)
+    }
   }
 
   while (queue.length > 0) {
@@ -217,7 +243,34 @@ function traceMeterSubtree(
     if (endId !== undefined) handleEnd(lineId, 'end', endId)
   }
 
-  return { pipeTypeName, fittingElementIds, devices }
+  return { pipeTypeName, fittingElementIds, devices, lineIds: [...visitedLineIds] }
+}
+
+/** Sayaç silme kaskadı: ÇIKIŞINDAN erişilen ağ (armatür/cihaz/boru) da gider —
+ * sayaç dalın tek girişi, komşu sayaca geçilmez (`traceMeterSubtree` kuralı).
+ * `floorPipeLinks` verilirse (kullanıcı isteği, 2026-08) kat bağlantısıyla
+ * devam eden borular da kapsama girer, `floorIds` hangi katların etkilendiğini
+ * söyler. */
+export function collectMeterDownstreamInstallation(
+  meterId: Id,
+  elements: readonly InstallationElement[],
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+  floorPipeLinks: readonly FloorPipeLink[] = [],
+): { elementIds: Id[]; lineIds: Id[]; floorIds: Id[] } {
+  const subtree = traceMeterSubtree(meterId, elements, lines, connections, floorPipeLinks)
+  const floorIds = [
+    ...new Set(
+      subtree.lineIds
+        .map((lineId) => lines.find((line) => line.id === lineId)?.floorId)
+        .filter((floorId): floorId is Id => floorId !== undefined),
+    ),
+  ]
+  return {
+    elementIds: [meterId, ...subtree.fittingElementIds, ...subtree.devices.map((d) => d.elementId)],
+    lineIds: subtree.lineIds,
+    floorIds,
+  }
 }
 
 /**
