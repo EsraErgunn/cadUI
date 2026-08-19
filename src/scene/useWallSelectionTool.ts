@@ -22,8 +22,8 @@ import { ERASER_TOOL_ID, SELECTION_TOOL_ID } from '../core/tools'
 import { getWallMoveImpact } from '../core/wall'
 import { findBlockingOpeningForMove } from '../core/wallGraph'
 import { getWallNormal } from '../core/wallMove'
-import { findWallMoveBlocker } from '../core/wallMoveValidity'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
+import { findWallMoveBlocker } from '../store/architectureWallMoveValidity'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
@@ -226,14 +226,7 @@ export function useWallSelectionTool(): void {
 
       // Sürükleme geçerli tutuldu; yine de sınanır, çizim jest sürerken değişmiş olabilir.
       const moveBlocker = isNormalConstrained
-        ? findWallMoveBlocker(
-            cad.walls,
-            cad.points,
-            wallIds[0],
-            drag.dxCm,
-            drag.dyCm,
-            cad.activeFloorId,
-          )
+        ? findWallMoveBlocker(cad, wallIds[0], drag.dxCm, drag.dyCm)
         : undefined
 
       endDrag()

@@ -1,9 +1,10 @@
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import { queryDocumentList } from './documentListQuery'
-import { addMockDocuments, getMockDocuments } from './documentsMock'
+import { addMockDocuments, getMockDocuments, removeMockDocument } from './documentsMock'
 import type { PagedResult, SortDirection } from './listQuery'
 import { mockedData, type Sourced } from './mockGate'
 import type { ProjectSummary } from './projectDetailTypes'
+import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
  * Evrak ekranlarının veri şekilleri.
@@ -62,6 +63,13 @@ export interface DocumentListQuery {
   dateTo: string | null
   docTypeCode: string | null
   projectFirmId: number | null
+  /**
+   * Üst bardaki KAPSAM, gaz dağıtım firması ADLARINA açılmış hâliyle; `null` =
+   * sistem geneli (daraltma yok). Kimlik DEĞİL ad: evrak satırı yalnız
+   * `gasFirmName` taşıyor ve mock'a yeni bir alan eklemek uydurma veri olurdu.
+   * Dizi (küme değil): sorgu react-query anahtarının parçası.
+   */
+  gasFirmNames: string[] | null
   /** Arama YALNIZ evrak adı üzerinde (gereksinim 3). */
   search: string
   page: number
@@ -117,6 +125,29 @@ export async function listProjectDocuments(
   return mockedData(() =>
     getMockDocuments().filter((document) => document.projectId === projectId),
   )
+}
+
+export type DocumentDeleteResult = { ok: true } | { ok: false; reason: 'unavailable' }
+
+/**
+ * Evrak silme. Depo BELLEKTE: satır gerçekten listeden düşer ama sayfa
+ * yenilenince tohum listesine dönülür — çağıran bunu kullanıcıya SÖYLER.
+ *
+ * Üretim derlemesinde hiç silinmez (`unavailable`): gösterilmeyecek bir depodan
+ * kayıt düşürmek, kullanıcıya yapılmamış bir işi yapılmış göstermek olurdu.
+ */
+export async function deleteDocument(
+  documentId: number,
+  signal?: AbortSignal,
+): Promise<DocumentDeleteResult> {
+  if (isEndpointImplemented('documentDelete')) {
+    throw new Error('deleteDocument: uç bağlandı ama gövdesi yazılmadı.')
+  }
+
+  await delay(MOCK_LATENCY_MS, signal)
+
+  const removed = mockedData(() => removeMockDocument(documentId))
+  return removed.source === 'unavailable' ? { ok: false, reason: 'unavailable' } : { ok: true }
 }
 
 export type DocumentSaveResult =

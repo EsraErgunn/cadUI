@@ -38,8 +38,7 @@ export function AuthorizationList({ authorizations, onRemove }: AuthorizationLis
                   {authorization.gasDistributionFirmName}
                 </span>
                 <span className="text-xs text-ink-muted">
-                  {authorization.groupName} · Yeterlilik No:{' '}
-                  {authorization.qualificationNumber} · Sertifika No:{' '}
+                  {authorization.groupName} · Sertifika No:{' '}
                   {authorization.certificateNumber ?? EMPTY_VALUE}
                 </span>
               </div>

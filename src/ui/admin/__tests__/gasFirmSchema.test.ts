@@ -14,7 +14,7 @@ function buildValues(overrides: Partial<GasFirmFormValues> = {}): GasFirmFormVal
   return {
     dfirmNo: '115',
     name: 'ADANA DOĞALGAZ',
-    groupId: '',
+    groupId: '1',
     description: '',
     contactPerson: '',
     address: '',
@@ -33,10 +33,18 @@ describe('validateGasFirm', () => {
 
   it('opsiyonel alanların boş kalması kaydı engellemez', () => {
     const { data } = validateGasFirm(
-      buildValues({ groupId: '', description: '', contactPerson: '', address: '' }),
+      buildValues({ description: '', contactPerson: '', address: '' }),
     )
 
     expect(data).not.toBeNull()
+  })
+
+  // Grup firması zorunlu: seçilmeden kayıt oluşturulamaz.
+  it('grup seçilmemişse hata üretir', () => {
+    const { errors, data } = validateGasFirm(buildValues({ groupId: '' }))
+
+    expect(data).toBeNull()
+    expect(errors.groupId).toBe(GAS_FIRM_ERRORS.group)
   })
 
   // KK-8: üç zorunlu alan da boşken üçünün de mesajı GÖRÜNMELİ; kullanıcı

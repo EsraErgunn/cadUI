@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import { FieldControl } from './FieldControl'
 import { FieldFrame, type FieldLayout } from './FieldFrame'
@@ -25,6 +26,8 @@ interface SelectFieldProps {
   layout?: FieldLayout
   /** Girdinin içinde solda duran alanı temsil eden ikon; verilmezse hiç render edilmez. */
   leftIcon?: LucideIcon
+  /** Girdinin SAĞINDA duran ek eylem ("+" ile yeni kayıt gibi); girdinin parçası değil. */
+  action?: ReactNode
   onChange: (value: string) => void
 }
 
@@ -40,6 +43,7 @@ export function SelectField({
   isDisabled = false,
   layout,
   leftIcon,
+  action,
   onChange,
 }: SelectFieldProps) {
   const select = (
@@ -75,7 +79,18 @@ export function SelectField({
       error={error}
       layout={layout}
     >
-      <FieldControl leftIcon={leftIcon}>{select}</FieldControl>
+      {action === undefined ? (
+        <FieldControl leftIcon={leftIcon}>{select}</FieldControl>
+      ) : (
+        // Eylem girdinin YANINDA, içinde değil: seçim kutusunun kendi açılır oku
+        // zaten sağ kenarı kullanıyor.
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <FieldControl leftIcon={leftIcon}>{select}</FieldControl>
+          </div>
+          {action}
+        </div>
+      )}
     </FieldFrame>
   )
 }

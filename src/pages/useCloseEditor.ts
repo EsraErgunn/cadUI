@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 export const PROJECT_LIST_PATH = '/projects'
 
 /**
- * "← Projeler" butonu ve Dosya > Kapat aynı akışı tetikler (KK-10.3);
- * tek yerde durması ikisinin zamanla ayrışmasını önler.
+ * Editörden çıkış. Menüdeki "Kapat" maddesi K111'de kalktı (aynı işi yapan iki
+ * düğme vardı), geriye üst bardaki "← Projeler" kaldı — yol yine de tek yerde
+ * duruyor: kimin çağırdığından bağımsız olarak hedef burada tanımlı.
  *
- * Onay istenmiyor çünkü selectIsProjectDirty bu issue'da her zaman false döner
- * (KK-10.2). Tarayıcı geri tuşu ve yenileme de engellenmez (KK-10.4) — bunun için
- * bilerek beforeunload/blocker KAYDEDİLMİYOR.
+ * Bu hook yalnız GEZİNİR ve onay SORMAZ. Kaydedilmemiş değişiklik penceresini
+ * açan şey düğme değil, gezinmenin router tarafından DURDURULMASI
+ * (`useBlocker`, K112) — geri tuşu da aynı kapıdan geçsin diye. Buraya onay
+ * eklenirse aynı soru iki yerden sorulur.
  */
 export function useCloseEditor(): () => void {
   const navigate = useNavigate()

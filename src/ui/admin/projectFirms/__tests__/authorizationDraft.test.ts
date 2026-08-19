@@ -20,7 +20,6 @@ function buildDraft(gasFirms = [GEMLIK, ADANA]) {
   return {
     group: GROUP,
     gasFirms,
-    qualificationNumber: ' YT-100 ',
     certificateNumber: '  ',
   }
 }
@@ -69,11 +68,17 @@ describe('buildProjectFirmAuthorizations (KK-4)', () => {
     })
   })
 
-  it('yeterlilik numarasını kırpar, boş sertifikayı null yapar', () => {
+  it('boş sertifika numarasını null yapar', () => {
     const [first] = buildProjectFirmAuthorizations(buildDraft([GEMLIK]))
 
-    expect(first.qualificationNumber).toBe('YT-100')
     expect(first.certificateNumber).toBeNull()
+  })
+
+  // "Yeterlilik No" kayıttan tümüyle kalktı (K102).
+  it('kayıtta yeterlilik numarası alanı bulunmaz', () => {
+    const [first] = buildProjectFirmAuthorizations(buildDraft([GEMLIK]))
+
+    expect(first).not.toHaveProperty('qualificationNumber')
   })
 
   it('girilen sertifika numarasını taşır', () => {
@@ -124,7 +129,6 @@ describe('toAuthorizationPayloads', () => {
     expect(toAuthorizationPayloads(list)).toEqual([
       {
         gasDistributionFirmId: GEMLIK.id,
-        qualificationNumber: 'YT-100',
         certificateNumber: null,
       },
     ])

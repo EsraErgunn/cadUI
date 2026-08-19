@@ -32,27 +32,28 @@ ProjectFirmAuthorizationUpdateDto
   certificateNumber, validFrom, validTo?     // firma çifti değiştirilemiyor
 ```
 
-## S1 — `qualificationNumber` ↔ `certificateNumber` eşlemesi
+## S1 — `qualificationNumber` ↔ `certificateNumber` eşlemesi ✅ KAPANDI
 
-Arayüz **iki** numara topluyor, sunucu **bir** tane tanıyor. Üstelik
-zorunluluk yönü ters:
+Arayüz **iki** numara topluyordu, sunucu **bir** tane tanıyor:
 
-| Arayüz alanı | Etiket | Bizde | Sunucuda |
+| Arayüz alanı | Etiket | Eskiden | Sunucuda |
 |---|---|---|---|
-| `qualificationNumber` | "Yeterlilik No" | **zorunlu** | **karşılığı YOK** |
-| `certificateNumber` | "Sertifika No" | opsiyonel | `certificateNumber` — **zorunlu** (non-nullable) |
+| `qualificationNumber` | "Yeterlilik No" | zorunlu | **karşılığı YOK** |
+| `certificateNumber` | "Sertifika No" | opsiyonel | `certificateNumber` — zorunlu (non-nullable) |
 
-`qualificationNumber`'ın sunucuda hiçbir yerde evi yok: `ProjectFirmListItemDto`
-(`companyType, contactPerson, email, id, phone, taxNumber, title`) da taşımıyor,
-`ProjectFirmCreateDto` da. Arayüzdeki `ProjectFirm.qualificationNumber` zaten
-"bugün her satırda `null`" notuyla duruyor.
+**Çözüm: "Yeterlilik No" KALDIRILDI (K113).** Alan, `AUTHORIZATION_ERRORS`
+girdisi, `ProjectFirmAuthorization.qualificationNumber` ve istek gövdesindeki
+karşılığı silindi. Kayıtta artık sunucudaki tek numara duruyor:
+`certificateNumber`.
 
-**Sorulacak:** İkisi aynı şey mi (arayüz gereksiz yere ikiye bölmüş), yoksa
-Yeterlilik No ayrı bir kavram mı ve uca `qualificationNumber` eklenecek mi?
+Gerekçe: `qualificationNumber`'ın sunucuda hiçbir yerde evi yoktu — ne
+`ProjectFirmListItemDto` ne `ProjectFirmCreateDto` taşıyordu. Alan ZORUNLU
+olduğu için kullanıcının girdiği veri HER kayıtta sessizce kayboluyordu.
+"Ayrı bir kavram mı" sorusu da düştü: iki numaralı bir model kurmadan önce
+sunucunun tanıdığı tek numarayla ilerleniyor.
 
-Bu netleşmeden yazma yoluna geçilirse kullanıcının "Yeterlilik No" alanına
-girdiği veri sessizce kaybolur — alan zorunlu olduğu için de her kayıtta
-kaybolur.
+⚠️ `certificateNumber` sunucuda **non-nullable** ama arayüzde hâlâ opsiyonel;
+uç bağlanınca zorunluluk yönü ayrıca ele alınmalı.
 
 ## S2 — `validFrom` / `validTo` formda toplanacak mı?
 
@@ -147,12 +148,35 @@ karar yeniden değerlendirilecek.
 
 | Yer | Bugün | Uç bağlanınca |
 |---|---|---|
-| `api/projectFirmForm.ts` `saveProjectFirmAuthorizations` | HER ZAMAN mock | S1+S2 sonrası `POST`'a döner, imza aynı kalır |
+| `api/projectFirmForm.ts` `saveProjectFirmAuthorizations` | HER ZAMAN mock | S2 sonrası `POST`'a döner, imza aynı kalır (S1 kapandı) |
 | `api/projects.ts` yetki kimliği | ~~sabit (`= 1`)~~ → **bağlandı** (2026-08-16) | — |
 | `getAuthorizedProjectFirms` (KK-20 daraltması) | ~~tüm firmalar~~ → **bağlandı** (2026-08-17) | — |
 | Proje firmaları listesi "G.D. Firması" sütunu | ~~hep "-"~~ → **bağlandı** (2026-08-17), `ProjectFirmRow.gasFirms` çoğul | — |
-| KK-5 (her yetki ayrı satır) | UYGULANMADI — veri var, ekran uygun değil (S7) | S1+S2 sonrası yeniden değerlendirilecek |
+| KK-5 (her yetki ayrı satır) | UYGULANMADI — veri var, ekran uygun değil (S7) | S2 sonrası yeniden değerlendirilecek |
 
 Arayüz tarafındaki yetkilendirme FORM taslağı `ui/admin/projectFirms/authorizationDraft.ts`
 (eski adı `projectFirmAuthorizations.ts`; API sözleşmesini taşıyan
 `api/projectFirmAuthorizations.ts` ile karışmasın diye ayrıldı).
+
+## Proje firması alanları — 2026-08-18 sadeleştirmesi (K113, K114)
+
+**Kaldırılanlar.** Liste ekranından `Seri No`, `Yeter No` ve `Gsm` sütunları;
+formlardan `Seri No` (`serialNumber`) ve `Yeterlilik No`. Üç sütun da her
+satırda "-" gösteriyordu ve `serialNumber` gövdeye artık HİÇ eklenmiyor —
+`null` gönderilmiyor, anahtar yazılmıyor.
+
+⚠️ `accountingCode` (Cari Kodu) AYRI bir alan ve KALDI; seri no ile
+karıştırılmamalı.
+
+**Şahıs / tüzel ayrımı (§10).** `companyType = 1` → `nationalIdNumber` zorunlu
+(gerçek T.C. sağlaması, `core/nationalId.ts`) ve `taxNumber` `null`;
+`companyType = 2` → `taxNumber` zorunlu 10-11 hane ve `nationalIdNumber` `null`.
+Kapanan alan hem ekrandan hem GÖVDEDEN temizleniyor: gizli ama dolu alan 400
+döndürüyor. Aynı T.C. ile ikinci şahıs firması 409 döner ve **silinmiş firma
+bile numarayı rezerve tutar** — mesaj bunu söylüyor, yoksa kullanıcı listede
+arayıp bulamıyor.
+
+**Maskeli kimlik (K114).** `GET /api/projectfirms/{id}` `nationalIdNumber`'ı
+maskeli döndürüyor ("*******1234"). Değer forma YÜKLENMİYOR ve gövdeye olduğu
+gibi konmuyor; şahıs firmasında kullanıcıdan yeniden isteniyor. Etkilenen iki
+ekran: proje firması güncelleme ve Kişi Bilgileri.

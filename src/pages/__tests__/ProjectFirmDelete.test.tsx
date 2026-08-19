@@ -32,13 +32,10 @@ vi.mock('../../ui/admin/useIsAdmin', () => ({ useIsAdmin }))
 
 const FIRM: ProjectFirm = {
   id: 7,
-  serialNumber: null,
-  qualificationNumber: null,
   name: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
   authorizedPerson: 'Ahmet Yılmaz',
   email: 'bilgi@adana.com.tr',
   phone: '05321000000',
-  mobilePhone: null,
   taxNumber: '1234567890',
 }
 

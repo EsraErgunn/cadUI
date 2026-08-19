@@ -1,5 +1,9 @@
 # open-question: Proje firmaları listesinin eksik alanları ve KK-5 satır kararı
 
+> 2026-08-18 (K113): `Seri No`, `Yeter No` ve `Gsm` sütunları KALDIRILDI —
+> uçta karşılıkları yoktu ve her satırda "-" gösteriyorlardı. Tablo eşiği
+> `min-w-320` → `min-w-240`. Bu adlarla yeni sütun yazma.
+
 Ekran çalışıyor (`pages/ProjectFirmsPage.tsx`). Alanların bir kısmı hâlâ
 sunucuda YOK; bunlarda **varsayım kodlama**. G.D. firması bağı ise ARTIK VAR —
 aşağıdaki tablo günceldir.

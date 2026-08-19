@@ -1,11 +1,13 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useMemo } from 'react'
 
-import { listInsuranceCompanies, listPolicies } from '../api/policies'
+import { deletePolicy, listInsuranceCompanies, listPolicies } from '../api/policies'
+import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
 import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
+import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
@@ -19,6 +21,7 @@ import {
 } from '../ui/admin/policies/policyColumns'
 import { buildPolicyFilterChips } from '../ui/admin/policies/policyFilterChips'
 import { usePolicyListParams } from '../ui/admin/policies/usePolicyListParams'
+import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Poliçeler'
 const PAGE_DESCRIPTION = 'Tüm projelere ait poliçeler'
@@ -35,8 +38,23 @@ const MOCK_SECTIONS = ['Poliçe listesinin tamamı (satırlar, adet ve sayfalama
 
 const MISSING_ENDPOINT_HINT = 'GET /api/policies'
 
+const DELETE_DIALOG = {
+  title: 'Poliçe silinsin mi?',
+  description:
+    'Poliçe listeden kaldırılacak. Depo bellekte olduğu için sayfa yenilenince örnek liste geri gelir.',
+  confirmLabel: 'Sil',
+}
+
+const DELETE_MESSAGES = {
+  success: 'Poliçe silindi.',
+  unavailable:
+    'Poliçe silme ucu sunucuda henüz yok (DELETE /api/policies/{id}); kayıt düşmedi.',
+  error: 'Poliçe silinemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+}
+
 export function PolicyListPage() {
   const { query, applyFilters, toggleSort, setPage } = usePolicyListParams()
+  const queryClient = useQueryClient()
 
   const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['policies', query],
@@ -57,9 +75,26 @@ export function PolicyListPage() {
   const companyRows =
     companies === undefined || companies.source === 'unavailable' ? [] : companies.data
 
+  const refreshList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['policies'] })
+    // Proje detayındaki poliçe sekmesi AYNI depodan besleniyor.
+    void queryClient.invalidateQueries({ queryKey: ['projectPolicies'] })
+  }, [queryClient])
+
+  const deletion = useRowDelete({
+    remove: async (policyId) => (await deletePolicy(policyId)).ok,
+    messages: DELETE_MESSAGES,
+    onDeleted: refreshList,
+  })
+
   const columns = useMemo(
-    () => buildPolicyColumns({ rowOffset: (query.page - 1) * query.pageSize }),
-    [query.page, query.pageSize],
+    () =>
+      buildPolicyColumns({
+        rowOffset: (query.page - 1) * query.pageSize,
+        pendingPolicyId: deletion.pendingId,
+        onDelete: deletion.request,
+      }),
+    [query.page, query.pageSize, deletion.pendingId, deletion.request],
   )
 
   const hasActiveFilters = query.search !== '' || query.insuranceCompanyId !== null
@@ -82,6 +117,14 @@ export function PolicyListPage() {
       />
 
       <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
+
+      {deletion.notice !== null && (
+        <NoticeBar
+          tone={deletion.notice.tone}
+          message={deletion.notice.message}
+          onDismiss={deletion.dismissNotice}
+        />
+      )}
 
       <PolicyFilterBar
         key={filterKey}
@@ -128,6 +171,18 @@ export function PolicyListPage() {
             />
           )}
         </StaleContent>
+      )}
+
+      {deletion.targetId !== null && (
+        <ConfirmDialog
+          title={DELETE_DIALOG.title}
+          description={DELETE_DIALOG.description}
+          confirmLabel={DELETE_DIALOG.confirmLabel}
+          confirmTone="danger"
+          isPending={deletion.pendingId !== null}
+          onConfirm={() => void deletion.confirm()}
+          onCancel={deletion.cancel}
+        />
       )}
     </div>
   )

@@ -61,13 +61,10 @@ export const ENERYA_GAS_FIRMS = [buildGasFirm(20, 'Konya Doğalgaz A.Ş.', 2, 'E
 /** Benzersizlik ön kontrolünün karşılaştırdığı mevcut kayıt. */
 export const EXISTING_PROJECT_FIRM: ProjectFirm = {
   id: 1,
-  serialNumber: 'SR-KAYITLI',
-  qualificationNumber: null,
   name: 'MEVCUT MÜHENDİSLİK LTD. ŞTİ.',
   authorizedPerson: null,
   email: null,
   phone: null,
-  mobilePhone: null,
   taxNumber: '9999999999',
 }
 
@@ -129,7 +126,6 @@ export async function fillFirmInfo(overrides: Record<string, string> = {}) {
   const user = setupUser()
   const values: Record<string, string> = {
     Ünvan: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
-    'Seri No': 'SR-001',
     'Yetkili Kişi': 'Ahmet Yılmaz',
     'E-mail': 'bilgi@adana.com.tr',
     'Vergi No': '1234567890',
@@ -148,6 +144,5 @@ export async function addAuthorization(gasFirmName = 'AKSA-GEMLİK') {
   const user = setupUser()
 
   await user.click(screen.getByRole('checkbox', { name: gasFirmName }))
-  await user.type(screen.getByLabelText(/^Yeterlilik No/), 'YT-100')
   await user.click(screen.getByRole('button', { name: 'Ekle' }))
 }

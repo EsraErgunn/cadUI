@@ -31,6 +31,7 @@ function buildQuery(overrides: Partial<DocumentListQuery> = {}): DocumentListQue
     dateTo: null,
     docTypeCode: null,
     projectFirmId: null,
+    gasFirmNames: null,
     search: '',
     page: 1,
     pageSize: 30,

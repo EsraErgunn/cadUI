@@ -8,6 +8,7 @@ import {
 } from '../../../api/projectFirmUserDto'
 import { PROJECT_FIRM_USER_PAGE_SIZE } from '../../../api/projectFirmUsers'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
+import { useScopeGasFirms } from '../useScopeGasFirms'
 
 /** İşaretli hâlin adresteki karşılığı; işaretsiz hâl hiç yazılmaz. */
 const ONLY_ACTIVE_VALUE = '1'
@@ -34,22 +35,32 @@ export interface ProjectFirmUserListControls {
  * adres güncellemesine ve tek isteğe dönüşür. Gerekçesi ve proje firmaları
  * ekranıyla farkı: docs/kararlar.md K47.
  *
- * Bölge/grup anahtarı BİLEREK yok: üst bardaki kapsam bu ekrana bağlanmadı,
- * satır bölge bilgisi taşımıyor.
+ * Üst bardaki KAPSAM adrese buradan YAZILMAZ; anahtarını `useAdminScopeParam`
+ * tutuyor ve sorguya yalnız açılmış hâliyle (firma kimlikleri) giriyor —
+ * aynı anahtarı iki hook'un yazması kapsamı ikiye bölerdi.
  */
 export function useProjectFirmUserListParams(): ProjectFirmUserListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
+  const scopeGasFirms = useScopeGasFirms()
+
+  // Sıralı dizi: sorgu react-query anahtarına giriyor, küme sırası değişirse
+  // aynı kapsam iki farklı anahtar üretir ve liste boşuna yeniden çekilirdi.
+  const gasFirmIds = useMemo(
+    () => (scopeGasFirms.ids === null ? null : [...scopeGasFirms.ids].sort((a, b) => a - b)),
+    [scopeGasFirms.ids],
+  )
 
   const query = useMemo<ProjectFirmUserQuery>(
     () => ({
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       authorityType: parseAuthorityType(searchParams.get(ADMIN_PARAM_KEYS.authorityType)),
       onlyActive: searchParams.get(ADMIN_PARAM_KEYS.onlyActive) === ONLY_ACTIVE_VALUE,
+      gasFirmIds,
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: PROJECT_FIRM_USER_PAGE_SIZE,
     }),
-    [searchParams],
+    [searchParams, gasFirmIds],
   )
 
   const applyFilters = useCallback(

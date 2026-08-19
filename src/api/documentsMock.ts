@@ -141,6 +141,21 @@ export function resetMockDocuments(): void {
   mockDocuments = null
 }
 
+/**
+ * Satırı depodan düşürür; kayıt yoksa sessizce geçer (silinen bir şeyi tekrar
+ * silmek hata değil). Nesne adresi BURADA bırakılıyor: `createObjectURL` ile
+ * açılan dosya `revokeObjectURL` çağrılmazsa sekme kapanana kadar bellekte
+ * kalırdı ve satır listeden düştükten sonra o adrese ulaşan kimse yok.
+ */
+export function removeMockDocument(documentId: number): void {
+  const documents = getStore()
+  const index = documents.findIndex((document) => document.id === documentId)
+  if (index === -1) return
+
+  const [removed] = documents.splice(index, 1)
+  if (removed.url !== null) URL.revokeObjectURL(removed.url)
+}
+
 type DocumentFileFields = Pick<DocumentRow, 'fileName' | 'contentType' | 'url' | 'sizeBytes'>
 
 /**

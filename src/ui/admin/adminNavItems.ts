@@ -6,6 +6,7 @@ import {
   House,
   ShieldCheck,
   Users,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -54,6 +55,15 @@ export const PROJECT_FIRM_USER_CREATE_PATH = `${PROJECT_FIRM_USERS_PATH}/new`
 export function projectFirmUserUpdatePath(userId: number): string {
   return `${PROJECT_FIRM_USERS_PATH}/${userId}`
 }
+
+/**
+ * Gaz dağıtım firmalarının kullanıcıları. `PROJECT_FIRM_USERS_PATH` ile aynı
+ * gerekçe: yol hangi firmanın kullanıcısı olduğunu söylüyor.
+ */
+export const GAS_DISTRIBUTION_USERS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-users`
+
+/** Yeni gaz dağıtım kullanıcısı ekranı; güncelleme rotası YOK (uç yetmiyor). */
+export const GAS_DISTRIBUTION_USER_CREATE_PATH = `${GAS_DISTRIBUTION_USERS_PATH}/new`
 
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
@@ -148,6 +158,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Geçici karşılama ekranı (AdminHomePage). Kendi yolu var; "Projeler" maddesiyle
   // aynı ekranı göstermesin diye proje listesine DEĞİL, /admin'e bakar.
   { key: 'home', label: 'Anasayfa', icon: House, path: ADMIN_HOME_PATH },
+  { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
   {
     key: 'gasDistributionFirms',
     label: 'Gaz Dağıtım Firmaları',
@@ -161,7 +172,12 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: Users,
     path: PROJECT_FIRM_USERS_PATH,
   },
-  { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
+  {
+    key: 'gasDistributionUsers',
+    label: 'Gaz Dağıtım Kullanıcıları',
+    icon: UsersRound,
+    path: GAS_DISTRIBUTION_USERS_PATH,
+  },
   { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH },
   { key: 'policies', label: 'Poliçeler', icon: ShieldCheck, path: POLICIES_PATH },
 ]

@@ -79,13 +79,21 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       )}
 
       {/* Zemin ana içerikle aynı (surface-sunken); ikisi yalnızca sağ kenarlıkla
-          ayrılır. Geniş ekranda `overflow-y-auto` YOK: kendi kaydırma kabı
-          olsaydı sayfada ikinci bir dikey çubuk oluşurdu. Çekmece hâlindeyse
-          kendi içinde kayar, çünkü sayfayla birlikte kayamaz. */}
+          ayrılır. Çekmece hâlinde kendi içinde kayar, çünkü sayfayla birlikte
+          kayamaz.
+
+          Geniş ekranda `sticky top-0` + `h-screen`: kabuk `min-h-screen` olduğu
+          için uzun listede kayan şey PENCERE, ve menü esnek satırın bir öğesi
+          olarak içerikle birlikte yukarı çıkıyordu — kullanıcı listenin
+          ortasındayken menü ekrandan tamamen kayboluyordu. `self-start`,
+          esnek kabın öğeyi kap boyunca gerip `sticky`'yi etkisiz bırakmasını
+          önlüyor. `overflow-y-auto` ancak menü viewport'a sığmazsa çubuk
+          gösterir; sığdığı sürece ikinci bir dikey çubuk oluşmaz. */}
       <nav
         aria-label="Yönetici menüsü"
         className={`z-50 flex w-64 shrink-0 flex-col border-r border-edge bg-surface-sunken text-ink
           max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:overflow-y-auto max-lg:transition-transform
+          lg:sticky lg:top-0 lg:h-screen lg:self-start lg:overflow-y-auto
           ${isOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}
       >
         <div className="flex items-center gap-2 border-b border-edge px-5 py-4">

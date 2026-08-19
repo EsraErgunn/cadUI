@@ -32,6 +32,7 @@ function buildRows(count: number): ProjectListItem[] {
     updatedAt: '2026-08-01T09:30:00.000Z',
     createdAt: '2026-07-01T09:30:00.000Z',
     gasFirm: { id: 101, name: 'Başkent Doğalgaz' },
+    status: 'taslak' as const,
   }))
 }
 

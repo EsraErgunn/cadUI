@@ -12,6 +12,12 @@ export const ADMIN_CHECKBOX = `size-4 shrink-0 accent-admin-primary ${ADMIN_FOCU
 /** Tablo hücresi ve konum izi içindeki bağlantılar. Seçim mavisi + hover'da altı çizili. */
 export const ADMIN_CELL_LINK = `rounded text-selection hover:underline ${ADMIN_FOCUS_RING}`
 
+/** Formların alt aksiyon satırındaki düğmeler: İptal ile Kaydet/Oluştur AYNI
+    genişlikte dursun. Alt sınır en uzun çalışma metnini ("Oluşturuluyor…" +
+    ikon) taşır; `sm` altında uygulanmaz — 320 px ekranda iki sabit genişlikli
+    düğme satırı taşırıyordu. */
+export const ADMIN_FORM_ACTION_WIDTH = 'sm:min-w-40'
+
 /** Yeni oluşturulan kaydın satırı. Renk başarı şeridiyle aynı aileden: kullanıcı
     şeritteki proje numarasıyla satırı gözüyle eşleştirsin. Yalnızca zemin tonu —
     kenarlık eklenseydi vurgu sönerken satır 4px kayardı. Bilgi bu tona BAĞLI

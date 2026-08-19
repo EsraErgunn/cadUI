@@ -24,9 +24,14 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
  * DELETE /api/projectfirms/{id} → 200, GÖVDESİZ; 404 kayıt yoksa
  *
  * Gövde alanları sunucunun adlarıyla: `companyType`, `title`, `taxNumber`,
- * `nationalIdNumber`, `accountingCode`, `serialNumber`, `contactPerson`,
- * `email`, `phone`, `phone2`, `address`. POST ve PUT gövdeleri AYNI.
- * Dönüşüm `projectFirmDto.ts`'te.
+ * `nationalIdNumber`, `accountingCode`, `contactPerson`, `email`, `phone`,
+ * `phone2`, `address`. POST ve PUT gövdeleri AYNI. Dönüşüm
+ * `projectFirmDto.ts`'te. `serialNumber` gövdeden ÇIKTI (K102) — `null`
+ * gönderilmiyor, anahtar hiç yazılmıyor.
+ *
+ * Şahıs firması (`companyType = 1`) ARTIK destekleniyor: `nationalIdNumber`
+ * zorunlu, `taxNumber` boş. Aynı T.C. numarasıyla ikinci kayıt 409 döner ve
+ * SİLİNMİŞ firma da numarayı rezerve tutar.
  *
  * SUNUCUDA KARŞILIĞI OLMAYANLAR — hiçbiri uydurulmadı, arayüzde duruyor:
  *
@@ -36,13 +41,12 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
  *   `getNextDfirmNo` deseni) — uç açılınca yalnız bu gövde `requestJson`'a
  *   döner, imza değişmez. GÜNCELLEME ekranı bu yüzden yetkilendirme bölümünü
  *   HİÇ göstermiyor (bkz. `ProjectFirmUpdateForm`).
- * - **Şahıs şirketi**: sunucunun doğrulayıcısı `companyType == 2` (tüzel)
- *   dışındaki gövdeyi 400 ile geri çeviriyor. Arayüz seçimi engellemiyor,
- *   sunucunun mesajı olduğu gibi gösteriliyor.
- * - **Benzersizlik**: sunucu vergi/seri numarasını DENETLEMİYOR (409 yok).
- *   Ön kontrol istemcide, liste ucundan gelen kayıtlar üzerinde
- *   (`projectFirmSchema.findTakenProjectFirmErrors`). Yarış durumunu kapatmaz;
- *   sunucu kuralı gelince bu ön kontrol ikinci savunma hattına düşer.
+ * - **Benzersizlik**: sunucu VERGİ numarasını denetlemiyor (409 yok); ön
+ *   kontrol istemcide, liste ucundan gelen kayıtlar üzerinde
+ *   (`projectFirmUniqueness.ts`). Yarış durumunu kapatmaz; sunucu kuralı gelince
+ *   bu ön kontrol ikinci savunma hattına düşer. T.C. kimlik numarası AYRI:
+ *   orada sunucu 409 döndürüyor ve silinmiş firma bile numarayı rezerve
+ *   tutuyor, yani istemcide ön kontrol yapılamaz.
  *
  * MOCK GÖVDE YOK. Firma uçlarının hepsi sözleşmede var, bu yüzden `VITE_API_URL`
  * tanımsızken sahte gövdeye düşmüyorlar: API kökü yoksa `http.ts` anlaşılır bir
@@ -58,7 +62,7 @@ export interface ProjectFirmAuthorizationPayload {
       diyordu; bölge kavramı kalkınca alan `GasDistributionFirmId` oldu ve arayüzdeki
       adla örtüştü — uç açılınca eşlemenin doğrulanması yine de gerekecek. */
   gasDistributionFirmId: number
-  qualificationNumber: string
+  /** Kayıttaki TEK numara; "Yeterlilik No" kalktı (K102). */
   certificateNumber: string | null
 }
 
@@ -132,9 +136,8 @@ export async function saveProjectFirmAuthorizations(
 /**
  * Şahıs şirketi işaretliyken gönderilecek firma türü; aksi hâlde tüzel.
  *
- * ASSUMPTION: Belge firma türü diye bir alandan söz etmiyor; "Şahıs Şirketi"
- * onay kutusu sunucudaki `companyType`e bağlandı (1 = şahıs, 2 = tüzel).
- * Sunucu bugün yalnız 2'yi kabul ediyor.
+ * "Şahıs Şirketi" onay kutusu sunucudaki `companyType`e bağlı (1 = şahıs,
+ * 2 = tüzel); sunucu ikisini de kabul ediyor (§10).
  */
 export function toCompanyType(isSoleProprietorship: boolean): number {
   return isSoleProprietorship
@@ -143,8 +146,8 @@ export function toCompanyType(isSoleProprietorship: boolean): number {
 }
 
 /**
- * Tekil firma (`GET /api/projectfirms/{id}`). Liste ucundan okunmuyor: seri no,
- * adres ve ikinci telefon liste satırında YOK.
+ * Tekil firma (`GET /api/projectfirms/{id}`). Liste ucundan okunmuyor: adres ve
+ * ikinci telefon liste satırında YOK.
  */
 export function getProjectFirm(
   id: number,

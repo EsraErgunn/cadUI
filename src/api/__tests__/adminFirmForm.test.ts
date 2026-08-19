@@ -171,14 +171,26 @@ describe('deactivateGasDistributionFirm', () => {
 })
 
 /**
- * Sunucuda karşılığı HENÜZ YOK: uç açılana kadar mock hesaplıyor, bu yüzden
- * ağa hiç çıkmıyor.
+ * Sunucuda hazır bir "sıradaki numara" ucu YOK; değer GERÇEK firma listesinden
+ * hesaplanıyor (en büyük numaranın bir fazlası). Uydurma bir sabit yerine
+ * listeye bakması, ekleme formunun boşta olmayan bir numara önermesini sağlıyor.
  */
 describe('getNextDfirmNo', () => {
-  it('ağa çıkmadan sıradaki numarayı verir', async () => {
-    const fetchMock = stubFetch()
+  it('mevcut firma numaralarının en büyüğünün bir fazlasını verir', async () => {
+    const fetchMock = stubFetch(
+      jsonResponse({
+        items: [
+          { id: 1, title: 'A', companyNumber: 1204, groupId: null, groupName: null },
+          { id: 2, title: 'B', companyNumber: 1416, groupId: null, groupName: null },
+          { id: 3, title: 'C', companyNumber: 1310, groupId: null, groupName: null },
+        ],
+        totalCount: 3,
+        page: 1,
+        pageSize: 30,
+      }),
+    )
 
-    expect(await getNextDfirmNo()).toBeGreaterThan(0)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(await getNextDfirmNo()).toBe(1417)
+    expect(requestOf(fetchMock).url).toContain('/api/gasdistributionfirms')
   })
 })

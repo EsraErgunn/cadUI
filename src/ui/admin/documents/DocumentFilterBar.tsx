@@ -72,7 +72,7 @@ export function DocumentFilterBar({
       className="flex flex-col gap-4 rounded-xl border border-edge bg-surface p-4
                  md:flex-row md:flex-wrap md:items-end"
     >
-      <fieldset className="flex min-w-0 flex-col gap-1 border-0 p-0">
+      <fieldset className="flex min-w-0 flex-col gap-1 border-0 p-0 md:min-w-72 md:flex-1">
         <legend className="mb-1 text-xs font-medium text-ink-muted">Tarih Aralığı</legend>
         {/* `min-w-0 flex-1`: `input[type=date]` içeriğine göre ~150 px'lik bir
             asgari genişlik dayatıyor, iki kutu 375 px ekranda kabı taşırıyordu. */}

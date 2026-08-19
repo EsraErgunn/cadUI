@@ -8,20 +8,15 @@ import { pagedResultSchema } from './listQuery'
  * `GET /api/projectfirms` alanları arayüzün adlarıyla birebir değil:
  * `title` ↔ `name`, `contactPerson` ↔ `authorizedPerson`.
  *
- * EKRANIN İSTEDİĞİ AMA UÇTA OLMAYAN ALANLAR — hepsi `null` doğar, arayüz "-"
- * gösterir:
- * - `serialNumber` (Seri No) ve `phone2` (Gsm) YALNIZ `/api/projectfirms/{id}`
- *   detay yanıtında var, liste satırında yok. Satır başına detay isteği atmak
- *   30 kayıtta 30 istek demekti; bilinçli olarak yapılmadı.
- * - Yeterlik numarası (Yeter No) uçta HİÇ yok — ne listede ne detayda.
+ * Liste satırı artık uçtan geleni BİREBİR taşıyor. Seri No, Yeter No ve Gsm
+ * sütunları KALKTI (K102): üçü de her satırda "-" gösteriyordu — ilki ve
+ * üçüncüsü yalnız detay yanıtında, ikincisinin uçta hiç karşılığı yoktu. Seri
+ * no ayrıca alan olarak da kaldırıldı, Yeter No ise yetkilendirmeden.
  *
  * Gaz dağıtım firması bağı bu satırda YOK ama artık başka bir uçtan geliyor:
  * `GET /api/project-firm-authorizations`. Birleştirme `projectFirmListQuery.ts`
  * içinde (`ProjectFirmRow`), burada değil — satır tipi tek uçtan doğduğu için
  * eşlemenin ikinci bir isteğe bağımlı olmaması gerekiyor.
- *
- * TODO(esra): backend liste DTO'suna `serialNumber`, `phone2` ve yeterlik
- * numarasını ekleyince yalnız bu dosyadaki eşleme değişecek.
  */
 
 /** Opsiyonel metin alanları sunucuda boş kalabiliyor. */
@@ -59,16 +54,13 @@ export interface ProjectFirmGasFirm {
   name: string
 }
 
-/** Liste satırının arayüz karşılığı. */
+/** Liste satırının arayüz karşılığı; alanların tamamı uçtan geliyor. */
 export interface ProjectFirm {
   id: number
-  serialNumber: string | null
-  qualificationNumber: string | null
   name: string
   authorizedPerson: string | null
   email: string | null
   phone: string | null
-  mobilePhone: string | null
   /**
    * Tabloda sütunu YOK; ekleme ekranının benzersizlik ön kontrolü için taşınıyor
    * (sunucu vergi numarasını denetlemiyor, bkz. `projectFirmForm.ts`). Liste zaten
@@ -80,27 +72,24 @@ export interface ProjectFirm {
 /**
  * Sunucudan gelen liste satırı → arayüzün alan adları.
  *
- * Karşılığı olmayan alanlar SİLİNMEDİ, `null` veriliyor: sütunlar gereksinimdeki
- * sırayla duruyor ve uç genişleyince yalnız bu fonksiyon değişiyor.
+ * Artık `null` doğan alan YOK: karşılığı olmayan üç sütun kaldırıldığı için
+ * eşleme birebir (K102).
  */
 export function toProjectFirmListItem(dto: ProjectFirmListItemDto): ProjectFirm {
   return {
     id: dto.id,
-    serialNumber: null,
-    qualificationNumber: null,
     name: dto.title,
     authorizedPerson: dto.contactPerson,
     email: dto.email,
     phone: dto.phone,
-    mobilePhone: null,
     taxNumber: dto.taxNumber,
   }
 }
 
 /**
- * Firma türü sunucuda `byte`. Değerler backend'in `ProjectFirmCreateValidator`
- * kuralından okundu: bugün YALNIZ `legal` kabul ediliyor, `individual` gövdesi
- * 400 ile geri çevriliyor (bkz. projectFirmForm.ts).
+ * Firma türü sunucuda `byte`. İKİSİ de kabul ediliyor (§10): şahıs firması
+ * `nationalIdNumber` ister ve `taxNumber`ı BOŞ bırakır, tüzel firma tam
+ * tersi. Eskiden yalnız `legal` geçiyordu; o kısıt kalktı.
  */
 export const PROJECT_FIRM_COMPANY_TYPES = {
   individual: 1,
@@ -111,10 +100,13 @@ export const PROJECT_FIRM_COMPANY_TYPES = {
  * Ekleme/güncelleme istek gövdesi (ARAYÜZ adlarıyla; sunucuya
  * `toProjectFirmPayloadDto` ile çevrilir).
  *
- * `nationalIdNumber` sözleşmeye SONRADAN girdi: eskiden `ProjectFirmCreateDto`
- * bu alanı taşımıyordu ve şahıs şirketinin T.C. kimliği gönderilmiyordu. Uç
- * artık alanı kabul ediyor, bu yüzden form değeri gövdeye taşınıyor —
- * `taxNumber`'a YAZILMAZ, kendi alanına gider.
+ * İKİ KİMLİK ALANI BİRBİRİNİ DIŞLIYOR (§10): şahısta `nationalIdNumber` dolu ve
+ * `taxNumber` `null`, tüzelde tam tersi. Gizli ama dolu kalan alan sunucudan
+ * 400 döndürüyor, bu yüzden temizlik forma değil GÖVDEYE kadar iniyor
+ * (`toProjectFirmPayload`).
+ *
+ * `serialNumber` YOK: alan sözleşmeden kalktı (K102) ve `null` göndermek yerine
+ * anahtar hiç yazılmıyor.
  */
 export interface ProjectFirmPayload {
   companyType: number
@@ -122,7 +114,6 @@ export interface ProjectFirmPayload {
   taxNumber: string | null
   nationalIdNumber: string | null
   accountingCode: string | null
-  serialNumber: string | null
   authorizedPerson: string | null
   email: string | null
   /** HAM rakamlar: "05551234567". Maskeli metin GÖNDERİLMEZ. */
@@ -141,7 +132,6 @@ export interface ProjectFirmPayloadDto {
   taxNumber: string | null
   nationalIdNumber: string | null
   accountingCode: string | null
-  serialNumber: string | null
   contactPerson: string | null
   email: string | null
   phone: string | null
@@ -157,7 +147,6 @@ export function toProjectFirmPayloadDto(payload: ProjectFirmPayload): ProjectFir
     taxNumber: payload.taxNumber,
     nationalIdNumber: payload.nationalIdNumber,
     accountingCode: payload.accountingCode,
-    serialNumber: payload.serialNumber,
     contactPerson: payload.authorizedPerson,
     email: payload.email,
     phone: payload.phone,
@@ -169,19 +158,21 @@ export function toProjectFirmPayloadDto(payload: ProjectFirmPayload): ProjectFir
 /**
  * TEKİL firma yanıtı (`GET /api/projectfirms/{id}`).
  *
- * Liste satırından GENİŞ: seri no, adres ve ikinci telefon yalnız burada var —
- * Kişi Bilgileri ekranı bu yüzden listeyi değil tekil ucu okuyor.
+ * Liste satırından GENİŞ: adres ve ikinci telefon yalnız burada var — Kişi
+ * Bilgileri ekranı bu yüzden listeyi değil tekil ucu okuyor.
  *
  * Ekranın GÖSTERMEDİĞİ alanlar da şemada (`companyType`, `taxNumber`,
- * `nationalIdNumber`, `accountingCode`): `PUT /api/projectfirms/{id}` gövdesi
- * bunları da istiyor ve okunan değer geri gönderilmezse sunucuda SİLİNİRLER.
- * Yani bu alanlar ekranda görünmese de taşınmak zorunda.
+ * `accountingCode`): `PUT /api/projectfirms/{id}` gövdesi bunları da istiyor ve
+ * okunan değer geri gönderilmezse sunucuda SİLİNİRLER. Yani bu alanlar ekranda
+ * görünmese de taşınmak zorunda.
  *
- * Şema SÖZLEŞMEYLE birebir: `id`/`companyType` sayı, `title` metin, kalan dokuzu
- * `string | null`. Eskiden hepsi `nullish`ti (yani eksik anahtar da kabul
- * ediliyordu); bu, `companyType`i `number | null` yapıp PUT gövdesine `null`
- * sızmasına yol açıyordu. Sözleşme alanın her zaman geleceğini söylüyor, o
- * yüzden eksiklik sınırda patlamalı — bileşenin içinde değil.
+ * ⚠️ `nationalIdNumber` bu kuralın İSTİSNASI: yanıt onu MASKELİ döndürüyor
+ * ("*******1234") ve maskeli metin geri gönderilemez — şahısta sağlamayı
+ * tutturmaz, tüzelde "boş olmalı" kuralını çiğner, iki yönde de 400. Okunuyor
+ * ama forma yüklenmiyor ve gövdeye olduğu gibi konmuyor (K103).
+ *
+ * `serialNumber` şemadan KALKTI (K102): alan hiçbir yerde okunmuyor ve gövdeye
+ * de yazılmıyor.
  */
 export const projectFirmFullDtoSchema = z.object({
   id: z.number().int().positive(),
@@ -190,7 +181,6 @@ export const projectFirmFullDtoSchema = z.object({
   taxNumber: nullableText,
   nationalIdNumber: nullableText,
   accountingCode: nullableText,
-  serialNumber: nullableText,
   contactPerson: nullableText,
   email: nullableText,
   phone: nullableText,
@@ -204,17 +194,18 @@ export type ProjectFirmFullDto = z.infer<typeof projectFirmFullDtoSchema>
  * Kişi Bilgileri ekranının FİRMA kaydında düzenlediği alanlar; gerisi okunan
  * kayıttan taşınır.
  *
- * `email` ve `phone` burada YOK ve bu bilinçli: ekrandaki Email kullanıcının
- * kendi e-postası (`PUT /api/users/{id}`), Telefon 1 de kullanıcının telefonu.
- * Firmanın kendi e-postası ve santral telefonu bu ekrandan DEĞİŞTİRİLMEZ,
- * okundukları gibi geri gönderilirler.
+ * Ünvan, Firma Yetkilisi, Adres ve Telefon 2 ekrandan KALKTI: artık okunan
+ * kayıttan olduğu gibi geri gönderiliyorlar. `email` ve `phone` de burada yok —
+ * ekrandaki Email kullanıcının kendi e-postası (`PUT /api/users/{id}`),
+ * Telefon 1 de kullanıcının telefonu.
  */
 export interface ProjectFirmContactChanges {
-  title: string
-  serialNumber: string | null
-  contactPerson: string | null
-  phone2: string | null
-  address: string | null
+  /**
+   * Şahıs firmasında kullanıcının YENİDEN GİRDİĞİ T.C. kimlik numarası; tüzel
+   * firmada `null`. Okunan değer maskeli olduğu için taşınamıyor, bu yüzden
+   * ekran alanı boş açıp gerçek numarayı istiyor (K103).
+   */
+  nationalIdNumber: string | null
 }
 
 /**
@@ -233,12 +224,17 @@ export function toProjectFirmUpdateDto(
 ): ProjectFirmPayloadDto {
   return {
     companyType: firm.companyType,
+    title: firm.title,
     taxNumber: firm.taxNumber,
-    nationalIdNumber: firm.nationalIdNumber,
+    // OKUNAN değer DEĞİL, ekrandan gelen: yanıttaki numara maskeli ve geri
+    // gönderilirse sunucu 400 döner (K103).
+    nationalIdNumber: changes.nationalIdNumber,
     accountingCode: firm.accountingCode,
+    contactPerson: firm.contactPerson,
     email: firm.email,
     phone: firm.phone,
-    ...changes,
+    phone2: firm.phone2,
+    address: firm.address,
   }
 }
 

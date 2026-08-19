@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 
 import type { Point, Wall } from '../core/model'
-import { applyWallMove } from '../core/wallMoveValidity'
+import { applyWallMove } from '../core/wallMoveDraft'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
@@ -14,7 +14,7 @@ export type ArchitectureDraft = {
  * Ekranda gösterilecek çizim: sürükleme sürerken store'a HİÇ yazılmadığı için
  * (tek yazım = tek Ctrl+Z) çizimin "olacak hâli" burada türetilir.
  *
- * Duvar sürüklemesinde hesabı `core/wallMoveValidity.ts` → `applyWallMove`
+ * Duvar sürüklemesinde hesabı `core/wallMoveDraft.ts` → `applyWallMove`
  * yapıyor; geçerlilik denetimi de aynı fonksiyondan geçiyor ve store yazımı da
  * aynı kopma kararını kullanıyor. Üçü ayrı hesaplasaydı ekranda görülen,
  * reddedilen ve yazılan geometri birbirini tutmazdı — nitekim önizleme kopmayı

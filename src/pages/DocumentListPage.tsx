@@ -1,13 +1,15 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useMemo } from 'react'
 
 import { getDocumentTypes } from '../api/documentTypes'
-import { listDocuments } from '../api/documents'
+import { deleteDocument, listDocuments } from '../api/documents'
 import { getProjectFirms } from '../api/projects'
+import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
 import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
+import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
@@ -21,6 +23,7 @@ import {
 } from '../ui/admin/documents/documentColumns'
 import { buildDocumentFilterChips } from '../ui/admin/documents/documentFilterChips'
 import { useDocumentListParams } from '../ui/admin/documents/useDocumentListParams'
+import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Evraklar'
 const PAGE_DESCRIPTION = 'Tüm projelere ait yüklenmiş evraklar'
@@ -45,8 +48,22 @@ const MOCK_SECTIONS = ['Evrak listesinin tamamı (satırlar, adet ve sayfalama)'
 
 const MISSING_ENDPOINT_HINT = 'GET /api/docs'
 
+const DELETE_DIALOG = {
+  title: 'Evrak silinsin mi?',
+  description:
+    'Evrak listeden kaldırılacak. Depo bellekte olduğu için sayfa yenilenince örnek liste geri gelir.',
+  confirmLabel: 'Sil',
+}
+
+const DELETE_MESSAGES = {
+  success: 'Evrak silindi.',
+  unavailable: 'Evrak silme ucu sunucuda henüz yok (DELETE /api/docs/{id}); kayıt düşmedi.',
+  error: 'Evrak silinemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+}
+
 export function DocumentListPage() {
   const { query, applyFilters, toggleSort, setPage } = useDocumentListParams()
+  const queryClient = useQueryClient()
 
   const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['documents', query],
@@ -70,13 +87,27 @@ export function DocumentListPage() {
   // liste olduğu için istek yok, yalnız sıralama maliyeti var.
   const documentTypes = useMemo(() => getDocumentTypes(), [])
 
+  const refreshList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['documents'] })
+    // Proje detayındaki evrak sekmesi AYNI depodan besleniyor (gereksinim 12).
+    void queryClient.invalidateQueries({ queryKey: ['projectDocuments'] })
+  }, [queryClient])
+
+  const deletion = useRowDelete({
+    remove: async (documentId) => (await deleteDocument(documentId)).ok,
+    messages: DELETE_MESSAGES,
+    onDeleted: refreshList,
+  })
+
   const columns = useMemo(
     () =>
       buildDocumentColumns({
         rowOffset: (query.page - 1) * query.pageSize,
         documentTypes,
+        pendingDocumentId: deletion.pendingId,
+        onDelete: deletion.request,
       }),
-    [query.page, query.pageSize, documentTypes],
+    [query.page, query.pageSize, documentTypes, deletion.pendingId, deletion.request],
   )
 
   const hasActiveFilters =
@@ -103,6 +134,14 @@ export function DocumentListPage() {
       />
 
       <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
+
+      {deletion.notice !== null && (
+        <NoticeBar
+          tone={deletion.notice.tone}
+          message={deletion.notice.message}
+          onDismiss={deletion.dismissNotice}
+        />
+      )}
 
       <DocumentFilterBar
         key={filterKey}
@@ -151,6 +190,18 @@ export function DocumentListPage() {
             />
           )}
         </StaleContent>
+      )}
+
+      {deletion.targetId !== null && (
+        <ConfirmDialog
+          title={DELETE_DIALOG.title}
+          description={DELETE_DIALOG.description}
+          confirmLabel={DELETE_DIALOG.confirmLabel}
+          confirmTone="danger"
+          isPending={deletion.pendingId !== null}
+          onConfirm={() => void deletion.confirm()}
+          onCancel={deletion.cancel}
+        />
       )}
     </div>
   )

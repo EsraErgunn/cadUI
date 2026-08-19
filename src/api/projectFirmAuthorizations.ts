@@ -19,10 +19,10 @@ import { endOfUtcDayMs, parseServerTimestampMs, startOfUtcDayMs } from './server
  *
  * Bu modül bugün YALNIZ okuma yapıyor. Yazma (`POST`/`PUT`) bilinçli olarak
  * eklenmedi: `ProjectFirmAuthorizationCreateDto` zorunlu `validFrom` istiyor ve
- * arayüzün "Yeterlilik No" alanının sunucuda karşılığı yok — iki soru
- * cevaplanmadan yazma yolu kullanıcının girdiğini sessizce kaybederdi
- * (docs/api-eksikleri-proje-firmalari.md S1/S2). `saveProjectFirmAuthorizations`
- * bu yüzden hâlâ mock.
+ * arayüzün yetkilendirme kartında tarih alanı YOK — cevaplanmadan yazma yolu
+ * kullanıcının girdiğini sessizce kaybederdi
+ * (docs/api-eksikleri-proje-firmalari.md → S2; S1 KAPANDI, "Yeterlilik No"
+ * kaldırıldı). `saveProjectFirmAuthorizations` bu yüzden hâlâ mock.
  */
 
 const PATH = '/api/project-firm-authorizations'

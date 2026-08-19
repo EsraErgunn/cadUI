@@ -24,6 +24,7 @@ export const GAS_FIRM_ERRORS = {
   dfirmNo: 'Firma no zorunludur.',
   dfirmNoTaken: 'Bu firma numarası zaten kullanılmaktadır.',
   name: 'Firma adı zorunludur.',
+  group: 'Grup firması zorunludur.',
   phone: 'Telefon zorunludur.',
   phoneInvalid: 'Geçerli bir telefon numarası giriniz.',
   nameTooLong: `Firma adı en çok ${GAS_FIRM_MAX_LENGTHS.name} karakter olabilir.`,
@@ -44,7 +45,8 @@ export interface GasFirmFormValues {
   name: string
   /**
    * Grup firmasının KİMLİĞİ, metin olarak (seçim kutusu değerleri dizedir).
-   * Boş dize = "—", yani seçilmedi. Sunucu grubu adla değil kimlikle alıyor.
+   * Boş dize = seçilmedi; doğrulama buna izin vermez. Sunucu grubu adla değil
+   * kimlikle alıyor.
    */
   groupId: string
   description: string
@@ -95,7 +97,8 @@ export const gasFirmSchema = z.object({
     (value) => value.trim().length <= GAS_FIRM_MAX_LENGTHS.name,
     { message: GAS_FIRM_ERRORS.nameTooLong },
   ),
-  groupId: z.string(),
+  // Grup artık zorunlu: her gaz dağıtım firması bir grup firmasına bağlı.
+  groupId: requiredText(GAS_FIRM_ERRORS.group),
   description: z.string().max(GAS_FIRM_MAX_LENGTHS.description, {
     message: GAS_FIRM_ERRORS.descriptionTooLong,
   }),
@@ -165,14 +168,6 @@ export function optionalText(value: string): string | null {
   const trimmed = value.trim()
   return trimmed === '' ? null : trimmed
 }
-
-/**
- * Belge madde 9: "mevcut kayıtlarla uyum için büyük harf kullanımı tercih
- * edilecektir." TERCİH, kural değil — bu yüzden girdi otomatik büyütülmüyor,
- * kullanıcıya yalnız hatırlatılıyor. (bkz. docs/kararlar.md K26)
- */
-export const GAS_FIRM_NAME_CASE_HINT =
-  'Mevcut kayıtlarla uyum için büyük harf kullanmanız önerilir.'
 
 /** Uyarı metninde tam olarak kaç ad sayılacağı; gerisi "ve N kayıt daha". */
 const SIMILAR_NAME_PREVIEW_LIMIT = 3

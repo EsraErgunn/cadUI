@@ -83,7 +83,6 @@ export function AnnouncementDialog({ onClose, onPublished }: AnnouncementDialogP
             value={form.values.scopeName}
             options={SCOPE_OPTIONS}
             placeholder={ALL_SCOPES_OPTION_LABEL}
-            hint="Kapsam seçilmezse duyuru tüm kullanıcılara gösterilir."
             error={form.errors.scopeName}
             onChange={(value) => form.setValue('scopeName', value)}
           />
@@ -93,7 +92,7 @@ export function AnnouncementDialog({ onClose, onPublished }: AnnouncementDialogP
             label="Duyuru Metni"
             value={form.values.body}
             placeholder="Duyurunun içeriğini yazın."
-            hint={`${form.values.body.length} / ${ANNOUNCEMENT_BODY_MAX_LENGTH} karakter — kartta ilk satırları görünür.`}
+            hint={`${form.values.body.length} / ${ANNOUNCEMENT_BODY_MAX_LENGTH} karakter`}
             error={form.errors.body}
             onChange={(value) => form.setValue('body', value)}
           />
@@ -103,7 +102,6 @@ export function AnnouncementDialog({ onClose, onPublished }: AnnouncementDialogP
             label="Sistem duyurusu"
             labelNote="(bakım / kesinti)"
             value={form.values.isSystem}
-            hint="Kartta amber kenarlıkla, diğer duyurulardan ayrışarak gösterilir."
             onChange={form.setIsSystem}
           />
 

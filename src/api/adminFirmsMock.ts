@@ -41,6 +41,16 @@ function findMockGroup(groupId: number | null): FirmGroup | null {
   return MOCK_FIRM_GROUPS.find((group) => group.id === groupId) ?? null
 }
 
+/** Mock modda yeni grup: listeye YAZILIR, yoksa eklenen grup seçilemezdi. */
+export function createMockFirmGroup(name: string): FirmGroup {
+  const created: FirmGroup = {
+    id: MOCK_FIRM_GROUPS.reduce((largest, group) => Math.max(largest, group.id), 0) + 1,
+    name,
+  }
+  MOCK_FIRM_GROUPS.push(created)
+  return created
+}
+
 /** Silinen kayıtları taklit eden düzensiz artışlar — DFirm No bilerek aralıklı. */
 const DFIRM_NO_GAPS = [1, 2, 1, 4, 1, 3, 2, 1]
 const FIRST_DFIRM_NO = 1204
@@ -113,15 +123,6 @@ export function allMockFirms(): GasDistributionFirm[] {
 
 export function findMockFirm(id: number): MockFirm | null {
   return mockFirms.find((firm) => firm.id === id) ?? null
-}
-
-/**
- * Sıradaki uygun numara. Silinen kayıtlar yüzünden numaralar aralıklı olduğu
- * için boşluklar DOLDURULMAZ — en büyüğün bir fazlası verilir (belge: "numaralar
- * yeniden düzenlenmeyecektir").
- */
-export function nextMockDfirmNo(): number {
-  return mockFirms.reduce((largest, firm) => Math.max(largest, firm.dfirmNo), 0) + 1
 }
 
 export function isMockDfirmNoTaken(dfirmNo: number, exceptFirmId: number | null): boolean {

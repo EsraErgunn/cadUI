@@ -27,21 +27,9 @@ interface DecisionNotice {
 const DECISION_SUCCESS_MESSAGES: Record<ProjectDecision, string> = {
   approve: 'Proje onaylandı.',
   reject: 'Proje reddedildi.',
-  requestRevision: 'Revizyon talebi oluşturuldu.',
 }
 
-const UNIMPLEMENTED_MESSAGE =
-  'İşlem yapılamadı: onay/ret/revizyon ucu sunucuda henüz yok.'
-
-/**
- * Kayıt sunucuya yazılmadığı için her başarılı işlemin yanında duran uyarı.
- * Proje firması yetkilendirmelerindeki `arePersisted` deseninin aynısı: işlem
- * "başarılı" ama YARIM, o yüzden `warning` tonu ve `danger` değil.
- */
-const NOT_PERSISTED_DETAILS = [
-  'Sonuç yalnız bu ekranda görünür; sunucuya kaydedilmedi.',
-  'Gerekçenin firma kullanıcısına bildirim olarak iletilmesi de sunucu tarafında yazılmadı.',
-]
+const DECISION_ERROR_MESSAGE = 'İşlem tamamlanamadı. Lütfen tekrar deneyin.'
 
 export interface ProjectDecisionsState {
   /** Gerekçe diyaloğu açık olan işlem; `null` ise diyalog kapalı. */
@@ -56,11 +44,12 @@ export interface ProjectDecisionsState {
 }
 
 /**
- * Onay / ret / revizyon akışı (KK-10, KK-11).
+ * Onay / ret akışı (KK-10, KK-11). Revizyon talebinin sunucuda karşılığı YOK,
+ * bu yüzden karar kümesi iki değerli.
  *
  * Sonuç `outcome` olarak BURADA tutuluyor ve sayfa durumu bununla eziyor:
- * uç olmadığı için sorguyu tazelemenin anlamı yok, tazeleme mock'un ilk hâlini
- * geri getirir ve kullanıcı işleminin geri alındığını sanırdı.
+ * proje durumu ayrı bir uçtan gelmediği için (`projectDetailExtras` hâlâ mock)
+ * sorguyu tazelemek işlemi geri alınmış gösterirdi.
  */
 export function useProjectDecisions(projectId: number): ProjectDecisionsState {
   const [reasonPrompt, setReasonPrompt] = useState<ReasonRequiredDecision | null>(null)
@@ -72,12 +61,7 @@ export function useProjectDecisions(projectId: number): ProjectDecisionsState {
     async (decision: ProjectDecision, reason: string | null) => {
       setIsSubmitting(true)
       try {
-        const result = await submitProjectDecision(projectId, decision)
-
-        if (!result.ok) {
-          setNotice({ tone: 'error', message: UNIMPLEMENTED_MESSAGE })
-          return
-        }
+        const result = await submitProjectDecision(projectId, decision, reason)
 
         setOutcome({
           decision,
@@ -91,10 +75,11 @@ export function useProjectDecisions(projectId: number): ProjectDecisionsState {
           result.approvalCode === null ? '' : ` Onay kodu: ${result.approvalCode}.`
 
         setNotice({
-          tone: result.isPersisted ? 'success' : 'warning',
+          tone: 'success',
           message: `${DECISION_SUCCESS_MESSAGES[decision]}${approvalNote}`,
-          details: result.isPersisted ? undefined : NOT_PERSISTED_DETAILS,
         })
+      } catch {
+        setNotice({ tone: 'error', message: DECISION_ERROR_MESSAGE })
       } finally {
         setIsSubmitting(false)
         setReasonPrompt(null)

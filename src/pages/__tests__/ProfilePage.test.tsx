@@ -48,14 +48,20 @@ const USER = {
   gasDistributionFirmId: null,
 }
 
+/** Sağlaması TUTAN örnek; gerçek kişiden alınmadı, kuraldan üretildi. */
+const VALID_NATIONAL_ID = '12345678950'
+
+/**
+ * ŞAHIS firması (`companyType: 1`) ve kimlik numarası sunucudan MASKELİ
+ * geliyor — ekranın bu değeri forma yüklememesi ve geri göndermemesi gerekiyor.
+ */
 const FIRM = {
   id: 7,
   companyType: 1,
   title: 'Örnek Mühendislik Ltd. Şti.',
-  taxNumber: '1234567890',
-  nationalIdNumber: null,
+  taxNumber: null,
+  nationalIdNumber: '*******1234',
   accountingCode: 'CR-1',
-  serialNumber: '52120213',
   contactPerson: 'Yetkili Kişi',
   email: 'firma@ornek.local',
   phone: '02121112233',
@@ -109,20 +115,28 @@ describe('veri kaynakları', () => {
       expect(firmApi.getProjectFirm).toHaveBeenCalledWith(USER.projectFirmId, expect.anything())
     })
 
-    expect(await screen.findByLabelText(/Seri No/)).toHaveValue(FIRM.serialNumber)
-    expect(screen.getByLabelText(/Ünvan/)).toHaveValue(FIRM.title)
-    expect(screen.getByLabelText(/Firma Yetkilisi/)).toHaveValue(FIRM.contactPerson)
     // Email KULLANICININ e-postası; firmanınki (farklı değer) kullanılmıyor.
-    expect(screen.getByLabelText(/Email/)).toHaveValue(USER.email)
-    expect(screen.getByLabelText(/Adres/)).toHaveValue(FIRM.address)
-    expect(screen.getByLabelText(/Telefon 2/)).toHaveValue('0555 999 88 77')
+    expect(await screen.findByLabelText(/Email/)).toHaveValue(USER.email)
   })
 
-  // Sözleşmede karşılığı olmayan alanlar ekrana GİRMEZ.
-  it('Yeterlilik No ve Gsm alanları render edilmez', async () => {
+  // Ünvan, Firma Yetkilisi, Adres ve Telefon 2 ekrandan KALKTI; gövdeye okunan
+  // kayıttan gidiyorlar.
+  it('kalkan firma alanları render edilmez', async () => {
     renderPage()
-    await screen.findByLabelText(/Seri No/)
+    await screen.findByLabelText(/Email/)
 
+    expect(screen.queryByLabelText(/Ünvan/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Firma Yetkilisi/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Adres/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Telefon 2/)).not.toBeInTheDocument()
+  })
+
+  // Sözleşmede karşılığı olmayan alanlar ekrana GİRMEZ (Seri No da kalktı, K102).
+  it('Seri No, Yeterlilik No ve Gsm alanları render edilmez', async () => {
+    renderPage()
+    await screen.findByLabelText(/Email/)
+
+    expect(screen.queryByLabelText(/Seri No/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Yeterlilik/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Yeterlilik/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Gsm/i)).not.toBeInTheDocument()
@@ -134,9 +148,6 @@ describe('veri kaynakları', () => {
 
     expect(await screen.findByLabelText(/StarCAD Mobile Kullanıcı Adı/)).toBeInTheDocument()
     expect(firmApi.getProjectFirm).not.toHaveBeenCalled()
-    // Sahte değerle DOLDURULMAZ: alan boş kalır ve sebebi yazar.
-    expect(screen.getByLabelText(/Ünvan/)).toHaveValue('')
-    expect(screen.getByText(/proje firmasına bağlı değil/)).toBeInTheDocument()
   })
 
   it('kullanıcı ucu hata verirse anlaşılır hata gösterir', async () => {
@@ -156,6 +167,14 @@ describe('veri kaynakları', () => {
   })
 })
 
+/**
+ * Firma ŞAHIS firması: kimlik alanı zorunlu ve boş açılıyor (maskeli değer
+ * yüklenmiyor), yani kaydeden her test onu doldurmak zorunda.
+ */
+async function fillNationalId(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByLabelText(/Tc Kimlik No/), VALID_NATIONAL_ID)
+}
+
 describe('güncelleme', () => {
   it('telefon 1 değişince kullanıcı ucuna gider', async () => {
     const user = userEvent.setup()
@@ -164,6 +183,7 @@ describe('güncelleme', () => {
     const phone = await screen.findByLabelText(/Telefon 1/)
     await user.clear(phone)
     await user.type(phone, '05554443322')
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     await waitFor(() => {
@@ -179,27 +199,20 @@ describe('güncelleme', () => {
   })
 
   // Firma alanları KULLANICI ucuna gönderilmemeli.
-  it('firma alanlarını firma ucuna gönderir ve okunan kaydı korur', async () => {
+  it('firma gövdesine yalnız T.C. kimlik numarası girer', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    const address = await screen.findByLabelText(/Adres/)
-    await user.clear(address)
-    await user.type(address, 'Yeni Adres 2')
+    await screen.findByLabelText(/Email/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     await waitFor(() => {
-      expect(firmApi.updateProjectFirmContact).toHaveBeenCalledWith(
-        FIRM,
-        // `email`/`phone` firma gövdesine EKRANDAN girmez; okunan kayıttan taşınır.
-        {
-          title: FIRM.title,
-          serialNumber: FIRM.serialNumber,
-          contactPerson: FIRM.contactPerson,
-          phone2: FIRM.phone2,
-          address: 'Yeni Adres 2',
-        },
-      )
+      // Ünvan/yetkili/adres/telefon 2 gövdeye OKUNAN kayıttan gidiyor
+      // (`toProjectFirmUpdateDto`); ekrandan yalnız kimlik numarası giriyor.
+      expect(firmApi.updateProjectFirmContact).toHaveBeenCalledWith(FIRM, {
+        nationalIdNumber: VALID_NATIONAL_ID,
+      })
     })
     // Kullanıcı gövdesinde firma alanı YOK.
     const userBody = usersApi.updateUser.mock.calls[0][1] as Record<string, unknown>
@@ -213,7 +226,8 @@ describe('güncelleme', () => {
     renderPage()
     usersApi.updateUser.mockRejectedValue(new ApiError(400, 'E-posta zaten kullanımda.'))
 
-    await screen.findByLabelText(/Adres/)
+    await screen.findByLabelText(/Email/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     // Sunucunun KENDİ mesajı gösterilir, ham JSON değil.
@@ -227,7 +241,8 @@ describe('güncelleme', () => {
     renderPage()
     firmApi.updateProjectFirmContact.mockRejectedValue(new ApiError(400, 'Ünvan geçersiz.'))
 
-    await screen.findByLabelText(/Adres/)
+    await screen.findByLabelText(/Email/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     const notice = await screen.findByRole('status')
@@ -241,22 +256,11 @@ describe('güncelleme', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText(/Adres/)
+    await screen.findByLabelText(/Email/)
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('güncellendi')
-  })
-
-  it('zorunlu ünvan boşken istek atılmaz', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    const title = await screen.findByLabelText(/Ünvan/)
-    await user.clear(title)
-    await user.click(screen.getByRole('button', { name: 'Güncelle' }))
-
-    expect(await screen.findByText('Ünvan zorunludur.')).toBeInTheDocument()
-    expect(firmApi.updateProjectFirmContact).not.toHaveBeenCalled()
   })
 
   it('kayıt hatasında girilen veri korunur', async () => {
@@ -264,12 +268,76 @@ describe('güncelleme', () => {
     renderPage()
     usersApi.updateUser.mockRejectedValue(new Error('ağ hatası'))
 
-    const address = await screen.findByLabelText(/Adres/)
-    await user.clear(address)
-    await user.type(address, 'Yeni Adres 3')
+    const email = await screen.findByLabelText(/Email/)
+    await user.clear(email)
+    await user.type(email, 'yeni.adres@firma.com')
+    await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('kaydedilemedi')
-    expect(screen.getByLabelText(/Adres/)).toHaveValue('Yeni Adres 3')
+    expect(screen.getByLabelText(/Email/)).toHaveValue('yeni.adres@firma.com')
+  })
+
+  // §10 + K103: alan yalnız şahıs firmasında ve okunan değer YÜKLENMEZ.
+  describe('T.C. kimlik alanı (§10)', () => {
+    it('şahıs firmasında görünür ve maskeli değeri yüklemez', async () => {
+      renderPage()
+
+      const nationalId = await screen.findByLabelText(/Tc Kimlik No/)
+      expect(nationalId).toHaveValue('')
+      // Boşluğun sebebi ekranda yazıyor; yoksa "veri kayboldu" gibi okunurdu.
+      expect(screen.getByText(/yeniden girin/i)).toBeInTheDocument()
+    })
+
+    it('tüzel firmada alan hiç çizilmez', async () => {
+      firmApi.getProjectFirm.mockResolvedValue({
+        ...FIRM,
+        companyType: 2,
+        taxNumber: '1234567890',
+        nationalIdNumber: null,
+      })
+      authApi.getCurrentUser.mockResolvedValue(ME)
+      usersApi.getUser.mockResolvedValue(USER)
+      usersApi.updateUser.mockResolvedValue(undefined)
+      firmApi.updateProjectFirmContact.mockResolvedValue(undefined)
+
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <MemoryRouter>
+            <ProfilePage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+
+      await screen.findByLabelText(/Email/)
+      expect(screen.queryByLabelText(/Tc Kimlik No/)).not.toBeInTheDocument()
+    })
+
+    it('kimlik girilmeden kaydedilemez', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      await screen.findByLabelText(/Tc Kimlik No/)
+      await user.click(screen.getByRole('button', { name: 'Güncelle' }))
+
+      expect(await screen.findByText('Tc kimlik no zorunludur.')).toBeInTheDocument()
+      expect(firmApi.updateProjectFirmContact).not.toHaveBeenCalled()
+    })
+
+    // Sağlaması tutmayan numara sunucuda 400 alırdı; istemci de reddediyor.
+    it('sağlaması tutmayan kimliği reddeder', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      await user.type(await screen.findByLabelText(/Tc Kimlik No/), '11111111111')
+      await user.click(screen.getByRole('button', { name: 'Güncelle' }))
+
+      expect(
+        await screen.findByText('Geçerli bir T.C. kimlik numarası giriniz.'),
+      ).toBeInTheDocument()
+      expect(firmApi.updateProjectFirmContact).not.toHaveBeenCalled()
+    })
   })
 })

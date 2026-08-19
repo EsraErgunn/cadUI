@@ -7,6 +7,7 @@ import {
   getMockInsuranceCompanies,
   getMockPolicies,
   getMockPolicyRows,
+  removeMockPolicy,
 } from './policiesMock'
 import { queryPolicyList } from './policyListQuery'
 import type { ProjectSummary } from './projectDetailTypes'
@@ -123,6 +124,29 @@ export async function listPolicies(
 
   await delay(MOCK_LATENCY_MS, signal)
   return mockedData(() => queryPolicyList(getMockPolicyRows(), query))
+}
+
+export type PolicyDeleteResult = { ok: true } | { ok: false; reason: 'unavailable' }
+
+/**
+ * Poliçe silme. Depo BELLEKTE: satır gerçekten listeden düşer ama sayfa
+ * yenilenince tohum listesine dönülür — çağıran bunu kullanıcıya SÖYLER.
+ *
+ * Üretim derlemesinde hiç silinmez (`unavailable`): gösterilmeyecek bir depodan
+ * kayıt düşürmek, kullanıcıya yapılmamış bir işi yapılmış göstermek olurdu.
+ */
+export async function deletePolicy(
+  policyId: number,
+  signal?: AbortSignal,
+): Promise<PolicyDeleteResult> {
+  if (isEndpointImplemented('policyDelete')) {
+    throw new Error('deletePolicy: uç bağlandı ama gövdesi yazılmadı.')
+  }
+
+  await delay(MOCK_LATENCY_MS, signal)
+
+  const removed = mockedData(() => removeMockPolicy(policyId))
+  return removed.source === 'unavailable' ? { ok: false, reason: 'unavailable' } : { ok: true }
 }
 
 /**

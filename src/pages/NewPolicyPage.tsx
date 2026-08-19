@@ -26,7 +26,7 @@ import { usePolicyWizard } from '../ui/admin/policies/usePolicyWizard'
 import type { ProjectDetailTabKey } from '../ui/admin/projectDetail/tabItems'
 
 const PAGE_TITLE = 'Poliçe Oluşturma'
-const PAGE_DESCRIPTION = 'Manuel poliçe akışı — adımları takip ederek tamamlayın'
+const PAGE_DESCRIPTION = 'Manuel poliçe akışı'
 
 /**
  * Kırılım "Poliçeler" bölümünden GEÇMEZ (K68): ekran bir projenin işlemi,

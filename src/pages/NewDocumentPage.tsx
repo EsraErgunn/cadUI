@@ -17,7 +17,7 @@ import {
   parseProjectParam,
   projectDetailPath,
 } from '../ui/admin/adminNavItems'
-import { adminButtonVariants } from '../ui/admin/adminVariants'
+import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../ui/admin/adminVariants'
 import { DocumentDropzone } from '../ui/admin/documents/DocumentDropzone'
 import { DocumentSourceTabs } from '../ui/admin/documents/DocumentSourceTabs'
 import { ProjectDocumentPicker } from '../ui/admin/documents/ProjectDocumentPicker'
@@ -216,10 +216,10 @@ export function NewDocumentPage() {
           )}
         </section>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Link
             to={projectDetailPath(project.id)}
-            className={adminButtonVariants({ tone: 'secondary' })}
+            className={adminButtonVariants({ tone: 'secondary', className: ADMIN_FORM_ACTION_WIDTH })}
           >
             İptal
           </Link>
@@ -227,7 +227,7 @@ export function NewDocumentPage() {
             type="button"
             disabled={!hasRows || isSaving}
             onClick={() => void handleSave()}
-            className={adminButtonVariants({ tone: 'primary' })}
+            className={adminButtonVariants({ tone: 'primary', className: ADMIN_FORM_ACTION_WIDTH })}
           >
             <Save aria-hidden className="size-4" />
             {isSaving ? 'Kaydediliyor…' : 'Kaydet'}

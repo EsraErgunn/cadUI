@@ -105,7 +105,6 @@ describe('poliçe sekmesi (KK-9)', () => {
           amount: 1500,
           startDate: '2026-01-01',
           endDate: '2027-01-01',
-          isPaid: true,
         },
       ]),
     )
@@ -116,7 +115,7 @@ describe('poliçe sekmesi (KK-9)', () => {
 
     const table = await screen.findByRole('table', { name: /Projeye bağlı poliçeler/ })
     expect(within(table).getByText('PLC-1')).toBeInTheDocument()
-    expect(within(table).getByText('Ödendi')).toBeInTheDocument()
+    expect(within(table).getByText('Onaylandı')).toBeInTheDocument()
   })
 
   it('Poliçelendir düğmesi ilgili ekrana yönlendirir', async () => {

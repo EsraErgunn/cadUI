@@ -15,10 +15,10 @@ import { normalizeTr } from '../../../api/turkishText'
  * doğurmaz, liste ekranıyla aynı önbelleği okur. Yarış durumunu KAPATMAZ; sunucu
  * kuralı gelince bu kontrol ikinci savunma hattına düşer, kaldırılmaz.
  *
- * Seri no bugün liste satırında `null` (uç onu yalnız DETAY yanıtında veriyor,
- * bkz. knowledge/project-firm-list.md). Karşılaştırma yine de yazıldı: aynı
- * oturumda eklenen kayıt seri numarasını taşıyor ve alan liste DTO'suna
- * eklendiği gün kontrol kendiliğinden çalışmaya başlar.
+ * YALNIZ vergi numarası bakılıyor. Seri no kontrolü KALKTI (K102) — alan
+ * tümüyle kaldırıldı. T.C. kimlik numarası da BURADA DEĞİL: liste satırı onu
+ * taşımıyor ve sunucu zaten 409 döndürüyor (silinmiş firma bile numarayı
+ * rezerve tutuyor), yani ön kontrol hem yapılamaz hem gereksiz.
  */
 export function findTakenProjectFirmErrors(
   firms: readonly ProjectFirm[],
@@ -32,19 +32,14 @@ export function findTakenProjectFirmErrors(
   excludeFirmId: number | null = null,
 ): ProjectFirmErrors {
   const errors: ProjectFirmErrors = {}
+  // Şahıs firmasında vergi numarası gövdeye hiç girmiyor; kontrol de gereksiz.
+  if (values.isSoleProprietorship) return errors
+
   const taxNumber = values.taxNumber.trim()
-  const serialNumber = values.serialNumber.trim()
   const others = firms.filter((firm) => firm.id !== excludeFirmId)
 
   if (taxNumber !== '' && others.some((firm) => matchesCode(firm.taxNumber, taxNumber))) {
     errors.taxNumber = PROJECT_FIRM_ERRORS.taxNumberTaken
-  }
-
-  if (
-    serialNumber !== '' &&
-    others.some((firm) => matchesCode(firm.serialNumber, serialNumber))
-  ) {
-    errors.serialNumber = PROJECT_FIRM_ERRORS.serialNumberTaken
   }
 
   return errors

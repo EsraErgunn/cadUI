@@ -14,6 +14,12 @@ export interface DataTableColumn<TRow, TSort extends string = string> {
   cell: (row: TRow, index: number) => ReactNode
   /** Hücreye eklenen hizalama/tipografi sınıfları (ör. `tabular-nums`). */
   cellClassName?: string
+  /**
+   * Başlık hücresine eklenen sınıflar. `cellClassName` buraya kopyalanmıyor:
+   * hücrelerin `font-mono`/`text-ink` gibi sınıfları başlıkta yanlış olurdu —
+   * ortak olan yalnız HİZALAMA, o da sütuna göre değişiyor.
+   */
+  headerClassName?: string
 }
 
 interface DataTableProps<TRow, TSort extends string = string> {
@@ -31,6 +37,10 @@ interface DataTableProps<TRow, TSort extends string = string> {
   /** Satıra duruma göre eklenen sınıf (ör. yeni kaydın vurgusu). */
   rowClassName?: (row: TRow) => string | undefined
 }
+
+/** Sıralanamayan başlığın temel sınıfları; sütunun kendi hizalaması eklenir. */
+const HEADER_BASE_CLASS =
+  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted'
 
 const ROW_BASE_CLASS =
   'border-b border-edge last:border-0 transition-colors hover:bg-surface-sunken'
@@ -79,7 +89,11 @@ export function DataTable<TRow, TSort extends string = string>({
                   <th
                     key={column.key}
                     scope="col"
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted"
+                    className={
+                      column.headerClassName === undefined
+                        ? HEADER_BASE_CLASS
+                        : `${HEADER_BASE_CLASS} ${column.headerClassName}`
+                    }
                   >
                     {column.label}
                   </th>
@@ -92,7 +106,11 @@ export function DataTable<TRow, TSort extends string = string>({
                   key={column.key}
                   scope="col"
                   aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-4 py-3"
+                  className={
+                    column.headerClassName === undefined
+                      ? 'px-4 py-3'
+                      : `px-4 py-3 ${column.headerClassName}`
+                  }
                 >
                   <button
                     type="button"

@@ -1,244 +1,153 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { CircleAlert, Lock, User } from 'lucide-react'
 
-import { useLoginForm } from "./useLoginForm";
-import leftPipe from "../assets/images/auth/leftpipe.png";
-import panelBg from "../assets/images/auth/panel-bg.jpg";
-import rightPipe from "../assets/images/auth/rightpipe.png";
+import { useLoginForm } from './useLoginForm'
+import logo from '../assets/brand/logo3.png'
+import { adminButtonVariants } from '../ui/admin/adminVariants'
+import { PasswordField } from '../ui/admin/form/PasswordField'
+import { TextField } from '../ui/admin/form/TextField'
 
-/* 
-   SAĞ PANEL — arka plan + logo tek görselde
+const USERNAME_FIELD_ID = 'login-username'
+const PASSWORD_FIELD_ID = 'login-password'
 
-   x / width : görselin viewBox içindeki yatay konumu.
-               Logo panelin ortasında değilse x'i kaydır
-               (büyütürsen sağa, küçültürsen sola gider).
-   */
-const PANEL = {
-  x: 551,
-  width: 650,
-  opacity: 1,
-};
+const FORM_TITLE = 'Giriş Yap'
 
-/* 
-   KAVİS
-   C x1 y1, x2 y2, x y → son çift varış, ilk ikisi kontrol noktası
-   Genlik için ikinci C'nin x değerlerini oynat.
-   Kavis değişirse aşağıdaki kolon yüzdesini de güncelle. */
-const CURVE = `M 700 0
-  C 600 70, 562 155, 588 258
-  C 615 372, 700 412, 682 512
-  C 664 612, 556 652, 542 720`;
+/** Görünmez sayfa başlığı; marka adıyla birlikte okunur (bkz. kullanıldığı yer). */
+const BRAND_GREETING = 'Welcome to'
 
-const PANEL_SHAPE = `${CURVE} L 1180 720 L 1180 0 Z`;
+const HEADING = 'Hoş geldiniz'
+
+const DESCRIPTION = 'Devam etmek için hesap bilgilerinizle giriş yapın.'
+
+/** Sağ paneldeki kurumsal ifade. Ürünün ne yaptığını söyler, pazarlama cümlesi değil. */
+const BRAND_KICKER = 'Doğal Gaz İç Tesisat'
+const BRAND_HEADLINE = 'Projeyi çizin, denetleyin, teslim edin.'
+const BRAND_NOTE = 'Plan, izometri ve malzeme dökümü tek projede toplanır.'
+
+/**
+ * Marka paneli — YALNIZ `lg` ve üstünde. Dar ekranda gizleniyor çünkü tek
+ * kolona inince formun üstünde ikinci bir ekran boyu dolgu olurdu; oradaki
+ * marka görevini sol sütunun tepesindeki küçük kilit üstleniyor.
+ */
+function BrandPanel() {
+  return (
+    <section
+      aria-label="StarCAD"
+      className="relative hidden overflow-hidden border-l border-edge bg-surface-sunken lg:flex lg:items-center lg:justify-center"
+    >
+      {/* Dekoratif çizim ızgarası; içerik `relative` ile üstünde kalıyor. */}
+      <div aria-hidden className="auth-grid absolute inset-0" />
+
+      <div className="relative flex max-w-md flex-col items-center gap-6 px-10 text-center">
+        {/* `logo3.png` ALFA KANALI TAŞIMIYOR (colortype 2): beyaz zemin görselin
+            içine gömülü ve koyu temada beyaz bir dikdörtgen olarak çıkıyor.
+            Görseli değiştirmek yerine o beyaz alan KARO'nun kendisi sayılıyor:
+            yuvarlatılmış köşe + ince çerçeve ile bilinçli bir ürün rozetine
+            dönüşüyor, iki temada da doğru duruyor. */}
+        <img
+          src={logo}
+          alt=""
+          aria-hidden
+          className="size-24 rounded-2xl border border-edge object-contain"
+        />
+
+        <span aria-hidden className="h-px w-12 bg-accent" />
+
+        <div>
+          {/* Sol menüdeki bölüm başlığıyla aynı tipografi. */}
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted">
+            {BRAND_KICKER}
+          </p>
+          <p className="mt-3 text-xl font-semibold leading-snug text-ink">{BRAND_HEADLINE}</p>
+          <p className="mt-3 text-sm text-ink-muted">{BRAND_NOTE}</p>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 export function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
   // Form durumu ve giriş isteği ayrı dosyada: burası düzen, orası akış.
   const { username, setUsername, password, setPassword, error, isSubmitting, handleSubmit } =
-    useLoginForm();
+    useLoginForm()
 
   return (
-    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-[#DDE3EC] p-4 sm:p-6">
-      {/* Telefonda kart SABİT yükseklikte değil: 560 px'lik kutu içinde %46
-          genişliğindeki form kolonu 320 px ekranda ~125 px'e düşüyor ve alan
-          kullanılamaz hâle geliyordu. `md` altında dekoratif kavis gizlenir,
-          form tam genişlikte akar; `md` ve üstünde tasarım AYNEN korunur. */}
-      <div className="relative w-full max-w-[920px] overflow-hidden rounded-[28px] bg-[#F7F8FA] shadow-2xl
-                      md:h-full md:max-h-[560px] md:min-h-[400px]">
-
-        {/* 1 — kavis + lacivert panel (arka plan görseli logoyu da içeriyor) */}
-        <svg
-          viewBox="0 0 1180 720"
-          preserveAspectRatio="none"
-          aria-hidden
-          className="pointer-events-none absolute inset-0 hidden h-full w-full md:block"
-        >
-          <defs>
-            <linearGradient id="panelFallback" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#243657" />
-              <stop offset="50%" stopColor="#1B2A4A" />
-              <stop offset="100%" stopColor="#131F38" />
-            </linearGradient>
-
-            <linearGradient id="curveLine" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FFC107" stopOpacity="0.55" />
-              <stop offset="25%" stopColor="#FFD873" stopOpacity="1" />
-              <stop offset="55%" stopColor="#FFF0C4" stopOpacity="1" />
-              <stop offset="80%" stopColor="#FFC107" stopOpacity="1" />
-              <stop offset="100%" stopColor="#FFC107" stopOpacity="0.5" />
-            </linearGradient>
-
-            <filter id="softGlow" x="-60%" y="-20%" width="220%" height="140%">
-              <feGaussianBlur stdDeviation="10" />
-            </filter>
-
-            <clipPath id="panelClip">
-              <path d={PANEL_SHAPE} />
-            </clipPath>
-          </defs>
-
-          {/* görsel yüklenene kadar altta duran zemin */}
-          <path d={PANEL_SHAPE} fill="url(#panelFallback)" />
-
-          {/* arka plan + logo, kavise kırpılmış */}
-          <image
-            href={panelBg}
-            x={PANEL.x}
-            y={0}
-            width={PANEL.width}
-            height={720}
-            opacity={PANEL.opacity}
-            preserveAspectRatio="xMidYMid slice"
-            clipPath="url(#panelClip)"
-          />
-
-          {/* kenardaki yumuşak ışık */}
-          <path
-            d={CURVE}
-            stroke="#FFE9A8"
-            strokeWidth="16"
-            strokeOpacity="0.35"
-            fill="none"
-            filter="url(#softGlow)"
-          />
-
-          {/* ince altın çizgi */}
-          <path
-            d={CURVE}
-            stroke="url(#curveLine)"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            fill="none"
-          />
-        </svg>
-
-        {/* 2 — sol kolon, form */}
-        <div className="relative z-10 flex w-full flex-col justify-center overflow-x-hidden
-                        px-6 py-10
-                        md:h-full md:w-[46%] md:overflow-y-auto md:py-0 md:pl-[16%] md:pr-[4%]">
-
-          <h1 className="text-[24px] font-semibold leading-tight text-[#1B2A4A] md:whitespace-nowrap">
-            Welcome to
-          </h1>
-          <p className="text-[36px] font-bold leading-tight sm:text-[42px] md:whitespace-nowrap">
-            <span className="text-[#FFC107]">Star</span>
-            <span className="text-[#1B2A4A]">CAD</span>
-          </p>
-
-          <form onSubmit={handleSubmit} className="contents">
-          <div className="mt-7 space-y-[14px]">
-            {/* kullanıcı adı — API e-posta değil, username istiyor (AuthController) */}
-            <div className="relative">
-              <svg
-                className="absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400"
-                fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"
-              >
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
-              </svg>
-              <input
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Kullanıcı Adı"
-                aria-label="Kullanıcı adı"
-                className="h-[50px] w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4
-                           text-[14px] text-[#1B2A4A] outline-none transition focus:border-[#FFC107]"
-              />
-            </div>
-
-            {/* şifre */}
-            <div className="relative">
-              <svg
-                className="absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400"
-                fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"
-              >
-                <rect x="5" y="11" width="14" height="10" rx="2" />
-                <path d="M8 11V7a4 4 0 018 0v4" />
-              </svg>
-              <input
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Şifre"
-                aria-label="Şifre"
-                className="h-[50px] w-full rounded-xl border border-gray-200 bg-white pl-11 pr-11
-                           text-[14px] text-[#1B2A4A] outline-none transition focus:border-[#FFC107]"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
-              >
-                <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </button>
-            </div>
+    // `lg` altında tek kolon: ızgara yalnız geniş ekranda ikiye ayrılıyor, yani
+    // dar ekranda sağ panel hiç yer kaplamıyor ve yatay taşma doğuramıyor.
+    <div className="grid min-h-screen bg-surface lg:grid-cols-2">
+      <main className="flex flex-col justify-center px-6 py-12 sm:px-10 lg:px-14 xl:px-20">
+        {/* Formun genişliği ekrandan bağımsız: geniş ekranda kolon uzasa da
+            alanlar 24rem'de kalıyor, satır uzunluğu okunur ölçüde duruyor. */}
+        <div className="mx-auto flex w-full max-w-sm flex-col gap-6">
+          {/* Marka burada KÜÇÜK: bakış akışının başlangıç noktası olacak kadar
+              var, formun önüne geçecek kadar değil. Geniş ekranda büyük hâli
+              zaten sağ panelde. */}
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="" aria-hidden className="size-7 shrink-0 rounded-md object-contain" />
+            {/* Sayfanın h1'i marka karşılaması; EKRANDA görünmüyor çünkü arayüz
+                metni Türkçe ve karşılama görevini aşağıdaki "Hoş geldiniz"
+                üstleniyor. Ekran okuyucuda hemen ardından gelen marka adıyla
+                birlikte "Welcome to StarCAD" diye okunuyor — giriş ekranının
+                eskiden beri taşıdığı kimlik bu. Metin SABİT: `AppRouter`
+                duman testi (K112) giriş ekranını bu başlıktan tanıyor. */}
+            <h1 className="sr-only">{BRAND_GREETING}</h1>
+            <span className="text-sm font-semibold text-ink">StarCAD</span>
           </div>
 
-          {/* beni hatırla / şifremi unuttum */}
-          <div className="mt-5 flex items-center justify-between gap-2">
-            <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap text-[13px] text-gray-600">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-[17px] w-[17px] shrink-0 rounded border-gray-300"
-              />
-              Remember me
-            </label>
-            <span className="shrink-0 cursor-pointer whitespace-nowrap text-[13px] text-[#E0A012]">
-                 Forgot Password?
-            </span>
+          <div>
+            {/* h2: sayfanın kimliğini h1 taşıyor, bu satır formun karşılaması. */}
+            <h2 className="text-2xl font-semibold text-ink">{HEADING}</h2>
+            <p className="mt-2 text-sm text-ink-muted">{DESCRIPTION}</p>
           </div>
 
-          {error && (
-            <p role="alert" className="mt-4 shrink-0 text-[13px] text-danger">
+          {/* `NoticeBar` DEĞİL: o bileşen kapatma eylemini zorunlu kılıyor,
+              `useLoginForm` ise hatayı yalnız yeni denemede temizliyor —
+              kapatılabilir şerit, işlevi olmayan bir düğme demekti. */}
+          {error !== undefined && (
+            <p
+              role="alert"
+              className="flex items-start gap-3 rounded-lg border border-edge bg-surface-sunken px-4 py-3 text-sm text-ink"
+            >
+              <CircleAlert aria-hidden className="size-5 shrink-0 text-danger" />
               {error}
             </p>
           )}
 
-          {/* giriş butonu */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-6 flex h-[50px] shrink-0 items-center rounded-xl bg-[#FFC107]
-                       text-[15px] font-semibold text-[#1B2A4A] transition hover:brightness-95
-                       disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <span className="flex-1">{isSubmitting ? "Giriş yapılıyor…" : "Sign In"}</span>
-            <svg className="mr-5 h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </button>
+          <form noValidate aria-label={FORM_TITLE} onSubmit={handleSubmit}>
+            {/* `fieldset` gönderim sürerken alanları ve düğmeyi tek hamlede
+                kilitler (ChangePasswordDialog ile aynı desen). */}
+            <fieldset disabled={isSubmitting} className="flex min-w-0 flex-col gap-5">
+              {/* Uç e-posta değil username istiyor (AuthController). */}
+              <TextField
+                id={USERNAME_FIELD_ID}
+                label="Kullanıcı Adı"
+                leftIcon={User}
+                autoComplete="username"
+                value={username}
+                onChange={setUsername}
+              />
+
+              <PasswordField
+                id={PASSWORD_FIELD_ID}
+                label="Şifre"
+                leftIcon={Lock}
+                autoComplete="current-password"
+                value={password}
+                onChange={setPassword}
+              />
+
+              <button
+                type="submit"
+                aria-busy={isSubmitting}
+                className={adminButtonVariants({ tone: 'primary', className: 'mt-1 w-full' })}
+              >
+                {isSubmitting ? 'Giriş yapılıyor…' : FORM_TITLE}
+              </button>
+            </fieldset>
           </form>
-
-          <p className="mt-6 whitespace-nowrap text-center text-[13px] text-gray-500">
-            Don't have an account?{" "}
-            <Link to="/register" className="font-semibold text-[#E0A012]">Sign Up</Link>
-          </p>
         </div>
+      </main>
 
-        {/* 3 — borular, en üstte. Kavisle birlikte `md` altında gizleniyor:
-            kartın yüksekliğine göre konumlandıkları için telefonda formun
-            üstüne biniyor ve girdileri tıklanamaz hâle getiriyorlardı. */}
-        <img
-          src={leftPipe}
-          alt=""
-          className="pointer-events-none absolute -top-[8%] -left-[7.3%] z-20 hidden h-[118%] object-contain object-left md:block"
-        />
-        <img
-          src={rightPipe}
-          alt=""
-          className="pointer-events-none absolute -top-[9%] -right-[5.3%] z-20 hidden h-[118%] object-contain object-right md:block"
-        />
-      </div>
+      <BrandPanel />
     </div>
-  );
+  )
 }

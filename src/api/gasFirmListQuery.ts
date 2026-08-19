@@ -29,6 +29,10 @@ function matchesQuery(firm: GasDistributionFirm, query: GasDistributionFirmQuery
   // Arama Türkçe karakter ve büyük/küçük harf duyarsız (KK-4).
   if (query.nameQuery !== '' && !includesTr(firm.name, query.nameQuery)) return false
   if (query.groupId !== null && firm.groupId !== query.groupId) return false
+  // Kapsam firması grup süzgecinden BAĞIMSIZ değerlendirilir: ikisi aynı anda
+  // dolu olamaz (üst bar birini yazarken öbürünü siliyor), o yüzden sıralama
+  // önemli değil.
+  if (query.scopeFirmId !== null && firm.id !== query.scopeFirmId) return false
 
   // Bölge BİLEREK süzülmüyor: sunucu bu alanı taşımıyor, süzülseydi bölge
   // seçili her aramada liste boşalır ve kullanıcı veri kaybettiğini sanırdı.

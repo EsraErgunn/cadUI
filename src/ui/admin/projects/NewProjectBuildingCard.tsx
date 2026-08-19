@@ -24,7 +24,6 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
         label="Bağlantı Nesnesi"
         value={values.connectionObject}
         placeholder="Bağlantı nesnesi"
-        hint="Tesisatın bağlanacağı altyapı elemanı."
         error={errors.connectionObject}
         onChange={(value) => setValue('connectionObject', value)}
       />
@@ -56,7 +55,6 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
           label="İşyeri Sayısı"
           value={values.workplaceCount}
           isInteger
-          hint="Daire ve işyeri toplamı tesisattaki birim adedini belirler."
           error={errors.workplaceCount}
           onChange={(value) => setValue('workplaceCount', value)}
         />

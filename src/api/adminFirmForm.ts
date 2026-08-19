@@ -1,12 +1,11 @@
 import { z } from 'zod'
 
-import { MOCK_LATENCY_MS, delay } from './adminFirms'
+import { MOCK_LATENCY_MS, delay, fetchAllFirms } from './adminFirms'
 import {
   createMockFirm,
   deactivateMockFirm,
   findMockFirm,
   isMockDfirmNoTaken,
-  nextMockDfirmNo,
   updateMockFirm,
 } from './adminFirmsMock'
 import {
@@ -103,15 +102,22 @@ function rethrowAsDfirmNoTaken(error: unknown): never {
   throw error
 }
 
+/** Hiç kayıt yokken ilk firma numarası. */
+const FIRST_DFIRM_NO = 1
+
 /**
- * Sıradaki uygun numara. Sunucuda karşılığı HENÜZ YOK — mock hesaplıyor
- * (en büyük numaranın bir fazlası, boşluklar doldurulmaz).
- * backend `GET /api/gasdistributionfirms/next-no` açacak; uç
- * gelince bu gövde `requestJson`'a döner, imza değişmez.
+ * Sıradaki uygun numara: MEVCUT firma numaralarının en büyüğü + 1 (boşluklar
+ * doldurulmaz). Sunucuda hazır bir uç YOK, ama sayı da uydurulmuyor —
+ * `fetchAllFirms` listenin TÜM sayfalarını topluyor, yani en büyük numara ilk
+ * sayfayla sınırlı kalmıyor (liste ekranının sayfalaması değişmedi).
+ *
+ * TODO(esra): `GET /api/gasdistributionfirms/next-no` açılınca bu gövde
+ * `requestJson`'a döner, imza değişmez.
  */
 export async function getNextDfirmNo(signal?: AbortSignal): Promise<number> {
-  await delay(MOCK_LATENCY_MS, signal)
-  return nextMockDfirmNo()
+  const firms = await fetchAllFirms(signal)
+
+  return firms.reduce((largest, firm) => Math.max(largest, firm.dfirmNo), 0) + FIRST_DFIRM_NO
 }
 
 export async function getGasDistributionFirm(

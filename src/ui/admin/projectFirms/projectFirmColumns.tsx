@@ -13,9 +13,16 @@ import { ADMIN_CELL_LINK } from '../adminVariants'
 export const PROJECT_FIRM_TABLE_CAPTION =
   'Proje firmaları listesi. Firma Adı ve Yetkili başlıkları sıralamayı değiştirir.'
 
-/** Sekiz veri sütunu + İşlemler dar ekrana sığmaz; bu eşiğin altında tablo
-    yatay kayar (4.5). Kaydırma kabı `DataTable`'da, gövde düzeyinde DEĞİL. */
-export const PROJECT_FIRM_TABLE_MIN_WIDTH = 'min-w-320'
+/** Beş veri sütunu + İşlemler dar ekrana sığmaz; bu eşiğin altında tablo
+    yatay kayar (4.5). Kaydırma kabı `DataTable`'da, gövde düzeyinde DEĞİL.
+    Üç sütun kalkınca eşik 320'den 240'a indi (K102). */
+export const PROJECT_FIRM_TABLE_MIN_WIDTH = 'min-w-240'
+
+/**
+ * Eylem sütunu içeriği kadar dursun; artan genişlik metin sütunlarına gitsin
+ * (proje listesindeki `NARROW_COLUMN_CLASS` ile aynı gerekçe).
+ */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
 
 /**
  * Hücre çiziciler bilerek BİLEŞEN değil, düz fonksiyon: dosya sütun dizisini de
@@ -80,29 +87,12 @@ function renderGasFirms(gasFirms: ProjectFirmGasFirm[]) {
 }
 
 /**
- * Sütun sırası gereksinim 4.5'ten birebir alındı.
- *
- * `Seri No`, `Yeter No` ve `Gsm` bugün HER SATIRDA "-" gösterir: ilk ve üçüncü
- * yalnız detay yanıtında, ikincisi uçta hiç yok. Sütunlar yine de duruyor ki uç
- * genişleyince yalnız `projectFirmDto.ts`'teki eşleme değişsin (bkz. o dosyadaki
- * TODO). `G.D. Firması` ise artık dolu — yetki ucundan geliyor.
+ * Sütun sırası gereksinim 4.5'ten alındı; `Seri No`, `Yeter No` ve `Gsm`
+ * ÇIKARILDI (K102). Üçü de her satırda "-" gösteriyordu — ilki ve üçüncüsü
+ * yalnız detay yanıtında, ikincisinin uçta hiç karşılığı yoktu. Hep boş bir
+ * sütun, tabloyu geniş tutmaktan başka bir iş görmüyordu.
  */
 const DATA_COLUMNS: DataTableColumn<ProjectFirmRow, ProjectFirmSortKey>[] = [
-  {
-    key: 'serialNumber',
-    label: 'Seri No',
-    // Salt okunur kimlik bilgisi: gereksinim 4.5 soluk gösterilmesini istiyor.
-    cellClassName: 'tabular-nums text-ink-muted',
-    cell: (firm) =>
-      firm.serialNumber === null ? renderMissingValue() : firm.serialNumber,
-  },
-  {
-    key: 'qualificationNumber',
-    label: 'Yeter No',
-    cellClassName: 'tabular-nums text-ink-muted',
-    cell: (firm) =>
-      firm.qualificationNumber === null ? renderMissingValue() : firm.qualificationNumber,
-  },
   {
     key: 'name',
     label: 'Firma Adı',
@@ -136,12 +126,6 @@ const DATA_COLUMNS: DataTableColumn<ProjectFirmRow, ProjectFirmSortKey>[] = [
     cellClassName: 'tabular-nums',
     cell: (firm) => renderPhone(firm.phone),
   },
-  {
-    key: 'mobilePhone',
-    label: 'Gsm',
-    cellClassName: 'tabular-nums',
-    cell: (firm) => renderPhone(firm.mobilePhone),
-  },
 ]
 
 interface ProjectFirmColumnsOptions {
@@ -168,7 +152,8 @@ export function buildProjectFirmColumns({
     {
       key: 'actions',
       label: 'İşlemler',
-      cellClassName: 'text-right',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
       cell: (firm) => (
         <ProjectFirmRowActions
           firm={firm}

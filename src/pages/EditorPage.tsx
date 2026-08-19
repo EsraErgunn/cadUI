@@ -1,35 +1,72 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useBlocker } from 'react-router-dom'
 
 import { useCloseEditor } from './useCloseEditor'
+import { useEditorExit } from './useEditorExit'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
+import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
 import { CascadeDeleteDialog } from '../plumbing/ui/CascadeDeleteDialog'
 import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
 import { SceneRoot } from '../scene/SceneRoot'
-import { useCadStore } from '../store/cadStore'
+import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
+import { ClearProjectDialog } from '../ui/ClearProjectDialog'
 import { EditorSidebar } from '../ui/EditorSidebar'
 import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
+import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
+import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
   const activeViewId = useUiStore((state) => state.activeViewId)
-  const { isSaving, error, save } = useProjectPersistence()
+  const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
+    useProjectPersistence()
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
+  const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
+  const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
+  const isDirty = useCadStore(selectIsProjectDirty)
   const handleSave = () => void save()
+
+  // Sekme kapatma / yenileme tarayıcının kendi sorusuyla; uygulama İÇİ her
+  // çıkış (düğme, menü, geri tuşu) aşağıdaki engelle.
+  useUnsavedChangesWarning(isDirty)
+
+  const blocker = useBlocker(isDirty)
+  const exitBlocker = useMemo(
+    () => ({
+      isBlocked: blocker.state === 'blocked',
+      // Kaydettikten sonra proje temiz olsa bile engel 'blocked' kalıyor
+      // (getBlocker var olan durumu sıfırlamıyor), ama engel hiç kurulmamışsa
+      // gidilecek yer bilinmediği için düz kapanışa düşülüyor.
+      proceed: () => (blocker.state === 'blocked' ? blocker.proceed() : closeEditor()),
+      reset: () => blocker.reset?.(),
+    }),
+    [blocker, closeEditor],
+  )
+  const exit = useEditorExit({ blocker: exitBlocker, save })
+
+  /**
+   * Etiketli kayıt: pencere ancak sunucu kabul edince kapanıyor. Hemen
+   * kapatılsaydı hata mesajı üst barda çıkar ama kullanıcının yazdığı etiket
+   * gitmiş olurdu — aynı etiketi yeniden yazmak gerekirdi.
+   */
+  const handleSaveAs = async (label: string) => {
+    if (await save(label)) setIsSaveAsOpen(false)
+  }
 
   /**
    * Klavyeden yapılan geçiş ANINDA uygulanır (madde 20); yalnız "Katlar"
@@ -44,6 +81,7 @@ export function EditorPage() {
 
   useEditorShortcuts({
     onSave: handleSave,
+    onSaveAs: () => setIsSaveAsOpen(true),
     onOpenFloorManagement: () => setIsFloorDialogOpen(true),
     onOpenFloorCopy: () => setIsFloorCopyOpen(true),
     onGoToFloor: goToFloor,
@@ -64,10 +102,13 @@ export function EditorPage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl bg-canvas-overlay">
         <MenuBar
           onCloseEditor={closeEditor}
+          onClearProject={() => setIsClearProjectOpen(true)}
           onSave={handleSave}
+          onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
           onExport={exportProject}
           isSaving={isSaving}
+          versionHistory={{ projectId, currentVersionId, onLoadVersion: loadVersion }}
         />
 
         {/* Menüden tetiklenir (Dosya > İçe Aktar); görünür bir seçici yerine
@@ -134,6 +175,37 @@ export function EditorPage() {
       {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
+
+      {isClearProjectOpen && (
+        <ClearProjectDialog
+          onCancel={() => setIsClearProjectOpen(false)}
+          onConfirm={() => {
+            useCadStore.getState().clearProjectDrawing()
+            setIsClearProjectOpen(false)
+          }}
+        />
+      )}
+
+      {/* Hata YALNIZ bu pencereden yapılan deneme başarısızsa gösteriliyor:
+          `error` daha eski bir yükleme hatasını da taşıyabiliyor ve pencere
+          açılır açılmaz alakasız bir uyarı soruyu bulandırırdı. */}
+      {exit.isPromptOpen && (
+        <UnsavedChangesDialog
+          isSaving={isSaving}
+          error={exit.hasSaveFailed ? error : undefined}
+          onCancel={exit.cancel}
+          onDiscard={exit.discardAndClose}
+          onSaveAndClose={() => void exit.saveAndClose()}
+        />
+      )}
+
+      {isSaveAsOpen && (
+        <SaveVersionDialog
+          isSaving={isSaving}
+          onCancel={() => setIsSaveAsOpen(false)}
+          onSave={(label) => void handleSaveAs(label)}
+        />
+      )}
 
       <CascadeDeleteDialog />
     </div>

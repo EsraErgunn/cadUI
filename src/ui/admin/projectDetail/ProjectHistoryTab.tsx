@@ -32,7 +32,9 @@ const COLUMNS: DataTableColumn<ProjectHistoryRow>[] = [
   {
     key: 'operation',
     label: 'İşlem',
-    cell: (row) => <OperationBadge operation={row.operation} />,
+    cell: (row) => (
+      <OperationBadge operation={row.operation} operationName={row.operationName} />
+    ),
   },
   {
     key: 'description',
@@ -48,7 +50,7 @@ const COLUMNS: DataTableColumn<ProjectHistoryRow>[] = [
  */
 export function ProjectHistoryTab({ history }: { history: Sourced<ProjectHistoryRow[]> | undefined }) {
   if (history === undefined || history.source === 'unavailable') {
-    return <MissingSourceNotice endpointHint="GET /api/projects/{id}/operation-history" />
+    return <MissingSourceNotice endpointHint="GET /api/projects/{id}/history" />
   }
 
   return (

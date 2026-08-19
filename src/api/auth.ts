@@ -11,8 +11,9 @@ import { ApiError, requestJson, requestVoid, type RequestOptions } from './http'
  * POST /api/auth/logout           (gövde YOK) → 200 (gövdesiz) | 401
  * GET  /api/auth/me               → CurrentUserDto (token gerekir)
  *
+ * POST /api/auth/register       (yalnız Admin) → RegisteredUserDto
+ *
  * API fail-closed: [AllowAnonymous] olmayan her uç token ister, yoksa 401.
- * Kayıt (POST /api/auth/register) yalnız Admin rolüne açık — kendi issue'sunda.
  */
 
 const UNAUTHORIZED = 401
@@ -40,6 +41,60 @@ const currentUserSchema = z.object({
 })
 
 export type CurrentUser = z.infer<typeof currentUserSchema>
+
+/**
+ * Kayıt yanıtı. Sunucu yalnız bu beş alanı döndürüyor; çağıranın ihtiyacı olan
+ * kimlik.
+ */
+const registeredUserSchema = z.object({
+  id: z.number().int().positive(),
+  fullName: z.string(),
+  username: z.string(),
+  email: z.string(),
+  roleCode: z.string(),
+})
+
+export type RegisteredUser = z.infer<typeof registeredUserSchema>
+
+/**
+ * `RegisterRequest` gövdesi — sunucunun alan adlarıyla, BİREBİR. Firma bağının
+ * ikisi de gövdede: kullanıcı ya bir proje firmasına ya bir gaz dağıtım
+ * firmasına bağlanıyor, kullanılmayan taraf `null` gider.
+ */
+export interface RegisterPayload {
+  fullName: string
+  email: string
+  username: string
+  password: string
+  /** HAM rakamlar ("05551234567"); maskeli metin GÖNDERİLMEZ. */
+  phone: string | null
+  roleCode: string
+  projectFirmId: number | null
+  gasDistributionFirmId: number | null
+}
+
+/**
+ * Yeni kullanıcı oluşturur. Uç yalnız Admin rolüne açık; istemci düğmeyi
+ * gizlese de son sözü sunucu söyler.
+ *
+ * Çakışan e-posta/kullanıcı adında **409** + `{ message }` döner ve mesaj
+ * OLDUĞU GİBİ çağırana taşınır: hangi alanın çakıştığını sunucu yazıyor,
+ * genel bir cümleyle örtülseydi kullanıcı neyi düzelteceğini bilemezdi.
+ */
+export function registerUser(
+  payload: RegisterPayload,
+  options?: RequestOptions,
+): Promise<RegisteredUser> {
+  return requestJson(
+    {
+      method: 'POST',
+      path: '/api/auth/register',
+      rawJsonBody: JSON.stringify(payload),
+      signal: options?.signal,
+    },
+    registeredUserSchema,
+  )
+}
 
 export type LoginCredentials = {
   /** API kullanıcı ADI istiyor, e-posta değil. */

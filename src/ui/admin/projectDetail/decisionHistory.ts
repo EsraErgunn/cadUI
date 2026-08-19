@@ -9,16 +9,14 @@ import type {
 const DECISION_OPERATIONS: Record<ProjectDecision, HistoryOperation> = {
   approve: 'projeOnay',
   reject: 'projeRet',
-  requestRevision: 'revizyonTalebi',
 }
 
 /**
- * Uç olmadığı için sunucudan gelmeyen, işlemi yapan kullanıcının kendi
- * oturumundan üretilen kayıt kimliği. Negatif: gerçek kayıt kimlikleri pozitif
- * artan tamsayı (knowledge/id-scheme.md), çakışma olmaz ve satırın sunucudan
- * gelmediği kimliğinden bile bellidir.
+ * Sunucudan gelmeyen, işlemi yapan kullanıcının kendi oturumundan üretilen
+ * satır anahtarı. Sunucu satırlarının anahtarı damga + kod + sıradan kuruluyor,
+ * bu sabit onlarla çakışmaz ve satırın yerel olduğu anahtarından bellidir.
  */
-const LOCAL_DECISION_ROW_ID = -1
+const LOCAL_DECISION_ROW_ID = 'local-decision'
 
 interface DecisionActor {
   name: string
@@ -28,7 +26,7 @@ interface DecisionActor {
 
 /**
  * Karar sonrası işlem geçmişine eklenen satır (KK-11). Gerekçe açıklama
- * alanında görünür — revizyon talebinin gerekçesinin görüneceği yer burası.
+ * alanında görünür — ret gerekçesinin görüneceği yer burası.
  */
 export function mergeDecisionHistory(
   rows: ProjectHistoryRow[],
@@ -44,6 +42,7 @@ export function mergeDecisionHistory(
     userName: actor.name,
     roleSnapshot: actor.roleLabel,
     operation: DECISION_OPERATIONS[outcome.decision],
+    operationName: null,
     description: outcome.reason,
   }
 

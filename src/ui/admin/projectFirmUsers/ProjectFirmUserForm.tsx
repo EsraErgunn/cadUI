@@ -3,7 +3,6 @@ import { Save } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { ProjectFirmUserCompetencyCard } from './ProjectFirmUserCompetencyCard'
 import { ProjectFirmUserInfoCard } from './ProjectFirmUserInfoCard'
 import { projectFirmUserFieldId } from './projectFirmUserSchema'
 import { useProjectFirmUserForm } from './useProjectFirmUserForm'
@@ -11,7 +10,7 @@ import type { ProjectFirmUserDetail } from '../../../api/projectFirmUserDto'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { PROJECT_FIRM_USERS_PATH } from '../adminNavItems'
-import { adminButtonVariants } from '../adminVariants'
+import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../adminVariants'
 
 const CANCEL_TITLE = 'Kaydedilmemiş değişiklikler var'
 const CANCEL_DESCRIPTION = 'Yapılan değişiklikler kaydedilmeden çıkılacaktır.'
@@ -82,28 +81,19 @@ export function ProjectFirmUserForm({ user }: ProjectFirmUserFormProps) {
         <fieldset disabled={form.isSubmitting} className="flex min-w-0 flex-col gap-5">
           <ProjectFirmUserInfoCard form={form} />
 
-          <ProjectFirmUserCompetencyCard
-            competencies={form.competencies}
-            competencyError={form.competencyError}
-            duplicateKeys={form.duplicateKeys}
-            onAdd={form.addCompetency}
-            onChange={form.updateCompetency}
-            onRemove={form.removeCompetency}
-          />
-
           {/* Mockup: sağ altta solda İptal, sağda Kaydet. */}
           <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
               onClick={handleCancel}
-              className={adminButtonVariants({ tone: 'secondary' })}
+              className={adminButtonVariants({ tone: 'secondary', className: ADMIN_FORM_ACTION_WIDTH })}
             >
               İptal
             </button>
             <button
               type="submit"
               aria-busy={form.isSubmitting}
-              className={adminButtonVariants({ tone: 'primary' })}
+              className={adminButtonVariants({ tone: 'primary', className: ADMIN_FORM_ACTION_WIDTH })}
             >
               <Save aria-hidden className="size-4" />
               {form.isSubmitting ? 'Kaydediliyor…' : 'Kaydet'}

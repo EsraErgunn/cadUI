@@ -33,13 +33,11 @@ export interface ProjectFirmUserFormValues {
   fullName: string
   username: string
   password: string
-  isActive: boolean
 }
 
 export type ProjectFirmUserField = keyof ProjectFirmUserFormValues
 export type ProjectFirmUserErrors = Partial<Record<ProjectFirmUserField, string>>
 
-/** Belge madde 14: yeni kullanıcıda "Aktif" açık gelir (KK-18). */
 export function buildEmptyProjectFirmUserValues(): ProjectFirmUserFormValues {
   return {
     email: '',
@@ -47,7 +45,6 @@ export function buildEmptyProjectFirmUserValues(): ProjectFirmUserFormValues {
     fullName: '',
     username: '',
     password: '',
-    isActive: true,
   }
 }
 
@@ -63,7 +60,6 @@ export const PROJECT_FIRM_USER_FIELD_ORDER: ProjectFirmUserField[] = [
   'fullName',
   'username',
   'password',
-  'isActive',
 ]
 
 /** Tarayıcının `type="email"` kontrolüyle aynı kabaca kural (projectFirmSchema ile aynı gerekçe). */
@@ -106,7 +102,6 @@ function createProjectFirmUserSchema(isUpdate: boolean) {
     fullName: requiredText(PROJECT_FIRM_USER_ERRORS.fullName),
     username: requiredText(PROJECT_FIRM_USER_ERRORS.username),
     password,
-    isActive: z.boolean(),
   })
 }
 

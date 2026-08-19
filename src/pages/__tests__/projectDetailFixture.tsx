@@ -151,21 +151,23 @@ export function buildUnits(): ProjectUnitRow[] {
 export function buildHistory(): ProjectHistoryRow[] {
   return [
     {
-      id: 1,
+      id: 'h1',
       fileType: 'zpd',
       createdAt: '2026-07-10T11:28:28.000Z',
       userName: 'AHMET AKBAYIR',
       roleSnapshot: 'Zetacad USER',
       operation: 'projeKayit',
+      operationName: 'Proje Kayıt',
       description: 'Proje Adı: TEST PROJESİ 2',
     },
     {
-      id: 2,
+      id: 'h2',
       fileType: 'pdf',
       createdAt: '2026-07-10T11:36:53.000Z',
       userName: 'AHMET AKBAYIR',
       roleSnapshot: 'Zetacad USER',
       operation: 'projeGuncelleme',
+      operationName: 'Proje Güncelleme',
       description: null,
     },
   ]

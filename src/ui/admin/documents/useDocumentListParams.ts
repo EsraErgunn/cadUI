@@ -12,6 +12,7 @@ import {
 import type { SortDirection } from '../../../api/listQuery'
 import { lastMonthRange } from '../adminDateRange'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
+import { useScopeGasFirms } from '../useScopeGasFirms'
 
 function parseSortKey(raw: string | null): DocumentSortKey {
   return DOCUMENT_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_DOCUMENT_SORT_KEY
@@ -48,6 +49,17 @@ export interface DocumentListControls {
 export function useDocumentListParams(): DocumentListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
+  const scopeGasFirms = useScopeGasFirms()
+
+  // Sıralı dizi: sorgu react-query anahtarına giriyor, küme sırası değişirse
+  // aynı kapsam iki farklı anahtar üretir ve liste boşuna yeniden çekilirdi.
+  const gasFirmNames = useMemo(
+    () =>
+      scopeGasFirms.names === null
+        ? null
+        : [...scopeGasFirms.names].sort((left, right) => left.localeCompare(right, 'tr')),
+    [scopeGasFirms.names],
+  )
 
   const query = useMemo<DocumentListQuery>(() => {
     const defaultRange = lastMonthRange(new Date())
@@ -57,13 +69,14 @@ export function useDocumentListParams(): DocumentListControls {
       dateTo: searchParams.get(ADMIN_PARAM_KEYS.dateTo) ?? defaultRange.to,
       docTypeCode: searchParams.get(ADMIN_PARAM_KEYS.documentType),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
+      gasFirmNames,
       search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: DOCUMENT_PAGE_SIZE,
       sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
     }
-  }, [searchParams])
+  }, [searchParams, gasFirmNames])
 
   const applyFilters = useCallback(
     (filters: DocumentFilters) => {

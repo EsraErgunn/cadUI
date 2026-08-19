@@ -2,21 +2,12 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  MOCK_GAS_FIRMS,
-  MOCK_PROJECT_FIRMS,
-  buildDetail,
-  renderFormFlow,
-} from './projectFirmUserFixture'
+import { buildDetail, renderFormFlow } from './projectFirmUserFixture'
 
 /** Etiket "Şifre" ya da "Şifre *"; göz düğmesinin adıyla ("Şifreyi göster") karışmasın. */
 const PASSWORD_LABEL = /^Şifre( \*)?$/
 
-const readApi = vi.hoisted(() => ({
-  getProjectFirmUser: vi.fn(),
-  getCompetencyGasFirms: vi.fn(),
-  getAuthorizedProjectFirms: vi.fn(),
-}))
+const readApi = vi.hoisted(() => ({ getProjectFirmUser: vi.fn() }))
 const formApi = vi.hoisted(() => ({
   saveProjectFirmUser: vi.fn(),
   findTakenProjectFirmUserFields: vi.fn(),
@@ -33,8 +24,6 @@ vi.mock('../../api/projectFirmUserForm', async (importOriginal) => ({
 }))
 
 beforeEach(() => {
-  readApi.getCompetencyGasFirms.mockResolvedValue(MOCK_GAS_FIRMS)
-  readApi.getAuthorizedProjectFirms.mockResolvedValue(MOCK_PROJECT_FIRMS)
   readApi.getProjectFirmUser.mockResolvedValue(buildDetail())
   formApi.findTakenProjectFirmUserFields.mockResolvedValue({
     isEmailTaken: false,
@@ -49,7 +38,7 @@ afterEach(() => {
 
 // KK-13: iki bölüm, açıklama ve zorunlu alan yıldızı.
 describe('oluşturma ekranının açılışı (KK-13)', () => {
-  it('başlık, açıklama ve iki bölüm görünür', () => {
+  it('başlık, açıklama ve kullanıcı bilgileri bölümü görünür', () => {
     renderFormFlow()
 
     expect(
@@ -57,7 +46,8 @@ describe('oluşturma ekranının açılışı (KK-13)', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Oluşturma ve güncelleme aynı ekranı kullanır')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Kullanıcı Bilgileri/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Kullanıcı Yetkinlikleri/ })).toBeInTheDocument()
+    // "Kullanıcı Yetkinlikleri" bölümü ekrandan kaldırıldı.
+    expect(screen.queryByRole('heading', { name: /Kullanıcı Yetkinlikleri/ })).toBeNull()
   })
 
   it('zorunlu alanların etiketi yıldız taşır', () => {
@@ -71,11 +61,11 @@ describe('oluşturma ekranının açılışı (KK-13)', () => {
     expect(screen.getByLabelText('Telefon')).toBeInTheDocument()
   })
 
-  // KK-18: yeni kullanıcıda "Aktif" anahtarı açık gelir.
-  it('Aktif anahtarı açık gelir', () => {
+  // Kullanıcı düzeyindeki "Aktif" anahtarı KALKTI.
+  it('kullanıcı düzeyinde Aktif anahtarı çizilmez', () => {
     renderFormFlow()
 
-    expect(screen.getByRole('switch', { name: 'Aktif' })).toBeChecked()
+    expect(screen.queryByRole('switch', { name: 'Aktif' })).not.toBeInTheDocument()
   })
 })
 

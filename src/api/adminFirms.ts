@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-import { MOCK_FIRM_GROUPS, allMockFirms } from './adminFirmsMock'
+import { MOCK_FIRM_GROUPS, allMockFirms, createMockFirmGroup } from './adminFirmsMock'
 import {
+  firmGroupDtoSchema,
   firmGroupListDtoSchema,
   firmListPageSchema,
   toFirmListItem,
@@ -29,7 +30,8 @@ export { SORT_DIRECTIONS, type SortDirection } from './listQuery'
  * - `groupName` null ise arayüz "-" gösterir.
  * - `dfirmNo` olduğu gibi gösterilir, yeniden numaralandırılmaz.
  *
- * GET /api/gasdistributiongroups → [{ id, name }]
+ * GET  /api/gasdistributiongroups → [{ id, name }]
+ * POST /api/gasdistributiongroups → { name } → 200 + { id, name }
  *
  * Bölge alanı ve bölge listesi ucu KALDIRILDI: sunucu satırda bölge taşımıyordu,
  * onu okuyan tek yüzey de üst bardaki kapsam seçicisiydi (docs/kararlar.md K31).
@@ -61,6 +63,13 @@ export interface GasDistributionFirmQuery {
   nameQuery: string
   /** Grup artık ADLA değil KİMLİKLE süzülüyor — gerçek veri kimlik taşıyor. */
   groupId: number | null
+  /**
+   * Üst bardaki kapsam TEK bir gaz dağıtım firmasıysa onun kimliği (URL'de
+   * `gdfirm`). Grup zaten `groupId` ile aynı anahtarı paylaşıyordu; firma
+   * kapsamı seçilince liste o tek satıra iner, yoksa üst bar "AKSA Gebze" der
+   * ama tabloda bütün firmalar dururdu.
+   */
+  scopeFirmId: number | null
   sortKey: GasFirmSortKey
   sortDir: SortDirection
   page: number
@@ -171,5 +180,29 @@ export async function getFirmGroups(signal?: AbortSignal): Promise<FirmGroup[]> 
   )
 
   return toSortedFirmGroups(dtos)
+}
+
+/**
+ * `POST /api/gasdistributiongroups` → yeni grup firması. Gövde tek alan: `name`.
+ *
+ * Form ekranındaki "+" düğmesi buraya bağlı; kayıt sonrası çağıran `firmGroups`
+ * sorgusunu tazeleyip yeni grubu seçiyor. API kökü yokken liste mock'una
+ * yazılıyor — aksi hâlde eklenen grup açılır listede hiç görünmezdi.
+ */
+export async function createFirmGroup(name: string, signal?: AbortSignal): Promise<FirmGroup> {
+  if (!hasApiBaseUrl()) {
+    await delay(MOCK_LATENCY_MS, signal)
+    return createMockFirmGroup(name)
+  }
+
+  return requestJson(
+    {
+      method: 'POST',
+      path: '/api/gasdistributiongroups',
+      rawJsonBody: JSON.stringify({ name }),
+      signal,
+    },
+    firmGroupDtoSchema,
+  )
 }
 

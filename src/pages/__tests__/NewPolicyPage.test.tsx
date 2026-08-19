@@ -57,7 +57,7 @@ describe('NewPolicyPage — erişim ve adım göstergesi', () => {
 
     expect(await screen.findByRole('heading', { name: 'Poliçe Oluşturma' })).toBeInTheDocument()
     expect(
-      screen.getByText('Manuel poliçe akışı — adımları takip ederek tamamlayın'),
+      screen.getByText('Manuel poliçe akışı'),
     ).toBeInTheDocument()
 
     const trail = screen.getByRole('navigation', { name: 'Konum' })

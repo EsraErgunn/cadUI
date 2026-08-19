@@ -28,6 +28,8 @@ interface TextFieldProps {
   type?: 'text' | 'email'
   /** Mobil klavyeyi doğru açar; sayısal alanlarda 'numeric'. */
   inputMode?: 'text' | 'numeric' | 'tel'
+  /** Şifre yöneticisinin alanı tanıması için (giriş ekranında 'username'). */
+  autoComplete?: 'username' | 'off'
   layout?: FieldLayout
   /** Girdinin içinde solda duran alanı temsil eden ikon; verilmezse hiç render edilmez. */
   leftIcon?: LucideIcon
@@ -57,6 +59,7 @@ export function TextField({
   maxLength,
   type = 'text',
   inputMode,
+  autoComplete,
   layout,
   leftIcon,
   suffix,
@@ -74,6 +77,7 @@ export function TextField({
       readOnly={isReadOnly}
       maxLength={maxLength}
       inputMode={inputMode}
+      autoComplete={autoComplete}
       onChange={(event) => onChange(event.target.value)}
       onBlur={onBlur}
       {...buildFieldAria(id, { hint, warning, error })}

@@ -52,10 +52,16 @@ interface StaleContentProps {
 }
 
 /** Sayfa değişirken eski veri ekranda kalır (tablo boşalıp zıplamasın); tazelenme
-    sürdüğü belli olsun diye içerik soluklaştırılır. */
+    sürdüğü belli olsun diye içerik soluklaştırılır.
+
+    Dikey boşluk sayfanın kendi `gap-5`'iyle AYNI: sarmalayıcısı olan ekranlarda
+    (Projeler, Evraklar) tablo ile sayfalama arası 4, sarmalayıcısız ekranlarda
+    (Proje Firmaları, Kullanıcılar) 5 birimdi. */
+const STALE_CONTENT_CLASS = 'flex flex-col gap-5'
+
 export function StaleContent({ isStale, children }: StaleContentProps) {
   return (
-    <div className={isStale ? 'flex flex-col gap-4 opacity-60' : 'flex flex-col gap-4'}>
+    <div className={isStale ? `${STALE_CONTENT_CLASS} opacity-60` : STALE_CONTENT_CLASS}>
       {children}
     </div>
   )

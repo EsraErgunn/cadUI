@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { getOpeningOutline } from '../../core/opening'
 import { useArchitectureUiStore } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { useArchitectureDraft } from '../useArchitectureDraft'
@@ -74,6 +75,38 @@ describe('useArchitectureDraft — sürükleme önizlemesi', () => {
     // sol odanın üst duvarı jest boyunca EĞİLMİŞ görünüyor ve bırakınca birden
     // düzeliyordu (K103).
     expect(endsOf(topLeft.wallId)).toEqual(before)
+  })
+
+it('KOPAN komşudaki AÇIKLIK da önizlemede yerinde kalır (K108)', () => {
+    const { topLeft, topRight } = drawTwoRooms()
+    const openingId = useCadStore
+      .getState()
+      .addOpening({ wallId: topLeft.wallId, offsetCm: 200, widthCm: 90, type: 'window' })!
+
+    const outlineFrom = (walls: typeof store.walls, points: typeof store.points) => {
+      const state = useCadStore.getState()
+      const opening = state.openings.find((candidate) => candidate.id === openingId)!
+      const wall = walls.find((candidate) => candidate.id === topLeft.wallId)!
+      return getOpeningOutline(wall, points, opening)
+    }
+
+    const store = useCadStore.getState()
+    const before = outlineFrom(store.walls, store.points)
+
+    useArchitectureUiStore.getState().setDraggingWall({
+      wallIds: [topRight.wallId],
+      dxCm: 0,
+      dyCm: -100,
+    })
+    const preview = draft()
+
+    // Düzeltme: açıklık ÖNİZLEME duvarından çözülür, kopan komşu klonuna bağlı.
+    expect(outlineFrom(preview.walls, preview.points)).toEqual(before)
+
+    // Eski hata: STORE duvarı + ÖNİZLEME noktası. Store'daki komşu hâlâ özgün
+    // köşeye bakıyor, o köşe ise draft'ta taşınmış — açıklık taşınan köşeye
+    // uzanan hayali bir duvara oturup jest boyunca EĞİLİYORDU.
+    expect(outlineFrom(useCadStore.getState().walls, preview.points)).not.toEqual(before)
   })
 
   it('taşınan duvar önizlemede ötelenmiş', () => {

@@ -1,4 +1,4 @@
-import { BadgeCheck, MapPin, Network, Plus, ShieldCheck } from 'lucide-react'
+import { MapPin, Network, Plus, ShieldCheck } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { AuthorizationList } from './AuthorizationList'
@@ -19,7 +19,6 @@ const SECTION_TITLE = 'G.D. Firması & Bölge Yetkilendirme'
 
 const GROUP_FIELD_ID = 'project-firm-authorization-group'
 const GAS_FIRM_FIELD_ID = 'project-firm-authorization-gas-firms'
-const QUALIFICATION_FIELD_ID = 'project-firm-authorization-qualification'
 const CERTIFICATE_FIELD_ID = 'project-firm-authorization-certificate'
 
 interface ProjectFirmAuthorizationCardProps {
@@ -87,18 +86,7 @@ export function ProjectFirmAuthorizationCard({
         onToggleAll={draft.toggleAllVisibleGasFirms}
       />
 
-      <TextField
-        id={QUALIFICATION_FIELD_ID}
-        label="Yeterlilik No"
-        labelNote={REQUIRED_MARK}
-        layout="horizontal"
-        leftIcon={BadgeCheck}
-        placeholder="Yeterlilik numarası"
-        value={draft.qualificationNumber}
-        error={draft.errors.qualificationNumber}
-        onChange={draft.setQualificationNumber}
-      />
-
+      {/* "Yeterlilik No" KALKTI (K102): kayıtta tek numara kaldı. */}
       <TextField
         id={CERTIFICATE_FIELD_ID}
         label="Sertifika No"

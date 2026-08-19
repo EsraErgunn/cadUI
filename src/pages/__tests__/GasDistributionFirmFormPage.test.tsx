@@ -69,6 +69,7 @@ describe('ekleme ekranı', () => {
 
     expect(screen.getByLabelText('Firma No *')).toBeInTheDocument()
     expect(screen.getByLabelText('Firma Adı *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Grup Firması *')).toBeInTheDocument()
     expect(screen.getByLabelText('Telefon *')).toBeInTheDocument()
     expect(screen.getByLabelText('Adres')).toBeInTheDocument()
   })
@@ -82,7 +83,7 @@ describe('ekleme ekranı', () => {
     const options = Array.from(select.querySelectorAll('option')).map((option) => option.textContent)
 
     expect(select).toHaveValue('')
-    expect(options).toEqual(['—', 'Aksa Enerji Grubu', 'Çalık Enerji Grubu'])
+    expect(options).toEqual(['Seçiniz', 'Aksa Enerji Grubu', 'Çalık Enerji Grubu'])
   })
 
   it('firma numarası ekleme modunda değiştirilebilir', async () => {

@@ -17,8 +17,26 @@ export const PROJECT_TABLE_CAPTION =
 /** On iki sütun dar ekrana sığmaz; bu eşiğin altında tablo yatay kaydırılır. */
 export const PROJECT_TABLE_MIN_WIDTH_CLASS = 'min-w-320'
 
+/**
+ * Sıra numarası ve eylem sütunu içeriği kadar dursun. `w-px`: tablo `w-full`
+ * olduğu için tarayıcı 1 px'i "en dar hâl" diye okur ve artan genişliği METİN
+ * sütunlarına dağıtır — 1920 px'te iki düğmelik sütun ekranın altıda birini
+ * kaplıyordu.
+ */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
 /** Sil/Gönder yalnız taslak projede anlamlı — sütun bu durumda hiç üretilmez. */
 const ACTIONABLE_STATUS: ProjectStatus = 'taslak'
+
+/**
+ * Düğmeler satırın KENDİ durumuna bakar (liste ucu satır başına `status`
+ * döndürüyor); sunucu durumu boş bırakırsa sekme yedeğe düşer — liste zaten
+ * `Status` ile sunucuda süzülü. Böylece taslak olmayan bir kayıt taslak
+ * sekmesine karışsa da ona "Onaya Gönder" teklif edilmez.
+ */
+function isActionableRow(project: ProjectListItem, tabStatus: ProjectStatus): boolean {
+  return (project.status ?? tabStatus) === ACTIONABLE_STATUS
+}
 
 interface ProjectColumnsOptions {
   /** Sayfa başlangıcı; "No" sütunu sayfa 2'de 31'den devam etsin diye. */
@@ -40,7 +58,8 @@ export function buildProjectColumns({
     {
       key: 'no',
       label: 'No',
-      cellClassName: 'tabular-nums text-ink-muted',
+      cellClassName: `${NARROW_COLUMN_CLASS} tabular-nums text-ink-muted`,
+      headerClassName: NARROW_COLUMN_CLASS,
       cell: (_project, index) => rowOffset + index + 1,
     },
     {
@@ -108,6 +127,9 @@ export function buildProjectColumns({
       cell: (project) => {
         const gasFirm = project.gasFirm
         if (gasFirm === null) return <EmptyValue />
+        // Liste ucu adı her zaman, kimliği her zaman döndürmüyor; kimliksiz
+        // satırda ad bağlantısız çizilir — var olmayan bir adrese götürmez.
+        if (gasFirm.id === null) return gasFirm.name
         return (
           <Link to={gasFirmUpdatePath(gasFirm.id)} className={ADMIN_CELL_LINK}>
             {gasFirm.name}
@@ -124,15 +146,17 @@ export function buildProjectColumns({
     {
       key: 'actions',
       label: 'Aksiyonlar',
-      cellClassName: 'text-right',
-      cell: (project) => (
-        <ProjectRowActions
-          projectId={project.id}
-          isPending={pendingProjectId === project.id}
-          onDelete={onDelete}
-          onSubmit={onSubmit}
-        />
-      ),
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (project) =>
+        isActionableRow(project, status) ? (
+          <ProjectRowActions
+            projectId={project.id}
+            isPending={pendingProjectId === project.id}
+            onDelete={onDelete}
+            onSubmit={onSubmit}
+          />
+        ) : null,
     },
   ]
 }

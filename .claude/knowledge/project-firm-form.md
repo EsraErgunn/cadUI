@@ -6,8 +6,11 @@ date: 2026-08-10
 # Yeni proje firması ekle: yetkilendirme sunucuda YOK, benzersizlik İSTEMCİDE
 
 > MR öncesi düzeltme turunda (2026-08-10) eklenenler: yarım kayıt artık
-> KULLANICIYA GÖRÜNÜR, şahıs şirketi 400'ü sebebini söylüyor, kod içi "bölge"
-> adlandırması gaz dağıtım firmasına çevrildi. Kararlar: docs/kararlar.md K30, K31.
+> KULLANICIYA GÖRÜNÜR, kod içi "bölge" adlandırması gaz dağıtım firmasına
+> çevrildi. Kararlar: docs/kararlar.md K30, K31.
+>
+> 2026-08-18 (K113, K114): Seri No ve Yeterlilik No alanları KALKTI, şahıs
+> firması artık destekleniyor ve maskeli T.C. forma yüklenmiyor.
 
 Ekran çalışıyor (`pages/NewProjectFirmPage.tsx`) ama gereksinimin istediğinin
 bir kısmı sunucuda karşılıksız. Aşağıdakiler doğrulanmış eksikler (yerel cadapi
@@ -50,40 +53,67 @@ onu şemadan geçirip `{ message, tone }` veriyor. `NoticeBar`'ın üçüncü to
 (`status` — kullanıcının işini bölmez). Amber yalnız ikon + sol kenarlıkta;
 metin `ink` kalıyor (bkz. theming.md kısıtı).
 
-## Şahıs şirketi kaydedilemiyor
+## Şahıs firması ARTIK kaydedilebiliyor (§10, K114)
 
-- `ProjectFirmCreateValidator` `companyType == 2` (tüzel) dışındaki gövdeyi
-  **400** ile geri çeviriyor.
-- `TaxNumber` sunucuda HER durumda zorunlu; arayüzde şahıs şirketinde
-  zorunluluktan çıkıyor.
-- T.C. kimlik numarasının create DTO'sunda karşılığı yok
-  (`ProjectFirm.NationalIdNumber` şifreli `byte[]`, uca açılmamış).
+Eski kısıt ("`companyType == 2` dışındaki gövde 400 alır") KALKTI. Kural artık
+iki yönlü ve alanlar birbirini DIŞLIYOR:
 
-Arayüz seçimi engellemiyor. **Kimlik numarası `taxNumber` alanına YAZILMAZ** —
-yanlış sütuna düşerdi.
+| `companyType` | `nationalIdNumber` | `taxNumber` |
+|---|---|---|
+| 1 (şahıs) | **zorunlu**, gerçek T.C. sağlaması | **null** |
+| 2 (tüzel) | **null** | **zorunlu**, 10 VEYA 11 hane |
 
-Hata mesajı: sunucunun kendi Türkçe metni KORUNUYOR, önüne sebebi söyleyen cümle
-ekleniyor (*"Şahıs şirketi kaydı sunucuda henüz desteklenmiyor. …"*) ve odak
-"Şahıs Şirketi" onay kutusuna taşınıyor. Eşleşme **durum kodu (400) + form
-durumu** ile; sunucunun mesaj METNİNE bakılmıyor — metin değişirse eşleştirme
-sessizce kırılırdı (gaz dağıtım formundaki 409 kararının aynı gerekçesi).
+T.C. doğrulaması istemcide de yapılıyor: `core/nationalId.ts` →
+`isValidNationalId` (11 hane, ilk hane ≠ 0, 10. ve 11. hane sağlaması).
+⚠️ Yalnız hane sayısına bakma: "11111111111" 11 hanedir ama sunucu reddeder.
+Hane sayısı tutup sağlaması tutmayan numara AYRI mesaj alıyor.
+
+**Kapanan alan hem EKRANDAN hem GÖVDEDEN temizleniyor.** İki yerde birden:
+formdaki temizlik ekran için, `toProjectFirmPayload`'daki güvence için. Gizli
+ama dolu kalan alan sunucudan 400 döndürüyor ve tek noktaya güvenmek ileride
+eklenecek bir "değerleri koru" davranışıyla sessizce kırılırdı.
+
+**409 = aynı T.C. ile kayıtlı şahıs firması var.** SİLİNMİŞ firma bile numarayı
+rezerve tutuyor, yani kayıt listede görünmeyebiliyor — mesaj bunu SÖYLÜYOR.
+Hata genel şeride değil ALAN hatasına çevriliyor ve odak kimlik alanına
+taşınıyor. Eşleşme **durum kodu (409) + form durumu** ile; sunucunun mesaj
+METNİNE bakılmıyor.
+
+## ⚠️ Sunucudan gelen T.C. MASKELİ; forma yüklenmez (K114)
+
+`GET /api/projectfirms/{id}` `nationalIdNumber`'ı "*******1234" biçiminde
+döndürüyor. Bu metin geri gönderilemez: şahısta sağlamayı tutturmaz, tüzelde
+"boş olmalı" kuralını çiğner — iki yönde de 400.
+
+`toProjectFirmFormValues` alanı **her zaman boş** bırakıyor ve şahıs firmasında
+kullanıcıdan yeniden istiyor. Yüklemek, maskeli değerin gövdeye ulaşabildiği
+TEK yoldu; yüklememek hatayı yapısal olarak imkânsız kılıyor. Boşluğun sebebi
+alanın altında yazıyor, yoksa "veri kayboldu" diye okunurdu.
+
+Aynı kural **Kişi Bilgileri** ekranında da geçerli: oraya da T.C. alanı eklendi
+(bkz. `ui/admin/profile/`), çünkü o ekran firma gövdesini okunan kayıttan
+kuruyordu ve şahıs firmasının her kaydı 400 alıyordu.
 
 ## Benzersizliğe bu ekranda İSTEMCİ bakıyor
 
 Gaz dağıtım firma formunda karar "benzersizliğe sunucu karar verir" idi
 (bkz. [gas-firm-form](./gas-firm-form.md)). Burada tersi, çünkü gerekçeler tersi:
 
-- sunucu vergi/seri numarasını **denetlemiyor**, 409 yok;
+- sunucu **vergi numarasını** denetlemiyor, 409 yok;
 - liste ucu sayfalamasız düz dizi döndürdüğü için tüm kayıtlar zaten elde ve
   form, liste ekranıyla **aynı önbelleği** (`['projectFirmList']`) okuyor.
 
 `projectFirmUniqueness.ts` yarış durumunu kapatmaz; sunucu kuralı gelince ikinci
 savunma hattına düşer, kaldırılmaz.
 
-Seri no ve muhasebe cari kodu liste satırında YOK (uç yalnız detay yanıtında
-veriyor). Seri no karşılaştırması yine de yazıldı — aynı oturumda eklenen kayıt
-onu taşıyor. **Cari kod benzersizliği (belge madde 23) HİÇ uygulanmıyor:**
-karşılaştıracak veri bulunmuyor.
+Seri no ALANI tümüyle kalktı (K113), kontrolü de. **T.C. kimlik numarası burada
+DEĞİL**: liste satırı onu taşımıyor ve sunucu zaten 409 döndürüyor — ön kontrol
+hem yapılamaz hem gereksiz. Şahıs firmasında vergi no kontrolü de atlanıyor
+(alan gövdeye hiç girmiyor).
+
+Muhasebe cari kodu liste satırında YOK. **Cari kod benzersizliği (belge madde
+23) HİÇ uygulanmıyor:** karşılaştıracak veri bulunmuyor. ⚠️ `accountingCode`
+KALDI — seri no ile karıştırma.
 
 `ProjectFirm.taxNumber` alanı bu yüzden liste satırına eklendi; tabloda sütunu
 yok, yalnız bu kontrolü besliyor.

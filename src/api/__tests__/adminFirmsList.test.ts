@@ -27,6 +27,7 @@ const LIST_DTO = [
 const LIST_QUERY = {
   nameQuery: '',
   groupId: null,
+  scopeFirmId: null,
   sortKey: 'dfirmNo',
   sortDir: 'asc',
   page: 1,

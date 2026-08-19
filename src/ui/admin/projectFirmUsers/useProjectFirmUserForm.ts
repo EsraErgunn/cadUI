@@ -1,15 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 
 import {
-  COMPETENCY_ERRORS,
-  buildEmptyCompetency,
-  canAddCompetency,
-  findDuplicateCompetencyKeys,
-  toCompetencyDrafts,
-  toCompetencyPayloads,
-  type CompetencyDraft,
-} from './projectFirmUserCompetencies'
-import {
   PROJECT_FIRM_USER_ERRORS,
   buildEmptyProjectFirmUserValues,
   firstProjectFirmUserErrorField,
@@ -50,29 +41,19 @@ function buildInitialValues(user: ProjectFirmUserDetail | null): ProjectFirmUser
     username: user.username,
     // Güncellemede şifre BOŞ gelir; boş bırakılırsa değişmez (KK-25).
     password: '',
-    isActive: user.isActive,
   }
 }
-
-/** Yeni satırların yerel anahtarı NEGATİF: sunucudan gelen kimliklerle çakışmasın. */
-const FIRST_DRAFT_KEY = -1
 
 export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
   const isUpdate = user !== null
   const [values, setValues] = useState(() => buildInitialValues(user))
   const [errors, setErrors] = useState<ProjectFirmUserErrors>({})
-  const [competencies, setCompetencies] = useState<CompetencyDraft[]>(() =>
-    user === null ? [] : toCompetencyDrafts(user.competencies),
-  )
-  const [competencyError, setCompetencyError] = useState<string | null>(null)
-  const [duplicateKeys, setDuplicateKeys] = useState<number[]>([])
   const [isDirty, setIsDirty] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [focusField, setFocusField] = useState<ProjectFirmUserField | null>(null)
   /** Kullanıcı adına elle dokunulduysa otomatik üretim durur (KK-15). */
   const isUsernameEditedRef = useRef(isUpdate)
-  const nextDraftKeyRef = useRef(FIRST_DRAFT_KEY)
 
   const clearFieldError = useCallback((field: ProjectFirmUserField) => {
     setErrors((current) => {
@@ -102,49 +83,15 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
     [clearFieldError],
   )
 
-  const addCompetency = useCallback(() => {
-    // Karar durum güncelleyicisinin İÇİNDE verilmiyor: React güncelleyiciyi iki
-    // kez çağırabilir (StrictMode) ve yan etkiler ikilenirdi.
-    if (!canAddCompetency(competencies)) {
-      setCompetencyError(COMPETENCY_ERRORS.incompleteRow)
-      return
-    }
-
-    const key = nextDraftKeyRef.current
-    nextDraftKeyRef.current -= 1
-    setCompetencyError(null)
-    setIsDirty(true)
-    setCompetencies((current) => [...current, buildEmptyCompetency(key)])
-  }, [competencies])
-
-  const updateCompetency = useCallback((key: number, patch: Partial<CompetencyDraft>) => {
-    setIsDirty(true)
-    setCompetencyError(null)
-    setDuplicateKeys([])
-    setCompetencies((current) =>
-      current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
-    )
-  }, [])
-
-  const removeCompetency = useCallback((key: number) => {
-    setIsDirty(true)
-    setDuplicateKeys([])
-    setCompetencies((current) => current.filter((row) => row.key !== key))
-  }, [])
-
   const submit = useCallback(async (): Promise<ProjectFirmUserSaveOutcome | null> => {
     setSubmitError(null)
 
     const { errors: fieldErrors, data } = validateProjectFirmUser(values, isUpdate)
-    const nextDuplicateKeys = findDuplicateCompetencyKeys(competencies)
-    const competencyMessage = readCompetencyError(competencies, nextDuplicateKeys)
 
     setErrors(fieldErrors)
-    setDuplicateKeys(nextDuplicateKeys)
-    setCompetencyError(competencyMessage)
 
     const firstInvalid = firstProjectFirmUserErrorField(fieldErrors)
-    if (data === null || firstInvalid !== null || competencyMessage !== null) {
+    if (data === null || firstInvalid !== null) {
       setFocusField(firstInvalid)
       return null
     }
@@ -172,8 +119,6 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
           email: data.email.trim(),
           phone: data.phoneDigits === '' ? null : data.phoneDigits,
           password: data.password === '' ? null : data.password,
-          isActive: data.isActive,
-          competencies: toCompetencyPayloads(competencies),
         },
         user?.id ?? null,
       )
@@ -185,23 +130,17 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [competencies, isUpdate, user, values])
+  }, [isUpdate, user, values])
 
   return {
     values,
     errors,
-    competencies,
-    competencyError,
-    duplicateKeys,
     isUpdate,
     isDirty,
     isSubmitting,
     submitError,
     focusField,
     setValue,
-    addCompetency,
-    updateCompetency,
-    removeCompetency,
     submit,
     clearFocusRequest: useCallback(() => setFocusField(null), []),
     clearSubmitError: useCallback(() => setSubmitError(null), []),
@@ -209,17 +148,6 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
 }
 
 export type ProjectFirmUserForm = ReturnType<typeof useProjectFirmUserForm>
-
-/** Kaydetmeyi engelleyen yetki hatası; sırası önem sırasıdır. */
-function readCompetencyError(
-  rows: readonly CompetencyDraft[],
-  duplicateKeys: readonly number[],
-): string | null {
-  if (rows.length === 0) return COMPETENCY_ERRORS.required
-  if (!canAddCompetency(rows)) return COMPETENCY_ERRORS.incompleteRow
-  if (duplicateKeys.length > 0) return COMPETENCY_ERRORS.duplicate
-  return null
-}
 
 function buildTakenErrors(taken: {
   isEmailTaken: boolean

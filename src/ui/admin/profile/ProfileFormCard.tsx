@@ -1,7 +1,8 @@
-import { AtSign, Building2, Hash, MapPin, Phone, Smartphone, User, UserCheck } from 'lucide-react'
+import { AtSign, IdCard, Phone, User } from 'lucide-react'
 import type { FormEvent } from 'react'
 
 import type { ProfileForm } from './useProfileForm'
+import { NATIONAL_ID_LENGTH } from '../../../core/nationalId'
 import { PHONE_PLACEHOLDER } from '../../../core/phone'
 import { NoticeBar } from '../NoticeBar'
 import { adminButtonVariants, adminFieldVariants, formCardVariants } from '../adminVariants'
@@ -10,8 +11,13 @@ import { TextField } from '../form/TextField'
 
 const REQUIRED_MARK = '*'
 
-/** Firma kaydı olmayan kullanıcıda firma alanları boş ve kilitli kalır. */
-const NO_FIRM_HINT = 'Bir proje firmasına bağlı olmadığınız için bu alan boş.'
+/**
+ * Sunucu numarayı maskeli döndürdüğü için alan BOŞ açılıyor (K103); boşluk
+ * "veri kayboldu" gibi okunmasın diye sebebi yazıyor. Değer zorunlu: gövde
+ * numarayı taşımak zorunda ve maskeli metin geri gönderilemiyor.
+ */
+const NATIONAL_ID_HINT =
+  'Güvenlik gereği mevcut numara gösterilmiyor; kaydetmek için yeniden girin.'
 
 interface ProfileFormCardProps {
   form: ProfileForm
@@ -27,11 +33,11 @@ interface ProfileFormCardProps {
  * `sm` altında etiket girdinin ÜSTÜNE iner — `fieldFrameVariants` bunu tek
  * yerde yapıyor, kart ayrıca kırılım tanımlamıyor.
  *
- * Alanların sahibi İKİ ayrı kayıt: kullanıcı adı ve Telefon 1 kullanıcıdan,
- * gerisi proje firmasından geliyor (bkz. useProfileForm).
+ * Alanların sahibi İKİ ayrı kayıt: kullanıcı adı, Email ve Telefon 1
+ * kullanıcıdan, T.C. kimlik no proje firmasından geliyor (bkz. useProfileForm).
  */
 export function ProfileFormCard({ form, username, onSuccess, onCancel }: ProfileFormCardProps) {
-  const { values, errors, canEditFirmFields } = form
+  const { values, errors, isSoleProprietorship } = form
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -39,8 +45,6 @@ export function ProfileFormCard({ form, username, onSuccess, onCancel }: Profile
       if (isSaved) onSuccess()
     })
   }
-
-  const firmHint = canEditFirmFields ? undefined : NO_FIRM_HINT
 
   return (
     <form noValidate aria-label="Kişi bilgileri" onSubmit={handleSubmit}>
@@ -66,47 +70,26 @@ export function ProfileFormCard({ form, username, onSuccess, onCancel }: Profile
           leftIcon={User}
           value={username}
           isReadOnly
-          hint="Kullanıcı adı değiştirilemez."
           onChange={() => {}}
         />
 
-        <TextField
-          id="profile-serial-number"
-          label="Seri No"
-          layout="horizontal"
-          leftIcon={Hash}
-          inputMode="numeric"
-          value={values.serialNumber}
-          isReadOnly={!canEditFirmFields}
-          hint={firmHint}
-          error={errors.serialNumber}
-          onChange={(value) => form.setValue('serialNumber', value)}
-        />
-
-        <TextField
-          id="profile-title"
-          label="Ünvan"
-          labelNote={canEditFirmFields ? REQUIRED_MARK : undefined}
-          layout="horizontal"
-          leftIcon={Building2}
-          value={values.title}
-          isReadOnly={!canEditFirmFields}
-          hint={firmHint}
-          error={errors.title}
-          onChange={(value) => form.setValue('title', value)}
-        />
-
-        <TextField
-          id="profile-contact-person"
-          label="Firma Yetkilisi"
-          layout="horizontal"
-          leftIcon={UserCheck}
-          value={values.contactPerson}
-          isReadOnly={!canEditFirmFields}
-          hint={firmHint}
-          error={errors.contactPerson}
-          onChange={(value) => form.setValue('contactPerson', value)}
-        />
+        {/* YALNIZ şahıs firmasında: tüzel firmada alan gövdeye `null` gidiyor
+            ve ekranda göstermek, kullanılmayacak bir alan sormak olurdu (§10). */}
+        {isSoleProprietorship && (
+          <TextField
+            id="profile-national-id"
+            label="Tc Kimlik No"
+            labelNote={REQUIRED_MARK}
+            layout="horizontal"
+            leftIcon={IdCard}
+            inputMode="numeric"
+            maxLength={NATIONAL_ID_LENGTH}
+            value={values.nationalId}
+            hint={NATIONAL_ID_HINT}
+            error={errors.nationalId}
+            onChange={(value) => form.setValue('nationalId', value)}
+          />
+        )}
 
         {/* Email KULLANICININ e-postası (`PUT /api/users/{id}`): firma kaydı
             olmasa da düzenlenebilir. Firmanın kendi e-postası bu ekranda
@@ -122,18 +105,6 @@ export function ProfileFormCard({ form, username, onSuccess, onCancel }: Profile
           onChange={(value) => form.setValue('email', value)}
         />
 
-        <TextField
-          id="profile-address"
-          label="Adres"
-          layout="horizontal"
-          leftIcon={MapPin}
-          value={values.address}
-          isReadOnly={!canEditFirmFields}
-          hint={firmHint}
-          error={errors.address}
-          onChange={(value) => form.setValue('address', value)}
-        />
-
         {/* Telefon 1 KULLANICININ kendi telefonu: firma kaydı olmasa da
             düzenlenebilir, çünkü `PUT /api/users/{id}` gövdesinde `phone` var. */}
         <PhoneField
@@ -146,30 +117,6 @@ export function ProfileFormCard({ form, username, onSuccess, onCancel }: Profile
           error={errors.userPhoneDigits}
           onChange={(value) => form.setValue('userPhoneDigits', value)}
         />
-
-        {canEditFirmFields ? (
-          <PhoneField
-            id="profile-firm-phone2"
-            label="Telefon 2"
-            layout="horizontal"
-            leftIcon={Smartphone}
-            placeholder={PHONE_PLACEHOLDER}
-            digits={values.firmPhone2Digits}
-            error={errors.firmPhone2Digits}
-            onChange={(value) => form.setValue('firmPhone2Digits', value)}
-          />
-        ) : (
-          <TextField
-            id="profile-firm-phone2"
-            label="Telefon 2"
-            layout="horizontal"
-            leftIcon={Smartphone}
-            value=""
-            isReadOnly
-            hint={NO_FIRM_HINT}
-            onChange={() => {}}
-          />
-        )}
 
         {/* Dar ekranda düğmeler alt alta ve tam genişlik: 320 px'de yan yana
             iki düğme sıkışıyordu. */}
@@ -198,7 +145,7 @@ export function ProfileFormCard({ form, username, onSuccess, onCancel }: Profile
 export function ProfileFormSkeleton() {
   return (
     <div className={formCardVariants({ className: 'min-w-0' })} aria-hidden>
-      {Array.from({ length: 8 }, (_, index) => (
+      {Array.from({ length: 4 }, (_, index) => (
         <div key={index} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
           <span className="h-4 w-32 shrink-0 animate-pulse rounded bg-surface-sunken sm:w-36" />
           <span className={adminFieldVariants({ className: 'animate-pulse bg-surface-sunken' })} />

@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { login } from '../api/auth'
+import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 
 /**
  * Hesabın var olup olmadığını ele vermeyen GENEL mesaj (CLAUDE.md ürün kuralı):
@@ -21,13 +21,18 @@ export type LoginForm = {
   handleSubmit: (event: FormEvent) => void
 }
 
-/** RequireAuth'un yönlendirdiği sayfa; doğrudan gelindiyse proje listesi. */
+/**
+ * RequireAuth'un yönlendirdiği sayfa; doğrudan gelindiyse yönetici anasayfası
+ * (`/admin` → Genel Bakış). Uygulamanın başlangıç ekranı o: kapsam seçicisi,
+ * özet sayaçlar ve hızlı işlemler orada — proje listesi sol menüdeki
+ * bölümlerden yalnız biri.
+ */
 function readReturnPath(state: unknown): string {
   if (state && typeof state === 'object' && 'from' in state) {
     const { from } = state as { from: unknown }
     if (typeof from === 'string' && from.startsWith('/')) return from
   }
-  return PROJECT_LIST_PATH
+  return ADMIN_HOME_PATH
 }
 
 export function useLoginForm(): LoginForm {

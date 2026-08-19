@@ -1,0 +1,34 @@
+/* Giriş ekranının marka panelindeki teknik çizim ızgarası.
+   Tailwind ile yazılamaz: iki eksende yinelenen degrade, arbitrary value
+   yasağına (CLAUDE.md → Stil) takılıyor. Renk token'dan geliyor, yani ızgara
+   koyu temada da yüzeyle aynı aileden kalıyor; ölçüler ekranın kendi ızgarası
+   değil, yalnız dekoratif bir doku — bu yüzden `core/grid.ts` ile bağı yok. */
+
+.auth-grid {
+  /* İnce hat her 24 px'te, kalın hat her 120 px'te: kâğıda basılı milimetrik
+     çizim kâğıdının okunuşu. Kalın hat önce yazılıyor ki ince hattın üstünde
+     kalsın. */
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      var(--color-edge) 0 2px,
+      transparent 2px 120px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--color-edge) 0 2px,
+      transparent 2px 120px
+    ),
+    repeating-linear-gradient(
+      to right,
+      var(--color-edge) 0 1px,
+      transparent 1px 24px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--color-edge) 0 1px,
+      transparent 1px 24px
+    );
+  /* İnce hatlar soluk kalmalı: panelin işi metni taşımak, dokuyu değil. */
+  opacity: 0.55;
+}

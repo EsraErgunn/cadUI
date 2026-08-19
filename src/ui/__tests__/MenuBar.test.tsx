@@ -12,19 +12,25 @@ function renderMenuBar(
   onSave = vi.fn(),
   onImport = vi.fn(),
   onExport = vi.fn(),
+  onSaveAs = vi.fn(),
+  onLoadVersion = vi.fn().mockResolvedValue(undefined),
+  onClearProject = vi.fn(),
 ) {
   render(
     <MemoryRouter>
       <MenuBar
         onCloseEditor={onCloseEditor}
+        onClearProject={onClearProject}
         onSave={onSave}
+        onSaveAs={onSaveAs}
         onImport={onImport}
         onExport={onExport}
         isSaving={false}
+        versionHistory={{ projectId: 1, currentVersionId: undefined, onLoadVersion }}
       />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave, onImport, onExport }
+  return { onCloseEditor, onSave, onImport, onExport, onSaveAs, onClearProject }
 }
 
 describe('MenuBar', () => {
@@ -60,17 +66,59 @@ describe('MenuBar', () => {
     },
   )
 
-  it('yalnız Kaydet, İçe Aktar, Dışa Aktar ve Kapat aktiftir (KK-9)', async () => {
+  it('aktif maddeler: Kaydet, Farklı Kaydet, İçe/Dışa Aktar, Projeyi Temizle (K111)', async () => {
     const user = userEvent.setup()
     renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: /^Dosya/ }))
 
-    expect(screen.getByRole('menuitem', { name: 'Kapat' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Kaydet' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'İçe Aktar' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: /^Kaydet/ })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: /^Farklı Kaydet/ })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'İçe Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Gönder' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Projeyi Temizle' })).toBeEnabled()
+    // Biçimi kararlaşmamış maddeler görünür ama pasif (K79).
+    expect(screen.getByRole('menuitem', { name: "PDF'e Aktar" })).toBeDisabled()
+  })
+
+  it('üst barda karşılığı olan maddeler menüden KALKTI (K111)', async () => {
+    const user = userEvent.setup()
+    renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    const dropdown = screen.getByRole('menu', { name: 'Dosya' })
+
+    for (const label of ['Kapat', 'Gönder', 'Proje Hareketleri', 'Proje Bilgileri']) {
+      expect(within(dropdown).queryByRole('menuitem', { name: label })).not.toBeInTheDocument()
+    }
+  })
+
+  it('Proje Bilgileri üst barda ikon düğmesi olarak durur (K111)', () => {
+    renderMenuBar()
+
+    // Arkasındaki ekran yazılmadı: görünür ama pasif.
+    expect(screen.getByRole('button', { name: 'Proje Bilgileri' })).toBeDisabled()
+  })
+
+  it('Dosya > Projeyi Temizle onay akışını açar, doğrudan silmez', async () => {
+    const user = userEvent.setup()
+    const { onClearProject } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Projeyi Temizle' }))
+
+    expect(onClearProject).toHaveBeenCalledTimes(1)
+  })
+
+  it('Dosya > Farklı Kaydet etiketli kaydı tetikler, düz kaydetmeyi DEĞİL', async () => {
+    const user = userEvent.setup()
+    const { onSaveAs, onSave } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: /^Farklı Kaydet/ }))
+
+    expect(onSaveAs).toHaveBeenCalledTimes(1)
+    expect(onSave).not.toHaveBeenCalled()
   })
 
   it('Dosya > İçe Aktar içe aktarmayı tetikler', async () => {
@@ -78,7 +126,7 @@ describe('MenuBar', () => {
     const { onImport } = renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: /^Dosya/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'İçe Aktar' }))
+    await user.click(screen.getByRole('menuitem', { name: 'İçe Aktar (JSON)' }))
 
     expect(onImport).toHaveBeenCalledTimes(1)
   })
@@ -101,7 +149,7 @@ describe('MenuBar', () => {
     expect(onSave).toHaveBeenCalledTimes(1)
 
     await user.click(screen.getByRole('button', { name: /^Dosya/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Kaydet' }))
+    await user.click(screen.getByRole('menuitem', { name: /^Kaydet/ }))
     expect(onSave).toHaveBeenCalledTimes(2)
   })
 
@@ -116,16 +164,13 @@ describe('MenuBar', () => {
     expect(screen.queryByRole('menu', { name: 'Dosya' })).not.toBeInTheDocument()
   })
 
-  it('Dosya > Kapat ve ← Projeler aynı akışı tetikler (KK-10)', async () => {
+  it('← Projeler düğmesi editörden çıkışı tetikler (KK-10)', async () => {
+    // "Dosya > Kapat" maddesi KALKTI: aynı işi yapan iki düğme vardı (K111).
     const user = userEvent.setup()
     const { onCloseEditor } = renderMenuBar()
 
     await user.click(screen.getByRole('button', { name: 'Projeler' }))
     expect(onCloseEditor).toHaveBeenCalledTimes(1)
-
-    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Kapat' }))
-    expect(onCloseEditor).toHaveBeenCalledTimes(2)
   })
 
   it('kaydedilmemiş değişiklik varken Kaydet düğmesinde uyarı gösterilir (KK-16)', () => {
@@ -149,13 +194,25 @@ describe('MenuBar', () => {
     expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
   })
 
-  it('Test Et, Gönder ve Kayıt Geçmişi görünür ama pasif (K79)', () => {
+  it('Test Et, Gönder ve Hata Kontrolleri görünür ama pasif (K79)', () => {
     // Arkalarında henüz akış yok; düğme "bozuk" değil "henüz yok" demeli.
     renderMenuBar()
 
     expect(screen.getByRole('button', { name: 'Test Et' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Kayıt Geçmişi' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Hata Kontrolleri' })).toBeDisabled()
+  })
+
+  it('Kayıt Geçmişi düğmesi kendi listesini açar (artık pasif DEĞİL)', async () => {
+    // K90'da yer tutucuydu; arkasına gerçek uç bağlandı.
+    const user = userEvent.setup()
+    renderMenuBar()
+
+    const historyButton = screen.getByRole('button', { name: 'Kayıt Geçmişi' })
+    expect(historyButton).toBeEnabled()
+    expect(historyButton).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(historyButton)
+    expect(historyButton).toHaveAttribute('aria-expanded', 'true')
   })
 })

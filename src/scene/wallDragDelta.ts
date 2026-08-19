@@ -6,7 +6,7 @@ import {
   snapFreeMoveToGrid,
   snapNormalMoveToGrid,
 } from '../core/wallMove'
-import { findWallMoveBlocker } from '../core/wallMoveValidity'
+import { findWallMoveBlocker } from '../store/architectureWallMoveValidity'
 import { useCadStore } from '../store/cadStore'
 
 export type WallDragInput = {
@@ -50,14 +50,11 @@ export function resolveWallDragDelta(
     stepCm,
   )
 
-  const cad = useCadStore.getState()
   const blocked = findWallMoveBlocker(
-    cad.walls,
-    cad.points,
+    useCadStore.getState(),
     input.wallIds[0],
     moved.dxCm,
     moved.dyCm,
-    cad.activeFloorId,
   )
 
   return blocked ? undefined : moved

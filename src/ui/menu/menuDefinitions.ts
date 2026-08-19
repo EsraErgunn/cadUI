@@ -26,11 +26,25 @@ const DISABLED: Pick<MenuItemDefinition, 'kind' | 'isEnabled'> = {
   isEnabled: false,
 }
 
-export const CLOSE_EDITOR_ITEM_ID = 'close'
 export const SAVE_ITEM_ID = 'save'
+export const SAVE_AS_ITEM_ID = 'saveAs'
 export const IMPORT_ITEM_ID = 'import'
 export const EXPORT_ITEM_ID = 'export'
+export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
 
+/**
+ * Menü YALNIZ dosya biçimi işlerini taşır. Üst barda kendi düğmesi olan hiçbir
+ * madde burada TEKRARLANMAZ — aynı işi iki yerde sunmak, ikisinin farklı şeyler
+ * yaptığını düşündürüyor (K111):
+ * - "Kapat" → soldaki "← Projeler" düğmesi (ikisi de `onCloseEditor`)
+ * - "Proje Hareketleri" → sağdaki "Kayıt Geçmişi" düğmesi
+ * - "Proje Bilgileri" → sahne değiştiricinin yanındaki bilgi ikonu
+ * - "Gönder" → sağdaki "Gönder" düğmesi
+ *
+ * "Proje Dosyasını Aç/İndir" JSON'dan BAŞKA bir biçim için ayrılmış; biçim
+ * kararlaşmadığı için pasif duruyorlar ve İçe/Dışa Aktar'ın kopyası DEĞİLLER.
+ * Etiketlerdeki "(JSON)" bu ayrımı görünür kılıyor.
+ */
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
     id: 'file',
@@ -39,19 +53,45 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
       {
         items: [
           { id: 'open', label: 'Aç', ...DISABLED },
-          { id: SAVE_ITEM_ID, label: 'Kaydet', kind: 'command', isEnabled: true },
-          { id: 'saveAs', label: 'Farklı Kaydet', ...DISABLED },
-          { id: 'clearProject', label: 'Projeyi Temizle', ...DISABLED },
-          { id: IMPORT_ITEM_ID, label: 'İçe Aktar', kind: 'command', isEnabled: true },
+          {
+            id: SAVE_ITEM_ID,
+            label: 'Kaydet',
+            kind: 'command',
+            isEnabled: true,
+            shortcut: 'Ctrl+S',
+          },
+          {
+            id: SAVE_AS_ITEM_ID,
+            label: 'Farklı Kaydet',
+            kind: 'command',
+            isEnabled: true,
+            shortcut: 'Ctrl+Shift+S',
+          },
+        ],
+      },
+      {
+        items: [
+          { id: IMPORT_ITEM_ID, label: 'İçe Aktar (JSON)', kind: 'command', isEnabled: true },
           { id: EXPORT_ITEM_ID, label: 'Dışa Aktar (JSON)', kind: 'command', isEnabled: true },
+        ],
+      },
+      {
+        items: [
           { id: 'exportPdf', label: "PDF'e Aktar", ...DISABLED },
           { id: 'exportPdfFloors', label: "PDF'e Aktar (Katlar)", ...DISABLED },
-          { id: 'downloadProjectFile', label: 'Proje Dosyasını İndir', ...DISABLED },
+        ],
+      },
+      {
+        items: [
           { id: 'openProjectFile', label: 'Proje Dosyasını Aç', ...DISABLED },
-          { id: 'projectInfo', label: 'Proje Bilgileri', ...DISABLED },
-          { id: 'projectHistory', label: 'Proje Hareketleri', ...DISABLED },
-          { id: 'send', label: 'Gönder', ...DISABLED },
-          { id: CLOSE_EDITOR_ITEM_ID, label: 'Kapat', kind: 'command', isEnabled: true },
+          { id: 'downloadProjectFile', label: 'Proje Dosyasını İndir', ...DISABLED },
+        ],
+      },
+      {
+        // Yıkıcı olan tek madde, kendi grubunda ve EN SONDA: yanlışlıkla
+        // tıklanmasın diye sık kullanılanlardan uzakta duruyor.
+        items: [
+          { id: CLEAR_PROJECT_ITEM_ID, label: 'Projeyi Temizle', kind: 'command', isEnabled: true },
         ],
       },
     ],

@@ -4609,6 +4609,7 @@ kaldırıldı (`ui/AxisIndicator.tsx`). Menü çubuğunun ortasındaki üç pasi
 (`menu/ShortcutButtons.tsx`) yerini Test Et / Gönder'e bıraktı.
 
 **Test Et, Gönder, Hata Kontrolleri ve Kayıt Geçmişi görünür ama PASİF.**
+(Kayıt Geçmişi 2026-08'de bağlandı — bkz. K109; kalan üçü hâlâ pasif.)
 Arkalarında akış yok — `core/validate.ts` bugün boş dosya. K79'un palet
 dürüstlüğü kuralı: düğme "bozuk" değil "henüz yok" demeli. "Hata Kontrolleri"
 bağımsız bir eylem değil, Test Et'in SONUCUNU gösterecek yer; doğrulama hattı
@@ -5366,3 +5367,333 @@ hiçbir yönde kapsama tutmaz, iki YENİ oda doğar. Ayrı testle kilitlendi.
 
 Ölçüm: üç odalı planda on iki ardışık duvar taşıması boyunca üç odanın da id'si
 ve kullanıcının verdiği adı (Y, X, Z) hiç değişmedi.
+
+### K107 — Taşıma denetimi ARA duruma değil GERÇEK sonuca bakar
+
+Kullanıcı bildirimi: çıkıntılı bir odanın (üç oda: Y | X | Z, X'in üstü 200 cm
+yukarıda) üst duvarı komşularının hizasına GETİRİLEMİYORDU. Köşeden çekince
+oluyor, duvarı sürükleyince olmuyordu — hareket kısıtlanmış hissettiriyordu.
+
+Sebep: `findWallMoveBlocker` temizlik ÖNCESİ ara duruma bakıyordu. Duvar hizaya
+oturunca X'i yukarı taşıyan iki çıkıntı duvarı sıfır boya iniyor ve denetim
+bunu `collapse` sayıyordu. Oysa `offsetWall` hemen ardından kaynatmayı
+çalıştırıp o duvarları temizliyor ve çizim düzgün kalıyor. Yani denetim,
+store'un ASLA YAZMADIĞI bir hâl yüzünden meşru bir hareketi reddediyordu.
+
+Ölçüldü (tam hiza = 200 aşağı): `offsetWall` doğrudan çağrıldığında duvar 12→10,
+nokta 10→8, **oda 3→3**, 1 cm'den kısa duvar 0, kopma yok. Engel yalnız
+denetimdeydi. Reddedilen bant tam hizanın ±1 cm'i (`MIN_WALL_LENGTH_CM`).
+
+Düzeltme: öteleme boru hattı TEK gövdeye alındı — `runWallOffsetInDraft`
+(`store/architectureWallMoveValidity.ts`): geometri → köşe kaynatma → açıklık
+budama → kavşak bölme → eş doğrultulu birleştirme → oda hesabı. `offsetWall`
+bunu store'a yazmak için, `findWallMoveBlocker` ise ATILABİLİR bir kopyada
+denemek için çağırır. Tek gövde olması şart: denetim başka bir sıra izleseydi
+kabul ettiği çizim ile yazılan çizim yine ayrışırdı.
+
+Sorular artık sonuca sorulur:
+- `collapse`: temizlikten SAĞ ÇIKAN, 1 cm'den kısa duvar var.
+- `freeEnd`: taşınan duvarın bir ucu hiçbir duvara değmiyor.
+- `roomLost`: var olan bir oda yok oldu (YENİ) — duvarı komşusunun üstüne
+  itmek çevrimi koparıyor, yan oda dolgusuyla ve etiketiyle kayboluyordu. Eski
+  `collapse` kuralının koruduğu asıl zarar buydu; artık doğrudan ölçülüyor.
+
+⚠️ Serbest uç ODA KAYBINDAN ÖNCE sorulur: duvarı havada bırakan taşıma çevrimi
+de kopardığı için ikisi birden doğru çıkıyor, kullanıcıya sebebi bildiren asıl
+kusur serbest uç — oda kaybı onun sonucu.
+
+⚠️ Kopya ÖĞE ÖĞE alınır, yalnız diziler değil: `applyWallOffsetInDraft` nokta
+koordinatını, `mergeCollinearWallsInDraft` duvar ucunu ve açıklık offset'ini
+YERİNDE değiştiriyor. Sığ dizi kopyası bırakılsaydı denetim hiç onaylanmamış
+bir hareketi gerçek store'a yazardı.
+
+⚠️ Önizleme (`core/wallMoveDraft.ts` → `applyWallMove`) temizliği KOŞTURMAZ,
+yalnız geometriyi üretir; adı bu yüzden `wallMoveValidity` değil artık ve
+çıktısı geçerlilik kararına dayanak OLAMAZ. Görüntüyü bozmuyor: sıfır boya inen
+duvar kapsül üretmediği için zaten çizilmiyor.
+
+⚠️ 0 ile 1 cm arasındaki "kıymık" bant hâlâ reddedilir — o boyda duvar temizlikten
+sağ çıkar ve çizilemeyecek kadar kısadır. Izgara açıkken erişilemez, sorun değil.
+
+⚠️ `roomLost` oda SAYISINA bakar, KİMLİĞE değil. İlk hâli id karşılaştırıyordu
+ve meşru hareketleri reddediyordu: taşıma bir odanın duvar kümesini yeterince
+değiştirdiğinde K106'nın eşleştirmesi tutmuyor, oda AYNI YERDE dururken yeni bir
+id alıyor. Paylaşılan duvarı olan iki odada (alt oda x=0..350, üst oda
+x=100..500, ortak kenar y=250) duvar HİÇBİR yöne oynatılamaz olmuştu; ölçüldü:
+id [12,20] → [12,25] ama oda sayısı 2 → 2, yani iki oda da yaşıyordu
+(kullanıcı bildirimi). Sayının ARTMASI serbest — duvarı odanın içinden geçirmek
+çevrimi ikiye böler, bu kullanıcının kendi kararıdır (K31).
+
+### K108 — Açıklık ve sembol de ÖNİZLEME duvarından çözülür
+
+Kullanıcı bildirimi: duvar sürüklenirken YAN duvarlardaki kapı/pencereler
+eğiliyor, bırakınca doğru hâline dönüyordu. Duvarların kendisi doğruydu —
+yalnız açıklıklar oynuyordu.
+
+Sebep: `ArchitectureLayer.tsx` → `Openings` noktaları ÖNİZLEMEDEN
+(`useArchitecturePoints`), duvarları ise STORE'dan okuyordu. Kopan komşu
+önizlemede köşe klonuna bağlanır ama store'daki hâli hâlâ ÖZGÜN köşeye bakar —
+ve o köşe draft'ta taşınmıştır. Açıklık böylece taşınan köşeye uzanan HAYALİ bir
+duvara oturup jest boyunca eğiliyordu. Bırakınca store bağlantısı düzeliyor ve
+açıklık yerine oturuyordu; kullanıcının gördüğü "zıplama" buydu.
+
+Bu, K103'te duvarlar için düzeltilen hatanın açıklıklarda kalan artığı:
+`useArchitectureDraft`'in kendi başlığı zaten "duvar ÇİZEN her yer bunu
+kullanmalı, yalnız noktayı okumak kopmayı görmez" diyor. `Openings` ve
+`PointSymbols` bu kurala uymuyordu.
+
+Düzeltme: ikisi de `useArchitectureDraft()` ile hem noktayı hem DUVARI
+önizlemeden alır. `useArchitecturePoints` geriye yalnız `PointHandle`'da kaldı —
+orası yalnız nokta çiziyor, duvar bağlantısı okumuyor, doğru kullanım.
+
+⚠️ Test `useArchitectureDraft.test.ts`'te veri düzeyinde kilitlendi (aynı
+açıklığın konturu önizleme duvarıyla DEĞİŞMEZ, store duvarıyla değişir). Sahne
+bileşenini render eden bir test YOK: biri `Openings`'i tekrar store duvarına
+bağlarsa süit bunu yakalamaz.
+
+## 2026-08 · Kayıt geçmişi bağlandı
+
+### K109 — Sürüm listesi gerçek uca bağlandı; düğmenin ALTINDAN açılır, sürüm seçmek çizimi YÜKLER
+
+K90 "Kayıt Geçmişi" düğmesini görünür ama pasif bırakmıştı: arkasında akış
+yoktu. Akış artık var — cadapi `ProjectVersionsController` üç ucu da veriyor
+(`newversion`, `versions`, `projectversions/{id}/get`) ve frontend API katmanı
+(`getProjectVersions` / `loadProjectVersion`) zaten yazılıydı, hiçbir yerden
+çağrılmıyordu. Bu iş yalnız arayüzü ve bağlamayı ekledi.
+
+**Liste düğmenin altından açılıyor, yandan kayan panel DEĞİL.** İlk uygulama
+özellik paneliyle aynı aileden bir yan paneldi; referans arayüz (WebCAD,
+"Düzenle ▸ Kayıt Geçmişi") açılır liste gösteriyor ve kullanıcı onu istedi.
+Yan panel ayrıca özellik paneliyle aynı sağ yuvayı paylaşıyordu — ikisinden
+birini gizlemek gerekiyordu, açılır listede o sorun hiç doğmuyor. Satır biçimi
+referanstan: `17 Ağu - 14:13 | test1`.
+
+**Salt okunur liste seçilmedi.** Sürüm listesini gösterip yüklememek, düğmenin
+pratik faydasını sıfıra indiriyordu: kullanıcı geçmişe kaydettiği bir çizime
+dönemiyorsa geçmişin ekranda olması bilgi değil süs.
+
+**Onay YALNIZ kaydedilmemiş değişiklik varken sorulur.** Temizken kaybedilecek
+bir şey yok, aynı çizim sunucuda duruyor. Kirliyken şart, çünkü yükleme
+`cadStore.loadProject`ten geçiyor ve o geri al geçmişini de sıfırlıyor
+("yükleme bir düzenleme değil, yeni bir başlangıç") — kullanıcı sorulmadan
+yüklerse çizimini Ctrl+Z ile geri getiremez.
+
+**Yüklü sürüm de tıklanabilir kaldı.** Pasifleştirilseydi "kaydedilmemiş
+değişiklikleri at, son kayda dön" hareketinin karşılığı kalmazdı; rozet
+(`Yüklü` + `aria-current`) hangisinin açık olduğunu zaten söylüyor.
+
+**"Farklı Kaydet" aynı turda aktifleşti** (Dosya menüsü + Ctrl+Shift+S). Uçtaki
+her yazma zaten yeni ve değişmez bir kayıt doğuruyor; ayıran tek şey `label`.
+Etiket olmadan liste yalnız tarih gösterirdi ve geçmişin okunurluğu buna bağlı.
+Etiket ZORUNLU: boş bırakılabilseydi düğme düz "Kaydet"in ikizi olurdu.
+
+**Açık sürümün kimliği artık durumun parçası.** `loadLatestProjectVersion`
+`{ versionId, data }` döndürüyor, `useProjectPersistence.currentVersionId` hem
+"Yüklü" rozetini hem listenin tazelenmesini sürüyor — kaydetme yeni bir kimlik
+doğuruyor, panel de onu görünce listeyi yeniden çekiyor. Alternatif (react-query
++ invalidate) reddedildi: sorgu önbelleği editörde hiç kullanılmıyor ve
+kaydetme yolunun ayrıca invalidate etmesi gerekirdi.
+
+⚠️ Sürüm yükleme de `activeLoad` sahipliğinden geçiyor. Store'u dolduran her yol
+aynı kapıdan geçmeli; yoksa proje değişince iptal edilemeyen ikinci bir yazar
+kalır — knowledge/persistence.md'deki "bütün projeler tek çizime yakınsıyordu"
+hatasının aynısı. Yan etki olarak: açılış yüklemesi hata verip kaydetmeyi
+kilitlediyse, geçmişten sürüm yüklemek kilidi AÇAR (projenin sunucudaki çizimi
+artık biliniyor).
+
+⚠️ Tarih `new Date(...)` ile ayrıştırılmıyor. Uç `DateTime` döndürüyor
+(`CreatedAt = DateTime.UtcNow`) ve .NET dilim eki yazmıyor; düz ayrıştırmada
+değer YEREL saat sayılır ve UTC+3'te her kayıt üç saat geride görünürdü.
+`api/serverTimestamp.ts → parseServerTimestampMs` bu tuzağı zaten belgeliyordu.
+
+⚠️ Açık/kapalı durumu `VersionHistoryMenu`'nün içinde; MenuBar yalnız veri
+kaynağını (`versionHistory`) TAŞIYOR. Dışarı tıklama kapsamı düğmeyi de
+içeriyor, yoksa `pointerdown` kapatır ve düğmenin `click`'i yeniden açardı.
+
+Liste DTO'su kullanıcı adı taşımıyor (`CreatedByUserId` yansımıyor), bu yüzden
+satırda tarih + etiketten fazlası YOK. "Kim kaydetti" istenirse önce uç
+değişmeli — uydurulmadı.
+
+## 2026-08 · Çıkışta kaydedilmemiş değişiklik uyarısı
+
+### K110 — Uyarı İKİ ayrı mekanizmayla; biri ötekinin yerini tutmuyor
+
+Ürün kuralı tek cümle ("kaydedilmemiş değişiklik varsa kullanıcı uyarılır") ama
+editörden iki farklı şekilde çıkılıyor ve tek bir kanca ikisini birden
+yakalamıyor:
+
+- **Sekme kapatma / yenileme / adres çubuğu** → `beforeunload`
+  (`useUnsavedChangesWarning`). Tarayıcı kendi genel sorusunu sorar; özel metin
+  yazılmıyor çünkü tarayıcılar onu yok sayıyor.
+- **"← Projeler" / Dosya ▸ Kapat** → editörün kendi onay penceresi. `beforeunload`
+  burada HİÇ tetiklenmez: yalnız belge boşaltılırken çalışıyor, React Router
+  gezinmesi belgeyi boşaltmıyor.
+
+`useBlocker` kullanılamadı — router `BrowserRouter`, veri router'ı değil. Bu bir
+kayıp değil: editörden çıkışın tek yolu "Projeler"/"Kapat" ve o eylem zaten tek
+yerde toplanmış (`useCloseEditor`, KK-10.3).
+
+⚠️ **Bu son cümle YANLIŞTI ve K112 onu düzeltti:** tarayıcının GERİ tuşu da bir
+çıkış yolu ve uyarısız çıkıyordu.
+
+**Dinleyici yalnız kirliyken kuruluyor.** Sürekli kayıtlı bir `beforeunload`
+bazı tarayıcılarda geri-ileri önbelleğini (bfcache) devre dışı bırakıyor; ayrıca
+temiz projeden çıkarken soru sordurma riski taşıyor.
+
+**Pencerede üç seçenek var, iki değil:** Vazgeç / Kaydetmeden Çık /
+**Kaydet ve Çık**. Üçüncüsü olmasaydı kullanıcı pencereyi kapatıp Kaydet'e
+basmak ve çıkışı tekrarlamak zorundaydı — uyarının amacı işi kurtarmak,
+kullanıcıyı geri yollamak değil. "Kaydet ve Çık" YALNIZ sunucu kaydı kabul
+edince çıkıyor; başarısız kayıtta çıkılsaydı kurtarılmaya çalışılan iş tam da
+orada kaybolurdu. Hata pencerenin İÇİNDE gösteriliyor, üst bardaki şerit
+pencerenin arkasında kalıyor.
+
+**Temizken soru sorulmaz.** Her çıkışta pencere açmak uyarıyı gürültüye çevirir
+ve kullanıcı okumadan kapatmayı öğrenir. Kirlilik ölçütü içerik karşılaştırması
+(K94), sayaç değil — "çiz + Ctrl+Z" yapan kullanıcı çıkarken uyarı almıyor.
+
+⚠️ Akış `EditorPage`'in içinde bırakılmadı (`useEditorExit`): orada kalsaydı
+dallanmayı sınamak için tüm R3F sahnesini kurmak gerekirdi.
+
+⚠️ Penceredeki hata `hasSaveFailed` ile kapılı. `useProjectPersistence.error`
+daha eski bir yükleme hatasını da taşıyabiliyor ve pencere açılır açılmaz
+alakasız bir uyarı göstermek soruyu bulandırırdı.
+
+
+### K111 — Dosya menüsü YALNIZ dosya işleri; üst barda karşılığı olan madde menüde tekrarlanmaz
+
+Dosya menüsü 14 maddeye çıkmıştı ve dördü üst bardaki düğmelerin kopyasıydı.
+Aynı işi iki yerde sunmak, kullanıcıya ikisinin FARKLI şeyler yaptığını
+düşündürüyor — "Kapat" ile "← Projeler" ya da "Proje Hareketleri" ile "Kayıt
+Geçmişi" arasındaki farkı arayan kullanıcı, olmayan bir ayrımı arıyor.
+
+Menüden KALKAN dört madde ve gittiği yer:
+- `Kapat` → soldaki "← Projeler" düğmesi (ikisi de `onCloseEditor` çağırıyordu)
+- `Gönder` → sağdaki "Gönder" düğmesi
+- `Proje Hareketleri` → sağdaki "Kayıt Geçmişi" (K109'da gerçek uca bağlandı)
+- `Proje Bilgileri` → sahne değiştiricinin YANINA, çerçevesinin DIŞINA bir ikon
+  düğmesi. Proje künyesi bir "dosya işlemi" değil, her an bakılacak bilgi.
+
+Kalan on madde beş öbeğe bölündü (aç/kaydet · JSON · PDF · proje dosyası ·
+temizle). Düz bir on dörtlük liste maddeleri eşit ağırlıkta gösteriyordu.
+
+⚠️ `Proje Dosyasını Aç/İndir`, `İçe/Dışa Aktar`ın KOPYASI DEĞİL: ikincisi JSON,
+birincisi henüz kararlaşmamış başka bir biçim için ayrılmış. Ayrım etikete
+yazıldı ("İçe Aktar (JSON)"), yoksa sonraki gözden geçiren onları kopya sanıp
+siler.
+
+⚠️ `Farklı Kaydet` KALDI. Bu temizliğin ilk analizi ESKİ main üzerinde yapılmış
+ve maddeyi "ölü" saymıştı; oysa K-sürüm işinde arkasına etiketli kayıt akışı
+bağlanmış. Menü temizliği yaparken maddenin pasif görünmesi yetmez, üretimdeki
+hâline bakılmalı.
+
+**Projeyi Temizle** pasiflikten çıkıp çalışır hâle geldi
+(`cadStore.clearProjectDrawing` + `ClearProjectDialog`). Menüdeki tek yıkıcı
+madde olduğu için kendi öbeğinde ve EN SONDA duruyor.
+
+Davranışı `resetProject`ten üç noktada AYRI, üçü de bilerek:
+- **Kat yapısı KALIR**, katlar boşalır. Kullanıcı katları tek tek kurmuş olabilir.
+- **Geçmiş SIFIRLANMAZ**: temizlemek bir düzenlemedir, yeni başlangıç değil —
+  tek Ctrl+Z çizimi geri getirir.
+- **Kirli işaret DURUR** (`markDirty`): `savedContent` tazelenseydi kullanıcı
+  çıkarken uyarılmaz ve işini sessizce kaybederdi.
+
+⚠️ `nextUniqueId` geri alınmaz: silinen id'ler yeniden üretilirse geri alma
+sonrası iki nesne aynı id'yi taşır (knowledge/id-scheme.md).
+
+⚠️ Araçlar menüsü bu temizliğin DIŞINDA kaldı. Dokuz maddesinin altısı tesisat
+toplu işlemi, yani fay C'nin kararı. Kalan ikisi (Mahalleri Tanımla, Malzeme
+Listesi) silinecek madde değil YAZILACAK özellik — menü onlar için ayakta duruyor.
+
+### K112 — Router veri router'ına taşındı; uyarıyı açan şey DÜĞME değil durdurulmuş GEZİNME
+
+K110 uyarıyı "Projeler"/"Kapat" eylemine bağlamıştı. Kullanıcı bildirdi:
+**tarayıcının geri tuşu uyarı vermeden çıkıyordu.** İki sebebi vardı ve ikisi de
+K110'un varsayımındaydı:
+
+- `beforeunload` yalnız belge boşaltılırken çalışıyor; geri tuşu SPA içinde
+  belgeyi boşaltmadan rota değiştiriyor, oradan hiç geçmiyor.
+- Uyarı düğmeye bağlıydı, geri tuşu ise düğmeye uğramıyor.
+
+Gezinmeyi durdurabilen tek yer router. `useBlocker` de yalnız VERİ router'ında
+çalışıyor, bu yüzden `src/app/router.tsx` `BrowserRouter`'dan
+`createBrowserRouter` + `RouterProvider`'a taşındı. Göç dar tutuldu: rota ağacı
+JSX olarak duruyor (`createRoutesFromElements` aynı ağacı okuyor), yollar ve
+sıralama yorumları değişmedi; tek yapısal fark `<Routes>`i saran `<Suspense>`in
+artık kök rotanın elemanı olması (`SuspenseLayout`).
+
+Kazanç sadece geri tuşu değil: **çıkışın tek kapısı** oldu. Düğme, menü,
+geri/ileri ve ileride eklenecek her uygulama içi bağlantı aynı engelden geçiyor;
+"yeni bir çıkış yolu eklendi ama uyarı yazılmadı" hatası artık mümkün değil.
+`useCloseEditor` sade gezinme olarak kaldı — onay eklenirse aynı soru iki
+yerden sorulurdu.
+
+⚠️ `useEditorExit` React Router'ın `Blocker` tipine bağlanmadı, kendi
+`ExitBlocker` arayüzünü alıyor: bağlansaydı dallanmayı sınamak için testte tüm
+rota ağacını kurmak gerekirdi.
+
+⚠️ `AppRouter` hiçbir testte render edilmiyordu; göç ancak tarayıcıda fark
+edilirdi. Bir duman testi eklendi (`src/app/__tests__/AppRouter.test.tsx`):
+oturumsuz kullanıcı korumalı yoldan giriş ekranına düşüyor mu.
+
+⚠️ Bilinen uç durum: engel `RequireAuth`'un 401 yönlendirmesini de durduruyor.
+Oturumu düşen kullanıcı kirli çizimle pencereyi görür ve "Kaydet ve Çık" da 401
+alır; çıkış yolu var ("Kaydetmeden Çık"), kilitlenme değil.
+
+## 2026-08 · Proje firması alanlarının sadeleşmesi
+
+### K113 — Seri No, Yeter No ve Gsm KALKTI
+
+Liste ekranından üç sütun (`Seri No`, `Yeter No`, `Gsm`), formlardan iki alan
+(`serialNumber`, `qualificationNumber`) silindi.
+
+Üç sütun da HER SATIRDA "-" gösteriyordu: seri no ve Gsm yalnız detay
+yanıtında vardı, yeterlik numarasının uçta hiç karşılığı yoktu. Hep boş bir
+sütun, tabloyu geniş tutmaktan (`min-w-320` → `min-w-240`) başka bir iş
+görmüyordu.
+
+`serialNumber` isteğe artık HİÇ eklenmiyor — `null` gönderilmiyor, anahtar
+yazılmıyor. Seri no üzerine kurulu istemci taraflı benzersizlik ön kontrolü de
+kalktı; geriye yalnız vergi numarası kontrolü kaldı.
+
+"Yeterlilik No" ile birlikte yetki kaydındaki İKİ NUMARA sorunu da bitti
+(api-eksikleri-proje-firmalari.md → S1 KAPANDI): kayıt artık sunucunun tanıdığı
+tek numarayı taşıyor, `certificateNumber`. Alan zorunluydu ve sunucuda evi
+olmadığı için kullanıcının girdiği veri HER kayıtta sessizce kayboluyordu.
+
+⚠️ `accountingCode` (Cari Kodu) AYRI bir alandır ve KALDI. Seri no ile
+karıştırılmamalı — ikisi de "kod" gibi okunuyor.
+
+### K114 — Şahıs / tüzel ayrımı gövdeye kadar iniyor; maskeli T.C. yüklenmiyor
+
+Şahıs firması (`companyType = 1`) artık destekleniyor. §10 kuralı:
+
+- `companyType = 1` → `nationalIdNumber` zorunlu, `taxNumber` **null**
+- `companyType = 2` → `taxNumber` zorunlu (10 VEYA 11 hane), `nationalIdNumber` **null**
+
+T.C. doğrulaması İSTEMCİDE de yapılıyor (`core/nationalId.ts`): 11 hane, ilk
+hane ≠ 0, 10. ve 11. hane sağlaması. Yalnız hane sayısına bakılsaydı
+"11111111111" geçer ve sunucudan 400 dönerdi. Hane sayısı tutup sağlaması
+tutmayan numara AYRI mesaj alıyor — "11 haneli olmalıdır", 11 hane yazmış
+kullanıcıya bir şey söylemiyor.
+
+Seçim değişince kapanan alan hem EKRANDAN hem GÖVDEDEN temizleniyor. İki yerde
+birden yapılıyor çünkü tek noktaya güvenmek kırılgan: formdaki temizlik ekran
+için, `toProjectFirmPayload`'daki güvence için. Gizli ama dolu kalan alan
+sunucudan 400 döndürüyor.
+
+409 = aynı T.C. ile kayıtlı şahıs firması var. Mesaj ayırt edilebilir ve
+SİLİNMİŞ firmanın da numarayı rezerve tuttuğunu SÖYLÜYOR — yoksa kullanıcı
+listede arayıp bulamaz ve hatayı anlamsız sanardı. Hata genel şeride değil
+ALAN hatasına çevriliyor: çakışan şey belli bir alan.
+
+⚠️ **`GET /api/projectfirms/{id}` `nationalIdNumber`'ı MASKELİ döndürüyor**
+("*******1234") ve maskeli metin geri gönderilemez: şahısta sağlamayı
+tutturmaz, tüzelde "boş olmalı" kuralını çiğner — iki yönde de 400. Değer forma
+YÜKLENMİYOR; yüklemek, maskeli değerin gövdeye ulaşabildiği tek yoldu.
+Yüklememek hatayı yapısal olarak imkânsız kılıyor. Boşluğun sebebi alanın
+altında yazıyor, yoksa "veri kayboldu" diye okunurdu.
+
+Kişi Bilgileri ekranına da T.C. alanı eklendi (aynı koşullu kurallarla): o ekran
+firma gövdesini OKUNAN kayıttan kuruyordu, yani şahıs firmasının her kaydı 400
+alıyordu ve ekranda girdi bile yoktu.

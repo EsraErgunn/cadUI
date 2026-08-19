@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Menu, Search } from 'lucide-react'
+import { Menu, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { UserMenu } from './UserMenu'
@@ -7,9 +7,6 @@ import { buildScopeOptionGroups, parseScopeValue, toScopeValue } from './adminSc
 import { adminFieldVariants, adminIconButtonVariants } from './adminVariants'
 import { useAdminScopeParam } from './useAdminScopeParam'
 import { fetchAllFirms, getFirmGroups } from '../../api/adminFirms'
-
-// okunmamış bildirim sayısı endpoint'i bağlanınca sabit kaldırılacak.
-const HAS_UNREAD_NOTIFICATIONS = true
 
 const SCOPE_SELECT_ID = 'admin-scope'
 
@@ -71,12 +68,10 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
       </button>
 
       <div className="flex min-w-0 items-center gap-2">
-        {/* Etiket dar ekranda gizleniyor ama erişilebilir ad kayboluyor değil:
-            `sr-only` ile ekran okuyucuda kalıyor. */}
-        <label
-          htmlFor={SCOPE_SELECT_ID}
-          className="whitespace-nowrap text-sm font-medium text-ink max-lg:sr-only"
-        >
+        {/* Etiket her ekranda gizli; seçicinin ne olduğu seçili seçenekten
+            okunuyor. `sr-only`, görünür metin kalkarken erişilebilir adı
+            korumanın yolu — `<label>` silinseydi seçicinin adı kalmazdı. */}
+        <label htmlFor={SCOPE_SELECT_ID} className="sr-only">
           Kapsam
         </label>
         <select
@@ -125,22 +120,6 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
 
       {/* Arama gizliyken sağdaki eylemler sağa yaslansın. */}
       <div className="flex-1 md:hidden" />
-
-      <button
-        type="button"
-        aria-label={
-          HAS_UNREAD_NOTIFICATIONS ? 'Bildirimler (okunmamış var)' : 'Bildirimler'
-        }
-        className={adminIconButtonVariants()}
-      >
-        <Bell aria-hidden className="size-5" />
-        {HAS_UNREAD_NOTIFICATIONS && (
-          <span
-            aria-hidden
-            className="absolute right-2 top-2 size-2 rounded-full bg-danger ring-2 ring-surface"
-          />
-        )}
-      </button>
 
       {/* Çıkış artık ayrı bir ikon düğmesi değil, kullanıcı menüsünün içinde:
           şifre değiştirme ikinci bir eylem getirince satır sıkışıyordu. */}

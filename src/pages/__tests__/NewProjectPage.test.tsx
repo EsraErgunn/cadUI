@@ -45,11 +45,9 @@ vi.mock('../../ui/admin/useIsAdmin', () => ({ useIsAdmin }))
 /** `getProjectFirmList` satırı: kutu yalnız `id` + `name` kullanıyor
     (`name`, uçtaki `title`'ın karşılığı — projectFirmDto). */
 const FIRMS = [
-  { id: 11, name: 'Anadolu Mühendislik', serialNumber: null, qualificationNumber: null,
-    authorizedPerson: null, email: null, phone: null, mobilePhone: null,
+  { id: 11, name: 'Anadolu Mühendislik', authorizedPerson: null, email: null, phone: null,
     taxNumber: null },
-  { id: 12, name: 'Beyaz Tesisat', serialNumber: null, qualificationNumber: null,
-    authorizedPerson: null, email: null, phone: null, mobilePhone: null,
+  { id: 12, name: 'Beyaz Tesisat', authorizedPerson: null, email: null, phone: null,
     taxNumber: null },
 ]
 /** `getAuthorizedGasFirms` satırı: kutu yalnız `id` + `name` kullanıyor. */

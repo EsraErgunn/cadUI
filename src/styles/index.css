@@ -1,6 +1,7 @@
 @import "tailwindcss";
 /* Tailwind'in karşılamadığı özel CSS ayrı dosyada (CLAUDE.md → Stil). */
 @import "./dashboardBar.css";
+@import "./authGrid.css";
 
 /* Koyu tema class ile açılır (<html class="dark">), işletim sistemi tercihiyle değil:
    tema seçimi kullanıcıya ait ve localStorage'da saklanıyor. */

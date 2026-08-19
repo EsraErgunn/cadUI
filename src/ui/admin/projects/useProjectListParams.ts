@@ -19,6 +19,7 @@ import {
   parsePage,
   useAdminParamWriter,
 } from '../adminUrlParams'
+import { useAdminScopeParam } from '../useAdminScopeParam'
 
 const DEFAULT_STATUS: ProjectStatus = 'taslak'
 
@@ -58,11 +59,16 @@ export interface ProjectListControls {
 
 /**
  * Proje listesi durumunun TEK sahibi: URL — `useFirmListParams` ile aynı desen.
- * Bölge kapsamı YOK: üst bardaki seçici kaldırıldı (docs/kararlar.md K31).
+ * Coğrafi bölge kapsamı YOK (docs/kararlar.md K31); üst bardaki KAPSAM seçicisi
+ * (sistem / grup firması / gaz dağıtım firması) buradan okunup sorguya giriyor.
  */
 export function useProjectListParams(): ProjectListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
+  // Üst bardaki kapsam da URL'de duruyor; ayrı bir global state yok. Sorgu
+  // nesnesinin parçası olduğu için `queryKey: ['projects', query]` kapsam
+  // değişince kendiliğinden değişiyor ve eski liste gösterilmiyor.
+  const { scope } = useAdminScopeParam()
 
   const query = useMemo<ProjectListQuery>(() => {
     const defaultRange = lastMonthRange(new Date())
@@ -74,13 +80,14 @@ export function useProjectListParams(): ProjectListControls {
       cityId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.city)),
       districtId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.district)),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
+      scope,
       search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: PROJECT_PAGE_SIZE,
       sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
     }
-  }, [searchParams])
+  }, [searchParams, scope])
 
   const setStatus = useCallback(
     // Yalnız sekme ve sayfa değişir; tarih/ilçe/firma/arama olduğu gibi kalır.

@@ -6,7 +6,7 @@ import type { DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
 import { projectDetailPath } from '../adminNavItems'
-import { ADMIN_CELL_LINK } from '../adminVariants'
+import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
 import { DocumentNameLink } from './DocumentNameLink'
 
 export const DOCUMENT_TABLE_CAPTION =
@@ -16,10 +16,17 @@ export const DOCUMENT_TABLE_CAPTION =
     (gereksinim 4). */
 export const DOCUMENT_TABLE_MIN_WIDTH_CLASS = 'min-w-320'
 
+/** Sıra numarası ve eylem sütunu içeriği kadar dursun (proje listesiyle aynı
+    gerekçe). */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
 interface DocumentColumnsOptions {
   /** Sayfa başlangıcı; "No" sütunu sayfa 2'de 31'den devam etsin diye. */
   rowOffset: number
   documentTypes: DocumentType[]
+  /** İsteği süren satır; o satırın düğmesi kilitlenir. */
+  pendingDocumentId: number | null
+  onDelete: (documentId: number) => void
 }
 
 /**
@@ -32,12 +39,15 @@ interface DocumentColumnsOptions {
 export function buildDocumentColumns({
   rowOffset,
   documentTypes,
+  pendingDocumentId,
+  onDelete,
 }: DocumentColumnsOptions): DataTableColumn<DocumentRow, DocumentSortKey>[] {
   return [
     {
       key: 'no',
       label: 'No',
-      cellClassName: 'tabular-nums text-ink-muted',
+      cellClassName: `${NARROW_COLUMN_CLASS} tabular-nums text-ink-muted`,
+      headerClassName: NARROW_COLUMN_CLASS,
       cell: (_document, index) => rowOffset + index + 1,
     },
     {
@@ -104,6 +114,23 @@ export function buildDocumentColumns({
       label: 'G.D Firması',
       cell: (document) =>
         document.gasFirmName === null ? <EmptyValue /> : document.gasFirmName,
+    },
+    {
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (document) => (
+        <button
+          type="button"
+          onClick={() => onDelete(document.id)}
+          disabled={pendingDocumentId === document.id}
+          aria-busy={pendingDocumentId === document.id}
+          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+        >
+          Sil
+        </button>
+      ),
     },
   ]
 }

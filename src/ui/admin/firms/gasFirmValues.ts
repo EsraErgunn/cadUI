@@ -48,8 +48,8 @@ export function toGasFirmPayload(values: GasFirmParsedValues): GasDistributionFi
   return {
     dfirmNo: Number(values.dfirmNo.trim()),
     name: values.name.trim(),
-    // Seçilmediğinde `null` gider; sunucu grubu kimlikle alıyor.
-    groupId: values.groupId === '' ? null : Number(values.groupId),
+    // Doğrulamadan geçmiş değer: alan zorunlu, kimlik her zaman dolu.
+    groupId: Number(values.groupId),
     description: optionalText(values.description),
     contactPerson: optionalText(values.contactPerson),
     address: optionalText(values.address),
