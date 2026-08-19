@@ -95,6 +95,17 @@ söylemediği için ekran okuyucu kullanıcısı onu kaybederdi.
 `floors/floorVariants.ts` duruyor: kat pencereleri `FLOOR_FOCUS_RING`'i
 kullanmaya devam ediyor.
 
+### Klavye: Ok Yukarı/Aşağı da PageUp/PageDown'ın YANINDA (kullanıcı isteği, 2026-08)
+
+`pages/useEditorShortcuts.ts` artık ok tuşlarını da dinliyor — PageUp/PageDown
+ile AYNI yöne, ikinci bir tuş olarak. ⚠️ **Tesisatta aktif bir taslak hat
+varken bu DEVRE DIŞI**: ok tuşları orada ZATEN başka bir işe bağlı — kat
+BAĞLANTISI kurmak (`plumbing/scene/useLineTool.ts` → `commitDraftFloorLink`,
+bkz. K102'nin yanındaki döşeme kararı). İkisi de window'da `keydown`
+dinlediği için guard'sız bırakılsaydı tek ok tuşu basışı HEM bağlantı kurar
+HEM kat değiştirirdi — `useEditorShortcuts.ts` bu yüzden
+`usePlumbingUiStore.getState().draftLine` doluyken kendi kolunu pas geçiyor.
+
 ## Stil
 
 Vurgu SEÇİM rengi, marka sarısı DEĞİL (`ui/canvas/canvasBarVariants.ts`) —

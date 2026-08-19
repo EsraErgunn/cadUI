@@ -1,8 +1,8 @@
 import type { InstallationConnection, InstallationElement, InstallationLine } from './installationModel'
 import { isGasCarryingKind } from './lineKinds'
-import type { Id } from '../../core/model'
+import type { FloorPipeLink, Id } from '../../core/model'
 
-export type ConnectedInstallation = { elementIds: Id[]; lineIds: Id[] }
+export type ConnectedInstallation = { elementIds: Id[]; lineIds: Id[]; floorIds: Id[] }
 
 /**
  * Servis kutusundan başlayarak GAZ TAŞIYAN hat/eleman grafında ulaşılabilen
@@ -19,11 +19,19 @@ export type ConnectedInstallation = { elementIds: Id[]; lineIds: Id[] }
  * Düğümler (eleman/hat) TEK id evrenini paylaşır (nextUniqueId proje bazlı
  * ortak sayaç, K71) — bu yüzden komşuluk haritası eleman ve hat id'lerini
  * çakışma riski olmadan aynı anahtar uzayında tutabilir.
+ *
+ * KATLAR ARASI (kullanıcı isteği, 2026-08): `floorPipeLinks` verilirse
+ * gezinme aktif kattan TAŞAR — kolon devamının bağlı olduğu diğer katlardaki
+ * borular da kapsama girer (`floorIds` dönüşünde hangi katların etkilendiği
+ * görülür). Kat bağlantısı hidrolik BİRLEŞİM değildir (model.ts notu) ama
+ * kaynağı (servis kutusu) silinince karşı kattaki devam borusu artık gerçek
+ * bir hiçliğe bağlıdır — silme kapsamına alınır.
  */
 export function collectServiceBoxInstallation(
   elements: readonly InstallationElement[],
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
+  floorPipeLinks: readonly FloorPipeLink[],
   serviceBoxId: Id,
 ): ConnectedInstallation {
   const gasLines = lines.filter((line) => isGasCarryingKind(line.kind))
@@ -57,6 +65,21 @@ export function collectServiceBoxInstallation(
     }
   }
 
+  // Kat bağlantısı (kolon devamı, `FloorPipeLink`): hidrolik olarak BİRLEŞTİRMEZ
+  // (model.ts notu — malzeme dökümünde iki ayrı uç kalır), ama servis kutusu/
+  // sayaç silinince üst/alt kattaki devam borusu KAYNAKSIZ kalmasın diye silme
+  // KAPSAMINA dahil edilir (kullanıcı isteği, 2026-08). Karşı ucun hangi hatta
+  // ait olduğu aranmalı — link yalnız NOKTA id'si taşıyor, hat id'si değil.
+  const lineIdByPointId = new Map<Id, Id>()
+  for (const line of gasLines) {
+    for (const point of line.points) lineIdByPointId.set(point.id, line.id)
+  }
+  for (const link of floorPipeLinks) {
+    const belowLineId = lineIdByPointId.get(link.belowPointId)
+    const aboveLineId = lineIdByPointId.get(link.abovePointId)
+    if (belowLineId !== undefined && aboveLineId !== undefined) addEdge(belowLineId, aboveLineId)
+  }
+
   const visited = new Set<Id>([serviceBoxId])
   const queue: Id[] = [serviceBoxId]
   while (queue.length > 0) {
@@ -68,10 +91,12 @@ export function collectServiceBoxInstallation(
     }
   }
 
-  const lineIds = gasLines.filter((line) => visited.has(line.id)).map((line) => line.id)
+  const reachedLines = gasLines.filter((line) => visited.has(line.id))
+  const lineIds = reachedLines.map((line) => line.id)
   const elementIds = elements
     .filter((element) => visited.has(element.id))
     .map((element) => element.id)
+  const floorIds = [...new Set(reachedLines.map((line) => line.floorId))]
 
-  return { elementIds, lineIds }
+  return { elementIds, lineIds, floorIds }
 }

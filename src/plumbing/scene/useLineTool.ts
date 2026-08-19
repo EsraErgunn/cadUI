@@ -15,6 +15,11 @@ import { resolveFreeEndAttachment } from '../core/elementAttach'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { advanceChain, startChain } from '../core/lineChain'
+import {
+  BRANCH_SEED_HEIGHT_CM,
+  resolveSeedElevationCm,
+  SERVICE_BOX_SEED_HEIGHT_CM,
+} from '../core/lineElevation'
 import { isSamePoint } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
@@ -219,7 +224,19 @@ export function useLineTool(): LineToolState {
     const startDraft = (point: PlanPoint, snap: LineToolSnap | null): LineDraft | null => {
       if (kind === 'branch') return { kind, ...startChain(point, null) }
 
-      if (snap) return { kind, ...startChain(point, toAttachment(snap)) }
+      if (snap) {
+        const attachment = toAttachment(snap)
+        // Sayaçtan/servis kutusundan/branşmandan çıkan yeni boru sıfırdan
+        // değil o hedefin O ANKİ kotundan başlar (kullanıcı isteği, 2026-08).
+        const cad = useCadStore.getState()
+        const elevationCm = resolveSeedElevationCm(
+          attachment,
+          cad.installationElements,
+          cad.installationLines,
+          cad.installationConnections,
+        )
+        return { kind, ...startChain(point, attachment, elevationCm) }
+      }
 
       const cad = useCadStore.getState()
       const seedType = getLineSeedElementType(hasServiceBox(cad.installationElements))
@@ -241,7 +258,13 @@ export function useLineTool(): LineToolState {
 
       return {
         kind,
-        ...startChain(startPoint, { kind: 'port', elementId, portId: seedPort.id }),
+        // Servis kutusundan çıkan İLK boru varsayılan kotu 15cm'de başlar
+        // (kullanıcı isteği, 2026-08) — bkz. SERVICE_BOX_SEED_HEIGHT_CM.
+        ...startChain(
+          startPoint,
+          { kind: 'port', elementId, portId: seedPort.id },
+          SERVICE_BOX_SEED_HEIGHT_CM,
+        ),
       }
     }
 
@@ -269,6 +292,9 @@ export function useLineTool(): LineToolState {
         points: [draft.anchor, point],
         pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
         startTarget: draft.startTarget ?? undefined,
+        // Mavi kesikli kol da sayaçla AYNI varsayılan kotta gider (kullanıcı
+        // isteği, 2026-08) — BRANCH_SEED_HEIGHT_CM.
+        pipe: { startHeightCm: BRANCH_SEED_HEIGHT_CM, endHeightCm: BRANCH_SEED_HEIGHT_CM, description: '' },
       })
       if (!written) return
 
@@ -306,14 +332,16 @@ export function useLineTool(): LineToolState {
         return
       }
 
-      // Boru sayacın ÇIKIŞ portundan başlar (yukarıdaki nota bkz.).
+      // Boru sayacın ÇIKIŞ portundan başlar (yukarıdaki nota bkz.); varsayılan
+      // kot sayacın mont kotuyla AYNI (BRANCH_SEED_HEIGHT_CM) — sıfırdan
+      // başlayıp sayaçta aniden zıplamaz.
       writeDraft({
         kind: 'branch',
-        ...startChain(getPortWorldPosition(meter, outputPort, metadata), {
-          kind: 'port',
-          elementId: meterId,
-          portId: outputPort.id,
-        }),
+        ...startChain(
+          getPortWorldPosition(meter, outputPort, metadata),
+          { kind: 'port', elementId: meterId, portId: outputPort.id },
+          BRANCH_SEED_HEIGHT_CM,
+        ),
       })
     }
 
@@ -334,11 +362,14 @@ export function useLineTool(): LineToolState {
         pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
         startTarget: draft.startTarget ?? undefined,
         endTarget: snap ? toAttachment(snap) : undefined,
-        // Kot (K102) yalnız `pipe` türünde anlamlı — yatay adımda değişmez.
+        // Kot (K102) `pipe` türünde İKİ uçlu (K102); branşmanda TEK alan
+        // (`BranchPropertiesPanel`) — sayacın çıkış kotuyla başlar (kullanıcı
+        // isteği, 2026-08), yatay adımda değişmez.
         pipe:
           draft.kind === 'pipe'
             ? { startHeightCm: draft.elevationCm, endHeightCm: draft.elevationCm, description: '' }
             : undefined,
+        branch: draft.kind === 'branch' ? { elevationCm: draft.elevationCm } : undefined,
       })
       if (!written) return
 

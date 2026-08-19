@@ -17,7 +17,7 @@ import { useMeasurementTool } from './useMeasurementTool'
 import { usePlacementTool } from './usePlacementTool'
 import { useSelectionTool, type SelectionToolState } from './useSelectionTool'
 import { useCadStore } from '../../store/cadStore'
-import { getInlineElementElevationCm } from '../core/lineElevation'
+import { getElementElevationCm } from '../core/lineElevation'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /** Aktif kattaki elemanlar. Store dizisine olduğu gibi abone olunur — türetilmiş
@@ -25,6 +25,7 @@ import { usePlumbingUiStore } from '../store/plumbingUiStore'
 function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionToolState) {
   const elements = useCadStore((state) => state.installationElements)
   const lines = useCadStore((state) => state.installationLines)
+  const connections = useCadStore((state) => state.installationConnections)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const selectedElementIds = usePlumbingUiStore((state) => state.selectedElementIds)
 
@@ -40,8 +41,8 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
             isSelected={selectedElementIds.includes(element.id)}
             // Ref YALNIZ sürüklenen elemanlara gider: geri kalanı her frame konum yazmaz.
             dragDeltaRef={draggedElementIds.includes(element.id) ? dragDeltaRef : undefined}
-            // Boruya oturan eleman borunun kotunu izler (K102) — türetilmiş, store'a yazılmaz.
-            elevationCm={getInlineElementElevationCm(element.id, lines)}
+            // Elemanın kotu tutunduğu boru/porttan izler (K102) — türetilmiş, store'a yazılmaz.
+            elevationCm={getElementElevationCm(element.id, lines, connections)}
           />
         ))}
     </>

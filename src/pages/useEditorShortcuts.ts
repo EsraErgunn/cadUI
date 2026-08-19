@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { isTypingTarget } from '../core/domEvents'
 import type { FloorDirection } from '../core/floors'
+import { usePlumbingUiStore } from '../plumbing/store/plumbingUiStore'
 import { redoActiveView, undoActiveView } from '../store/activeViewHistory'
 
 export type EditorShortcutHandlers = {
@@ -35,6 +36,19 @@ export function useEditorShortcuts(handlers: EditorShortcutHandlers): void {
       if (event.key === 'PageUp' || event.key === 'PageDown') {
         event.preventDefault()
         handlersRef.current.onGoToFloor(event.key === 'PageUp' ? 'up' : 'down')
+        return
+      }
+
+      // Ok yukarı/aşağı da komşu kata geçirir (kullanıcı isteği, 2026-08) —
+      // PageUp/PageDown ile AYNI yönü taşır, yalnız ikinci bir tuş. Tesisatta
+      // aktif bir taslak hat varken ok tuşları ZATEN BAŞKA bir işe bağlı (kat
+      // BAĞLANTISI kurmak, `useLineTool.ts` → `commitDraftFloorLink`) — o
+      // pencerede burası devre dışı kalır, yoksa aynı tuş basışı hem bağlantı
+      // kurar hem kat değiştirir (kullanıcının "karıştırma" uyarısı tam bu).
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        if (usePlumbingUiStore.getState().draftLine) return
+        event.preventDefault()
+        handlersRef.current.onGoToFloor(event.key === 'ArrowUp' ? 'up' : 'down')
         return
       }
 
