@@ -7,6 +7,7 @@ import { redoActiveView, undoActiveView } from '../store/activeViewHistory'
 
 export type EditorShortcutHandlers = {
   onSave: () => void
+  onSaveAs: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
   onGoToFloor: (direction: FloorDirection) => void
@@ -14,8 +15,9 @@ export type EditorShortcutHandlers = {
 
 /**
  * Çizim ekranının klavye kısayolları TEK yerde: Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
- * (geri al / yinele) ve Ctrl+S (kaydet). Her kısayol kendi dinleyicisini
- * kursaydı ikisi de preventDefault çağırır ve sıraları belirsiz olurdu.
+ * (geri al / yinele), Ctrl+S (kaydet) ve Ctrl+Shift+S (farklı kaydet). Her
+ * kısayol kendi dinleyicisini kursaydı ikisi de preventDefault çağırır ve
+ * sıraları belirsiz olurdu.
  *
  * Dinleyici window'da: kısayolun çalışması için odağın tuvalde olması gerekmiyor.
  */
@@ -70,7 +72,9 @@ export function useEditorShortcuts(handlers: EditorShortcutHandlers): void {
       event.preventDefault()
 
       if (key === 's') {
-        handlersRef.current.onSave()
+        // Shift'li hâli ayrı bir eylem: etiket sorup YENİ bir sürüm kaydeder.
+        if (event.shiftKey) handlersRef.current.onSaveAs()
+        else handlersRef.current.onSave()
         return
       }
 

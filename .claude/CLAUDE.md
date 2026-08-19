@@ -76,9 +76,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   aynı yüzeyde ve `canvas-overlay` token'larıyla KOYU TEMADA DA BEYAZ; kendi
   varyantları `menu/editorBarVariants.ts`'te, `controls/buttonVariants.ts`
   pencerelerin (tema değiştiren yüzey). İki özellik paneli ortak kabuk
-  kullanır (`ui/properties/PropertyPanelShell`).
+  kullanır (`ui/properties/PropertyPanelShell`). `ui/versions/` kayıt geçmişi
+  listesini ve "Farklı Kaydet" penceresini taşır (K109); liste üst bardaki
+  düğmenin ALTINDAN açılır, açık/kapalı durumu bileşenin içindedir.
   (bkz. knowledge/editor-shell.md, knowledge/canvas-toolbar.md,
-  knowledge/property-panel.md)
+  knowledge/property-panel.md, knowledge/version-history.md)
 - `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
   liste parçaları. Kabuk sayfaya GÖMÜLMEZ, route ebeveynidir. Liste durumu (arama/filtre/
   sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Rol modeli KESİNLEŞTİ:
@@ -152,6 +154,12 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
 - SQL satırı ile MinIO nesnesi arasında ortak transaction YOK: MinIO'ya yaz →
   anahtarı al → SQL satırını ekle. SQL başarısızsa MinIO nesnesi temizlenir.
 - Frontend açısından değişmez: api JSON alır/gönderir; serialize.ts model↔JSON çevirir.
+- Her kayıt yeni ve DEĞİŞMEZ bir sürüm doğurur; üst bardaki **Kayıt Geçmişi**
+  düğmesinin açılır listesi bunları gösterir ve seçileni yükler (K109). Yükleme geri al
+  geçmişini SIFIRLAR, bu yüzden kaydedilmemiş değişiklik varken onay sorulur.
+  Açık sürümün kimliği durumun parçası (`useProjectPersistence.currentVersionId`).
+  Sunucu tarihleri dilim eki TAŞIMAZ → `parseServerTimestampMs`.
+  (bkz. knowledge/version-history.md)
 
 ## Yorum, İsimlendirme, CSS
 

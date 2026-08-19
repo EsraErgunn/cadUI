@@ -10,16 +10,21 @@ import {
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   IMPORT_ITEM_ID,
+  SAVE_AS_ITEM_ID,
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
 import { MENU_ICONS } from './menu/menuIcons'
+import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
 type MenuBarProps = {
   onCloseEditor: () => void
   onSave: () => void
+  onSaveAs: () => void
   onImport: () => void
   onExport: () => void
   isSaving: boolean
+  /** Kayıt geçmişi listesinin kaynağı; bar yalnız TAŞIR, kendisi kullanmaz. */
+  versionHistory: VersionHistorySource
 }
 
 /**
@@ -33,7 +38,15 @@ type MenuBarProps = {
  *
  * Barın kendi zemini YOK: sayfa zemininin üstünde duruyor, düğmeler tek tek kart.
  */
-export function MenuBar({ onCloseEditor, onSave, onImport, onExport, isSaving }: MenuBarProps) {
+export function MenuBar({
+  onCloseEditor,
+  onSave,
+  onSaveAs,
+  onImport,
+  onExport,
+  isSaving,
+  versionHistory,
+}: MenuBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const barRef = useRef<HTMLElement>(null)
 
@@ -63,6 +76,7 @@ export function MenuBar({ onCloseEditor, onSave, onImport, onExport, isSaving }:
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
     if (itemId === SAVE_ITEM_ID) onSave()
+    if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()
     if (itemId === EXPORT_ITEM_ID) onExport()
   }
@@ -118,7 +132,7 @@ export function MenuBar({ onCloseEditor, onSave, onImport, onExport, isSaving }:
       <ViewSwitcher />
       <div className="flex-1" />
 
-      <EditorActions onSave={onSave} isSaving={isSaving} />
+      <EditorActions onSave={onSave} isSaving={isSaving} versionHistory={versionHistory} />
     </header>
   )
 }

@@ -19,17 +19,29 @@ import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
+import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
   const activeViewId = useUiStore((state) => state.activeViewId)
-  const { isSaving, error, save } = useProjectPersistence()
+  const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
+    useProjectPersistence()
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
+  const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
   const handleSave = () => void save()
+
+  /**
+   * Etiketli kayıt: pencere ancak sunucu kabul edince kapanıyor. Hemen
+   * kapatılsaydı hata mesajı üst barda çıkar ama kullanıcının yazdığı etiket
+   * gitmiş olurdu — aynı etiketi yeniden yazmak gerekirdi.
+   */
+  const handleSaveAs = async (label: string) => {
+    if (await save(label)) setIsSaveAsOpen(false)
+  }
 
   /**
    * Klavyeden yapılan geçiş ANINDA uygulanır (madde 20); yalnız "Katlar"
@@ -44,6 +56,7 @@ export function EditorPage() {
 
   useEditorShortcuts({
     onSave: handleSave,
+    onSaveAs: () => setIsSaveAsOpen(true),
     onOpenFloorManagement: () => setIsFloorDialogOpen(true),
     onOpenFloorCopy: () => setIsFloorCopyOpen(true),
     onGoToFloor: goToFloor,
@@ -65,9 +78,11 @@ export function EditorPage() {
         <MenuBar
           onCloseEditor={closeEditor}
           onSave={handleSave}
+          onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
           onExport={exportProject}
           isSaving={isSaving}
+          versionHistory={{ projectId, currentVersionId, onLoadVersion: loadVersion }}
         />
 
         {/* Menüden tetiklenir (Dosya > İçe Aktar); görünür bir seçici yerine
@@ -134,6 +149,14 @@ export function EditorPage() {
       {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
+
+      {isSaveAsOpen && (
+        <SaveVersionDialog
+          isSaving={isSaving}
+          onCancel={() => setIsSaveAsOpen(false)}
+          onSave={(label) => void handleSaveAs(label)}
+        />
+      )}
 
       <CascadeDeleteDialog />
     </div>

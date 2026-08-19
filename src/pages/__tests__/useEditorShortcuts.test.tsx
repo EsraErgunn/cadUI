@@ -11,6 +11,7 @@ import { useEditorShortcuts } from '../useEditorShortcuts'
 
 type HarnessHandlers = {
   onSave: () => void
+  onSaveAs: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
   onGoToFloor: (direction: 'up' | 'down') => void
@@ -32,9 +33,10 @@ function Harness(handlers: HarnessHandlers) {
   return <input aria-label="not" />
 }
 
-function renderHarness(onSave = vi.fn()) {
+function renderHarness(onSave = vi.fn(), onSaveAs = vi.fn()) {
   const handlers: HarnessHandlers = {
     onSave,
+    onSaveAs,
     onOpenFloorManagement: vi.fn(),
     onOpenFloorCopy: vi.fn(),
     onGoToFloor: vi.fn(),
@@ -46,6 +48,7 @@ function renderHarness(onSave = vi.fn()) {
 function renderFloorHarness() {
   const handlers: HarnessHandlers = {
     onSave: vi.fn(),
+    onSaveAs: vi.fn(),
     onOpenFloorManagement: vi.fn(),
     onOpenFloorCopy: vi.fn(),
     onGoToFloor: vi.fn(),
@@ -70,6 +73,21 @@ describe('useEditorShortcuts', () => {
     await user.keyboard('{Control>}s{/Control}')
 
     expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('Ctrl+Shift+S farklı kaydeder — düz kaydetmeyi ÇAĞIRMAZ', async () => {
+    // İkisi ayrı eylem: farklı kaydet etiket sorup yeni bir sürüm oluşturuyor,
+    // Kaydet ise sormadan kaydediyor. Aynı tuşun iki hâli olduğu için bir arada
+    // sınanıyor.
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    const onSaveAs = vi.fn()
+    renderHarness(onSave, onSaveAs)
+
+    await user.keyboard('{Control>}{Shift>}s{/Shift}{/Control}')
+
+    expect(onSaveAs).toHaveBeenCalledTimes(1)
+    expect(onSave).not.toHaveBeenCalled()
   })
 
   it('Cmd+S de kaydeder', async () => {
