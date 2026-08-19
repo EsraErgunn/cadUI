@@ -50,6 +50,15 @@ export const PLUMBING_COLORS = {
   elementLabelLeader: '#d97706',
   measurementLabel: MEASUREMENT_INK,
   /**
+   * Kot glifinin (`PipeElevationGlyph`, ▲/▼) yazısı: ölçü etiketinden (MEASUREMENT_INK,
+   * #5b6675) daha KOYU — nokta işaretinin/borunun üstüne binen tek satırlık bir
+   * yazı olduğu için düşük kontrastta kayboluyordu (kullanıcı bulgusu, 2026-08:
+   * "pek okunmuyor"). Beyaz anahat (`outlineColor`, `LengthText`) ile birlikte
+   * kullanılır — tuval her temada beyaz (`SCENE_COLORS.background`) olduğu için
+   * anahat ayrıca tema-bağımlı olmak zorunda değil.
+   */
+  pipeElevationLabel: '#1f2937',
+  /**
    * Geçici ölçüm çizgisi yazısıyla AYNI ton: ikisi tek bir işaret. Boru
    * OLMADIĞI kesikli çizilmesinden anlaşılır — renk körlüğü ve gri baskıda
    * renk tek başına ayırt edici değildir.

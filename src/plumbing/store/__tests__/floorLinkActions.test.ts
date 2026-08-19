@@ -88,3 +88,34 @@ describe('commitDraftFloorLink — üst kata çıkışta oda yüksekliği', () =
     expect(usePlumbingUiStore.getState().draftLine?.elevationCm).toBe(0)
   })
 })
+
+describe('commitDraftFloorLink — sınırda yeni kat açma', () => {
+  it('altta kat yoksa AŞAĞI yönde yeni BODRUM açar, üste değil (kullanıcı bulgusu, 2026-08)', () => {
+    resetCadState({
+      floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME, heightCm: FLOOR_HEIGHT_CM, isBasement: false }],
+    })
+    draftFromWrittenStep(0, 30)
+
+    expect(commitDraftFloorLink('down')).toBe(true)
+
+    const floors = useCadStore.getState().floors
+    expect(floors).toHaveLength(2)
+    expect(floors[0].isBasement).toBe(true)
+    expect(floors[1].id).toBe(DEFAULT_FLOOR_ID)
+    expect(useCadStore.getState().activeFloorId).toBe(floors[0].id)
+  })
+
+  it('üstte kat yoksa YUKARI yönde yeni normal kat açar (bodrum değil)', () => {
+    resetCadState({
+      floors: [{ id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME, heightCm: FLOOR_HEIGHT_CM, isBasement: false }],
+    })
+    draftFromWrittenStep(0, 30)
+
+    expect(commitDraftFloorLink('up')).toBe(true)
+
+    const floors = useCadStore.getState().floors
+    expect(floors).toHaveLength(2)
+    expect(floors[1].isBasement).toBe(false)
+    expect(useCadStore.getState().activeFloorId).toBe(floors[1].id)
+  })
+})

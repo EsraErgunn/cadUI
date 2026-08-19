@@ -52,6 +52,35 @@ yapıyor (K-W deseni) — manuel akış (`commitDraftFloorLink` → sonraki
 oluşturma gerektiren bir geçiş zaten iki farklı Ctrl+Z yığınına dokunuyor,
 burada yeni bir emsal kurulmadı.
 
+## Gotcha — aşağı yönde sınırda yanlış yönde kat açılıyordu (K106)
+
+`commitDraftFloorLink`'te altta/üstte kat yoksa `useCadStore.getState().addFloor({})`
+ile yeni bir kat açılıyordu — ama `addFloor({})` (varsayılan `isBasement: false`)
+HER ZAMAN dizinin EN ÜSTÜNE ekler (`appendFloor` → `getFloorInsertIndex`).
+`direction === 'down'` iken de aynı çağrı kullanıldığı için, en alt kattayken
+aşağı ok tuşuna basmak yeni bir kat AÇIYOR ama onu ÜSTE koyup oraya
+geçiriyordu — kullanıcı "aşağı basınca hep üst kata gidiyor, alt kat hiç
+açılmıyor" diye fark etti (2026-08). Düzeltme: sınırda `direction === 'down'`
+ise `addFloor({ isBasement: true })` çağrılır — bodrum bloğu dizinin BAŞINDA
+durduğu için (`floor-ordering.md`) bu, en alttaki katın hemen altına gelir.
+Yukarı yönde davranış değişmedi (`addFloor({})` zaten doğru yönde ekliyordu).
+
+## Manuel ok-tuşu akışı da aynı kurala uyar (K105)
+
+Otomatik geçiş `capElevationToFloor` ile terk edilen ucu her zaman katın
+tavanına (`Floor.heightCm`) çekiyordu; MANUEL akış (`floorLinkActions.ts` →
+`commitDraftFloorLink`, ok tuşuyla tetiklenen) bunu YAPMIYORDU — kullanıcı
+hangi kotta ok tuşuna basmışsa boru o kotta kesik kalıyordu. Kullanıcı isteği
+(2026-08): "üst kata çıkıyorsa hangi taraftan çıktıysa borunun o tarafına oda
+yüksekliği kadar yükseklik ver". `commitDraftFloorLink` artık yalnız
+**yukarı** yönde, taslağın `startTarget`'ının oturduğu (ÇIKILAN) hattın ucunu
+`raiseLineEndToFloorHeight` ile mevcut katın tavanına çekiyor — hangi ucun
+(`start`/`end`) yükseltileceği `line.points.at(-1)?.id === pointId` ile
+belirlenir. **Aşağı** yönde dokunulmaz (istek metni yalnız yukarıyı kapsıyor;
+aşağı inen boru zaten 0'a, o katın tabanına yaklaşır). Yeni kattaki taslak
+hâlâ SIFIR kottan başlar (`startChain(position, null, 0)`) — yalnız terk
+edilen taraf yükselir, giren taraf değil.
+
 ## Kilit — floor-link uçları taşınamaz
 
 `FloorPipeLink.belowPointId`/`abovePointId` artık port-çapa deseninin

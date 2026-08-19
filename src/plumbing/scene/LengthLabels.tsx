@@ -44,16 +44,37 @@ const NO_RAYCAST = () => null
  * Ölçü yazısının TEK çizim yolu: anlık (lastik bant), ayrım önizlemesi ve kalıcı
  * etiket aynı biçimi alsın. Konumu YOK — çapayı sarmalayan grup taşır, çünkü
  * anlık etiketin konumu her karede object3D'ye yazılıyor.
+ *
+ * `fontSizePx`/`color`/`outlineWidthPx`/`outlineColor` opsiyonel: varsayılanları
+ * normal ölçü etiketiyle AYNI, yalnız `PipeElevationGlyph` gibi daha belirgin
+ * okunması gereken bir tüketici override eder (kullanıcı isteği, 2026-08 —
+ * bkz. knowledge/pipe-elevation.md "okunurluk").
  */
-export function LengthText({ label, zoom }: { label: string; zoom: number }) {
+export function LengthText({
+  label,
+  zoom,
+  fontSizePx = LABEL_SIZE_PX,
+  color = PLUMBING_COLORS.measurementLabel,
+  outlineWidthPx,
+  outlineColor,
+}: {
+  label: string
+  zoom: number
+  fontSizePx?: number
+  color?: string
+  outlineWidthPx?: number
+  outlineColor?: string
+}) {
   return (
     // Ekran-sabit boy ölçekle: `fontSize` her değişiminde troika metni yeniden
     // dizer, ölçek yalnız matrisi günceller (bkz. scene/WallDimensionLabels).
     <group rotation={FLAT_ROTATION} scale={1 / zoom}>
       <Text
         font={FONT_URL}
-        fontSize={LABEL_SIZE_PX}
-        color={PLUMBING_COLORS.measurementLabel}
+        fontSize={fontSizePx}
+        color={color}
+        outlineWidth={outlineWidthPx}
+        outlineColor={outlineColor}
         anchorX="center"
         anchorY="middle"
         renderOrder={RENDER_ORDER.measurement}

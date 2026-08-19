@@ -26,7 +26,7 @@ import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/line
 import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSnap'
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
-import { findNearestWallCorner, findNearestWallParallel } from '../core/wallSnap'
+import { findNearestWallCorner, findNearestWallFace, findNearestWallParallel } from '../core/wallSnap'
 import { commitDraftFloorLink } from '../store/floorLinkActions'
 import { commitDraftElevationStep } from '../store/pipeElevationActions'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
@@ -191,9 +191,20 @@ export function useLineTool(): LineToolState {
         const corner = findNearestWallCorner(floorWalls, cad.points, event.planPoint, radiusCm, clearanceCm)
         if (corner) return { point: corner, snap: null }
 
-        // Bir duvar YAKINDAYSA (yarıçap içinde) yön onun AÇISINA paralel/dik
-        // iki eksenden imlece en yakın olana kelepçelenir — HER karede
-        // yeniden, kilitlenmeden.
+        // Duvarın GÖVDESİNE (yüzüne) yakınken yapışma köşedeki gibi KESKİN
+        // olsun (kullanıcı isteği: 45° dahil hangi açıyla gelinirse gelinsin
+        // aynı payla kenara otursun) — `findNearestWallFace` AKTİF bir mıknatıs,
+        // yalnızca yönü kelepçeleyen `findNearestWallParallel`'in aksine imleci
+        // doğrudan yüz + pay çizgisine çeker.
+        const face = findNearestWallFace(floorWalls, cad.points, event.planPoint, radiusCm, clearanceCm)
+        if (face) return { point: face, snap: null }
+
+        // Yüze yeterince yakın değilse (yarıçap içindeki en yakın nokta
+        // gövdenin dışında kaldı, ör. duvarın ucuna yakın) yön onun AÇISINA
+        // paralel/dik iki eksenden imlece en yakın olana kelepçelenir — HER
+        // karede yeniden, kilitlenmeden. Bu, duvara YAKINDAYKEN dik ekseninde
+        // de ilerleyebilme (köşe dönüşü) imkânını korur — face magnet yalnız
+        // paralel yüzeyi verir.
         const wall = findNearestWallParallel(floorWalls, cad.points, draftLine.anchor, event.planPoint, radiusCm, clearanceCm)
         if (wall) return { point: wall.position, snap: null }
 

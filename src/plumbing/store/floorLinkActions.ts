@@ -48,7 +48,14 @@ export function commitDraftFloorLink(direction: FloorDirection): boolean {
   const cad = useCadStore.getState()
   let targetFloorId = getFloorIdInDirection(cad.floors, cad.activeFloorId, direction)
   if (targetFloorId === undefined) {
-    targetFloorId = useCadStore.getState().addFloor({})
+    // `addFloor({})` HER ZAMAN normal (bodrum olmayan) bir kat EKLER ve
+    // katı dizinin EN ÜSTÜNE koyar (`appendFloor` → `getFloorInsertIndex`) —
+    // 'down' yönünde çağrılırsa bu, ALTTA kat yoksa yeni katı YİNE ÜSTE
+    // açardı: kullanıcı aşağı basınca hep üst kata gidiyormuş gibi görünürdü
+    // (kullanıcı bulgusu, 2026-08). 'down'da bodrum olarak eklenmeli — bodrum
+    // bloğu dizinin BAŞINDA durur (`floor-ordering.md`), yani en alttaki
+    // katın hemen altına gelir.
+    targetFloorId = useCadStore.getState().addFloor(direction === 'down' ? { isBasement: true } : {})
     if (targetFloorId === undefined) return false
   }
 
