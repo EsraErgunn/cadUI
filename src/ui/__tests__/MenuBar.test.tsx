@@ -15,12 +15,16 @@ function renderMenuBar(
   onSaveAs = vi.fn(),
   onLoadVersion = vi.fn().mockResolvedValue(undefined),
   onClearProject = vi.fn(),
+  onDownloadProjectFile = vi.fn(),
+  onOpenProjectFile = vi.fn(),
 ) {
   render(
     <MemoryRouter>
       <MenuBar
         onCloseEditor={onCloseEditor}
         onClearProject={onClearProject}
+        onDownloadProjectFile={onDownloadProjectFile}
+        onOpenProjectFile={onOpenProjectFile}
         onSave={onSave}
         onSaveAs={onSaveAs}
         onImport={onImport}
@@ -30,7 +34,16 @@ function renderMenuBar(
       />
     </MemoryRouter>,
   )
-  return { onCloseEditor, onSave, onImport, onExport, onSaveAs, onClearProject }
+  return {
+    onCloseEditor,
+    onSave,
+    onImport,
+    onExport,
+    onSaveAs,
+    onClearProject,
+    onDownloadProjectFile,
+    onOpenProjectFile,
+  }
 }
 
 describe('MenuBar', () => {
@@ -77,8 +90,10 @@ describe('MenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'İçe Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Projeyi Temizle' })).toBeEnabled()
-    // Biçimi kararlaşmamış maddeler görünür ama pasif (K79).
-    expect(screen.getByRole('menuitem', { name: "PDF'e Aktar" })).toBeDisabled()
+    // Proje dosyası maddeleri ARTIK ÇALIŞIYOR: biçim PDF olarak kararlaştı ve
+    // çizim verisi belgeye gömülüyor.
+    expect(screen.getByRole('menuitem', { name: 'Proje Dosyasını İndir' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'Proje Dosyasını Aç' })).toBeEnabled()
   })
 
   it('üst barda karşılığı olan maddeler menüden KALKTI (K111)', async () => {
@@ -98,6 +113,27 @@ describe('MenuBar', () => {
 
     // Arkasındaki ekran yazılmadı: görünür ama pasif.
     expect(screen.getByRole('button', { name: 'Proje Bilgileri' })).toBeDisabled()
+  })
+
+  it('Dosya > Proje Dosyasını İndir pencereyi açar; menü ÜRETMEZ', async () => {
+    const user = userEvent.setup()
+    const { onDownloadProjectFile } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Proje Dosyasını İndir' }))
+
+    // Kat seçimi ve sayfa ayarları pencerenin işi; menü yalnız haber ediyor.
+    expect(onDownloadProjectFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('Dosya > Proje Dosyasını Aç dosya seçicisini tetikler', async () => {
+    const user = userEvent.setup()
+    const { onOpenProjectFile } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Proje Dosyasını Aç' }))
+
+    expect(onOpenProjectFile).toHaveBeenCalledTimes(1)
   })
 
   it('Dosya > Projeyi Temizle onay akışını açar, doğrudan silmez', async () => {
