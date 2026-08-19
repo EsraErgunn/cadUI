@@ -1,4 +1,4 @@
-# Kaydedilmemiş değişiklikle çıkış uyarısı (K110, K111)
+# Kaydedilmemiş değişiklikle çıkış uyarısı (K110, K112)
 
 Ürün kuralı "kaydedilmemiş değişiklik varsa kullanıcı uyarılır" iki AYRI yolla
 karşılanıyor; biri ötekinin yerini tutmaz.
@@ -6,7 +6,7 @@ karşılanıyor; biri ötekinin yerini tutmaz.
 | Kaçış yolu | Kim yakalar |
 |---|---|
 | Sekme kapatma, yenileme, adres çubuğu | `pages/useUnsavedChangesWarning.ts` (`beforeunload`) |
-| "← Projeler", Dosya ▸ Kapat, **tarayıcı GERİ/İLERİ**, her uygulama içi bağlantı | `useBlocker` → `pages/useEditorExit.ts` + `ui/UnsavedChangesDialog.tsx` |
+| "← Projeler", **tarayıcı GERİ/İLERİ**, her uygulama içi bağlantı | `useBlocker` → `pages/useEditorExit.ts` + `ui/UnsavedChangesDialog.tsx` |
 
 ## ⚠️ `beforeunload` router gezinmesinde ÇALIŞMAZ
 
@@ -15,13 +15,13 @@ gezinmesi olduğu için oradan hiç geçmiyor — iki mekanizmanın ikisi de ger
 
 ## ⚠️ Uyarıyı DÜĞMEYE bağlama
 
-İlk uygulama (K110) soruyu "Projeler"/"Kapat" eylemine bağlamıştı ve tarayıcının
+İlk uygulama (K110) soruyu "Projeler" eylemine bağlamıştı ve tarayıcının
 GERİ tuşu uyarısız çıkıyordu — kullanıcı bildirdi. Gezinmeyi durduran tek yer
 router'dır; `useBlocker(isDirty)` düğmeyi, menüyü, geri tuşunu ve ileride
 eklenecek her bağlantıyı aynı kapıdan geçirir.
 
 `useBlocker` yalnız VERİ router'ında çalışıyor; bu yüzden `src/app/router.tsx`
-`BrowserRouter`'dan `createBrowserRouter` + `RouterProvider`'a taşındı (K111).
+`BrowserRouter`'dan `createBrowserRouter` + `RouterProvider`'a taşındı (K112).
 Rota ağacı JSX olarak duruyor (`createRoutesFromElements`), tek yapısal fark
 `<Suspense>`in kök rotanın elemanı olması (`SuspenseLayout`).
 

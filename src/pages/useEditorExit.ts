@@ -30,8 +30,8 @@ export type EditorExit = {
 
 /**
  * Editörden çıkış akışı. Soruyu AÇAN şey artık düğme değil, durdurulmuş
- * gezinmenin kendisi: "Projeler", Dosya ▸ Kapat, tarayıcının GERİ tuşu ve
- * ileride eklenecek her uygulama içi bağlantı aynı kapıdan geçiyor (K111).
+ * gezinmenin kendisi: "Projeler", tarayıcının GERİ tuşu ve ileride eklenecek
+ * her uygulama içi bağlantı aynı kapıdan geçiyor (K112).
  * Düğmeye bağlı olsaydı geri tuşu uyarısız çıkardı — nitekim çıkıyordu.
  *
  * Temizken engel hiç kurulmuyor (`useBlocker(isDirty)`), yani soru da sorulmaz:

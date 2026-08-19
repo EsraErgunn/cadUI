@@ -15,6 +15,7 @@ import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
 import { SceneRoot } from '../scene/SceneRoot'
 import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
+import { ClearProjectDialog } from '../ui/ClearProjectDialog'
 import { EditorSidebar } from '../ui/EditorSidebar'
 import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
@@ -36,6 +37,7 @@ export function EditorPage() {
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
+  const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
   const handleSave = () => void save()
 
@@ -100,6 +102,7 @@ export function EditorPage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl bg-canvas-overlay">
         <MenuBar
           onCloseEditor={closeEditor}
+          onClearProject={() => setIsClearProjectOpen(true)}
           onSave={handleSave}
           onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
@@ -172,6 +175,16 @@ export function EditorPage() {
       {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
+
+      {isClearProjectOpen && (
+        <ClearProjectDialog
+          onCancel={() => setIsClearProjectOpen(false)}
+          onConfirm={() => {
+            useCadStore.getState().clearProjectDrawing()
+            setIsClearProjectOpen(false)
+          }}
+        />
+      )}
 
       {/* Hata YALNIZ bu pencereden yapılan deneme başarısızsa gösteriliyor:
           `error` daha eski bir yükleme hatasını da taşıyabiliyor ve pencere

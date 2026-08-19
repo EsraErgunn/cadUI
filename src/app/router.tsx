@@ -126,7 +126,7 @@ function SuspenseLayout() {
 /**
  * Veri router'ı (`createBrowserRouter`), düz `BrowserRouter` DEĞİL: gezinmeyi
  * durdurabilen `useBlocker` yalnız burada çalışıyor ve editör kaydedilmemiş
- * çizimle çıkılırken tarayıcının GERİ tuşunu da yakalamak zorunda (K111).
+ * çizimle çıkılırken tarayıcının GERİ tuşunu da yakalamak zorunda (K112).
  * Rota ağacı JSX olarak kalıyor — `createRoutesFromElements` aynı ağacı okuyor,
  * yolların ve sıralama yorumlarının hiçbiri değişmedi.
  */

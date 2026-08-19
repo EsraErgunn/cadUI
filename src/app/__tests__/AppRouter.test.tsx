@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import AppComponent from '../App'
 
 /**
- * Veri router'ına geçişin (K111) duman testi: rota ağacı `createBrowserRouter`
+ * Veri router'ına geçişin (K112) duman testi: rota ağacı `createBrowserRouter`
  * altında da kuruluyor ve koruma çalışıyor mu. `AppRouter` başka hiçbir testte
  * render edilmiyor — bu dosya olmasaydı göç ancak tarayıcıda fark edilirdi.
  */
