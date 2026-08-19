@@ -103,11 +103,21 @@ export function usePlacementTool(): PlacementPreviewState {
      * takılmamalı, cihaz koluyla kanala bağlanmamalı. Özellikle `nearestLine`
      * yarıçapsız çalışıyor ("en yakın açık uca yapışır") — süzülmeseydi yeni
      * konan bir cihaz planın öbür ucundaki bacaya kol atardı.
+     *
+     * `branchStub` de hedef DEĞİL (kullanıcı isteği, 2026-08: "branşmanın mavi
+     * ucuna bir şey eklenmesin"): o kol zaten kendi sayacını/vanasını taşıyor,
+     * boş kalan yer seviyesi ucu başka bir armatür/cihaz için bir bağlantı
+     * noktası değil. Branşmanın kendi sayacını yerleştirmesi bu filtreden
+     * ETKİLENMEZ — `useLineTool`'daki `commitBranchGroundStep` yeni yazılan tek
+     * kolu doğrudan, bu listeden bağımsız verir.
      */
     const readFloorLines = () => {
       const cad = useCadStore.getState()
       return cad.installationLines.filter(
-        (line) => line.floorId === cad.activeFloorId && isGasCarryingKind(line.kind),
+        (line) =>
+          line.floorId === cad.activeFloorId &&
+          isGasCarryingKind(line.kind) &&
+          line.kind !== 'branchStub',
       )
     }
 

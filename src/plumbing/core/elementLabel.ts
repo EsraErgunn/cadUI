@@ -12,6 +12,63 @@ const LABEL_MARGIN_PX = 16
 const LABEL_CHAR_WIDTH_PX = 7.2
 /** Tutma kutusuna eklenen pay: yazının tam sınırına nişan almak gerekmesin. */
 const LABEL_HIT_PADDING_PX = 3
+/** Troika'nın varsayılan satır yüksekliği ~1.15em — tutma kutusu bunu izler. */
+const LABEL_LINE_HEIGHT_RATIO = 1.2
+
+/**
+ * Marka/model/açıklama alanları TÜRE göre değişir (elementProperties.ts) —
+ * ortak bir "detay" tipi yok, her tür kendi opsiyonel alt kümesini taşır.
+ * Etiket metni bu üç alanı, hangileri DOLUYSA, isme ekler.
+ */
+type ElementLabelDetails = { brand?: string; model?: string; description?: string }
+
+function getElementLabelDetails(element: InstallationElement): ElementLabelDetails {
+  switch (element.type) {
+    case 'regulator':
+      return element.regulator ?? {}
+    case 'filterKit':
+      return element.filterKit ?? {}
+    case 'solenoidValve':
+      return element.solenoidValve ?? {}
+    case 'strainerMeter':
+      return element.strainerMeter ?? {}
+    case 'insulation':
+      return element.insulation ?? {}
+    case 'stove':
+      return element.stove ?? {}
+    case 'spaceHeater':
+      return element.spaceHeater ?? {}
+    case 'combiBoiler':
+      return element.combiBoiler ?? {}
+    case 'waterHeater':
+      return element.waterHeater ?? {}
+    case 'boiler':
+      return element.boiler ?? {}
+    case 'otherAppliance':
+      return element.otherAppliance ?? {}
+    case 'valve':
+    case 'gasMeter':
+    case 'manometer':
+    case 'serviceBox':
+      return {}
+  }
+}
+
+/**
+ * Etiket metni: isim + (girildiyse) marka + model + açıklama, alt alta. Boş
+ * bırakılan alan satır olarak HİÇ gözükmez — sondaki `\n\n` gibi boşluklar
+ * doğmasın diye `trim()`den sonra süzülür (kullanıcı isteği, 2026-08).
+ */
+export function getElementLabelText(
+  element: InstallationElement,
+  metadata: SymbolMetadata,
+): string {
+  const details = getElementLabelDetails(element)
+  return [metadata.label, details.brand, details.model, details.description]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join('\n')
+}
 
 /**
  * Etiketi GÖSTERİLMEYEN türler. Vana hemen her sayaç/cihazla otomatik geldiği
@@ -86,11 +143,15 @@ export function getElementLabelAnchorCm(
  * birkaç piksellik sapma pay ile kapanır.
  */
 export function getElementLabelRectCm(anchor: PlanPoint, label: string, zoom: number): PlanRect {
+  const lines = label.split('\n')
+  const widestLineLength = Math.max(...lines.map((line) => line.length))
   const halfWidthCm =
-    (Math.max(label.length * LABEL_CHAR_WIDTH_PX, ELEMENT_LABEL_SIZE_PX) / 2 +
+    (Math.max(widestLineLength * LABEL_CHAR_WIDTH_PX, ELEMENT_LABEL_SIZE_PX) / 2 +
       LABEL_HIT_PADDING_PX) /
     zoom
-  const halfHeightCm = (ELEMENT_LABEL_SIZE_PX / 2 + LABEL_HIT_PADDING_PX) / zoom
+  const halfHeightCm =
+    ((lines.length * ELEMENT_LABEL_SIZE_PX * LABEL_LINE_HEIGHT_RATIO) / 2 + LABEL_HIT_PADDING_PX) /
+    zoom
   return {
     minX: anchor.x - halfWidthCm,
     minY: anchor.y - halfHeightCm,
@@ -114,7 +175,8 @@ export function pickElementLabelAt(
     if (!hasElementNameLabel(element.type)) continue
     const metadata = getMetadata(element.type)
     const anchor = getElementLabelAnchorCm(element, metadata, zoom)
-    if (isPointInRect(point, getElementLabelRectCm(anchor, metadata.label, zoom))) {
+    const label = getElementLabelText(element, metadata)
+    if (isPointInRect(point, getElementLabelRectCm(anchor, label, zoom))) {
       return element
     }
   }

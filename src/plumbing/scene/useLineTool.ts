@@ -167,12 +167,15 @@ export function useLineTool(): LineToolState {
         const anchorLineId =
           draftLine?.startTarget?.kind === 'linePoint' ? draftLine.startTarget.lineId : null
         // Baca/havalandırma aday DEĞİL: gaz borusu onlara yapışsaydı `lineSplit`
-        // kanalı ortasından ayırır ve içine bir gaz düğümü açardı.
+        // kanalı ortasından ayırır ve içine bir gaz düğümü açardı. `branchStub`
+        // da aday DEĞİL (kullanıcı isteği, 2026-08): branşmanın mavi ucu başka
+        // bir boru için bağlantı noktası değil.
         const floorLines = cad.installationLines.filter(
           (line) =>
             line.floorId === cad.activeFloorId &&
             line.id !== anchorLineId &&
-            isGasCarryingKind(line.kind),
+            isGasCarryingKind(line.kind) &&
+            line.kind !== 'branchStub',
         )
         const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
         if (line) {

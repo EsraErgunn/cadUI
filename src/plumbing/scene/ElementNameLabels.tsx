@@ -16,6 +16,7 @@ import {
   clipLeaderEndToRectCm,
   ELEMENT_LABEL_SIZE_PX,
   getElementLabelRectCm,
+  getElementLabelText,
   getElementWorldCenterCm,
   getElementLabelOffsetCm,
   hasElementNameLabel,
@@ -53,11 +54,12 @@ function ElementNameLabel({ element, zoom }: ElementNameLabelProps) {
     y: element.position.y + offset.y,
   }
   const center = getElementWorldCenterCm(element, metadata)
+  const labelText = getElementLabelText(element, metadata)
   // Kılavuz yazının altına girmesin: etiket kutusuna girdiği yerde biter.
   const leaderEnd = clipLeaderEndToRectCm(
     center,
     anchor,
-    getElementLabelRectCm(anchor, metadata.label, zoom),
+    getElementLabelRectCm(anchor, labelText, zoom),
   )
 
   return (
@@ -90,10 +92,11 @@ function ElementNameLabel({ element, zoom }: ElementNameLabelProps) {
           color={PLUMBING_COLORS.elementLabelInk}
           anchorX="center"
           anchorY="middle"
+          textAlign="center"
           renderOrder={RENDER_ORDER.label}
           raycast={NO_RAYCAST}
         >
-          {metadata.label}
+          {labelText}
         </Text>
       </group>
     </>
