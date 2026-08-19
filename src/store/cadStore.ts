@@ -20,6 +20,7 @@ import {
   takePersistedContent,
 } from './persistedContent'
 import type { ProjectMetaSlice } from './projectMeta'
+import { markDirty } from './projectMeta'
 import { createGroundFloor } from '../core/floors'
 import { DEFAULT_FLOOR_ID, type ProjectData } from '../core/model'
 import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
@@ -32,6 +33,8 @@ export type CadState = ProjectMetaSlice &
     loadProject: (data: ProjectData) => void
     /** Boş projeye döner. Editör başka bir projeye geçerken çağrılır. */
     resetProject: () => void
+    /** Çizimi boşaltır; proje kimliği ve kat yapısı KALIR. Menüden tetiklenir. */
+    clearProjectDrawing: () => void
   }
 
 /**
@@ -61,6 +64,7 @@ function createEmptyProjectData(): ProjectData {
 
 // takeNextId/markDirty projectMeta.ts'te: slice'lar onları çalışma zamanında
 // import ediyor, buradan alsalardı cadStore ↔ slice döngüsü oluşurdu (K17).
+
 export { markDirty, takeNextId } from './projectMeta'
 
 // temporal EN DIŞTA: immer'ı sarmalı ki geçmişe düşen anlık görüntüler
@@ -126,6 +130,39 @@ export const useCadStore = create<CadState>()(
         // yani geçmiş ve kirli işaret aynı şekilde sıfırlanmalı.
         resetProject: () => {
           useCadStore.getState().loadProject(createEmptyProjectData())
+        },
+
+        /**
+         * "Projeyi Temizle": çizim içeriğini boşaltır.
+         *
+         * `resetProject`ten AYRI ve ondan türetilmedi. Üç fark, üçü de bilerek:
+         * - KAT YAPISI KALIR. Kullanıcı katları tek tek kurmuş olabilir; "çizimi
+         *   temizle" onları da silseydi geri getirmenin yolu yalnız Ctrl+Z olurdu.
+         * - GEÇMİŞ SIFIRLANMAZ. Temizlemek bir düzenlemedir, yeni bir başlangıç
+         *   değil: tek Ctrl+Z çizimi geri getirmeli.
+         * - KİRLİ İŞARET DURUR (`markDirty`). Temizlenmiş çizim kaydedilmemiş bir
+         *   değişikliktir; `loadProject` gibi `savedContent` tazelenseydi
+         *   kullanıcı çıkarken uyarılmaz ve işini sessizce kaybederdi.
+         *
+         * `nextUniqueId` GERİ ALINMAZ: silinen id'ler yeniden üretilirse geri
+         * alma sonrası iki nesne aynı id'yi taşır (knowledge/id-scheme.md).
+         */
+        clearProjectDrawing: () => {
+          set((draft) => {
+            draft.points = []
+            draft.walls = []
+            draft.openings = []
+            draft.rooms = []
+            draft.symbols = []
+            draft.areaObjects = []
+            draft.beams = []
+            draft.texts = []
+            draft.installationElements = []
+            draft.installationLines = []
+            draft.installationConnections = []
+            draft.floorPipeLinks = []
+            markDirty(draft)
+          })
         },
 
         ...createFloorSlice(...args),
