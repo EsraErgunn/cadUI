@@ -115,18 +115,26 @@ describe('veri kaynakları', () => {
       expect(firmApi.getProjectFirm).toHaveBeenCalledWith(USER.projectFirmId, expect.anything())
     })
 
-    expect(await screen.findByLabelText(/Ünvan/)).toHaveValue(FIRM.title)
-    expect(screen.getByLabelText(/Firma Yetkilisi/)).toHaveValue(FIRM.contactPerson)
     // Email KULLANICININ e-postası; firmanınki (farklı değer) kullanılmıyor.
-    expect(screen.getByLabelText(/Email/)).toHaveValue(USER.email)
-    expect(screen.getByLabelText(/Adres/)).toHaveValue(FIRM.address)
-    expect(screen.getByLabelText(/Telefon 2/)).toHaveValue('0555 999 88 77')
+    expect(await screen.findByLabelText(/Email/)).toHaveValue(USER.email)
+  })
+
+  // Ünvan, Firma Yetkilisi, Adres ve Telefon 2 ekrandan KALKTI; gövdeye okunan
+  // kayıttan gidiyorlar.
+  it('kalkan firma alanları render edilmez', async () => {
+    renderPage()
+    await screen.findByLabelText(/Email/)
+
+    expect(screen.queryByLabelText(/Ünvan/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Firma Yetkilisi/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Adres/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Telefon 2/)).not.toBeInTheDocument()
   })
 
   // Sözleşmede karşılığı olmayan alanlar ekrana GİRMEZ (Seri No da kalktı, K102).
   it('Seri No, Yeterlilik No ve Gsm alanları render edilmez', async () => {
     renderPage()
-    await screen.findByLabelText(/Ünvan/)
+    await screen.findByLabelText(/Email/)
 
     expect(screen.queryByLabelText(/Seri No/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Yeterlilik/i)).not.toBeInTheDocument()
@@ -140,9 +148,6 @@ describe('veri kaynakları', () => {
 
     expect(await screen.findByLabelText(/StarCAD Mobile Kullanıcı Adı/)).toBeInTheDocument()
     expect(firmApi.getProjectFirm).not.toHaveBeenCalled()
-    // Sahte değerle DOLDURULMAZ: alan boş kalır ve sebebi yazar.
-    expect(screen.getByLabelText(/Ünvan/)).toHaveValue('')
-    expect(screen.getByText(/proje firmasına bağlı değil/)).toBeInTheDocument()
   })
 
   it('kullanıcı ucu hata verirse anlaşılır hata gösterir', async () => {
@@ -194,29 +199,20 @@ describe('güncelleme', () => {
   })
 
   // Firma alanları KULLANICI ucuna gönderilmemeli.
-  it('firma alanlarını firma ucuna gönderir ve okunan kaydı korur', async () => {
+  it('firma gövdesine yalnız T.C. kimlik numarası girer', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    const address = await screen.findByLabelText(/Adres/)
-    await user.clear(address)
-    await user.type(address, 'Yeni Adres 2')
+    await screen.findByLabelText(/Email/)
     await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     await waitFor(() => {
-      expect(firmApi.updateProjectFirmContact).toHaveBeenCalledWith(
-        FIRM,
-        // `email`/`phone` firma gövdesine EKRANDAN girmez; okunan kayıttan taşınır.
-        {
-          title: FIRM.title,
-          contactPerson: FIRM.contactPerson,
-          phone2: FIRM.phone2,
-          address: 'Yeni Adres 2',
-          // Maskeli okunan değil, EKRANDAN girilen numara.
-          nationalIdNumber: VALID_NATIONAL_ID,
-        },
-      )
+      // Ünvan/yetkili/adres/telefon 2 gövdeye OKUNAN kayıttan gidiyor
+      // (`toProjectFirmUpdateDto`); ekrandan yalnız kimlik numarası giriyor.
+      expect(firmApi.updateProjectFirmContact).toHaveBeenCalledWith(FIRM, {
+        nationalIdNumber: VALID_NATIONAL_ID,
+      })
     })
     // Kullanıcı gövdesinde firma alanı YOK.
     const userBody = usersApi.updateUser.mock.calls[0][1] as Record<string, unknown>
@@ -230,7 +226,7 @@ describe('güncelleme', () => {
     renderPage()
     usersApi.updateUser.mockRejectedValue(new ApiError(400, 'E-posta zaten kullanımda.'))
 
-    await screen.findByLabelText(/Adres/)
+    await screen.findByLabelText(/Email/)
     await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
@@ -245,7 +241,7 @@ describe('güncelleme', () => {
     renderPage()
     firmApi.updateProjectFirmContact.mockRejectedValue(new ApiError(400, 'Ünvan geçersiz.'))
 
-    await screen.findByLabelText(/Adres/)
+    await screen.findByLabelText(/Email/)
     await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
@@ -260,23 +256,11 @@ describe('güncelleme', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText(/Adres/)
+    await screen.findByLabelText(/Email/)
     await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('güncellendi')
-  })
-
-  it('zorunlu ünvan boşken istek atılmaz', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    const title = await screen.findByLabelText(/Ünvan/)
-    await user.clear(title)
-    await user.click(screen.getByRole('button', { name: 'Güncelle' }))
-
-    expect(await screen.findByText('Ünvan zorunludur.')).toBeInTheDocument()
-    expect(firmApi.updateProjectFirmContact).not.toHaveBeenCalled()
   })
 
   it('kayıt hatasında girilen veri korunur', async () => {
@@ -284,14 +268,14 @@ describe('güncelleme', () => {
     renderPage()
     usersApi.updateUser.mockRejectedValue(new Error('ağ hatası'))
 
-    const address = await screen.findByLabelText(/Adres/)
-    await user.clear(address)
-    await user.type(address, 'Yeni Adres 3')
+    const email = await screen.findByLabelText(/Email/)
+    await user.clear(email)
+    await user.type(email, 'yeni.adres@firma.com')
     await fillNationalId(user)
     await user.click(screen.getByRole('button', { name: 'Güncelle' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('kaydedilemedi')
-    expect(screen.getByLabelText(/Adres/)).toHaveValue('Yeni Adres 3')
+    expect(screen.getByLabelText(/Email/)).toHaveValue('yeni.adres@firma.com')
   })
 
   // §10 + K103: alan yalnız şahıs firmasında ve okunan değer YÜKLENMEZ.
@@ -327,7 +311,7 @@ describe('güncelleme', () => {
         </QueryClientProvider>,
       )
 
-      await screen.findByLabelText(/Ünvan/)
+      await screen.findByLabelText(/Email/)
       expect(screen.queryByLabelText(/Tc Kimlik No/)).not.toBeInTheDocument()
     })
 

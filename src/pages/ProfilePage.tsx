@@ -159,7 +159,7 @@ function ProfileFormBody({
   onSuccess,
   onCancel,
 }: ProfileFormBodyProps) {
-  const initialValues = useMemo(() => toProfileValues(user, firm), [user, firm])
+  const initialValues = useMemo(() => toProfileValues(user), [user])
   const form = useProfileForm({ user, firm, initialValues, onRefresh })
 
   return (

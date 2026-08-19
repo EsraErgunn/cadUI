@@ -19,16 +19,15 @@ import type { NoticeTone } from '../NoticeBar'
  * Ekranın düzenlenebilir alanları ve SAHİPLERİ:
  *
  * - `email`, `userPhoneDigits` → KULLANICI kaydı (`PUT /api/users/{id}`)
- * - gerisi → FİRMA kaydı (`PUT /api/projectfirms/{id}`)
+ * - `nationalId` → FİRMA kaydı (`PUT /api/projectfirms/{id}`), yalnız şahısta
  *
  * `username` burada YOK: `PUT /api/users/{id}` gövdesinde kullanıcı adı
  * bulunmuyor, yani sunucu onu değiştirmiyor — salt okunur gösteriliyor.
+ * Ünvan / Firma Yetkilisi / Adres / Telefon 2 de ekrandan KALKTI; gövdeye
+ * okunan kayıttan gidiyorlar.
  */
 export interface ProfileFormValues {
-  title: string
-  contactPerson: string
   email: string
-  address: string
   /**
    * ŞAHIS firmasında zorunlu, tüzelde hiç kullanılmaz (§10). Alan bu ekrana
    * SONRADAN eklendi: `PUT /api/projectfirms/{id}` numarayı gövdede istiyor ve
@@ -39,14 +38,11 @@ export interface ProfileFormValues {
   nationalId: string
   /** Kullanıcının kendi telefonu; HAM rakam (maske yalnız görüntüde). */
   userPhoneDigits: string
-  /** Firmanın ikinci telefonu; HAM rakam. */
-  firmPhone2Digits: string
 }
 
 export type ProfileField = keyof ProfileFormValues
 
 export const PROFILE_ERRORS = {
-  title: 'Ünvan zorunludur.',
   emailInvalid: 'Geçerli bir e-posta adresi giriniz.',
   nationalId: 'Tc kimlik no zorunludur.',
   nationalIdLength: `Tc kimlik numarası ${NATIONAL_ID_LENGTH} haneli olmalıdır.`,
@@ -87,8 +83,6 @@ export function validateProfile(
 ): ProfileErrors {
   const errors: ProfileErrors = {}
 
-  if (values.title.trim() === '') errors.title = PROFILE_ERRORS.title
-
   if (isSoleProprietorship) {
     const nationalId = values.nationalId.trim()
     if (nationalId === '') errors.nationalId = PROFILE_ERRORS.nationalId
@@ -107,34 +101,23 @@ export function validateProfile(
     errors.userPhoneDigits = PROFILE_ERRORS.phoneInvalid
   }
 
-  if (values.firmPhone2Digits !== '' && values.firmPhone2Digits.length !== PHONE_DIGIT_COUNT) {
-    errors.firmPhone2Digits = PROFILE_ERRORS.phoneInvalid
-  }
-
   return errors
 }
 
-/** Sunucudan okunan iki kaydı forma çevirir; boş alan boş dize olur. */
-export function toProfileValues(
-  user: User,
-  firm: ProjectFirmFullDto | undefined,
-): ProfileFormValues {
+/** Sunucudan okunan kullanıcı kaydını forma çevirir; boş alan boş dize olur. */
+export function toProfileValues(user: User): ProfileFormValues {
   return {
-    title: firm?.title ?? '',
-    contactPerson: firm?.contactPerson ?? '',
     // Email KULLANICININ kendi e-postası; firmanınki bu ekranda kullanılmıyor.
     email: user.email ?? '',
-    address: firm?.address ?? '',
     // Sunucudaki değer MASKELİ ("*******1234"): yüklenmiyor, yeniden isteniyor.
     nationalId: '',
     userPhoneDigits: toPhoneDigits(user.phone ?? ''),
-    firmPhone2Digits: toPhoneDigits(firm?.phone2 ?? ''),
   }
 }
 
 /** Alana yazılabilecekleri kısıtlar: harf ve işaret girdiye HİÇ girmez. */
 function normalizeProfileValue(field: ProfileField, value: string): string {
-  if (field === 'userPhoneDigits' || field === 'firmPhone2Digits') return toPhoneDigits(value)
+  if (field === 'userPhoneDigits') return toPhoneDigits(value)
   if (field === 'nationalId') return toNationalIdDigits(value)
   return value
 }
@@ -170,8 +153,6 @@ export interface ProfileForm {
   isSubmitting: boolean
   /** Hata ya da KISMİ başarı; ikisi de aynı şeritte, tonu ayırıyor. */
   submitNotice: ProfileNotice | null
-  /** Firma alanları yalnız firma kaydı VARSA düzenlenebilir. */
-  canEditFirmFields: boolean
   setValue: (field: ProfileField, value: string) => void
   submit: () => Promise<boolean>
   reset: () => void
@@ -182,7 +163,7 @@ export interface ProfileForm {
  * Kişi Bilgileri formunun durumu.
  *
  * İKİ ayrı uca yazıyor ve bu bilinçli: Email ile Telefon 1 kullanıcının
- * kaydında (`PUT /api/users/{id}`), firma alanları firmanın kaydında
+ * kaydında (`PUT /api/users/{id}`), T.C. kimlik no firmanın kaydında
  * (`PUT /api/projectfirms/{id}`). Tek isteğe indirmek, sunucuda olmayan bir
  * birleşik uç uydurmak olurdu.
  *
@@ -247,14 +228,12 @@ export function useProfileForm({
         return false
       }
 
-      // 2) Firma kaydı; firma bağı yoksa bu adım hiç yok.
-      if (firm !== undefined) {
+      // 2) Firma kaydı YALNIZ şahıs firmasında: ekranda kalan tek firma alanı
+      // T.C. kimlik no ve tüzel firmada o da gövdeye girmiyor — gövdenin geri
+      // kalanı okunan kayıttan geldiği için istek hiçbir şeyi değiştirmezdi.
+      if (firm !== undefined && isSoleProprietorship) {
         try {
           await updateProjectFirmContact(firm, {
-            title: values.title.trim(),
-            contactPerson: optionalText(values.contactPerson),
-            phone2: optionalText(values.firmPhone2Digits),
-            address: optionalText(values.address),
             // Tüzel firmada `null`: alan gövdede dolu kalırsa sunucu 400 döner.
             nationalIdNumber: isSoleProprietorship ? optionalText(values.nationalId) : null,
           })
@@ -289,7 +268,6 @@ export function useProfileForm({
     isSoleProprietorship,
     isSubmitting,
     submitNotice,
-    canEditFirmFields: firm !== undefined,
     setValue,
     submit,
     reset,
