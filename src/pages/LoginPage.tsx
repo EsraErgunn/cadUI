@@ -11,6 +11,9 @@ const PASSWORD_FIELD_ID = 'login-password'
 
 const FORM_TITLE = 'Giriş Yap'
 
+/** Görünmez sayfa başlığı; marka adıyla birlikte okunur (bkz. kullanıldığı yer). */
+const BRAND_GREETING = 'Welcome to'
+
 const HEADING = 'Hoş geldiniz'
 
 const DESCRIPTION = 'Devam etmek için hesap bilgilerinizle giriş yapın.'
@@ -80,11 +83,19 @@ export function LoginPage() {
               zaten sağ panelde. */}
           <div className="flex items-center gap-2">
             <img src={logo} alt="" aria-hidden className="size-7 shrink-0 rounded-md object-contain" />
+            {/* Sayfanın h1'i marka karşılaması; EKRANDA görünmüyor çünkü arayüz
+                metni Türkçe ve karşılama görevini aşağıdaki "Hoş geldiniz"
+                üstleniyor. Ekran okuyucuda hemen ardından gelen marka adıyla
+                birlikte "Welcome to StarCAD" diye okunuyor — giriş ekranının
+                eskiden beri taşıdığı kimlik bu. Metin SABİT: `AppRouter`
+                duman testi (K112) giriş ekranını bu başlıktan tanıyor. */}
+            <h1 className="sr-only">{BRAND_GREETING}</h1>
             <span className="text-sm font-semibold text-ink">StarCAD</span>
           </div>
 
           <div>
-            <h1 className="text-2xl font-semibold text-ink">{HEADING}</h1>
+            {/* h2: sayfanın kimliğini h1 taşıyor, bu satır formun karşılaması. */}
+            <h2 className="text-2xl font-semibold text-ink">{HEADING}</h2>
             <p className="mt-2 text-sm text-ink-muted">{DESCRIPTION}</p>
           </div>
 
