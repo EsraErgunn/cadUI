@@ -5,6 +5,7 @@ import type {
   AreaObject,
   Beam,
   Floor,
+  FloorPipeLink,
   Opening,
   Point,
   PointSymbol,
@@ -160,6 +161,15 @@ const beamSchema = z.object({
   label: z.string(),
 })
 
+const floorPipeLinkSchema = z.object({
+  id: idSchema,
+  belowFloorId: idSchema,
+  aboveFloorId: idSchema,
+  belowPointId: idSchema,
+  abovePointId: idSchema,
+  position: z.object({ x: z.number(), y: z.number() }),
+})
+
 const textLabelSchema = z.object({
   id: idSchema,
   floorId: idSchema,
@@ -197,6 +207,8 @@ export const projectDataSchema = z.object({
   installationElements: z.array(installationElementSchema).default([]),
   installationLines: z.array(installationLineSchema).default([]),
   installationConnections: z.array(installationConnectionSchema).default([]),
+  // Kat bağlantı işaretleri de SONRADAN eklendi, aynı gerekçe.
+  floorPipeLinks: z.array(floorPipeLinkSchema).default([]),
 })
 
 export class ProjectDataParseError extends Error {
@@ -259,7 +271,19 @@ export function serializeProjectData(data: ProjectData): string {
     installationElements: data.installationElements.map(toInstallationElementJson),
     installationLines: data.installationLines.map(toInstallationLineJson),
     installationConnections: data.installationConnections.map(toInstallationConnectionJson),
+    floorPipeLinks: data.floorPipeLinks.map(toFloorPipeLinkJson),
   })
+}
+
+function toFloorPipeLinkJson(link: FloorPipeLink) {
+  return {
+    id: link.id,
+    belowFloorId: link.belowFloorId,
+    aboveFloorId: link.aboveFloorId,
+    belowPointId: link.belowPointId,
+    abovePointId: link.abovePointId,
+    position: { x: link.position.x, y: link.position.y },
+  }
 }
 
 function toFloorJson(floor: Floor) {

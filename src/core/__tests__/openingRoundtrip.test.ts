@@ -34,6 +34,7 @@ const project: ProjectData = {
   installationElements: [],
   installationLines: [],
   installationConnections: [],
+  floorPipeLinks: [],
 }
 
 describe('açıklık yükle→kaydet turu', () => {

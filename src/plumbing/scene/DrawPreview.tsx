@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ComponentRef } from 'react'
 import { InterleavedBufferAttribute, type Group } from 'three'
 
+import { FloorLinkPrompt } from './FloorLinkPrompt'
 import { PipeLine } from './InstallationLineMesh'
 import { DraftLengthLabel, LengthText } from './LengthLabels'
 import { getLineColor, getLineWidthPx } from './lineStyle'
@@ -247,6 +248,11 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
         <group position={planToThree(anchor, PREVIEW_ELEVATION_CM)}>
           <LengthText label={`Kot: ${formatLengthMeters(elevationCm)}`} zoom={zoom} />
         </group>
+      )}
+      {/* Kat bağlantı ikonu — yalnız zincirin ucu ZATEN yazılmış bir boru
+          noktasındaysa (`commitDraftFloorLink`'in kabul ettiği tek durum). */}
+      {draft?.kind === 'pipe' && draft.startTarget?.kind === 'linePoint' && (
+        <FloorLinkPrompt anchor={anchor} zoom={zoom} />
       )}
     </group>
   )

@@ -40,6 +40,7 @@ function projectWithWall(): ProjectData {
     installationElements: [],
     installationLines: [],
     installationConnections: [],
+    floorPipeLinks: [],
   }
 }
 

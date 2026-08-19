@@ -5,7 +5,17 @@ import { PropertyCheckboxField } from '../../../ui/properties/PropertyCheckboxFi
 import { PropertyNumberField } from '../../../ui/properties/PropertyNumberField'
 import { PropertyTextField } from '../../../ui/properties/PropertyTextField'
 import type { GasMeterProperties as GasMeterPropertiesData } from '../../core/elementProperties'
+import { getElementInputElevationCm } from '../../core/lineElevation'
 import { getCommonBoolean, getCommonString } from '../../core/propertyFields'
+
+/**
+ * Sayacın giriş portunun sabit id'si — `assets/symbols/gas-meter.meta.json`
+ * asset sözleşmesi (K-tesisat-panel). `ui/` `scene/`den (sembol metadata
+ * yükleyicisi `symbolLoader.ts`) import ETMEZ (kural 2, karıştırma), bu yüzden
+ * `getInputPort(metadata)` yerine bu sabit kullanılıyor — sayaç TEK tip ve
+ * portu hiç değişmiyor.
+ */
+const GAS_METER_INPUT_PORT_ID = 'in'
 
 const EMPTY_GAS_METER: GasMeterPropertiesData = {
   classLabel: '',
@@ -29,12 +39,49 @@ type GasMeterPropertiesProps = {
 
 export function GasMeterProperties({ elementIds }: GasMeterPropertiesProps) {
   const installationElements = useCadStore((state) => state.installationElements)
+  const installationLines = useCadStore((state) => state.installationLines)
+  const installationConnections = useCadStore((state) => state.installationConnections)
   const patchElements = useCadStore((state) => state.patchElements)
+  const patchLines = useCadStore((state) => state.patchLines)
 
   const selected = installationElements.filter((element) => elementIds.includes(element.id))
   if (selected.length === 0) return null
 
   const targetKey = `gasMeter-${elementIds.join(',')}`
+
+  // Kot (K102) sayacın KENDİ alanı değil, girişindeki borunun `pipe.start/end
+  // HeightCm`'i — sayaç hattın ÜSTÜNDE bir düğüm değil (`lineEnd` ile takılır,
+  // araya vana girer), bu yüzden diğer alanlar gibi `element.gasMeter`'dan
+  // DEĞİL `findElementInputLine`'dan okunur/yazılır (bkz. lineElevation.ts).
+  const elevationCm = getCommonNumber(
+    selected.map((element) =>
+      getElementInputElevationCm(
+        element.id,
+        GAS_METER_INPUT_PORT_ID,
+        installationLines,
+        installationConnections,
+      ),
+    ),
+  )
+
+  const commitElevation = (value: number) => {
+    const lineIds = installationConnections
+      .filter(
+        (connection) =>
+          connection.target.kind === 'port' &&
+          connection.target.portId === GAS_METER_INPUT_PORT_ID &&
+          elementIds.includes(connection.target.elementId),
+      )
+      .map((connection) => connection.lineId)
+    if (lineIds.length === 0) return false
+
+    // Düz kot: eğim yok — kullanıcı burada TEK bir sayı yazıyor, iki ucu ayrı
+    // ayrı sormuyoruz (K102'deki `+`/`- ile sonradan eğim de verilebilir).
+    patchLines(lineIds, (line) => ({
+      pipe: { description: '', ...line.pipe, startHeightCm: value, endHeightCm: value },
+    }))
+    return true
+  }
 
   // Yalnız DEĞİŞEN alan yazılır, elemanın diğer alt-alanları KENDİ mevcut
   // değerinden korunur (RegulatorProperties'teki gerekçeyle aynı).
@@ -74,6 +121,12 @@ export function GasMeterProperties({ elementIds }: GasMeterPropertiesProps) {
         value={commonString('outletConsumptionPoint')}
         targetKey={targetKey}
         onCommit={commitField('outletConsumptionPoint')}
+      />
+      <PropertyNumberField
+        label="Kot (cm)"
+        valueCm={elevationCm}
+        targetKey={targetKey}
+        onCommit={commitElevation}
       />
       <PropertyCheckboxField
         label="İçeride"

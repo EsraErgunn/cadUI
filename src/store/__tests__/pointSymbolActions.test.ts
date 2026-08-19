@@ -206,6 +206,7 @@ describe('kalıcılık', () => {
       installationElements: [],
       installationLines: [],
       installationConnections: [],
+      floorPipeLinks: [],
     }
     useCadStore.getState().resetProject()
     expect(useCadStore.getState().symbols).toHaveLength(0)

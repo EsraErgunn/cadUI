@@ -175,6 +175,12 @@ export function removeFloorInstallationInDraft(draft: CadState, floorId: Id): vo
     (element) => element.floorId !== floorId,
   )
   draft.installationLines = draft.installationLines.filter((line) => line.floorId !== floorId)
+  // Kat gidince o kata değen bağlantı işareti de gider — karşı kattaki nokta
+  // hâlâ dursa bile artık eşleşeceği bir uç kalmaz (Riser kararıyla aynı
+  // gerekçe: klonlanmaz, taşınmaz — silinince de sahipsiz bırakılmaz).
+  draft.floorPipeLinks = draft.floorPipeLinks.filter(
+    (link) => link.belowFloorId !== floorId && link.aboveFloorId !== floorId,
+  )
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { GhostAreaObject, GhostBeam, GhostRoomFill } from './ArchitectureGhostFixtures'
+import { GhostAreaObject, GhostBeam, GhostRoomFill, GhostRoomLabel } from './ArchitectureGhostFixtures'
 import { GhostPointSymbol } from './ArchitectureGhostPointSymbol'
 import { GhostOpening, GhostWall } from './ArchitectureGhostWalls'
 import { InstallationLines } from './InstallationLineMesh'
@@ -11,9 +11,11 @@ import { getOpeningOutline } from '../../core/opening'
 import { findRoomFaces } from '../../core/room'
 import { insetRoomPolygon } from '../../core/roomFill'
 import { getWallSetKey } from '../../core/roomIdentity'
+import { getRoomLabelAnchor } from '../../core/roomLabel'
 import { getSymbolPose, getSymbolsOnFloor } from '../../core/symbolPlacement'
 import { buildPointIndex } from '../../core/wall'
 import { useCadStore } from '../../store/cadStore'
+import { useUiStore } from '../../store/uiStore'
 
 /*
  * Karşı katmanın soluk izi — iki yönlü. İkisi de SceneRoot'ta mount edilir (çizen
@@ -44,6 +46,9 @@ export function ArchitectureGhost() {
   const areaObjects = useCadStore((state) => state.areaObjects)
   const symbols = useCadStore((state) => state.symbols)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
+  // Oda adı görünürlüğü Room.tsx ile AYNI anahtardan okunur: kullanıcı adları
+  // gizlediyse hayalette de gizli kalmalı, iki ayrı "görünür" durumu olmasın.
+  const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   // Zoom BİR kez okunur ve dağıtılır (bkz. useCameraZoom).
   const zoom = useCameraZoom()
 
@@ -84,7 +89,11 @@ export function ArchitectureGhost() {
 
       const thicknessesCm = face.wallIds.map((wallId) => thicknessById.get(wallId) ?? 0)
       const corners = insetRoomPolygon(face.corners, thicknessesCm)
-      return corners ? [{ id: room.id, corners }] : []
+      if (!corners) return []
+
+      // Etiket çapası gerçek çevrime göre bulunur, dolgunun küçültülmüş
+      // poligonuna göre DEĞİL — Room.tsx → RoomShape ile aynı gerekçe.
+      return [{ id: room.id, name: room.name, corners, labelAnchor: getRoomLabelAnchor(face.corners) }]
     })
   }, [activeFloorId, floorWalls, points, rooms])
 
@@ -110,6 +119,11 @@ export function ArchitectureGhost() {
       {roomFillShapes.map((shape) => (
         <GhostRoomFill key={shape.id} corners={shape.corners} />
       ))}
+
+      {isRoomNamesVisible &&
+        roomFillShapes.map((shape) => (
+          <GhostRoomLabel key={shape.id} anchor={shape.labelAnchor} name={shape.name} />
+        ))}
 
       {floorWalls.map((wall) => (
         <GhostWall key={wall.id} wall={wall} pointIndex={pointIndex} zoom={zoom} />

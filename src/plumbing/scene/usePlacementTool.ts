@@ -11,6 +11,7 @@ import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
+import { getInputPort } from '../core/attachGeometry'
 import { getElementAttachMode, getPlacementPreviewTypes } from '../core/attachModes'
 import {
   resolveFreeEndAttachment,
@@ -26,6 +27,7 @@ import {
   INSTALLATION_PIPE_TOOL_ID,
 } from '../core/installationTools'
 import { startChain } from '../core/lineChain'
+import { getElementInputElevationCm } from '../core/lineElevation'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getSeedPort } from '../core/lineSeed'
 import { DEFAULT_ELEMENT_ANGLE_DEG } from '../core/placement'
@@ -180,21 +182,35 @@ export function usePlacementTool(): PlacementPreviewState {
      * kalmaz.
      */
     const startPipeFrom = (elementId: Id | null) => {
-      const element = useCadStore
-        .getState()
-        .installationElements.find((candidate) => candidate.id === elementId)
+      const cad = useCadStore.getState()
+      const element = cad.installationElements.find((candidate) => candidate.id === elementId)
       if (!element) return
 
       const metadata = getSymbolMetadata(element.type)
       const outputPort = getSeedPort(metadata)
       if (outputPort) {
+        // Elemanın GİRİŞİNDE zaten bir boru varsa (sayaç gibi `lineEnd` ile
+        // takılan elemanlar, K102) devam eden boru AYNI kottan başlar — yoksa
+        // çizim sayaçta aniden zemine düşermüş gibi görünürdü (kullanıcı
+        // isteği, 2026-08: "200'de devam etmeli çizim"). Servis kutusunun
+        // giriş portu yok (`getInputPort` null döner), o hep 0'da kalır.
+        const inputPort = getInputPort(metadata)
+        const elevationCm = inputPort
+          ? getElementInputElevationCm(
+              element.id,
+              inputPort.id,
+              cad.installationLines,
+              cad.installationConnections,
+            )
+          : 0
+
         usePlumbingUiStore.getState().setDraftLine({
           kind: 'pipe',
-          ...startChain(getPortWorldPosition(element, outputPort, metadata), {
-            kind: 'port',
-            elementId: element.id,
-            portId: outputPort.id,
-          }),
+          ...startChain(
+            getPortWorldPosition(element, outputPort, metadata),
+            { kind: 'port', elementId: element.id, portId: outputPort.id },
+            elevationCm,
+          ),
         })
       }
       useUiStore.getState().setActiveTool(INSTALLATION_PIPE_TOOL_ID)

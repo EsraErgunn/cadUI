@@ -1,5 +1,6 @@
-import { Line } from '@react-three/drei'
+import { Line, Text } from '@react-three/drei'
 
+import { FONT_URL } from './LengthLabels'
 import { ARCHITECTURE_GHOST_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import type { AreaObjectShape } from '../../core/areaObject'
@@ -69,6 +70,36 @@ export function GhostRoomFill({ corners }: { corners: readonly PlanPoint[] }) {
         toneMapped={false}
       />
     </mesh>
+  )
+}
+
+/** Türkçe büyük harf i → İ; varsayılan locale I üretir ve ad yanlış okunur (RoomLabel.tsx ile aynı). */
+const TURKISH_LOCALE = 'tr-TR'
+const GHOST_ROOM_NAME_SIZE_CM = 26
+
+/**
+ * Hayalet oda ADI (kullanıcı isteği, 2026-08: "mahal tanımları silinmesin ghost
+ * modunda") — dolgu (`GhostRoomFill`) hayalette KORUNUYORDU ama ismi hiç
+ * çizilmiyordu, tesisatçı hangi mahalde olduğunu göremiyordu. `RoomLabel.tsx`
+ * ile AYNI çapa noktası (`getRoomLabelAnchor`) ve büyük harf dönüşümü; rozet ve
+ * m² satırı BİLEREK YOK — diğer hayalet öğeleri gibi (nokta sembolü, alan
+ * nesnesi) tek satır, tek soluk renk, salt tanıma amaçlı.
+ */
+export function GhostRoomLabel({ anchor, name }: { anchor: PlanPoint; name: string }) {
+  return (
+    <group position={planToThree(anchor, ARCHITECTURE_GHOST_ELEVATION_CM)} rotation={[-Math.PI / 2, 0, 0]}>
+      <Text
+        font={FONT_URL}
+        fontSize={GHOST_ROOM_NAME_SIZE_CM}
+        color={PLUMBING_COLORS.architectureGhost}
+        anchorX="center"
+        anchorY="middle"
+        renderOrder={RENDER_ORDER.architectureGhostRoom}
+        raycast={() => null}
+      >
+        {name.toLocaleUpperCase(TURKISH_LOCALE)}
+      </Text>
+    </group>
   )
 }
 

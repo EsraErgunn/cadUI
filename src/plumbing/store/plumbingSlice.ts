@@ -7,7 +7,7 @@ import {
   type PlumbingSnapshot,
 } from './plumbingHistory'
 import type { PlanPoint } from '../../core/coords'
-import type { Id } from '../../core/model'
+import type { FloorPipeLink, Id } from '../../core/model'
 // cadStore ↔ plumbingSlice karşılıklı import eder; bu taraf tip-only olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
 import type { CadState } from '../../store/cadStore'
@@ -31,6 +31,7 @@ import type {
   LineEndAttachment,
 } from '../core/installationModel'
 import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
+import { GAS_METER_DEFAULT_HEIGHT_CM } from '../core/lineElevation'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import type { PipeLineProperties } from '../core/lineProperties'
@@ -67,6 +68,9 @@ export type AddLineInput = {
  */
 export type AddLineResult = { lineId: Id; startPointId: Id; endPointId: Id }
 
+/** `addFloorPipeLink` girdisi — id `takeNextId`'den üretilir, çağıran vermez. */
+export type AddFloorPipeLinkInput = Omit<FloorPipeLink, 'id'>
+
 /** Cihazı boruya bağlayan kısa kol da normal bir borudur; ayrı bir hat türü yok. */
 const STUB_LINE_KIND: InstallationLineKind = 'applianceStub'
 
@@ -74,6 +78,7 @@ export type PlumbingSlice = {
   installationElements: InstallationElement[]
   installationLines: InstallationLine[]
   installationConnections: InstallationConnection[]
+  floorPipeLinks: FloorPipeLink[]
   /** Kat aktif kattan alınır: eleman iki yerde tutulan bir floorId ile ayrışmasın.
    *  Üretilen id döner — hat aracı ilk elemanı koyup portuna bağlanabilsin. */
   addElement: (input: AddElementInput) => Id
@@ -131,6 +136,8 @@ export type PlumbingSlice = {
   resizePipeEnd: (lineId: Id, endPointId: Id, position: PlanPoint, endHeightCm: number) => void
   /** Bir boru adımını kalıcı hâle getirir; 2 noktadan azı KAYDEDİLMEZ (null döner). */
   addLine: (input: AddLineInput) => AddLineResult | null
+  /** Bir borunun ucunu üst/alt kattaki bir boru ucuyla eşleştirir. Üretilen id döner. */
+  addFloorPipeLink: (input: AddFloorPipeLinkInput) => Id
   /** Boruya oturan armatür(ler): hedef parça sırayla ayrılır, her düğüme bir eleman biner. */
   placeOnLineElements: (attachment: OnLineAttachment) => void
   /** Boş boru ucuna eleman: araya vana girer, hat elemanın girişine uzar. Eleman id'si döner. */
@@ -198,6 +205,7 @@ export const INITIAL_PLUMBING_DATA: PlumbingSnapshot = {
   installationElements: [],
   installationLines: [],
   installationConnections: [],
+  floorPipeLinks: [],
 }
 
 export const createPlumbingSlice: StateCreator<
@@ -208,8 +216,14 @@ export const createPlumbingSlice: StateCreator<
 > = (set, get) => {
   /** Değişimden SONRA aynalanır — zundo bir önceki aynayı geçmişe iter. */
   const record = () => {
-    const { installationElements, installationLines, installationConnections } = get()
-    recordPlumbingHistory({ installationElements, installationLines, installationConnections })
+    const { installationElements, installationLines, installationConnections, floorPipeLinks } =
+      get()
+    recordPlumbingHistory({
+      installationElements,
+      installationLines,
+      installationConnections,
+      floorPipeLinks,
+    })
   }
 
   const restore = (snapshot: PlumbingSnapshot | null) => {
@@ -219,6 +233,7 @@ export const createPlumbingSlice: StateCreator<
       draft.installationElements = snapshot.installationElements
       draft.installationLines = snapshot.installationLines
       draft.installationConnections = snapshot.installationConnections
+      draft.floorPipeLinks = snapshot.floorPipeLinks
       markDirty(draft)
     })
   }
@@ -335,6 +350,15 @@ export const createPlumbingSlice: StateCreator<
       ) {
         return
       }
+
+      // Silinen hattın noktalarından biri bir kat bağlantısının ucuysa o
+      // bağlantı da gider — karşı taraf dursa bile artık eşleşecek bir uç kalmaz.
+      const removedPointIds = new Set(
+        removedLines.flatMap((line) => line.points.map((point) => point.id)),
+      )
+      draft.floorPipeLinks = draft.floorPipeLinks.filter(
+        (link) => !removedPointIds.has(link.belowPointId) && !removedPointIds.has(link.abovePointId),
+      )
 
       draft.installationElements = remainingElements
       draft.installationLines = remainingLines
@@ -786,6 +810,17 @@ export const createPlumbingSlice: StateCreator<
       return created
     },
 
+    addFloorPipeLink: (input) => {
+      let createdId: Id = 0
+      set((draft) => {
+        createdId = takeNextId(draft)
+        draft.floorPipeLinks.push({ id: createdId, ...input })
+        markDirty(draft)
+      })
+      record()
+      return createdId
+    },
+
     // Ana eleman + refakatçileri + boru ayırmaları TEK set() içinde: kullanıcı
     // bir sembol bıraktı, bir Ctrl+Z hepsini geri almalı.
     placeOnLineElements: (attachment) => {
@@ -832,6 +867,20 @@ export const createPlumbingSlice: StateCreator<
 
         line.points = extended.points
         line.segments = extended.segments
+
+        // Bu eylem YALNIZ sayaç için kullanılır (`attachModes.ts`: `lineEnd`
+        // yalnız gasMeter'da) — saha uygulamasında sayaç duvara ~2 m'de monte
+        // edilir, borunun varsayılan zemin kotunda (0) kalması gerçekçi
+        // olmazdı (kullanıcı isteği, 2026-08). Düz kot: eğim yok, K102'nin
+        // `+`/`- ile kullanıcı sonradan değiştirebilir.
+        if (line.kind === 'pipe') {
+          line.pipe = {
+            description: '',
+            ...line.pipe,
+            startHeightCm: GAS_METER_DEFAULT_HEIGHT_CM,
+            endHeightCm: GAS_METER_DEFAULT_HEIGHT_CM,
+          }
+        }
 
         // Vana hattın ESKİ ucundaki düğüme oturur; hat uzadığı için o düğüm artık
         // boru ile eleman ARASINDA kalır ("aralarına vana konur").

@@ -14,6 +14,14 @@ export const RENDER_ORDER = {
   /** Açıklık kendi duvarının üstünde ayrı sırada — gerekçesi architectureGhostOpening ile aynı. */
   floorBelowGhostOpening: 8,
   /**
+   * Tesisat görünümündeki ALT KATIN izi (`plumbing/scene/InstallationBelowGhost.tsx`).
+   * floorBelowGhost'un (yalnız 'architecture' görünümünde) mantığının aynısı,
+   * yalnız 'installation' görünümünde — ikisi asla aynı anda sahnede olmaz,
+   * yine de architectureGhost'un (aktif kat) ALTINDA dursun diye ayrı ve daha
+   * küçük bir bant.
+   */
+  installationBelowGhost: 7,
+  /**
    * Tesisat görünümündeki mimari hayalet (aktif kat, `plumbing/scene/Ghosts.tsx`
    * → `ArchitectureGhost`). Gerçek `ArchitectureLayer` ile AYNI göreli sıra —
    * oda en altta, alan nesnesi en üstte — yalnız tek renge boyanmış hâliyle

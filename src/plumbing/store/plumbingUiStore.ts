@@ -85,6 +85,18 @@ export type Measurement = { start: PlanPoint; end: PlanPoint | null }
  */
 export type PendingServiceBoxDeletion = { elementIds: Id[]; lineIds: Id[] }
 
+/**
+ * `commitDraftFloorLink` (`floorLinkActions.ts`) hedef kata geçtiğinde
+ * bağlantının BİR ucu (mevcut kattaki nokta) belli, karşı taraf henüz yok —
+ * hedef katta ilk boru adımı yazılana kadar (`useLineTool.ts` `commitStep`)
+ * burada bekler. Yalnız BİR taraf dolu olur: `below*` VEYA `above*`, ikisi
+ * birden değil (ayırt edici alan yok, çünkü hangisinin eksik olduğu zaten
+ * hangi alanların dolu olduğundan anlaşılır).
+ */
+export type PendingFloorLink =
+  | { belowFloorId: Id; aboveFloorId: Id; belowPointId: Id; position: PlanPoint }
+  | { belowFloorId: Id; aboveFloorId: Id; abovePointId: Id; position: PlanPoint }
+
 type PlumbingUiState = {
   selectedElementIds: Id[]
   /** Hatlar ayrı listede: eleman ve hat id'leri aynı evrende ama iki farklı
@@ -147,6 +159,9 @@ type PlumbingUiState = {
   pendingServiceBoxDeletion: PendingServiceBoxDeletion | null
   requestServiceBoxDeletion: (request: PendingServiceBoxDeletion) => void
   cancelServiceBoxDeletion: () => void
+  /** Yarım kalan kat bağlantısı; boş = beklenen yok (bkz. `PendingFloorLink`). */
+  pendingFloorLink: PendingFloorLink | null
+  setPendingFloorLink: (link: PendingFloorLink | null) => void
 }
 
 /**
@@ -181,6 +196,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     measurement: null,
     assetErrors: {},
     pendingServiceBoxDeletion: null,
+    pendingFloorLink: null,
 
     setSelectedElements: (elementIds) =>
       set((draft) => {
@@ -304,6 +320,11 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     cancelServiceBoxDeletion: () =>
       set((draft) => {
         draft.pendingServiceBoxDeletion = null
+      }),
+
+    setPendingFloorLink: (link) =>
+      set((draft) => {
+        draft.pendingFloorLink = link
       }),
   })),
 )

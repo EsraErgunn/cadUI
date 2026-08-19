@@ -55,6 +55,13 @@ export const PLUMBING_COLORS = {
    * renk tek başına ayırt edici değildir.
    */
   measurementLine: MEASUREMENT_INK,
+  /**
+   * Kat bağlantı ikonu/rozeti (üst/alt kata bağlama). Var olan hiçbir renkle
+   * çakışmaz: kırmızı (applianceStub/assetError), mavi (branchStub/seçim),
+   * teal (havalandırma), gri (baca) ve amber (etiket kılavuzu) hepsi başka bir
+   * anlam taşıyor — marka sarısı zaten yasak (K27).
+   */
+  floorLink: '#7c3aed',
 } as const
 
 /** Deşarj türü → kontur rengi. Tek kaynak: kanal ve önizlemesi aynı tablodan okur. */

@@ -2,6 +2,7 @@ import { temporal } from 'zundo'
 import { useStore } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 
+import type { FloorPipeLink } from '../../core/model'
 import type {
   InstallationConnection,
   InstallationElement,
@@ -13,6 +14,7 @@ export type PlumbingSnapshot = {
   installationElements: InstallationElement[]
   installationLines: InstallationLine[]
   installationConnections: InstallationConnection[]
+  floorPipeLinks: FloorPipeLink[]
 }
 
 /** Bir oturumda tutulan en fazla geri alma adımı. */
@@ -33,6 +35,7 @@ const historyStore = createStore<PlumbingSnapshot>()(
       installationElements: [],
       installationLines: [],
       installationConnections: [],
+      floorPipeLinks: [],
     }),
     { limit: HISTORY_LIMIT },
   ),

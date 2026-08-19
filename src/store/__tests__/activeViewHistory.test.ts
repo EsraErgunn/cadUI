@@ -10,6 +10,7 @@ const EMPTY_PLUMBING = {
   installationElements: [],
   installationLines: [],
   installationConnections: [],
+  floorPipeLinks: [],
 }
 
 function addWallOpening(): void {
