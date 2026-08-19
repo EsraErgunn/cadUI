@@ -18,6 +18,8 @@ import {
   ANNOUNCEMENTS_PATH,
   DOCUMENTS_PATH,
   DOCUMENT_CREATE_PATH,
+  GAS_DISTRIBUTION_USERS_PATH,
+  GAS_DISTRIBUTION_USER_CREATE_PATH,
   POLICIES_PATH,
   POLICY_CREATE_ROUTE,
   PROFILE_PATH,
@@ -58,6 +60,12 @@ const GasDistributionFirmFormPage = lazy(async () => ({
 }))
 const GasDistributionFirmsPage = lazy(async () => ({
   default: (await import('../pages/GasDistributionFirmsPage')).GasDistributionFirmsPage,
+}))
+const GasDistributionUserFormPage = lazy(async () => ({
+  default: (await import('../pages/GasDistributionUserFormPage')).GasDistributionUserFormPage,
+}))
+const GasDistributionUsersPage = lazy(async () => ({
+  default: (await import('../pages/GasDistributionUsersPage')).GasDistributionUsersPage,
 }))
 const NewDocumentPage = lazy(async () => ({
   default: (await import('../pages/NewDocumentPage')).NewDocumentPage,
@@ -201,6 +209,13 @@ const router = createBrowserRouter(
         <Route
           path={`${PROJECT_FIRM_USERS_PATH}/:userId`}
           element={<ProjectFirmUserFormPage />}
+        />
+
+        <Route path={GAS_DISTRIBUTION_USERS_PATH} element={<GasDistributionUsersPage />} />
+        {/* Güncelleme rotası YOK: uç yalnız oluşturmayı destekliyor. */}
+        <Route
+          path={GAS_DISTRIBUTION_USER_CREATE_PATH}
+          element={<GasDistributionUserFormPage />}
         />
 
         <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
