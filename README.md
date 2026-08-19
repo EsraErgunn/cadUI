@@ -2,6 +2,10 @@
 
 StarCAD Prototip, modern web teknolojileri kullanılarak geliştirilen 2D ve 3D CAD uygulamasıdır.
 
+# StarCAD Canlı
+
+http://starcad.tekhnelogos.com 
+
 ## Özellikler
 
 - 2D çizim araçları
