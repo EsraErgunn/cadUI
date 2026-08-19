@@ -4,10 +4,10 @@ import { commitDraftElevationTo } from '../store/pipeElevationActions'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 /**
- * Boru çizerken kotu SAYIYLA girmenin yolu (K102) — `+`/`-` yalnız 25 cm'lik
- * adımlarla gider, hedef kesin bir değer (ör. 180) ise bu şerit daha hızlı.
- * `OpeningToolOptions` ile aynı desen: yazarken store'a yazılmaz (rakamlar eski
- * değerin üstüne eklenmesin diye), Enter/blur'da tek commit.
+ * Boru çizerken kotu SAYIYLA girmenin yolu (K102) — hedef kesin bir değer
+ * (ör. 180) ise bu şerit hızlı bir giriş yolu sağlar. `OpeningToolOptions` ile
+ * aynı desen: yazarken store'a yazılmaz (rakamlar eski değerin üstüne
+ * eklenmesin diye), Enter/blur'da tek commit.
  *
  * Yalnız aktif bir `pipe` taslağı VARKEN görünür — hedefi olmayan bir kutuyu
  * göstermek kafa karıştırırdı.

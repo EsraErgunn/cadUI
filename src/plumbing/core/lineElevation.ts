@@ -9,10 +9,7 @@ import type { PipeLineProperties } from './lineProperties'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 
-/** `+`/`-` tuşunun tek basışta değiştirdiği kot miktarı (K102). */
-export const PIPE_HEIGHT_STEP_CM = 25
-
-/** Art arda tuşlamanın kotu sonsuza taşımaması için sağduyu sınırı. */
+/** Kotun sonsuza taşınmaması için sağduyu sınırı. */
 const MAX_PIPE_HEIGHT_CM = 2000
 
 /**
@@ -42,6 +39,27 @@ export function clampPipeHeightCm(heightCm: number): number {
   if (heightCm > MAX_PIPE_HEIGHT_CM) return MAX_PIPE_HEIGHT_CM
   if (heightCm < -MAX_PIPE_HEIGHT_CM) return -MAX_PIPE_HEIGHT_CM
   return heightCm
+}
+
+export type ElevationFloorCap = {
+  /** Bu katta yazılacak kot — tavanı (`floorHeightCm`) AŞMAZ. */
+  endHeightCm: number
+  /** Tavanı aşan kısım — üstteki kata taşınacak miktar. Aşılmadıysa 0. */
+  overflowCm: number
+}
+
+/**
+ * Hedef kot bir katın tavanını (`floorHeightCm`) aşarsa: bu katta biten kot
+ * (tavanla sınırlı) + üstteki kata taşınacak kalan (kullanıcı isteği, 2026-08
+ * — "boruya katın uzunluğundan fazla kot verilirse yeni kata çıksın, üstüne
+ * hâlâ kot varsa o kadar daha yeni katta kot verilsin"). K102'nin "otomatik
+ * kolon YOK" notunu bilinçli olarak geride bırakır, bkz.
+ * knowledge/pipe-floor-crossing.md. Yalnız YUKARI yönde anlamlı — negatif
+ * hedefler (0'ın altı) bu fonksiyondan hiç geçmez, kapsam dışı.
+ */
+export function capElevationToFloor(targetHeightCm: number, floorHeightCm: number): ElevationFloorCap {
+  if (targetHeightCm <= floorHeightCm) return { endHeightCm: targetHeightCm, overflowCm: 0 }
+  return { endHeightCm: floorHeightCm, overflowCm: targetHeightCm - floorHeightCm }
 }
 
 /**
@@ -253,9 +271,9 @@ export function resolvePipeResizeTarget(
 
 /**
  * Zincirin ucu ZATEN aynı konumda bir dikey (plan boyu sıfır) `pipe`
- * segmentinin bitişindeyse o hattın id'sini döner — art arda `+`/`-` basışı
+ * segmentinin bitişindeyse o hattın id'sini döner — art arda kot değişikliği
  * ÜST ÜSTE BİNEN ayrı borular yazmasın diye (kullanıcı isteği, 2026-08):
- * ikinci basış yeni bir hat YAZMAZ, var olanın `endHeightCm`'i güncellenir.
+ * yeni bir hat YAZMAZ, var olanın `endHeightCm`'i güncellenir.
  *
  * Yalnız zincirin `startTarget`'ı o hattın UCUNA bağlıysa eşleşir (`linePoint`
  * kind) — kullanıcı araya yatay bir adım koyduysa artık başka bir noktadayız,

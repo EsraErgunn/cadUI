@@ -16,7 +16,7 @@ export type LineSnapCandidate = {
  * Köşeye bu kadar yaklaşan izdüşüm köşenin KENDİSİNE yapışır. Yoksa köşenin
  * hemen yanında sıfıra yakın uzunlukta bir parça doğuran bölme yapılırdı.
  */
-const CORNER_SNAP_RATIO = 0.5
+const CORNER_SNAP_RATIO = 1.0
 
 /**
  * İmlece en yakın hat noktası. Boru aracıyla mevcut bir borunun üstünde
@@ -32,7 +32,6 @@ export function findNearestPointOnLines(
   radiusCm: number,
 ): LineSnapCandidate | null {
   if (radiusCm <= 0) return null
-
   let nearest: LineSnapCandidate | null = null
   let nearestDistanceCm = Number.POSITIVE_INFINITY
 

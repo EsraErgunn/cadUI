@@ -26,7 +26,11 @@ import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
 import type { InstallationElement } from '../core/installationModel'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
-import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
+import {
+  getFloorLinkAnchoredPointIds,
+  getLinkedLinePoints,
+  getPortAnchoredPointIds,
+} from '../core/lineCornerLink'
 import { isSamePoint } from '../core/lineGeometry'
 import { getLinesInRect, pickLineAt } from '../core/linePicking'
 import { findNearestPointOnLines } from '../core/lineSnap'
@@ -181,6 +185,8 @@ export function useSelectionTool(): SelectionToolState {
 
     const readConnections = () => useCadStore.getState().installationConnections
 
+    const readFloorPipeLinks = () => useCadStore.getState().floorPipeLinks
+
     const getMetadata = (type: Parameters<typeof getLoadedSymbol>[0]) =>
       getLoadedSymbol(type).metadata
 
@@ -204,7 +210,7 @@ export function useSelectionTool(): SelectionToolState {
       const lines = readFloorLines()
       const connections = readConnections()
       const elements = readFloorElements()
-      const targets = resolveMoveTargets(lines, connections, elementIds, lineIds)
+      const targets = resolveMoveTargets(lines, connections, readFloorPipeLinks(), elementIds, lineIds)
       const movableElementIds = [...targets.elementIds].filter((id) => {
         const type = elements.find((element) => element.id === id)?.type
         return type === undefined || !isFixedCompanionValve(lines, connections, id, type)
@@ -229,10 +235,12 @@ export function useSelectionTool(): SelectionToolState {
      * dener — isabet dar (bkz. `getSnapRadiusCm`), gövdeye basışla çakışmaz.
      *
      * Köşede bir ELEMAN PORTUNA oturan uç varsa sürükleme BAŞLAMAZ: o uç
-     * konumunu porttan alıyor, yalnız elemanı taşıyarak hareket eder. Denetim
-     * köşenin TAMAMINA bakar (`getLinkedLinePoints` + `getPortAnchoredPointIds`),
-     * çünkü basılan uç serbest görünürken aynı köşede buluşan başka bir hattın
-     * ucu porta bağlı olabilir — store da aynı kuralı uyguluyor, yoksa sahne
+     * konumunu porttan alıyor, yalnız elemanı taşıyarak hareket eder. Bir
+     * `FloorPipeLink` ucu da AYNI gerekçeyle çapadır (`getFloorLinkAnchoredPointIds`,
+     * kullanıcı isteği 2026-08). Denetim köşenin TAMAMINA bakar
+     * (`getLinkedLinePoints` + çapa kümeleri), çünkü basılan uç serbest
+     * görünürken aynı köşede buluşan başka bir hattın ucu porta/kata bağlı
+     * olabilir — store da aynı kuralı uyguluyor, yoksa sahne
      * sürüklemeyi başlatır ama bırakınca hiçbir şey olmazdı.
      *
      * Hat-hat bağı ENGEL DEĞİL: her sol tık kendi borusunu yazdığı için (K-W)
@@ -260,8 +268,9 @@ export function useSelectionTool(): SelectionToolState {
 
       const connections = readConnections()
       const anchored = getPortAnchoredPointIds(lines, connections)
+      const floorLinkAnchored = getFloorLinkAnchoredPointIds(readFloorPipeLinks())
       const linked = getLinkedLinePoints(lines, connections, hit.lineId, hit.pointId)
-      if (linked.some((link) => anchored.has(link.pointId))) return false
+      if (linked.some((link) => anchored.has(link.pointId) || floorLinkAnchored.has(link.pointId))) return false
 
       cornerDrag = {
         lineId: hit.lineId,

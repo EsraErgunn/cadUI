@@ -1,8 +1,12 @@
 import { expandMoveSelection } from './elementAttach'
 import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
-import { getLineEndPointId, getPortAnchoredPointIds } from './lineCornerLink'
-import type { Id } from '../../core/model'
+import {
+  getFloorLinkAnchoredPointIds,
+  getLineEndPointId,
+  getPortAnchoredPointIds,
+} from './lineCornerLink'
+import type { FloorPipeLink, Id } from '../../core/model'
 
 export type MoveTargets = {
   /** Aynı kaymayla taşınacak elemanlar. */
@@ -63,6 +67,7 @@ function getGlueNeighborPointId(
 export function resolveMoveTargets(
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
+  floorPipeLinks: readonly FloorPipeLink[],
   selectedElementIds: readonly Id[],
   selectedLineIds: readonly Id[],
 ): MoveTargets {
@@ -72,7 +77,15 @@ export function resolveMoveTargets(
     expandMoveSelection(lines, connections, selectedElementIds, selectedLineIds),
   )
 
-  const anchoredPointIds = getPortAnchoredPointIds(lines, connections, elementIds)
+  // Port çapasının aksine bir `FloorPipeLink` ucunun "diğer tarafını da
+  // seçime katan" bir eş mekanizma YOK (diğer taraf başka bir kattaki hat) —
+  // bu yüzden floor-link çapası HİÇBİR koşulda düşürülmez (kullanıcı isteği,
+  // 2026-08).
+  const floorLinkAnchoredPointIds = getFloorLinkAnchoredPointIds(floorPipeLinks)
+  const anchoredPointIds = new Set([
+    ...getPortAnchoredPointIds(lines, connections, elementIds),
+    ...floorLinkAnchoredPointIds,
+  ])
 
   const pointIds = new Set<Id>()
   const addPoint = (pointId: Id | undefined) => {
@@ -83,11 +96,17 @@ export function resolveMoveTargets(
     return true
   }
 
-  // Seçili hat BÜTÜNÜYLE kayar; çapa denetimine takılmaz çünkü portuna bağlı
-  // elemanı zaten seçime katıldı (`expandMoveSelection`) — yani çapa değil.
+  // Seçili hat BÜTÜNÜYLE kayar; PORT çapa denetimine takılmaz çünkü portuna
+  // bağlı elemanı zaten seçime katıldı (`expandMoveSelection`) — yani çapa
+  // değil. Floor-link çapasının böyle bir eşi yok, bu yüzden burada AYRICA
+  // elenir (kullanıcı isteği, 2026-08) — yoksa doğrudan seçilip sürüklenen
+  // bir hattın kata bağlı ucu sessizce kayardı.
   for (const line of lines) {
     if (!lineIdSet.has(line.id)) continue
-    for (const point of line.points) pointIds.add(point.id)
+    for (const point of line.points) {
+      if (floorLinkAnchoredPointIds.has(point.id)) continue
+      pointIds.add(point.id)
+    }
   }
 
   for (const connection of connections) {

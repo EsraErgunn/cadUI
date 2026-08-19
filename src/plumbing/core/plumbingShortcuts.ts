@@ -23,7 +23,6 @@ export const PLUMBING_SHORTCUTS = [
     // yakalamayı kapattığını sanıyor.
     label: 'Izgarayı kapat (port/boru yakalaması kalır)',
   },
-  { id: 'pipe-elevation', keys: ['+', '-'], label: 'Boru çizerken kotu değiştir' },
   { id: 'copy', keys: ['Ctrl+C'], label: 'Seçimi kopyala' },
   { id: 'cut', keys: ['Ctrl+X'], label: 'Seçimi kes' },
   { id: 'paste', keys: ['Ctrl+V'], label: 'Yapıştır' },
