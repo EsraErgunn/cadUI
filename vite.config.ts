@@ -18,8 +18,23 @@ export default defineConfig(({ mode }) => ({
       : []),
   ],
   server: {
+    // Tüm arayüzleri dinler: ekip sunucusuna kendi makinesi dışından giriliyor.
     host: '0.0.0.0',
     port: 5173,
+    /**
+     * Vite, tanımadığı bir `Host` başlığıyla gelen isteği REDDEDER (DNS
+     * rebinding koruması): kötü niyetli bir site kendi alan adını 127.0.0.1'e
+     * çözüp ziyaretçinin tarayıcısı üzerinden geliştirme sunucusuna konuşabilir
+     * ve kaynak kodu okuyabilirdi. Sunucuya bu alan addan giriliyor.
+     *
+     * Alan adı TEK TEK yazılıyor; `allowedHosts: true` korumayı tümüyle
+     * kapatırdı ve dev sunucusu ağa açıkken bunun bedeli kaynak kodun kendisi.
+     */
+    allowedHosts: ['starcad.tekhnelogos.com'],
+  },
+  // `vite preview` AYRI bir sunucu ve kendi listesine bakıyor: yazılmazsa
+  // yayın öncesi önizleme aynı "host not allowed" hatasına düşer.
+  preview: {
     allowedHosts: ['starcad.tekhnelogos.com'],
   },
   css: {
