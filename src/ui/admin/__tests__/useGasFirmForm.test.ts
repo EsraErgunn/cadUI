@@ -31,6 +31,7 @@ function buildValidValues() {
     ...buildEmptyGasFirmValues(),
     dfirmNo: '1300',
     name: 'ADANA DOĞALGAZ',
+    groupId: '3',
     phoneDigits: '05551234567',
   }
 }
@@ -145,9 +146,9 @@ describe('submit', () => {
 
     await act(async () => void (await result.current.submit()))
 
-    // Grup seçilmediğinde kimlik `null` gider (sunucu grubu kimlikle alıyor).
+    // Grup zorunlu olduğu için kimlik her zaman dolu gider; boş metin alanları null.
     expect(createMock).toHaveBeenCalledWith(
-      expect.objectContaining({ groupId: null, description: null, address: null }),
+      expect.objectContaining({ groupId: 3, description: null, address: null }),
     )
   })
 

@@ -9,7 +9,7 @@ import { useGasFirmForm } from './useGasFirmForm'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { GAS_DISTRIBUTION_FIRMS_PATH } from '../adminNavItems'
-import { adminButtonVariants, formCardVariants } from '../adminVariants'
+import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants, formCardVariants } from '../adminVariants'
 
 const CANCEL_TITLE = 'Kaydedilmemiş değişiklikler var'
 /** Belge ve KK-12'deki onay metni, birebir. */
@@ -82,14 +82,14 @@ export function GasFirmFormCard({ firmId, initialValues, formLabel }: GasFirmFor
             <button
               type="button"
               onClick={handleCancel}
-              className={adminButtonVariants({ tone: 'secondary' })}
+              className={adminButtonVariants({ tone: 'secondary', className: ADMIN_FORM_ACTION_WIDTH })}
             >
               İptal
             </button>
             <button
               type="submit"
               aria-busy={form.isSubmitting}
-              className={adminButtonVariants({ tone: 'primary' })}
+              className={adminButtonVariants({ tone: 'primary', className: ADMIN_FORM_ACTION_WIDTH })}
             >
               <Save aria-hidden className="size-4" />
               {form.isSubmitting ? 'Kaydediliyor…' : 'Kaydet'}

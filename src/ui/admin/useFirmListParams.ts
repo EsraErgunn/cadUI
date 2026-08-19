@@ -48,6 +48,7 @@ export function useFirmListParams(): FirmListControls {
     () => ({
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       groupId: parseScopeId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
+      scopeFirmId: parseScopeId(searchParams.get(ADMIN_PARAM_KEYS.scopeFirm)),
       sortKey: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),

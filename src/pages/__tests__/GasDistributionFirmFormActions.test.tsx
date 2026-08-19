@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { UPDATE_ROUTE, renderFirmFormPage } from './gasFirmFormFixture'
+import { FIRM_GROUPS, UPDATE_ROUTE, renderFirmFormPage } from './gasFirmFormFixture'
 import { DfirmNoTakenError } from '../../api/adminFirmForm'
 import { GAS_FIRM_ERRORS } from '../../ui/admin/firms/gasFirmSchema'
 
@@ -39,6 +39,13 @@ async function openForm(route?: string) {
 
 /** Gönderim sürerken etiket "Kaydediliyor…" olur; bu yüzden tam eşleşme değil. */
 const saveButton = () => screen.getByRole('button', { name: /^Kaydet$/ })
+
+/** Grup zorunlu; seçenekler ayrı sorgudan geldiği için beklenerek seçilir. */
+async function selectGroup() {
+  const [group] = FIRM_GROUPS
+  await screen.findByRole('option', { name: group.name })
+  await userEvent.selectOptions(screen.getByLabelText(/Grup Firması/), String(group.id))
+}
 
 describe('zorunlu alan doğrulaması', () => {
   // KK-8: kayıt gerçekleşmez, hata metinleri görünür, imleç ilk hatalı alana gider.
@@ -86,6 +93,18 @@ describe('zorunlu alan doğrulaması', () => {
     expect(dfirmNoInput).not.toHaveAttribute('aria-invalid')
   })
 
+  // Grup firması artık zorunlu: seçilmeden kayıt oluşturulamaz.
+  it('grup seçilmeden kaydetmez ve hatasını gösterir', async () => {
+    await openForm()
+
+    await userEvent.type(screen.getByLabelText(/Firma Adı/), 'YENİ FİRMA')
+    await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
+    await userEvent.click(saveButton())
+
+    expect(await screen.findByText(GAS_FIRM_ERRORS.group)).toBeInTheDocument()
+    expect(firmFormApi.createGasDistributionFirm).not.toHaveBeenCalled()
+  })
+
   it('eksik haneli telefonda biçim hatası verir', async () => {
     await openForm()
 
@@ -105,6 +124,7 @@ describe('benzersizlik', () => {
 
     await userEvent.type(screen.getByLabelText(/Firma Adı/), 'YENİ FİRMA')
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
+    await selectGroup()
     await userEvent.click(saveButton())
 
     expect(await screen.findByText(GAS_FIRM_ERRORS.dfirmNoTaken)).toBeInTheDocument()
@@ -122,6 +142,7 @@ describe('kaydetme', () => {
 
     await userEvent.type(screen.getByLabelText(/Firma Adı/), 'YENİ FİRMA')
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
+    await selectGroup()
     await userEvent.click(saveButton())
 
     expect(
@@ -153,6 +174,7 @@ describe('kaydetme', () => {
 
     await userEvent.type(screen.getByLabelText(/Firma Adı/), 'YENİ FİRMA')
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
+    await selectGroup()
     await userEvent.click(saveButton())
 
     // Gönderim sürerken butonun etiketi de değişir; alanlar `fieldset` ile kilitli.
@@ -173,6 +195,7 @@ describe('kaydetme', () => {
 
     await userEvent.type(screen.getByLabelText(/Firma Adı/), 'YENİ FİRMA')
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
+    await selectGroup()
     await userEvent.click(saveButton())
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()

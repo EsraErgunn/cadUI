@@ -1,15 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
-import { AlignLeft, Building2, Hash, MapPin, Network, Phone, User } from 'lucide-react'
-import { useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlignLeft, Building2, Hash, MapPin, Network, Phone, Plus, User } from 'lucide-react'
+import { useMemo, useState } from 'react'
 
-import {
-  GAS_FIRM_MAX_LENGTHS,
-  GAS_FIRM_NAME_CASE_HINT,
-  gasFirmFieldId,
-} from './gasFirmSchema'
+import { NewFirmGroupDialog } from './NewFirmGroupDialog'
+import { GAS_FIRM_MAX_LENGTHS, gasFirmFieldId } from './gasFirmSchema'
 import type { GasFirmForm } from './useGasFirmForm'
 import { getFirmGroups } from '../../../api/adminFirms'
 import { PHONE_PLACEHOLDER } from '../../../core/phone'
+import { adminIconButtonVariants } from '../adminVariants'
 import { PhoneField } from '../form/PhoneField'
 import { SelectField } from '../form/SelectField'
 import { TextField } from '../form/TextField'
@@ -17,8 +15,10 @@ import { TextField } from '../form/TextField'
 /** Belge: zorunlu alanların etiketinin yanında "*" gösterilir. */
 const REQUIRED_MARK = '*'
 
-/** Grup firması seçilmemiş hâlin metni (mockup'taki varsayılan). */
-const NO_GROUP_LABEL = '—'
+/** Seçim yapılmamış hâlin metni; alan zorunlu olduğu için bu hâl kaydedilemez. */
+const GROUP_PLACEHOLDER = 'Seçiniz'
+
+const NEW_GROUP_BUTTON_LABEL = 'Yeni gaz dağıtım grubu ekle'
 
 interface GasFirmFormFieldsProps {
   form: GasFirmForm
@@ -30,6 +30,8 @@ interface GasFirmFormFieldsProps {
  */
 export function GasFirmFormFields({ form }: GasFirmFormFieldsProps) {
   const { values, errors, setValue } = form
+  const queryClient = useQueryClient()
+  const [isNewGroupOpen, setIsNewGroupOpen] = useState(false)
 
   // Belge: liste alfabetik sıralanır ve yeni grup tanımlandıkça güncellenir —
   // bu yüzden sabit dizi gömülmüyor, sunucudan geliyor. Türkçe sıralama api
@@ -70,8 +72,6 @@ export function GasFirmFormFields({ form }: GasFirmFormFieldsProps) {
         placeholder="Firma adını giriniz"
         maxLength={GAS_FIRM_MAX_LENGTHS.name}
         value={values.name}
-        // Yalnız hatırlatma: girdi otomatik büyütülmüyor, veri değişmiyor.
-        hint={GAS_FIRM_NAME_CASE_HINT}
         error={errors.name}
         // Benzer kayıt uyarısı: engellemeyen bilgi, hata DEĞİL.
         warning={form.nameWarning ?? undefined}
@@ -83,14 +83,39 @@ export function GasFirmFormFields({ form }: GasFirmFormFieldsProps) {
       <SelectField
         id={gasFirmFieldId('groupId')}
         label="Grup Firması"
+        labelNote={REQUIRED_MARK}
         layout="horizontal"
         leftIcon={Network}
-        placeholder={NO_GROUP_LABEL}
+        placeholder={GROUP_PLACEHOLDER}
         options={groupOptions}
         value={values.groupId}
         error={errors.groupId}
         onChange={(value) => setValue('groupId', value)}
+        action={
+          <button
+            type="button"
+            aria-label={NEW_GROUP_BUTTON_LABEL}
+            title={NEW_GROUP_BUTTON_LABEL}
+            onClick={() => setIsNewGroupOpen(true)}
+            className={adminIconButtonVariants({ className: 'border border-edge' })}
+          >
+            <Plus aria-hidden className="size-4" />
+          </button>
+        }
       />
+
+      {isNewGroupOpen && (
+        <NewFirmGroupDialog
+          onCreated={(group) => {
+            // Liste tazelensin ki yeni grup açılır listede görünsün; seçim de
+            // hemen ona geçiyor — kullanıcı aynı grubu ikinci kez aramasın.
+            void queryClient.invalidateQueries({ queryKey: ['firmGroups'] })
+            setValue('groupId', String(group.id))
+            setIsNewGroupOpen(false)
+          }}
+          onClose={() => setIsNewGroupOpen(false)}
+        />
+      )}
 
       <TextField
         id={gasFirmFieldId('description')}

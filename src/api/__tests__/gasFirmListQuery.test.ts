@@ -18,6 +18,7 @@ function buildQuery(overrides: Partial<GasDistributionFirmQuery> = {}): GasDistr
   return {
     nameQuery: '',
     groupId: null,
+    scopeFirmId: null,
     sortKey: 'dfirmNo',
     sortDir: 'asc',
     page: 1,
@@ -141,5 +142,15 @@ describe('sayfalama', () => {
     queryFirmList(input, buildQuery())
 
     expect(input[0].dfirmNo).toBe(2)
+  })
+
+  /** Üst bardaki kapsam TEK firmaysa liste o satıra iner (URL'de `gdfirm`). */
+  it('kapsam firması seçiliyken yalnız o firmayı döndürür', () => {
+    const firms = [buildFirm({ id: 1, name: 'AKSA GEBZE' }), buildFirm({ id: 2, name: 'ENERYA' })]
+
+    const result = queryFirmList(firms, buildQuery({ scopeFirmId: 2 }))
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items[0].id).toBe(2)
   })
 })

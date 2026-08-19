@@ -45,7 +45,7 @@ describe('placeholder metinleri', () => {
       'placeholder',
       'Firma adını giriniz',
     )
-    expect(screen.getByRole('option', { name: '—' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Seçiniz' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Açıklama/)).toHaveAttribute(
       'placeholder',
       'Opsiyonel açıklama',
@@ -57,13 +57,13 @@ describe('placeholder metinleri', () => {
 })
 
 describe('grup firması seçimi', () => {
-  // Belge: varsayılan değer "—".
-  it('varsayılan olarak "—" seçilidir', async () => {
+  // Alan zorunlu; açılışta hiçbir grup seçili DEĞİL, kullanıcı seçer.
+  it('varsayılan olarak seçim yapılmamıştır', async () => {
     await openForm()
     const select = screen.getByLabelText(/Grup Firması/)
 
     expect(select).toHaveValue('')
-    expect(select.querySelector('option')).toHaveTextContent('—')
+    expect(select.querySelector('option')).toHaveTextContent('Seçiniz')
   })
 
   /**
@@ -83,7 +83,7 @@ describe('grup firması seçimi', () => {
     ).map((option) => ({ value: option.value, label: option.textContent }))
 
     expect(options).toEqual([
-      { value: '', label: '—' },
+      { value: '', label: 'Seçiniz' },
       { value: '1', label: 'AKSA' },
       { value: '2', label: 'ÇEDAŞ' },
     ])
@@ -100,7 +100,7 @@ describe('grup firması seçimi', () => {
       screen.getByLabelText(/Grup Firması/).querySelectorAll('option'),
     ).map((option) => option.textContent)
 
-    expect(labels).toEqual(['—', 'ZORLU', 'AKSA'])
+    expect(labels).toEqual(['Seçiniz', 'ZORLU', 'AKSA'])
   })
 })
 
@@ -216,23 +216,6 @@ describe('telefon maskesi', () => {
     await userEvent.type(phone, '0555123456789')
 
     expect(phone).toHaveValue('0555 123 45 67')
-  })
-})
-
-describe('firma adı bilgilendirmesi', () => {
-  // Belge madde 9 "büyük harf tercih edilir" diyor; otomatik dönüşüm YOK,
-  // yalnız hatırlatma (docs/kararlar.md K26).
-  it('büyük harf önerisini gösterir ama girdiyi değiştirmez', async () => {
-    await openForm()
-    const name = screen.getByLabelText(/Firma Adı/)
-
-    await userEvent.type(name, 'Adana Doğalgaz')
-
-    expect(
-      screen.getByText('Mevcut kayıtlarla uyum için büyük harf kullanmanız önerilir.'),
-    ).toBeInTheDocument()
-    expect(name).toHaveValue('Adana Doğalgaz')
-    expect(name).not.toHaveAttribute('aria-invalid')
   })
 })
 

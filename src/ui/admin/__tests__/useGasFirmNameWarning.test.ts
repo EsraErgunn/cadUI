@@ -31,6 +31,8 @@ function renderForm(firmId: number | null = null) {
     ...buildEmptyGasFirmValues(),
     dfirmNo: '1300',
     name: 'ADANA DOĞALGAZ',
+    // Grup zorunlu olduğundan dolu: uyarı testleri kaydın GEÇMESİNİ bekliyor.
+    groupId: '3',
     phoneDigits: '05551234567',
   }
   return renderHook(() => useGasFirmForm({ firmId, initialValues }))

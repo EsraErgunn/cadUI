@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { EXISTING_FIRM, UPDATE_ROUTE, renderFirmFormPage } from './gasFirmFormFixture'
+import { EXISTING_FIRM, FIRM_GROUPS, UPDATE_ROUTE, renderFirmFormPage } from './gasFirmFormFixture'
 
 const firmFormApi = vi.hoisted(() => ({
   getNextDfirmNo: vi.fn(),
@@ -31,6 +31,13 @@ const SAVED_FIRM_ID = 500
 async function openForm(route?: string) {
   renderFirmFormPage({ form: firmFormApi, list: firmListApi }, route)
   return await screen.findByLabelText(/Firma No/)
+}
+
+/** Grup zorunlu; seçenekler ayrı sorgudan geldiği için beklenerek seçilir. */
+async function selectGroup() {
+  const [group] = FIRM_GROUPS
+  await screen.findByRole('option', { name: group.name })
+  await userEvent.selectOptions(screen.getByLabelText(/Grup Firması/), String(group.id))
 }
 
 function buildPage(items: { id: number; name: string }[]) {
@@ -79,6 +86,7 @@ describe('benzer isim uyarısı', () => {
     // Uyarı hata DEĞİL: alan geçersiz işaretlenmez, kenarlık kırmızıya dönmez.
     expect(screen.getByLabelText(/Firma Adı/)).not.toHaveAttribute('aria-invalid')
 
+    await selectGroup()
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
     await userEvent.click(screen.getByRole('button', { name: /^Kaydet$/ }))
 
@@ -115,6 +123,7 @@ describe('benzer isim uyarısı', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
+    await selectGroup()
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
     await userEvent.click(screen.getByRole('button', { name: /^Kaydet$/ }))
 
