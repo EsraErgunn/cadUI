@@ -142,6 +142,42 @@ describe('ProjectListPage (duman)', () => {
   })
 
   /**
+   * Satır aksiyonu sekmeye değil satırın KENDİ durumuna bakıyor: sunucu
+   * "Approved" dediği bir kayıt taslak sekmesine düşse bile ona "Gönder"
+   * teklif edilmez (durumu boş gelen satırda sekme yedek kalır).
+   */
+  it('sunucunun onaylı dediği satıra taslak sekmesinde de aksiyon koymaz', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((input: RequestInfo | URL) => {
+        if (new URL(String(input)).pathname !== '/api/projects') {
+          return Promise.resolve(respondByPath(input))
+        }
+
+        return Promise.resolve(
+          jsonResponse({
+            items: [
+              { ...API_PROJECTS[0], status: 'Approved' },
+              { ...API_PROJECTS[1], status: 'Draft' },
+            ],
+            totalCount: 2,
+            page: 1,
+            pageSize: 30,
+          }),
+        )
+      }),
+    )
+
+    renderPage()
+    await screen.findByRole('table')
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Gönder' })).toHaveLength(1),
+    )
+    expect(screen.getAllByRole('button', { name: 'Sil' })).toHaveLength(1)
+  })
+
+  /**
    * Rozetler eskiden mock veri kümesini sayıyordu: "Onaylanan 7" yazan sekme
    * boş açılıyordu. Artık listeyle AYNI uçtan geliyorlar — uç durum
    * döndürmediği için tüm kayıtlar taslak, diğer üç sekme dürüstçe sıfır.

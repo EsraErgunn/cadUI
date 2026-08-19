@@ -55,6 +55,9 @@ export function ProjectListPage() {
       cityId: query.cityId,
       districtId: query.districtId,
       projectFirmId: query.projectFirmId,
+      // Üst bardaki kapsam rozetlere de gider: sekme sayıları listeyle AYNI
+      // kapsamı saymalı, yoksa "Taslak (12)" derken tabloda 3 satır görünürdü.
+      scope: query.scope,
       search: query.search,
     }),
     [
@@ -63,6 +66,7 @@ export function ProjectListPage() {
       query.cityId,
       query.districtId,
       query.projectFirmId,
+      query.scope,
       query.search,
     ],
   )

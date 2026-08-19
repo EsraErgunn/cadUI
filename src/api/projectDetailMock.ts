@@ -7,7 +7,6 @@ import type {
   ProjectDetailStatus,
   ProjectDocumentRow,
   ProjectFirmInfo,
-  ProjectHistoryRow,
   ProjectPolicyRow,
   ProjectSpecs,
   ProjectUnitRow,
@@ -183,32 +182,6 @@ export function buildMockProjectUnits(projectId: number): ProjectUnitRow[] {
   ]
 }
 
-/** En yeniden eskiye sıralı (KK-8); sıralama mock'ta değil, veri sırasında. */
-export function buildMockProjectHistory(projectId: number): ProjectHistoryRow[] {
-  const engineer = MOCK_ENGINEERS[seedOf(projectId) % MOCK_ENGINEERS.length]
-
-  return [
-    {
-      id: 2,
-      fileType: 'pdf',
-      createdAt: '2026-07-10T11:36:53.000Z',
-      userName: engineer,
-      roleSnapshot: 'Zetacad USER',
-      operation: 'projeGuncelleme',
-      description: null,
-    },
-    {
-      id: 1,
-      fileType: 'zpd',
-      createdAt: '2026-07-10T11:28:28.000Z',
-      userName: engineer,
-      roleSnapshot: 'Zetacad USER',
-      operation: 'projeKayit',
-      description: 'Proje Adı: TEST PROJESİ 2',
-    },
-  ]
-}
-
 /**
  * Projenin evrakları Evraklar ekranının deposundan geliyor; burada yalnız
  * SÜTUN eşlemesi var. Bu liste eskiden boş dönüyordu — Evraklar ekranı
@@ -234,11 +207,9 @@ export function buildMockProjectDocuments(projectId: number): ProjectDocumentRow
  * bu ancak tek depo varsa doğru olur. Depo boş başlıyor — tohumlanmış poliçe
  * YOK, o yüzden hiç poliçe açılmamış projede sekme dürüstçe boş kalır.
  *
- * `unitNumber` ve `isPaid` ekranda toplanmıyor: sihirbaz birim sormuyor ve ödeme
- * bilgisi akışın dışında. Birim boş bırakılıyor (uydurulmuyor); `isPaid: false`
- * ise VARSAYIM — tablo bunu "Bekliyor" gösteriyor ve gerçek ödeme durumu
- * bilinmiyor. Uç geldiğinde bu sabit kaldırılmalı
- * (docs/api-eksikleri-policeler.md, madde 2).
+ * `unitNumber` ekranda toplanmıyor (sihirbaz birim sormuyor), boş bırakılıyor —
+ * uydurulmuyor. Ödeme alanı YOK: sistemde ödeme akışı olmadığı için poliçe
+ * oluşturulduğu anda onaylı sayılıyor, tablo durumu sabit gösteriyor.
  */
 export function buildMockProjectPolicies(projectId: number): ProjectPolicyRow[] {
   return getMockPolicies()
@@ -251,6 +222,5 @@ export function buildMockProjectPolicies(projectId: number): ProjectPolicyRow[] 
       amount: policy.amount,
       startDate: policy.startDate,
       endDate: policy.endDate,
-      isPaid: false,
     }))
 }

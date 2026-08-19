@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+// Yalnız TİP: `import type` erimeli, yoksa dashboard'un mock modülü proje
+// listesinin paketine de girerdi.
+import type { AdminScope } from './adminDashboard'
 import { getCurrentUser } from './auth'
 import { fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
@@ -8,42 +11,47 @@ import {
   ProjectFirmAuthorizationError,
   resolveProjectFirmAuthorizationId,
 } from './projectFirmAuthorizations'
-import { queryMockProjectFirms, submitMockProject } from './projectsMock'
+import { queryMockProjectFirms } from './projectsMock'
 import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
 import { serializeProjectDataForBackend } from '../core/projectExportFormat'
 import { parseProjectJson } from '../core/serialize'
 
 /**
- * API SÖZLEŞMESİ - Projeler listesi.
+ * API SÖZLEŞMESİ — Projeler listesi (GERÇEK uçlar; yol `/api/projects`,
+ * `/api/admin/...` DEĞİL). Parametre adları sunucudaki gibi PascalCase, kapsam
+ * anahtarları ise dashboard ucuyla aynı camelCase.
  *
- * GET /api/admin/projects
- * - status: taslak | onayBekleyen | onaylanan | reddedilen
- * - from, to: ISO tarih (yyyy-aa-gg), güncelleme tarihine göre kapsayıcı aralık
- * - district: İlçe kimliği
- * - firm: Proje firması kimliği
- * - q: Serbest arama — proje adı, P_ID VE tesisat numarası üzerinde çalışır
- *      (büyük/küçük harf ve Türkçe karakter duyarsız)
- * - sort: updatedAt | createdAt | name (varsayılan: updatedAt)
- * - dir: asc | desc (varsayılan: desc)
- * - page: 1 tabanlı
- * - pageSize: 30
+ * GET /api/projects
+ * - Status: Draft | PendingApproval | Approved | Rejected (arayüz kodları
+ *   `SERVER_STATUS_CODES` ile çevrilir)
+ * - DateFrom, DateTo: RFC 3339 damgası; gün sonuna kadar KAPSAYICI
+ * - CityId, DistrictId, ProjectFirmId: kimlik
+ * - gdGroupId VEYA gdFirmId: üst bardaki kapsam; İKİSİ BİRDEN gitmez
+ * - SortBy: updatedAt | createdAt | name  (varsayılan: updatedAt)
+ * - SortDir: asc | desc                   (varsayılan: desc)
+ * - Page: 1 tabanlı, PageSize: 30
+ * - ARAMA parametresi YOK — gelen sayfa istemcide süzülüyor (`filterBySearch`)
+ * 200 → { items, totalCount, page, pageSize }
  *
- * 200 → PagedResult<ProjectListItem>
+ * GET /api/projects/status-counts
+ * - Listeyle AYNI süzgeçleri alır, `Status` hariç: rozetler durumdan bağımsız.
+ * 200 → { draft, pendingApproval, approved, rejected }
  *
- * GET /api/admin/projects/status-counts
- * - Listeyle AYNI filtre parametrelerini alır, `status` hariç: sekme rozetleri
- *   uygulanan filtreye göre hesaplanır.
- * 200 → Record<ProjectStatus, number>
+ * GET    /api/projects/{id} → tekil kayıt (bkz. `api/projectDetail.ts`)
+ * POST   /api/projects      → ProjectCreateDto (aşağıda `createProject`)
+ * DELETE /api/projects/{id} → 200, soft-delete
  *
- * DELETE /api/admin/projects/:id → 204
+ * GET /api/cities                      → Lookup[]
+ * GET /api/cities/{cityId}/districts   → Lookup[]
  *
- * POST /api/admin/projects/:id/submit
- * 200 → { ok: true }
- * 422 → { ok: false, missingDocuments: string[] }   (eksik evrak)
+ * POST /api/projects/{id}/submit → "Onaya Gönder"; eksik evrakta
+ * `{ ok: false, missingDocuments }`.
  *
- * GET /api/admin/districts     → Lookup[]
- * GET /api/admin/project-firms → Lookup[]
+ * SUNUCUDA YOK: proje GÜNCELLEME (`PUT /api/projects/{id}`) — gövdesi create
+ * alanları + `rowVersion` ister ama `GET /api/projects/{id}` o alanları
+ * döndürmediği için doldurulacak bir form da kurulamıyor
+ * (bkz. `projectDetailExtras`).
  */
 
 export const PROJECT_PAGE_SIZE = 30
@@ -118,6 +126,21 @@ const lookupSchema = z.object({
 })
 
 /**
+ * Proje satırındaki gaz dağıtım firması. `Lookup`tan farkı KİMLİĞİN
+ * opsiyonel olması: liste ucu adı döndürüyor ama kimliği her zaman değil ve
+ * kimliksiz satırda ad gizlenmek yerine bağlantısız gösteriliyor.
+ */
+export interface ProjectGasFirm {
+  id: number | null
+  name: string
+}
+
+const projectGasFirmSchema = z.object({
+  id: z.number().int().positive().nullable(),
+  name: z.string(),
+})
+
+/**
  * Uçtan GELMEYEN alanlar `null`: `GET /api/projects` beş alan döndürüyor
  * (Swagger 2026-08-14). Eskiden bu alanlara "—" METNİ yazılıyordu; gösterim
  * metni veri katmanında durunca tip de yalan söylüyordu (`firmName: string`).
@@ -135,7 +158,8 @@ const projectListItemSchema = z.object({
   heatingType: z.string().nullable(),
   updatedAt: z.string(),
   createdAt: z.string(),
-  gasFirm: lookupSchema.nullable(),
+  gasFirm: projectGasFirmSchema.nullable(),
+  status: z.enum(PROJECT_STATUSES).nullable(),
   hasDocuments: z.boolean(),
 })
 
@@ -150,7 +174,14 @@ export interface ProjectListItem {
   heatingType: HeatingTypeCode | null
   updatedAt: string
   createdAt: string
-  gasFirm: Lookup | null
+  gasFirm: ProjectGasFirm | null
+  /**
+   * Sunucunun durum KODU (`status`) arayüz koduna çevrilmiş hâli. Tabloda
+   * sütunu yok — satırlar zaten sekmeyle süzülü — ama satır aksiyonları
+   * ("Onaya Gönder", "Sil") buna bakar. Sunucu tanımadığımız bir kod
+   * döndürürse `null` kalır: uydurma bir durum atamaktansa bilinmiyor demek.
+   */
+  status: ProjectStatus | null
   /**
    * Uç bu bilgiyi döndürmüyor; bugün her satırda `false` ve bu bir VARSAYIM —
    * ikon "evrak yok" diyor, sunucu böyle bir şey söylemedi.
@@ -167,6 +198,12 @@ export interface ProjectListQuery {
   cityId: number | null
   districtId: number | null
   projectFirmId: number | null
+  /**
+   * Üst bardaki KAPSAM (`useAdminScopeParam`). Sorguya `gdGroupId` VEYA
+   * `gdFirmId` olarak gider, ikisi birden asla — ayrık birleşim bunu tipte
+   * garanti ediyor (bkz. `api/adminDashboard.ts`).
+   */
+  scope: AdminScope
   /**
    * Uçta karşılığı YOK; gelen sayfa istemcide süzülüyor (bkz. `filterBySearch`).
    * Alan sorguda duruyor çünkü URL durumu ve arama kutusu ona bağlı.
@@ -204,12 +241,10 @@ const submitProjectResultSchema = z.discriminatedUnion('ok', [
 ])
 
 /**
- * Mock kaydın şekli. Liste de rozetler de artık gerçek uçtan geldiği için bu
- * tipin zod şeması ve eşleyicisi kaldırıldı; yalnız `projectsMock` "Onaya
- * Gönder" ve evrak/poliçe tohumları için ayakta kaldığı sürece duruyor.
- *
- * TODO(esra): `POST /api/projects/{id}/submit` açılınca `projectsMock` ile
- * birlikte bu tip de silinecek.
+ * Mock kaydın şekli. Liste, rozetler ve "Onaya Gönder" artık gerçek uçtan
+ * geldiği için bu tipin zod şeması ve eşleyicisi kaldırıldı; yalnız
+ * `projectsMock` evrak/poliçe tohumları (`getMockProjectSeeds`) için ayakta
+ * kaldığı sürece duruyor.
  */
 export interface RawProjectListItem {
   id: number
@@ -251,9 +286,18 @@ export interface RawProjectListItem {
 const apiProjectListItemSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
-  code: z.string().nullish(),
-  /** Durum KODU ve adı. Tabloda sütunu yok (satırlar zaten sekmeyle süzülü);
-      sözleşmeyi belgelemek için şemada duruyorlar. */
+  buildingCode: z.string().nullish(),
+  /** Proje firmasının ünvanı (`FirmName`). */
+  firmName: z.string().nullish(),
+  /**
+   * Gaz dağıtım firmasının ADI (`GasDistributionFirmName`). Kimlik ayrı bir
+   * alan ve sözleşmede zorunlu değil; gelmezse hücre bağlantısız metin çizer.
+   */
+  gasDistributionFirmName: z.string().nullish(),
+  gasDistributionFirmId: z.number().int().nullish(),
+  /** Durum KODU ve adı. `status` satır aksiyonlarını süren GERÇEK durum
+      (`toProjectStatus`); `statusName` arayüze taşınmıyor — etiketler
+      `PROJECT_STATUS_LABELS`'tan geliyor ve iki kaynak ayrışırdı. */
   status: z.string().nullish(),
   statusName: z.string().nullish(),
   /** Uç KOD değil AD döndürüyor; rozet bilinmeyen kodu ham gösterdiği için
@@ -303,6 +347,21 @@ const SERVER_STATUS_CODES: Record<ProjectStatus, string> = {
   reddedilen: 'Rejected',
 }
 
+/**
+ * `SERVER_STATUS_CODES`'un tersi: liste ucunun satır başına döndürdüğü durum
+ * kodunu arayüz koduna çevirir. Kod tanınmazsa (ya da hiç gelmezse) `null` —
+ * bilinmeyen bir kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip
+ * "Onaya Gönder" düğmesini yanlış satıra koyardı.
+ */
+function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
+  const code = raw?.trim().toLowerCase()
+  if (code === undefined || code === '') return null
+
+  return (
+    PROJECT_STATUSES.find((status) => SERVER_STATUS_CODES[status].toLowerCase() === code) ?? null
+  )
+}
+
 /** Yeni proje taslak açılır (ürün kuralı); `POST` yanıtı durum döndürmüyor. */
 const CREATED_PROJECT_STATUS: ProjectStatus = 'taslak'
 
@@ -315,15 +374,14 @@ const statusCountsDtoSchema = z.object({
 })
 
 /**
- * Uçta P_ID diye bir alan yok; `code` opsiyonel ve varsayılan olarak null.
- * Kayıt kimliği yedek olarak kullanılıyor: boş bırakılsaydı yeni kayıt
- * vurgusu (pId eşleşmesi) tüm satırları yakalardı.
- *
- * TODO(api): sunucu üretimli proje numarası gelince burası sadeleşecek.
+ * Uçta P_ID diye bir alan yok; sunucunun proje numarası `buildingCode`
+ * (eskiden yanlışlıkla `code` okunuyordu, o ad uçta hiç yoktu ve pId her
+ * satırda kimliğe düşüyordu). Boşsa kayıt kimliği yedek: boş bırakılsaydı yeni
+ * kayıt vurgusu (pId eşleşmesi) tüm satırları yakalardı.
  */
-function toProjectPId(raw: { id: number; code?: string | null }): string {
-  const code = raw.code?.trim()
-  return code === undefined || code === '' ? String(raw.id) : code
+function toProjectPId(raw: { id: number; buildingCode?: string | null }): string {
+  const buildingCode = raw.buildingCode?.trim()
+  return buildingCode === undefined || buildingCode === '' ? String(raw.id) : buildingCode
 }
 
 function toNullableText(value: string | null | undefined): string | null {
@@ -332,22 +390,30 @@ function toNullableText(value: string | null | undefined): string | null {
 }
 
 /**
- * TODO(esra): firma adı, bina kodu, evrak durumu ve gaz dağıtım firması uçtan
- * GELMİYOR — sözleşmeye eklendiğinde bu `null`'lar gerçek değerlerle dolacak,
- * çağıran taraf değişmeyecek.
+ * Firma adı, bina kodu ve gaz dağıtım firması artık GERÇEK (`FirmName`,
+ * `BuildingCode`, `GasDistributionFirmName`).
+ * TODO(esra): evrak durumu (`hasDocuments`) uçtan hâlâ gelmiyor.
  */
 function mapApiProject(raw: z.infer<typeof apiProjectListItemSchema>): ProjectListItem {
+  const gasFirmName = toNullableText(raw.gasDistributionFirmName)
+
   return {
     id: raw.id,
     pId: toProjectPId(raw),
     name: raw.name,
-    firmName: null,
-    buildingCode: null,
+    firmName: toNullableText(raw.firmName),
+    buildingCode: toNullableText(raw.buildingCode),
     projectType: toNullableText(raw.projectTypeName),
     heatingType: toNullableText(raw.heatingTypeName),
     updatedAt: raw.updatedAt,
     createdAt: raw.createdAt,
-    gasFirm: null,
+    // Kimlik gelmiyorsa ad yine gösterilir, yalnız bağlantı kurulmaz: adı
+    // atmak, sunucunun GERÇEKTEN döndürdüğü veriyi saklamak olurdu.
+    gasFirm:
+      gasFirmName === null
+        ? null
+        : { id: raw.gasDistributionFirmId ?? null, name: gasFirmName },
+    status: toProjectStatus(raw.status),
     hasDocuments: false,
   }
 }
@@ -378,6 +444,19 @@ function appendParam(search: URLSearchParams, key: string, value: string | numbe
 }
 
 /**
+ * Üst bardaki kapsamı sorguya yazar. Kapsam yoksa parametre HİÇ yazılmaz: boş
+ * `gdGroupId=` sunucuda ayrı bir anlam taşıyabilir, "tümü" demek için
+ * parametrenin YOKLUĞU kullanılıyor (dashboard ucundaki kuralın aynısı).
+ *
+ * Firma seçiliyken grup GİTMEZ: sunucu iki parametreyi birlikte kabul etmiyor
+ * ve firma zaten daha dar kapsam — grubu da göndermek çelişki olurdu.
+ */
+function appendScopeParams(search: URLSearchParams, scope: AdminScope): void {
+  if (scope.type === 'group') search.set('gdGroupId', String(scope.groupId))
+  if (scope.type === 'firm') search.set('gdFirmId', String(scope.firmId))
+}
+
+/**
  * Liste ve rozet uçlarının ORTAK süzgeç parametreleri. İkisi aynı kriterleri
  * alıyor (rozetlerde yalnız `Status` yok); tek yerde üretiliyor ki biri
  * güncellenip öbürü unutulmasın.
@@ -390,6 +469,7 @@ function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
   appendParam(search, 'CityId', query.cityId)
   appendParam(search, 'DistrictId', query.districtId)
   appendParam(search, 'ProjectFirmId', query.projectFirmId)
+  appendScopeParams(search, query.scope)
 
   return search
 }
@@ -476,10 +556,18 @@ export async function deleteProject(id: number): Promise<void> {
   await requestJson({ method: 'DELETE', path: `/api/projects/${id}` }, z.unknown())
 }
 
-/** gerçek `POST /api/admin/projects/:id/submit`. */
+/**
+ * "Onaya Gönder" — GERÇEK uç: `POST /api/projects/{id}/submit`.
+ *
+ * Uç gövdesiz 200 dönebiliyor; eksik evrak durumu ise `{ ok: false,
+ * missingDocuments }` olarak geliyor. Gövde şemaya uymazsa (boş/farklı) işlem
+ * BAŞARILI sayılır — sunucu 2xx dediyse kayıt değişmiştir, gövde biçimi yüzünden
+ * kullanıcıya "gönderilemedi" demek yanlış olurdu.
+ */
 export async function submitProject(id: number): Promise<SubmitProjectResult> {
-  const result = await submitMockProject(id)
-  return submitProjectResultSchema.parse(result)
+  const body = await requestJson({ method: 'POST', path: `/api/projects/${id}/submit` }, z.unknown())
+  const parsed = submitProjectResultSchema.safeParse(body)
+  return parsed.success ? parsed.data : { ok: true }
 }
 
 /**
@@ -605,7 +693,7 @@ const apiCreatedProjectSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   description: z.string().nullish(),
-  code: z.string().nullish(),
+  buildingCode: z.string().nullish(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })

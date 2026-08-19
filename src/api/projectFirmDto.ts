@@ -194,16 +194,12 @@ export type ProjectFirmFullDto = z.infer<typeof projectFirmFullDtoSchema>
  * Kişi Bilgileri ekranının FİRMA kaydında düzenlediği alanlar; gerisi okunan
  * kayıttan taşınır.
  *
- * `email` ve `phone` burada YOK ve bu bilinçli: ekrandaki Email kullanıcının
- * kendi e-postası (`PUT /api/users/{id}`), Telefon 1 de kullanıcının telefonu.
- * Firmanın kendi e-postası ve santral telefonu bu ekrandan DEĞİŞTİRİLMEZ,
- * okundukları gibi geri gönderilirler.
+ * Ünvan, Firma Yetkilisi, Adres ve Telefon 2 ekrandan KALKTI: artık okunan
+ * kayıttan olduğu gibi geri gönderiliyorlar. `email` ve `phone` de burada yok —
+ * ekrandaki Email kullanıcının kendi e-postası (`PUT /api/users/{id}`),
+ * Telefon 1 de kullanıcının telefonu.
  */
 export interface ProjectFirmContactChanges {
-  title: string
-  contactPerson: string | null
-  phone2: string | null
-  address: string | null
   /**
    * Şahıs firmasında kullanıcının YENİDEN GİRDİĞİ T.C. kimlik numarası; tüzel
    * firmada `null`. Okunan değer maskeli olduğu için taşınamıyor, bu yüzden
@@ -226,18 +222,19 @@ export function toProjectFirmUpdateDto(
   firm: ProjectFirmFullDto,
   changes: ProjectFirmContactChanges,
 ): ProjectFirmPayloadDto {
-  const { nationalIdNumber, ...rest } = changes
-
   return {
     companyType: firm.companyType,
+    title: firm.title,
     taxNumber: firm.taxNumber,
     // OKUNAN değer DEĞİL, ekrandan gelen: yanıttaki numara maskeli ve geri
     // gönderilirse sunucu 400 döner (K103).
-    nationalIdNumber,
+    nationalIdNumber: changes.nationalIdNumber,
     accountingCode: firm.accountingCode,
+    contactPerson: firm.contactPerson,
     email: firm.email,
     phone: firm.phone,
-    ...rest,
+    phone2: firm.phone2,
+    address: firm.address,
   }
 }
 

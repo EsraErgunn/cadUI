@@ -35,11 +35,6 @@ const REASON_DIALOG_COPY = {
     description: 'Gerekçe işlem geçmişine kaydedilir ve firma kullanıcısına iletilir.',
     confirmLabel: 'Reddet',
   },
-  requestRevision: {
-    title: 'Revizyon istensin mi?',
-    description: 'Gerekçe işlem geçmişine kaydedilir ve firma kullanıcısına iletilir.',
-    confirmLabel: 'Revizyon İste',
-  },
 } as const
 
 const FILE_UNAVAILABLE_MESSAGES: Record<ProjectFileKind, string> = {
@@ -94,7 +89,7 @@ export function ProjectDetailPage() {
 
   const { data: history } = useQuery({
     queryKey: ['projectHistory', projectId],
-    queryFn: () => getProjectHistory(projectId ?? 0),
+    queryFn: ({ signal }) => getProjectHistory(projectId ?? 0, signal),
     enabled: projectId !== undefined,
   })
 
@@ -132,10 +127,16 @@ export function ProjectDetailPage() {
   }
 
   const detail = detailQuery.data
-  // Karar verildiyse durum ONDAN gelir: uç olmadığı için sorguyu tazelemek
-  // mock'un ilk hâlini geri getirir ve işlem geri alınmış görünürdü.
+  // Karar verildiyse durum ONDAN gelir: proje durumu hâlâ mock bir kaynaktan
+  // okunduğu için sorguyu tazelemek işlemi geri alınmış gösterirdi.
   const status = decisions.outcome?.status ?? detail.extras?.general.status ?? null
-  const isDraft = status === null || status === DRAFT_STATUS
+  // Durum BİLİNMİYORSA taslak SAYILMAZ. Detay ucu durum döndürmüyor
+  // (`projectDetailExtras` hâlâ mock, üretimde `extras` boş geliyor) ve
+  // "bilinmiyor = taslak" varsayımı Onayla/Reddet düğmelerini üretimde her
+  // projede kapatıyordu. KK-2 kilidi yalnız durumu GERÇEKTEN taslak olan
+  // kayıtta çalışır; geri kalanında son sözü sunucu söyler (iş kuralı hatası
+  // 400 döner ve bildirim olarak çıkar).
+  const isDraft = status === DRAFT_STATUS
 
   const historyRows = mergeDecisionHistory(
     history === undefined || history.source === 'unavailable' ? [] : history.data,
@@ -166,8 +167,7 @@ export function ProjectDetailPage() {
       />
 
       {savedDocumentNotice !== null && (
-        // `warning`: işlem başarılı ama YARIM — kayıt sunucuya gitmedi
-        // (karar işlemlerindeki `isPersisted: false` deseninin aynısı).
+        // `warning`: işlem başarılı ama YARIM — kayıt sunucuya gitmedi.
         <NoticeBar
           tone="warning"
           message={savedDocumentNotice.message}

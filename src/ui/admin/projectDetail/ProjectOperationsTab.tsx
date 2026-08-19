@@ -1,4 +1,4 @@
-import { CheckCheck, FileDown, Plus, RotateCcw, ShieldPlus, X } from 'lucide-react'
+import { CheckCheck, FileDown, Plus, ShieldPlus, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import type { ProjectDecision } from '../../../api/projectDetail'
@@ -23,9 +23,10 @@ interface DecisionShortcut {
   icon: typeof CheckCheck
 }
 
+// "Revizyon İste" YOK: sunucuda revizyon talebi ucu bulunmuyor, sahte bir buton
+// kullanıcıya yapılmamış bir işi yapılmış gösterirdi.
 const DECISION_SHORTCUTS: DecisionShortcut[] = [
   { decision: 'approve', label: 'Projeyi Onayla', icon: CheckCheck },
-  { decision: 'requestRevision', label: 'Revizyon İste', icon: RotateCcw },
   { decision: 'reject', label: 'Projeyi Reddet', icon: X },
 ]
 

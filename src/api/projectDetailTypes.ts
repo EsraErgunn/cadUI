@@ -165,14 +165,24 @@ export const HISTORY_OPERATION_LABELS: Record<HistoryOperation, string> = {
   revizyonTalebi: 'Revizyon Talebi',
 }
 
+/**
+ * İşlem kodu sunucuda PARAMETRİK (`OperationHistory.OperationCode`): arayüz
+ * bilmediği bir kodla karşılaşabilir. Dar birleşimle kilitlenseydi yeni bir kod
+ * rozeti patlatırdı; bilinmeyen kodda etiket `operationName`'e düşer.
+ */
+export type HistoryOperationCode = HistoryOperation | (string & {})
+
 export interface ProjectHistoryRow {
-  id: number
+  /** Uç satır kimliği DÖNDÜRMÜYOR; damga + kod + sıradan kurulan tablo anahtarı. */
+  id: string
   fileType: HistoryFileType | null
   createdAt: string
   userName: string
   /** `OperationHistory.RoleSnapshot` — işlemi yapan kaynak ("Zetacad USER"). */
   roleSnapshot: string
-  operation: HistoryOperation
+  operation: HistoryOperationCode
+  /** Sunucunun okunabilir işlem adı; bilinmeyen kodda rozet metni bu olur. */
+  operationName: string | null
   description: string | null
 }
 
@@ -204,6 +214,5 @@ export interface ProjectPolicyRow {
   amount: number | null
   startDate: string | null
   endDate: string | null
-  isPaid: boolean
 }
 

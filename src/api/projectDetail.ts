@@ -1,16 +1,14 @@
 import { z } from 'zod'
 
 import { ApiError, requestJson } from './http'
-import { mockedData, type Sourced } from './mockGate'
+import { mockedData, serverData, type Sourced } from './mockGate'
 import {
   buildMockProjectDocuments,
   buildMockProjectExtras,
-  buildMockProjectHistory,
   buildMockProjectPolicies,
   buildMockProjectUnits,
 } from './projectDetailMock'
 import {
-  REVISION_REQUESTED_STATUS,
   type ProjectDetail,
   type ProjectDetailStatus,
   type ProjectDocumentRow,
@@ -35,13 +33,18 @@ export * from './projectDetailTypes'
  *
  * GERÇEK ve bağlı olan tek uç:
  *   GET /api/projects/{id} → ProjectDetailDto
- *   { id, name, description, code, projectFirmAuthorizationId,
+ *   { id, name, description, buildingCode, projectFirmAuthorizationId,
  *     gasDistributionFirmId, cityId, cityName, districtId, districtName,
  *     addressLine, blockLotParcel, createdAt, updatedAt }
  *
+ * Bağlı olan diğer GERÇEK uçlar:
+ *   GET  /api/projects/{id}/history → OperationHistoryDto[]
+ *   POST /api/projects/{id}/approve
+ *   POST /api/projects/{id}/reject  → { description }
+ *
  * Ekranın istediği geri kalan her şeyin (durum, tesisat no, proje/ısınma tipi,
- * onay bilgileri, teknik değerler, birim/cihaz, işlem geçmişi, evrak, poliçe,
- * onay/ret/revizyon, .zpd / DWG / PDF indirme) uçta karşılığı YOK. Tamamı
+ * onay bilgileri, teknik değerler, birim/cihaz, evrak, poliçe,
+ * .zpd / DWG / PDF indirme) uçta karşılığı YOK. Tamamı
  * `unimplementedEndpoints.ts` içinde bayraklı; oradaki satır silinince buradaki
  * `isEndpointImplemented` çağrısı DERLEME HATASI verir (doğrulandı).
  */
@@ -50,7 +53,7 @@ const projectDetailDtoSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   description: z.string().nullish(),
-  code: z.string().nullish(),
+  buildingCode: z.string().nullish(),
   cityName: z.string().nullish(),
   districtName: z.string().nullish(),
   addressLine: z.string().nullish(),
@@ -59,10 +62,10 @@ const projectDetailDtoSchema = z.object({
   updatedAt: z.string(),
 })
 
-/** Liste eşlemesiyle AYNI kural (projects.ts): kod boşsa kimlik yedeğe düşer. */
-function toProjectPId(raw: { id: number; code?: string | null }): string {
-  const code = raw.code?.trim()
-  return code === undefined || code === '' ? String(raw.id) : code
+/** Liste eşlemesiyle AYNI kural (projects.ts): bina kodu boşsa kimlik yedeğe düşer. */
+function toProjectPId(raw: { id: number; buildingCode?: string | null }): string {
+  const buildingCode = raw.buildingCode?.trim()
+  return buildingCode === undefined || buildingCode === '' ? String(raw.id) : buildingCode
 }
 
 function toNullable(value: string | null | undefined): string | null {
@@ -74,9 +77,12 @@ function toNullable(value: string | null | undefined): string | null {
  * Mock durum kimliğe göre dönüyor: hepsi "Taslak" olsaydı onay aksiyonlarının
  * etkin hâli ve onay kartının dolu hâli hiç görülemezdi (KK-2, KK-11).
  *
- * BİLİNEN TUTARSIZLIK: liste ekranı `GET /api/projects` durum döndürmediği için
- * her kaydı "taslak" sayıyor (projects.ts → API_PROJECT_STATUS). Sunucu durumu
- * döndürene kadar liste ile detay aynı proje için farklı durum gösterebilir.
+ * BİLİNEN TUTARSIZLIK: durumun GERÇEK kaynağı liste ucu — `GET /api/projects`
+ * satır başına `status` döndürüyor ve `projects.ts` onu `ProjectListItem.status`
+ * olarak taşıyor. `GET /api/projects/{id}` ise durumu HİÇ döndürmüyor, bu yüzden
+ * detay ekranı aynı proje için listeden farklı (ve geliştirmede uydurma) bir
+ * durum gösterebilir. Karar düğmeleri bu değere GÜVENMİYOR: sayfa yalnız durumu
+ * gerçekten taslak olan kaydı kilitler (ProjectDetailPage → isDraft).
  */
 function mockStatusOf(projectId: number): ProjectDetailStatus {
   return PROJECT_STATUSES[projectId % PROJECT_STATUSES.length]
@@ -151,12 +157,50 @@ export function getProjectUnits(projectId: number): Promise<Sourced<ProjectUnitR
   return Promise.resolve(mockedData(() => buildMockProjectUnits(projectId)))
 }
 
-export function getProjectHistory(projectId: number): Promise<Sourced<ProjectHistoryRow[]>> {
-  if (isEndpointImplemented('projectHistory')) {
-    throw new Error('getProjectHistory: uç bağlandı ama gövdesi yazılmadı.')
-  }
+/**
+ * `GET /api/projects/{id}/history` — `OperationHistory` satırları.
+ *
+ * DTO'da `id` ve dosya türü YOK: satır anahtarı damga + kod + sıradan
+ * kuruluyor, "Dosya" sütunu boş çizer. Dizi indeksini TEK BAŞINA anahtar
+ * yapmak, sunucu sırayı değiştirdiğinde React'in yanlış satırı yeniden
+ * kullanmasına yol açardı.
+ */
+const historyDtoSchema = z.array(
+  z.object({
+    operationCode: z.string().nullish(),
+    operationName: z.string().nullish(),
+    description: z.string().nullish(),
+    roleSnapshot: z.string().nullish(),
+    userFullName: z.string().nullish(),
+    createdAt: z.string(),
+  }),
+)
 
-  return Promise.resolve(mockedData(() => buildMockProjectHistory(projectId)))
+const UNKNOWN_USER_LABEL = 'Bilinmeyen kullanıcı'
+
+export async function getProjectHistory(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<Sourced<ProjectHistoryRow[]>> {
+  const dto = await requestJson(
+    { method: 'GET', path: `/api/projects/${projectId}/history`, signal },
+    historyDtoSchema,
+  )
+
+  return serverData(
+    dto.map((row, order) => ({
+      id: `${row.createdAt}-${row.operationCode ?? ''}-${order}`,
+      fileType: null,
+      createdAt: row.createdAt,
+      userName: toNullable(row.userFullName) ?? UNKNOWN_USER_LABEL,
+      roleSnapshot: toNullable(row.roleSnapshot) ?? '',
+      // Kod ham geçiyor: bilinen kodda rozet kendi etiketini bulur, bilinmeyende
+      // sunucunun `operationName`'ine düşer (bkz. OperationBadge).
+      operation: toNullable(row.operationCode) ?? '',
+      operationName: toNullable(row.operationName),
+      description: toNullable(row.description),
+    })),
+  )
 }
 
 /**
@@ -181,17 +225,17 @@ export function getProjectPolicies(projectId: number): Promise<Sourced<ProjectPo
   return Promise.resolve(mockedData(() => buildMockProjectPolicies(projectId)))
 }
 
-export type ProjectDecision = 'approve' | 'reject' | 'requestRevision'
+export type ProjectDecision = 'approve' | 'reject'
 
 /**
  * Gerekçe zorunlu olan işlemler (KK-10); onay gerekçe istemez. Ayrı bir TİP
- * olarak duruyor ki gerekçe diyaloğunun metinleri yalnız bu ikisi için
+ * olarak duruyor ki gerekçe diyaloğunun metinleri yalnız bunun için
  * tanımlansın — `ProjectDecision` ile yazılsaydı 'approve' için de bir metin
  * uydurmak gerekirdi.
  */
 export type ReasonRequiredDecision = Exclude<ProjectDecision, 'approve'>
 
-export const DECISIONS_REQUIRING_REASON: ReasonRequiredDecision[] = ['reject', 'requestRevision']
+export const DECISIONS_REQUIRING_REASON: ReasonRequiredDecision[] = ['reject']
 
 export function requiresReason(decision: ProjectDecision): decision is ReasonRequiredDecision {
   return DECISIONS_REQUIRING_REASON.some((candidate) => candidate === decision)
@@ -200,46 +244,49 @@ export function requiresReason(decision: ProjectDecision): decision is ReasonReq
 export const DECISION_RESULT_STATUS: Record<ProjectDecision, ProjectDetailStatus> = {
   approve: 'onaylanan',
   reject: 'reddedilen',
-  requestRevision: REVISION_REQUESTED_STATUS,
 }
 
-export type ProjectDecisionResult =
-  | {
-      ok: true
-      status: ProjectDetailStatus
-      /** Yalnız onayda üretilir (KK-11); diğer işlemlerde `null`. */
-      approvalCode: string | null
-      /** Kayıt gerçekten sunucuya yazıldı mı. Bugün her zaman `false`. */
-      isPersisted: boolean
-    }
-  | { ok: false; reason: 'unimplemented' }
+const DECISION_PATHS: Record<ProjectDecision, string> = {
+  approve: 'approve',
+  reject: 'reject',
+}
+
+export interface ProjectDecisionResult {
+  status: ProjectDetailStatus
+  /** Yalnız onayda üretilir (KK-11); uç döndürmezse `null`. */
+  approvalCode: string | null
+}
+
+/** Uç onay kodunu döndürebiliyor; gövde boş/farklı gelirse kod yok sayılır. */
+const decisionResponseSchema = z.object({ approvalCode: z.string().nullish() })
 
 /**
- * Onay / ret / revizyon. Uç YOK: geliştirmede sonucu taklit eder ve çağıran
- * `isPersisted: false` görüp uyarıyı gösterir, üretimde işlemi hiç yapmadan
- * `unimplemented` döner — sahte bir "onaylandı" bildirimi üretmek, kullanıcıya
- * yapılmamış bir işi yapılmış göstermek olurdu.
+ * `POST /api/projects/{id}/approve` ve `POST /api/projects/{id}/reject`.
+ *
+ * Ret gerekçesi gövdede (`{ description }`); onay gövde istemiyor. Hata
+ * FIRLATILIR — çağıran (`useProjectDecisions`) yakalayıp bildirimi yazar,
+ * çünkü "reddedildi" demek ancak sunucu 2xx döndüyse doğrudur.
  */
-export function submitProjectDecision(
+export async function submitProjectDecision(
   projectId: number,
   decision: ProjectDecision,
+  description: string | null,
 ): Promise<ProjectDecisionResult> {
-  if (isEndpointImplemented('projectDecision')) {
-    throw new Error('submitProjectDecision: uç bağlandı ama gövdesi yazılmadı.')
-  }
+  const body = await requestJson(
+    {
+      method: 'POST',
+      path: `/api/projects/${projectId}/${DECISION_PATHS[decision]}`,
+      rawJsonBody: decision === 'reject' ? JSON.stringify({ description }) : undefined,
+    },
+    z.unknown(),
+  )
 
-  const simulated = mockedData(() => ({
-    ok: true as const,
+  const parsed = decisionResponseSchema.safeParse(body)
+
+  return {
     status: DECISION_RESULT_STATUS[decision],
-    approvalCode: decision === 'approve' ? `ONY-${projectId}` : null,
-    isPersisted: false,
-  }))
-
-  if (simulated.source === 'unavailable') {
-    return Promise.resolve({ ok: false, reason: 'unimplemented' })
+    approvalCode: parsed.success ? (parsed.data.approvalCode ?? null) : null,
   }
-
-  return Promise.resolve(simulated.data)
 }
 
 export type ProjectFileKind = 'zpd' | 'pdfReport'

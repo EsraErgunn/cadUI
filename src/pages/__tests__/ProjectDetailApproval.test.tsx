@@ -43,10 +43,8 @@ beforeEach(() => {
   detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
   detailApi.requestProjectFile.mockResolvedValue({ ok: false, reason: 'unimplemented' })
   detailApi.submitProjectDecision.mockResolvedValue({
-    ok: true,
     status: 'onaylanan',
     approvalCode: 'ONY-42',
-    isPersisted: false,
   })
   canApprove.mockReturnValue(true)
 })
@@ -78,6 +76,20 @@ describe('onay aksiyonlarının görünürlüğü (KK-2)', () => {
     expect(screen.getByRole('button', { name: 'Reddet' })).toBeDisabled()
   })
 
+  /**
+   * Detay ucu durum döndürmüyor; üretimde `extras` hiç gelmiyor. "Bilinmiyor =
+   * taslak" varsayımı onay/ret akışını orada tümüyle kapatıyordu — bilinmeyen
+   * durumda karar sunucuya bırakılır.
+   */
+  it('durumu bilinmeyen projede onay ve ret aksiyonları kilitlenmez', async () => {
+    detailApi.getProjectDetail.mockResolvedValue(buildDetail({ extras: null }))
+
+    renderDetail()
+
+    expect(await screen.findByRole('button', { name: 'Onayla' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Reddet' })).toBeEnabled()
+  })
+
   it('gönderilmiş projede onay ve ret aksiyonları etkindir', async () => {
     renderDetail()
 
@@ -100,8 +112,9 @@ describe('proje işlemleri ve gerekçe (KK-10)', () => {
 
     const section = await screen.findByRole('region', { name: 'Proje İşlemleri' })
     expect(within(section).getByRole('button', { name: 'Projeyi Onayla' })).toBeInTheDocument()
-    expect(within(section).getByRole('button', { name: 'Revizyon İste' })).toBeInTheDocument()
     expect(within(section).getByRole('button', { name: 'Projeyi Reddet' })).toBeInTheDocument()
+    // "Revizyon İste" YOK: sunucuda revizyon talebi ucu bulunmuyor.
+    expect(within(section).queryByRole('button', { name: 'Revizyon İste' })).not.toBeInTheDocument()
     expect(within(section).getByRole('button', { name: 'PDF Rapor Al' })).toBeInTheDocument()
     expect(within(section).getByRole('link', { name: 'Evrak Ekle' })).toBeInTheDocument()
     expect(within(section).getByRole('link', { name: 'Poliçelendir' })).toBeInTheDocument()
@@ -113,7 +126,6 @@ describe('proje işlemleri ve gerekçe (KK-10)', () => {
 
     const section = await screen.findByRole('region', { name: 'Proje İşlemleri' })
     expect(within(section).queryByRole('button', { name: 'Projeyi Onayla' })).not.toBeInTheDocument()
-    expect(within(section).queryByRole('button', { name: 'Revizyon İste' })).not.toBeInTheDocument()
     expect(within(section).queryByRole('button', { name: 'Projeyi Reddet' })).not.toBeInTheDocument()
     // Yetki gerektirmeyen kısayollar duruyor.
     expect(within(section).getByRole('button', { name: 'PDF Rapor Al' })).toBeInTheDocument()
@@ -135,33 +147,31 @@ describe('proje işlemleri ve gerekçe (KK-10)', () => {
   it('yalnız boşluktan oluşan gerekçe kabul edilmez', async () => {
     const user = await openOperationsTab()
 
-    await user.click(await screen.findByRole('button', { name: 'Revizyon İste' }))
+    await user.click(await screen.findByRole('button', { name: 'Projeyi Reddet' }))
 
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Gerekçe'), '   ')
-    await user.click(within(dialog).getByRole('button', { name: 'Revizyon İste' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Reddet' }))
 
     expect(await screen.findByText('Gerekçe zorunludur.')).toBeInTheDocument()
     expect(detailApi.submitProjectDecision).not.toHaveBeenCalled()
   })
 
-  it('gerekçe girilince işlem tamamlanır', async () => {
+  it('gerekçe girilince işlem tamamlanır ve gerekçe uca gider', async () => {
     detailApi.submitProjectDecision.mockResolvedValue({
-      ok: true,
-      status: 'revizyonIstendi',
+      status: 'reddedilen',
       approvalCode: null,
-      isPersisted: false,
     })
 
     const user = await openOperationsTab()
 
-    await user.click(await screen.findByRole('button', { name: 'Revizyon İste' }))
+    await user.click(await screen.findByRole('button', { name: 'Projeyi Reddet' }))
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Gerekçe'), 'Kolon çapı yanlış.')
-    await user.click(within(dialog).getByRole('button', { name: 'Revizyon İste' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Reddet' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(detailApi.submitProjectDecision).toHaveBeenCalledWith(42, 'requestRevision')
+    expect(detailApi.submitProjectDecision).toHaveBeenCalledWith(42, 'reject', 'Kolon çapı yanlış.')
   })
 })
 
@@ -183,23 +193,10 @@ describe('işlem sonrası (KK-11)', () => {
     )
   })
 
-  it('sunucuya yazılmadığı uyarısı gösterilir', async () => {
-    const user = userEvent.setup()
-    renderDetail()
-
-    await user.click(await screen.findByRole('button', { name: 'Onayla' }))
-
-    expect(
-      await screen.findByText(/Sonuç yalnız bu ekranda görünür; sunucuya kaydedilmedi\./),
-    ).toBeInTheDocument()
-  })
-
   it('karar sonrası işlem geçmişine yeni kayıt eklenir ve gerekçe açıklamada görünür', async () => {
     detailApi.submitProjectDecision.mockResolvedValue({
-      ok: true,
       status: 'reddedilen',
       approvalCode: null,
-      isPersisted: false,
     })
 
     const user = userEvent.setup()
@@ -223,8 +220,8 @@ describe('işlem sonrası (KK-11)', () => {
     expect(rows[0]).toHaveTextContent('Baca tipi uygun değil.')
   })
 
-  it('uç olmayan ortamda işlem yapılmadığı söylenir', async () => {
-    detailApi.submitProjectDecision.mockResolvedValue({ ok: false, reason: 'unimplemented' })
+  it('uç hata dönerse işlem tamamlanmadığı söylenir', async () => {
+    detailApi.submitProjectDecision.mockRejectedValue(new Error('500'))
 
     const user = userEvent.setup()
     renderDetail()
@@ -232,7 +229,7 @@ describe('işlem sonrası (KK-11)', () => {
     await user.click(await screen.findByRole('button', { name: 'Onayla' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'İşlem yapılamadı: onay/ret/revizyon ucu sunucuda henüz yok.',
+      'İşlem tamamlanamadı. Lütfen tekrar deneyin.',
     )
   })
 })

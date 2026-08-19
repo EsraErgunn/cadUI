@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { GLOBAL_SCOPE } from '../adminDashboard'
 import { ProjectFirmAuthorizationError } from '../projectFirmAuthorizations'
 import {
   createProject,
@@ -19,6 +20,7 @@ const TASLAK_QUERY: ProjectListQuery = {
   cityId: null,
   districtId: null,
   projectFirmId: null,
+  scope: GLOBAL_SCOPE,
   search: '',
   page: 1,
   pageSize: PROJECT_PAGE_SIZE,
@@ -33,6 +35,7 @@ const COUNTS_QUERY: ProjectStatusCountsQuery = {
   cityId: null,
   districtId: null,
   projectFirmId: null,
+  scope: GLOBAL_SCOPE,
   search: '',
 }
 
@@ -75,12 +78,12 @@ describe('getProjectFirms (mock — evrak süzgeci)', () => {
  * Gövde biçimleri 2026-08-04'te çalışan cadapi'den birebir alındı; uydurma
  * değil. Sözleşme kayarsa bu sabitler de güncellenmeli.
  */
-function apiCreatedResponse(id: number, name: string, code: string | null = null) {
+function apiCreatedResponse(id: number, name: string, buildingCode: string | null = null) {
   return {
     id,
     name,
     description: null,
-    code,
+    buildingCode,
     projectFirmAuthorizationId: 1,
     gasDistributionFirmId: 1,
     cityId: 6,
@@ -94,8 +97,14 @@ function apiCreatedResponse(id: number, name: string, code: string | null = null
   }
 }
 
-function apiListItem(id: number, name: string, updatedAt: string, code: string | null = null) {
-  return { id, name, code, createdAt: updatedAt, updatedAt }
+function apiListItem(
+  id: number,
+  name: string,
+  updatedAt: string,
+  code: string | null = null,
+  status: string | null = null,
+) {
+  return { id, name, code, status, createdAt: updatedAt, updatedAt }
 }
 
 function jsonResponse(body: unknown): Response {
@@ -182,7 +191,7 @@ describe('createProject', () => {
     expect(created.pId).toBe('7')
   })
 
-  it('uç `code` döndürürse P_ID olarak onu kullanır', async () => {
+  it('uç `buildingCode` döndürürse P_ID olarak onu kullanır', async () => {
     stubFetch(apiCreatedResponse(7, VALID_PAYLOAD.name, 'PRJ-2026-007'))
 
     expect((await createProject(VALID_PAYLOAD)).pId).toBe('PRJ-2026-007')
@@ -356,6 +365,39 @@ describe('listProjects — sunucu taraflı süzme ve sayfalama', () => {
     expect(searchParams.get('PageSize')).toBe(String(PROJECT_PAGE_SIZE))
   })
 
+  /** Üst bardaki kapsam grup firmasıysa yalnız `gdGroupId` gider. */
+  it('grup kapsamını gdGroupId olarak gönderir', async () => {
+    const fetchMock = stubFetch(apiPage([]))
+
+    await listProjects({ ...TASLAK_QUERY, scope: { type: 'group', groupId: 7 } })
+
+    const { searchParams } = sentUrl(fetchMock)
+    expect(searchParams.get('gdGroupId')).toBe('7')
+    expect(searchParams.has('gdFirmId')).toBe(false)
+  })
+
+  /** Firma daha DAR kapsam; grup parametresi yanına eklenmez (uç ikisini almıyor). */
+  it('firma kapsamını gdFirmId olarak gönderir, grubu göndermez', async () => {
+    const fetchMock = stubFetch(apiPage([]))
+
+    await listProjects({ ...TASLAK_QUERY, scope: { type: 'firm', firmId: 101 } })
+
+    const { searchParams } = sentUrl(fetchMock)
+    expect(searchParams.get('gdFirmId')).toBe('101')
+    expect(searchParams.has('gdGroupId')).toBe(false)
+  })
+
+  /** Kapsam seçilmemişse "tümü" demek için parametrenin YOKLUĞU kullanılır. */
+  it('kapsam yokken kapsam parametresi yazmaz', async () => {
+    const fetchMock = stubFetch(apiPage([]))
+
+    await listProjects(TASLAK_QUERY)
+
+    const { searchParams } = sentUrl(fetchMock)
+    expect(searchParams.has('gdGroupId')).toBe(false)
+    expect(searchParams.has('gdFirmId')).toBe(false)
+  })
+
   /** Sekme kodu arayüze özel; uca sunucunun durum kodu gider. */
   it('sekmeyi sunucunun durum koduna çevirir', async () => {
     const fetchMock = stubFetch(apiPage([]))
@@ -456,6 +498,35 @@ describe('listProjects — sunucu taraflı süzme ve sayfalama', () => {
     expect(project.buildingCode).toBeNull()
     expect(project.hasDocuments).toBe(false)
   })
+
+  /** Durum satırın KENDİ verisi: "Onaya Gönder" düğmesi buna bakıyor. */
+  it('sunucunun durum kodunu arayüz koduna çevirir', async () => {
+    stubFetch(
+      apiPage([
+        apiListItem(1, 'Taslak', '2026-08-03T18:20:47', null, 'Draft'),
+        apiListItem(2, 'Onaylı', '2026-08-03T18:20:47', null, 'Approved'),
+      ]),
+    )
+
+    const page = await listProjects(TASLAK_QUERY)
+
+    expect(page.items.map((project) => project.status)).toEqual(['taslak', 'onaylanan'])
+  })
+
+  /** Tanınmayan/eksik kod "taslak" SAYILMAZ: uydurma durum satır aksiyonunu yanıltır. */
+  it('bilinmeyen veya eksik durum kodunu null bırakır', async () => {
+    stubFetch(
+      apiPage([
+        apiListItem(1, 'Bilinmeyen', '2026-08-03T18:20:47', null, 'OnHold'),
+        // Durum hiç gelmeyen satır: `null` ile aynı kapıya çıkar.
+        apiListItem(2, 'Durumsuz', '2026-08-03T18:20:47'),
+      ]),
+    )
+
+    const page = await listProjects(TASLAK_QUERY)
+
+    expect(page.items.map((project) => project.status)).toEqual([null, null])
+  })
 })
 
 describe('getProjectStatusCounts', () => {
@@ -481,5 +552,14 @@ describe('getProjectStatusCounts', () => {
     expect(searchParams.get('CityId')).toBe('6')
     expect(searchParams.get('DistrictId')).toBe('64')
     expect(searchParams.has('Status')).toBe(false)
+  })
+
+  /** Rozetler listeyle AYNI kapsamı saymalı; kapsam parametresi buraya da gider. */
+  it('kapsamı rozet sorgusuna da yazar', async () => {
+    const fetchMock = stubFetch(countsBody)
+
+    await getProjectStatusCounts({ ...COUNTS_QUERY, scope: { type: 'firm', firmId: 101 } })
+
+    expect(sentUrl(fetchMock).searchParams.get('gdFirmId')).toBe('101')
   })
 })

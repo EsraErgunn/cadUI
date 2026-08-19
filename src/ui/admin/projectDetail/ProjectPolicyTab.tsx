@@ -14,6 +14,9 @@ import { detailBadgeVariants } from './projectDetailVariants'
 
 const EMPTY_MESSAGE = 'Proje Poliçe Kaydı Bulunamamıştır.'
 
+/** Poliçenin durumu tek değerli: kayıt oluştuğu anda onaylanmış sayılıyor. */
+const POLICY_STATUS_LABEL = 'Onaylandı'
+
 const TABLE_CAPTION = 'Projeye bağlı poliçeler.'
 
 const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
@@ -49,12 +52,12 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
     cell: (row) => formatPlainDate(row.endDate) ?? <EmptyValue />,
   },
   {
-    key: 'isPaid',
-    label: 'Ödeme',
-    cell: (row) => (
-      <span className={detailBadgeVariants({ tone: row.isPaid ? 'success' : 'warning' })}>
-        {row.isPaid ? 'Ödendi' : 'Bekliyor'}
-      </span>
+    key: 'status',
+    label: 'Durum',
+    // Ödeme akışı yok: poliçe oluşturulduğu anda onaylı sayılıyor, o yüzden
+    // satır başına değişen bir durum alanı da yok.
+    cell: () => (
+      <span className={detailBadgeVariants({ tone: 'success' })}>{POLICY_STATUS_LABEL}</span>
     ),
   },
 ]
