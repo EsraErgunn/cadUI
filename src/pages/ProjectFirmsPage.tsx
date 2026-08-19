@@ -5,7 +5,11 @@ import {
   getEffectiveAuthorizations,
   type ProjectFirmAuthorizationRef,
 } from '../api/projectFirmAuthorizations'
-import { buildProjectFirmRows, queryProjectFirmList } from '../api/projectFirmListQuery'
+import {
+  buildProjectFirmRows,
+  filterProjectFirmRowsByScope,
+  queryProjectFirmList,
+} from '../api/projectFirmListQuery'
 import { getProjectFirmList, type ProjectFirm } from '../api/projectFirms'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
@@ -28,6 +32,7 @@ import { useProjectFirmActions } from '../ui/admin/projectFirms/useProjectFirmAc
 import { useProjectFirmListParams } from '../ui/admin/projectFirms/useProjectFirmListParams'
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
 import { useSavedFirmNotice } from '../ui/admin/useSavedFirmNotice'
+import { useScopeGasFirms } from '../ui/admin/useScopeGasFirms'
 
 /** Liste sorgusunun anahtarı; silmeden sonra bu anahtar geçersizleşir. */
 const PROJECT_FIRM_LIST_QUERY_KEY = 'projectFirmList'
@@ -64,6 +69,8 @@ export function ProjectFirmsPage() {
   const savedNotice = useSavedFirmNotice()
   const queryClient = useQueryClient()
   const canManage = useIsAdmin()
+  // Üst bardaki kapsam: satırlar G.D. firması bağı üzerinden daraltılıyor.
+  const scopeGasFirms = useScopeGasFirms()
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
   const [isAuthorizationNoticeDismissed, setIsAuthorizationNoticeDismissed] = useState(false)
 
@@ -98,8 +105,11 @@ export function ProjectFirmsPage() {
 
   const rows = useMemo(
     () =>
-      buildProjectFirmRows(data ?? EMPTY_LIST, authorizationsQuery.data ?? EMPTY_AUTHORIZATIONS),
-    [data, authorizationsQuery.data],
+      filterProjectFirmRowsByScope(
+        buildProjectFirmRows(data ?? EMPTY_LIST, authorizationsQuery.data ?? EMPTY_AUTHORIZATIONS),
+        scopeGasFirms.ids,
+      ),
+    [data, authorizationsQuery.data, scopeGasFirms.ids],
   )
 
   // Süzme/sıralama/dilimleme burada: liste yeniden ÇEKİLMEZ, yeniden hesaplanır.
@@ -186,7 +196,7 @@ export function ProjectFirmsPage() {
             onToggleSort={toggleSort}
             emptyMessage={
               query.nameQuery === ''
-                ? 'Sisteme kayıtlı proje firması yok.'
+                ? 'Seçili kapsamda proje firması yok.'
                 : 'Arama kriterine uyan proje firması bulunamadı. Kriteri değiştirip tekrar deneyin.'
             }
           />

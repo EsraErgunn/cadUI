@@ -55,6 +55,26 @@ export function buildProjectFirmRows(
 }
 
 /**
+ * Üst bardaki kapsamla daraltır: satır, kapsamdaki gaz dağıtım firmalarından en
+ * az birinde yetkiliyse kalır.
+ *
+ * `gasFirmIds` `null` ise (sistem geneli ya da firma listesi henüz gelmedi)
+ * liste OLDUĞU GİBİ döner — kapsam bilgisi eksikken satır elemek, kullanıcıya
+ * kayıt kaybettirirdi.
+ *
+ * Uçta kapsam parametresi YOK (`GET /api/projectfirms` filtresiz düz dizi),
+ * bu yüzden daraltma istemcide; arama/sıralama/sayfalama ile aynı gerekçe (K29).
+ */
+export function filterProjectFirmRowsByScope(
+  rows: readonly ProjectFirmRow[],
+  gasFirmIds: ReadonlySet<number> | null,
+): ProjectFirmRow[] {
+  if (gasFirmIds === null) return [...rows]
+
+  return rows.filter((row) => row.gasFirms.some((gasFirm) => gasFirmIds.has(gasFirm.id)))
+}
+
+/**
  * Sunucunun yapması GEREKEN işi istemcide yapar: filtre → sırala → dilimle.
  *
  * Uç (`GET /api/projectfirms`) filtresiz, sayfalamasız düz dizi döndürüyor.

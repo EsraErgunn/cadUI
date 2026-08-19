@@ -40,6 +40,13 @@ function matchesQuery(document: DocumentRow, query: DocumentListQuery): boolean 
   if (query.docTypeCode !== null && document.docTypeCode !== query.docTypeCode) return false
   if (query.projectFirmId !== null && document.projectFirmId !== query.projectFirmId) return false
 
+  // Kapsam: G.D. firması bilinmeyen evrak daraltılmış görünümde DÜŞER — hangi
+  // firmaya ait olduğu bilinmiyorken kapsam içinde saymak yanlış olurdu.
+  if (query.gasFirmNames !== null) {
+    if (document.gasFirmName === null) return false
+    if (!query.gasFirmNames.includes(document.gasFirmName)) return false
+  }
+
   // Arama evrak ADI üzerinde; `includesTr` şart, 'İ'.toLowerCase() birleşen
   // nokta üretip eşleşmeyi sessizce kaçırıyor (knowledge/turkish-collation).
   if (query.search !== '' && !includesTr(document.fileName, query.search)) return false

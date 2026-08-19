@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
@@ -6,10 +7,19 @@ import { describe, expect, it } from 'vitest'
 import { useProjectFirmUserListParams } from '../useProjectFirmUserListParams'
 
 /** Kontrollerin yanında query string'i de döndürür: "varsayılan URL'e yazılmaz"
-    kuralı ancak adrese bakılarak doğrulanabilir. */
+    kuralı ancak adrese bakılarak doğrulanabilir.
+
+    `QueryClientProvider` şart: kapsam (`useScopeGasFirms`) firma listesini
+    react-query ile okuyor. Sistem geneli kapsamda sorgu pasif, yani istek
+    atılmıyor — sağlayıcı yalnız bağlam için duruyor. */
 function renderWithUrl(url: string) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) =>
-    createElement(MemoryRouter, { initialEntries: [url] }, children)
+    createElement(
+      QueryClientProvider,
+      { client },
+      createElement(MemoryRouter, { initialEntries: [url] }, children),
+    )
 
   return renderHook(
     () => ({ controls: useProjectFirmUserListParams(), search: useLocation().search }),
