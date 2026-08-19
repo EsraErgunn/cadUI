@@ -17,6 +17,11 @@ export default defineConfig(({ mode }) => ({
       ? [visualizer({ open: true, gzipSize: true, brotliSize: true, filename: 'stats.html' })]
       : []),
   ],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    allowedHosts: ['starcad.tekhnelogos.com'],
+  },
   css: {
     // Boş nesne = "config dosyası arama, eklenti yok".
     // Üst klasördeki postcss.config.js'in bulunmasını engeller.
