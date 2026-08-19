@@ -4609,6 +4609,7 @@ kaldırıldı (`ui/AxisIndicator.tsx`). Menü çubuğunun ortasındaki üç pasi
 (`menu/ShortcutButtons.tsx`) yerini Test Et / Gönder'e bıraktı.
 
 **Test Et, Gönder, Hata Kontrolleri ve Kayıt Geçmişi görünür ama PASİF.**
+(Kayıt Geçmişi 2026-08'de bağlandı — bkz. K107; kalan üçü hâlâ pasif.)
 Arkalarında akış yok — `core/validate.ts` bugün boş dosya. K79'un palet
 dürüstlüğü kuralı: düğme "bozuk" değil "henüz yok" demeli. "Hata Kontrolleri"
 bağımsız bir eylem değil, Test Et'in SONUCUNU gösterecek yer; doğrulama hattı
@@ -5366,3 +5367,67 @@ hiçbir yönde kapsama tutmaz, iki YENİ oda doğar. Ayrı testle kilitlendi.
 
 Ölçüm: üç odalı planda on iki ardışık duvar taşıması boyunca üç odanın da id'si
 ve kullanıcının verdiği adı (Y, X, Z) hiç değişmedi.
+
+## 2026-08 · Kayıt geçmişi bağlandı
+
+### K107 — Sürüm listesi gerçek uca bağlandı; düğmenin ALTINDAN açılır, sürüm seçmek çizimi YÜKLER
+
+K90 "Kayıt Geçmişi" düğmesini görünür ama pasif bırakmıştı: arkasında akış
+yoktu. Akış artık var — cadapi `ProjectVersionsController` üç ucu da veriyor
+(`newversion`, `versions`, `projectversions/{id}/get`) ve frontend API katmanı
+(`getProjectVersions` / `loadProjectVersion`) zaten yazılıydı, hiçbir yerden
+çağrılmıyordu. Bu iş yalnız arayüzü ve bağlamayı ekledi.
+
+**Liste düğmenin altından açılıyor, yandan kayan panel DEĞİL.** İlk uygulama
+özellik paneliyle aynı aileden bir yan paneldi; referans arayüz (WebCAD,
+"Düzenle ▸ Kayıt Geçmişi") açılır liste gösteriyor ve kullanıcı onu istedi.
+Yan panel ayrıca özellik paneliyle aynı sağ yuvayı paylaşıyordu — ikisinden
+birini gizlemek gerekiyordu, açılır listede o sorun hiç doğmuyor. Satır biçimi
+referanstan: `17 Ağu - 14:13 | test1`.
+
+**Salt okunur liste seçilmedi.** Sürüm listesini gösterip yüklememek, düğmenin
+pratik faydasını sıfıra indiriyordu: kullanıcı geçmişe kaydettiği bir çizime
+dönemiyorsa geçmişin ekranda olması bilgi değil süs.
+
+**Onay YALNIZ kaydedilmemiş değişiklik varken sorulur.** Temizken kaybedilecek
+bir şey yok, aynı çizim sunucuda duruyor. Kirliyken şart, çünkü yükleme
+`cadStore.loadProject`ten geçiyor ve o geri al geçmişini de sıfırlıyor
+("yükleme bir düzenleme değil, yeni bir başlangıç") — kullanıcı sorulmadan
+yüklerse çizimini Ctrl+Z ile geri getiremez.
+
+**Yüklü sürüm de tıklanabilir kaldı.** Pasifleştirilseydi "kaydedilmemiş
+değişiklikleri at, son kayda dön" hareketinin karşılığı kalmazdı; rozet
+(`Yüklü` + `aria-current`) hangisinin açık olduğunu zaten söylüyor.
+
+**"Farklı Kaydet" aynı turda aktifleşti** (Dosya menüsü + Ctrl+Shift+S). Uçtaki
+her yazma zaten yeni ve değişmez bir kayıt doğuruyor; ayıran tek şey `label`.
+Etiket olmadan liste yalnız tarih gösterirdi ve geçmişin okunurluğu buna bağlı.
+Etiket ZORUNLU: boş bırakılabilseydi düğme düz "Kaydet"in ikizi olurdu.
+
+**Açık sürümün kimliği artık durumun parçası.** `loadLatestProjectVersion`
+`{ versionId, data }` döndürüyor, `useProjectPersistence.currentVersionId` hem
+"Yüklü" rozetini hem listenin tazelenmesini sürüyor — kaydetme yeni bir kimlik
+doğuruyor, panel de onu görünce listeyi yeniden çekiyor. Alternatif (react-query
++ invalidate) reddedildi: sorgu önbelleği editörde hiç kullanılmıyor ve
+kaydetme yolunun ayrıca invalidate etmesi gerekirdi.
+
+⚠️ Sürüm yükleme de `activeLoad` sahipliğinden geçiyor. Store'u dolduran her yol
+aynı kapıdan geçmeli; yoksa proje değişince iptal edilemeyen ikinci bir yazar
+kalır — knowledge/persistence.md'deki "bütün projeler tek çizime yakınsıyordu"
+hatasının aynısı. Yan etki olarak: açılış yüklemesi hata verip kaydetmeyi
+kilitlediyse, geçmişten sürüm yüklemek kilidi AÇAR (projenin sunucudaki çizimi
+artık biliniyor).
+
+⚠️ Tarih `new Date(...)` ile ayrıştırılmıyor. Uç `DateTime` döndürüyor
+(`CreatedAt = DateTime.UtcNow`) ve .NET dilim eki yazmıyor; düz ayrıştırmada
+değer YEREL saat sayılır ve UTC+3'te her kayıt üç saat geride görünürdü.
+`api/serverTimestamp.ts → parseServerTimestampMs` bu tuzağı zaten belgeliyordu.
+
+⚠️ Açık/kapalı durumu `VersionHistoryMenu`'nün içinde; MenuBar yalnız veri
+kaynağını (`versionHistory`) TAŞIYOR. Dışarı tıklama kapsamı düğmeyi de
+içeriyor, yoksa `pointerdown` kapatır ve düğmenin `click`'i yeniden açardı.
+
+Liste DTO'su kullanıcı adı taşımıyor (`CreatedByUserId` yansımıyor), bu yüzden
+satırda tarih + etiketten fazlası YOK. "Kim kaydetti" istenirse önce uç
+değişmeli — uydurulmadı.
+

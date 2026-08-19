@@ -799,14 +799,20 @@ export async function loadProjectVersion(
   return parseProjectJson(await fetchText(url, options))
 }
 
-/** Projenin en son kaydı; hiç sürüm yoksa undefined. */
+/**
+ * Projenin en son kaydı; hiç sürüm yoksa undefined.
+ *
+ * Yalnız çizimi değil KİMLİĞİNİ de döndürüyor: editör hangi sürümün açık
+ * olduğunu biliyor olmalı, yoksa kayıt geçmişi listesi "yüklü olan hangisi"
+ * sorusunu cevaplayamaz ve kullanıcı zaten açık olan sürümü yeniden yükler.
+ */
 export async function loadLatestProjectVersion(
   projectId: Id,
   options?: RequestOptions,
-): Promise<ProjectData | undefined> {
+): Promise<{ versionId: Id; data: ProjectData } | undefined> {
   // Uç CreatedAt'e göre AZALAN sıralı döndürüyor; ilk kayıt en yenisi.
   const [latest] = await getProjectVersions(projectId, options)
   if (!latest) return undefined
 
-  return loadProjectVersion(latest.id, options)
+  return { versionId: latest.id, data: await loadProjectVersion(latest.id, options) }
 }

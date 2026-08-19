@@ -1,11 +1,13 @@
-import { CircleCheck, FlaskConical, History, Save, Send } from 'lucide-react'
+import { CircleCheck, FlaskConical, Save, Send } from 'lucide-react'
 
 import { editorBarButtonVariants, editorBarPrimaryVariants } from './editorBarVariants'
 import { selectIsProjectDirty, useCadStore } from '../../store/cadStore'
+import { VersionHistoryMenu, type VersionHistorySource } from '../versions/VersionHistoryMenu'
 
 type EditorActionsProps = {
   onSave: () => void
   isSaving: boolean
+  versionHistory: VersionHistorySource
 }
 
 /**
@@ -15,9 +17,11 @@ type EditorActionsProps = {
  * yer; doğrulama hattı (core/validate.ts bugün boş) bağlanınca sonuç varken
  * görünen bir rozete dönüşecek. O gün gelene kadar Test Et/Gönder ile birlikte
  * pasif duruyor — "0 hata" yazmak, çalıştırılmamış bir kontrolü geçmiş gibi
- * gösterirdi (palet dürüstlüğü, K79).
+ * gösterirdi (palet dürüstlüğü, K79). Kayıt Geçmişi o öbekten AYRILDI: arkasına
+ * gerçek bir uç bağlandı (GET /api/projects/{id}/versions), kendi açılır
+ * listesini taşıyor (K107).
  */
-export function EditorActions({ onSave, isSaving }: EditorActionsProps) {
+export function EditorActions({ onSave, isSaving, versionHistory }: EditorActionsProps) {
   const isDirty = useCadStore(selectIsProjectDirty)
 
   return (
@@ -67,18 +71,9 @@ export function EditorActions({ onSave, isSaving }: EditorActionsProps) {
         {isDirty && <span aria-hidden className="size-2 rounded-full bg-brand" />}
       </button>
 
-      {/* Kaydet'in AÇILIRI değil, yanındaki ayrı düğme: kayıt geçmişi kaydetmenin
-          bir çeşidi değil, geçmişe bakmak. "Düzenle" menüsü kalkınca buraya taşındı;
-          ekranı yazılana kadar orada da olduğu gibi pasif. */}
-      <button
-        type="button"
-        disabled
-        title="Kayıt Geçmişi"
-        aria-label="Kayıt Geçmişi"
-        className={editorBarButtonVariants({ tone: 'card', shape: 'icon' })}
-      >
-        <History size={16} strokeWidth={1.8} aria-hidden />
-      </button>
+      {/* "Düzenle" menüsü kalkınca buraya taşındı (K90); açılır listesi
+          kendi bileşeninde. */}
+      <VersionHistoryMenu {...versionHistory} />
     </div>
   )
 }

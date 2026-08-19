@@ -5,11 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createGroundFloor } from '../../core/floors'
 import { DEFAULT_FLOOR_ID, type ProjectData } from '../../core/model'
-import { useCadStore } from '../../store/cadStore'
+import { selectIsProjectDirty, useCadStore } from '../../store/cadStore'
 import { useProjectPersistence } from '../useProjectPersistence'
 
 const api = vi.hoisted(() => ({
   loadLatestProjectVersion: vi.fn(),
+  loadProjectVersion: vi.fn(),
   saveProjectVersion: vi.fn(),
 }))
 
@@ -17,6 +18,11 @@ vi.mock('../../api/projects', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/projects')>()),
   ...api,
 }))
+
+/** Uç artık çizimi KİMLİĞİYLE döndürüyor: editör hangi sürümün açık olduğunu bilir. */
+function latestVersion(data: ProjectData, versionId = 100) {
+  return { versionId, data }
+}
 
 /** Bir duvarı olan proje: "önceki projenin çizimi" olarak kullanılıyor. */
 function projectWithWall(): ProjectData {
@@ -58,6 +64,7 @@ function wrapperFor(projectId: number) {
 
 beforeEach(() => {
   api.loadLatestProjectVersion.mockReset()
+  api.loadProjectVersion.mockReset()
   api.saveProjectVersion.mockReset()
   api.saveProjectVersion.mockResolvedValue({
     id: 1,
@@ -74,7 +81,7 @@ beforeEach(() => {
 describe('useProjectPersistence — projeler birbirine karışmaz', () => {
   it('kaydı olmayan projeye geçince önceki projenin çizimi TEMİZLENİR', async () => {
     // 1. proje: sunucuda çizimi var, store'a yükleniyor.
-    api.loadLatestProjectVersion.mockResolvedValue(projectWithWall())
+    api.loadLatestProjectVersion.mockResolvedValue(latestVersion(projectWithWall()))
     const first = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(1) })
     await waitFor(() => expect(useCadStore.getState().walls).toHaveLength(1))
     first.unmount()
@@ -91,7 +98,7 @@ describe('useProjectPersistence — projeler birbirine karışmaz', () => {
   })
 
   it('kaydı olmayan projede kaydedilen veri BOŞ projedir, öncekinin çizimi değil', async () => {
-    api.loadLatestProjectVersion.mockResolvedValue(projectWithWall())
+    api.loadLatestProjectVersion.mockResolvedValue(latestVersion(projectWithWall()))
     const first = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(1) })
     await waitFor(() => expect(useCadStore.getState().walls).toHaveLength(1))
     first.unmount()
@@ -136,7 +143,7 @@ describe('useProjectPersistence — projeler birbirine karışmaz', () => {
   })
 
   it('kaydı olan projeyi normal şekilde kaydeder', async () => {
-    api.loadLatestProjectVersion.mockResolvedValue(projectWithWall())
+    api.loadLatestProjectVersion.mockResolvedValue(latestVersion(projectWithWall()))
     const { result } = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(5) })
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
@@ -147,5 +154,80 @@ describe('useProjectPersistence — projeler birbirine karışmaz', () => {
     const [projectId, data] = api.saveProjectVersion.mock.calls[0]
     expect(projectId).toBe(5)
     expect(data.walls).toHaveLength(1)
+  })
+})
+
+describe('useProjectPersistence — kayıt geçmişinden sürüm yükleme', () => {
+  /** Boş çizim: yüklenen sürümün öncekinin ÜSTÜNE yazdığını duvar sayısı gösteriyor. */
+  function emptyProjectData(): ProjectData {
+    return { ...projectWithWall(), points: [], walls: [] }
+  }
+
+  it('seçilen sürüm store\'a yüklenir ve açık sürüm kimliği güncellenir', async () => {
+    api.loadLatestProjectVersion.mockResolvedValue(latestVersion(projectWithWall(), 100))
+    api.loadProjectVersion.mockResolvedValue(emptyProjectData())
+    const { result } = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(6) })
+
+    await waitFor(() => expect(result.current.currentVersionId).toBe(100))
+    expect(useCadStore.getState().walls).toHaveLength(1)
+
+    await act(async () => {
+      await result.current.loadVersion(42)
+    })
+
+    expect(useCadStore.getState().walls).toHaveLength(0)
+    expect(result.current.currentVersionId).toBe(42)
+    // Yükleme bir düzenleme değil: kirli işaret sıfırlanır, uyarı çıkmaz.
+    expect(selectIsProjectDirty(useCadStore.getState())).toBe(false)
+  })
+
+  it('açılış yüklemesi sürerken sürüm değiştirmeyi reddeder', async () => {
+    // İki yazar yarışırdı: geç dönen açılış isteği seçilen sürümün üstüne yazardı.
+    api.loadLatestProjectVersion.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(7) })
+
+    await act(async () => {
+      await result.current.loadVersion(42)
+    })
+
+    expect(api.loadProjectVersion).not.toHaveBeenCalled()
+    expect(result.current.error).toContain('yükleniyor')
+  })
+
+  it('açılış yüklemesi hata verdiyse sürüm yüklemek kaydetme kilidini AÇAR', async () => {
+    // Projenin sunucudaki çizimi artık biliniyor; üstüne yazma riski kalktı.
+    api.loadLatestProjectVersion.mockRejectedValue(new Error('Sunucuya ulaşılamadı.'))
+    api.loadProjectVersion.mockResolvedValue(emptyProjectData())
+    const { result } = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(8) })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    await act(async () => {
+      await result.current.loadVersion(42)
+    })
+    await act(async () => {
+      await result.current.save()
+    })
+
+    expect(api.saveProjectVersion).toHaveBeenCalledTimes(1)
+  })
+
+  it('kaydetme yeni sürümü açık sürüm yapar (liste bu değişimle tazeleniyor)', async () => {
+    api.loadLatestProjectVersion.mockResolvedValue(latestVersion(projectWithWall(), 100))
+    api.saveProjectVersion.mockResolvedValue({
+      id: 101,
+      projectId: 9,
+      objectKey: 'k',
+      label: 'Kolon hattı eklendi',
+      createdAt: '2026-08-19T00:00:00Z',
+    })
+    const { result } = renderHook(() => useProjectPersistence(), { wrapper: wrapperFor(9) })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    await act(async () => {
+      await result.current.save('Kolon hattı eklendi')
+    })
+
+    expect(api.saveProjectVersion.mock.calls[0][2]).toBe('Kolon hattı eklendi')
+    expect(result.current.currentVersionId).toBe(101)
   })
 })
