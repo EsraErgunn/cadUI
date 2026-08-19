@@ -16,11 +16,12 @@ import { DensityCard } from '../ui/admin/dashboard/DensityCard'
 import { QuickActionsCard } from '../ui/admin/dashboard/QuickActionsCard'
 import { SummaryCards } from '../ui/admin/dashboard/SummaryCards'
 import { TodayCard } from '../ui/admin/dashboard/TodayCard'
-import { buildScopeDescription } from '../ui/admin/dashboard/dashboardFormat'
 import { useCurrentDay } from '../ui/admin/dashboard/useCurrentDay'
 import { useAdminScopeParam } from '../ui/admin/useAdminScopeParam'
 
 const PAGE_TITLE = 'Genel Bakış'
+
+const PAGE_DESCRIPTION = 'Sistem geneli durum'
 
 const BREADCRUMB = [{ label: 'Anasayfa', to: ADMIN_HOME_PATH }, { label: 'Dashboard' }]
 
@@ -75,8 +76,7 @@ export function AdminHomePage() {
         <PageHeader
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
-          // Tarih gün anahtarından geliyor: gün değişince açıklama da döner.
-          description={buildScopeDescription(date, scopeName)}
+          description={PAGE_DESCRIPTION}
         />
 
         <button

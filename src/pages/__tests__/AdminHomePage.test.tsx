@@ -118,15 +118,15 @@ afterEach(() => {
 
 // KK-1 — Ekran açılışı
 describe('KK-1 ekran açılışı', () => {
-  it('kırılım, başlık ve kapsam açıklaması görünür', async () => {
+  it('kırılım ve başlık görünür', async () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Genel Bakış' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Anasayfa' })).toBeInTheDocument()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent(
-      'tüm gruplar ve firmalar',
-    )
+    // Başlık altı YALNIZ ana başlığı söyler; tarih "Bugün" kartında, kapsam adı
+    // özet kartlarının altında yazıyor.
+    expect(screen.getByText('Sistem geneli durum')).toBeInTheDocument()
   })
 
   it('sağ üstte "Duyuru Yayınla" bulunur ve etkindir', async () => {
@@ -134,17 +134,6 @@ describe('KK-1 ekran açılışı', () => {
 
     const button = await screen.findByRole('button', { name: 'Duyuru Yayınla' })
     expect(button).toBeEnabled()
-  })
-
-  it('kapsam açıklamasındaki tarih İÇİNDE BULUNULAN gündür', async () => {
-    renderPage()
-    const today = new Intl.DateTimeFormat('tr-TR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date())
-
-    expect(await screen.findByText(/Sistem geneli durum —/)).toHaveTextContent(today)
   })
 })
 
@@ -163,9 +152,7 @@ describe('kapsam', () => {
       { type: 'global' },
       expect.anything(),
     )
-    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent(
-      'tüm gruplar ve firmalar',
-    )
+    expect((await screen.findAllByText('Tüm gruplar ve firmalar için')).length).toBeGreaterThan(0)
   })
 
   it('grup kapsamını uca geçirir', async () => {
@@ -194,17 +181,17 @@ describe('kapsam', () => {
   })
 
   // Sayılar süzülmüşken "tüm gruplar ve firmalar" demek yanlış olurdu.
-  it('seçili grubun adını başlığa yazar', async () => {
+  it('seçili grubun adını kartlara yazar', async () => {
     renderPage({ route: '/admin?group=2' })
 
     // Grup listesi sonra çözülüyor; ilk kare hâlâ kapsamsız metni gösteriyor.
-    expect(await screen.findByText(/Sistem geneli durum —.*AKSA/)).toBeInTheDocument()
+    expect((await screen.findAllByText('AKSA için')).length).toBeGreaterThan(0)
   })
 
-  it('seçili firmanın adını başlığa yazar', async () => {
+  it('seçili firmanın adını kartlara yazar', async () => {
     renderPage({ route: '/admin?gdfirm=20' })
 
-    expect(await screen.findByText(/Sistem geneli durum —.*AKSA-Ankara/)).toBeInTheDocument()
+    expect((await screen.findAllByText('AKSA-Ankara için')).length).toBeGreaterThan(0)
   })
 
   // Eski anahtar sessizce kapsam kurmasın: adres çubuğunda kalmış olabilir.
@@ -218,9 +205,7 @@ describe('kapsam', () => {
       { type: 'global' },
       expect.anything(),
     )
-    expect(screen.getByText(/Sistem geneli durum —/)).toHaveTextContent(
-      'tüm gruplar ve firmalar',
-    )
+    expect((await screen.findAllByText('Tüm gruplar ve firmalar için')).length).toBeGreaterThan(0)
   })
 })
 
