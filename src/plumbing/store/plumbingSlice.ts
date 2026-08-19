@@ -30,7 +30,11 @@ import type {
   InstallationLineSegment,
   LineEndAttachment,
 } from '../core/installationModel'
-import { getLinkedLinePoints, getPortAnchoredPointIds } from '../core/lineCornerLink'
+import {
+  getFloorLinkAnchoredPointIds,
+  getLinkedLinePoints,
+  getPortAnchoredPointIds,
+} from '../core/lineCornerLink'
 import { GAS_METER_DEFAULT_HEIGHT_CM } from '../core/lineElevation'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
@@ -626,6 +630,7 @@ export const createPlumbingSlice: StateCreator<
         const targets = resolveMoveTargets(
           draft.installationLines,
           draft.installationConnections,
+          draft.floorPipeLinks,
           elementIds,
           lineIds,
         )
@@ -701,12 +706,15 @@ export const createPlumbingSlice: StateCreator<
 
         // Köşede bir ELEMAN PORTUNA oturan uç varsa köşe hiç oynamaz: o uç
         // konumunu porttan alıyor, çekilseydi elemandan KOPARDI. Kısmen taşımak
-        // da olmaz — köşe tek düğüm, ya hepsi gider ya hiçbiri.
+        // da olmaz — köşe tek düğüm, ya hepsi gider ya hiçbiri. Bir `FloorPipeLink`
+        // ucu da AYNI gerekçeyle çapa (kullanıcı isteği, 2026-08): kayarsa link'in
+        // sakladığı `position` gerçek uçtan ayrışır.
         const anchored = getPortAnchoredPointIds(
           draft.installationLines,
           draft.installationConnections,
         )
-        if (linked.some((link) => anchored.has(link.pointId))) return
+        const floorLinkAnchored = getFloorLinkAnchoredPointIds(draft.floorPipeLinks)
+        if (linked.some((link) => anchored.has(link.pointId) || floorLinkAnchored.has(link.pointId))) return
 
         for (const link of linked) {
           const line = draft.installationLines.find((candidate) => candidate.id === link.lineId)
@@ -748,7 +756,8 @@ export const createPlumbingSlice: StateCreator<
           draft.installationLines,
           draft.installationConnections,
         )
-        if (linked.some((link) => anchored.has(link.pointId))) return
+        const floorLinkAnchored = getFloorLinkAnchoredPointIds(draft.floorPipeLinks)
+        if (linked.some((link) => anchored.has(link.pointId) || floorLinkAnchored.has(link.pointId))) return
 
         for (const link of linked) {
           const linkedLine = draft.installationLines.find((candidate) => candidate.id === link.lineId)

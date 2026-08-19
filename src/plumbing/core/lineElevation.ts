@@ -44,6 +44,27 @@ export function clampPipeHeightCm(heightCm: number): number {
   return heightCm
 }
 
+export type ElevationFloorCap = {
+  /** Bu katta yazılacak kot — tavanı (`floorHeightCm`) AŞMAZ. */
+  endHeightCm: number
+  /** Tavanı aşan kısım — üstteki kata taşınacak miktar. Aşılmadıysa 0. */
+  overflowCm: number
+}
+
+/**
+ * Hedef kot bir katın tavanını (`floorHeightCm`) aşarsa: bu katta biten kot
+ * (tavanla sınırlı) + üstteki kata taşınacak kalan (kullanıcı isteği, 2026-08
+ * — "boruya katın uzunluğundan fazla kot verilirse yeni kata çıksın, üstüne
+ * hâlâ kot varsa o kadar daha yeni katta kot verilsin"). K102'nin "otomatik
+ * kolon YOK" notunu bilinçli olarak geride bırakır, bkz.
+ * knowledge/pipe-floor-crossing.md. Yalnız YUKARI yönde anlamlı — negatif
+ * hedefler (0'ın altı) bu fonksiyondan hiç geçmez, kapsam dışı.
+ */
+export function capElevationToFloor(targetHeightCm: number, floorHeightCm: number): ElevationFloorCap {
+  if (targetHeightCm <= floorHeightCm) return { endHeightCm: targetHeightCm, overflowCm: 0 }
+  return { endHeightCm: floorHeightCm, overflowCm: targetHeightCm - floorHeightCm }
+}
+
 /**
  * Hattın her noktasındaki kot: kümülatif PLAN uzunluğuna göre başlangıç→bitiş
  * arasında doğrusal enterpolasyon. Plan boyu SIFIR ise (saf dikey bağlantı,

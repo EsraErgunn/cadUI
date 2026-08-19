@@ -1,7 +1,7 @@
 import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
 import { isLineEndOnPort } from './portSnap'
-import type { Id } from '../../core/model'
+import type { FloorPipeLink, Id } from '../../core/model'
 
 export type LinkedLinePoint = { lineId: Id; pointId: Id }
 
@@ -123,6 +123,22 @@ export function getPortAnchoredPointIds(
     if (pointId !== undefined) anchored.add(pointId)
   }
 
+  return anchored
+}
+
+/**
+ * Bir `FloorPipeLink`in eşleştirdiği uçlar — port çapası gibi TAŞINAMAZ
+ * (kullanıcı isteği, 2026-08): kayarsa link'in sakladığı `position` ile
+ * hattın gerçek ucu ayrışır, `FloorLinkGlyphs` rozeti (▲/▼) yanlış yerde
+ * kalır. `FloorPipeLink` id'leri proje geneli benzersiz olduğu için
+ * `getPortAnchoredPointIds`'in aksine kata göre filtrelemeye gerek yok.
+ */
+export function getFloorLinkAnchoredPointIds(floorPipeLinks: readonly FloorPipeLink[]): Set<Id> {
+  const anchored = new Set<Id>()
+  for (const link of floorPipeLinks) {
+    anchored.add(link.belowPointId)
+    anchored.add(link.abovePointId)
+  }
   return anchored
 }
 
