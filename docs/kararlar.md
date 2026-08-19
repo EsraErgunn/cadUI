@@ -5556,3 +5556,48 @@ dallanmayı sınamak için tüm R3F sahnesini kurmak gerekirdi.
 daha eski bir yükleme hatasını da taşıyabiliyor ve pencere açılır açılmaz
 alakasız bir uyarı göstermek soruyu bulandırırdı.
 
+
+### K111 — Dosya menüsü YALNIZ dosya işleri; üst barda karşılığı olan madde menüde tekrarlanmaz
+
+Dosya menüsü 14 maddeye çıkmıştı ve dördü üst bardaki düğmelerin kopyasıydı.
+Aynı işi iki yerde sunmak, kullanıcıya ikisinin FARKLI şeyler yaptığını
+düşündürüyor — "Kapat" ile "← Projeler" ya da "Proje Hareketleri" ile "Kayıt
+Geçmişi" arasındaki farkı arayan kullanıcı, olmayan bir ayrımı arıyor.
+
+Menüden KALKAN dört madde ve gittiği yer:
+- `Kapat` → soldaki "← Projeler" düğmesi (ikisi de `onCloseEditor` çağırıyordu)
+- `Gönder` → sağdaki "Gönder" düğmesi
+- `Proje Hareketleri` → sağdaki "Kayıt Geçmişi" (K109'da gerçek uca bağlandı)
+- `Proje Bilgileri` → sahne değiştiricinin YANINA, çerçevesinin DIŞINA bir ikon
+  düğmesi. Proje künyesi bir "dosya işlemi" değil, her an bakılacak bilgi.
+
+Kalan on madde beş öbeğe bölündü (aç/kaydet · JSON · PDF · proje dosyası ·
+temizle). Düz bir on dörtlük liste maddeleri eşit ağırlıkta gösteriyordu.
+
+⚠️ `Proje Dosyasını Aç/İndir`, `İçe/Dışa Aktar`ın KOPYASI DEĞİL: ikincisi JSON,
+birincisi henüz kararlaşmamış başka bir biçim için ayrılmış. Ayrım etikete
+yazıldı ("İçe Aktar (JSON)"), yoksa sonraki gözden geçiren onları kopya sanıp
+siler.
+
+⚠️ `Farklı Kaydet` KALDI. Bu temizliğin ilk analizi ESKİ main üzerinde yapılmış
+ve maddeyi "ölü" saymıştı; oysa K-sürüm işinde arkasına etiketli kayıt akışı
+bağlanmış. Menü temizliği yaparken maddenin pasif görünmesi yetmez, üretimdeki
+hâline bakılmalı.
+
+**Projeyi Temizle** pasiflikten çıkıp çalışır hâle geldi
+(`cadStore.clearProjectDrawing` + `ClearProjectDialog`). Menüdeki tek yıkıcı
+madde olduğu için kendi öbeğinde ve EN SONDA duruyor.
+
+Davranışı `resetProject`ten üç noktada AYRI, üçü de bilerek:
+- **Kat yapısı KALIR**, katlar boşalır. Kullanıcı katları tek tek kurmuş olabilir.
+- **Geçmiş SIFIRLANMAZ**: temizlemek bir düzenlemedir, yeni başlangıç değil —
+  tek Ctrl+Z çizimi geri getirir.
+- **Kirli işaret DURUR** (`markDirty`): `savedContent` tazelenseydi kullanıcı
+  çıkarken uyarılmaz ve işini sessizce kaybederdi.
+
+⚠️ `nextUniqueId` geri alınmaz: silinen id'ler yeniden üretilirse geri alma
+sonrası iki nesne aynı id'yi taşır (knowledge/id-scheme.md).
+
+⚠️ Araçlar menüsü bu temizliğin DIŞINDA kaldı. Dokuz maddesinin altısı tesisat
+toplu işlemi, yani fay C'nin kararı. Kalan ikisi (Mahalleri Tanımla, Malzeme
+Listesi) silinecek madde değil YAZILACAK özellik — menü onlar için ayakta duruyor.

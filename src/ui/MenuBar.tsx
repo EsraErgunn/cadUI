@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Info } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { EditorActions } from './menu/EditorActions'
@@ -6,7 +6,7 @@ import { MenuDropdown } from './menu/MenuDropdown'
 import { ViewSwitcher } from './menu/ViewSwitcher'
 import { editorBarButtonVariants } from './menu/editorBarVariants'
 import {
-  CLOSE_EDITOR_ITEM_ID,
+  CLEAR_PROJECT_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   IMPORT_ITEM_ID,
@@ -18,6 +18,8 @@ import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
 type MenuBarProps = {
   onCloseEditor: () => void
+  /** Onay penceresini AÇAR; temizleme kararını çağıran verir, bar yalnız haber eder. */
+  onClearProject: () => void
   onSave: () => void
   onSaveAs: () => void
   onImport: () => void
@@ -40,6 +42,7 @@ type MenuBarProps = {
  */
 export function MenuBar({
   onCloseEditor,
+  onClearProject,
   onSave,
   onSaveAs,
   onImport,
@@ -74,7 +77,7 @@ export function MenuBar({
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
-    if (itemId === CLOSE_EDITOR_ITEM_ID) onCloseEditor()
+    if (itemId === CLEAR_PROJECT_ITEM_ID) onClearProject()
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()
@@ -130,6 +133,19 @@ export function MenuBar({
           öbek genişliyor, tek boşlukla ortadaki düğmeler kayardı). */}
       <div className="flex-1" />
       <ViewSwitcher />
+      {/* Sahne değiştiricinin YANINDA ama çerçevesinin DIŞINDA: o üçlü tek bir
+          seçici olarak okunmalı, bu ise bağımsız bir eylem (K111). Menüden buraya
+          taşındı — proje künyesi bir "dosya işlemi" değil, her an bakılacak bilgi.
+          Arkasındaki ekran yazılana kadar pasif (palet dürüstlüğü, K79). */}
+      <button
+        type="button"
+        disabled
+        title="Proje Bilgileri"
+        aria-label="Proje Bilgileri"
+        className={editorBarButtonVariants({ tone: 'card', shape: 'icon' })}
+      >
+        <Info size={16} strokeWidth={1.8} aria-hidden />
+      </button>
       <div className="flex-1" />
 
       <EditorActions onSave={onSave} isSaving={isSaving} versionHistory={versionHistory} />
