@@ -33,7 +33,11 @@ export function FilterSelect({
   const hintId = `${id}-hint`
 
   return (
-    <div className="flex min-w-56 flex-col gap-1">
+    // `md:flex-1`: 1536/1920 px'te kalan genişliği yalnız arama kutusu yutuyor,
+    // seçim kutuları 224 px'te kalıp satırın sağında kocaman bir girdi
+    // duruyordu. Esneyince çubuktaki alanlar artan yeri EŞİT paylaşır. Kırılım
+    // `md` çünkü çubuk ancak orada satır oluyor; altında alanlar zaten alt alta.
+    <div className="flex min-w-56 flex-col gap-1 md:flex-1">
       <label htmlFor={id} className="text-xs font-medium text-ink-muted">
         {label}
       </label>

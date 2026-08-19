@@ -14,8 +14,6 @@ const SELECT_PLACEHOLDER = 'Seçiniz'
 const PARAMETRIC_NOTE = '(parametrik)'
 const UNIT_CAPACITY = 'm³/h'
 const UNIT_PRESSURE = 'mbar'
-const COVER_NOTE_HINT =
-  'Onay mühendisi açıklamasını proje imzalama aşamasında girebilirsiniz.'
 const NO_SELECTION = ''
 
 /** Kullanıcı ADI görür, form KİMLİĞİ tutar — gövdeye giden değer o (api/codes.ts). */
@@ -57,7 +55,6 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
         id={newProjectFieldId('isPermitProject')}
         label="Ruhsat Proje"
         value={values.isPermitProject}
-        hint="İşaretliyse proje, yapı ruhsatına bağlı proje olarak kaydedilir."
         error={errors.isPermitProject}
         onChange={(value) => setValue('isPermitProject', value)}
       />
@@ -113,7 +110,6 @@ export function NewProjectInstallationCard({ form, lookups }: NewProjectInstalla
         label="Proje Kapak Açıklama"
         value={values.coverNote}
         placeholder="Açıklama"
-        hint={COVER_NOTE_HINT}
         error={errors.coverNote}
         onChange={(value) => setValue('coverNote', value)}
       />

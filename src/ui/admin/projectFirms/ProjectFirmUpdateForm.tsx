@@ -11,7 +11,7 @@ import { getProjectFirmList, type ProjectFirm } from '../../../api/projectFirms'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { PROJECT_FIRMS_PATH } from '../adminNavItems'
-import { adminButtonVariants } from '../adminVariants'
+import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../adminVariants'
 
 const FORM_LABEL = 'Proje Firması Güncelle'
 
@@ -107,14 +107,14 @@ export function ProjectFirmUpdateForm({ firm }: ProjectFirmUpdateFormProps) {
             <button
               type="button"
               onClick={handleCancel}
-              className={adminButtonVariants({ tone: 'secondary' })}
+              className={adminButtonVariants({ tone: 'secondary', className: ADMIN_FORM_ACTION_WIDTH })}
             >
               İptal
             </button>
             <button
               type="submit"
               aria-busy={form.isSubmitting}
-              className={adminButtonVariants({ tone: 'primary' })}
+              className={adminButtonVariants({ tone: 'primary', className: ADMIN_FORM_ACTION_WIDTH })}
             >
               <Save aria-hidden className="size-4" />
               {form.isSubmitting ? 'Kaydediliyor…' : 'Kaydet'}

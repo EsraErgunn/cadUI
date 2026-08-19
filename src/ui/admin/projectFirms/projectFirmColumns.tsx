@@ -19,6 +19,12 @@ export const PROJECT_FIRM_TABLE_CAPTION =
 export const PROJECT_FIRM_TABLE_MIN_WIDTH = 'min-w-240'
 
 /**
+ * Eylem sütunu içeriği kadar dursun; artan genişlik metin sütunlarına gitsin
+ * (proje listesindeki `NARROW_COLUMN_CLASS` ile aynı gerekçe).
+ */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
+/**
  * Hücre çiziciler bilerek BİLEŞEN değil, düz fonksiyon: dosya sütun dizisini de
  * dışa aktardığı için bileşen tanımı fast refresh'i bozuyor
  * (react-refresh/only-export-components). Çıktı aynı.
@@ -146,7 +152,8 @@ export function buildProjectFirmColumns({
     {
       key: 'actions',
       label: 'İşlemler',
-      cellClassName: 'text-right',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
       cell: (firm) => (
         <ProjectFirmRowActions
           firm={firm}

@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
-import { adminButtonVariants } from '../ui/admin/adminVariants'
+import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../ui/admin/adminVariants'
 import { NewProjectBuildingCard } from '../ui/admin/projects/NewProjectBuildingCard'
 import { NewProjectInfoCard } from '../ui/admin/projects/NewProjectInfoCard'
 import { NewProjectInstallationCard } from '../ui/admin/projects/NewProjectInstallationCard'
@@ -107,22 +107,28 @@ export function NewProjectPage() {
             `fieldset` gönderim sürerken içindeki TÜM alanları tek hamlede
             kilitler: alanlar açık kalsaydı istek uçarken yapılan değişiklik
             kaydedilmeden listeye dönülürdü. `min-w-0` şart — fieldset'in tarayıcı
-            varsayılanı `min-inline-size: min-content`, ızgarayı taşırıyor. */}
+            varsayılanı `min-inline-size: min-content`, ızgarayı taşırıyor.
+
+            `items-start` YOK: kartlar içeriği kadar yükselince üç sütun geniş
+            ekranda basamak basamak bitiyordu. Varsayılan `stretch` ile üçü de
+            aynı yükseklikte durur, alt kenarları tek çizgide hizalanır. */}
         <fieldset
           disabled={form.isSubmitting}
-          className="grid min-w-0 items-start gap-5 md:grid-cols-2 lg:grid-cols-3"
+          className="grid min-w-0 gap-5 md:grid-cols-2 lg:grid-cols-3"
         >
           <NewProjectInfoCard form={form} lookups={lookups} isAdmin={isAdmin} />
           <NewProjectBuildingCard form={form} />
           <NewProjectInstallationCard form={form} lookups={lookups} />
         </fieldset>
 
-        <div className="flex flex-wrap justify-center gap-3">
+        {/* Diğer form ekranlarıyla aynı hizada: sağ altta solda İptal, sağda
+            birincil eylem. `width: 'action'` ikisini aynı genişliğe oturtur. */}
+        <div className="flex flex-wrap justify-end gap-3">
           <button
             type="button"
             disabled={form.isSubmitting}
             onClick={handleCancel}
-            className={adminButtonVariants({ tone: 'secondary' })}
+            className={adminButtonVariants({ tone: 'secondary', className: ADMIN_FORM_ACTION_WIDTH })}
           >
             İptal
           </button>
@@ -130,7 +136,7 @@ export function NewProjectPage() {
             type="submit"
             disabled={form.isSubmitting}
             aria-busy={form.isSubmitting}
-            className={adminButtonVariants({ tone: 'primary' })}
+            className={adminButtonVariants({ tone: 'primary', className: ADMIN_FORM_ACTION_WIDTH })}
           >
             <Plus aria-hidden className="size-4" />
             {form.isSubmitting ? 'Oluşturuluyor…' : 'Oluştur'}
