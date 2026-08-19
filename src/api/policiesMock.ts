@@ -203,6 +203,14 @@ export function addMockPolicy(
   return policy
 }
 
+/** Poliçeyi depodan düşürür; kayıt yoksa sessizce geçer (silinen bir şeyi
+    tekrar silmek hata değil). */
+export function removeMockPolicy(policyId: number): void {
+  const policies = getMockPolicies()
+  const index = policies.findIndex((policy) => policy.id === policyId)
+  if (index !== -1) policies.splice(index, 1)
+}
+
 /** Listenin satır şekli. Depo alanlarının hepsi ekranda görünmüyor (şirket ve
     acente KİMLİĞİ satırda işe yaramıyor), o yüzden dönüşüm burada. */
 export function getMockPolicyRows(): PolicyRow[] {

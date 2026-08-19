@@ -9,10 +9,12 @@ import { resetMockDocuments } from '../../api/documentsMock'
 import { DocumentListPage } from '../DocumentListPage'
 
 const listDocuments = vi.hoisted(() => vi.fn())
+const deleteDocument = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/documents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/documents')>()),
   listDocuments,
+  deleteDocument,
 }))
 
 const TODAY = `${new Date().toISOString().slice(0, 10)}T09:00:00.000Z`
@@ -78,6 +80,7 @@ function asMock(items: DocumentRow[]) {
 beforeEach(() => {
   resetMockDocuments()
   listDocuments.mockResolvedValue(asMock([buildDocument()]))
+  deleteDocument.mockResolvedValue({ ok: true })
 })
 
 afterEach(() => {
@@ -94,6 +97,36 @@ describe('DocumentListPage', () => {
     )
     expect(screen.getByText('Tüm projelere ait yüklenmiş evraklar')).toBeInTheDocument()
     expect(screen.getByText('Proje Evrakları')).toBeInTheDocument()
+  })
+
+  /** Silme ONAYDAN sonra: düğmeye basmak tek başına satırı düşürmemeli. */
+  it('"Sil" önce onay sorar, onaylanınca satırı düşürür', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Sil' }))
+    expect(deleteDocument).not.toHaveBeenCalled()
+
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Sil' }))
+
+    await waitFor(() => expect(deleteDocument).toHaveBeenCalledWith(1))
+    expect(await screen.findByText('Evrak silindi.')).toBeInTheDocument()
+  })
+
+  it('vazgeçilince silme isteği atılmaz', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Sil' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Vazgeç' }),
+    )
+
+    expect(deleteDocument).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   // Belgedeki iki sekmeden "Favoriler" kapsam dışı; tek sekme kalınca şerit
@@ -125,6 +158,7 @@ describe('DocumentListPage', () => {
       'Tesisat No',
       'Firma Adı',
       'G.D Firması',
+      'Aksiyonlar',
     ])
     expect(within(table).getByText('Müşteri Sözleşmesi')).toBeInTheDocument()
     expect(within(table).getByText('Kolon, DMUST')).toBeInTheDocument()

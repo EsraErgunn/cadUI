@@ -5,7 +5,7 @@ import type { DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
 import { formatCurrency, formatPlainDate } from '../adminFormat'
 import { projectDetailPath } from '../adminNavItems'
-import { ADMIN_CELL_LINK } from '../adminVariants'
+import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
 
 export const POLICY_TABLE_CAPTION =
   'Poliçe listesi. Poliçe no ve başlangıç tarihi başlıkları sıralamayı değiştirir.'
@@ -13,18 +13,27 @@ export const POLICY_TABLE_CAPTION =
 /** Dokuz sütun dar ekrana sığmaz; bu eşiğin altında tablo yatay kaydırılır. */
 export const POLICY_TABLE_MIN_WIDTH_CLASS = 'min-w-280'
 
+/** Eylem sütunu içeriği kadar dursun (proje listesiyle aynı gerekçe). */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
 interface PolicyColumnsOptions {
   /** Sayfa başlangıcı; "No" sütunu sayfa 2'de 31'den devam etsin diye. */
   rowOffset: number
+  /** İsteği süren satır; o satırın düğmesi kilitlenir. */
+  pendingPolicyId: number | null
+  onDelete: (policyId: number) => void
 }
 
 /**
- * "Birim" ve "Ödeme" sütunu YOK: sihirbaz ikisini de sormuyor ve poliçe ucu
- * gelmeden değerleri uydurmak listeyi olduğundan dolu gösterirdi
- * (docs/api-eksikleri-policeler.md, madde 2).
+ * "Birim" sütunu YOK: sihirbaz sormuyor ve poliçe ucu gelmeden değeri uydurmak
+ * listeyi olduğundan dolu gösterirdi (docs/api-eksikleri-policeler.md, madde 2).
+ * "Ödeme" de yok ve artık olmayacak: sistemde ödeme akışı bulunmuyor, poliçe
+ * oluşturulduğu anda onaylı sayılıyor.
  */
 export function buildPolicyColumns({
   rowOffset,
+  pendingPolicyId,
+  onDelete,
 }: PolicyColumnsOptions): DataTableColumn<PolicyRow, PolicySortKey>[] {
   return [
     {
@@ -85,6 +94,23 @@ export function buildPolicyColumns({
       key: 'method',
       label: 'Yöntem',
       cell: (policy) => POLICY_METHOD_LABELS[policy.method],
+    },
+    {
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (policy) => (
+        <button
+          type="button"
+          onClick={() => onDelete(policy.id)}
+          disabled={pendingPolicyId === policy.id}
+          aria-busy={pendingPolicyId === policy.id}
+          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+        >
+          Sil
+        </button>
+      ),
     },
   ]
 }

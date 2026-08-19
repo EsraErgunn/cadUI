@@ -9,10 +9,12 @@ import { resetMockPolicies } from '../../api/policiesMock'
 import { PolicyListPage } from '../PolicyListPage'
 
 const listPolicies = vi.hoisted(() => vi.fn())
+const deletePolicy = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/policies', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/policies')>()),
   listPolicies,
+  deletePolicy,
 }))
 
 function buildPolicy(overrides: Partial<PolicyRow> = {}): PolicyRow {
@@ -72,6 +74,7 @@ function asMock(items: PolicyRow[]) {
 beforeEach(() => {
   resetMockPolicies()
   listPolicies.mockResolvedValue(asMock([buildPolicy()]))
+  deletePolicy.mockResolvedValue({ ok: true })
 })
 
 afterEach(() => {
@@ -87,6 +90,36 @@ describe('PolicyListPage', () => {
       expect(screen.getByRole('heading', { name: /Poliçeler/ })).toHaveTextContent('(1)'),
     )
     expect(screen.getByText('Tüm projelere ait poliçeler')).toBeInTheDocument()
+  })
+
+  /** Silme ONAYDAN sonra: düğmeye basmak tek başına satırı düşürmemeli. */
+  it('"Sil" önce onay sorar, onaylanınca satırı düşürür', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Sil' }))
+    expect(deletePolicy).not.toHaveBeenCalled()
+
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Sil' }))
+
+    await waitFor(() => expect(deletePolicy).toHaveBeenCalledWith(1))
+    expect(await screen.findByText('Poliçe silindi.')).toBeInTheDocument()
+  })
+
+  it('vazgeçilince silme isteği atılmaz', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Sil' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Vazgeç' }),
+    )
+
+    expect(deletePolicy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('satırı sütun sırasıyla çizer; proje adı detaya bağlantılı', async () => {
@@ -108,6 +141,7 @@ describe('PolicyListPage', () => {
       'Başlangıç',
       'Bitiş',
       'Yöntem',
+      'Aksiyonlar',
     ])
 
     expect(within(table).getByText('ORNEK-POL-0001')).toBeInTheDocument()
