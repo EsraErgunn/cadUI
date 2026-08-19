@@ -78,11 +78,14 @@ export type Measurement = { start: PlanPoint; end: PlanPoint | null }
 
 /** Kaskad gerektiren silme onayı beklerken tutulan kapsam (`deletionActions.ts` →
  * `requestSelectionDeletion` önceden hesaplar: servis kutusu = bağlı TÜM gaz
- * ağı, sayaç = çıkışındaki alt ağ). `kind` diyalog metnini seçer. */
+ * ağı, sayaç = çıkışındaki alt ağ). `kind` diyalog metnini seçer. `floorIds`
+ * kapsamın hangi kat(lar)a yayıldığını söyler — kat bağlantısıyla (kolon
+ * devamı) başka kata sıçramışsa `CascadeDeleteDialog` bunu belirtir. */
 export type PendingCascadeDeletion = {
   kind: 'serviceBox' | 'gasMeter'
   elementIds: Id[]
   lineIds: Id[]
+  floorIds: Id[]
 }
 
 /**

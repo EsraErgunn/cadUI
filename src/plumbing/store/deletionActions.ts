@@ -20,7 +20,9 @@ import { collectMeterDownstreamInstallation } from '../core/meterReport'
  *
  * İkisi için de onay diyaloğu (`CascadeDeleteDialog`) istenir; kullanıcı
  * onaylayınca TÜM ağ (`core/installationReachability.ts` /
- * `core/meterReport.ts`) TEK adımda gider.
+ * `core/meterReport.ts`) TEK adımda gider. Ağ kat bağlantısıyla (`floorPipeLinks`,
+ * kolon devamı) BAŞKA katlara uzanıyorsa oradaki devam boruları da KAPSAMA
+ * girer (kullanıcı isteği, 2026-08) — kaynağı gidince o uç köksüz kalırdı.
  */
 export function requestSelectionDeletion(elementIds: readonly Id[], lineIds: readonly Id[]): void {
   if (elementIds.length === 0 && lineIds.length === 0) return
@@ -35,12 +37,14 @@ export function requestSelectionDeletion(elementIds: readonly Id[], lineIds: rea
       cad.installationElements,
       cad.installationLines,
       cad.installationConnections,
+      cad.floorPipeLinks,
       serviceBoxId,
     )
     usePlumbingUiStore.getState().requestCascadeDeletion({
       kind: 'serviceBox',
       elementIds: mergeElementIds(network.elementIds, elementIds),
       lineIds: mergeElementIds(network.lineIds, lineIds),
+      floorIds: network.floorIds,
     })
     return
   }
@@ -54,11 +58,13 @@ export function requestSelectionDeletion(elementIds: readonly Id[], lineIds: rea
       cad.installationElements,
       cad.installationLines,
       cad.installationConnections,
+      cad.floorPipeLinks,
     )
     usePlumbingUiStore.getState().requestCascadeDeletion({
       kind: 'gasMeter',
       elementIds: mergeElementIds(network.elementIds, elementIds),
       lineIds: mergeElementIds(network.lineIds, lineIds),
+      floorIds: network.floorIds,
     })
     return
   }

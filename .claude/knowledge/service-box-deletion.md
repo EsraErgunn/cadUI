@@ -34,6 +34,26 @@ başlar) TEKRAR YAZMAZ, aynı fonksiyonu sarar. `PendingServiceBoxDeletion` bu
 yüzden `PendingCascadeDeletion`'a genelleşti (`kind: 'serviceBox' | 'gasMeter'`
 diyalog metnini seçer), dosya da `CascadeDeleteDialog.tsx`'e taşındı.
 
+## Kaskad artık KATLAR ARASI da (kullanıcı isteği, 2026-08)
+
+Servis kutusu/sayaç silme kapsamı önceden yalnız AKTİF katta kalıyordu.
+Kolon devamı (`FloorPipeLink` — model.ts: hidrolik BİRLEŞİM değil, iki ayrı
+uç eşleştirmesi) üst/alt kata geçiyorsa kaynağı silinince karşı kattaki
+devam borusu köksüz kalıyordu, ama silme kapsamı buna hiç bakmıyordu. İkisi
+de artık `floorPipeLinks` alıyor:
+
+- `collectServiceBoxInstallation` — kenar haritasına, karşı ucun (nokta id
+  eşleşmesiyle bulunan) hattı ekliyor.
+- `collectMeterDownstreamInstallation` → `traceMeterSubtree` — YENİ opsiyonel
+  parametre, **VARSAYILAN BOŞ DİZİ**: `buildMeterReport` bunu hiç vermiyor,
+  malzeme dökümü kat bağlantısının iki ayrı ucunu birbirine karıştırmamalı
+  (aynı "hidrolik birleştirmez" gerekçesi). Yalnız silme kaskadı doldurur.
+
+İkisi de artık `floorIds: Id[]` döndürüyor — `CascadeDeleteDialog` kapsam
+birden fazla kata yayılmışsa (`request.floorIds.length > 1`) etkilenen kat
+adlarını AYRICA gösteriyor (kırmızı uyarı satırı), yoksa kullanıcı "bir
+servis kutusu sildim, üst kattaki boru da gitti" der.
+
 ## Neden iki ayrı çağrı yerine (useSelectionTool.ts + PlumbingPropertyPanel.tsx) tek fonksiyon
 
 Silme iki yerden tetiklenebiliyor. İkisi ayrı ayrı "servis kutusu/sayaç mı"
