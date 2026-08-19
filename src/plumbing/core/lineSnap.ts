@@ -32,7 +32,6 @@ export function findNearestPointOnLines(
   radiusCm: number,
 ): LineSnapCandidate | null {
   if (radiusCm <= 0) return null
-  console.log('findNearestPointOnLines', lines, cursor, radiusCm)
   let nearest: LineSnapCandidate | null = null
   let nearestDistanceCm = Number.POSITIVE_INFINITY
 
@@ -41,7 +40,6 @@ export function findNearestPointOnLines(
       const from = line.points[index]
       const to = line.points[index + 1]
       const projection = projectOntoSegment(from.position, to.position, cursor)
-      console.log('projection', projection, 'from', from, 'to', to, 'cursor', cursor)
       if (projection.distanceCm > radiusCm || projection.distanceCm >= nearestDistanceCm) continue
 
       const cornerToleranceCm = radiusCm * CORNER_SNAP_RATIO

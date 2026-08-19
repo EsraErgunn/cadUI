@@ -447,6 +447,34 @@ hiçbir zaman tam duvar ekseninde/köşesinde durmaz.
   bkz. plumbing-selection.md) — çizim ve taşıma AYNI "duvar üstü yasak" kuralına
   uyar, iki ayrı payla ayrışmaz.
 
+## Duvar YÜZÜNE de köşe gibi KESKİN yapışma (2026-08)
+
+Köşe (`findNearestWallCorner`) zaten payla (`gapCm`) keskin yapışıyordu; duvarın
+düz GÖVDESİNE (yüz) yaklaşırken ise yalnız `findNearestWallParallel` çalışıyordu
+— o bir NOKTAYA değil bir EKSENE (duvara paralel/dik) kelepçeler, 45° gibi ara
+açılarda net bir "yapışma" hissi vermiyordu. Kullanıcı isteği: yüze de köşedeki
+gibi aynı payla, geliş açısından bağımsız keskin yapışma.
+
+`findNearestWallFace` (`core/wallSnap.ts`) zaten bu AKTİF mıknatısı uyguluyordu
+ama yalnız serbest köşe taşımasında (`useSelectionTool.ts`) kullanılıyordu.
+`useLineTool.ts` → `resolveSnap`'e köşe kontrolünden HEMEN SONRA, yön
+kelepçesinden (`findNearestWallParallel`) ÖNCE eklendi:
+
+```
+köşe (keskin) → yüz (keskin, YENİ) → yön kelepçesi (yalnız yüze yeterince
+yakın değilse, ör. duvarın ucuna yakınken) → tamamen serbest
+```
+
+Yön kelepçesi TAMAMEN kalkmadı: `findNearestWallFace` yalnız duvara PARALEL
+yüzeyi verir, dik eksende ilerleme (duvarın yanında 90° dönüş) imkânı yalnız
+`findNearestWallParallel`'de var — o yüzden yüz eşleşmezse (imlecin en yakın
+izdüşümü duvar segmentinin DIŞINDaysa) yön kelepçesine düşülüyor.
+
+Aynı oturumda `lineSnap.ts` → `findNearestPointOnLines`'daki `CORNER_SNAP_RATIO`
+da 0.5'ten 1.0'a çıkarıldı (mevcut boruların KÖŞESİNE yapışma toleransı
+yarıçapın tamamı kadar oldu) — köşe payının darlığı "borular da köşeye
+yapışmıyor" şikayetine yol açıyordu.
+
 ## Köşe işareti KARE, cap'ler YUVARLAK (2026-08, görsel düzeltme)
 
 three.js `LineMaterial` (drei `<Line>`'ın altında) piksel modda her segmentin

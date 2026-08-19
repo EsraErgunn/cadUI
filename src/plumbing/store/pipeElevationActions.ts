@@ -4,12 +4,7 @@ import { getFloorIdInDirection } from '../../core/floors'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 import { advanceChain, startChain } from '../core/lineChain'
-import {
-  capElevationToFloor,
-  clampPipeHeightCm,
-  findMergeablePipeLineId,
-  PIPE_HEIGHT_STEP_CM,
-} from '../core/lineElevation'
+import { capElevationToFloor, clampPipeHeightCm, findMergeablePipeLineId } from '../core/lineElevation'
 
 /** Proje geneli kat sınırıyla AYNI (`core/floors.ts`) — sonsuz döngüye karşı sağduyu sınırı. */
 const MAX_FLOOR_CROSSINGS = 40
@@ -17,14 +12,13 @@ const MAX_FLOOR_CROSSINGS = 40
 /**
  * Zincirin ucundan AYNI plan konumunda, kotu hedefe değişmiş ikinci bir boru
  * yazar (K102) — normal sol-tık commit'iyle (`addLine`) AYNI yoldan geçer, ayrı
- * bir "kolon yaz" fonksiyonu yok. `useLineTool`'un `+`/`-` tuşu VE
- * `PipeElevationInput`'un sayısal kutusu bu TEK fonksiyonu çağırır — ikisi de
- * "zincirin kotunu değiştir" jestidir, yalnız hedefi hesaplama şekli farklı.
+ * bir "kolon yaz" fonksiyonu yok. `PipeElevationInput`'un sayısal kutusu bu
+ * fonksiyonu çağırır.
  *
- * Zincirin ucu ZATEN aynı konumdaki bir dikey segmentin bitişindeyse (art
- * arda `+`/`-`) yeni bir boru YAZILMAZ: var olanın `endHeightCm`'i güncellenir
- * (`findMergeablePipeLineId`) — yoksa her basış üst üste binen ayrı bir boru
- * bırakırdı (kullanıcı isteği, 2026-08: "toplansın ve yazsın").
+ * Zincirin ucu ZATEN aynı konumdaki bir dikey segmentin bitişindeyse yeni bir
+ * boru YAZILMAZ: var olanın `endHeightCm`'i güncellenir
+ * (`findMergeablePipeLineId`) — yoksa üst üste binen ayrı bir boru bırakırdı
+ * (kullanıcı isteği, 2026-08: "toplansın ve yazsın").
  *
  * Hedef kot AKTİF KATIN TAVANINI (`Floor.heightCm`) aşarsa (kullanıcı isteği,
  * 2026-08, bkz. knowledge/pipe-floor-crossing.md): bu katta yazılan kot
@@ -150,14 +144,6 @@ function crossFloorsWithOverflow(
       })
     }
   }
-}
-
-/** `+`/`-` tuşu: zincirin kotunu bir adım (`PIPE_HEIGHT_STEP_CM`) değiştirir. */
-export function commitDraftElevationStep(direction: 1 | -1): boolean {
-  const draft = usePlumbingUiStore.getState().draftLine
-  if (!draft || draft.kind !== 'pipe') return false
-
-  return commitDraftElevation(draft.elevationCm + direction * PIPE_HEIGHT_STEP_CM)
 }
 
 /** Sayısal kutu: zincirin kotunu doğrudan yazılan hedefe taşır. */

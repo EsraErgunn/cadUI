@@ -28,7 +28,6 @@ import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
 import { findNearestWallCorner, findNearestWallFace, findNearestWallParallel } from '../core/wallSnap'
 import { commitDraftFloorLink } from '../store/floorLinkActions'
-import { commitDraftElevationStep } from '../store/pipeElevationActions'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
 const LEFT_BUTTON = 0
@@ -477,25 +476,9 @@ export function useLineTool(): LineToolState {
       onCancel: () => exitTool(),
     })
 
-    /**
-     * `+`/`-` (K102): zincir sürerken zincirin kotunu bir adım değiştirir.
-     * Yazı alanındaysa (isTypingTarget) yok sayılır — `useSelectionTool`'daki
-     * klavye dinleyicisiyle aynı korunma.
-     */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
       if (!readDraft()) return
-
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault()
-        commitDraftElevationStep(1)
-        return
-      }
-      if (event.key === '-' || event.key === '_') {
-        event.preventDefault()
-        commitDraftElevationStep(-1)
-        return
-      }
 
       // Kat bağlantısı (kullanıcı isteği, 2026-08): sahnedeki etiketin
       // tıklanması güvenilir değil (bu araç `subscribeDrawSurface` ile HAM

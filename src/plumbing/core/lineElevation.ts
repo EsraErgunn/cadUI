@@ -9,10 +9,7 @@ import type { PipeLineProperties } from './lineProperties'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 
-/** `+`/`-` tuşunun tek basışta değiştirdiği kot miktarı (K102). */
-export const PIPE_HEIGHT_STEP_CM = 25
-
-/** Art arda tuşlamanın kotu sonsuza taşımaması için sağduyu sınırı. */
+/** Kotun sonsuza taşınmaması için sağduyu sınırı. */
 const MAX_PIPE_HEIGHT_CM = 2000
 
 /**
@@ -274,9 +271,9 @@ export function resolvePipeResizeTarget(
 
 /**
  * Zincirin ucu ZATEN aynı konumda bir dikey (plan boyu sıfır) `pipe`
- * segmentinin bitişindeyse o hattın id'sini döner — art arda `+`/`-` basışı
+ * segmentinin bitişindeyse o hattın id'sini döner — art arda kot değişikliği
  * ÜST ÜSTE BİNEN ayrı borular yazmasın diye (kullanıcı isteği, 2026-08):
- * ikinci basış yeni bir hat YAZMAZ, var olanın `endHeightCm`'i güncellenir.
+ * yeni bir hat YAZMAZ, var olanın `endHeightCm`'i güncellenir.
  *
  * Yalnız zincirin `startTarget`'ı o hattın UCUNA bağlıysa eşleşir (`linePoint`
  * kind) — kullanıcı araya yatay bir adım koyduysa artık başka bir noktadayız,
