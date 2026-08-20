@@ -85,6 +85,17 @@ describe('ValidationMenu', () => {
     expect(await screen.findByText('Tüm mahallere kapı açılmalıdır.')).toBeInTheDocument()
   })
 
+  it('göster düğmesi kural metniyle AYNI sütunda durur (sağ kenarda değil)', async () => {
+    seed(makeValidProject({ openings: [makeDoor(30, WALL_IDS.leftLower)] }))
+    await openMenu()
+
+    const message = screen.getByText('Tüm mahallere kapı açılmalıdır.')
+    const showButton = screen.getByRole('button', { name: /göster/ })
+
+    // Aynı sütun = metnin ebeveyni düğmeyi de içeriyor.
+    expect(message.parentElement).toContainElement(showButton)
+  })
+
   it('göster: kata geçer, nesneyi seçer ve kamera isteği bırakır', async () => {
     seed(
       makeValidProject({
