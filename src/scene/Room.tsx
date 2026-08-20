@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 
+import { RoomDefinitionEditor } from './RoomDefinitionEditor'
 import { RoomLabel } from './RoomLabel'
-import { RoomNameEditor } from './RoomNameEditor'
 import { RENDER_ORDER, ROOM_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { useArchitectureDraft } from './useArchitectureDraft'
@@ -11,6 +11,7 @@ import { findRoomFaces, type RoomFace } from '../core/room'
 import { insetRoomPolygon, triangulatePolygon } from '../core/roomFill'
 import { getWallSetKey } from '../core/roomIdentity'
 import { getRoomLabelAnchor, toSquareMetres } from '../core/roomLabel'
+import { getRoomDisplayName, type RoomUsageType } from '../core/roomUsage'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -48,13 +49,25 @@ function useStableFillPositions(fillCorners: PlanPoint[] | undefined): Float32Ar
 type RoomShapeProps = {
   roomId: Id
   face: RoomFace
+  /** Kullanıcının verdiği HAM ad; düzenleme kutusu bunu gösterir. */
   name: string
+  usageType: RoomUsageType | undefined
+  /** Etikette YAZAN metin: ad → kullanım tipi → "Tanımsız" (core/roomUsage.ts). */
+  displayName: string
   /** Duvarların iç yüzüne çekilmiş dolgu poligonu; oda duvarından inceyse yok. */
   fillCorners: PlanPoint[] | undefined
   isEditingName: boolean
 }
 
-function RoomShape({ roomId, face, name, fillCorners, isEditingName }: RoomShapeProps) {
+function RoomShape({
+  roomId,
+  face,
+  name,
+  usageType,
+  displayName,
+  fillCorners,
+  isEditingName,
+}: RoomShapeProps) {
   const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   // Etiket çapası odanın DOLGUSUNA değil, gerçek çevrimine göre bulunur; dolgu
   // duvar kalınlığı kadar küçültülmüş bir çizim ayrıntısı, odanın kendisi değil.
@@ -85,9 +98,14 @@ function RoomShape({ roomId, face, name, fillCorners, isEditingName }: RoomShape
           Düzenleme kutusu görünürlük anahtarına BAKMAZ (K56): kullanıcı çift
           tıklayıp adı yazmaya başlamışsa yazdığı şeyi görmeli. */}
       {isEditingName ? (
-        <RoomNameEditor roomId={roomId} anchor={anchor} currentName={name} />
+        <RoomDefinitionEditor
+          roomId={roomId}
+          anchor={anchor}
+          currentName={name}
+          currentUsageType={usageType}
+        />
       ) : (
-        isRoomNamesVisible && <RoomLabel anchor={anchor} name={name} areaM2={areaM2} />
+        isRoomNamesVisible && <RoomLabel anchor={anchor} name={displayName} areaM2={areaM2} />
       )}
     </group>
   )
@@ -130,6 +148,8 @@ export function Rooms() {
           id: room.id,
           face,
           name: room.name,
+          usageType: room.usageType,
+          displayName: getRoomDisplayName(room.name, room.usageType),
           fillCorners: insetRoomPolygon(face.corners, thicknessesCm),
         },
       ]
@@ -144,6 +164,8 @@ export function Rooms() {
           roomId={shape.id}
           face={shape.face}
           name={shape.name}
+          usageType={shape.usageType}
+          displayName={shape.displayName}
           fillCorners={shape.fillCorners}
           isEditingName={shape.id === editingRoomId}
         />

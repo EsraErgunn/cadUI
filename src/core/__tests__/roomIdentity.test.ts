@@ -171,3 +171,22 @@ describe('extendRoomsWithSplitPieces', () => {
     expect(updated[0].wallIds).toEqual([10, 11, 12, 13, 47, 48])
   })
 })
+
+describe('reconcileRooms — kullanım tipi', () => {
+  it('eşleşen odanın kullanım tipini KORUR', () => {
+    const face = { wallIds: [1, 2, 3], corners: [], areaCm2: 1000 }
+    const existing = [{ id: 9, wallIds: [1, 2, 3], name: 'Salon', usageType: 'kitchen' as const }]
+
+    const { rooms } = reconcileRooms([face], existing, '', () => 99)
+
+    expect(rooms[0].usageType).toBe('kitchen')
+  })
+
+  it('yeni doğan oda tip TAŞIMAZ', () => {
+    const face = { wallIds: [1, 2, 3], corners: [], areaCm2: 1000 }
+
+    const { rooms } = reconcileRooms([face], [], '', () => 99)
+
+    expect(rooms[0].usageType).toBeUndefined()
+  })
+})

@@ -27,7 +27,7 @@ export const FONT_URL = '/fonts/roboto-regular.woff'
  * Yazı EKRAN boyunda sabit kalsın: zoom = piksel/cm olduğu için dünya boyu
  * px/zoom'dur (bkz. knowledge/viewport.md). drei `<Html>` yerine `<Text>`
  * seçildi — ölçü sayısı yüzleri bulabiliyor ve her etiket için ayrı bir DOM
- * portal'ı (üstelik ayrı react-dom kökü, bkz. RoomNameEditor) hem pahalı hem de
+ * portal'ı (üstelik ayrı react-dom kökü, bkz. RoomDefinitionEditor) hem pahalı hem de
  * store aboneliğini bozan bir yol.
  */
 const LABEL_SIZE_PX = 12

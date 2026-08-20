@@ -6,6 +6,7 @@ import { Cameras } from './Cameras'
 import { DrawSurface } from './DrawSurface'
 import { FloorBelowGhost } from './FloorBelowGhost'
 import { Grid } from './Grid'
+import { ViewportFocus } from './ViewportFocus'
 import { SCENE_COLORS } from './sceneTheme'
 import { useCameraZoomTracker } from './useCameraZoom'
 import { useViewportControls } from './useViewportControls'
@@ -39,6 +40,7 @@ export function SceneRoot() {
       <Cameras />
       <ViewportControls />
       <CameraZoomTracker />
+      <ViewportFocus />
       {isGridVisible && <Grid />}
       {/* Askıya alan her şey (drei <Text> → troika'nın font indirmesi) BU sınırın
           altında kalmak zorunda. Kaçarsa R3F'in <Canvas> içindeki kendi sınırı

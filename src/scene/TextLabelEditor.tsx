@@ -9,7 +9,7 @@ import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
 /**
- * Metin düzenleme kutusu. `RoomNameEditor` ile AYNI desen ve aynı tuzaklar —
+ * Metin düzenleme kutusu. `RoomDefinitionEditor` ile AYNI desen ve aynı tuzaklar —
  * gerekçelerin tamamı orada yazılı, burada tekrarlanmıyor:
  *
  * - drei `<Html>`: kutu gerçek bir DOM input'u ama konumunu kameradan alıyor.

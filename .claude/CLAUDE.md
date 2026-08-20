@@ -46,6 +46,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - Yay (arc) duvar kararı YOK — `Wall`'a yay alanı eklemeden varsayım kodlama.
   offset ↔ konum dönüşümü sadece `core/wallPath.ts`'te. (bkz. knowledge/arc-walls.md)
 - Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
+  `usageType` (kullanım tipi, madde 104) ve `name` AYRI durur ve ikisi de
+  OPSİYONEL anlamda boş olabilir: mahal ADSIZ doğar, etiket `getRoomDisplayName`
+  ile ad → tip → "Tanımsız" sırasını izler (K116). Tip listesi TASLAK, analist
+  onayı bekliyor — üstüne "hangi cihaz hangi mahale konabilir" kuralı YAZMA.
+  (bkz. knowledge/room-usage-type.md)
 - Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
 - Tesisat elemanı nereye yapıştığını TÜRDEN alır (`plumbing/core/attachModes.ts`): armatür
   boruya oturur ve boruyu AYIRIR (`onLine`), sayaç boş uca takılır ve araya vana girer
@@ -65,22 +70,30 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Dizin yapısı ve sahiplik
 
 - `src/app/` (A) — main, App, router. Giriş koruması SADECE router.tsx'te (RequireAuth).
-- `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone/areaObject(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A)
+- `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone/areaObject(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A).
+  Doğrulama SÖZLEŞMESİ `validationModel.ts`'te (yaprak modül) — kural dosyaları
+  onu `validate.ts`'ten alırsa import döngüsü doğar (knowledge/validation-rules.md).
 - `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
 - `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
-- `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/ExportDialog(D), PropertyPanel/properties(B), WarningList(C).
+- `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/ExportDialog(D), PropertyPanel/properties(B), WarningList+validation(C).
   Kabuk yeniden kuruldu (K90–K93): üst barda yalnız Dosya + Araçlar, kip
   ayarları tuvalin yüzen çubuğunda; `StatusBar`, `AxisIndicator` ve
-  `menu/ShortcutButtons` SİLİNDİ — bu adlarla yeni kod yazma. Üst bar tuvalle
-  aynı yüzeyde ve `canvas-overlay` token'larıyla KOYU TEMADA DA BEYAZ; kendi
+  `menu/ShortcutButtons` SİLİNDİ — bu adlarla yeni kod yazma. **Hata
+  Kontrolleri artık ÇALIŞIYOR** (K115): `core/validate.ts` on kuraldan sekizini
+  denetliyor, düğme kendi açılır listesini taşıyor. Hata3 (mahal TİPİ yok) ve
+  Hata8 (topraklanma NESNESİ yok) BİLEREK yazılmadı — bu konularda varsayım
+  kodlama, bkz. `docs/api-eksikleri-hata-kontrol.md`. "Test Et" ve "Gönder"
+  hâlâ pasif.
+  Üst bar tuvalle aynı yüzeyde ve `canvas-overlay` token'larıyla KOYU TEMADA DA BEYAZ; kendi
   varyantları `menu/editorBarVariants.ts`'te, `controls/buttonVariants.ts`
   pencerelerin (tema değiştiren yüzey). İki özellik paneli ortak kabuk
   kullanır (`ui/properties/PropertyPanelShell`). `ui/versions/` kayıt geçmişi
   listesini ve "Farklı Kaydet" penceresini taşır (K109); liste üst bardaki
   düğmenin ALTINDAN açılır, açık/kapalı durumu bileşenin içindedir.
   (bkz. knowledge/editor-shell.md, knowledge/canvas-toolbar.md,
-  knowledge/property-panel.md, knowledge/version-history.md)
+  knowledge/property-panel.md, knowledge/version-history.md,
+  knowledge/validation-rules.md)
 - `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
   liste parçaları. Kabuk sayfaya GÖMÜLMEZ, route ebeveynidir. Liste durumu (arama/filtre/
   sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Rol modeli KESİNLEŞTİ:

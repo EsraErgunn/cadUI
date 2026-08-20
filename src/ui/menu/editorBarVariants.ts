@@ -33,6 +33,11 @@ export const editorBarButtonVariants = cva(
         success:
           'bg-canvas-overlay-success/10 font-medium text-canvas-overlay-success ' +
           'disabled:text-canvas-overlay-success/60',
+        // `success`in ikizi: aynı düğme, denetim HATA bulduğunda. Ton tek başına
+        // anlam taşımıyor — sayı da metinde yazıyor.
+        danger:
+          'bg-canvas-overlay-danger/10 font-medium text-canvas-overlay-danger ' +
+          'disabled:text-canvas-overlay-danger/60',
       },
       shape: {
         label: 'h-9 px-3',
