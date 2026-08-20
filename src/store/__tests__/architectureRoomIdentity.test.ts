@@ -112,6 +112,8 @@ describe('oda kimliği duvar taşımalarına dayanır (K106)', () => {
     add({ start: { position: { x: 0, y: 200 } }, end: { position: { x: 400, y: 200 } } })
 
     expect(rooms()).toHaveLength(2)
-    expect(rooms().map((room) => room.name)).toEqual(['Oda', 'Oda'])
+    // Yeni mahal ADSIZ doğar (referans WebCAD gibi); etiket kullanım tipine,
+    // o da yoksa "Tanımsız"a düşer.
+    expect(rooms().map((room) => room.name)).toEqual(['', ''])
   })
 })

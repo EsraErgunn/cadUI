@@ -5770,3 +5770,61 @@ düğme uydurmak K79'un tam tersi olurdu. "Gönder"in artık bir sebebi var (hat
 giderilmeden proje onaya gidemez) ama onaya gönderme akışı — eksik evrak yanıtı
 dahil — proje listesi ekranında yaşıyor (`useProjectActions`); editöre taşınması
 ayrı bir adım.
+
+### K116 — Mahalin kullanım tipi eklendi; ad ve tip AYRI durur, mahal ADSIZ doğar
+
+Talep dokümanı madde 104 her mahal için "kullanım tipi (mutfak, salon…)"
+istiyor. Referans WebCAD'de karşılığı **yok**: oradaki `Room` yalnız
+`{ id, pointIds, label, labelPos, measuredArea, centralVentilation,
+topSideOpenable }` taşıyor. Ekran görüntülerindeki **"Tanımsız" bir tip değil**,
+boş `label`'ın arayüzdeki karşılığı — bunu doğrulamak listenin referanstan
+kopyalanamayacağını gösterdi.
+
+**`Room.usageType` opsiyonel, göç yok.** `AreaObject.axisId` ile birebir aynı
+gerekçe: bu karardan önce çizilmiş mahallerde alan hiç yok ve
+`docs/sample-project.json` bit-bit turu bozulmamalı. Alanın yokluğu "tip
+belirtilmemiş" demek, listedeki bir değere denk düşmüyor — bu yüzden
+`setRoomUsageType(id, undefined)` alanı boş bir değere ayarlamaz, `delete` eder
+ve `toRoomJson` da onu dosyaya hiç yazmaz. İki taraf aynı şeyi söylemeli.
+
+**Ad ve tip ikisi birden durur.** Tip kuralların baktığı sınıflandırma ("Yatak
+Odası"), ad kullanıcının planda okumak istediği şey ("1 nolu daire mutfağı").
+Tip adın yerine geçseydi aynı tipteki iki mahal planda ayırt edilemezdi.
+Etiket sırası tek bir yerde (`core/roomUsage.ts` → `getRoomDisplayName`):
+**ad → kullanım tipinin adı → "Tanımsız"**. Hata kontrollerindeki "Mahal: X"
+satırı da aynı fonksiyondan geçiyor — kullanıcı listede okuduğu adı planda
+arayacak, iki yerde farklı metin görmemeli.
+
+**Mahal artık ADSIZ doğuyor** (`DEFAULT_ROOM_NAME` = `''`, eskiden `'Oda'`).
+Zorunlu bir sonuç: sabit bir ad hep dolu olsaydı etiket tipe hiç düşemez,
+"Tanımsız" da hiç görünmezdi. Buna bağlı olarak **boş ad artık REDDEDİLMİYOR** —
+adı temizlemek, etiketi tipe düşürmenin tek yolu. `renameRoomInDraft`'ın
+"boş ad reddedilir" kuralı bu yüzden kalktı; "aynı adı yeniden yazma" kuralı
+(geçmişe boş adım eklememek için) DURUYOR.
+
+**`reconcileRooms` tipi de korumak zorunda.** Duvar taşınınca oda yeniden
+eşleştiriliyor ve kayıt alan alan yeniden kuruluyordu; `usageType` eklenmeseydi
+kullanıcı duvara her dokunduğunda mahalin tipi sessizce silinirdi — adın K31'de
+yaşadığı hatanın aynısı. Alanlar tek tek yazılıyor (`...existing` değil) ki
+yüzden gelen taze `wallIds` eskisiyle ezilmesin.
+
+**Liste TASLAK.** On beş tip (`ROOM_USAGE_TYPES`) doğalgaz tesisat planının
+ihtiyaç duyduğu mahallerden yazıldı, analist onayı BEKLİYOR. Üstüne kural
+yazılmadı: "hangi cihaz hangi mahale konabilir" ayrı bir tablo ve o tablo hâlâ
+yok (bkz. `docs/api-eksikleri-hata-kontrol.md`, Hata3). Yani K115'te
+açılmayan Hata3 bu adımda da AÇILMADI — tipin gelmesi kuralın yarısı.
+
+**Kapsam dışı bırakılanlar.** `centralVentilation` / `topSideOpenable` (K32'nin
+ertelediği, artık vadesi gelmiş iki alan) ve `Opening`'in WebCAD'deki rol
+alanları (`entrance`, `buildingEntrance`, `boilerRoom`, `apartmentNumber`) bu
+MR'a girmedi. İkisi de model sözleşmesini ayrıca açıyor ve farklı kuralları
+besliyor; özellikle kapı rol alanları K115'in açık bıraktığı "dışarıdan erişim"
+sorusunu çözebilir — giriş kapısı işaretli olsaydı graf tohumu tahmine
+dayanmazdı.
+
+**Düzenleme kutusu** `RoomNameEditor` → `RoomDefinitionEditor` oldu ve artık ad
++ tip alıyor. Ad taslakta bekler (her tuş ayrı bir Ctrl+Z adımı olmasın), TİP
+seçilir seçilmez yazılır: açılır listede tek bir seçim zaten bitmiş bir karar.
+⚠️ Dışarı tıklama kapsamı METİN ALANINDAN KUTUNUN TAMAMINA genişletildi —
+yakalama fazındaki `pointerdown` yalnız input'u sayıyordu ve açılır listeye
+tıklamak kutuyu kapatırdı.

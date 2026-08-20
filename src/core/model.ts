@@ -1,5 +1,7 @@
 // Tip-only ve coords.ts hiçbir şey import etmiyor: döngü oluşmaz.
 import type { PlanPoint } from './coords'
+// roomUsage.ts de yaprak (yalnız liste + etiket), model.ts'i import etmiyor.
+import type { RoomUsageType } from './roomUsage'
 // installationModel.ts da `Id`'yi buradan tip-only import ediyor — döngüsel
 // ama çalışma zamanında SİLİNİR (K17'deki cadStore↔plumbingSlice gerekçesiyle aynı).
 import type {
@@ -70,7 +72,13 @@ export type Opening = {
   type: OpeningType
 }
 
-export const DEFAULT_ROOM_NAME = 'Oda'
+/**
+ * Yeni mahal ADSIZ doğar. Referans WebCAD de öyle (`Room.label: ""`) ve
+ * ekrandaki "Tanımsız" yazısı tam olarak bu boşluğun karşılığı
+ * (bkz. knowledge/webcad-json-format.md). Sabit bir "Oda" yazılsaydı
+ * `usageType` etikete hiç düşemezdi: ad her zaman dolu olurdu.
+ */
+export const DEFAULT_ROOM_NAME = ''
 
 /**
  * Duvarların çevrelediği kapalı alan. Geometri KOPYALAMAZ: sınırını oluşturan
@@ -83,11 +91,22 @@ export const DEFAULT_ROOM_NAME = 'Oda'
  * doğar, ikisi de varsayılan adı alır.
  *
  * floorId yok — duvardan türetilir; Opening ile aynı gerekçe (K9).
+ *
+ * `name` ve `usageType` AYRI şeyler ve ikisi birden durur: tip kuralların
+ * baktığı sınıflandırma ("Yatak Odası"), ad kullanıcının çizimde okumak
+ * istediği şey ("1 nolu daire mutfağı"). Tip adın yerine geçseydi aynı tipteki
+ * iki mahal planda ayırt edilemezdi.
+ *
+ * `usageType` OPSİYONEL ve GÖÇ YOK — bu karardan önce çizilmiş mahallerde alan
+ * hiç yoktur ve `docs/sample-project.json` bit-bit turu bozulmamalı
+ * (`AreaObject.axisId` ile birebir aynı gerekçe). Alanın yokluğu "tipi
+ * belirtilmemiş" demektir, listedeki bir değere denk düşmez.
  */
 export type Room = {
   id: Id
   wallIds: Id[]
   name: string
+  usageType?: RoomUsageType
 }
 
 /**

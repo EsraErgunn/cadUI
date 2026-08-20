@@ -33,7 +33,7 @@ type IconButtonProps = {
  * tutma kararını `useAreaObjectHandleTool` saf geometriyle veriyor. Overlay
  * olayı yeseydi hem sürükleme hiç başlamaz hem de drei `<Html>`'in ayrı
  * react-dom kökünden yapılan store yazımı R3F ağacını tazelemezdi
- * (bkz. RoomNameEditor'daki aynı tuzak).
+ * (bkz. RoomDefinitionEditor'daki aynı tuzak).
  *
  * `wrapperClass` da ŞART: drei `transform` kapalıyken sarmalayıcı div'e
  * pointer-events YAZMIYOR (yalnız transform modunda `none` veriyor), yani

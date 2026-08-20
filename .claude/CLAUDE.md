@@ -46,6 +46,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - Yay (arc) duvar kararı YOK — `Wall`'a yay alanı eklemeden varsayım kodlama.
   offset ↔ konum dönüşümü sadece `core/wallPath.ts`'te. (bkz. knowledge/arc-walls.md)
 - Oda (`Room`) geometri kopyalamaz, duvar id'lerinden oluşan çevrim tutar.
+  `usageType` (kullanım tipi, madde 104) ve `name` AYRI durur ve ikisi de
+  OPSİYONEL anlamda boş olabilir: mahal ADSIZ doğar, etiket `getRoomDisplayName`
+  ile ad → tip → "Tanımsız" sırasını izler (K116). Tip listesi TASLAK, analist
+  onayı bekliyor — üstüne "hangi cihaz hangi mahale konabilir" kuralı YAZMA.
+  (bkz. knowledge/room-usage-type.md)
 - Boru grafiği `Node` + `Pipe` (fromNodeId/toNodeId). Vana/sayaç (`Fitting`) boru üzerinde `t` (0..1) ile.
 - Tesisat elemanı nereye yapıştığını TÜRDEN alır (`plumbing/core/attachModes.ts`): armatür
   boruya oturur ve boruyu AYIRIR (`onLine`), sayaç boş uca takılır ve araya vana girer
