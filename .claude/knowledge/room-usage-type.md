@@ -21,29 +21,38 @@ kural yazma: "hangi cihaz hangi mahale konabilir" AYRI bir tablo ve o tablo hâl
 yok (`docs/api-eksikleri-hata-kontrol.md`, Hata3). Liste değişince değişecek TEK
 yer bu dosya.
 
-## Ad ve tip AYRI şeyler
+## Serbest metin ad YOK (K117)
 
-- `usageType` → kuralların baktığı sınıflandırma ("Yatak Odası")
-- `name` → kullanıcının planda okumak istediği şey ("1 nolu daire mutfağı")
+`Room.name` modelden KALKTI. Kullanıcı kendi metnini yazmıyor, hazır listeden
+seçiyor — yazılabilir tek yol kaldırılınca alanın kaynağı da kalmadı ve
+yazılamayan bir alan zamanla çürür.
 
-Tip adın yerine geçseydi aynı tipteki iki mahal planda ayırt edilemezdi.
+**Etiketin TEK sahibi `getRoomDisplayName(usageType)`:** tipin adı, tip yoksa
+`"Tanımsız"`. Tüketiciler: sahnedeki etiket, hayalet katman (`Ghosts.tsx`) ve
+hata kontrollerindeki "Mahal: X" satırı.
 
-**Etiket kuralının TEK sahibi `getRoomDisplayName(name, usageType)`:**
-ad → kullanım tipinin adı → `"Tanımsız"`. Üç tüketici de oradan geçiyor —
-sahnedeki etiket, etiketin VURUŞ TESTİ (`useRoomNameTool`) ve hata
-kontrollerindeki "Mahal: X" satırı. Vuruş testi çizilen metne bakmak zorunda:
-ham addan (boş) hesaplanan kutu hiç tıklanamazdı.
+Eski kayıtlarda kalan `name` anahtarını zod sessizce düşürür; dosyalar açılmaya
+devam eder.
 
-## Mahal ADSIZ doğar
+## Tanımlama YERİ: özellik paneli
 
-`DEFAULT_ROOM_NAME` artık `''` (eskiden `'Oda'`). Zorunlu bir sonuç: sabit bir
-ad hep dolu olsaydı etiket tipe hiç düşemez, "Tanımsız" hiç görünmezdi.
+Mahal `SelectableKind`'a girdi ama **`resolveArchitectureTarget` zincirine
+GİRMEDİ** — seçim `useSelectionTool`'un "boşluğa tıklama" dalında yapılıyor.
+Gerekçeler ve tuzaklar için K117'ye bak; özeti:
 
-⚠️ Buna bağlı olarak **boş ad artık REDDEDİLMİYOR** — adı temizlemek, etiketi
-tipe düşürmenin tek yolu. "Aynı adı yeniden yazma" kuralı (geçmişe boş adım
-eklememek için) DURUYOR.
+- Zincire girseydi her hover'da yüz taraması yapılırdı.
+- Mahalin İÇİNDEN çerçeve seçimi başlatmak imkânsız olurdu.
 
-## İki tuzak
+⚠️ `pruneSelection`'ın son satırı "geri kalan her şey sembol" idi; `room` oraya
+düşünce seçim anında ve sessizce siliniyordu. Yeni tür eklerken o dosyaya bak.
+
+⚠️ Mahal SİLİNEMEZ/dönüştürülemez (duvarların türevi). Panel "Sil"i ve grup
+dönüşümlerini gizler (`PropertyPanelShell.isDeletable`).
+
+⚠️ Panelde "Tip seçilmedi" için AYRI sentinel (`'none'`) kullanılıyor:
+`PropertySelectField` boş string'i çoklu seçimde AYRIŞAN değer sayıyor.
+
+## Tuzak
 
 1. **`reconcileRooms` tipi de korumak zorunda.** Duvar taşınınca oda yeniden
    eşleştiriliyor ve kayıt alan alan yeniden kuruluyor. `usageType` eklenmeseydi
@@ -55,15 +64,12 @@ eklememek için) DURUYOR.
    yoksa iki taraf farklı şey söyler. Opsiyonelliğin gerekçesi
    `AreaObject.axisId` ile aynı: göç yok, bit-bit tur bozulmasın.
 
-## Düzenleme kutusu
+## Sahne içi düzenleme kutusu SİLİNDİ
 
-`RoomNameEditor` → **`RoomDefinitionEditor`**. Ad taslakta bekler (her tuş ayrı
-bir Ctrl+Z adımı olmasın), TİP seçilir seçilmez yazılır.
-
-⚠️ Dışarı tıklama kapsamı kutunun TAMAMI olmalı, yalnız input değil: yakalama
-fazındaki `pointerdown` input'u sayıyordu ve açılır listeye tıklamak kutuyu
-kapatırdı. `TextLabelEditor` aynı deseni paylaşıyor — orada tek alan olduğu için
-sorun çıkmıyor, ama oraya ikinci bir alan eklenirse aynı tuzak.
+`RoomDefinitionEditor`, `useRoomNameTool`, `architectureUiStore.editingRoomId`
+ve `findRoomLabelAt` korumaları K117'de kaldırıldı — tanımın tek yeri panel.
+`core/roomLabel.ts`'teki `isPointInRoomLabel`/`getRoomLabelBounds` duruyor ama
+çağıranı YOK.
 
 ## Bu adıma GİRMEYENLER
 

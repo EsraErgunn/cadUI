@@ -12,12 +12,13 @@ import {
 import type { Opening } from '../model'
 import { findRoomsWithoutDoorAccess } from '../roomAccess'
 import { buildFloorRoomTopology } from '../roomTopology'
+import { getRoomDisplayName } from '../roomUsage'
 
 const topology = buildFloorRoomTopology(PLAN_WALLS, PLAN_POINTS, PLAN_ROOMS, FLOOR_ID)
 
 function unreachableNames(openings: readonly Opening[]): string[] {
   return findRoomsWithoutDoorAccess(topology, PLAN_WALLS, openings)
-    .map((entry) => entry.room?.name ?? '?')
+    .map((entry) => getRoomDisplayName(entry.room?.usageType))
     .sort()
 }
 
@@ -50,7 +51,7 @@ describe('findRoomsWithoutDoorAccess', () => {
     )
     const openings = [makeDoor(30, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.middle)]
     expect(
-      findRoomsWithoutDoorAccess(topology, otherFloorWalls, openings).map((entry) => entry.room?.name),
+      findRoomsWithoutDoorAccess(topology, otherFloorWalls, openings).map((entry) => getRoomDisplayName(entry.room?.usageType)),
     ).toEqual(['Mutfak', 'Salon'])
   })
 

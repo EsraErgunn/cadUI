@@ -15,6 +15,7 @@ import {
   findFloorRoomAt,
   isWallOpenToOutside,
 } from '../roomTopology'
+import { getRoomDisplayName } from '../roomUsage'
 
 const topology = buildFloorRoomTopology(PLAN_WALLS, PLAN_POINTS, PLAN_ROOMS, FLOOR_ID)
 
@@ -24,7 +25,7 @@ describe('buildFloorRoomTopology', () => {
   })
 
   it('yüzleri kayıtlı odalarla eşleştirir', () => {
-    const names = topology.rooms.map((entry) => entry.room?.name).sort()
+    const names = topology.rooms.map((entry) => getRoomDisplayName(entry.room?.usageType)).sort()
     expect(names).toEqual(['Mutfak', 'Salon'])
   })
 
@@ -60,8 +61,8 @@ describe('isWallOpenToOutside', () => {
 
 describe('findFloorRoomAt', () => {
   it('noktanın düştüğü mahali verir', () => {
-    expect(findFloorRoomAt(topology, IN_KITCHEN)?.room?.name).toBe('Mutfak')
-    expect(findFloorRoomAt(topology, IN_LIVING)?.room?.name).toBe('Salon')
+    expect(findFloorRoomAt(topology, IN_KITCHEN)?.room?.usageType).toBe('kitchen')
+    expect(findFloorRoomAt(topology, IN_LIVING)?.room?.usageType).toBe('livingRoom')
   })
 
   it('plan dışında undefined döner', () => {

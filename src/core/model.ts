@@ -73,14 +73,6 @@ export type Opening = {
 }
 
 /**
- * Yeni mahal ADSIZ doğar. Referans WebCAD de öyle (`Room.label: ""`) ve
- * ekrandaki "Tanımsız" yazısı tam olarak bu boşluğun karşılığı
- * (bkz. knowledge/webcad-json-format.md). Sabit bir "Oda" yazılsaydı
- * `usageType` etikete hiç düşemezdi: ad her zaman dolu olurdu.
- */
-export const DEFAULT_ROOM_NAME = ''
-
-/**
  * Duvarların çevrelediği kapalı alan. Geometri KOPYALAMAZ: sınırını oluşturan
  * duvarların id'lerini tutar, poligon her seferinde onlardan türetilir. Kopyalasaydı
  * duvar oynayınca oda yerinde donar ve hata ekranda görünmezdi.
@@ -92,10 +84,9 @@ export const DEFAULT_ROOM_NAME = ''
  *
  * floorId yok — duvardan türetilir; Opening ile aynı gerekçe (K9).
  *
- * `name` ve `usageType` AYRI şeyler ve ikisi birden durur: tip kuralların
- * baktığı sınıflandırma ("Yatak Odası"), ad kullanıcının çizimde okumak
- * istediği şey ("1 nolu daire mutfağı"). Tip adın yerine geçseydi aynı tipteki
- * iki mahal planda ayırt edilemezdi.
+ * Serbest metin `name` alanı KALDIRILDI (K117): kullanıcı mahali kendi yazdığı
+ * bir metinle değil, hazır kullanım tipi listesinden TANIMLIYOR. Yazılamayan
+ * bir alan zamanla çürür — etiketin tek kaynağı `usageType`.
  *
  * `usageType` OPSİYONEL ve GÖÇ YOK — bu karardan önce çizilmiş mahallerde alan
  * hiç yoktur ve `docs/sample-project.json` bit-bit turu bozulmamalı
@@ -105,7 +96,6 @@ export const DEFAULT_ROOM_NAME = ''
 export type Room = {
   id: Id
   wallIds: Id[]
-  name: string
   usageType?: RoomUsageType
 }
 

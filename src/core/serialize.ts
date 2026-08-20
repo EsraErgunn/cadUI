@@ -71,7 +71,8 @@ const openingSchema = z.object({
 const roomSchema = z.object({
   id: idSchema,
   wallIds: z.array(idSchema),
-  name: z.string(),
+  // `name` K117'de KALKTI. Eski kayıtlarda alan hâlâ olabilir; zod tanımadığı
+  // anahtarı sessizce düşürür, yani dosyalar açılmaya devam eder.
   usageType: z.enum(ROOM_USAGE_TYPES).optional(),
 })
 
@@ -317,7 +318,6 @@ function toRoomJson(room: Room) {
   return {
     id: room.id,
     wallIds: [...room.wallIds],
-    name: room.name,
     // undefined alanı JSON.stringify atlıyor: tipi belirtilmemiş mahalde alan
     // dosyaya HİÇ yazılmaz (axisId ile aynı gerekçe, bit-bit tur).
     usageType: room.usageType,

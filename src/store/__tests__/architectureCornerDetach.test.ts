@@ -155,7 +155,7 @@ describe('duvar normali boyunca taşıma ve köşe ayrılması (K103)', () => {
     useCadStore.setState({
       rooms: useCadStore.getState().rooms.map((room, index) => ({
         ...room,
-        name: ['Salon', 'Mutfak', 'Banyo'][index],
+        usageType: (['livingRoom', 'kitchen', 'bathroom'] as const)[index],
       })),
     })
 
@@ -163,8 +163,8 @@ describe('duvar normali boyunca taşıma ve köşe ayrılması (K103)', () => {
 
     // Kopma sonrası bölünen komşu duvar yüzünden odanın KAYDI iki parçayı
     // birden içeriyor ama oda yalnız birini sınırında taşıyor; tam eşitlik
-    // tutmadığı için adlar siliniyordu (K103 regresyonu).
-    expect(rooms().map((room) => room.name).sort()).toEqual(['Banyo', 'Mutfak', 'Salon'])
+    // tutmadığı için tanımlar siliniyordu (K103 regresyonu).
+    expect(rooms().map((room) => room.usageType).sort()).toEqual(['bathroom', 'kitchen', 'livingRoom'])
   })
 
   it('oda adları AŞAĞI taşımada da korunur', () => {
@@ -172,13 +172,13 @@ describe('duvar normali boyunca taşıma ve köşe ayrılması (K103)', () => {
     useCadStore.setState({
       rooms: useCadStore.getState().rooms.map((room, index) => ({
         ...room,
-        name: ['Salon', 'Mutfak', 'Banyo'][index],
+        usageType: (['livingRoom', 'kitchen', 'bathroom'] as const)[index],
       })),
     })
 
     normalMove(topMiddle.wallId, 0, -100)
 
-    expect(rooms().map((room) => room.name).sort()).toEqual(['Banyo', 'Mutfak', 'Salon'])
+    expect(rooms().map((room) => room.usageType).sort()).toEqual(['bathroom', 'kitchen', 'livingRoom'])
   })
   it('oda KAYDI yüzle birebir kalır — bayat duvar listesi bırakılmaz', () => {
     const { topMiddle } = drawThreeRooms()

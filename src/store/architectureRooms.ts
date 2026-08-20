@@ -2,7 +2,7 @@
 import type { CadState } from './cadStore'
 import { toPlainSnapshot } from './draftSnapshot'
 import { takeNextId } from './projectMeta'
-import { DEFAULT_ROOM_NAME, type Id, type Room } from '../core/model'
+import type { Id, Room } from '../core/model'
 import { findRoomFaces } from '../core/room'
 import { getWallSetKey, reconcileRooms } from '../core/roomIdentity'
 import type { RoomUsageType } from '../core/roomUsage'
@@ -43,11 +43,8 @@ export function recomputeRoomsInDraft(draft: CadState): boolean {
     toPlainSnapshot(draft.points),
     draft.activeFloorId,
   )
-  const { rooms, removedRoomIds, createdCount } = reconcileRooms(
-    faces,
-    floorRooms,
-    DEFAULT_ROOM_NAME,
-    () => takeNextId(draft),
+  const { rooms, removedRoomIds, createdCount } = reconcileRooms(faces, floorRooms, () =>
+    takeNextId(draft),
   )
 
   // Hiçbir şey değişmediyse diziye DOKUNMA: yeni referans, geçmişe boş bir adım
@@ -72,25 +69,6 @@ export function recomputeRoomsInDraft(draft: CadState): boolean {
   return true
 }
 
-/**
- * Odayı yeniden adlandırır; yazıldıysa true.
- *
- * Boş ad REDDEDİLİR ve varsayılana da düşürülmez (K13 deseni): kullanıcı adı
- * silip yanlışlıkla onaylarsa "Salon" sessizce kaybolmasın. Ad değişmediyse de
- * yazılmaz — aynı değeri koymak geçmişe boş bir Ctrl+Z adımı eklerdi.
- */
-export function renameRoomInDraft(draft: CadState, roomId: Id, name: string): boolean {
-  const room = draft.rooms.find((candidate) => candidate.id === roomId)
-  if (!room) return false
-
-  const trimmed = name.trim()
-  // Boş ad artık REDDEDİLMİYOR: adı silmek, etiketi kullanım tipine (yoksa
-  // "Tanımsız"a) düşürmenin tek yolu. Yeni mahal de zaten adsız doğuyor.
-  if (trimmed === room.name) return false
-
-  room.name = trimmed
-  return true
-}
 
 /**
  * Kullanım tipini yazar. `undefined` alanı SİLER (boş bir değere ayarlamaz):

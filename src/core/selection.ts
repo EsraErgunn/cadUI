@@ -2,7 +2,17 @@ import type { ArchitectureTarget } from './architectureHover'
 import { getAreaObjectCorners } from './areaObject'
 import { getBeamEnds } from './beam'
 import type { PlanPoint } from './coords'
-import type { AreaObject, Beam, Id, Opening, Point, PointSymbol, TextLabel, Wall } from './model'
+import type {
+  AreaObject,
+  Beam,
+  Id,
+  Opening,
+  Point,
+  PointSymbol,
+  Room,
+  TextLabel,
+  Wall,
+} from './model'
 import { getSymbolPose } from './symbolPlacement'
 import { getTextLabelCorners } from './textLabel'
 import { getWallEnds } from './wall'
@@ -13,7 +23,7 @@ import { getWallFrameAtOffsetCm } from './wallPath'
  * kendi başına taşınması `usePointDragTool`'un işi ve grup dönüşümünde duvarıyla
  * birlikte gelir. Vurgu hedefi (`ArchitectureTarget`) köşeyi de içerir, seçim içermez.
  */
-export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area' | 'beam' | 'text'
+export type SelectableKind = 'wall' | 'opening' | 'symbol' | 'area' | 'beam' | 'text' | 'room'
 
 export type SelectionItem = {
   kind: SelectableKind
@@ -100,13 +110,18 @@ export function pruneSelection(
   areaObjects: readonly AreaObject[],
   beams: readonly Beam[],
   texts: readonly TextLabel[],
+  rooms: readonly Room[],
 ): Selection {
+  // Her tür AÇIKÇA sorulur. Eskiden son satır sembol kontrolü olarak "geri
+  // kalan her şey" rolündeydi; yeni bir tür (mahal) eklendiğinde o tür sembol
+  // id'leriyle karşılaştırılıp seçimden SESSİZCE düşerdi.
   const pruned = selection.filter((item) => {
     if (item.kind === 'wall') return walls.some((wall) => wall.id === item.id)
     if (item.kind === 'opening') return openings.some((opening) => opening.id === item.id)
     if (item.kind === 'area') return areaObjects.some((areaObject) => areaObject.id === item.id)
     if (item.kind === 'beam') return beams.some((beam) => beam.id === item.id)
     if (item.kind === 'text') return texts.some((text) => text.id === item.id)
+    if (item.kind === 'room') return rooms.some((room) => room.id === item.id)
     return symbols.some((symbol) => symbol.id === item.id)
   })
   return pruned.length === selection.length ? selection : pruned

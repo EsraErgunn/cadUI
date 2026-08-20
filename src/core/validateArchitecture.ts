@@ -18,7 +18,7 @@ import {
  * yerde farklı metin görmemeli.
  */
 export function getRoomName(entry: FloorRoom): string {
-  return getRoomDisplayName(entry.room?.name ?? '', entry.room?.usageType)
+  return getRoomDisplayName(entry.room?.usageType)
 }
 
 /** Mahal kaydı yoksa (yüz henüz eşleşmemiş) duvar kümesi kimlik yerine geçer. */
