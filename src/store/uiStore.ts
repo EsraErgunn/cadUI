@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import { DEFAULT_TOOL_ID, type ToolId } from '../core/tools'
+import type { PlanBounds } from '../core/viewport'
 import { DEFAULT_VIEW_ID, type ViewId } from '../core/views'
 import {
   DEFAULT_INSTALLATION_TOOL_ID,
@@ -62,6 +63,16 @@ type UiState = {
    * uygulaması yazılmaz (`useViewportControls`, `DrawSurface`).
    */
   isPanModeActive: boolean
+  /**
+   * Hata kontrollerindeki "göster" için TEK SEFERLİK kamera isteği. Zoom/pan
+   * hâlâ kamerada yaşıyor (aşağıdaki nota bkz.) — burada duran şey görüntünün
+   * kendisi değil, DOM tarafından verilmiş bir emir: liste `<Canvas>` dışında,
+   * kamera içinde ve ikisi arasında başka bir köprü yok. Sahne isteği
+   * uyguladığı anda `null`'a çeker, yani sürekli bir durum birikmez.
+   */
+  pendingFocusBounds: PlanBounds | null
+  requestFocus: (bounds: PlanBounds) => void
+  clearFocusRequest: () => void
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
@@ -98,6 +109,17 @@ export const useUiStore = create<UiState>()(
     isAreaObjectNamesVisible: true,
     isRoomNamesVisible: true,
     isPanModeActive: false,
+    pendingFocusBounds: null,
+
+    requestFocus: (bounds) =>
+      set((draft) => {
+        draft.pendingFocusBounds = bounds
+      }),
+
+    clearFocusRequest: () =>
+      set((draft) => {
+        draft.pendingFocusBounds = null
+      }),
 
     setActiveTool: (toolId) =>
       set((draft) => {
