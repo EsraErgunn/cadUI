@@ -5930,3 +5930,42 @@ kapatır.
 Testler `user.selectOptions` kullanamaz oldu (o yalnız native `<select>`te
 çalışır); etkilenen tek dosya `RoomProperties.test.tsx` idi ve bileşenin kendi
 testi eklendi (`PropertySelectField.test.tsx`).
+
+### K119 — Cihaz KOLU ve refakatçi vanası cihazla birlikte silinir
+
+Yakıcı cihaz `nearestLine` ile konunca iki ek nesne doğuyor: cihazı boruya
+bağlayan **kol** (`applianceStub`) ve kolun boruya değdiği düğüme oturan
+**otomatik vana**. Cihaz silinince ikisi de geride kalıyordu — ekranda sahipsiz
+kırmızı kesikli bir parça ve boru ucunda anlamsız bir vana (kullanıcı bildirimi,
+2026-08-20).
+
+**Kol, borudan farklı bir kategoridir.** `dischargeLinks.ts`'in zaten yazdığı
+ayrım burada da geçerli: bir eleman silinince ona bağlı BORU kalır (boru
+bağımsız bir varlık, ucu serbestleşir), ama baca/havalandırma kanalı cihazın
+EKLENTİSİDİR ve sahipsiz kalırsa yeniden bağlanamaz. Kol tam olarak aynı
+kategoride, üstelik daha keskin: **araç paletinde bile yok**, yalnız yerleştirme
+sırasında otomatik doğuyor, yani kullanıcı onu elle yeniden çizemez.
+
+Bu yüzden ikinci bir toplayıcı yazmak yerine mevcut olan genelleştirildi:
+`dischargeLinks.ts` → **`attachmentLinks.ts`**,
+`collectDischargeLineIdsForElements` → `collectAttachmentLineIdsForElements`.
+Gerekçe ortak olduğu için iki kopya zamanla ayrışırdı.
+
+⚠️ **Vana kolun ÜSTÜNDE DEĞİL.** `placeElementWithStub` onu ANA BORUNUN uç
+düğümüne yazıyor (`endPoint.inlineElementId`), çünkü vana boruda olmalı (K15).
+`applyRemoval`'ın "silinen hattın üstündeki armatürler de gider" kuralı bu
+yüzden onu GÖRMÜYOR — ayrı bir toplayıcı gerekti
+(`collectCompanionValveIdsForLines`). Kolun `{kind:'line'}` bağlantısı hangi
+noktaya tutunduğunu söylüyor, vana o noktada.
+
+Toplayıcı YALNIZ otomatik vanayı alır (`ATTACHED_VALVE_TYPE`): kullanıcı o
+düğüme başka bir armatür (filtre kiti, izolasyon…) koyduysa o kendi başına bir
+karardır, cihazla birlikte silinmez.
+
+Sayaç yolu (`placeElementAtLineEnd`) bu sorunu HİÇ taşımıyor: bağlantıyı hattın
+KENDİ ucuna yazıyor ve ayrı bir kol üretmiyor.
+
+Test `placeElementWithStub`'ın ürettiği durumu birebir kurup `removeElements`
+çağırıyor — varsayılan bir şekil değil, gerçek yerleştirmenin çıktısı
+(`plumbing/store/__tests__/applianceRemoval.test.ts`). Geri alma tesisatın
+KENDİ aynasından (`undoPlumbing`), cadStore'un zundo'sundan değil.
