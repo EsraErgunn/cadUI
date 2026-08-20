@@ -1,6 +1,18 @@
 import { create } from 'zustand'
 
+import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
+
+/**
+ * Süren dal ayırma. Bırakılana kadar `cadStore`'a YAZILMAZ: her fare
+ * hareketinde yazılsaydı tek bir sürükleme onlarca geri alma adımı açardı
+ * (`plumbingUiStore`'daki sürükleme durumlarıyla aynı gerekçe).
+ */
+export type IsometricLineDrag = {
+  lineId: Id
+  pointId: Id
+  deltaCm: PlanPoint
+}
 
 /**
  * Katları düşey olarak ayırma sınırları. Gerçek binada katlar bitişik olduğu
@@ -28,11 +40,14 @@ type IsometricUiState = {
   /** Tıklanan hat tam opak, gerisi solar. Seçim DEĞİL, yalnız vurgulama. */
   highlightedLineId: Id | null
   isLabelsVisible: boolean
+  /** Süren dal ayırma; sahne bunu okuyup CANLI önizler. */
+  lineDrag: IsometricLineDrag | null
   setCameraLocked: (isLocked: boolean) => void
   toggleCameraLock: () => void
   setExplodedGapCm: (gapCm: number) => void
   setHighlightedLineId: (lineId: Id | null) => void
   toggleLabelsVisible: () => void
+  setLineDrag: (drag: IsometricLineDrag | null) => void
 }
 
 function clampExplodedGapCm(gapCm: number): number {
@@ -44,9 +59,11 @@ export const useIsometricUiStore = create<IsometricUiState>()((set) => ({
   explodedGapCm: 0,
   highlightedLineId: null,
   isLabelsVisible: true,
+  lineDrag: null,
   setCameraLocked: (isLocked) => set({ isCameraLocked: isLocked }),
   toggleCameraLock: () => set((state) => ({ isCameraLocked: !state.isCameraLocked })),
   setExplodedGapCm: (gapCm) => set({ explodedGapCm: clampExplodedGapCm(gapCm) }),
   setHighlightedLineId: (lineId) => set({ highlightedLineId: lineId }),
   toggleLabelsVisible: () => set((state) => ({ isLabelsVisible: !state.isLabelsVisible })),
+  setLineDrag: (drag) => set({ lineDrag: drag }),
 }))

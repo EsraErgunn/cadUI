@@ -112,6 +112,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   (bkz. knowledge/access-control.md, knowledge/admin-list-state.md,
   knowledge/project-detail.md, knowledge/documents-screens.md,
   knowledge/policy-wizard.md, knowledge/admin-scope.md)
+- `src/isometric/` — izometrik görünüm; `plumbing/` deseninin aynası
+  (`core/` + `scene/` + `store/` + `ui/`). Sahne verisi TÜRETİLMİŞ, store'a
+  konmaz. Kot çözümü `plumbing/core/lineElevation.ts`'ten okunur, burada
+  TEKRARLANMAZ. Cam HUD token'ları (`--color-glass*`) koyu temada EZİLMEZ.
+  (bkz. knowledge/isometric-view.md, izometrik-adimlari.md)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
@@ -138,7 +143,15 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
 - Bir kat mimarisi başka katlara kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
   Hedefte içerik varsa kullanıcı seçer: üzerine yaz (aynı TÜRDEN çizim silinir) ya da o katı
   atla — "hedef boş olmalı" kuralı kalktı, bkz. knowledge/floor-clone.md.
-- İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
+- İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir: YALNIZ
+  tesisat çizilir (mimari yok), aktif kat kavramı yoktur. İzdüşüm WebCAD'in
+  `Rx(α)·Ry(β)` matrisidir ama AYNALANARAK ve kamera YÖNÜ olarak uygulanır
+  (K115) — işaretler tahmin değil türetimdir, değiştirmeden önce
+  knowledge/isometric-view.md oku. İzometriğe özel elle yerleştirmeler
+  (dal ayırma, etiket taşıma) AYRI opsiyonel alanlarda durur ve plan çizimini
+  BOZMAZ (K116). α/β projeye yazılır ama projeyi KİRLETMEZ (K117); geri al
+  TESİSAT geçmişine gider (K118); `scene/layers.ts` ve `CAMERA_HEIGHT_CM` orada
+  GEÇERSİZDİR (K119).
 - Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
 - Renk: marka sarısı #FFC107 çizim alanına GİRMEZ. Seçim rengi mavi. Gaz hattının rengi
   ÇAPINDAN gelir (DN25 kırmızı, DN32/40/50 kendi renkleri — WebCAD ile aynı sınıflandırma,

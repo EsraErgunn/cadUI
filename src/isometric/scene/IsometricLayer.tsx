@@ -1,20 +1,24 @@
-import { Suspense, useMemo } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
 
 import { IsometricCamera } from './IsometricCamera'
 import { IsometricElement } from './IsometricElement'
 import { IsometricFloorLink } from './IsometricFloorLink'
 import { IsometricLabels } from './IsometricLabels'
 import { IsometricPipe } from './IsometricPipe'
+import { IsometricPointHandle } from './IsometricPointHandle'
 import {
   ISOMETRIC_AMBIENT_INTENSITY,
   ISOMETRIC_DIMMED_OPACITY,
   ISOMETRIC_DIRECTIONAL_INTENSITY,
 } from './isometricTheme'
+import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { getTargetElementId } from '../../plumbing/core/installationModel'
 import type { InstallationConnection } from '../../plumbing/core/installationModel'
+import { useCameraZoom } from '../../scene/useCameraZoom'
 import { useCadStore } from '../../store/cadStore'
 import type { IsometricElevationContext } from '../core/isometricElevation'
+import { applyIsometricDrag } from '../core/isometricOffset'
 import { buildIsometricScene } from '../core/isometricScene'
 import { useIsometricUiStore } from '../store/isometricUiStore'
 
@@ -59,6 +63,24 @@ export function IsometricLayer() {
   const isCameraLocked = useIsometricUiStore((state) => state.isCameraLocked)
   const highlightedLineId = useIsometricUiStore((state) => state.highlightedLineId)
   const setHighlightedLineId = useIsometricUiStore((state) => state.setHighlightedLineId)
+  const lineDrag = useIsometricUiStore((state) => state.lineDrag)
+  const setLineDrag = useIsometricUiStore((state) => state.setLineDrag)
+  const applyIsometricLineDrag = useCadStore((state) => state.applyIsometricLineDrag)
+  const zoom = useCameraZoom()
+
+  /**
+   * Süren sürükleme sahne KURULMADAN ÖNCE uygulanıyor: aynı `applyIsometricDrag`
+   * hem önizlemeyi hem kalıcı yazımı üretiyor, böylece bırakınca dal yerinden
+   * oynamıyor. Önizleme sahnenin içinde ayrıca hesaplansaydı iki yol ayrışırdı.
+   */
+  const previewLines = useMemo(() => {
+    if (!lineDrag) return installationLines
+    return installationLines.map((line) =>
+      line.id === lineDrag.lineId
+        ? { ...line, points: applyIsometricDrag(line.points, lineDrag.pointId, lineDrag.deltaCm) }
+        : line,
+    )
+  }, [installationLines, lineDrag])
 
   // Sahne verisi TÜRETİLMİŞ: store'a konmaz, her çizimde yeniden üretilir.
   // Memo şart — kamera çerçevelemesi `bounds`'tan türeyen ilkellere bağlı ve
@@ -69,7 +91,7 @@ export function IsometricLayer() {
         {
           floors,
           installationElements,
-          installationLines,
+          installationLines: previewLines,
           installationConnections,
           floorPipeLinks,
         },
@@ -82,15 +104,15 @@ export function IsometricLayer() {
       floors,
       installationConnections,
       installationElements,
-      installationLines,
+      previewLines,
     ],
   )
 
   // Kot çözümü etiketlerde de gerekiyor (3B boy); sahne ile AYNI bağlam
   // kullanılıyor ki yazan boy ile çizilen gövde ayrışmasın.
   const elevationContext = useMemo<IsometricElevationContext>(
-    () => ({ lines: installationLines, connections: installationConnections }),
-    [installationConnections, installationLines],
+    () => ({ lines: previewLines, connections: installationConnections }),
+    [installationConnections, previewLines],
   )
 
   const connectedElementIds = useMemo(
@@ -100,6 +122,28 @@ export function IsometricLayer() {
         : getConnectedElementIds(highlightedLineId, installationConnections),
     [highlightedLineId, installationConnections],
   )
+
+  const handleDrag = useCallback(
+    (lineId: Id, pointId: Id) => (deltaCm: PlanPoint) =>
+      setLineDrag({ lineId, pointId, deltaCm }),
+    [setLineDrag],
+  )
+
+  const handleDragEnd = useCallback(
+    (lineId: Id, pointId: Id) => (deltaCm: PlanPoint) => {
+      setLineDrag(null)
+      applyIsometricLineDrag(lineId, pointId, deltaCm)
+    },
+    [applyIsometricLineDrag, setLineDrag],
+  )
+
+  // Tutamaçlar YALNIZ vurgulanan hatta çıkar: her köşede sürekli bir top
+  // dursaydı kalabalık çizim okunmaz olurdu. Keşif yolu "hatta tıkla →
+  // tutamaçlar belirsin".
+  const handledGeometry =
+    highlightedLineId === null
+      ? null
+      : (scene.lines.find((geometry) => geometry.lineId === highlightedLineId) ?? null)
 
   const opacityOf = (lineId: Id) =>
     highlightedLineId === null || highlightedLineId === lineId ? 1 : ISOMETRIC_DIMMED_OPACITY
@@ -151,6 +195,16 @@ export function IsometricLayer() {
             />
           )
         })}
+        {isCameraLocked &&
+          handledGeometry?.positions.map((position, index) => (
+            <IsometricPointHandle
+              key={`handle-${handledGeometry.pointIds[index]}`}
+              position={position}
+              zoom={zoom}
+              onDrag={handleDrag(handledGeometry.lineId, handledGeometry.pointIds[index])}
+              onDragEnd={handleDragEnd(handledGeometry.lineId, handledGeometry.pointIds[index])}
+            />
+          ))}
       </group>
 
       {/* KENDİ Suspense'i: drei <Text> troika'nın font indirmesiyle askıya
@@ -160,7 +214,7 @@ export function IsometricLayer() {
         <Suspense fallback={null}>
           <IsometricLabels
             scene={scene}
-            lines={installationLines}
+            lines={previewLines}
             elements={installationElements}
             context={elevationContext}
             angles={angles}

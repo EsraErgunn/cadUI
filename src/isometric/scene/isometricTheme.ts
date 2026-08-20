@@ -20,6 +20,11 @@ export const ISOMETRIC_COLORS = {
   branchStub: '#1d4ed8',
   chimney: '#4b5563',
   ventilationDuct: '#0f766e',
+  /**
+   * Sürükleme tutamacı. Seçim mavisi (`sceneTheme.selection`) ile AYNI değer:
+   * "tutulabilir" işareti tüm görünümlerde aynı renkten okunuyor.
+   */
+  handle: '#2d7ff9',
   label: '#1f2937',
   labelLeader: '#9aa3b0',
 } as const
