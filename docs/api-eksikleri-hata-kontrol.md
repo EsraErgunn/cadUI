@@ -79,10 +79,22 @@ Ada göre yazılırsa sunucudaki etiket değişince kural sessizce çalışmaz o
   Bugün hiçbiri olarak ele alınmadı.
 - Hata7'nin örnek künyesi yarım: *"Kat: Y. Kat Mahal: X. Kat diye."*
 
-## Analist onayına açık: kapı erişimi ne kadar sıkı?
+## Kapı kuralı: KAPANDI
 
-Hata2 GRAF olarak yazıldı: "dışarıdan kapılarla ulaşılabilsin" (bkz. K115).
-Alternatif okuma "her mahalin en az bir kapısı olsun" — daha gevşek. Normal bir
-dairede ikisi aynı sonucu verir, ama dışarıya açılan tek bir kapısı olmayan bir
-kat planında sıkı okuma BÜTÜN mahalleri hatalı gösterir. Değiştirmek
-`core/roomAccess.ts` içinde tek fonksiyonluk iş.
+Hata2 önce GRAF olarak yazılmıştı ("dışarıdan kapılarla ulaşılabilsin"). Dış
+kapısı çizilmemiş kat planlarında bütün mahalleri hatalı gösterdiği için
+kullanıcı kararıyla GEVŞEK okumaya çevrildi: **"her mahalin en az bir kapısı
+olsun"** (bkz. K115). Bu madde artık analist onayı beklemiyor.
+
+## Bilgi: "tüketim elemanı" listesi dokümanda VAR
+
+Hata6 metni sonlandırıcıları sayıyor: **ocak, soba, şofben, kombi, kazan**.
+Kod bunları `BURNER_APPLIANCE_TYPES` üzerinden okuyor ve listeye BİR tür daha
+katıyor: `otherAppliance` ("Diğer Yakıcı Cihaz" — tipi Ocak/Fırın). Doküman onu
+saymıyor ama model onu yakıcı cihaz sayıyor; sonlandırıcı kabul edilmeseydi
+kullanıcı o cihazı koyup hattı bitiremezdi.
+
+Ayrıca kodda dokümanda YAZMAYAN bir kabul var: **servis kutusu uç saymaz**
+(gazın kaynağı, hattın sonu değil). Doküman "sayaç, filtre gibi elemanlar hattı
+sonlandırmaz" derken kaynağı hiç konuşmuyor. İkisi de analist teyidine açık ama
+kuralı bloke etmiyor.

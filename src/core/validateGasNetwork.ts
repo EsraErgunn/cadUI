@@ -43,8 +43,20 @@ export function validateGasNetwork(source: ValidationSource, floor: Floor): Vali
 
   const connectionByEnd = new Map<string, (typeof source.installationConnections)[number]>()
   const lineCountByElementId = new Map<Id, number>()
+  /**
+   * Üstüne BAŞKA bir hattın tutunduğu noktalar.
+   *
+   * Bir uca kol takıldığında bağlantı kayıtlarının İKİSİ de KOLA yazılıyor
+   * (`placeElementWithStub`): ana borunun kendi ucunda kayıt OLUŞMUYOR. Yalnız
+   * `connectionByEnd`'e bakılırsa ocakla bitirilmiş bir hat "bağlantısız uç"
+   * görünür — kullanıcı bildirimi. O nokta aslında bir KAVŞAK: kolun kendi ucu
+   * ayrıca denetleniyor, yani cihaz orada aranır.
+   */
+  const junctionPointIds = new Set<Id>()
   for (const connection of source.installationConnections) {
     connectionByEnd.set(`${connection.lineId}:${connection.end}`, connection)
+
+    if (connection.target.kind === 'line') junctionPointIds.add(connection.target.pointId)
 
     const elementId = getTargetElementId(connection.target)
     if (elementId === undefined || elementId === null) continue
@@ -63,6 +75,8 @@ export function validateGasNetwork(source: ValidationSource, floor: Floor): Vali
     for (const end of LINE_ENDS) {
       const pointId = getEndPointId(line, end)
       if (pointId === undefined || linkedPointIds.has(pointId)) continue
+      // Kavşak uç değildir: devamı, oraya tutunan hattın kendi denetiminde.
+      if (junctionPointIds.has(pointId)) continue
 
       const connection = connectionByEnd.get(`${line.id}:${end}`)
       // Başka bir hatta bağlanan uç sonlanmıyor, devam ediyor.

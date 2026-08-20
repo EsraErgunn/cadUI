@@ -1,6 +1,6 @@
 import type { Floor, Id } from './model'
 import { getBoundsAround } from './planBounds'
-import { findRoomsWithoutDoorAccess } from './roomAccess'
+import { findRoomsWithoutDoor } from './roomAccess'
 import { getWallSetKey } from './roomIdentity'
 import type { FloorRoom, FloorRoomTopology } from './roomTopology'
 import { getRoomDisplayName } from './roomUsage'
@@ -66,7 +66,7 @@ export function validateFloorArchitecture(
     ]
   }
 
-  return findRoomsWithoutDoorAccess(topology, source.walls, source.openings).map((entry) => ({
+  return findRoomsWithoutDoor(topology, source.walls, source.openings).map((entry) => ({
     key: `roomDoorAccess:${floor.id}:${getRoomKey(entry)}`,
     ruleId: 'roomDoorAccess' as const,
     message: VALIDATION_MESSAGES.roomDoorAccess,

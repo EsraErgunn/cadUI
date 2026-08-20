@@ -56,6 +56,12 @@ pahalı hesap dört kez yapılırdı.
 - **Mimari plan yokken mahal kuralları KOŞMAZ** (Hata5/9/10). Yoksa tek eksik
   (duvarsız kat) onlarca satır doğururdu; "mimari kat planı çizilmelidir"
   satırı tek başına konuşsun.
+- ⚠️ **Kavşak uç DEĞİLDİR.** `nearestLine` yerleştirmesinde
+  (`placeElementWithStub`) bağlantıların İKİSİ de KOLA yazılıyor, ana borunun
+  ucuna kayıt yazılmıyor — "ocakla bitirdim ama hâlâ hata veriyor" bundandı
+  (2026-08-20). Üstüne başka hat tutunan nokta kavşaktır, atlanır; devamı o
+  kolun kendi denetiminde. `placeElementAtLineEnd` (sayaç) bağlantıyı hattın
+  KENDİ ucuna yazar, orada bu kör nokta yok.
 - **Hata6 üç serbest uç hâli var:** bağlantı kaydı yok / yakıcı olmayan bir
   elemanda bitip oradan başka hat çıkmıyor / eleman zaten yok. **Servis kutusu
   uç saymaz** (gazın kaynağı), **`floorPipeLinks` de saymaz** (hat üst/alt kata
