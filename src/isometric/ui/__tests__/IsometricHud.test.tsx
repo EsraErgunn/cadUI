@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { useCadStore } from '../../../store/cadStore'
-import { ISOMETRIC_ANGLES_DEFAULT } from '../../core/isometricProjection'
+import {
+  ISOMETRIC_ALPHA_MAX_DEG,
+  ISOMETRIC_ANGLES_DEFAULT,
+} from '../../core/isometricProjection'
 import { useIsometricUiStore } from '../../store/isometricUiStore'
 import { IsometricHud } from '../IsometricHud'
 import { IsometricLegend } from '../IsometricLegend'
@@ -11,15 +14,18 @@ import { IsometricModeSwitch } from '../IsometricModeSwitch'
 
 beforeEach(() => {
   useCadStore.getState().resetProject()
-  useIsometricUiStore.setState({ isCameraLocked: true, explodedGapCm: 0 })
+  useIsometricUiStore.setState({ isCameraLocked: true })
 })
 
 describe('IsometricHud — bakış açısı', () => {
   it('kaydırıcılar mevcut açıyı gösterir', () => {
     render(<IsometricHud />)
 
-    expect(screen.getByRole('slider', { name: 'Bakış eğimi (alfa)' })).toHaveValue(
-      String(ISOMETRIC_ANGLES_DEFAULT.alphaDeg),
+    // Varsayılan gerçek izometri (35,264°/45°); kaydırıcı adımı 1° olduğu için
+    // gösterilen değer yuvarlanır, store'daki tam değer korunur.
+    expect(screen.getByRole('slider', { name: 'Bakış eğimi (alfa)' })).toHaveAttribute(
+      'aria-valuetext',
+      '35°',
     )
     expect(screen.getByRole('slider', { name: 'Bakış dönüşü (beta)' })).toHaveValue(
       String(ISOMETRIC_ANGLES_DEFAULT.betaDeg),
@@ -27,46 +33,33 @@ describe('IsometricHud — bakış açısı', () => {
   })
 
   it('değer birimiyle okunur (aria-valuetext)', () => {
-    // Ham "40" birimsiz okunurdu; kullanıcı neyin 40 olduğunu duymaz.
+    // Ham "45" birimsiz okunurdu; kullanıcı neyin 45 olduğunu duymaz.
     render(<IsometricHud />)
-    expect(screen.getByRole('slider', { name: 'Bakış eğimi (alfa)' })).toHaveAttribute(
+    expect(screen.getByRole('slider', { name: 'Bakış dönüşü (beta)' })).toHaveAttribute(
       'aria-valuetext',
-      '40°',
+      '45°',
     )
   })
 
-  it('hazır açı düğmesi açıyı yazar ve seçili işaretlenir', async () => {
+  it('Üstten hazır açısı alfayı sınıra dayar ve seçili işaretlenir', async () => {
     const user = userEvent.setup()
     render(<IsometricHud />)
 
-    await user.click(screen.getByRole('button', { name: 'Önden' }))
+    await user.click(screen.getByRole('button', { name: 'Üstten' }))
 
-    expect(useCadStore.getState().isometricAngles).toEqual({ alphaDeg: 0, betaDeg: 0 })
-    expect(screen.getByRole('button', { name: 'Önden' })).toHaveAttribute('aria-pressed', 'true')
+    expect(useCadStore.getState().isometricAngles.alphaDeg).toBe(ISOMETRIC_ALPHA_MAX_DEG)
+    expect(screen.getByRole('button', { name: 'Üstten' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('yan görünüm hazır açıları YOK — plan görünümü zaten var', () => {
+    render(<IsometricHud />)
+    for (const label of ['Önden', 'Sağdan', 'Soldan']) {
+      expect(screen.queryByRole('button', { name: label })).toBeNull()
+    }
   })
 })
 
-describe('IsometricHud — katları aralıklandırma', () => {
-  it('varsayılanda "Bitişik" yazar', () => {
-    render(<IsometricHud />)
-    expect(screen.getByRole('slider', { name: 'Katları aralıklandırma' })).toHaveAttribute(
-      'aria-valuetext',
-      'Bitişik',
-    )
-  })
-
-  it('aralık açılınca metre olarak okunur', () => {
-    useIsometricUiStore.setState({ explodedGapCm: 250 })
-    render(<IsometricHud />)
-
-    expect(screen.getByRole('slider', { name: 'Katları aralıklandırma' })).toHaveAttribute(
-      'aria-valuetext',
-      '2,50 m',
-    )
-  })
-})
-
-describe('IsometricHud — sıfırlama', () => {
+describe('IsometricHud — varsayılana döndür', () => {
   it('izometrik etiket konumlarını temizler, plandakine dokunmaz', async () => {
     const user = userEvent.setup()
     const elementId = useCadStore.getState().addElement({
@@ -77,7 +70,7 @@ describe('IsometricHud — sıfırlama', () => {
     useCadStore.getState().setElementIsometricLabelOffset(elementId, { x: 99, y: 99 })
 
     render(<IsometricHud />)
-    await user.click(screen.getByRole('button', { name: /İzometrik konumları sıfırla/ }))
+    await user.click(screen.getByRole('button', { name: /Varsayılana döndür/ }))
 
     const element = useCadStore
       .getState()
@@ -85,6 +78,18 @@ describe('IsometricHud — sıfırlama', () => {
     expect(element?.isometricLabelOffsetCm).toBeUndefined()
     // Plan görünümündeki yerleşim BOZULMAZ — ayrı alan tutmamızın sebebi bu.
     expect(element?.labelOffsetCm).toEqual({ x: 10, y: 10 })
+  })
+
+  it('bakış açısını ve kamera kilidini de varsayılana çeker', async () => {
+    const user = userEvent.setup()
+    useCadStore.getState().setIsometricAngles({ alphaDeg: 12, betaDeg: 200 })
+    useIsometricUiStore.setState({ isCameraLocked: false })
+
+    render(<IsometricHud />)
+    await user.click(screen.getByRole('button', { name: /Varsayılana döndür/ }))
+
+    expect(useCadStore.getState().isometricAngles).toEqual(ISOMETRIC_ANGLES_DEFAULT)
+    expect(useIsometricUiStore.getState().isCameraLocked).toBe(true)
   })
 })
 

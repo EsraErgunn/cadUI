@@ -35,6 +35,13 @@ export const ISOMETRIC_COLORS = {
  */
 export const ISOMETRIC_DIMMED_OPACITY = 0.18
 
+/**
+ * Baca ve havalandırma kanallarının saydamlığı. En kalın gaz borusundan (DN100,
+ * 11 cm) iki-üç kat kalınlar; opak çizilince arkalarındaki tesisatı tamamen
+ * örtüyorlardı. Yarı saydamlıkta "içinden geçilen şaft" gibi okunuyorlar.
+ */
+export const ISOMETRIC_DISCHARGE_OPACITY = 0.42
+
 /** Işık: gövde yuvarlaklığı okunsun diye yumuşak ortam + tek yönlü. */
 export const ISOMETRIC_AMBIENT_INTENSITY = 0.85
 export const ISOMETRIC_DIRECTIONAL_INTENSITY = 0.55

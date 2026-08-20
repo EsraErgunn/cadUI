@@ -7,7 +7,6 @@ import type { ThreePosition } from '../../core/coords'
 /** Silindir gövdesi varsayılan olarak +Y boyunca uzanır; yön bundan türetilir. */
 const CYLINDER_AXIS = new Vector3(0, 1, 0)
 
-const RADIAL_SEGMENTS = 12
 const JOINT_SEGMENTS = 10
 
 /**
@@ -51,11 +50,27 @@ function buildSegments(positions: readonly ThreePosition[]): Segment[] {
   return segments
 }
 
+/**
+ * Kesit biçimi. Boru YUVARLAK; baca ve havalandırma KARE — sahada da öyleler
+ * (şaft/kanal dikdörtgen kesitli) ve izometrikte gaz borusundan ilk bakışta
+ * ayrılmaları gerekiyor. Renk tek başına yetmiyordu: ince yuvarlak gövdeler
+ * kalabalıkta birbirine karışıyordu.
+ */
+export type TubeProfile = 'round' | 'square'
+
+/** Yuvarlak gövdenin çevresi; kare kesitte 4 yüz yeter. */
+const ROUND_RADIAL_SEGMENTS = 12
+const SQUARE_RADIAL_SEGMENTS = 4
+
+/** Kare kesit köşesi yukarı bakmasın diye yarım yüz döndürülür. */
+const SQUARE_PROFILE_TWIST = Math.PI / 4
+
 type IsometricTubeProps = {
   positions: readonly ThreePosition[]
   radiusCm: number
   colorHex: string
   opacity: number
+  profile?: TubeProfile
   onPointerDown?: () => void
 }
 
@@ -73,6 +88,7 @@ export function IsometricTube({
   radiusCm,
   colorHex,
   opacity,
+  profile = 'round',
   onPointerDown,
 }: IsometricTubeProps) {
   const segments = useMemo(() => buildSegments(positions), [positions])
@@ -80,6 +96,11 @@ export function IsometricTube({
   // Ara köşeler: uçlarda küre gerekmez, orada gövde zaten bitiyor.
   const joints = positions.slice(1, -1)
   const isTransparent = opacity < 1
+  const isSquare = profile === 'square'
+  const radialSegments = isSquare ? SQUARE_RADIAL_SEGMENTS : ROUND_RADIAL_SEGMENTS
+  // Kare kesitte köşe küresi yerine biraz küçük bir küre: dirsek yumuşasın ama
+  // kanalın köşeli okunuşu bozulmasın.
+  const jointRadiusCm = isSquare ? radiusCm * 0.75 : radiusCm
 
   return (
     <group onPointerDown={onPointerDown}>
@@ -87,7 +108,17 @@ export function IsometricTube({
         // Segment dizisi köşe sırasından türetiliyor ve yeniden sıralanmıyor;
         // domain nesnesi değil, indeks anahtar olarak güvenli.
         <mesh key={index} position={segment.position} quaternion={segment.quaternion}>
-          <cylinderGeometry args={[radiusCm, radiusCm, segment.lengthCm, RADIAL_SEGMENTS]} />
+          <cylinderGeometry
+            args={[
+              radiusCm,
+              radiusCm,
+              segment.lengthCm,
+              radialSegments,
+              1,
+              false,
+              isSquare ? SQUARE_PROFILE_TWIST : 0,
+            ]}
+          />
           <meshStandardMaterial
             color={colorHex}
             metalness={ISOMETRIC_PIPE_METALNESS}
@@ -100,7 +131,7 @@ export function IsometricTube({
 
       {joints.map((position, index) => (
         <mesh key={`joint-${index}`} position={position}>
-          <sphereGeometry args={[radiusCm, JOINT_SEGMENTS, JOINT_SEGMENTS]} />
+          <sphereGeometry args={[jointRadiusCm, JOINT_SEGMENTS, JOINT_SEGMENTS]} />
           <meshStandardMaterial
             color={colorHex}
             metalness={ISOMETRIC_PIPE_METALNESS}

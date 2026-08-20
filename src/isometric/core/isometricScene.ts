@@ -8,11 +8,11 @@ import type {
   IsometricSceneData,
 } from './isometricModel'
 import { getPointIsometricOffsetCm } from './isometricOffset'
-import { isometricOffsetToWorld, projectIsometric } from './isometricProjection'
+import { isometricOffsetToWorld } from './isometricProjection'
 import type { IsometricAngles } from './isometricProjection'
 import { planToThree } from '../../core/coords'
 import type { PlanPoint, ThreePosition } from '../../core/coords'
-import { getFloorElevationsCm, getGroundFloorIndex } from '../../core/floorElevation'
+import { getFloorElevationsCm } from '../../core/floorElevation'
 import type { Floor, FloorPipeLink, Id, ProjectData } from '../../core/model'
 import type { InstallationLine } from '../../plumbing/core/installationModel'
 import { getElementElevationCm } from '../../plumbing/core/lineElevation'
@@ -29,31 +29,20 @@ export type IsometricSceneInput = Pick<
 
 export type IsometricSceneOptions = {
   angles: IsometricAngles
-  /**
-   * Katları birbirinden düşey olarak ayırma miktarı (cm). Yalnız GÖRSEL —
-   * modele yazılmaz, metraja girmez. Kot okunurluğu için var: gerçek binada
-   * katlar bitişik olduğu için izometrikte hatlar birbirine yapışır.
-   */
-  explodedGapCm: number
 }
 
-/** Kat kimliği → (taban kotu, aralıklandırma için kat sırası). */
-type FloorPlacement = { baseElevationCm: number; explodedIndex: number }
-
-function buildFloorPlacements(floors: readonly Floor[]): Map<Id, FloorPlacement> {
+/**
+ * Kat kimliği → taban kotu. Katları düşey olarak AYIRMA (exploded) seçeneği
+ * kullanıcı isteğiyle kaldırıldı: bina gerçek kotlarında, bitişik çizilir.
+ */
+function buildFloorElevations(floors: readonly Floor[]): Map<Id, number> {
   const elevations = getFloorElevationsCm(floors)
-  const groundIndex = getGroundFloorIndex(floors)
 
-  const placements = new Map<Id, FloorPlacement>()
+  const byFloorId = new Map<Id, number>()
   floors.forEach((floor, index) => {
-    // Zemin kat referans (0) alınır ki aralık açılınca bodrumlar AŞAĞI, üst
-    // katlar YUKARI gitsin; ham dizi indeksi kullanılsaydı bina yukarı kayardı.
-    placements.set(floor.id, {
-      baseElevationCm: elevations[index],
-      explodedIndex: index - groundIndex,
-    })
+    byFloorId.set(floor.id, elevations[index])
   })
-  return placements
+  return byFloorId
 }
 
 function toWorld(
@@ -69,16 +58,14 @@ function toWorld(
 
 function buildLineGeometry(
   line: InstallationLine,
-  placements: Map<Id, FloorPlacement>,
+  floorElevations: Map<Id, number>,
   options: IsometricSceneOptions,
   context: IsometricElevationContext,
 ): IsometricLineGeometry | null {
-  const placement = placements.get(line.floorId)
-  if (!placement) return null
+  const floorOffsetCm = floorElevations.get(line.floorId)
+  if (floorOffsetCm === undefined) return null
 
   const localElevations = getIsometricLineElevationsCm(line, context)
-  const floorOffsetCm =
-    placement.baseElevationCm + placement.explodedIndex * options.explodedGapCm
 
   return {
     lineId: line.id,
@@ -165,23 +152,21 @@ export function buildIsometricScene(
   input: IsometricSceneInput,
   options: IsometricSceneOptions,
 ): IsometricSceneData {
-  const placements = buildFloorPlacements(input.floors)
+  const floorElevations = buildFloorElevations(input.floors)
   const context: IsometricElevationContext = {
     lines: input.installationLines,
     connections: input.installationConnections,
   }
 
   const lines = input.installationLines
-    .map((line) => buildLineGeometry(line, placements, options, context))
+    .map((line) => buildLineGeometry(line, floorElevations, options, context))
     .filter((geometry): geometry is IsometricLineGeometry => geometry !== null)
 
   const elements = input.installationElements
     .map((element): IsometricElementPlacement | null => {
-      const placement = placements.get(element.floorId)
-      if (!placement) return null
+      const floorOffsetCm = floorElevations.get(element.floorId)
+      if (floorOffsetCm === undefined) return null
 
-      const floorOffsetCm =
-        placement.baseElevationCm + placement.explodedIndex * options.explodedGapCm
       return {
         elementId: element.id,
         position: toWorld(
@@ -207,34 +192,17 @@ export function buildIsometricScene(
 }
 
 /**
- * Sahnenin İZDÜŞÜMDEKİ genişlik/yüksekliği (cm). Kamerayı çerçeveye sığdırmak
- * için gerekli: 3B kutunun en uzun kenarı kullanılsaydı izometride kutu eğik
- * durduğu için çerçeve ya çok geniş ya çok dar kalırdı.
+ * Sınır kutusunun KÖŞEGENİ (cm) — kamerayı çerçeveye sığdırmanın ölçüsü.
  *
- * Sekiz köşe tek tek izdüşürülüyor — kutunun izdüşümü genel olarak altıgen bir
- * çokgen, sınırları ancak köşelerinden okunur.
+ * Neden izdüşüm değil köşegen: izdüşüm genişliği α/β ile değişir, yani her açı
+ * oynatmada kamera yeniden çerçevelenir ve kullanıcının zoom'u sıfırlanırdı.
+ * Köşegen açıdan BAĞIMSIZ ve izdüşümün üst sınırı; biraz bol çerçeve verir ama
+ * zoom kullanıcıda kalır.
  */
-export function getIsometricScreenExtentCm(
-  bounds: IsometricBounds,
-  angles: IsometricAngles,
-): { widthCm: number; heightCm: number } {
-  let minX = Infinity
-  let maxX = -Infinity
-  let minY = Infinity
-  let maxY = -Infinity
-
-  for (let corner = 0; corner < 8; corner += 1) {
-    const position: ThreePosition = [
-      corner & 1 ? bounds.max[0] : bounds.min[0],
-      corner & 2 ? bounds.max[1] : bounds.min[1],
-      corner & 4 ? bounds.max[2] : bounds.min[2],
-    ]
-    const screen = projectIsometric(position, angles)
-    if (screen.x < minX) minX = screen.x
-    if (screen.x > maxX) maxX = screen.x
-    if (screen.y < minY) minY = screen.y
-    if (screen.y > maxY) maxY = screen.y
-  }
-
-  return { widthCm: maxX - minX, heightCm: maxY - minY }
+export function getIsometricBoundsDiagonalCm(bounds: IsometricBounds): number {
+  return Math.hypot(
+    bounds.max[0] - bounds.min[0],
+    bounds.max[1] - bounds.min[1],
+    bounds.max[2] - bounds.min[2],
+  )
 }

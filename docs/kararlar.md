@@ -5703,9 +5703,15 @@ alıyordu ve ekranda girdi bile yoktu.
 ### K115 — İzometrik görünüm: WebCAD'in izdüşümü AYNALANARAK alındı, kamera yönü olarak yazıldı
 
 **Karar.** İzometrik görünüm, referans uygulamanın (WebCAD) izdüşüm matrisiyle
-birebir aynı açı ailesini kullanır — `M(α, β) = Rx(α) · Ry(β)`, varsayılan
-α = 40°, β = 60° — ama sonuç ayrı bir 2B izdüşüm olarak DEĞİL, ortografik
-kameranın yönü olarak uygulanır.
+birebir aynı açı ailesini kullanır — `M(α, β) = Rx(α) · Ry(β)` — ama sonuç ayrı
+bir 2B izdüşüm olarak DEĞİL, ortografik kameranın yönü olarak uygulanır.
+
+**Varsayılan açı WebCAD'inkinden farklı** (kullanıcı kararı): onunki 40°/60°
+(dimetrik), bizimki gerçek izometri atan(1/√2) = 35,264° / 45° — üç eksen eşit
+kısalır, eksenler yatayla 30° yapar. Hazır açılar yalnız **Varsayılan** ve
+**Üstten**; yan görünümler (önden/sağdan/soldan) kaldırıldı çünkü α = 0'da
+zemin düzlemi kenardan görünüp tüm kat yerleşimi tek çizgiye çöküyor ve o iş
+zaten plan görünümünün.
 
 **Neden matris değil kamera.** Ortografik kamerada "noktaları elle izdüşürmek"
 ile "kamerayı o yöne çevirmek" aynı görüntüyü verir. Kamera yolu seçildi çünkü

@@ -1,19 +1,20 @@
 import { getIsometricLine3dLengthCm } from './isometricElevation'
 import type { IsometricElevationContext } from './isometricElevation'
-import { projectIsometric } from './isometricProjection'
-import type { IsometricAngles } from './isometricProjection'
-import type { PlanPoint, ThreePosition } from '../../core/coords'
+import type { ThreePosition } from '../../core/coords'
 import { formatLengthMeters } from '../../core/lengthFormat'
 import { INSTALLATION_ELEMENT_TYPE_LABELS } from '../../plumbing/core/elementLabels'
 import {
   APPLIANCE_TYPE_LABELS,
   OTHER_APPLIANCE_KIND_LABELS,
 } from '../../plumbing/core/elementProperties'
-import type {
-  InstallationElement,
-  InstallationLine,
+import {
+  getTargetElementId,
+  type InstallationConnection,
+  type InstallationElement,
+  type InstallationLine,
 } from '../../plumbing/core/installationModel'
 import { isGasCarryingKind } from '../../plumbing/core/lineKinds'
+import { isBurnerAppliance } from '../../plumbing/core/symbolMetadata'
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 })
 
@@ -157,37 +158,16 @@ const LABEL_MIN_DISTANCE_CM = 240
 export const LINE_LABEL_DISTANCE_FACTOR = 0.85
 export const ELEMENT_LABEL_DISTANCE_FACTOR = 2
 
-/** Merkezle çakışan çapada yön tanımsız; yukarı kaçmak en az zararlısı. */
-const FALLBACK_DIRECTION: PlanPoint = { x: 0, y: 1 }
-
 /**
- * Etiketin varsayılan kayması (izdüşüm düzleminde, cm): çapadan çizimin
- * MERKEZİNDEN DIŞARI doğru. Sabit bir yön kullanılsaydı bütün etiketler aynı
- * tarafa kaçar, birbirinin ve gövdenin üstüne binerdi; ışınsal yerleşimde her
- * etiket çizimin dışına açılır ve kılavuz çizgisi izlenebilir kalır.
- *
- * Kullanıcı etiketi elle taşırsa (`isometricLabelOffsetCm`) bu hiç çağrılmaz.
+ * Etiketin çapasından ne kadar uzağa kaçtığı. Kamera çerçevelemesi de bunu
+ * okur: yalnız gövde sınırlarına göre sığdırılsaydı etiketler kadraj dışında
+ * kalırdı — kullanıcı çizimi görüp yazıyı göremezdi.
  */
-export function getIsometricLabelOffsetCm(
-  anchor: ThreePosition,
-  center: ThreePosition,
-  angles: IsometricAngles,
+export function getIsometricLabelDistanceCm(
   sceneExtentCm: number,
   distanceFactor: number,
-): PlanPoint {
-  const anchorScreen = projectIsometric(anchor, angles)
-  const centerScreen = projectIsometric(center, angles)
-
-  const dx = anchorScreen.x - centerScreen.x
-  const dy = anchorScreen.y - centerScreen.y
-  const magnitude = Math.hypot(dx, dy)
-  const direction =
-    magnitude === 0 ? FALLBACK_DIRECTION : { x: dx / magnitude, y: dy / magnitude }
-
-  const distanceCm =
-    Math.max(LABEL_MIN_DISTANCE_CM, sceneExtentCm * LABEL_DISTANCE_RATIO) * distanceFactor
-
-  return { x: direction.x * distanceCm, y: direction.y * distanceCm }
+): number {
+  return Math.max(LABEL_MIN_DISTANCE_CM, sceneExtentCm * LABEL_DISTANCE_RATIO) * distanceFactor
 }
 
 /**
@@ -204,4 +184,32 @@ export function getIsometricLineLabelAnchor(
   const from = positions[segmentIndex]
   const to = positions[segmentIndex + 1]
   return [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2]
+}
+
+/**
+ * Bu hat bir TÜKETİM noktasına mı varıyor? Yalnız yakıcı cihaza (ocak, kombi,
+ * soba, şofben, kazan, diğer) bağlanan hatlar etiketlenir.
+ *
+ * Neden ara hatlar etiketlenmiyor (kullanıcı kararı): bir binada gövde borusu
+ * onlarca parçaya bölünüyor ve her parçaya boy/çap yazılınca çizim rakam
+ * bulutuna dönüyor. Okunması gereken bilgi tüketim noktasında: hangi cihaza
+ * hangi çapla, ne kadar boruyla gidilmiş.
+ *
+ * Deşarj hatları (baca, havalandırma) da dışarıda kalır — onlar gaz taşımıyor.
+ */
+export function isConsumptionLine(
+  line: InstallationLine,
+  elements: readonly InstallationElement[],
+  connections: readonly InstallationConnection[],
+): boolean {
+  for (const connection of connections) {
+    if (connection.lineId !== line.id) continue
+
+    const elementId = getTargetElementId(connection.target)
+    if (elementId === null) continue
+
+    const element = elements.find((candidate) => candidate.id === elementId)
+    if (element && isBurnerAppliance(element.type)) return true
+  }
+  return false
 }

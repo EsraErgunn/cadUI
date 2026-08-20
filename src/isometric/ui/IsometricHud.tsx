@@ -2,27 +2,19 @@ import { RotateCcw } from 'lucide-react'
 
 import { IsometricAngleSlider } from './IsometricAngleSlider'
 import {
-  ISOMETRIC_FIELD_LABEL,
-  ISOMETRIC_FIELD_VALUE,
   isometricActionVariants,
   isometricPanelVariants,
   isometricPresetVariants,
-  isometricSliderVariants,
 } from './isometricVariants'
-import { formatLengthM } from '../../core/floorElevation'
 import { useCadStore } from '../../store/cadStore'
 import {
   ISOMETRIC_ALPHA_MAX_DEG,
   ISOMETRIC_ALPHA_MIN_DEG,
+  ISOMETRIC_ANGLES_DEFAULT,
   ISOMETRIC_ANGLE_PRESETS,
 } from '../core/isometricProjection'
 import type { IsometricAngles } from '../core/isometricProjection'
-import {
-  EXPLODED_GAP_MAX_CM,
-  EXPLODED_GAP_MIN_CM,
-  EXPLODED_GAP_STEP_CM,
-  useIsometricUiStore,
-} from '../store/isometricUiStore'
+import { useIsometricUiStore } from '../store/isometricUiStore'
 
 const BETA_MIN_DEG = 0
 const BETA_MAX_DEG = 359
@@ -38,8 +30,9 @@ function isPresetActive(angles: IsometricAngles, preset: IsometricAngles): boole
 }
 
 /**
- * İzometrik görünümün ayar paneli: bakış açısı, katları aralıklandırma ve
- * elle yerleştirmeleri sıfırlama.
+ * İzometrik görünümün ayar paneli: bakış açısı ve varsayılana dönüş.
+ * "Katları aralıklandırma" kaydırıcısı kullanıcı isteğiyle KALDIRILDI — bina
+ * gerçek kotlarında, bitişik çizilir.
  *
  * Tuvalin ÜSTÜNDE yüzer, genişliğini daraltmaz — çizim alanı bir ayar
  * sütununa bölünseydi izometriğin tek işi olan "tüm binayı tek parça göster"
@@ -50,11 +43,19 @@ export function IsometricHud() {
   const setIsometricAngles = useCadStore((state) => state.setIsometricAngles)
   const resetIsometricPositions = useCadStore((state) => state.resetIsometricPositions)
 
-  const explodedGapCm = useIsometricUiStore((state) => state.explodedGapCm)
-  const setExplodedGapCm = useIsometricUiStore((state) => state.setExplodedGapCm)
+  const setCameraLocked = useIsometricUiStore((state) => state.setCameraLocked)
 
-  const explodedLabel =
-    explodedGapCm === EXPLODED_GAP_MIN_CM ? 'Bitişik' : `${formatLengthM(explodedGapCm)} m`
+  /**
+   * Tek düğme her şeyi varsayılana döndürür: elle yerleştirmeler (dal ayırma +
+   * etiket konumları), bakış açısı ve kamera kilidi. Yalnız konumları temizleyip
+   * açıyı bırakmak yarım bir "sıfırlama" olurdu — kullanıcı kaybolduğunda tek
+   * tıkla bilinen bir başlangıca dönmek istiyor.
+   */
+  const resetToDefaults = () => {
+    resetIsometricPositions()
+    setIsometricAngles(ISOMETRIC_ANGLES_DEFAULT)
+    setCameraLocked(true)
+  }
 
   return (
     <div
@@ -98,27 +99,9 @@ export function IsometricHud() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <span className={ISOMETRIC_FIELD_LABEL}>
-          <span>Katlar</span>
-          <span className={ISOMETRIC_FIELD_VALUE}>{explodedLabel}</span>
-        </span>
-        <input
-          type="range"
-          className={isometricSliderVariants()}
-          min={EXPLODED_GAP_MIN_CM}
-          max={EXPLODED_GAP_MAX_CM}
-          step={EXPLODED_GAP_STEP_CM}
-          value={explodedGapCm}
-          aria-label="Katları aralıklandırma"
-          aria-valuetext={explodedLabel}
-          onChange={(event) => setExplodedGapCm(event.target.valueAsNumber)}
-        />
-      </div>
-
-      <button type="button" className={isometricActionVariants()} onClick={resetIsometricPositions}>
+      <button type="button" className={isometricActionVariants()} onClick={resetToDefaults}>
         <RotateCcw size={13} strokeWidth={1.8} aria-hidden />
-        İzometrik konumları sıfırla
+        Varsayılana döndür
       </button>
     </div>
   )

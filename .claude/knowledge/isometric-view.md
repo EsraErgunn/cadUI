@@ -15,7 +15,7 @@ Aktif kat kavramı YOKTUR — tüm katlar aynı anda.
 ## İzdüşüm — işaretleri değiştirmeden önce oku
 
 ```
-M₃(α, β) = Rx(α) · Ry(β) · Rx(π)        varsayılan α = 40°, β = 60°
+M₃(α, β) = Rx(α) · Ry(β) · Rx(π)        varsayılan α = 35,264°, β = 45°
 
 right   = −M₃ satır 1
 up      = −M₃ satır 2
@@ -24,6 +24,14 @@ forward = −M₃ satır 3
 
 İlk iki çarpan WebCAD'in `getIsometryTransform3x3`'ü ile birebir aynı
 (`izometrik.md`, derlenmiş bundle). `Rx(π)` bizim eksen düzenimize geçiş.
+
+**Varsayılan açı WebCAD'inkinden FARKLI.** Onunki 40°/60°, yani bir dimetrik.
+Bizimki gerçek izometri (atan(1/√2) = 35,264° / 45°): üç eksen ekranda eşit
+kısalır, eksenler yatayla 30° yapar — "klasik 30°" denen okunuş (kullanıcı
+kararı). İzdüşüm ailesi hâlâ WebCAD'inki, yalnız başlangıç açısı bizde farklı.
+Hazır açılar: **Varsayılan** ve **Üstten** (α sınırda, 90°'de kamera yönelimi
+tanımsız kalırdı). Yan görünümler yok — α = 0'da zemin düzlemi kenardan
+görünüp kat yerleşimi tek çizgiye çöküyor, o iş plan görünümünün.
 
 **Üç eksi tesadüf değil.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y
 AŞAĞI (hem kotta hem plan y'sinde, EaselJS düzeni), z güneye. Bizim three
@@ -46,11 +54,7 @@ aynı görüntüyü verir ve kamera yolunda sahne gerçek derinlik testiyle çiz
 ```
 mutlakKot = getFloorElevationsCm(floors)[katIndex]      // core/floorElevation.ts
           + getIsometricLineElevationsCm(...)[i]        // isometric/core
-          + katIndex · explodedGapCm                    // yalnız görsel
 ```
-
-`explodedGapCm` (katları aralıklandırma) modele YAZILMAZ, metraja girmez.
-Zemin kat referans: aralık açılınca bodrumlar aşağı, üst katlar yukarı gider.
 
 Kot alanı tür başına ayrı yerde duruyor (`pipe`/`chimney` iki uçlu, `branch`
 tek değer). `isometricElevation.ts` bu ayrımı TEK yerde topluyor — hem sahne
@@ -83,7 +87,17 @@ VERMEZ.
   kalırdı.
 - `CAMERA_HEIGHT_CM` **kullanılmaz** — o sabit drei `<Line worldUnits>`
   shader'ına bağlı ve yalnız plan kamerasının sözleşmesi (capsule-walls.md).
-- `cameraViewport.ts` ve `useViewportControls.ts`'e DOKUNULMAZ.
+- `cameraViewport.ts` ve `useViewportControls.ts` KULLANILAMAZ: ikisi de
+  kamerayı tepeden bakan plan kamerası varsayıp konumu
+  `planToThree(..., CAMERA_HEIGHT_CM)` ile yazıyor — izometrik kamerada bu,
+  kamerayı bir anda plan konumuna atardı. Kilitli kipin zoom/kaydırması
+  `useIsometricCameraControls.ts`'te, kameranın KENDİ bazıyla (right/up).
+- **Yönelim ve çerçeveleme AYRI effect'lerde.** Yönelim α/β değişince yeniden
+  kurulur; zoom orada YAZILMAZ, yoksa kullanıcı açı kaydırıcısını her
+  oynattığında yakınlaştırması sıfırlanırdı. Çerçeveleme ölçüsü açıdan BAĞIMSIZ
+  köşegen (`getIsometricBoundsDiagonalCm`) + etiket payı — izdüşüm genişliği
+  kullanılsaydı her açı değişiminde yeniden çerçevelenirdi. Etiket payı şart:
+  gövdeye göre sığdırılsaydı etiketler kadraj dışında kalırdı.
 - `useCameraZoomTracker` HER görünümde mount edilir (SceneRoot'ta dalın
   dışında): ekran-sabit boy `px / zoom` ile hesaplanıyor, izometrik etiketler de
   onu okuyor.
@@ -100,12 +114,29 @@ GÖRÜNÜR hâle gelir. Derinlik gerçek geometriyle çözülür: segment başı
 silindir + dirseklerde küre (`IsometricTube`). drei `<Line>` gövde için
 kullanılmaz (aynı `worldUnits` gerekçesi + düz çizgi örtüşme vermez).
 
+**Baca ve havalandırma KARE kesitli ve yarı saydam** çizilir: sahada da kanal
+kesitleri dikdörtgen, üstelik ikisi en kalın gaz borusundan (DN100, 11 cm)
+iki-üç kat kalın olduğu için opak çizilince arkalarındaki tesisatı tamamen
+örtüyorlardı. Renk tek başına ayırt etmeye yetmiyordu.
+
 ## Etiketler
 
+- **Etiket YALNIZ tüketim noktasına varan hatlarda** (`isConsumptionLine`):
+  yakıcı cihaza (ocak/kombi/soba/şofben/kazan/diğer) bağlanan hat. Ara gövde
+  parçaları etiketlenmez — bir binada gövde onlarca parçaya bölünüyor ve
+  hepsine boy/çap yazılınca çizim rakam bulutuna dönüyordu. Sıra numarası
+  SÜZÜLMÜŞ liste üzerinden verilir, yoksa "1, 4, 9" gibi atlamalı çıkardı.
 - Metin `core/isometricLabels.ts`'te (testli), yerleşim `scene/`de.
-- Varsayılan yer IŞINSAL: çizimin merkezinden dışarı. Sabit bir cm değeri iki
-  yönden de yanlıştı — küçük dairede yazı borunun üstüne biniyor, büyük binada
-  fark edilmiyordu; üstelik tüm etiketler aynı yöne kaçıp birbirini örtüyordu.
+- Varsayılan yerleşim **HALKA** (`isometricLabelLayout.ts`): tüm etiketler
+  çizimin çevresinde, en uzak çapanın dışında bir çember üstünde durur ve
+  aralarındaki açı en az bir etiket boyu kadar açılır — teknik çizimlerdeki
+  "balon" düzeni. Önce yalnız ışınsal kaydırma denendi (çapadan dışarı); açıca
+  yakın iki hat neredeyse aynı noktaya düşüp yazılar üst üste biniyordu.
+  Sığmayacak kadar çok etiket varsa eşit dağıtıma düşülür.
+  Hat etiketleri İÇ, eleman künyeleri DIŞ halkada: aynı halkada olsalardı bir
+  cihaz ile ona giden kısa kolun etiketi aynı açıyı paylaşıp birbirini iterdi.
+- Ayırma payı EKRAN boyundan gelir (`px / zoom`): yazı ekran-sabit çizildiği
+  için çakışmama mesafesi de piksel cinsinden.
 - drei `<Text>` troika'nın font indirmesiyle ASKIYA ALINIR → etiketler KENDİ
   `<Suspense>`'inde. Sarılmasaydı askıya alma izometrik kamerayı da söker,
   `makeDefault` geri alınır ve çerçeveleme sıfırlanırdı.
@@ -132,6 +163,11 @@ dalda — `activeViewHistory.ts`. Her izometrik düzenleme `installationLines`/
 DUVARI geri alırdı.
 
 ## Cam paneller (HUD)
+
+"Varsayılana döndür" düğmesi TEK tıkla her şeyi başlangıca çeker: elle
+yerleştirmeler (dal ayırma + etiket konumları), bakış açısı ve kamera kilidi.
+Katları düşey ayırma (exploded) özelliği kullanıcı isteğiyle TAMAMEN kaldırıldı. Yalnız konumları temizleyip açıyı bırakmak yarım bir sıfırlama
+olurdu.
 
 `--color-glass*` token'ları `.dark`'ta EZİLMEZ — `canvas-overlay` ile aynı
 gerekçe: izometrik tuval iki temada da açık nötr gri. Saydamlık token

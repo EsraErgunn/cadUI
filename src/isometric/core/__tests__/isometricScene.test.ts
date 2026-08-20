@@ -14,10 +14,7 @@ const GROUND: Floor = { id: 1, name: 'Zemin Kat', heightCm: 300, isBasement: fal
 const FIRST: Floor = { id: 2, name: '1. Kat', heightCm: 280, isBasement: false }
 const BASEMENT: Floor = { id: 3, name: 'Bodrum', heightCm: 250, isBasement: true }
 
-const NO_GAP: IsometricSceneOptions = {
-  angles: ISOMETRIC_ANGLES_DEFAULT,
-  explodedGapCm: 0,
-}
+const NO_GAP: IsometricSceneOptions = { angles: ISOMETRIC_ANGLES_DEFAULT }
 
 function makePipe(
   id: number,
@@ -95,31 +92,6 @@ describe('buildIsometricScene — kat kotları', () => {
       NO_GAP,
     )
     expect(scene.lines).toHaveLength(0)
-  })
-})
-
-describe('buildIsometricScene — katları aralıklandırma', () => {
-  it('aralık açılınca katlar arası mesafe artar, zemin kat yerinde kalır', () => {
-    const input = makeInput({
-      floors: [BASEMENT, GROUND, FIRST],
-      installationLines: [
-        makePipe(1, BASEMENT.id, 0, 0),
-        makePipe(2, GROUND.id, 0, 0),
-        makePipe(3, FIRST.id, 0, 0),
-      ],
-    })
-
-    const tight = buildIsometricScene(input, NO_GAP)
-    const exploded = buildIsometricScene(input, { ...NO_GAP, explodedGapCm: 500 })
-
-    const yOf = (scene: ReturnType<typeof buildIsometricScene>, index: number) =>
-      scene.lines[index].positions[0][1]
-
-    // Zemin kat (index 1) referans: hiç kıpırdamaz.
-    expect(yOf(exploded, 1)).toBeCloseTo(yOf(tight, 1), 9)
-    // Bodrum aşağı, üst kat yukarı açılır.
-    expect(yOf(exploded, 0)).toBeCloseTo(yOf(tight, 0) - 500, 9)
-    expect(yOf(exploded, 2)).toBeCloseTo(yOf(tight, 2) + 500, 9)
   })
 })
 

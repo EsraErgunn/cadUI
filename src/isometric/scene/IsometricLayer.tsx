@@ -58,7 +58,6 @@ export function IsometricLayer() {
   const floorPipeLinks = useCadStore((state) => state.floorPipeLinks)
   const angles = useCadStore((state) => state.isometricAngles)
 
-  const explodedGapCm = useIsometricUiStore((state) => state.explodedGapCm)
   const isLabelsVisible = useIsometricUiStore((state) => state.isLabelsVisible)
   const isCameraLocked = useIsometricUiStore((state) => state.isCameraLocked)
   const highlightedLineId = useIsometricUiStore((state) => state.highlightedLineId)
@@ -95,11 +94,10 @@ export function IsometricLayer() {
           installationConnections,
           floorPipeLinks,
         },
-        { angles, explodedGapCm },
+        { angles },
       ),
     [
       angles,
-      explodedGapCm,
       floorPipeLinks,
       floors,
       installationConnections,
@@ -216,6 +214,7 @@ export function IsometricLayer() {
             scene={scene}
             lines={previewLines}
             elements={installationElements}
+            connections={installationConnections}
             context={elevationContext}
             angles={angles}
             highlightedLineId={highlightedLineId}

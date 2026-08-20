@@ -15,6 +15,13 @@ import type { IsometricAngles, Vec3 } from '../isometricProjection'
 
 const PRECISION = 9
 
+/**
+ * WebCAD'in kendi varsayılanı. Bizim varsayılanımız ARTIK bu değil (gerçek
+ * izometriye geçti) ama referans matrisin doğruluğu bu açıyla sınanıyor:
+ * izdüşüm ailesi hâlâ onun.
+ */
+const WEBCAD_REFERENCE_ANGLES: IsometricAngles = { alphaDeg: 40, betaDeg: 60 }
+
 function dot(a: Vec3, b: Vec3): number {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
@@ -30,16 +37,16 @@ function depthOf(position: readonly [number, number, number], angles: IsometricA
 
 const SAMPLE_ANGLES: IsometricAngles[] = [
   ISOMETRIC_ANGLES_DEFAULT,
+  WEBCAD_REFERENCE_ANGLES,
   { alphaDeg: 0, betaDeg: 0 },
-  { alphaDeg: 35.264389682754654, betaDeg: 45 },
   { alphaDeg: 12, betaDeg: 217 },
   { alphaDeg: 89, betaDeg: 359 },
 ]
 
 describe('getIsometricMatrix', () => {
-  it('WebCAD varsayılanında (40°/60°) referans matrisi birebir üretir', () => {
+  it('WebCAD açısında (40°/60°) referans matrisi birebir üretir', () => {
     // izometrik.md → IsometryStage.getIsometryTransform3x3, Rx(40)·Ry(60)·Rx(π).
-    const [row1, row2, row3] = getIsometricMatrix(ISOMETRIC_ANGLES_DEFAULT)
+    const [row1, row2, row3] = getIsometricMatrix(WEBCAD_REFERENCE_ANGLES)
 
     expect(row1[0]).toBeCloseTo(0.5, PRECISION)
     expect(row1[1]).toBeCloseTo(0, PRECISION)
@@ -102,8 +109,8 @@ describe('projectIsometric', () => {
     }
   })
 
-  it('varsayılan açıda bilinen bir noktayı beklenen ekran konumuna taşır', () => {
-    const screen = projectIsometric(planToThree({ x: 200, y: 100 }, 300), ISOMETRIC_ANGLES_DEFAULT)
+  it('WebCAD açısında bilinen bir noktayı beklenen ekran konumuna taşır', () => {
+    const screen = projectIsometric(planToThree({ x: 200, y: 100 }, 300), WEBCAD_REFERENCE_ANGLES)
     expect(screen.x).toBeCloseTo(-13.397459621556, 6)
     expect(screen.y).toBeCloseTo(86.339872606083, 6)
   })
@@ -183,13 +190,10 @@ describe('ISOMETRIC_ANGLE_PRESETS', () => {
     }
   })
 
-  it('klasik izometride üç eksen ekranda eşit kısalır', () => {
-    const preset = ISOMETRIC_ANGLE_PRESETS.find((candidate) => candidate.id === 'trueIsometric')
-    expect(preset).toBeDefined()
-    if (!preset) return
-
+  it('VARSAYILAN açıda üç eksen ekranda eşit kısalır (gerçek izometri)', () => {
+    // "Klasik 30°" denen okunuş bu: eksenler ekranda yatayla 30° yapar.
     const lengthOf = (position: readonly [number, number, number]) => {
-      const screen = projectIsometric(position, preset.angles)
+      const screen = projectIsometric(position, ISOMETRIC_ANGLES_DEFAULT)
       return Math.hypot(screen.x, screen.y)
     }
 

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { IsometricBounds } from '../isometricModel'
-import { ISOMETRIC_ANGLES_DEFAULT } from '../isometricProjection'
-import { getIsometricScreenExtentCm } from '../isometricScene'
+import { getIsometricBoundsDiagonalCm } from '../isometricScene'
 
 function makeBounds(
   min: [number, number, number],
@@ -16,55 +15,33 @@ function makeBounds(
   }
 }
 
-describe('getIsometricScreenExtentCm', () => {
-  it('kutunun izdüşümü iki eksende de yer kaplar', () => {
-    const extent = getIsometricScreenExtentCm(
-      makeBounds([0, 0, 0], [1000, 600, 800]),
-      ISOMETRIC_ANGLES_DEFAULT,
+describe('getIsometricBoundsDiagonalCm', () => {
+  it('kutunun köşegenini verir', () => {
+    // 3-4-12 → 13 (Pisagor üçlüsü), yuvarlama payı gerekmiyor.
+    expect(getIsometricBoundsDiagonalCm(makeBounds([0, 0, 0], [300, 400, 1200]))).toBeCloseTo(
+      1300,
+      9,
     )
-
-    expect(extent.widthCm).toBeGreaterThan(0)
-    expect(extent.heightCm).toBeGreaterThan(0)
   })
 
   it('ÖTELEME çerçeveyi değiştirmez — yalnız boyut sayılır', () => {
-    // Kamera hedefi ayrıca merkezden geliyor; extent yalnız ölçek içindir.
-    const atOrigin = getIsometricScreenExtentCm(
-      makeBounds([0, 0, 0], [1000, 600, 800]),
-      ISOMETRIC_ANGLES_DEFAULT,
-    )
-    const shifted = getIsometricScreenExtentCm(
+    const atOrigin = getIsometricBoundsDiagonalCm(makeBounds([0, 0, 0], [1000, 600, 800]))
+    const shifted = getIsometricBoundsDiagonalCm(
       makeBounds([5000, -300, 2000], [6000, 300, 2800]),
-      ISOMETRIC_ANGLES_DEFAULT,
     )
 
-    expect(shifted.widthCm).toBeCloseTo(atOrigin.widthCm, 6)
-    expect(shifted.heightCm).toBeCloseTo(atOrigin.heightCm, 6)
+    expect(shifted).toBeCloseTo(atOrigin, 9)
   })
 
   it('büyüyen çizim daha geniş çerçeve ister', () => {
-    const small = getIsometricScreenExtentCm(
-      makeBounds([0, 0, 0], [500, 300, 400]),
-      ISOMETRIC_ANGLES_DEFAULT,
-    )
-    const large = getIsometricScreenExtentCm(
-      makeBounds([0, 0, 0], [1000, 600, 800]),
-      ISOMETRIC_ANGLES_DEFAULT,
-    )
+    const small = getIsometricBoundsDiagonalCm(makeBounds([0, 0, 0], [500, 300, 400]))
+    const large = getIsometricBoundsDiagonalCm(makeBounds([0, 0, 0], [1000, 600, 800]))
 
-    expect(large.widthCm).toBeCloseTo(small.widthCm * 2, 6)
-    expect(large.heightCm).toBeCloseTo(small.heightCm * 2, 6)
+    expect(large).toBeCloseTo(small * 2, 9)
   })
 
-  it('α = 0 iken kotsuz bir zemin çizimi ekranda YÜKSEKLİK kaplamaz', () => {
-    // Zemin düzlemine tam yandan bakılır; çerçeveye sığdırma bu dejenere
-    // durumda sıfıra bölmemeli — çağıran taraf en az 1 cm ile korunuyor.
-    const extent = getIsometricScreenExtentCm(makeBounds([0, 0, 0], [1000, 0, 800]), {
-      alphaDeg: 0,
-      betaDeg: 30,
-    })
-
-    expect(extent.heightCm).toBeCloseTo(0, 9)
-    expect(extent.widthCm).toBeGreaterThan(0)
+  it('tek noktaya çökmüş çizimde sıfır döner (çağıran alt sınır uygular)', () => {
+    // Sıfıra bölme riski çağıran tarafta `Math.max(..., 1)` ile kapatılıyor.
+    expect(getIsometricBoundsDiagonalCm(makeBounds([0, 0, 0], [0, 0, 0]))).toBe(0)
   })
 })

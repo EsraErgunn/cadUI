@@ -12,10 +12,7 @@ import type { IsometricSceneInput, IsometricSceneOptions } from '../isometricSce
 
 const GROUND: Floor = { id: 1, name: 'Zemin Kat', heightCm: 300, isBasement: false }
 
-const NO_GAP: IsometricSceneOptions = {
-  angles: ISOMETRIC_ANGLES_DEFAULT,
-  explodedGapCm: 0,
-}
+const NO_GAP: IsometricSceneOptions = { angles: ISOMETRIC_ANGLES_DEFAULT }
 
 function makePipe(
   id: number,

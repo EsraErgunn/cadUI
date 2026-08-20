@@ -12,8 +12,8 @@ import type { IsometricAngles } from '../core/isometricProjection'
  * px/zoom (knowledge/viewport.md). Aksi hâlde küçük bir dairede kocaman,
  * on katlı bir binada okunmaz küçük çıkardı.
  */
-const LABEL_SIZE_PX = 11
-const LINE_HEIGHT = 1.35
+export const LABEL_SIZE_PX = 11
+export const LABEL_LINE_HEIGHT = 1.35
 
 /** Kılavuz çizgisi piksel kalınlığında; `worldUnits` KULLANILMAZ (ortografik kamera). */
 const LEADER_WIDTH_PX = 1
@@ -121,7 +121,7 @@ export function IsometricLabel({
     const longestLine = lines.reduce((longest, line) => Math.max(longest, line.length), 0)
     return {
       widthPx: longestLine * LABEL_SIZE_PX * GLYPH_WIDTH_RATIO + HIT_AREA_PADDING_PX * 2,
-      heightPx: lines.length * LABEL_SIZE_PX * LINE_HEIGHT + HIT_AREA_PADDING_PX * 2,
+      heightPx: lines.length * LABEL_SIZE_PX * LABEL_LINE_HEIGHT + HIT_AREA_PADDING_PX * 2,
     }
   }, [lines])
 
@@ -164,7 +164,7 @@ export function IsometricLabel({
           <Text
             font={FONT_URL}
             fontSize={LABEL_SIZE_PX}
-            lineHeight={LINE_HEIGHT}
+            lineHeight={LABEL_LINE_HEIGHT}
             color={ISOMETRIC_COLORS.label}
             anchorX="center"
             anchorY="middle"

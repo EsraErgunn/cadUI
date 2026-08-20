@@ -10,12 +10,22 @@ export type IsometricAngles = {
   betaDeg: number
 }
 
+/** Gerçek izometri: üç eksen ekranda EŞİT kısalır. atan(1/√2) = 35,264°. */
+const TRUE_ISOMETRIC_ALPHA_DEG = (Math.atan(Math.SQRT1_2) * 180) / Math.PI
+const TRUE_ISOMETRIC_BETA_DEG = 45
+
 /**
- * WebCAD'in varsayılanı (`config.isometricView`). Gerçek izometri (35,264°/45°)
- * değil, biraz daha tepeden bakan bir dimetrik — referans çizimler bu açıyla
- * üretildiği için varsayılan olarak korunuyor.
+ * Varsayılan bakış açısı GERÇEK izometri (kullanıcı kararı): eksenler ekranda
+ * yatayla 30° yapar — teknik çizimde "klasik 30°" denen okunuş budur.
+ *
+ * WebCAD'in kendi varsayılanı (40°/60°) bir DİMETRİK, yani eksenler eşit
+ * kısalmıyor ve çizim daha tepeden görünüyor. İzdüşüm matrisi hâlâ onun
+ * ailesinden (`Rx(α)·Ry(β)`), yalnız başlangıç açısı bizde farklı.
  */
-export const ISOMETRIC_ANGLES_DEFAULT: IsometricAngles = { alphaDeg: 40, betaDeg: 60 }
+export const ISOMETRIC_ANGLES_DEFAULT: IsometricAngles = {
+  alphaDeg: TRUE_ISOMETRIC_ALPHA_DEG,
+  betaDeg: TRUE_ISOMETRIC_BETA_DEG,
+}
 
 /**
  * α 90°'yi geçerse kamera zemin düzleminin altına düşer ve çizim ters görünür;
@@ -26,26 +36,28 @@ export const ISOMETRIC_ALPHA_MIN_DEG = 0
 export const ISOMETRIC_ALPHA_MAX_DEG = 89
 const FULL_TURN_DEG = 360
 
-/** Gerçek izometri: üç eksen eşit kısalır. atan(1/√2) = 35,264°. */
-const TRUE_ISOMETRIC_ALPHA_DEG = (Math.atan(Math.SQRT1_2) * 180) / Math.PI
-const TRUE_ISOMETRIC_BETA_DEG = 45
-
 export type IsometricAnglePreset = {
   id: string
   label: string
   angles: IsometricAngles
 }
 
+/**
+ * Hazır açılar. Yan görünümler (önden/sağdan/soldan) YOK: izometrik çizimin işi
+ * derinliği göstermek ve α = 0'da zemin düzlemi kenardan görünüp tüm kat
+ * yerleşimi tek çizgiye çöküyor — plan görünümü zaten var, oraya bakmak
+ * gerekiyorsa kullanıcı görünümü değiştirir.
+ *
+ * "Üstten" α'yı sınıra dayar, tam 90°'ye DEĞİL: 90°'de bakış yönü ile yukarı
+ * yönü çakışır ve kamera yönelimi tanımsız kalır.
+ */
 export const ISOMETRIC_ANGLE_PRESETS: readonly IsometricAnglePreset[] = [
-  { id: 'webcad', label: 'Varsayılan', angles: ISOMETRIC_ANGLES_DEFAULT },
+  { id: 'default', label: 'Varsayılan', angles: ISOMETRIC_ANGLES_DEFAULT },
   {
-    id: 'trueIsometric',
-    label: 'Klasik 30°',
-    angles: { alphaDeg: TRUE_ISOMETRIC_ALPHA_DEG, betaDeg: TRUE_ISOMETRIC_BETA_DEG },
+    id: 'top',
+    label: 'Üstten',
+    angles: { alphaDeg: ISOMETRIC_ALPHA_MAX_DEG, betaDeg: 0 },
   },
-  { id: 'front', label: 'Önden', angles: { alphaDeg: 0, betaDeg: 0 } },
-  { id: 'right', label: 'Sağdan', angles: { alphaDeg: 0, betaDeg: 90 } },
-  { id: 'left', label: 'Soldan', angles: { alphaDeg: 0, betaDeg: 270 } },
 ]
 
 export function clampIsometricAngles({ alphaDeg, betaDeg }: IsometricAngles): IsometricAngles {
