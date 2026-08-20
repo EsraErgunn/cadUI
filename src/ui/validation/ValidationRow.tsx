@@ -30,25 +30,30 @@ export function ValidationRow({ issue, floorName, onShow }: ValidationRowProps) 
         className="mt-0.5 shrink-0 text-canvas-overlay-danger"
       />
 
+      {/* "göster" sağ kenarda DEĞİL, künyenin altında ve metinle aynı sol
+          hizada: satır uzun bir kural metni taşıyınca düğme sağda kayboluyordu.
+          Referans görselden bilinçli sapma (kullanıcı isteği). */}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-canvas-overlay-ink-strong">{issue.message}</p>
         <p className="mt-0.5 text-xs text-canvas-overlay-ink-muted">
           {formatContext(issue, floorName)}
         </p>
-      </div>
 
-      {/* Gösterilecek bir nesne yoksa (kat planı hiç çizilmemişse) düğme de
-          yok: basılınca boş bir kata götüren bir bağlantı yanıltıcı olurdu. */}
-      {issue.focus && (
-        <button
-          type="button"
-          onClick={onShow}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-admin-primary hover:underline"
-        >
-          göster
-          <ArrowRight size={13} strokeWidth={2} aria-hidden />
-        </button>
-      )}
+        {/* Gösterilecek bir nesne yoksa (kat planı hiç çizilmemişse) düğme de
+            yok: basılınca boş bir kata götüren bir bağlantı yanıltıcı olurdu. */}
+        {issue.focus && (
+          <button
+            type="button"
+            onClick={onShow}
+            /* Negatif sol pay, düğmenin kendi px-1.5'ini yutar: yazı üstteki
+               metinle TAM hizalanır, tıklama alanı yine de dar kalmaz. */
+            className="-ml-1.5 mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-admin-primary hover:underline"
+          >
+            göster
+            <ArrowRight size={13} strokeWidth={2} aria-hidden />
+          </button>
+        )}
+      </div>
     </li>
   )
 }
