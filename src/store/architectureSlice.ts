@@ -4,7 +4,7 @@ import { INITIAL_ARCHITECTURE_DATA, type ArchitectureData } from './architecture
 import { isPlacementValidInState, pruneOpeningsInDraft } from './architectureOpeningOps'
 import type { AddOpeningInput, OpeningTarget } from './architectureOpeningOps'
 import { createPropertyActions } from './architecturePropertyOps'
-import { recomputeRoomsInDraft, renameRoomInDraft } from './architectureRooms'
+import { recomputeRoomsInDraft, setRoomUsageTypeInDraft } from './architectureRooms'
 import { splitWallsAtIntersections } from './architectureSplit'
 import { runWallOffsetInDraft } from './architectureWallMoveValidity'
 import {
@@ -29,6 +29,7 @@ import { createTransformActions } from './transformOps'
 import type { PlanPoint } from '../core/coords'
 import { type Id } from '../core/model'
 import { MIN_OPENING_WIDTH_CM } from '../core/opening'
+import type { RoomUsageType } from '../core/roomUsage'
 import type { Selection } from '../core/selection'
 import type { PlanTransform } from '../core/transform'
 import { getOrphanPointIds } from '../core/wall'
@@ -91,8 +92,8 @@ export type ArchitectureSlice = ArchitectureData &
   transformSelection: (selection: Selection, transform: PlanTransform) => boolean
   /** Seçimi çoğaltır ve KOPYALARIN seçimini döndürür (KK-11). */
   duplicateSelection: (selection: Selection, offset: { dxCm: number; dyCm: number }) => Selection
-  /** Boş ad reddedilir, aynı ad yazılmaz; gerekçe renameRoomInDraft'ta. */
-  setRoomName: (roomId: Id, name: string) => void
+  /** Mahalin kullanım tipi (madde 104). `undefined` = tip belirtilmemiş. */
+  setRoomUsageType: (roomId: Id, usageType: RoomUsageType | undefined) => void
 }
 export const createArchitectureSlice: StateCreator<
   CadState,
@@ -310,8 +311,8 @@ export const createArchitectureSlice: StateCreator<
       if (pruneOpeningsInDraft(draft)) markDirty(draft)
     }),
 
-  setRoomName: (roomId, name) =>
+  setRoomUsageType: (roomId, usageType) =>
     set((draft) => {
-      if (renameRoomInDraft(draft, roomId, name)) markDirty(draft)
+      if (setRoomUsageTypeInDraft(draft, roomId, usageType)) markDirty(draft)
     }),
 })

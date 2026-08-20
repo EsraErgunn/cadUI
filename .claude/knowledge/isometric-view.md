@@ -5,7 +5,7 @@ tüm katları tek parça gösterir. Kod: `src/isometric/` (`plumbing/` deseninin
 aynası: `core/` + `scene/` + `store/` + `ui/`).
 
 Adım adım ilerleyiş ve elle kontrol listeleri: repo kökündeki
-`izometrik-adimlari.md`. Kararlar: `docs/kararlar.md` K115–K119.
+`izometrik-adimlari.md`. Kararlar: `docs/kararlar.md` K120–K124.
 
 ## Kapsam
 

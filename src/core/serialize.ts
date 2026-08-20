@@ -14,6 +14,7 @@ import type {
   TextLabel,
   Wall,
 } from './model'
+import { ROOM_USAGE_TYPES } from './roomUsage'
 import type { IsometricAngles } from '../isometric/core/isometricProjection'
 import {
   installationConnectionSchema,
@@ -71,7 +72,9 @@ const openingSchema = z.object({
 const roomSchema = z.object({
   id: idSchema,
   wallIds: z.array(idSchema),
-  name: z.string(),
+  // `name` K117'de KALKTI. Eski kayıtlarda alan hâlâ olabilir; zod tanımadığı
+  // anahtarı sessizce düşürür, yani dosyalar açılmaya devam eder.
+  usageType: z.enum(ROOM_USAGE_TYPES).optional(),
 })
 
 const symbolTypeSchema = z.enum([
@@ -329,7 +332,13 @@ function toWallJson(wall: Wall) {
 
 function toRoomJson(room: Room) {
   // wallIds kopyalanır: store'daki diziyi paylaşmak, JSON üretimini state'e bağlar.
-  return { id: room.id, wallIds: [...room.wallIds], name: room.name }
+  return {
+    id: room.id,
+    wallIds: [...room.wallIds],
+    // undefined alanı JSON.stringify atlıyor: tipi belirtilmemiş mahalde alan
+    // dosyaya HİÇ yazılmaz (axisId ile aynı gerekçe, bit-bit tur).
+    usageType: room.usageType,
+  }
 }
 
 function toOpeningJson(opening: Opening) {

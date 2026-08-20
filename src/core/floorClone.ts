@@ -135,7 +135,9 @@ export function cloneFloorArchitecture(
   const rooms = sourceRooms.map((room) => ({
     id: takeId(),
     wallIds: room.wallIds.map((wallId) => remapId(wallRemap, wallId)),
-    name: room.name,
+    // Kullanım tipi kopyaya TAŞINIR: kat çoğaltıldığında mahal tanımlarının
+    // baştan yapılması istenmiyor (ad alanı K117'de kalktı).
+    usageType: room.usageType,
   }))
 
   // Etiketler kopya kümesine BİRER BİRER bakılarak üretilir: hepsi aynı anda

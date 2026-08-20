@@ -2,9 +2,10 @@
 import type { CadState } from './cadStore'
 import { toPlainSnapshot } from './draftSnapshot'
 import { takeNextId } from './projectMeta'
-import { DEFAULT_ROOM_NAME, type Id, type Room } from '../core/model'
+import type { Id, Room } from '../core/model'
 import { findRoomFaces } from '../core/room'
 import { getWallSetKey, reconcileRooms } from '../core/roomIdentity'
+import type { RoomUsageType } from '../core/roomUsage'
 
 /**
  * Oda AKTİF KATA aittir ama `Room.floorId` yoktur — kat, çevrimindeki duvarlardan
@@ -42,11 +43,8 @@ export function recomputeRoomsInDraft(draft: CadState): boolean {
     toPlainSnapshot(draft.points),
     draft.activeFloorId,
   )
-  const { rooms, removedRoomIds, createdCount } = reconcileRooms(
-    faces,
-    floorRooms,
-    DEFAULT_ROOM_NAME,
-    () => takeNextId(draft),
+  const { rooms, removedRoomIds, createdCount } = reconcileRooms(faces, floorRooms, () =>
+    takeNextId(draft),
   )
 
   // Hiçbir şey değişmediyse diziye DOKUNMA: yeni referans, geçmişe boş bir adım
@@ -71,20 +69,21 @@ export function recomputeRoomsInDraft(draft: CadState): boolean {
   return true
 }
 
+
 /**
- * Odayı yeniden adlandırır; yazıldıysa true.
- *
- * Boş ad REDDEDİLİR ve varsayılana da düşürülmez (K13 deseni): kullanıcı adı
- * silip yanlışlıkla onaylarsa "Salon" sessizce kaybolmasın. Ad değişmediyse de
- * yazılmaz — aynı değeri koymak geçmişe boş bir Ctrl+Z adımı eklerdi.
+ * Kullanım tipini yazar. `undefined` alanı SİLER (boş bir değere ayarlamaz):
+ * modelde alanın yokluğu "tip belirtilmemiş" demek ve `toRoomJson` da alanı
+ * dosyaya hiç yazmıyor — iki taraf aynı şeyi söylemeli.
  */
-export function renameRoomInDraft(draft: CadState, roomId: Id, name: string): boolean {
+export function setRoomUsageTypeInDraft(
+  draft: CadState,
+  roomId: Id,
+  usageType: RoomUsageType | undefined,
+): boolean {
   const room = draft.rooms.find((candidate) => candidate.id === roomId)
-  if (!room) return false
+  if (!room || room.usageType === usageType) return false
 
-  const trimmed = name.trim()
-  if (trimmed.length === 0 || trimmed === room.name) return false
-
-  room.name = trimmed
+  if (usageType === undefined) delete room.usageType
+  else room.usageType = usageType
   return true
 }

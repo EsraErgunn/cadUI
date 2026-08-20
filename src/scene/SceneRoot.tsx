@@ -6,6 +6,7 @@ import { Cameras } from './Cameras'
 import { DrawSurface } from './DrawSurface'
 import { FloorBelowGhost } from './FloorBelowGhost'
 import { Grid } from './Grid'
+import { ViewportFocus } from './ViewportFocus'
 import { SCENE_COLORS } from './sceneTheme'
 import { useCameraZoomTracker } from './useCameraZoom'
 import { useViewportControls } from './useViewportControls'
@@ -58,6 +59,10 @@ export function SceneRoot() {
         <>
           <Cameras />
           <ViewportControls />
+          {/* Hata listesindeki "göster" de plan kamerasının sözleşmesine bağlı
+              (`writeCameraViewport`): izometrikte mount edilseydi kamerayı bir
+              anda plan konumuna atardı. */}
+          <ViewportFocus />
           {isGridVisible && <Grid />}
         </>
       )}

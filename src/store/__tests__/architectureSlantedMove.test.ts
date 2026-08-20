@@ -106,11 +106,11 @@ describe('eğik duvarlı planda taşıma (K103)', () => {
   it('oda adı korunur', () => {
     const { top } = drawTrapezoid()
     useCadStore.setState({
-      rooms: useCadStore.getState().rooms.map((room) => ({ ...room, name: 'Salon' })),
+      rooms: useCadStore.getState().rooms.map((room) => ({ ...room, usageType: 'livingRoom' as const })),
     })
 
     useCadStore.getState().offsetWall(top.wallId, 0, -200)
 
-    expect(rooms().map((room) => room.name)).toEqual(['Salon'])
+    expect(rooms().map((room) => room.usageType)).toEqual(['livingRoom'])
   })
 })

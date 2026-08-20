@@ -12,6 +12,7 @@ import { findRoomFaces } from '../../core/room'
 import { insetRoomPolygon } from '../../core/roomFill'
 import { getWallSetKey } from '../../core/roomIdentity'
 import { getRoomLabelAnchor } from '../../core/roomLabel'
+import { getRoomDisplayName } from '../../core/roomUsage'
 import { getSymbolPose, getSymbolsOnFloor } from '../../core/symbolPlacement'
 import { buildPointIndex } from '../../core/wall'
 import { useCadStore } from '../../store/cadStore'
@@ -93,7 +94,14 @@ export function ArchitectureGhost() {
 
       // Etiket çapası gerçek çevrime göre bulunur, dolgunun küçültülmüş
       // poligonuna göre DEĞİL — Room.tsx → RoomShape ile aynı gerekçe.
-      return [{ id: room.id, name: room.name, corners, labelAnchor: getRoomLabelAnchor(face.corners) }]
+      return [
+        {
+          id: room.id,
+          name: getRoomDisplayName(room.usageType),
+          corners,
+          labelAnchor: getRoomLabelAnchor(face.corners),
+        },
+      ]
     })
   }, [activeFloorId, floorWalls, points, rooms])
 

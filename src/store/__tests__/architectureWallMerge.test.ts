@@ -92,12 +92,12 @@ describe('taşıma artığı ara düğümler (K103)', () => {
     expect(rooms()).toHaveLength(3)
   })
 
-  it('oda adları art arda taşımada korunur', () => {
+  it('mahal tanımları art arda taşımada korunur', () => {
     const { xTop } = drawThreeRooms()
     useCadStore.setState({
       rooms: useCadStore.getState().rooms.map((room, index) => ({
         ...room,
-        name: ['Y', 'X', 'Z'][index],
+        usageType: (['hall', 'kitchen', 'storage'] as const)[index],
       })),
     })
 
@@ -107,8 +107,8 @@ describe('taşıma artığı ara düğümler (K103)', () => {
 
     expect(
       rooms()
-        .map((room) => room.name)
+        .map((room) => room.usageType)
         .sort(),
-    ).toEqual(['X', 'Y', 'Z'])
+    ).toEqual(['hall', 'kitchen', 'storage'])
   })
 })

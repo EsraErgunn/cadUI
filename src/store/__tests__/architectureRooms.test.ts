@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { DEFAULT_ROOM_NAME } from '../../core/model'
+
+import { getRoomDisplayName } from '../../core/roomUsage'
 import { useCadStore } from '../cadStore'
 import { addWall, drawRectangle, resetEmpty, rooms } from './roomFixture'
 
@@ -11,7 +12,7 @@ describe('oda tespiti — kapalı alan', () => {
     drawRectangle()
 
     expect(rooms()).toHaveLength(1)
-    expect(rooms()[0].name).toBe(DEFAULT_ROOM_NAME)
+    expect(rooms()[0].usageType).toBeUndefined()
   })
 
   it('şekil kapanmadan oda oluşmaz', () => {
@@ -33,10 +34,10 @@ describe('oda tespiti — kapalı alan', () => {
 describe('oda tespiti — kimlik', () => {
   beforeEach(resetEmpty)
 
-  it('duvar TAŞININCA oda ve adı korunur', () => {
+  it('duvar TAŞININCA oda ve kullanım tipi korunur', () => {
     const { bottom } = drawRectangle()
     useCadStore.setState({
-      rooms: rooms().map((room) => ({ ...room, name: 'Salon' })),
+      rooms: rooms().map((room) => ({ ...room, usageType: 'livingRoom' as const })),
     })
     const roomId = rooms()[0].id
 
@@ -44,12 +45,12 @@ describe('oda tespiti — kimlik', () => {
 
     expect(rooms()).toHaveLength(1)
     expect(rooms()[0].id).toBe(roomId)
-    expect(rooms()[0].name).toBe('Salon')
+    expect(rooms()[0].usageType).toBe('livingRoom')
   })
 
   it('duvar BÖLÜNÜNCE oda ve adı korunur', () => {
     drawRectangle()
-    useCadStore.setState({ rooms: rooms().map((room) => ({ ...room, name: 'Salon' })) })
+    useCadStore.setState({ rooms: rooms().map((room) => ({ ...room, usageType: 'livingRoom' as const })) })
     const roomId = rooms()[0].id
 
     // Alt kenarın ortasına dışarıdan bir duvar değdir → alt kenar ikiye bölünür.
@@ -57,7 +58,7 @@ describe('oda tespiti — kimlik', () => {
 
     expect(rooms()).toHaveLength(1)
     expect(rooms()[0].id).toBe(roomId)
-    expect(rooms()[0].name).toBe('Salon')
+    expect(rooms()[0].usageType).toBe('livingRoom')
   })
 
   it('duvar SİLİNİNCE oda düşer', () => {
@@ -75,15 +76,15 @@ describe('oda tespiti — içinden duvar geçmesi', () => {
 
   it('oda İKİYE ayrılır ve ikisi de varsayılan adı alır', () => {
     drawRectangle()
-    useCadStore.setState({ rooms: rooms().map((room) => ({ ...room, name: 'Salon' })) })
+    useCadStore.setState({ rooms: rooms().map((room) => ({ ...room, usageType: 'livingRoom' as const })) })
     const oldRoomId = rooms()[0].id
 
     // Odayı ortadan kesen duvar: iki kenarı da böler.
     addWall(200, 0, 200, 300)
 
     expect(rooms()).toHaveLength(2)
-    expect(rooms().every((room) => room.name === DEFAULT_ROOM_NAME)).toBe(true)
-    // Eski kimlik yaşamaz — kullanıcı adı da kasten kaybolur.
+    expect(rooms().every((room) => room.usageType === undefined)).toBe(true)
+    // Eski kimlik yaşamaz — kullanıcının verdiği tanım da kasten kaybolur.
     expect(rooms().some((room) => room.id === oldRoomId)).toBe(false)
   })
 })
@@ -111,9 +112,9 @@ describe('oda tespiti — geri alma', () => {
     expect(rooms()).toEqual([])
   })
 
-  it('geri alma odanın ADINI da geri getirir', () => {
+  it('geri alma odanın TANIMINI da geri getirir', () => {
     const { bottom } = drawRectangle()
-    useCadStore.setState({ rooms: rooms().map((room) => ({ ...room, name: 'Salon' })) })
+    useCadStore.setState({ rooms: rooms().map((room) => ({ ...room, usageType: 'livingRoom' as const })) })
     useCadStore.temporal.getState().clear()
 
     useCadStore.getState().deleteWall(bottom.wallId)
@@ -122,74 +123,74 @@ describe('oda tespiti — geri alma', () => {
     useCadStore.temporal.getState().undo()
 
     expect(rooms()).toHaveLength(1)
-    expect(rooms()[0].name).toBe('Salon')
+    expect(rooms()[0].usageType).toBe('livingRoom')
   })
 })
 
-describe('oda adı düzenleme', () => {
+describe('mahal tanımlama', () => {
   beforeEach(resetEmpty)
 
-  it('adı değiştirir ve kırpar', () => {
+  it('kullanım tipi yazılır ve undefined ile ALANI SİLER', () => {
     drawRectangle()
     const roomId = rooms()[0].id
 
-    useCadStore.getState().setRoomName(roomId, '  Salon  ')
+    useCadStore.getState().setRoomUsageType(roomId, 'kitchen')
+    expect(rooms()[0].usageType).toBe('kitchen')
 
-    expect(rooms()[0].name).toBe('Salon')
+    // Alanın YOKLUĞU "tip belirtilmemiş" demek; boş bir değer bırakılmaz.
+    useCadStore.getState().setRoomUsageType(roomId, undefined)
+    expect('usageType' in rooms()[0]).toBe(false)
   })
 
-  it('boş adı REDDEDER, oda eski adıyla kalır', () => {
+  it('yeni mahal TİPSİZ doğar, etiketi "Tanımsız"', () => {
     drawRectangle()
-    const roomId = rooms()[0].id
-    useCadStore.getState().setRoomName(roomId, 'Salon')
 
-    useCadStore.getState().setRoomName(roomId, '   ')
-
-    expect(rooms()[0].name).toBe('Salon')
+    expect(rooms()[0].usageType).toBeUndefined()
+    expect(getRoomDisplayName(rooms()[0].usageType)).toBe('Tanımsız')
   })
 
-  it('aynı adı yeniden yazmaz — geçmişe boş adım eklemesin', () => {
+  it('aynı tipi yeniden yazmaz — geçmişe boş adım eklemesin', () => {
     drawRectangle()
     const roomId = rooms()[0].id
+    useCadStore.getState().setRoomUsageType(roomId, 'kitchen')
     const revisionBefore = useCadStore.getState().revision
 
-    useCadStore.getState().setRoomName(roomId, DEFAULT_ROOM_NAME)
+    useCadStore.getState().setRoomUsageType(roomId, 'kitchen')
 
     expect(useCadStore.getState().revision).toBe(revisionBefore)
   })
 
-  it('olmayan odada hiçbir şey yapmaz', () => {
+  it('olmayan mahalde hiçbir şey yapmaz', () => {
     drawRectangle()
     const revisionBefore = useCadStore.getState().revision
 
-    useCadStore.getState().setRoomName(9999, 'Salon')
+    useCadStore.getState().setRoomUsageType(9999, 'kitchen')
 
     expect(useCadStore.getState().revision).toBe(revisionBefore)
-    expect(rooms()[0].name).toBe(DEFAULT_ROOM_NAME)
+    expect(rooms()[0].usageType).toBeUndefined()
   })
 
-  it('ad değişimi tek Ctrl+Z ile geri alınır', () => {
+  it('tip değişimi tek Ctrl+Z ile geri alınır', () => {
     drawRectangle()
     const roomId = rooms()[0].id
     useCadStore.temporal.getState().clear()
 
-    useCadStore.getState().setRoomName(roomId, 'Salon')
-    expect(rooms()[0].name).toBe('Salon')
+    useCadStore.getState().setRoomUsageType(roomId, 'livingRoom')
+    expect(rooms()[0].usageType).toBe('livingRoom')
 
     useCadStore.temporal.getState().undo()
 
-    expect(rooms()[0].name).toBe(DEFAULT_ROOM_NAME)
+    expect(rooms()[0].usageType).toBeUndefined()
   })
 
-  it('ad duvar taşınınca korunur — kimlik duvar kümesinde (K31)', () => {
+  it('tip duvar taşınınca korunur — kimlik duvar kümesinde (K31)', () => {
     const { bottom } = drawRectangle()
     const roomId = rooms()[0].id
-    useCadStore.getState().setRoomName(roomId, 'Mutfak')
+    useCadStore.getState().setRoomUsageType(roomId, 'kitchen')
 
     useCadStore.getState().moveWall(bottom.wallId, 0, -50)
 
     expect(rooms()).toHaveLength(1)
-    expect(rooms()[0].name).toBe('Mutfak')
+    expect(rooms()[0].usageType).toBe('kitchen')
   })
 })
-

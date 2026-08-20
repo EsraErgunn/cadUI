@@ -194,13 +194,20 @@ describe('MenuBar', () => {
     expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
   })
 
-  it('Test Et, Gönder ve Hata Kontrolleri görünür ama pasif (K79)', () => {
+  it('Test Et ve Gönder görünür ama pasif (K79)', () => {
     // Arkalarında henüz akış yok; düğme "bozuk" değil "henüz yok" demeli.
     renderMenuBar()
 
     expect(screen.getByRole('button', { name: 'Test Et' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Hata Kontrolleri' })).toBeDisabled()
+  })
+
+  it('Hata Kontrolleri düğmesi kendi listesini açar (artık pasif DEĞİL)', () => {
+    renderMenuBar()
+
+    const validationButton = screen.getByRole('button', { name: /Hata Kontrolleri/ })
+    expect(validationButton).toBeEnabled()
+    expect(validationButton).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('Kayıt Geçmişi düğmesi kendi listesini açar (artık pasif DEĞİL)', async () => {

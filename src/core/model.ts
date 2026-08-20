@@ -1,6 +1,8 @@
 import type { PlanPoint } from './coords'
-import type { IsometricAngles } from '../isometric/core/isometricProjection'
 // Tip-only ve coords.ts hiçbir şey import etmiyor: döngü oluşmaz.
+// roomUsage.ts de yaprak (yalnız liste + etiket), model.ts'i import etmiyor.
+import type { RoomUsageType } from './roomUsage'
+import type { IsometricAngles } from '../isometric/core/isometricProjection'
 // installationModel.ts da `Id`'yi buradan tip-only import ediyor — döngüsel
 // ama çalışma zamanında SİLİNİR (K17'deki cadStore↔plumbingSlice gerekçesiyle aynı).
 import type {
@@ -71,8 +73,6 @@ export type Opening = {
   type: OpeningType
 }
 
-export const DEFAULT_ROOM_NAME = 'Oda'
-
 /**
  * Duvarların çevrelediği kapalı alan. Geometri KOPYALAMAZ: sınırını oluşturan
  * duvarların id'lerini tutar, poligon her seferinde onlardan türetilir. Kopyalasaydı
@@ -84,11 +84,20 @@ export const DEFAULT_ROOM_NAME = 'Oda'
  * doğar, ikisi de varsayılan adı alır.
  *
  * floorId yok — duvardan türetilir; Opening ile aynı gerekçe (K9).
+ *
+ * Serbest metin `name` alanı KALDIRILDI (K117): kullanıcı mahali kendi yazdığı
+ * bir metinle değil, hazır kullanım tipi listesinden TANIMLIYOR. Yazılamayan
+ * bir alan zamanla çürür — etiketin tek kaynağı `usageType`.
+ *
+ * `usageType` OPSİYONEL ve GÖÇ YOK — bu karardan önce çizilmiş mahallerde alan
+ * hiç yoktur ve `docs/sample-project.json` bit-bit turu bozulmamalı
+ * (`AreaObject.axisId` ile birebir aynı gerekçe). Alanın yokluğu "tipi
+ * belirtilmemiş" demektir, listedeki bir değere denk düşmez.
  */
 export type Room = {
   id: Id
   wallIds: Id[]
-  name: string
+  usageType?: RoomUsageType
 }
 
 /**

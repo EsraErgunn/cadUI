@@ -13,8 +13,11 @@ import type { FloorPipeLink, Id } from '../../core/model'
 import { applyIsometricDrag, clearIsometricOffsets } from '../../isometric/core/isometricOffset'
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
+import {
+  collectAttachmentLineIdsForElements,
+  collectCompanionValveIdsForLines,
+} from '../core/attachmentLinks'
 import type { ClipboardConnection, LineClipboardEntry } from '../core/clipboard'
-import { collectDischargeLineIdsForElements } from '../core/dischargeLinks'
 import {
   type FreeEndAttachment,
   type NearestLineAttachment,
@@ -349,20 +352,31 @@ export const createPlumbingSlice: StateCreator<
     let isRemoved = false
 
     set((draft) => {
-      // Cihaz silinince bacası da gider; kanal cihazın eklentisidir ve sahipsiz
-      // kalırsa yeniden bağlanamaz (bkz. core/dischargeLinks.ts).
+      // Cihaz silinince EKLENTİLERİ de gider: bacası/havalandırması ve cihaz
+      // kolu. İkisi de sahipsiz kalırsa yeniden bağlanamaz — kolu kullanıcı
+      // hiç çizemez bile (bkz. core/attachmentLinks.ts).
       const allLineIds = [
         ...lineIds,
-        ...collectDischargeLineIdsForElements(
+        ...collectAttachmentLineIdsForElements(
           draft.installationLines,
           draft.installationConnections,
           elementIds,
         ).filter((id) => !lineIds.includes(id)),
       ]
 
+      // Kolun refakatçi vanası ANA BORUNUN düğümünde oturuyor, kolun üstünde
+      // değil: aşağıdaki "silinen hattın armatürleri" taraması onu görmez.
+      const companionValveIds = collectCompanionValveIdsForLines(
+        draft.installationLines,
+        draft.installationConnections,
+        draft.installationElements,
+        allLineIds,
+      )
+
       const removedLines = draft.installationLines.filter((line) => allLineIds.includes(line.id))
       const removedElementIds = [
         ...elementIds,
+        ...companionValveIds,
         ...removedLines.flatMap((line) =>
           line.points
             .map((point) => point.inlineElementId)

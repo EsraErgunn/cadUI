@@ -1,7 +1,8 @@
-import { CircleCheck, FlaskConical, Save, Send } from 'lucide-react'
+import { FlaskConical, Save, Send } from 'lucide-react'
 
 import { editorBarButtonVariants, editorBarPrimaryVariants } from './editorBarVariants'
 import { selectIsProjectDirty, useCadStore } from '../../store/cadStore'
+import { ValidationMenu } from '../validation/ValidationMenu'
 import { VersionHistoryMenu, type VersionHistorySource } from '../versions/VersionHistoryMenu'
 
 type EditorActionsProps = {
@@ -13,29 +14,26 @@ type EditorActionsProps = {
 /**
  * Üst barın sağ öbeği: proje düzeyindeki eylemler.
  *
- * "Hata Kontrolleri" bağımsız bir eylem DEĞİL, "Test Et"in sonucunu gösteren
- * yer; doğrulama hattı (core/validate.ts bugün boş) bağlanınca sonuç varken
- * görünen bir rozete dönüşecek. O gün gelene kadar Test Et/Gönder ile birlikte
- * pasif duruyor — "0 hata" yazmak, çalıştırılmamış bir kontrolü geçmiş gibi
- * gösterirdi (palet dürüstlüğü, K79). Kayıt Geçmişi o öbekten AYRILDI: arkasına
- * gerçek bir uç bağlandı (GET /api/projects/{id}/versions), kendi açılır
- * listesini taşıyor (K109).
+ * "Hata Kontrolleri" K90'da pasifti çünkü arkasındaki `core/validate.ts` boştu;
+ * kural motoru yazılınca kendi açılır listesine dönüştü (`ValidationMenu`) —
+ * Kayıt Geçmişi'yle (K109) aynı desen.
+ *
+ * "Test Et" HÂLÂ pasif: doküman (hata-kontrol.docx) yalnız hata kontrolleri
+ * ekranını tarif ediyor, "Test Et"in ne yaptığı yazılı değil. Aynı işi yapan
+ * ikinci bir düğme uydurmaktansa boş bırakıldı (K79).
+ *
+ * "Gönder" de pasif ama artık SEBEBİ VAR: hatalar giderilmeden proje onaya
+ * gidemez (doküman, Kapsam). Denetim temiz çıksa bile düğme açılmıyor — onaya
+ * gönderme akışı (eksik evrak yanıtı dahil) proje listesi ekranında yaşıyor ve
+ * editöre taşınması ayrı bir adım.
  */
 export function EditorActions({ onSave, isSaving, versionHistory }: EditorActionsProps) {
   const isDirty = useCadStore(selectIsProjectDirty)
 
   return (
     <div className="flex items-center gap-2">
-      {/* TODO(enfal): Test Et doğrulamayı çalıştırsın, sonuç bu rozete yazılsın. */}
-      <button
-        type="button"
-        disabled
-        title="Hata Kontrolleri (test çalıştırılınca dolar)"
-        className={editorBarButtonVariants({ tone: 'success' })}
-      >
-        <CircleCheck size={16} strokeWidth={1.8} aria-hidden />
-        Hata Kontrolleri
-      </button>
+      <ValidationMenu />
+      {/* TODO(enfal): "Test Et"in kapsamı analistten netleşince bağlanacak. */}
       <button
         type="button"
         disabled
@@ -48,7 +46,7 @@ export function EditorActions({ onSave, isSaving, versionHistory }: EditorAction
       <button
         type="button"
         disabled
-        title="Gönder"
+        title="Gönder (önce hata kontrolleri giderilmeli)"
         className={editorBarButtonVariants({ tone: 'card' })}
       >
         <Send size={16} strokeWidth={1.8} aria-hidden />

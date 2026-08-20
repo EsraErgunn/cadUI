@@ -80,9 +80,18 @@ sembollerin çoğunda var; `Wall, Point, Column, Beam, Staircase`'de YOK,
 
 Ayrıca doküman madde 104 her mahal için "kullanım tipi (mutfak, salon…)"
 istiyor, referans JSON'da böyle bir alan YOK — sadece `centralVentilation` /
-`topSideOpenable`. K32 gereği ikisi de bizim modele EKLENMEDİ (menfez aracı
-yazılınca o işi yapan kişiyle birlikte kararlaştırılacak); kullanım tipi de
-henüz yok.
+`topSideOpenable`.
+
+**Kullanım tipi ARTIK VAR** (K116): `Room.usageType`, opsiyonel, liste
+`core/roomUsage.ts`'te. Referanstan kopyalanamadığı için TASLAK — analist
+onayı bekliyor. Referansın `label: ""` hâli de aynı kararla karşılandı: mahal
+artık ADSIZ doğuyor ve ekrandaki "Tanımsız" tam olarak o boşluğun karşılığı
+(daha önce sabit "Oda" yazıyordu).
+
+`centralVentilation` / `topSideOpenable` HÂLÂ modelde YOK. K32 bunları "menfez
+aracı yazılınca o işi yapan kişiyle birlikte kararlaştırılacak" diye
+ertelemişti; menfez aracı ve Hata10 (K115) artık var, yani karar VADESİ GELDİ
+ama K116'nın kapsamına bilerek alınmadı (MR tek konulu kalsın).
 
 ## Yapısal tuzaklar
 

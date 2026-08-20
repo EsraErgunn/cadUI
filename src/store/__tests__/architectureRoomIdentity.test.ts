@@ -32,7 +32,7 @@ function drawThreeRooms() {
   useCadStore.setState({
     rooms: useCadStore.getState().rooms.map((room, index) => ({
       ...room,
-      name: ['Y', 'X', 'Z'][index],
+      usageType: (['hall', 'kitchen', 'storage'] as const)[index],
     })),
   })
 
@@ -53,7 +53,7 @@ function slide(wallId: number, distanceCm: number) {
 
 const identity = () =>
   rooms()
-    .map((room) => `${room.id}:${room.name}`)
+    .map((room) => `${room.id}:${room.usageType ?? '-'}`)
     .sort()
 
 describe('oda kimliği duvar taşımalarına dayanır (K106)', () => {
@@ -105,13 +105,14 @@ describe('oda kimliği duvar taşımalarına dayanır (K106)', () => {
     const c = add({ start: { pointId: b.p2Id }, end: { position: { x: 0, y: 400 } } })
     add({ start: { pointId: c.p2Id }, end: { pointId: a.p1Id } })
     useCadStore.setState({
-      rooms: useCadStore.getState().rooms.map((room) => ({ ...room, name: 'Salon' })),
+      rooms: useCadStore.getState().rooms.map((room) => ({ ...room })),
     })
 
     // Odayı ikiye bölen duvar: kimlik DEVAM ETMEZ, iki yeni oda doğar.
     add({ start: { position: { x: 0, y: 200 } }, end: { position: { x: 400, y: 200 } } })
 
     expect(rooms()).toHaveLength(2)
-    expect(rooms().map((room) => room.name)).toEqual(['Oda', 'Oda'])
+    // Yeni mahal TİPSİZ doğar; etiketi "Tanımsız" yazar.
+    expect(rooms().map((room) => room.usageType)).toEqual([undefined, undefined])
   })
 })

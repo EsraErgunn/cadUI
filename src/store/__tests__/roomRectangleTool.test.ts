@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { PlanPoint } from '../../core/coords'
-import { DEFAULT_ROOM_NAME } from '../../core/model'
 import { getRoomRectangleCorners } from '../../core/room'
 import { findCornerPointIdAt } from '../../core/snap'
 import type { WallEnd } from '../architectureSlice'
@@ -35,7 +34,7 @@ describe('dikdörtgen oda aracı', () => {
 
     expect(useCadStore.getState().walls).toHaveLength(4)
     expect(rooms()).toHaveLength(1)
-    expect(rooms()[0].name).toBe(DEFAULT_ROOM_NAME)
+    expect(rooms()[0].usageType).toBeUndefined()
   })
 
   it('köşede İKİ nokta üretmez — dört köşe, dört nokta', () => {

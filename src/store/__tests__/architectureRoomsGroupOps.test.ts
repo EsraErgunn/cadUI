@@ -33,10 +33,10 @@ describe('oda tespiti — grup işlemleri', () => {
     expect(rooms()).toHaveLength(2)
   })
 
-  it('transformSelection odayı taşırken adını korur', () => {
+  it('transformSelection odayı taşırken kullanım tipini korur', () => {
     const { bottom, right, top } = drawRectangle()
     const closing = useCadStore.getState().walls.at(-1)!
-    useCadStore.getState().setRoomName(rooms()[0].id, 'Salon')
+    useCadStore.getState().setRoomUsageType(rooms()[0].id, 'livingRoom')
     const selection = [bottom.wallId, right.wallId, top.wallId, closing.id].map((id) => ({
       kind: 'wall' as const,
       id,
@@ -47,6 +47,6 @@ describe('oda tespiti — grup işlemleri', () => {
       .transformSelection(selection, { kind: 'translate', dxCm: 200, dyCm: 100 })
 
     expect(rooms()).toHaveLength(1)
-    expect(rooms()[0].name).toBe('Salon')
+    expect(rooms()[0].usageType).toBe('livingRoom')
   })
 })

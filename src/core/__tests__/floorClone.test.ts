@@ -27,7 +27,7 @@ const openings: Opening[] = [
   { id: 10, wallId: 6, offsetCm: 250, widthCm: 90, type: 'door' },
 ]
 
-const rooms: Room[] = [{ id: 11, wallIds: [6, 7, 8, 9], name: 'Salon' }]
+const rooms: Room[] = [{ id: 11, wallIds: [6, 7, 8, 9], usageType: 'livingRoom' }]
 
 const symbols: PointSymbol[] = [
   // Duvar 6'ya bağlı: kopyada wallId remap'ten geçmeli.
@@ -180,10 +180,10 @@ describe('cloneFloorArchitecture', () => {
     expect(clone.rooms[0].wallIds.every((wallId) => cloneWallIds.has(wallId))).toBe(true)
   })
 
-  it('oda adı korunur', () => {
+  it('mahalin kullanım tipi kopyaya TAŞINIR', () => {
     const clone = cloneFloorArchitecture(source, GROUND, UPPER, makeTakeId())
 
-    expect(clone.rooms[0].name).toBe('Salon')
+    expect(clone.rooms[0].usageType).toBe('livingRoom')
   })
 
   it('paylaşılan köşe kopyada TEK noktaya düşer — çevrim kapalı kalır', () => {
