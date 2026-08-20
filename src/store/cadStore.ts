@@ -23,12 +23,16 @@ import type { ProjectMetaSlice } from './projectMeta'
 import { markDirty } from './projectMeta'
 import { createGroundFloor } from '../core/floors'
 import { DEFAULT_FLOOR_ID, type ProjectData } from '../core/model'
+import { ISOMETRIC_ANGLES_DEFAULT } from '../isometric/core/isometricProjection'
+import type { IsometricAngles } from '../isometric/core/isometricProjection'
+import { createIsometricSlice, type IsometricSlice } from '../isometric/store/isometricSlice'
 import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
 
 export type CadState = ProjectMetaSlice &
   FloorSlice &
   ArchitectureSlice &
-  PlumbingSlice & {
+  PlumbingSlice &
+  IsometricSlice & {
     /** Depodan gelen çizimi state'e yükler. Şema doğrulaması api/serialize'ın işi. */
     loadProject: (data: ProjectData) => void
     /** Boş projeye döner. Editör başka bir projeye geçerken çağrılır. */
@@ -115,6 +119,9 @@ export const useCadStore = create<CadState>()(
             draft.installationLines = data.installationLines
             draft.installationConnections = data.installationConnections
             draft.floorPipeLinks = data.floorPipeLinks
+            // Alan yoksa VARSAYILANA döner: korunsaydı önceki projenin açısı
+            // yeni projeye sızardı.
+            draft.isometricAngles = data.isometricAngles ?? ISOMETRIC_ANGLES_DEFAULT
             draft.revision = 0
             // `data`dan alınıyor, draft'tan DEĞİL: yukarıdaki atamalar tam bu
             // dizileri state'e koyuyor, yani referanslar birebir aynı olur.
@@ -166,6 +173,7 @@ export const useCadStore = create<CadState>()(
         },
 
         ...createFloorSlice(...args),
+        ...createIsometricSlice(...args),
         ...createArchitectureSlice(...args),
         ...createPlumbingSlice(...args),
       }
@@ -242,5 +250,18 @@ export function selectProjectData(state: CadState): ProjectData {
     installationLines: state.installationLines,
     installationConnections: state.installationConnections,
     floorPipeLinks: state.floorPipeLinks,
+    // Varsayılana eşitse alan HİÇ üretilmez — "yokluk, varsayılan değildir"
+    // (bkz. core/model.ts). Yazılsaydı açıya hiç dokunulmamış eski bir kayıt
+    // açılıp kaydedilince yeni bir anahtar kazanırdı.
+    isometricAngles: isDefaultIsometricAngles(state.isometricAngles)
+      ? undefined
+      : state.isometricAngles,
   }
+}
+
+function isDefaultIsometricAngles(angles: IsometricAngles): boolean {
+  return (
+    angles.alphaDeg === ISOMETRIC_ANGLES_DEFAULT.alphaDeg &&
+    angles.betaDeg === ISOMETRIC_ANGLES_DEFAULT.betaDeg
+  )
 }

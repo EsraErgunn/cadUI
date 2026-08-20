@@ -168,7 +168,8 @@ export function EditorPage() {
               kayarak açılır/kapanır. İki panel ayrı seçim store'una abone
               (mimari/tesisat), bu yüzden görünüme göre İKİSİNDEN BİRİ render
               edilir, tek panelde birleştirilmez. */}
-          {activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />}
+          {activeViewId === 'installation' && <PlumbingPropertyPanel />}
+          {activeViewId === 'architecture' && <PropertyPanel />}
         </div>
       </div>
 

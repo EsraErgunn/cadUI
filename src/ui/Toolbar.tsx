@@ -63,6 +63,9 @@ export function Toolbar() {
 
   // Palet görünümle birlikte TAMAMEN değişir; tesisat araçları mimarinin altına eklenmez.
   if (activeViewId === 'installation') return <PlumbingToolbar />
+  // İzometrikte çizim aracı YOK: görünüm çizimden otomatik üretiliyor. Mimari
+  // paleti burada gösterilseydi tıklanan araç sessizce hiçbir şey yapmazdı.
+  if (activeViewId === 'isometric') return null
 
   return (
     // Kısayol ipucu paletin ALTINA yapışsın diye sütun: nav yalnız araçları

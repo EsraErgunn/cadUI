@@ -44,6 +44,12 @@ export type InstallationElement = {
    */
   labelOffsetCm?: PlanPoint
   /**
+   * Ad etiketinin İZOMETRİKTEKİ kayması. Plandaki `labelOffsetCm`'den BAĞIMSIZ:
+   * iki görünümde kalabalık aynı yerde olmuyor, izdüşüm etiketleri çizimin
+   * üstüne bindiriyor. WebCAD karşılığı `labelPositionIsometry`.
+   */
+  isometricLabelOffsetCm?: PlanPoint
+  /**
    * Özellik paneli alanları — TÜRÜNE göre en fazla biri dolu olur (`type`
    * hangisi olduğunu zaten söylüyor). Her tür kendi opsiyonel alanını alır,
    * bkz. elementProperties.ts.
@@ -84,6 +90,19 @@ export type InstallationLinePoint = {
    * ifade edemez. Serbest duran elemanda bu alan YOKTUR.
    */
   inlineElementId?: Id
+  /**
+   * İzometride bu noktanın elle kaydırılması (izdüşüm düzleminde, cm). PLAN
+   * ÇİZİMİNİ ETKİLEMEZ: izometrikte üst üste binen dalları ayırmak için var.
+   * WebCAD karşılığı `isometricPositionRel`.
+   */
+  isometricOffsetCm?: PlanPoint
+  /**
+   * Önceki noktadan miras kalan kaydırma — dalın bütün olarak kayması bununla
+   * olur (WebCAD `formerIsometricPositionRel`). Kendi kaymasından AYRI durur ki
+   * dal kaydırıldıktan sonra içindeki tek bir nokta ayrıca oynatılabilsin.
+   * Hesabın tek sahibi `isometric/core/isometricOffset.ts`.
+   */
+  inheritedIsometricOffsetCm?: PlanPoint
 }
 
 /**
@@ -185,4 +204,10 @@ export type InstallationLine = {
   chimney?: ChimneyLineProperties
   branch?: BranchLineProperties
   ventilationDuct?: VentilationDuctLineProperties
+  /**
+   * Hat etiketinin İZOMETRİKTEKİ kayması — elemandaki kardeşiyle aynı gerekçe.
+   * Planda hat etiketi ayrı bir alanla taşınmıyor, bu yüzden yalnız izometrik
+   * karşılığı var.
+   */
+  isometricLabelOffsetCm?: PlanPoint
 }

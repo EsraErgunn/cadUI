@@ -156,6 +156,48 @@ export function getInlineElementElevationCm(elementId: Id, lines: readonly Insta
   return 0
 }
 
+/** Hattın BELİRLİ bir köşesindeki kot. Kendi kotunu taşımayan hatta `0`. */
+export function getLinePointElevationCm(line: InstallationLine, pointId: Id): number {
+  if (!hasTwoEndedPipeElevation(line)) return 0
+
+  const index = line.points.findIndex((point) => point.id === pointId)
+  if (index === -1) return 0
+
+  const positions = line.points.map((point) => point.position)
+  return getLinePointElevationsCm(positions, line.pipe.startHeightCm, line.pipe.endHeightCm)[index]
+}
+
+/**
+ * Kendi kotunu TAŞIMAYAN bir hattın (yakıcı cihaz kolu `applianceStub`)
+ * oturduğu kot: tutunduğu borunun O NOKTASINDAKİ kotu. Kol iki ucu arasında
+ * kot değiştirmez — cihaz, bağlandığı borunun hizasında durur.
+ *
+ * Neden gerekti: `applianceStub` `hasTwoEndedPipeElevation`'a girmiyor, bu
+ * yüzden kombi/ocak/soba `0` kotunda kalıyordu. Planda görünmüyordu (tepeden
+ * bakış kotu göstermez) ama izometrikte cihazlar yerde yatıyordu. WebCAD'de
+ * cihaz `pointId`'nin `elevation`'ını alır; bizdeki karşılığı bu.
+ *
+ * TEK SIÇRAMA yapar (`kind: 'line'` hedefi): kol → boru. Zincir izlenseydi
+ * birbirine bağlı iki kol sonsuz döngüye girebilirdi.
+ */
+export function getAttachedLineElevationCm(
+  line: InstallationLine,
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): number {
+  for (const connection of connections) {
+    if (connection.lineId !== line.id) continue
+    // Daraltma yerel sabite alınıyor: `lines.find(...)` bir kapanış ve TS
+    // `connection.target` daraltmasını kapanışın içine taşımıyor.
+    const { target } = connection
+    if (target.kind !== 'line') continue
+
+    const host = lines.find((candidate) => candidate.id === target.lineId)
+    if (host) return getLinePointElevationCm(host, target.pointId)
+  }
+  return 0
+}
+
 /**
  * Bir elemanın SAHNEDEKİ (3B) kotu — tutunma biçiminden bağımsız TEK adres
  * (kullanıcı isteği, 2026-08: "Z ekseninde kullandığımız her şey için
@@ -183,9 +225,13 @@ export function getElementElevationCm(
   if (!connection || connection.target.kind !== 'port') return 0
 
   const line = lines.find((candidate) => candidate.id === connection.lineId)
-  if (!line || !hasTwoEndedPipeElevation(line)) return 0
+  if (!line) return 0
+  if (hasTwoEndedPipeElevation(line)) {
+    return connection.end === 'start' ? line.pipe.startHeightCm : line.pipe.endHeightCm
+  }
 
-  return connection.end === 'start' ? line.pipe.startHeightCm : line.pipe.endHeightCm
+  // Yakıcı cihaz kolu kendi kotunu taşımaz; tutunduğu borudan okunur.
+  return getAttachedLineElevationCm(line, lines, connections)
 }
 
 /**

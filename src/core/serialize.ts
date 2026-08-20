@@ -14,6 +14,7 @@ import type {
   TextLabel,
   Wall,
 } from './model'
+import type { IsometricAngles } from '../isometric/core/isometricProjection'
 import {
   installationConnectionSchema,
   installationElementSchema,
@@ -190,6 +191,11 @@ const textLabelSchema = z.object({
  * yalnız ESKİ dosyaların ilk açılışında devreye girer, sonraki kayıtta alan
  * dosyaya yazılır. Yeni alan eklerken aynı şey yapılmalı.
  */
+const isometricAnglesSchema = z.object({
+  alphaDeg: z.number(),
+  betaDeg: z.number(),
+})
+
 export const projectDataSchema = z.object({
   nextUniqueId: idSchema,
   activeFloorId: idSchema,
@@ -209,6 +215,10 @@ export const projectDataSchema = z.object({
   installationConnections: z.array(installationConnectionSchema).default([]),
   // Kat bağlantı işaretleri de SONRADAN eklendi, aynı gerekçe.
   floorPipeLinks: z.array(floorPipeLinkSchema).default([]),
+  // `.optional()` — `.default()` DEĞİL: varsayılan yazsaydı alanı hiç
+  // taşımayan eski kayıtlar açılıp kaydedilince yeni bir anahtar kazanır ve
+  // bit-bit kabul testi kırılırdı (bkz. model.ts'teki gerekçe).
+  isometricAngles: isometricAnglesSchema.optional(),
 })
 
 export class ProjectDataParseError extends Error {
@@ -272,7 +282,14 @@ export function serializeProjectData(data: ProjectData): string {
     installationLines: data.installationLines.map(toInstallationLineJson),
     installationConnections: data.installationConnections.map(toInstallationConnectionJson),
     floorPipeLinks: data.floorPipeLinks.map(toFloorPipeLinkJson),
+    // Varsayılan açı YAZILMAZ: "yokluk = varsayılan" olduğu için yazmak eski
+    // kayıtlara anahtar eklerdi. Kullanıcı açıyı değiştirdiyse yazılır.
+    isometricAngles: data.isometricAngles && toIsometricAnglesJson(data.isometricAngles),
   })
+}
+
+function toIsometricAnglesJson(angles: IsometricAngles) {
+  return { alphaDeg: angles.alphaDeg, betaDeg: angles.betaDeg }
 }
 
 function toFloorPipeLinkJson(link: FloorPipeLink) {
