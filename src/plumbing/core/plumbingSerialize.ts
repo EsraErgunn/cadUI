@@ -242,6 +242,7 @@ export const installationElementSchema = z.object({
   angleDeg: z.number(),
   scale: z.number(),
   labelOffsetCm: planPointSchema.optional(),
+  isometricLabelOffsetCm: planPointSchema.optional(),
   regulator: regulatorPropertiesSchema.optional(),
   insulation: insulationPropertiesSchema.optional(),
   gasMeter: gasMeterPropertiesSchema.optional(),
@@ -266,6 +267,8 @@ export function toInstallationElementJson(element: InstallationElement) {
     angleDeg: element.angleDeg,
     scale: element.scale,
     labelOffsetCm: element.labelOffsetCm && toPlanPointJson(element.labelOffsetCm),
+    isometricLabelOffsetCm:
+      element.isometricLabelOffsetCm && toPlanPointJson(element.isometricLabelOffsetCm),
     regulator: element.regulator && toRegulatorJson(element.regulator),
     insulation: element.insulation && toInsulationJson(element.insulation),
     gasMeter: element.gasMeter && toGasMeterJson(element.gasMeter),
@@ -325,10 +328,18 @@ function toVentilationDuctLineJson(properties: VentilationDuctLineProperties) {
   return { isSubDuct: properties.isSubDuct, isForced: properties.isForced }
 }
 
+/**
+ * İzometrik kaydırma alanları `.optional()` — `.default()` DEĞİL:
+ * `labelOffsetCm` ile AYNI gerekçe. Kaydırma yalnız kullanıcı izometride bir
+ * dalı gerçekten sürükleyince yazılır; sıfır kaydırma "yok" demektir ve eski
+ * kayıtlarda hiç bulunmaz.
+ */
 const installationLinePointSchema = z.object({
   id: idSchema,
   position: planPointSchema,
   inlineElementId: idSchema.optional(),
+  isometricOffsetCm: planPointSchema.optional(),
+  inheritedIsometricOffsetCm: planPointSchema.optional(),
 })
 
 const installationLineSegmentSchema = z.object({
@@ -342,6 +353,9 @@ function toInstallationLinePointJson(point: InstallationLinePoint) {
     id: point.id,
     position: toPlanPointJson(point.position),
     inlineElementId: point.inlineElementId,
+    isometricOffsetCm: point.isometricOffsetCm && toPlanPointJson(point.isometricOffsetCm),
+    inheritedIsometricOffsetCm:
+      point.inheritedIsometricOffsetCm && toPlanPointJson(point.inheritedIsometricOffsetCm),
   }
 }
 
@@ -360,6 +374,7 @@ export const installationLineSchema = z.object({
   chimney: chimneyLinePropertiesSchema.optional(),
   branch: branchLinePropertiesSchema.optional(),
   ventilationDuct: ventilationDuctLinePropertiesSchema.optional(),
+  isometricLabelOffsetCm: planPointSchema.optional(),
 })
 
 export function toInstallationLineJson(line: InstallationLine) {
@@ -374,6 +389,8 @@ export function toInstallationLineJson(line: InstallationLine) {
     chimney: line.chimney && toChimneyLineJson(line.chimney),
     branch: line.branch && toBranchLineJson(line.branch),
     ventilationDuct: line.ventilationDuct && toVentilationDuctLineJson(line.ventilationDuct),
+    isometricLabelOffsetCm:
+      line.isometricLabelOffsetCm && toPlanPointJson(line.isometricLabelOffsetCm),
   }
 }
 

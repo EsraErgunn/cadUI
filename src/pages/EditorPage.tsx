@@ -9,6 +9,9 @@ import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
+import { IsometricHud } from '../isometric/ui/IsometricHud'
+import { IsometricLegend } from '../isometric/ui/IsometricLegend'
+import { IsometricModeSwitch } from '../isometric/ui/IsometricModeSwitch'
 import { CascadeDeleteDialog } from '../plumbing/ui/CascadeDeleteDialog'
 import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
@@ -155,6 +158,17 @@ export function EditorPage() {
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
                 görünümünde de var (K57); izometrikte çizilecek bir şey yok,
                 orada tuval etkileşimi de yok. */}
+            {/* İzometriğin kendi kumanda takımı: bakış açısı, kat aralığı,
+                kamera kipi ve çap renkleri. Yüzen çubuk (K54) burada YOK —
+                orada çizim aracı ve kat seçimi var, izometrikte ikisi de
+                anlamsız. */}
+            {activeViewId === 'isometric' && (
+              <>
+                <IsometricHud />
+                <IsometricModeSwitch />
+                <IsometricLegend />
+              </>
+            )}
             {activeViewId !== 'isometric' && (
               <FloatingToolbar
                 onGoToFloor={goToFloor}
@@ -168,7 +182,8 @@ export function EditorPage() {
               kayarak açılır/kapanır. İki panel ayrı seçim store'una abone
               (mimari/tesisat), bu yüzden görünüme göre İKİSİNDEN BİRİ render
               edilir, tek panelde birleştirilmez. */}
-          {activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />}
+          {activeViewId === 'installation' && <PlumbingPropertyPanel />}
+          {activeViewId === 'architecture' && <PropertyPanel />}
         </div>
       </div>
 

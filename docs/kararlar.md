@@ -5969,3 +5969,126 @@ Test `placeElementWithStub`'ın ürettiği durumu birebir kurup `removeElements`
 çağırıyor — varsayılan bir şekil değil, gerçek yerleştirmenin çıktısı
 (`plumbing/store/__tests__/applianceRemoval.test.ts`). Geri alma tesisatın
 KENDİ aynasından (`undoPlumbing`), cadStore'un zundo'sundan değil.
+---
+
+### K120 — İzometrik görünüm: WebCAD'in izdüşümü AYNALANARAK alındı, kamera yönü olarak yazıldı
+
+**Karar.** İzometrik görünüm, referans uygulamanın (WebCAD) izdüşüm matrisiyle
+birebir aynı açı ailesini kullanır — `M(α, β) = Rx(α) · Ry(β)` — ama sonuç ayrı
+bir 2B izdüşüm olarak DEĞİL, ortografik kameranın yönü olarak uygulanır.
+
+**Varsayılan açı WebCAD'inkinden farklı** (kullanıcı kararı): onunki 40°/60°
+(dimetrik), bizimki gerçek izometri atan(1/√2) = 35,264° / 45° — üç eksen eşit
+kısalır, eksenler yatayla 30° yapar. Hazır açılar yalnız **Varsayılan** ve
+**Üstten**; yan görünümler (önden/sağdan/soldan) kaldırıldı çünkü α = 0'da
+zemin düzlemi kenardan görünüp tüm kat yerleşimi tek çizgiye çöküyor ve o iş
+zaten plan görünümünün.
+
+**Neden matris değil kamera.** Ortografik kamerada "noktaları elle izdüşürmek"
+ile "kamerayı o yöne çevirmek" aynı görüntüyü verir. Kamera yolu seçildi çünkü
+sahne o zaman gerçek derinlik testiyle çizilir: üst kat alt katı ÖRTER. Elle
+izdüşümde derinlik yok, sıralamayı biz uydurmak zorunda kalırdık.
+
+**Neden aynalı.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y AŞAĞI (hem
+kotta hem plan y'sinde — EaselJS tuval düzeni), z güneye. Bizim three uzayımız
+sağ elli. Matris satırları olduğu gibi kamera bazı olarak alınınca kamera yerin
+ALTINDA kalıyor: kot ekranda yukarı gidiyor ama derinlik ters dönüyor ve alt kat
+üst katı örtüyor. Doğrusu `right = −satır1`, `up = −satır2`, `forward = −satır3`;
+sonuç WebCAD çıktısının yatay aynası. Fiziksel olarak doğru olan bu, çünkü bizim
+plan +y'miz onların y'sinin tersi. İki aday sayısal olarak karşılaştırılıp
+seçildi ve testle sabitlendi (`kamera her zaman YUKARIDA durur`).
+
+**Yan sonuç.** `Rx(α)·Ry(β)`'nın 1. satırı yapı gereği `(cosβ, 0, −sinβ)`, yani
+y bileşeni her zaman sıfır: kot ekseni HER açıda ekranda tam dikey kalır.
+İzometrik çizimin temel şartı, ücretsiz geldi.
+
+Nerede: `src/isometric/core/isometricProjection.ts`, `scene/IsometricCamera.tsx`.
+
+---
+
+### K121 — İzometriğe özel elle yerleştirmeler AYRI alanlarda; plan çizimi hiç değişmez
+
+**Karar.** İzometrikte üst üste binen dalları ayırmak ve etiketleri açmak için
+model üç OPSİYONEL alan aldı: `InstallationLinePoint.isometricOffsetCm` +
+`inheritedIsometricOffsetCm`, `InstallationElement`/`InstallationLine`
+üstünde `isometricLabelOffsetCm`. WebCAD karşılıkları `isometricPositionRel` /
+`formerIsometricPositionRel` / `labelPositionIsometry`.
+
+**Neden iki ayrı kaydırma alanı.** Kullanıcı bir noktayı sürüklediğinde dalın
+TAMAMI kaymalı, ama sonradan o dalın içindeki tek bir nokta daha
+sürüklenebilmeli. Tek alanda toplansaydı ikisi ayırt edilemezdi. Yayılım kuralı:
+sürüklenen nokta kendi kaymasını, ondan SONRAKİLER mirası alır, öncekiler
+dokunulmaz. `izometrik_ornek.wcp`'de 54 noktanın 24'ü birebir aynı miras
+değerini taşıyor — tek bir sürüklemenin izi, kuralın imzası.
+
+**Neden plandan ayrı.** Aynı etiket iki görünümde farklı yerde durmalı:
+izometride kalabalığı açmak plandaki yerleşimi bozmamalı. Bu yüzden
+`labelOffsetCm` ile `isometricLabelOffsetCm` AYRI action'lara sahip.
+
+**Neden hepsi opsiyonel.** `docs/sample-project.json` bit-bit round-trip kabul
+testi. `undefined` alan serileştirmeye yazılmaz, zod `.default()` VERMEZ ve
+sıfıra dönen kayma alanı SİLİNİR — "yokluk, sıfır DEĞİLDİR". `axisId` /
+`labelOffsetCm` / `meterOrder` ile aynı gerekçe.
+
+Nerede: `src/plumbing/core/installationModel.ts`, `plumbingSerialize.ts`,
+`src/isometric/core/isometricOffset.ts`.
+
+---
+
+### K122 — α/β projeye yazılır ama projeyi KİRLETMEZ
+
+**Karar.** İzometrik bakış açısı `cadStore`'da yaşar ve proje JSON'una girer
+(WebCAD de `isometric: {alpha, beta}` olarak saklıyor), ama `PersistedContent`'e
+GİRMEZ: açıyı oynatmak "kaydedilmemiş değişiklik" uyarısı üretmez ve geri alma
+geçmişine düşmez.
+
+**Neden.** K3'ün "zoom/pan/araç/görünüm projeyi kirletmez" garantisi ile
+kullanıcının "açımı kaydet" beklentisi çatışıyordu. `activeFloorId` zaten tam
+olarak böyle davranıyor — JSON'a giriyor, kirli işaretine girmiyor — ve
+`store/persistedContent.ts` açık bir İZİN LİSTESİ olduğu için muafiyet
+kendiliğinden geldi. Ayrıca alan varsayılana (40/60) EŞİTKEN hiç yazılmaz:
+yazılsaydı açıya hiç dokunulmamış eski bir kayıt açılıp kaydedilince yeni bir
+anahtar kazanır ve bit-bit testi kırılırdı.
+
+Nerede: `src/isometric/store/isometricSlice.ts`, `src/store/cadStore.ts`,
+`src/core/serialize.ts`.
+
+---
+
+### K123 — İzometrikte geri al TESİSAT geçmişine gider
+
+**Karar.** `activeViewHistory.ts`'in "izometrikte düzenleme yok, proje geçmişi
+varsayılan olarak kalır" varsayımı KALKTI. İzometrik artık tesisat aynasını
+(`plumbingHistory`) kullanır, tesisat görünümüyle aynı dalda.
+
+**Neden.** İzometrikteki her düzenleme — dal ayırma, etiket taşıma, izometrik
+konumları sıfırlama — `installationLines`/`installationElements` üstünde
+çalışıyor ve `plumbingSlice` üzerinden kaydediliyor. Proje geçmişine bağlı
+kalsaydı izometrikte Ctrl+Z kullanıcının en son çizdiği DUVARI geri alırdı.
+
+Nerede: `src/store/activeViewHistory.ts`.
+
+---
+
+### K124 — İzometrik yalnız tesisatı çizer; `layers.ts` orada geçersiz
+
+**Karar.** İzometrik görünüm mimariyi (duvar/oda/açıklık) HİÇ çizmez, yalnız
+tesisatı çizer — ama TÜM katları aynı anda, tek parça olarak. Aktif kat kavramı
+yoktur. `src/scene/layers.ts` ve `RENDER_ORDER` bu görünümde kullanılmaz.
+
+**Neden mimari yok.** Gerçek doğalgaz izometriğinde duvar çizilmez; kullanıcı
+kararı da bu yönde. Kapsül duvar shader'ı zaten yalnız plan görünümü için
+(K23 sonuçları: "3B/izometrik ayrı extrude geometri yolundan gidecek").
+
+**Neden `layers.ts` geçersiz.** O tablo tepeden bakan ortografik kameranın
+z-fighting çözümü ve mikro yükseklik farklarına dayanıyor (`WALL_ELEVATION_CM`
+0, `HANDLE_ELEVATION_CM` 0.3). İzometrikte o mikro farklar GÖRÜNÜR hâle gelir.
+Derinlik gerçek geometriyle (silindir/küre gövde + `depthTest`) çözülür.
+
+**Kamera tekliği.** İzometrikte plan kamerası, `ViewportControls` ve `Grid` hiç
+mount EDİLMEZ: iki kamera da `makeDefault` yazıyor, birlikte mount edilseler
+hangisinin kazandığı mount sırasına kalırdı. `CAMERA_HEIGHT_CM` de kullanılmaz —
+o sabit drei `<Line worldUnits>` shader'ına bağlı ve yalnız plan kamerasının
+sözleşmesi.
+
+Nerede: `src/scene/SceneRoot.tsx`, `src/isometric/scene/`.

@@ -1,7 +1,8 @@
-// Tip-only ve coords.ts hiçbir şey import etmiyor: döngü oluşmaz.
 import type { PlanPoint } from './coords'
+// Tip-only ve coords.ts hiçbir şey import etmiyor: döngü oluşmaz.
 // roomUsage.ts de yaprak (yalnız liste + etiket), model.ts'i import etmiyor.
 import type { RoomUsageType } from './roomUsage'
+import type { IsometricAngles } from '../isometric/core/isometricProjection'
 // installationModel.ts da `Id`'yi buradan tip-only import ediyor — döngüsel
 // ama çalışma zamanında SİLİNİR (K17'deki cadStore↔plumbingSlice gerekçesiyle aynı).
 import type {
@@ -314,4 +315,15 @@ export type ProjectData = {
   installationLines: InstallationLine[]
   installationConnections: InstallationConnection[]
   floorPipeLinks: FloorPipeLink[]
+  /**
+   * İzometrik izdüşüm açıları (derece). OPSİYONEL: alan YOKSA varsayılan
+   * (40/60) kullanılır ve kaydederken de yazılmaz — "yokluk, varsayılan
+   * DEĞİLDİR" kuralı (bkz. `labelOffsetCm`, `axisId`). Varsayılana eşitken
+   * yazılsaydı docs/sample-project.json gibi eski kayıtlar hiç dokunulmamışken
+   * bit-bit kabul testini kırardı.
+   *
+   * Çizim İÇERİĞİ değildir: `PersistedContent`'e girmez, açıyı oynatmak
+   * "kaydedilmemiş değişiklik" uyarısı üretmez (bkz. isometric/store).
+   */
+  isometricAngles?: IsometricAngles
 }

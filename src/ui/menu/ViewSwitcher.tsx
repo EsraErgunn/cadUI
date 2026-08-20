@@ -16,8 +16,6 @@ const VIEW_ICONS: Record<ViewId, LucideIcon> = {
 const HAS_ARCHITECTURE_DRAWING = true
 
 function isViewDisabled(viewId: ViewId): boolean {
-  // İzometrik bu planın kapsamı dışında; pasif kalmaya devam eder.
-  if (viewId === 'isometric') return true
   if (viewId === 'installation') return !isPlumbingViewAvailable(HAS_ARCHITECTURE_DRAWING)
   return false
 }

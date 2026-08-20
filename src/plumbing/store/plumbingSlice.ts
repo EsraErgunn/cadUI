@@ -10,6 +10,7 @@ import type { PlanPoint } from '../../core/coords'
 import type { FloorPipeLink, Id } from '../../core/model'
 // cadStore ↔ plumbingSlice karşılıklı import eder; bu taraf tip-only olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
+import { applyIsometricDrag, clearIsometricOffsets } from '../../isometric/core/isometricOffset'
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
 import {
@@ -160,6 +161,31 @@ export type PlumbingSlice = {
   setLinesPipeType: (lineIds: readonly Id[], pipeTypeName: PipeTypeName) => void
   /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
   setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
+  /**
+   * Etiketin İZOMETRİKTEKİ kayması. `setElementLabelOffset`'ten AYRI action:
+   * iki görünümün etiket yerleşimi bağımsız (bkz. installationModel.ts) —
+   * izometride kalabalığı açmak plandaki yerleşimi bozmamalı.
+   */
+  setElementIsometricLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
+  /** Hat etiketinin izometrikteki kayması; planda hat etiketi taşınmıyor. */
+  setLineIsometricLabelOffset: (lineId: Id, offsetCm: PlanPoint) => void
+  /**
+   * İzometrikte bir hat köşesini sürüklemenin sonucunu yazar: sürüklenen nokta
+   * kendi kaymasını, ONDAN SONRAKİLER mirası alır (dal bütün olarak kayar,
+   * bkz. isometric/core/isometricOffset.ts). PLAN konumlarına DOKUNMAZ —
+   * izometrikte çizimi ayıklamak plan çizimini bozmamalı.
+   *
+   * Bir sürükleme = bir Ctrl+Z: canlı önizleme UI store'da tutulur, buraya
+   * yalnız bırakılan son kayma gelir.
+   */
+  applyIsometricLineDrag: (lineId: Id, pointId: Id, deltaCm: PlanPoint) => void
+  /**
+   * "İzometrik konumları sıfırla": izometriğe ÖZEL tüm elle yerleştirmeleri
+   * (dal kaydırmaları + etiket konumları) siler. PLAN çizimine dokunmaz —
+   * zaten hiçbiri plan verisi değil. Tek adım, tek Ctrl+Z: kullanıcı onlarca
+   * etiketi tek tek geri almak zorunda kalmasın.
+   */
+  resetIsometricPositions: () => void
   /**
    * Seçili elemanların alanlarını kısmi yazar — özellik paneli formlarının
    * GENEL kapısı (K-tesisat-panel). Her eleman türü kendi opsiyonel alt-alanını
@@ -1018,6 +1044,102 @@ export const createPlumbingSlice: StateCreator<
         element.labelOffsetCm = offsetCm
         isChanged = true
         markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setElementIsometricLabelOffset: (elementId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const element = draft.installationElements.find(
+          (candidate) => candidate.id === elementId,
+        )
+        if (!element) return
+        if (
+          element.isometricLabelOffsetCm?.x === offsetCm.x &&
+          element.isometricLabelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        element.isometricLabelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setLineIsometricLabelOffset: (lineId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+        if (
+          line.isometricLabelOffsetCm?.x === offsetCm.x &&
+          line.isometricLabelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        line.isometricLabelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    applyIsometricLineDrag: (lineId, pointId, deltaCm) => {
+      if (deltaCm.x === 0 && deltaCm.y === 0) return
+
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+
+        const next = applyIsometricDrag(line.points, pointId, deltaCm)
+        // Referans karşılaştırması yetiyor: dokunulmayan nokta AYNI nesneyle
+        // geri geliyor (bkz. isometricOffset.ts).
+        if (next.every((point, index) => point === line.points[index])) return
+
+        line.points = next
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    resetIsometricPositions: () => {
+      let isChanged = false
+
+      set((draft) => {
+        for (const line of draft.installationLines) {
+          const cleared = clearIsometricOffsets(line.points)
+          // Referans karşılaştırması yetiyor: `clearIsometricOffsets` temiz
+          // noktayı AYNI nesneyle geri veriyor (bkz. isometricOffset.ts).
+          if (cleared.some((point, index) => point !== line.points[index])) {
+            line.points = cleared
+            isChanged = true
+          }
+          if (line.isometricLabelOffsetCm) {
+            delete line.isometricLabelOffsetCm
+            isChanged = true
+          }
+        }
+
+        for (const element of draft.installationElements) {
+          if (!element.isometricLabelOffsetCm) continue
+          delete element.isometricLabelOffsetCm
+          isChanged = true
+        }
+
+        if (isChanged) markDirty(draft)
       })
 
       if (isChanged) record()

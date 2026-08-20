@@ -63,14 +63,22 @@ describe('aktif görünümün geçmişi', () => {
     expect(useCadStore.getState().openings).toHaveLength(openingCount)
   })
 
-  // İzometrikte düzenleme yok; kısayol yine de bir yere gitmeli — proje geçmişi.
-  it('izometrik görünümde proje geçmişine düşer', () => {
-    const openingCount = useCadStore.getState().openings.length
+  /**
+   * İzometrikteki her düzenleme (dal ayırma, etiket taşıma, sıfırlama)
+   * `installationLines`/`Elements` üstünde çalışıyor ve tesisat aynasına
+   * yazılıyor. Proje geçmişine bağlansaydı izometrikte Ctrl+Z kullanıcının en
+   * son çizdiği DUVARI geri alırdı.
+   */
+  it('izometrik görünümde TESİSAT geçmişine gider, mimariye DOKUNMAZ', () => {
     addWallOpening()
+    const openingCount = useCadStore.getState().openings.length
+    addPlumbingElement()
+    const elementCount = useCadStore.getState().installationElements.length
 
     useUiStore.getState().setActiveView('isometric')
     undoActiveView()
 
+    expect(useCadStore.getState().installationElements).toHaveLength(elementCount - 1)
     expect(useCadStore.getState().openings).toHaveLength(openingCount)
   })
 })
