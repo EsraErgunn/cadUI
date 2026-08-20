@@ -5,6 +5,7 @@ import { takeNextId } from './projectMeta'
 import { DEFAULT_ROOM_NAME, type Id, type Room } from '../core/model'
 import { findRoomFaces } from '../core/room'
 import { getWallSetKey, reconcileRooms } from '../core/roomIdentity'
+import type { RoomUsageType } from '../core/roomUsage'
 
 /**
  * Oda AKTİF KATA aittir ama `Room.floorId` yoktur — kat, çevrimindeki duvarlardan
@@ -83,8 +84,28 @@ export function renameRoomInDraft(draft: CadState, roomId: Id, name: string): bo
   if (!room) return false
 
   const trimmed = name.trim()
-  if (trimmed.length === 0 || trimmed === room.name) return false
+  // Boş ad artık REDDEDİLMİYOR: adı silmek, etiketi kullanım tipine (yoksa
+  // "Tanımsız"a) düşürmenin tek yolu. Yeni mahal de zaten adsız doğuyor.
+  if (trimmed === room.name) return false
 
   room.name = trimmed
+  return true
+}
+
+/**
+ * Kullanım tipini yazar. `undefined` alanı SİLER (boş bir değere ayarlamaz):
+ * modelde alanın yokluğu "tip belirtilmemiş" demek ve `toRoomJson` da alanı
+ * dosyaya hiç yazmıyor — iki taraf aynı şeyi söylemeli.
+ */
+export function setRoomUsageTypeInDraft(
+  draft: CadState,
+  roomId: Id,
+  usageType: RoomUsageType | undefined,
+): boolean {
+  const room = draft.rooms.find((candidate) => candidate.id === roomId)
+  if (!room || room.usageType === usageType) return false
+
+  if (usageType === undefined) delete room.usageType
+  else room.usageType = usageType
   return true
 }

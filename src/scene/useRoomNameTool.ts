@@ -8,6 +8,7 @@ import type { PlanPoint } from '../core/coords'
 import { findRoomFaceAt, findRoomFaces } from '../core/room'
 import { getWallSetKey } from '../core/roomIdentity'
 import { getRoomLabelAnchor, isPointInRoomLabel } from '../core/roomLabel'
+import { getRoomDisplayName } from '../core/roomUsage'
 import { getSnapToleranceCm } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -123,7 +124,10 @@ export function findRoomLabelAt(point: PlanPoint): boolean {
     const room = cad.rooms.find((candidate) => getWallSetKey(candidate.wallIds) === wallSetKey)
     if (!room) continue
 
-    if (isPointInRoomLabel(point, getRoomLabelAnchor(face.corners), room.name)) return true
+    // Vuruş testi ÇİZİLEN metne bakar: etiket adı boş mahalde "Tanımsız" yazıyor
+    // ve kutusu ham addan (boş) hesaplansaydı hiç tıklanamazdı.
+    const label = getRoomDisplayName(room.name, room.usageType)
+    if (isPointInRoomLabel(point, getRoomLabelAnchor(face.corners), label)) return true
   }
 
   return false

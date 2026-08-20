@@ -101,8 +101,15 @@ export function reconcileRooms(
   faces.forEach((face, index) => {
     const existing = matchedByFace.get(index)
     if (existing) {
-      // Ad KORUNUR; wallIds yüzden tazelenir ki sıra ve olası tekrar temizlensin.
-      rooms.push({ id: existing.id, wallIds: [...face.wallIds], name: existing.name })
+      // Ad ve KULLANIM TİPİ korunur; wallIds yüzden tazelenir ki sıra ve olası
+      // tekrar temizlensin. Alanlar tek tek yazılıyor (`...existing` değil):
+      // yüzden gelen `wallIds` sessizce eskisiyle ezilmesin.
+      rooms.push({
+        id: existing.id,
+        wallIds: [...face.wallIds],
+        name: existing.name,
+        usageType: existing.usageType,
+      })
       return
     }
 

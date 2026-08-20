@@ -138,14 +138,39 @@ describe('oda adı düzenleme', () => {
     expect(rooms()[0].name).toBe('Salon')
   })
 
-  it('boş adı REDDEDER, oda eski adıyla kalır', () => {
+  it('boş ad adı SİLER — etiket kullanım tipine düşsün diye', () => {
+    // Eskiden reddediliyordu; mahal artık adsız doğduğu ve etiket ad → tip →
+    // "Tanımsız" sırasını izlediği için adı temizlemek meşru bir işlem.
     drawRectangle()
     const roomId = rooms()[0].id
     useCadStore.getState().setRoomName(roomId, 'Salon')
 
     useCadStore.getState().setRoomName(roomId, '   ')
 
-    expect(rooms()[0].name).toBe('Salon')
+    expect(rooms()[0].name).toBe('')
+  })
+
+  it('kullanım tipi yazılır ve undefined ile ALANI SİLER', () => {
+    drawRectangle()
+    const roomId = rooms()[0].id
+
+    useCadStore.getState().setRoomUsageType(roomId, 'kitchen')
+    expect(rooms()[0].usageType).toBe('kitchen')
+
+    // Alanın YOKLUĞU "tip belirtilmemiş" demek; boş bir değer bırakılmaz.
+    useCadStore.getState().setRoomUsageType(roomId, undefined)
+    expect('usageType' in rooms()[0]).toBe(false)
+  })
+
+  it('duvar taşınıp oda yeniden hesaplanınca kullanım tipi KORUNUR', () => {
+    drawRectangle()
+    const roomId = rooms()[0].id
+    useCadStore.getState().setRoomUsageType(roomId, 'boilerRoom')
+
+    // Aynı yüzü yeniden ürettiren bir düzenleme: eşleşme tutmalı ve tip yaşamalı.
+    useCadStore.getState().setRoomName(roomId, 'Kazan')
+
+    expect(rooms()[0].usageType).toBe('boilerRoom')
   })
 
   it('aynı adı yeniden yazmaz — geçmişe boş adım eklemesin', () => {

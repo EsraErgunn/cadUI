@@ -1,8 +1,9 @@
-import { DEFAULT_ROOM_NAME, type Floor, type Id } from './model'
+import type { Floor, Id } from './model'
 import { getBoundsAround } from './planBounds'
 import { findRoomsWithoutDoorAccess } from './roomAccess'
 import { getWallSetKey } from './roomIdentity'
 import type { FloorRoom, FloorRoomTopology } from './roomTopology'
+import { getRoomDisplayName } from './roomUsage'
 import type { SelectionItem } from './selection'
 import {
   VALIDATION_MESSAGES,
@@ -11,8 +12,13 @@ import {
   type ValidationSource,
 } from './validationModel'
 
+/**
+ * Hata satırındaki "Mahal: X". Etiketin ekranda YAZANIYLA aynı kural
+ * (`getRoomDisplayName`): kullanıcı listede okuduğu adı planda arayacak, iki
+ * yerde farklı metin görmemeli.
+ */
 export function getRoomName(entry: FloorRoom): string {
-  return entry.room?.name ?? DEFAULT_ROOM_NAME
+  return getRoomDisplayName(entry.room?.name ?? '', entry.room?.usageType)
 }
 
 /** Mahal kaydı yoksa (yüz henüz eşleşmemiş) duvar kümesi kimlik yerine geçer. */
