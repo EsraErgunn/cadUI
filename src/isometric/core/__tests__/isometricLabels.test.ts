@@ -7,6 +7,7 @@ import type {
 import type { IsometricElevationContext } from '../isometricElevation'
 import {
   getIsometricElementLabelLines,
+  getIsometricLineLabelAnchor,
   getIsometricLineLabelLines,
 } from '../isometricLabels'
 
@@ -213,5 +214,27 @@ describe('getIsometricElementLabelLines — künyesiz elemanlar', () => {
     expect(getIsometricElementLabelLines(makeElement({ type: 'serviceBox' }))).toEqual([
       'Servis Kutusu',
     ])
+  })
+})
+
+describe('getIsometricLineLabelAnchor', () => {
+  it('tek segmentte segmentin ortasını verir', () => {
+    expect(getIsometricLineLabelAnchor([[0, 0, 0], [400, 200, 0]])).toEqual([200, 100, 0])
+  })
+
+  it('çok köşeli hatta ORTA segmentin ortasına oturur (uca kaçmaz)', () => {
+    // L biçimli boru: ilk segmentin ortası seçilseydi etiket hattın ucunda kalırdı.
+    const anchor = getIsometricLineLabelAnchor([
+      [0, 0, 0],
+      [400, 0, 0],
+      [400, 0, -300],
+      [800, 0, -300],
+    ])
+    expect(anchor).toEqual([400, 0, -150])
+  })
+
+  it('iki noktadan az olan hatta çapa YOKTUR', () => {
+    expect(getIsometricLineLabelAnchor([])).toBeNull()
+    expect(getIsometricLineLabelAnchor([[0, 0, 0]])).toBeNull()
   })
 })

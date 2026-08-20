@@ -46,13 +46,18 @@ export function SceneRoot() {
           yörünge) ve o da aynı sebeple bu sınırın dışında, `IsometricLayer`'ın
           içinde duruyor. İki kamera asla birlikte mount edilmez — ikisi de
           `makeDefault` yazar, hangisinin kazandığı mount sırasına kalırdı. */}
+      {/* Zoom izleyicisi HER görünümde: ekran boyu sabit kalan her şey (ölçü
+          yazısı, izometrik etiketler) `useCameraZoom`'u okuyor ve o değer bu
+          tek yoklayıcıdan geliyor. Yalnız plan dalında kalsaydı izometrik
+          etiketler bayat zoom'la ölçeklenirdi. Kamera türü kontrolü
+          izleyicinin kendi içinde. */}
+      <CameraZoomTracker />
       {isIsometric ? (
         <IsometricLayer />
       ) : (
         <>
           <Cameras />
           <ViewportControls />
-          <CameraZoomTracker />
           {isGridVisible && <Grid />}
         </>
       )}

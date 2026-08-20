@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { Suspense, useMemo } from 'react'
 
 import { IsometricCamera } from './IsometricCamera'
 import { IsometricElement } from './IsometricElement'
 import { IsometricFloorLink } from './IsometricFloorLink'
+import { IsometricLabels } from './IsometricLabels'
 import { IsometricPipe } from './IsometricPipe'
 import {
   ISOMETRIC_AMBIENT_INTENSITY,
@@ -13,6 +14,7 @@ import type { Id } from '../../core/model'
 import { getTargetElementId } from '../../plumbing/core/installationModel'
 import type { InstallationConnection } from '../../plumbing/core/installationModel'
 import { useCadStore } from '../../store/cadStore'
+import type { IsometricElevationContext } from '../core/isometricElevation'
 import { buildIsometricScene } from '../core/isometricScene'
 import { useIsometricUiStore } from '../store/isometricUiStore'
 
@@ -53,6 +55,7 @@ export function IsometricLayer() {
   const angles = useCadStore((state) => state.isometricAngles)
 
   const explodedGapCm = useIsometricUiStore((state) => state.explodedGapCm)
+  const isLabelsVisible = useIsometricUiStore((state) => state.isLabelsVisible)
   const isCameraLocked = useIsometricUiStore((state) => state.isCameraLocked)
   const highlightedLineId = useIsometricUiStore((state) => state.highlightedLineId)
   const setHighlightedLineId = useIsometricUiStore((state) => state.setHighlightedLineId)
@@ -81,6 +84,13 @@ export function IsometricLayer() {
       installationElements,
       installationLines,
     ],
+  )
+
+  // Kot çözümü etiketlerde de gerekiyor (3B boy); sahne ile AYNI bağlam
+  // kullanılıyor ki yazan boy ile çizilen gövde ayrışmasın.
+  const elevationContext = useMemo<IsometricElevationContext>(
+    () => ({ lines: installationLines, connections: installationConnections }),
+    [installationConnections, installationLines],
   )
 
   const connectedElementIds = useMemo(
@@ -142,6 +152,25 @@ export function IsometricLayer() {
           )
         })}
       </group>
+
+      {/* KENDİ Suspense'i: drei <Text> troika'nın font indirmesiyle askıya
+          alınır. Sarılmasaydı askıya alma yukarıdaki kamerayı da söker,
+          `makeDefault` geri alınır ve çerçeveleme sıfırlanırdı. */}
+      {isLabelsVisible && (
+        <Suspense fallback={null}>
+          <IsometricLabels
+            scene={scene}
+            lines={installationLines}
+            elements={installationElements}
+            context={elevationContext}
+            angles={angles}
+            highlightedLineId={highlightedLineId}
+            // Serbest yörüngede etiket sürüklemek kamerayı döndürmekle
+            // çakışıyor; taşıma yalnız kilitli (teknik çizim) kipte açık.
+            isDraggable={isCameraLocked}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

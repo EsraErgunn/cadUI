@@ -158,6 +158,14 @@ export type PlumbingSlice = {
   /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
   setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
   /**
+   * Etiketin İZOMETRİKTEKİ kayması. `setElementLabelOffset`'ten AYRI action:
+   * iki görünümün etiket yerleşimi bağımsız (bkz. installationModel.ts) —
+   * izometride kalabalığı açmak plandaki yerleşimi bozmamalı.
+   */
+  setElementIsometricLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
+  /** Hat etiketinin izometrikteki kayması; planda hat etiketi taşınmıyor. */
+  setLineIsometricLabelOffset: (lineId: Id, offsetCm: PlanPoint) => void
+  /**
    * Seçili elemanların alanlarını kısmi yazar — özellik paneli formlarının
    * GENEL kapısı (K-tesisat-panel). Her eleman türü kendi opsiyonel alt-alanını
    * (`regulator`, `gasMeter`, ...) bununla yazar; tür başına ayrı bir action
@@ -1002,6 +1010,50 @@ export const createPlumbingSlice: StateCreator<
         }
 
         element.labelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setElementIsometricLabelOffset: (elementId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const element = draft.installationElements.find(
+          (candidate) => candidate.id === elementId,
+        )
+        if (!element) return
+        if (
+          element.isometricLabelOffsetCm?.x === offsetCm.x &&
+          element.isometricLabelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        element.isometricLabelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setLineIsometricLabelOffset: (lineId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+        if (
+          line.isometricLabelOffsetCm?.x === offsetCm.x &&
+          line.isometricLabelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        line.isometricLabelOffsetCm = offsetCm
         isChanged = true
         markDirty(draft)
       })

@@ -1,5 +1,8 @@
 import { getIsometricLine3dLengthCm } from './isometricElevation'
 import type { IsometricElevationContext } from './isometricElevation'
+import { projectIsometric } from './isometricProjection'
+import type { IsometricAngles } from './isometricProjection'
+import type { PlanPoint, ThreePosition } from '../../core/coords'
 import { formatLengthMeters } from '../../core/lengthFormat'
 import { INSTALLATION_ELEMENT_TYPE_LABELS } from '../../plumbing/core/elementLabels'
 import {
@@ -136,4 +139,69 @@ export function getIsometricElementLabelLines(element: InstallationElement): str
   if (applianceSource) return getApplianceLabelLines(element, applianceSource)
 
   return [INSTALLATION_ELEMENT_TYPE_LABELS[element.type]]
+}
+
+/**
+ * Varsayılan etiket uzaklığının çizim boyutuna oranı ve alt sınırı. SABİT bir
+ * cm değeri OLAMAZ: 10 metrelik bir dairede 45 cm etiketi borunun üstüne
+ * bindiriyor, 40 metrelik bir binada ise hiç fark edilmiyordu.
+ */
+const LABEL_DISTANCE_RATIO = 0.50
+const LABEL_MIN_DISTANCE_CM = 240
+
+/**
+ * Hat etiketi elemanınkinden DAHA YAKIN durur: bir cihaz ile ona giden kısa kol
+ * neredeyse aynı ışınsal yönde olduğu için ikisi eşit uzaklıkta olsaydı
+ * künyeler üst üste binerdi.
+ */
+export const LINE_LABEL_DISTANCE_FACTOR = 0.85
+export const ELEMENT_LABEL_DISTANCE_FACTOR = 2
+
+/** Merkezle çakışan çapada yön tanımsız; yukarı kaçmak en az zararlısı. */
+const FALLBACK_DIRECTION: PlanPoint = { x: 0, y: 1 }
+
+/**
+ * Etiketin varsayılan kayması (izdüşüm düzleminde, cm): çapadan çizimin
+ * MERKEZİNDEN DIŞARI doğru. Sabit bir yön kullanılsaydı bütün etiketler aynı
+ * tarafa kaçar, birbirinin ve gövdenin üstüne binerdi; ışınsal yerleşimde her
+ * etiket çizimin dışına açılır ve kılavuz çizgisi izlenebilir kalır.
+ *
+ * Kullanıcı etiketi elle taşırsa (`isometricLabelOffsetCm`) bu hiç çağrılmaz.
+ */
+export function getIsometricLabelOffsetCm(
+  anchor: ThreePosition,
+  center: ThreePosition,
+  angles: IsometricAngles,
+  sceneExtentCm: number,
+  distanceFactor: number,
+): PlanPoint {
+  const anchorScreen = projectIsometric(anchor, angles)
+  const centerScreen = projectIsometric(center, angles)
+
+  const dx = anchorScreen.x - centerScreen.x
+  const dy = anchorScreen.y - centerScreen.y
+  const magnitude = Math.hypot(dx, dy)
+  const direction =
+    magnitude === 0 ? FALLBACK_DIRECTION : { x: dx / magnitude, y: dy / magnitude }
+
+  const distanceCm =
+    Math.max(LABEL_MIN_DISTANCE_CM, sceneExtentCm * LABEL_DISTANCE_RATIO) * distanceFactor
+
+  return { x: direction.x * distanceCm, y: direction.y * distanceCm }
+}
+
+/**
+ * Hat etiketinin çapası: ORTA segmentin ortası. İlk segment (WebCAD'in seçimi)
+ * L biçimli borularda etiketi hattın ucuna atıyordu; iki uç noktanın ortası ise
+ * borunun dışına düşebiliyor. Orta segment her zaman gövdenin üstünde.
+ */
+export function getIsometricLineLabelAnchor(
+  positions: readonly ThreePosition[],
+): ThreePosition | null {
+  if (positions.length < 2) return null
+
+  const segmentIndex = Math.floor((positions.length - 1) / 2)
+  const from = positions[segmentIndex]
+  const to = positions[segmentIndex + 1]
+  return [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2]
 }
