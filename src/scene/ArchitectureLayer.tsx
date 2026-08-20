@@ -27,7 +27,6 @@ import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRightClickReturnsToSelection } from './useRightClickReturnsToSelection'
-import { useRoomNameTool } from './useRoomNameTool'
 import { useSelectionTool } from './useSelectionTool'
 import { useTextSelectionTool } from './useTextSelectionTool'
 import { useTextTool } from './useTextTool'
@@ -326,7 +325,6 @@ function Texts() {
 /** Mimari sahnenin kökü; SceneRoot yalnız mimari görünümde mount eder. */
 export function ArchitectureLayer() {
   // Oda adı düzenleme jesti; hook <Canvas> içinde çalışmak zorunda (kamera okuyor).
-  useRoomNameTool()
 
   return (
     <group name="architecture-root">

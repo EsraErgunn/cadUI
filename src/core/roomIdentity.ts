@@ -11,7 +11,7 @@ export function getWallSetKey(wallIds: readonly Id[]): string {
 }
 
 export type RoomReconciliation = {
-  /** Yeni oda listesi — hayatta kalanlar adıyla, yeni yüzler varsayılan adla. */
+  /** Yeni oda listesi — hayatta kalanlar kullanım tipiyle, yeni yüzler tipsiz. */
   rooms: Room[]
   /** Kimliği korunamayan, yani silinen odalar. Çağıran gerekirse haber verir. */
   removedRoomIds: Id[]
@@ -30,6 +30,9 @@ export type RoomReconciliation = {
  * Yaklaşık eşleşme (yüzde şu kadarı ortak) hâlâ YOK: uydurma bir eşik, sınır
  * durumlarda öngörülemez davranır. Kapsama ve teklik koşullarının ikisi de kesin.
  *
+ * Hayatta kalan odanın KULLANIM TİPİ korunur; yeni doğan yüz tipsiz gelir ve
+ * etiketinde "Tanımsız" yazar (K117 — serbest metin ad yok).
+ *
  * Duvar ikiye bölününce oda hayatta kalır çünkü bölme anında `Room.wallIds`
  * güncelleniyor (store/architectureSplit.ts) — burada küme zaten eşleşmiş olur.
  * Odanın içinden duvar geçince eski çevrim yüz olmaktan çıkar, iki yeni yüz
@@ -39,7 +42,6 @@ export type RoomReconciliation = {
 export function reconcileRooms(
   faces: readonly RoomFace[],
   existingRooms: readonly Room[],
-  defaultName: string,
   takeId: () => Id,
 ): RoomReconciliation {
   const byWallSet = new Map<string, Room>()
@@ -101,19 +103,14 @@ export function reconcileRooms(
   faces.forEach((face, index) => {
     const existing = matchedByFace.get(index)
     if (existing) {
-      // Ad ve KULLANIM TİPİ korunur; wallIds yüzden tazelenir ki sıra ve olası
-      // tekrar temizlensin. Alanlar tek tek yazılıyor (`...existing` değil):
-      // yüzden gelen `wallIds` sessizce eskisiyle ezilmesin.
-      rooms.push({
-        id: existing.id,
-        wallIds: [...face.wallIds],
-        name: existing.name,
-        usageType: existing.usageType,
-      })
+      // KULLANIM TİPİ korunur; wallIds yüzden tazelenir ki sıra ve olası tekrar
+      // temizlensin. Alanlar tek tek yazılıyor (`...existing` değil): yüzden
+      // gelen `wallIds` sessizce eskisiyle ezilmesin.
+      rooms.push({ id: existing.id, wallIds: [...face.wallIds], usageType: existing.usageType })
       return
     }
 
-    rooms.push({ id: takeId(), wallIds: [...face.wallIds], name: defaultName })
+    rooms.push({ id: takeId(), wallIds: [...face.wallIds] })
     createdCount += 1
   })
 

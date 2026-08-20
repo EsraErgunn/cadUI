@@ -13,6 +13,7 @@ export type PropertySelectionKind =
   | 'area'
   | 'beam'
   | 'text'
+  | 'room'
   | 'mixed'
 
 export function getPropertySelectionKind(
@@ -55,6 +56,7 @@ export function getPropertyPanelTitle(
   if (kind === 'area') return count > 1 ? `${count} Alan Nesnesi` : areaObjectTypeLabel
   if (kind === 'beam') return count > 1 ? `${count} Kiriş` : 'Kiriş Özellikleri'
   if (kind === 'text') return count > 1 ? `${count} Metin` : 'Metin Özellikleri'
+  if (kind === 'room') return count > 1 ? `${count} Mahal` : 'Mahal Özellikleri'
   if (kind === 'mixed') return `${count} Nesne`
   return ''
 }

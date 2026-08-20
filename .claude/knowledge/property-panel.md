@@ -103,3 +103,21 @@ sözleşmesi işine bağlı (bkz. [webcad-json-format](./webcad-json-format.md))
 **Dosya:** core/propertyFields.ts · ui/PropertyPanel.tsx · pages/EditorPage.tsx ·
 ui/properties/PropertyNumberField.tsx · ui/properties/WallProperties.tsx ·
 ui/properties/OpeningProperties.tsx · store/architecturePropertyOps.ts
+
+## Seçim alanı native `<select>` DEĞİL (K118)
+
+`PropertySelectField` özel bir listbox: native select'te açılır listenin YÖNÜNÜ
+tarayıcı seçiyor ve uzun listelerde (mahal kullanım tipi, 15 seçenek) yukarı
+açılıp garip görünüyordu. CSS'le kontrol edilebilen bir şey değil.
+
+- Liste **HER ZAMAN aşağı** açılır; yer yetmezse kısalır ve içi kayar. "Yer
+  yoksa yukarı aç" bilerek YOK — şikâyetin kendisi öngörülemez yöndü.
+- **Portal ile `body`'ye** çiziliyor: panelin içerik alanı `overflow-y-auto`,
+  mutlak konumlanan kutu orada kırpılırdı. `position: fixed`, kaydırma/boyut
+  değişiminde KAPANIR.
+- ⚠️ Konum **emir kipiyle** yazılıyor (`useLayoutEffect` + `.style.top`), JSX
+  inline stiliyle değil — çalışma zamanı pikseli Tailwind'le ifade edilemez ve
+  inline stil yasak (sahnedeki `domElement.style.cursor` ile aynı kaçış).
+- ⚠️ Seçenek **`pointerdown`** ile commit ediliyor: dışarı-tık dinleyicisi de
+  pointerdown'da ve click'ten önce çalışıp listeyi kapatıyordu.
+- Testlerde `user.selectOptions` ÇALIŞMAZ; `click` + `getByRole('option')`.

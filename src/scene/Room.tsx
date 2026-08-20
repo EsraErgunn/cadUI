@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 
-import { RoomDefinitionEditor } from './RoomDefinitionEditor'
 import { RoomLabel } from './RoomLabel'
 import { RENDER_ORDER, ROOM_ELEVATION_CM } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
@@ -11,7 +10,8 @@ import { findRoomFaces, type RoomFace } from '../core/room'
 import { insetRoomPolygon, triangulatePolygon } from '../core/roomFill'
 import { getWallSetKey } from '../core/roomIdentity'
 import { getRoomLabelAnchor, toSquareMetres } from '../core/roomLabel'
-import { getRoomDisplayName, type RoomUsageType } from '../core/roomUsage'
+import { getRoomDisplayName } from '../core/roomUsage'
+import { getSelectedIds } from '../core/selection'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
@@ -49,25 +49,14 @@ function useStableFillPositions(fillCorners: PlanPoint[] | undefined): Float32Ar
 type RoomShapeProps = {
   roomId: Id
   face: RoomFace
-  /** Kullanıcının verdiği HAM ad; düzenleme kutusu bunu gösterir. */
-  name: string
-  usageType: RoomUsageType | undefined
-  /** Etikette YAZAN metin: ad → kullanım tipi → "Tanımsız" (core/roomUsage.ts). */
+  /** Etikette YAZAN metin: kullanım tipinin adı ya da "Tanımsız". */
   displayName: string
+  isSelected: boolean
   /** Duvarların iç yüzüne çekilmiş dolgu poligonu; oda duvarından inceyse yok. */
   fillCorners: PlanPoint[] | undefined
-  isEditingName: boolean
 }
 
-function RoomShape({
-  roomId,
-  face,
-  name,
-  usageType,
-  displayName,
-  fillCorners,
-  isEditingName,
-}: RoomShapeProps) {
+function RoomShape({ face, displayName, isSelected, fillCorners }: RoomShapeProps) {
   const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   // Etiket çapası odanın DOLGUSUNA değil, gerçek çevrimine göre bulunur; dolgu
   // duvar kalınlığı kadar küçültülmüş bir çizim ayrıntısı, odanın kendisi değil.
@@ -84,29 +73,23 @@ function RoomShape({
           </bufferGeometry>
           {/* Saydam: ızgara odanın altından okunmaya devam etsin. depthWrite zaten
               kapalı, sıralamayı renderOrder belirliyor. */}
+          {/* Seçiliyken dolgu seçim rengine döner: mahalin gövdesi yok, o yüzden
+              geri bildirimi verecek tek yüzey bu. */}
           <meshBasicMaterial
-            color={SCENE_COLORS.roomFill}
+            color={isSelected ? SCENE_COLORS.selection : SCENE_COLORS.roomFill}
             transparent
-            opacity={SCENE_COLORS.roomFillOpacity}
+            opacity={
+              isSelected ? SCENE_COLORS.roomFillOpacity * 2 : SCENE_COLORS.roomFillOpacity
+            }
             depthWrite={false}
             toneMapped={false}
           />
         </mesh>
       )}
 
-      {/* Düzenlerken etiket gizlenir: kutu zaten aynı yerde ve adı gösteriyor.
-          Düzenleme kutusu görünürlük anahtarına BAKMAZ (K56): kullanıcı çift
-          tıklayıp adı yazmaya başlamışsa yazdığı şeyi görmeli. */}
-      {isEditingName ? (
-        <RoomDefinitionEditor
-          roomId={roomId}
-          anchor={anchor}
-          currentName={name}
-          currentUsageType={usageType}
-        />
-      ) : (
-        isRoomNamesVisible && <RoomLabel anchor={anchor} name={displayName} areaM2={areaM2} />
-      )}
+      {/* Mahal tanımı artık sahnede değil özellik panelinde (K117): sahne içi
+          düzenleme kutusu kaldırıldı, burada yalnız etiket kaldı. */}
+      {isRoomNamesVisible && <RoomLabel anchor={anchor} name={displayName} areaM2={areaM2} />}
     </group>
   )
 }
@@ -125,7 +108,7 @@ export function Rooms() {
   // Duvar BAĞLANTISI da önizlemeden gelir: sürüklerken kopan komşu köşenin
   // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
   const { points, walls } = useArchitectureDraft()
-  const editingRoomId = useArchitectureUiStore((state) => state.editingRoomId)
+  const selection = useArchitectureUiStore((state) => state.selection)
 
   const shapes = useMemo(() => {
     const faces = findRoomFaces(walls, points, activeFloorId)
@@ -147,14 +130,14 @@ export function Rooms() {
         {
           id: room.id,
           face,
-          name: room.name,
-          usageType: room.usageType,
-          displayName: getRoomDisplayName(room.name, room.usageType),
+          displayName: getRoomDisplayName(room.usageType),
           fillCorners: insetRoomPolygon(face.corners, thicknessesCm),
         },
       ]
     })
   }, [rooms, walls, points, activeFloorId])
+
+  const selectedRoomIds = getSelectedIds(selection, 'room')
 
   return (
     <group name="rooms">
@@ -163,11 +146,9 @@ export function Rooms() {
           key={shape.id}
           roomId={shape.id}
           face={shape.face}
-          name={shape.name}
-          usageType={shape.usageType}
           displayName={shape.displayName}
           fillCorners={shape.fillCorners}
-          isEditingName={shape.id === editingRoomId}
+          isSelected={selectedRoomIds.includes(shape.id)}
         />
       ))}
     </group>

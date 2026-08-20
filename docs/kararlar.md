@@ -5828,3 +5828,105 @@ seçilir seçilmez yazılır: açılır listede tek bir seçim zaten bitmiş bir
 ⚠️ Dışarı tıklama kapsamı METİN ALANINDAN KUTUNUN TAMAMINA genişletildi —
 yakalama fazındaki `pointerdown` yalnız input'u sayıyordu ve açılır listeye
 tıklamak kutuyu kapatırdı.
+
+### K117 — Mahal SEÇİLİR ve panelden tanımlanır; serbest metin ad KALKTI
+
+K116 "ad ve tip birlikte dursun" demişti. Kullanıcı ekranda görünce kararı
+değiştirdi: **kullanıcı kendi metnini yazmayacak, hazır etiketlerden seçecek**
+ve tanımlama sahnedeki kutuda değil **sağdaki özellik panelinde** yapılacak.
+
+**`Room.name` MODELDEN KALKTI.** Yazılabilir tek yol kaldırılınca alanın kaynağı
+kalmıyordu; yazılamayan bir alan zamanla çürür. Etiketin tek kaynağı artık
+`usageType`: `getRoomDisplayName(usageType)` → tipin adı, yoksa "Tanımsız".
+`docs/sample-project.json`'da hiç oda yok, yani bit-bit turu etkilenmedi; eski
+kayıtlarda kalan `name` anahtarını zod sessizce düşürür, dosyalar açılmaya
+devam eder.
+
+**Mahal artık SEÇİLEBİLİR bir tür** (`SelectableKind` → `'room'`), ama seçim
+`resolveArchitectureTarget` zincirine GİRMEDİ. İki gerekçe:
+
+1. Zincir her hover'da çalışıyor; mahal orada olsaydı **her fare hareketinde yüz
+   taraması** yapılırdı (`findRoomFaces` grafi geziyor).
+2. Mahal ekranın büyük bir bölümünü kaplıyor. Zincire girseydi mahalin içinden
+   **çerçeve seçimi başlatmak imkânsız** olurdu — basış hep mahalin olurdu.
+
+Bunun yerine seçim, `useSelectionTool`'un zaten var olan **"boşluğa tıklama"**
+dalına takıldı: sürükleme eşiğin altında kaldıysa ve nokta bir yüzün içindeyse
+seçim temizlenmez, o mahal seçilir. Yüz taraması yalnız tıklama anında yapılır,
+jest sahipliği hiç değişmez.
+
+⚠️ **`pruneSelection`'ın son satırı bir tuzaktı.** `return symbols.some(...)`
+"geri kalan her şey sembol" anlamına geliyordu; `room` oraya düşüp sembol
+id'leriyle karşılaştırılınca seçim **anında ve sessizce** siliniyordu. Her tür
+artık AÇIKÇA soruluyor.
+
+**Mahal silinemez ve dönüştürülemez.** Duvarların çevrelediği alanın türevi,
+kendi başına bir nesne değil — silmek isteyen duvarı siler. Panel bu yüzden
+mahalde hem "Sil" düğmesini hem grup dönüşümlerini gizliyor
+(`PropertyPanelShell.isDeletable`). `deleteSelectionFromDraft` zaten mahal
+tanımıyor ve yalnız mahal seçiliyken `false` dönüyor, yani kısayol da güvenli.
+
+**Sahne içi düzenleme kutusu SİLİNDİ** (`RoomDefinitionEditor`,
+`useRoomNameTool`, `architectureUiStore.editingRoomId`, `findRoomLabelAt`
+korumaları). Tanımın tek yeri panel; iki giriş noktası bırakmak, hangisinin
+doğru olduğunu sormaya davet ederdi. `core/roomLabel.ts`'teki
+`isPointInRoomLabel`/`getRoomLabelBounds` da sahipsiz kaldı ama SİLİNMEDİ —
+etiket vuruş testi ileride geri gerekebilir, bugün çağıranı yok.
+
+Seçili mahal dolgusunu **seçim rengine** çevirir: mahalin gövdesi yok, geri
+bildirimi verecek tek yüzey dolgu.
+
+Panelde alan (m²) SALT OKUNUR gösteriliyor — geometri duvarların türevi, bir
+sayı yazarak değiştirilemez; ama tipi seçerken bakılan ilk şey mahalin
+büyüklüğü.
+
+⚠️ "Tip seçilmedi" için ayrı sentinel (`'none'`) gerekti: `PropertySelectField`
+boş string'i ÇOKLU SEÇİMDE AYRIŞAN değer olarak kullanıyor. İkisi aynı değeri
+verseydi "hepsi tipsiz" ile "hepsi farklı tipte" ekranda aynı görünürdü.
+
+Liste hâlâ TASLAK ve Hata3 hâlâ AÇILMADI — uygunluk tablosu gelmedi.
+
+### K118 — Özellik panelinin seçim alanı native `<select>` DEĞİL; liste HER ZAMAN aşağı açılır
+
+Mahal kullanım tipi listesi (15 seçenek) bazen yukarı doğru açılıyordu ve
+kullanıcı bunu "garip bir görüntü" olarak bildirdi. Native `<select>`'te açılır
+listenin yönü **tarayıcının kararı**: Chrome seçili maddeyi denetimin yakınında
+tutmaya çalışır ve liste uzunsa yukarı taşar. CSS, öznitelik ya da başka bir
+işaretleme bunu değiştirmez — bu yüzden alan özel bir listbox'a dönüştü.
+
+**Değişen yer paylaşılan bileşen** (`PropertySelectField`), mahale özel bir
+kopya DEĞİL. Sekiz tüketicisi var ve aynı sorun boru çapı listesinde (9
+seçenek) de vardı; ikinci bir uygulama, aynı şeyin iki yerde ayrışması demekti.
+Prop imzası korundu, hiçbir çağıran değişmedi.
+
+**Liste PORTAL ile `body`'ye çiziliyor.** Panelin içerik alanı
+`overflow-y-auto` (`PropertyPanelShell`) ve mutlak konumlanan bir kutu orada
+KIRPILIRDI. Konum tetikleyicinin ekran dikdörtgeninden geldiği için
+`position: fixed`; panel ya da pencere kaydırılınca liste KAPANIR — bayat bir
+konumda asılı kalan kutu, kapanmasından daha kötü.
+
+**Yön hiçbir koşulda ters çevrilmiyor.** Aşağıda yer yetmezse liste kısalır ve
+içi kayar (`MIN_LIST_HEIGHT_PX` 96, tavan 280). "Yer yoksa yukarı aç" davranışı
+bilerek YOK: kullanıcının şikâyeti tam olarak öngörülemez yöndü.
+
+⚠️ **Konum EMİR KİPİYLE yazılıyor** (`useLayoutEffect` + `list.style.top = …`),
+JSX inline stiliyle değil: değerler `getBoundingClientRect`'ten gelen çalışma
+zamanı pikselleri, Tailwind sınıfıyla ifade edilemez ve inline stil repo
+kuralınca yasak. Sahnedeki imleç atamalarıyla (`domElement.style.cursor`) aynı
+kaçış. `useLayoutEffect` şart — boyamadan önce yazılmazsa liste bir kare yanlış
+yerde görünür.
+
+⚠️ **Seçenek `pointerdown` ile commit ediliyor, `click` ile değil.** Dışarı-tık
+dinleyicisi de `pointerdown` üzerinde ve click'ten önce çalışıp listeyi
+kapatıyordu; seçim hiç gerçekleşmiyordu.
+
+Erişilebilirlik: tetikleyici `role="combobox"` + `aria-expanded`/`aria-controls`
+/`aria-activedescendant`, liste `role="listbox"`, maddeler `role="option"` +
+`aria-selected`. Odak tetikleyicide KALIR (roving focus yerine
+`aria-activedescendant`) — Esc/seçim sonrası odağı geri taşımak gerekmiyor.
+Klavye: ↓/Enter/Space açar, ↑↓/Home/End gezer, Enter seçer, Esc commit ETMEDEN
+kapatır.
+
+Testler `user.selectOptions` kullanamaz oldu (o yalnız native `<select>`te
+çalışır); etkilenen tek dosya `RoomProperties.test.tsx` idi ve bileşenin kendi
+testi eklendi (`PropertySelectField.test.tsx`).

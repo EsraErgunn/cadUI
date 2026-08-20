@@ -34,24 +34,28 @@ describe('kullanım tipi listesi', () => {
 })
 
 describe('getRoomDisplayName', () => {
-  it('ad varsa adı yazar — tip dolu olsa bile', () => {
-    expect(getRoomDisplayName('1 nolu daire mutfağı', 'kitchen')).toBe('1 nolu daire mutfağı')
+  it('kullanım tipinin Türkçe adını yazar', () => {
+    expect(getRoomDisplayName('boilerRoom')).toBe('Kazan Dairesi')
+    expect(getRoomDisplayName('kitchen')).toBe('Mutfak')
   })
 
-  it('ad yoksa kullanım tipinin adına düşer', () => {
-    expect(getRoomDisplayName('', 'boilerRoom')).toBe('Kazan Dairesi')
+  it('tip seçilmemişse Tanımsız', () => {
+    expect(getRoomDisplayName(undefined)).toBe(UNDEFINED_ROOM_LABEL)
   })
 
-  it('ikisi de yoksa Tanımsız', () => {
-    expect(getRoomDisplayName('', undefined)).toBe(UNDEFINED_ROOM_LABEL)
+  it('her tip için bir etiket üretir — hiçbiri Tanımsız\'a düşmez', () => {
+    for (const type of ROOM_USAGE_TYPES) {
+      expect(getRoomDisplayName(type)).not.toBe(UNDEFINED_ROOM_LABEL)
+    }
+  })
+})
+
+describe('kullanım tipi seçenekleri panelde', () => {
+  it('"Tanımsız" listede DEĞİL — o bir tip değil, tipin yokluğu', () => {
+    expect(getRoomUsageOptions().map((option) => option.label)).not.toContain(UNDEFINED_ROOM_LABEL)
   })
 
-  it('yalnız boşluktan oluşan ad, ad sayılmaz', () => {
-    expect(getRoomDisplayName('   ', 'kitchen')).toBe('Mutfak')
-    expect(getRoomDisplayName('   ', undefined)).toBe(UNDEFINED_ROOM_LABEL)
-  })
-
-  it('adın baştaki/sondaki boşluğunu kırpar', () => {
-    expect(getRoomDisplayName('  Salon  ', undefined)).toBe('Salon')
+  it('seçenek sayısı tip sayısıyla birebir', () => {
+    expect(getRoomUsageOptions()).toHaveLength(ROOM_USAGE_TYPES.length)
   })
 })

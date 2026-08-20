@@ -5,6 +5,7 @@ import { BeamProperties } from './properties/BeamProperties'
 import { OpeningProperties } from './properties/OpeningProperties'
 import { PointSymbolProperties } from './properties/PointSymbolProperties'
 import { PropertyPanelShell } from './properties/PropertyPanelShell'
+import { RoomProperties } from './properties/RoomProperties'
 import { SelectionActions } from './properties/SelectionActions'
 import { WallProperties } from './properties/WallProperties'
 import { AREA_OBJECT_TYPE_LABELS } from '../core/areaObject'
@@ -63,6 +64,7 @@ export function PropertyPanel() {
   const symbolIds = getSelectedIds(selection, 'symbol')
   const areaObjectIds = getSelectedIds(selection, 'area')
   const beamIds = getSelectedIds(selection, 'beam')
+  const roomIds = getSelectedIds(selection, 'room')
 
   // Başlıktaki "Kapı/Pencere" ayrımı tek açıklık seçiliyken anlamlı.
   const soleOpening = useCadStore((state) =>
@@ -82,6 +84,13 @@ export function PropertyPanel() {
   )
 
   const isOpen = kind !== 'none'
+  /**
+   * Mahal SİLİNEMEZ ve dönüştürülemez: duvarların çevrelediği alanın türevi,
+   * kendi başına bir nesne değil. Silmek isteyen duvarı siler. Bu yüzden panel
+   * mahalde hem "Sil" düğmesini hem grup dönüşümlerini gizliyor — çalışmayan
+   * düğme göstermek, çalışan bir düğmeyi gizlemekten kötü.
+   */
+  const isRoom = kind === 'room'
 
   const handleDelete = () => {
     deleteSelection(selection)
@@ -93,7 +102,8 @@ export function PropertyPanel() {
       label="Nesne özellikleri"
       isOpen={isOpen}
       onDelete={handleDelete}
-      actions={<SelectionActions />}
+      isDeletable={!isRoom}
+      actions={isRoom ? undefined : <SelectionActions />}
       title={getPropertyPanelTitle(
         kind,
         selection.length,
@@ -107,6 +117,7 @@ export function PropertyPanel() {
       {kind === 'symbol' && <PointSymbolProperties symbolIds={symbolIds} />}
       {kind === 'area' && <AreaObjectProperties areaObjectIds={areaObjectIds} />}
       {kind === 'beam' && <BeamProperties beamIds={beamIds} />}
+      {kind === 'room' && <RoomProperties roomIds={roomIds} />}
       {/* Karışık seçimde ortak alan yok: duvarın kalınlığıyla açıklığın
           genişliği aynı şey değil. Silme yine de çalışır. */}
       {kind === 'mixed' && (

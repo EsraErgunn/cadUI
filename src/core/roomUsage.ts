@@ -70,18 +70,13 @@ export function getRoomUsageOptions(): { value: RoomUsageType; label: string }[]
 }
 
 /**
- * Mahalin ekranda görünen adı. Sıra: kullanıcının verdiği AD → kullanım
- * tipinin adı → "Tanımsız".
+ * Mahalin ekranda görünen adı: kullanım tipinin adı, tip seçilmemişse
+ * "Tanımsız".
  *
- * Ad önce geliyor çünkü kullanıcı onu bilerek yazdı; tip bir sınıflandırma,
- * plandaki okunur ad değil. Aynı tipte iki mutfak varsa ayırt eden şey addır.
- *
- * `Room` tipini almıyor, alanlarını AYRI AYRI alıyor: `model.ts` bu dosyayı
- * import ediyor, tersi döngü olurdu.
+ * Serbest metin ad KALDIRILDI (K117): kullanıcı kendi metnini yazmıyor, hazır
+ * etiketlerden seçiyor. Tek kaynak `usageType` olunca etiketin türetimi de tek
+ * satıra indi.
  */
-export function getRoomDisplayName(name: string, usageType?: RoomUsageType): string {
-  const trimmed = name.trim()
-  if (trimmed !== '') return trimmed
-  if (usageType) return ROOM_USAGE_LABELS[usageType]
-  return UNDEFINED_ROOM_LABEL
+export function getRoomDisplayName(usageType: RoomUsageType | undefined): string {
+  return usageType ? ROOM_USAGE_LABELS[usageType] : UNDEFINED_ROOM_LABEL
 }

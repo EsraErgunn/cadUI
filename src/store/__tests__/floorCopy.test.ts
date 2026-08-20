@@ -27,7 +27,7 @@ function resetState(): void {
       { id: 9, floorId: DEFAULT_FLOOR_ID, p1Id: 5, p2Id: 2, thickness: 30, height: 280 },
     ],
     openings: [{ id: 10, wallId: 6, offsetCm: 250, widthCm: 90, type: 'door' }],
-    rooms: [{ id: 11, wallIds: [6, 7, 8, 9], name: 'Salon' }],
+    rooms: [{ id: 11, wallIds: [6, 7, 8, 9] }],
     symbols: [
       {
         id: 12,
@@ -121,7 +121,10 @@ describe('copyFloorToTargets', () => {
     expect(target.openings[0].wallId).not.toBe(6)
   })
 
-  it('kopyanın odası KOPYA duvarları gösterir', () => {
+  it('kopyanın odası KOPYA duvarları gösterir ve kullanım tipini taşır', () => {
+    const sourceRoomId = onFloor(DEFAULT_FLOOR_ID).rooms[0].id
+    useCadStore.getState().setRoomUsageType(sourceRoomId, 'livingRoom')
+
     useCadStore.getState().copyFloorToTargets({
       sourceFloorId: DEFAULT_FLOOR_ID,
       targetFloorIds: [UPPER_FLOOR_ID],
@@ -131,7 +134,7 @@ describe('copyFloorToTargets', () => {
 
     const target = onFloor(UPPER_FLOOR_ID)
     expect(target.rooms[0].wallIds.every((id) => target.walls.includes(id))).toBe(true)
-    expect(target.rooms[0].name).toBe('Salon')
+    expect(target.rooms[0].usageType).toBe('livingRoom')
   })
 
   it('yalnız mimari seçilirse tesisat kopyalanmaz', () => {

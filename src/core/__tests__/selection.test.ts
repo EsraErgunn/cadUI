@@ -86,13 +86,28 @@ describe('pruneSelection', () => {
   it('silinmiş nesneyi seçimden düşürür', () => {
     const selection: Selection = [wallItem, { kind: 'wall', id: 999 }]
 
-    expect(pruneSelection(selection, walls, openings, [], [], [], [])).toEqual([wallItem])
+    expect(pruneSelection(selection, walls, openings, [], [], [], [], [])).toEqual([wallItem])
   })
 
   it('değişiklik yoksa AYNI diziyi döndürür — gereksiz render olmasın', () => {
     const selection: Selection = [wallItem]
 
-    expect(pruneSelection(selection, walls, openings, [], [], [], [])).toBe(selection)
+    expect(pruneSelection(selection, walls, openings, [], [], [], [], [])).toBe(selection)
+  })
+
+  it('mahal seçimi SEMBOL listesine bakılarak düşürülmez', () => {
+    // Son dal eskiden "geri kalan her şey = sembol" idi; yeni bir tür oraya
+    // düşünce seçimden sessizce siliniyordu.
+    const selection: Selection = [{ kind: 'room', id: 7 }]
+    const rooms = [{ id: 7, wallIds: [1, 2, 3] }]
+
+    expect(pruneSelection(selection, walls, openings, [], [], [], [], rooms)).toBe(selection)
+  })
+
+  it('silinen mahali seçimden düşürür', () => {
+    const selection: Selection = [{ kind: 'room', id: 7 }]
+
+    expect(pruneSelection(selection, walls, openings, [], [], [], [], [])).toEqual([])
   })
 })
 

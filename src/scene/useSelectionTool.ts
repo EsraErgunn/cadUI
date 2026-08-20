@@ -7,7 +7,6 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
-import { findRoomLabelAt } from './useRoomNameTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
@@ -15,6 +14,8 @@ import {
 } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
 import { isTypingTarget } from '../core/domEvents'
+import { findRoomFaceAt, findRoomFaces } from '../core/room'
+import { getWallSetKey } from '../core/roomIdentity'
 import { getSelectionInRect, mergeSelection, pruneSelection, toPlanRect } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { getSymbolsOnFloor } from '../core/symbolPlacement'
@@ -62,6 +63,23 @@ export function useSelectionTool(): void {
       }
     }
 
+    /**
+     * Noktanın düştüğü mahalin kimliği. Yüzler burada TAZE hesaplanıyor çünkü
+     * `Room` geometri taşımıyor (duvarların türevi) — ve hesap yalnız tıklama
+     * anında yapılıyor, hover'da değil.
+     */
+    const findRoomIdAt = (planPoint: PlanPoint): number | undefined => {
+      const cad = useCadStore.getState()
+      const faces = findRoomFaces(cad.walls, cad.points, cad.activeFloorId)
+      const face = findRoomFaceAt(faces, planPoint)
+      if (!face) return undefined
+
+      // Yüz ↔ kayıt eşleşmesi TAM KÜME eşitliğiyle: Room.tsx neyi çiziyorsa
+      // tıklama da onu seçmeli.
+      const key = getWallSetKey(face.wallIds)
+      return cad.rooms.find((room) => getWallSetKey(room.wallIds) === key)?.id
+    }
+
     const endMarquee = () => {
       anchor = undefined
       isAdditive = false
@@ -88,9 +106,6 @@ export function useSelectionTool(): void {
       // çözümlemesi metnin üstünü "boşluk" sayıyor ve çerçeve seçimi başlıyordu
       // — ad etiketiyle birebir aynı tuzak, çözümü de aynı: jesti metin alır.
       if (findTextLabelAtPointer(event.planPoint)) return
-      // Oda ad rozeti de gövdesiz ve serbest: üstüne basıldıysa jest etiketin —
-      // yoksa çift tıklamak isteyen kullanıcıda çerçeve seçimi açılıyordu.
-      if (findRoomLabelAt(event.planPoint)) return
 
       anchor = event.planPoint
       isAdditive = event.shiftKey
@@ -115,6 +130,18 @@ export function useSelectionTool(): void {
       // uzaklaşınca titrek el bile çerçeve başlatırdı.
       const slopCm = getSnapToleranceCm(readCameraViewport(camera).zoom)
       if (rect.maxX - rect.minX < slopCm && rect.maxY - rect.minY < slopCm) {
+        // Boşluk BOŞ olmayabilir: duvarların çevrelediği bir alana basıldıysa o
+        // basış MAHALİN (K117). Mahal `resolveArchitectureTarget` zincirine
+        // GİRMİYOR — oraya girseydi hem her hover'da yüz taraması yapılırdı hem
+        // de mahalin içinden çerçeve seçimi başlatmak imkânsız olurdu.
+        const roomId = findRoomIdAt(event.planPoint)
+        if (roomId !== undefined) {
+          ui.setSelection(mergeSelection(wasAdditive ? ui.selection : [], [
+            { kind: 'room', id: roomId },
+          ]))
+          return
+        }
+
         if (!wasAdditive) ui.clearSelection()
         return
       }
@@ -211,6 +238,7 @@ export function useSelectionTool(): void {
           state.areaObjects,
           state.beams,
           state.texts,
+          state.rooms,
         )
         // pruneSelection değişiklik yoksa AYNI diziyi döndürür; kontrol bu yüzden
         // referans karşılaştırması ve her store değişiminde yeni dizi yazılmaz.

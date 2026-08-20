@@ -223,7 +223,7 @@ describe('kat silme — sonradan eklenen diziler', () => {
     // Oda floorId taşımıyor, kimliği duvar id kümesi (K31): kat silinince
     // duvarları gidiyor ama oda kaydı arkada kalırsa hayalet oda oluşur.
     useCadStore.setState({
-      rooms: [{ id: 500, wallIds: [WALL_ID], name: 'Salon' }],
+      rooms: [{ id: 500, wallIds: [WALL_ID] }],
     })
 
     useCadStore.getState().removeFloor(DEFAULT_FLOOR_ID)
@@ -233,7 +233,7 @@ describe('kat silme — sonradan eklenen diziler', () => {
 
   it('başka kattaki odaya dokunmaz', () => {
     useCadStore.setState({
-      rooms: [{ id: 500, wallIds: [WALL_ID], name: 'Salon' }],
+      rooms: [{ id: 500, wallIds: [WALL_ID] }],
     })
 
     useCadStore.getState().removeFloor(UPPER_FLOOR_ID)

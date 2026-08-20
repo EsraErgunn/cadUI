@@ -78,12 +78,12 @@ export const PLAN_WALLS: Wall[] = [
 export const PLAN_ROOMS: Room[] = [
   {
     id: ROOM_IDS.kitchen,
-    name: 'Mutfak',
+    usageType: 'kitchen',
     wallIds: [WALL_IDS.bottom, WALL_IDS.rightLower, WALL_IDS.middle, WALL_IDS.leftLower],
   },
   {
     id: ROOM_IDS.living,
-    name: 'Salon',
+    usageType: 'livingRoom',
     wallIds: [WALL_IDS.rightUpper, WALL_IDS.top, WALL_IDS.leftUpper, WALL_IDS.middle],
   },
 ]

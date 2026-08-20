@@ -33,7 +33,7 @@ const source: FloorContentSource = {
     { id: 31, wallId: WALL_ID, offsetCm: 250, widthCm: 120, type: 'window' },
     { id: 32, wallId: 11, offsetCm: 100, widthCm: 90, type: 'door' },
   ],
-  rooms: [{ id: 40, wallIds: [WALL_ID], name: 'Salon' }],
+  rooms: [{ id: 40, wallIds: [WALL_ID] }],
   symbols: [
     {
       id: 50,
