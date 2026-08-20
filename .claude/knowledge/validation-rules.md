@@ -83,6 +83,13 @@ dondururdu**. Aynı sebeple efekt gövdesinde `setState` de yok — lint kuralı
 Düğme sayıyı ancak TAZE sonuç varken gösterir (`isFresh`): çalıştırılmamış bir
 denetimi "0 hata" diye yazmak K79'un tam tersi.
 
+## Satır düzeni: "göster" SOLDA, künyenin altında
+
+Referans görselde sağ kenarda duruyor; kullanıcı isteğiyle sola, kural metniyle
+aynı sütuna alındı — uzun kural metinlerinde sağdaki düğme kayboluyordu.
+Negatif sol pay düğmenin kendi iç boşluğunu yutuyor ki yazı üstteki metinle tam
+hizalansın. Görsele bakıp "sağa geri alalım" DENMESİN diye buraya yazıldı.
+
 ## "göster" üç şeyi birden yapar
 
 Kata geç + nesneyi seç + kamerayı taşı. Üçü olmadan hata görünmüyor: yanlış
