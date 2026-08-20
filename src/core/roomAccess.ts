@@ -1,5 +1,5 @@
 import type { Id, Opening, Wall } from './model'
-import { isWallOpenToOutside, type FloorRoom, type FloorRoomTopology } from './roomTopology'
+import type { FloorRoom, FloorRoomTopology } from './roomTopology'
 
 function collectDoorWallIds(
   openings: readonly Opening[],
@@ -20,18 +20,21 @@ function collectDoorWallIds(
 }
 
 /**
- * Kapılardan geçilerek DIŞARIDAN ulaşılamayan mahaller (doküman Hata2).
+ * Sınırında hiç kapı olmayan mahaller (doküman Hata2).
  *
- * Kural "her mahalin bir kapısı olsun"dan daha güçlü okundu: kapısı yalnız
- * kapısız bir mahale açılan oda da erişilemez sayılır — "erişim sağlanmalıdır"
- * ifadesinin karşılığı bu. Normal bir dairede ikisi aynı sonucu verir, çünkü
- * giriş kapısı dış kabuktaki bir duvardadır.
+ * Kural GEVŞEK okundu: "her mahalin en az bir kapısı olsun". Sıkı okuma
+ * ("dışarıdan kapılarla ULAŞILABİLSİN", yani kapı grafında dış dünyaya bağlı
+ * olsun) önce yazılmış, sonra KULLANICI KARARIYLA geri alındı — dışarıya açılan
+ * kapısı çizilmemiş bir kat planında (merdiven boşluğu ayrı çizilmemişse)
+ * bütün mahalleri hatalı gösteriyordu ve bu beklenen davranış değil.
  *
- * ⚠️ Kat, dışarıya açılan tek bir kapı bile taşımıyorsa bütün mahalleri
- * erişilemez çıkar. Merdiven boşluğunun ayrı çizilmediği kat planlarında bu
- * beklenen değil — analist onayına açık nokta.
+ * Fark yalnız uç durumda: kapısı yalnız kapısız bir mahale açılan oda burada
+ * TEMİZ sayılır. Normal bir dairede iki okuma aynı sonucu verir.
+ *
+ * Bu yüzden dış/iç duvar ayrımına da gerek yok — `isWallOpenToOutside` artık
+ * yalnız menfez kuralının işi (validateDischarge).
  */
-export function findRoomsWithoutDoorAccess(
+export function findRoomsWithoutDoor(
   topology: FloorRoomTopology,
   walls: readonly Wall[],
   openings: readonly Opening[],
@@ -40,42 +43,7 @@ export function findRoomsWithoutDoorAccess(
 
   const doorWallIds = collectDoorWallIds(openings, walls, topology.floorId)
 
-  const faceIndicesByWallId = new Map<Id, number[]>()
-  topology.rooms.forEach((entry, index) => {
-    for (const wallId of new Set(entry.face.wallIds)) {
-      const bucket = faceIndicesByWallId.get(wallId)
-      if (bucket) bucket.push(index)
-      else faceIndicesByWallId.set(wallId, [index])
-    }
-  })
-
-  // Dışarısı ayrı bir düğüm olarak modellenmiyor: dış kabuktaki kapılı
-  // duvarların mahalleri doğrudan tohum, gerisi komşuluktan yayılıyor.
-  const reachable = new Set<number>()
-  const queue: number[] = []
-  topology.rooms.forEach((entry, index) => {
-    const hasDoorToOutside = [...new Set(entry.face.wallIds)].some(
-      (wallId) => doorWallIds.has(wallId) && isWallOpenToOutside(topology, wallId),
-    )
-    if (!hasDoorToOutside) return
-
-    reachable.add(index)
-    queue.push(index)
-  })
-
-  while (queue.length > 0) {
-    const index = queue.shift() as number
-    for (const wallId of new Set(topology.rooms[index].face.wallIds)) {
-      if (!doorWallIds.has(wallId)) continue
-
-      for (const neighbour of faceIndicesByWallId.get(wallId) ?? []) {
-        if (reachable.has(neighbour)) continue
-
-        reachable.add(neighbour)
-        queue.push(neighbour)
-      }
-    }
-  }
-
-  return topology.rooms.filter((_, index) => !reachable.has(index))
+  return topology.rooms.filter(
+    (entry) => !entry.face.wallIds.some((wallId) => doorWallIds.has(wallId)),
+  )
 }

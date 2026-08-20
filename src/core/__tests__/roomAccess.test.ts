@@ -10,53 +10,58 @@ import {
   WALL_IDS,
 } from './validationFixture'
 import type { Opening } from '../model'
-import { findRoomsWithoutDoorAccess } from '../roomAccess'
+import { findRoomsWithoutDoor } from '../roomAccess'
 import { buildFloorRoomTopology } from '../roomTopology'
 import { getRoomDisplayName } from '../roomUsage'
 
 const topology = buildFloorRoomTopology(PLAN_WALLS, PLAN_POINTS, PLAN_ROOMS, FLOOR_ID)
 
-function unreachableNames(openings: readonly Opening[]): string[] {
-  return findRoomsWithoutDoorAccess(topology, PLAN_WALLS, openings)
+function doorlessRooms(openings: readonly Opening[]): string[] {
+  return findRoomsWithoutDoor(topology, PLAN_WALLS, openings)
     .map((entry) => getRoomDisplayName(entry.room?.usageType))
     .sort()
 }
 
-describe('findRoomsWithoutDoorAccess', () => {
-  it('dış kapı + iç kapı varken her mahale erişilir', () => {
-    const openings = [makeDoor(30, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.middle)]
-    expect(unreachableNames(openings)).toEqual([])
+describe('findRoomsWithoutDoor', () => {
+  it('her mahalin kapısı varsa hata yok', () => {
+    const openings = [makeDoor(30, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.rightUpper)]
+    expect(doorlessRooms(openings)).toEqual([])
   })
 
-  it('dış kapı yoksa iç kapı tek başına yetmez', () => {
-    expect(unreachableNames([makeDoor(31, WALL_IDS.middle)])).toEqual(['Mutfak', 'Salon'])
+  it('İÇ kapı iki mahali birden karşılar — ikisinin de sınırında', () => {
+    // Sıkı okumada (dışarıdan erişim) ikisi de hatalıydı; gevşek okumada
+    // ikisinin de kapısı var (kullanıcı kararı).
+    expect(doorlessRooms([makeDoor(31, WALL_IDS.middle)])).toEqual([])
   })
 
-  it('yalnız dış kapı varken kapısız komşu mahal erişilemez', () => {
-    expect(unreachableNames([makeDoor(30, WALL_IDS.leftLower)])).toEqual(['Salon'])
+  it('kapısı olmayan mahali bildirir', () => {
+    expect(doorlessRooms([makeDoor(30, WALL_IDS.leftLower)])).toEqual(['Salon'])
   })
 
   it('pencere kapı yerine geçmez', () => {
-    const openings = [makeWindow(32, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.middle)]
-    expect(unreachableNames(openings)).toEqual(['Mutfak', 'Salon'])
+    const openings = [makeWindow(32, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.rightUpper)]
+    expect(doorlessRooms(openings)).toEqual(['Mutfak'])
   })
 
-  it('hiç açıklık yoksa bütün mahaller erişilemez', () => {
-    expect(unreachableNames([])).toEqual(['Mutfak', 'Salon'])
+  it('hiç açıklık yoksa bütün mahaller kapısız', () => {
+    expect(doorlessRooms([])).toEqual(['Mutfak', 'Salon'])
   })
 
-  it('başka kattaki duvarın kapısı bu kata erişim vermez', () => {
+  it('başka kattaki duvarın kapısı bu mahali kurtarmaz', () => {
     const otherFloorWalls = PLAN_WALLS.map((wall) =>
       wall.id === WALL_IDS.leftLower ? { ...wall, floorId: 99 } : wall,
     )
-    const openings = [makeDoor(30, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.middle)]
+    const openings = [makeDoor(30, WALL_IDS.leftLower), makeDoor(31, WALL_IDS.rightUpper)]
+
     expect(
-      findRoomsWithoutDoorAccess(topology, otherFloorWalls, openings).map((entry) => getRoomDisplayName(entry.room?.usageType)),
-    ).toEqual(['Mutfak', 'Salon'])
+      findRoomsWithoutDoor(topology, otherFloorWalls, openings).map((entry) =>
+        getRoomDisplayName(entry.room?.usageType),
+      ),
+    ).toEqual(['Mutfak'])
   })
 
   it('mahalsiz katta hata üretmez', () => {
     const empty = buildFloorRoomTopology([], [], [], FLOOR_ID)
-    expect(findRoomsWithoutDoorAccess(empty, [], [])).toEqual([])
+    expect(findRoomsWithoutDoor(empty, [], [])).toEqual([])
   })
 })
