@@ -58,7 +58,7 @@ describe('mahal özellik paneli', () => {
     seedRoom()
     render(<PropertyPanel />)
 
-    expect(screen.getByLabelText('Kullanım Tipi').tagName).toBe('SELECT')
+    expect(screen.getByRole('combobox', { name: 'Kullanım Tipi' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
@@ -67,7 +67,8 @@ describe('mahal özellik paneli', () => {
     seedRoom()
     render(<PropertyPanel />)
 
-    await user.selectOptions(screen.getByLabelText('Kullanım Tipi'), 'kitchen')
+    await user.click(screen.getByRole('combobox', { name: 'Kullanım Tipi' }))
+    await user.click(screen.getByRole('option', { name: 'Mutfak' }))
 
     expect(useCadStore.getState().rooms[0].usageType).toBe('kitchen')
   })
@@ -77,7 +78,8 @@ describe('mahal özellik paneli', () => {
     seedRoom('kitchen')
     render(<PropertyPanel />)
 
-    await user.selectOptions(screen.getByLabelText('Kullanım Tipi'), 'Tanımsız')
+    await user.click(screen.getByRole('combobox', { name: 'Kullanım Tipi' }))
+    await user.click(screen.getByRole('option', { name: 'Tanımsız' }))
 
     expect('usageType' in useCadStore.getState().rooms[0]).toBe(false)
   })
@@ -113,6 +115,6 @@ describe('mahal özellik paneli', () => {
     render(<PropertyPanel />)
 
     expect(screen.getByRole('heading', { name: /2 Mahal/ })).toBeInTheDocument()
-    expect(screen.getByLabelText('Kullanım Tipi')).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Kullanım Tipi' })).toHaveTextContent('Farklı')
   })
 })
