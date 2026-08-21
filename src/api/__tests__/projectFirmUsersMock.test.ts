@@ -31,7 +31,6 @@ function buildQuery(overrides: Partial<ProjectFirmUserQuery> = {}): ProjectFirmU
   return {
     nameQuery: '',
     authorityType: null,
-    onlyActive: false,
     gasFirmIds: null,
     page: 1,
     pageSize: PROJECT_FIRM_USER_PAGE_SIZE,
@@ -126,25 +125,6 @@ describe('yetki filtresi (KK-3)', () => {
   })
 })
 
-// KK-4: kullanıcı AKTİF ve yetki satırı AKTİF olanlar.
-describe('aktif filtresi (KK-4)', () => {
-  it('işaretliyken pasif kayıtları eler', () => {
-    const active = queryMockProjectFirmUsers(buildQuery({ onlyActive: true, pageSize: 500 }))
-    const all = queryMockProjectFirmUsers(buildQuery({ pageSize: 500 }))
-
-    expect(active.totalCount).toBeGreaterThan(0)
-    expect(active.totalCount).toBeLessThan(all.totalCount)
-  })
-
-  it('işaret kaldırılınca pasif kayıtlar da listelenir', () => {
-    const active = queryMockProjectFirmUsers(buildQuery({ onlyActive: true, pageSize: 500 }))
-    const all = queryMockProjectFirmUsers(buildQuery({ pageSize: 500 }))
-    const activeKeys = active.items.map((row) => row.competencyId)
-
-    expect(all.items.some((row) => !activeKeys.includes(row.competencyId))).toBe(true)
-  })
-})
-
 describe('arama (KK-5)', () => {
   it('kullanıcı adı, ad soyad ve e-posta alanlarında eşleşir', () => {
     const byUsername = queryMockProjectFirmUsers(buildQuery({ nameQuery: 'tolga.ertek' }))
@@ -171,11 +151,11 @@ describe('arama (KK-5)', () => {
   })
 })
 
-// KK-6: üç kriter birlikte uygulanır, adet filtrelenmiş sonuca göre daralır.
+// KK-6: kriterler birlikte uygulanır, adet filtrelenmiş sonuca göre daralır.
 describe('filtrelerin birlikte uygulanması (KK-6)', () => {
   it('kriterler kesişimi verir', () => {
     const combined = queryMockProjectFirmUsers(
-      buildQuery({ authorityType: 'firmEngineer', onlyActive: true, nameQuery: 'a', pageSize: 500 }),
+      buildQuery({ authorityType: 'firmEngineer', nameQuery: 'a', pageSize: 500 }),
     )
     const onlyAuthority = queryMockProjectFirmUsers(
       buildQuery({ authorityType: 'firmEngineer', pageSize: 500 }),

@@ -10,14 +10,10 @@ import { PROJECT_FIRM_USER_PAGE_SIZE } from '../../../api/projectFirmUsers'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
 import { useScopeGasFirms } from '../useScopeGasFirms'
 
-/** İşaretli hâlin adresteki karşılığı; işaretsiz hâl hiç yazılmaz. */
-const ONLY_ACTIVE_VALUE = '1'
-
 /** Kullanıcının doldurduğu, henüz UYGULANMAMIŞ kriterler. */
 export interface ProjectFirmUserFilters {
   nameQuery: string
   authorityType: AuthorityType | null
-  onlyActive: boolean
 }
 
 export interface ProjectFirmUserListControls {
@@ -55,7 +51,6 @@ export function useProjectFirmUserListParams(): ProjectFirmUserListControls {
     () => ({
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       authorityType: parseAuthorityType(searchParams.get(ADMIN_PARAM_KEYS.authorityType)),
-      onlyActive: searchParams.get(ADMIN_PARAM_KEYS.onlyActive) === ONLY_ACTIVE_VALUE,
       gasFirmIds,
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: PROJECT_FIRM_USER_PAGE_SIZE,
@@ -70,7 +65,6 @@ export function useProjectFirmUserListParams(): ProjectFirmUserListControls {
         {
           nameQuery: filters.nameQuery.trim(),
           authorityType: filters.authorityType,
-          onlyActive: filters.onlyActive ? ONLY_ACTIVE_VALUE : null,
         },
         true,
       ),
