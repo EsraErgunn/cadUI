@@ -212,3 +212,24 @@ Branşman kendisi (`branchStub` + sayaç öncesi kol) hâlâ kot TAŞIMAZ (yaln�
 `draft.elevationCm` yazılıyor (`commitStep`, `plumbingSlice.pushLine`/`addLine`
 `branch` alanını artık kabul ediyor) — önceden bu alan YALNIZ property
 panelinden elle dolduruluyordu, çizim sırasında hiç yazılmıyordu.
+
+## Varsayılan kot, VERİLMİŞ kotun üstüne YAZILMAZ
+
+Kullanıcı isteği (2026-08): "boruya yükseklik verildiğinde o borunun ucuyla
+bir işlem yapılması durumunda her zaman yeni yükseklikle devam et".
+
+`plumbingSlice.placeElementAtLineEnd` (sayaç boş boru ucuna takılır) borunun
+`start/endHeightCm`'ini KOŞULSUZ `GAS_METER_DEFAULT_HEIGHT_CM` (200) yapıyordu:
+`+`/`-` ya da panelle 300'e çıkarılmış bir borunun ucuna sayaç eklendiğinde
+boru 200'e geri düşüyor, sayaç da (kotunu borudan türettiği için,
+`getElementElevationCm`) onunla birlikte iniyordu.
+
+Artık varsayılan YALNIZ hat kotsuzken yazılır — ölçüt `hasPipeElevation(line)`
+(`core/lineElevation.ts`): iki uçlu kot alanı dolu VE uçlardan biri sıfırdan
+farklı. Sıfır "kot verilmedi" demektir; zemin kotundaki boru ile hiç
+dokunulmamış boru veride ayırt edilemez ve ayrı bir "dokunuldu" bayrağı
+modele (kaydedilen JSON'a) alan ekler.
+
+Aynı kural zaten uygulanan yerler (tekrar yazmayın, oradan okuyun):
+`resolveSeedElevationCm` (hedefe bağlı yeni boru), `startPipeFromElement`,
+`placeElementAtVerticalArm`/`placeElementAtVerticalEnd` (kolonun ucundaki kot).

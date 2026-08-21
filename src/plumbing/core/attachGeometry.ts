@@ -145,18 +145,31 @@ export type FreeEndHit = {
   line: InstallationLine
   end: 'start' | 'end'
   point: InstallationLine['points'][number]
-  /** Uçtan bir önceki köşe — elemanın bakacağı YÖN buradan türer. */
+  /**
+   * Uçtan bir önceki köşe — elemanın bakacağı YÖN buradan türer. Dikey boruda
+   * (K102) uçla ÇAKIŞIKTIR: yön oradan çıkarılamaz, çağıran plan eksenine
+   * düşer (`shouldAllowVerticalEnd`).
+   */
   neighbor: InstallationLine['points'][number]
 }
 
 const LINE_ENDS = ['start', 'end'] as const
 
-/** İmlece en yakın BAĞLANTISIZ hat ucu; sayaç buraya takılır. */
+/**
+ * İmlece en yakın BAĞLANTISIZ hat ucu; sayaç ve yakıcı cihaz buraya takılır.
+ *
+ * `shouldAllowVerticalEnd`: dikey borunun (plan boyu SIFIR, K102) ucu aday
+ * OLSUN mu. Varsayılan hayır, çünkü çağıranların çoğu ucun YÖNÜNE ihtiyaç
+ * duyar (hattı o yöne uzatmak gibi) ve çakışık uçta yön tanımsızdır. Yalnız
+ * yönü imleçten alan çağıran (yakıcı cihazın kolu) `true` geçer — kullanıcı
+ * isteği, 2026-08: "z ekseninde bulunan borulara da araç yerleştirebilelim".
+ */
 export function findNearestFreeLineEnd(
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
   cursor: PlanPoint,
   radiusCm: number,
+  shouldAllowVerticalEnd = false,
 ): FreeEndHit | null {
   let nearest: FreeEndHit | null = null
   let nearestDistanceCm = Number.POSITIVE_INFINITY
@@ -174,9 +187,10 @@ export function findNearestFreeLineEnd(
       // yalnız `isLineEndConnected`'e bakılsaydı kayıt komşu hatta durduğu
       // için burası boş uç sanılır ve sayaç zincirin ortasına takılırdı.
       if (hasLinkedLinePoint(connections, line.id, point.id)) continue
-      // Komşusuyla ÇAKIŞIK uç (plan boyu sıfır, K102) aday değil: yön
-      // `atan2(0, 0)` ile 0 çıkar ve eleman rastgele bir yöne bakardı.
-      if (isSamePoint(point.position, neighbor.position)) continue
+      // Komşusuyla ÇAKIŞIK uç = dikey boru (plan boyu sıfır, K102): yön
+      // `atan2(0, 0)` ile 0 çıkar ve yönünü BURADAN alan eleman rastgele bir
+      // tarafa bakardı. Yönü imleçten alan çağıran bunu açıkça ister.
+      if (!shouldAllowVerticalEnd && isSamePoint(point.position, neighbor.position)) continue
 
       const distanceCm = getSegmentLengthCm(point.position, cursor)
       if (distanceCm > radiusCm || distanceCm >= nearestDistanceCm) continue

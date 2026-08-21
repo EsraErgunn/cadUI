@@ -4,9 +4,11 @@ import type {
 } from '../../plumbing/core/installationModel'
 import {
   getAttachedLineElevationCm,
+  getDischargeSourceElevationCm,
   getLinePointElevationsCm,
 } from '../../plumbing/core/lineElevation'
 import { getSegmentLengthCm } from '../../plumbing/core/lineGeometry'
+import { isDischargeKind } from '../../plumbing/core/lineKinds'
 
 /**
  * Kot çözümü tek bir hatta bakarak bitmiyor: yakıcı cihaz kolu kendi kotunu
@@ -35,6 +37,13 @@ export function getIsometricLineElevationsCm(
   }
   if (line.kind === 'chimney' && line.chimney) {
     return getLinePointElevationsCm(positions, line.chimney.startHeightCm, line.chimney.endHeightCm)
+  }
+  // Kendi kot alanı OLMAYAN deşarj hattı: havalandırma kanalı (modelde kot
+  // alanı yok) ve K102 öncesi çizilmiş baca. İkisi de çıktığı CİHAZIN kotunda
+  // DÜZ gider — yükseliş kullanıcının kararı, bacada panelden verilir.
+  if (isDischargeKind(line.kind)) {
+    const elevationCm = getDischargeSourceElevationCm(line, context.lines, context.connections)
+    return positions.map(() => elevationCm)
   }
   if (line.kind === 'branch' && line.branch) {
     const { elevationCm } = line.branch

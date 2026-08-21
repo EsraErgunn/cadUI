@@ -346,3 +346,24 @@ aynı yerdeki filtre kiti serbest, hat ucundaki filtre kiti serbest).
 **Genel ders:** "şu eleman özeldir" kuralını KONUMDAN çıkarmak, o konuma
 düşebilen her elemanı sessizce aynı kovaya atar — kural türe aitse tür de
 sorulmalı.
+
+## Dikey (z ekseni) borulara yerleştirme — üç modun üçü de
+
+Kullanıcı isteği (2026-08): "artık dikey yani z axis borularına bizim
+araçlarımızı yerleştirebilelim". Kolonun (plan boyu SIFIR `pipe`, K102) plan
+görünüşte bir GÖVDESİ ve bir YÖNÜ yoktur; her mod bunu ayrı çözer:
+
+- `onLine` (armatür) → `resolveVerticalEndAttachment`: boru BÖLÜNMEZ, armatür
+  var olan UÇ düğümüne oturur, kotunu oradan alır. Refakatçili eleman
+  (regülatör grubu) hariç — dört sembol tek düğüme sığmaz.
+- `lineEnd` (sayaç) → `resolveVerticalArmAttachment`: hat uzatılamaz (uzatılsa
+  kolon eğik boruya dönerdi), kolonun ucundan AYNI kotta kısa bir yatay kol
+  doğar, sayaç onun ucuna oturur, vana kolonun uç düğümüne girer.
+- `nearestLine` (yakıcı cihaz) → ayrı bir yol GEREKMEDİ: kolun yönü zaten
+  borudan değil İMLEÇTEN geliyor, tek engel `findNearestFreeLineEnd`'in
+  çakışık-uç süzgeciydi. Süzgeç artık `shouldAllowVerticalEnd` parametresiyle
+  yalnız bu çağıran için gevşetiliyor (varsayılan KAPALI — yönü uçtan türeten
+  çağıranlar korunuyor). Düğüme oturan vananın açısı kolonda
+  `VERTICAL_PLAN_ANGLE_DEG` (plan ekseni). Cihaz kolu (`applianceStub`) kendi
+  kotunu taşımaz, bağlandığı düğümden okur (`getAttachedLineElevationCm`) —
+  kolonun ucuna takılan cihaz o kotta durur.

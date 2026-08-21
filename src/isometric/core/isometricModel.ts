@@ -1,4 +1,4 @@
-import type { ThreePosition } from '../../core/coords'
+import type { PlanPoint, ThreePosition } from '../../core/coords'
 import type { Id } from '../../core/model'
 import type { InstallationLineKind } from '../../plumbing/core/installationModel'
 import type { PipeTypeName } from '../../plumbing/core/pipeTypes'
@@ -20,7 +20,13 @@ export type IsometricLineGeometry = {
 
 export type IsometricElementPlacement = {
   elementId: Id
+  /** Elemanın boruya DEĞDİĞİ noktanın dünya konumu (`isometricAnchor.ts`). */
   position: ThreePosition
+  /**
+   * Sembolün billboard içinde geri kaydırılacağı yerel ofset (cm): çapa tam
+   * `position`a otursun diye. Sıfırsa sembol zaten çapasında demektir.
+   */
+  anchorOffsetCm: PlanPoint
 }
 
 /** Alt kattaki bir boru ucunu üst kattakine bağlayan düşey parça. */

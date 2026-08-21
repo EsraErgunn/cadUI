@@ -24,7 +24,11 @@ import {
 import { isSamePoint } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
-import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSnap'
+import {
+  collectOpenEndPointIds,
+  findNearestPointOnLines,
+  type LineSnapCandidate,
+} from '../core/lineSnap'
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
 import { findNearestWallCorner, findNearestWallFace, findNearestWallParallel } from '../core/wallSnap'
@@ -178,8 +182,22 @@ export function useLineTool(): LineToolState {
             isGasCarryingKind(line.kind) &&
             line.kind !== 'branchStub',
         )
-        const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
-        if (line) {
+        // Açık uç bilgisi: çakışan iki uç arasında (kot adımı sonrası kolonun
+        // tepesi ile geldiği yatay borunun ucu aynı x,y'dedir) çizimin
+        // bırakıldığı ucu seçer.
+        const line = findNearestPointOnLines(
+          floorLines,
+          event.planPoint,
+          radiusCm,
+          collectOpenEndPointIds(floorLines, cad.installationConnections),
+        )
+        // Zincirin KENDİ ucuna geri yapışmak yakalama değil kilitlenmedir:
+        // sonuç anchor'ın kendisi çıkar, tık `isSamePoint` denetimine takılıp
+        // sessizce düşer ve çizim ilerlemez. Kot adımından sonra (K102) bu hâl
+        // kaçınılmaz: `+`/`-` plan konumunu değiştirmediği için anchor'da artık
+        // BİRDEN ÇOK hat ucu buluşuyor, `anchorLineId` yalnız birini eliyor
+        // (kullanıcı isteği, 2026-08: "yeni yükseklikten ilerle hep").
+        if (line && !(draftLine && isSamePoint(line.position, draftLine.anchor))) {
           return { point: line.position, snap: { kind: 'line', position: line.position, line } }
         }
       }

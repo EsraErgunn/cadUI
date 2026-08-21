@@ -18,7 +18,8 @@ import { ATTACHED_VALVE_TYPE, getInlineSpecs } from './attachModes'
 import type { SymbolMetadataLookup } from './elementPicking'
 import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
-import { getSegmentLengthCm } from './lineGeometry'
+import { getLinePointElevationCm } from './lineElevation'
+import { getSegmentLengthCm, isSamePoint } from './lineGeometry'
 import { rotatePlanOffset } from './ports'
 import type { InstallationElementType } from './symbolMetadata'
 import { normalizeZero, type PlanPoint } from '../../core/coords'
@@ -54,6 +55,8 @@ export type InlineNode = {
 export type OnLineAttachment = {
   lineId: Id
   segmentIndex: number
+  /** İmlecin boru gövdesine uzaklığı — dikey kolonla yarışırken YAKIN olan kazanır. */
+  distanceCm: number
   /** Boru yönünde ARTAN sırada — getPlacementPreviewTypes ile birebir aynı sıra. */
   nodes: readonly InlineNode[]
 }
@@ -126,7 +129,187 @@ export function resolveOnLineAttachment(
     })
   }
 
-  return { lineId: hit.line.id, segmentIndex: hit.segmentIndex, nodes }
+  return {
+    lineId: hit.line.id,
+    segmentIndex: hit.segmentIndex,
+    distanceCm: hit.distanceCm,
+    nodes,
+  }
+}
+
+/**
+ * Plan görünüşte dikey borunun bir YÖNÜ yoktur (iki ucu aynı x,y'de) —
+ * `atan2(0, 0)` sıfır döner ve sembol rastgele bir yöne bakardı. Semboller bu
+ * yüzden plan ekseninde çizilir; kot doğru olduğu için 3B ve izometrikte
+ * eleman borunun üstünde görünür.
+ */
+const VERTICAL_PLAN_ANGLE_DEG = 0
+
+export type VerticalEndAttachment = {
+  lineId: Id
+  /** İmlecin kolona (plan) uzaklığı — gövde yakalamasıyla yarışırken kullanılır. */
+  distanceCm: number
+  /** Armatürün oturacağı uç düğümü. */
+  endPointId: Id
+  /** O düğümün kotu — eleman borunun yüksekliğini BURADAN alır. */
+  elevationCm: number
+  placement: ElementPlacement
+}
+
+/** Plan boyu SIFIR boru = saf dikey bağlantı (K102). */
+function isVerticalPipe(line: InstallationLine): boolean {
+  const [first, last] = line.points
+  return (
+    line.points.length === 2 &&
+    first !== undefined &&
+    last !== undefined &&
+    first.position.x === last.position.x &&
+    first.position.y === last.position.y
+  )
+}
+
+/**
+ * Boruya oturan armatürün (vana, sayaç…) DİKEY bir borunun ucuna yapışması
+ * (kullanıcı isteği, 2026-08: "z ekseninde bulunan borulara da araç yapışsın,
+ * eklenenler borunun yüksekliğini alsın").
+ *
+ * Neden ayrı bir yol: `resolveOnLineAttachment` boruyu plan uzunluğuna göre
+ * bölüyor, dikey boruda o uzunluk SIFIR — parça üstünde bir yer seçilemez.
+ * Bu yüzden hedef gövde değil UÇ düğümüdür: armatür orada zaten bir düğüm olur
+ * ve kotunu düğümden okur (`getInlineElementElevationCm`).
+ *
+ * İki uç da uygunsa YÜKSEK olan seçilir: kolonun tepesi kullanıcının geldiği,
+ * çizimde açıkta duran uçtur; dibi çoğunlukla alttaki hatta gömülüdür.
+ */
+export function resolveVerticalEndAttachment(
+  lines: readonly InstallationLine[],
+  getMetadata: SymbolMetadataLookup,
+  type: InstallationElementType,
+  cursor: PlanPoint,
+  radiusCm: number,
+): VerticalEndAttachment | null {
+  if (radiusCm <= 0) return null
+
+  let nearest: VerticalEndAttachment | null = null
+  let nearestDistanceCm = Number.POSITIVE_INFINITY
+
+  for (const line of lines) {
+    if (!isVerticalPipe(line)) continue
+
+    const position = line.points[0].position
+    const distanceCm = getSegmentLengthCm(position, cursor)
+    if (distanceCm > radiusCm || distanceCm >= nearestDistanceCm) continue
+
+    // Bir düğüm TEK armatür taşır; dolu uç aday değildir.
+    const free = line.points.filter((point) => point.inlineElementId === undefined)
+    if (free.length === 0) continue
+
+    const candidates = free.map((point) => ({
+      point,
+      elevationCm: getLinePointElevationCm(line, point.id),
+    }))
+    const chosen = candidates.reduce((best, candidate) =>
+      candidate.elevationCm > best.elevationCm ? candidate : best,
+    )
+
+    const metadata = getMetadata(type)
+    const angleDeg = getOnLineAngleDeg(metadata, VERTICAL_PLAN_ANGLE_DEG)
+    nearest = {
+      lineId: line.id,
+      distanceCm,
+      endPointId: chosen.point.id,
+      elevationCm: chosen.elevationCm,
+      placement: {
+        type,
+        angleDeg,
+        position: getPositionForAnchor(getOnLineAnchorOffset(metadata), angleDeg, position),
+      },
+    }
+    nearestDistanceCm = distanceCm
+  }
+
+  return nearest
+}
+
+export type VerticalArmAttachment = {
+  /** Kolonun kimliği — vana bunun uç düğümüne oturur. */
+  lineId: Id
+  endPointId: Id
+  /** Kolun kotu = kolonun o ucunun kotu; kol yatay gider, kot değişmez. */
+  elevationCm: number
+  /** Kısa kolun iki ucu: kolonun plan konumu → elemanın giriş portu. */
+  armStart: PlanPoint
+  armEnd: PlanPoint
+  inputPortId: string
+  /** [0] ana eleman, [1] vana — `getPlacementPreviewTypes` ile aynı sıra. */
+  placements: readonly [ElementPlacement, ElementPlacement]
+}
+
+/**
+ * Sayacın DİKEY bir kolonun ucuna takılması (kullanıcı kararı, 2026-08):
+ * kolonun ucundan AYNI kotta kısa bir yatay kol çıkar, sayaç onun ucuna oturur,
+ * vana kolonun uç düğümüne girer — sahadaki dizilimin (kolon çıkar, dirsek,
+ * sayaç) karşılığı.
+ *
+ * Neden `resolveFreeEndAttachment` kullanılamıyor: orada hattın kendisi
+ * uzatılıyor ve uzama yönü borunun son parçasından okunuyor. Kolonun plan
+ * yönü YOKTUR (iki ucu aynı x,y) — kolon uzatılsaydı eğik bir boruya dönerdi.
+ * Bu yüzden kol AYRI bir hat olarak doğar; yönünü imlecin kolona göre
+ * bulunduğu taraf verir.
+ */
+export function resolveVerticalArmAttachment(
+  lines: readonly InstallationLine[],
+  getMetadata: SymbolMetadataLookup,
+  type: InstallationElementType,
+  cursor: PlanPoint,
+  radiusCm: number,
+): VerticalArmAttachment | null {
+  const vertical = resolveVerticalEndAttachment(lines, getMetadata, type, cursor, radiusCm)
+  if (!vertical) return null
+
+  const metadata = getMetadata(type)
+  const inputPort = getInputPort(metadata)
+  if (!inputPort) return null
+
+  const armStart = vertical.placement.position
+  const reachCm = getSegmentLengthCm(armStart, cursor)
+  // İmleç tam kolonun üstündeyken yön tanımsız; kol varsayılan eksende çıkar.
+  const unit =
+    reachCm > 0 ? getUnitDirection(armStart, cursor, reachCm) : { x: 1, y: 0 }
+  const outwardAngleDeg = getDirectionAngleDeg(ORIGIN, unit)
+
+  const valveMetadata = getMetadata(ATTACHED_VALVE_TYPE)
+  const armLengthCm = getHalfLengthCm(valveMetadata) + ATTACH_CLEARANCE_CM
+  const armEnd = {
+    x: normalizeZero(armStart.x + unit.x * armLengthCm),
+    y: normalizeZero(armStart.y + unit.y * armLengthCm),
+  }
+
+  const portOffset = getPortOffset(metadata, inputPort)
+  const flowAxisAngleDeg = getFlowAxisAngleDeg(metadata)
+  const angleDeg = normalizeZero(
+    flowAxisAngleDeg !== null
+      ? outwardAngleDeg - flowAxisAngleDeg
+      : outwardAngleDeg + STRAIGHT_ANGLE_DEG - getDirectionAngleDeg(ORIGIN, portOffset),
+  )
+  const valveAngleDeg = getOnLineAngleDeg(valveMetadata, outwardAngleDeg)
+
+  return {
+    lineId: vertical.lineId,
+    endPointId: vertical.endPointId,
+    elevationCm: vertical.elevationCm,
+    armStart,
+    armEnd,
+    inputPortId: inputPort.id,
+    placements: [
+      { type, angleDeg, position: getPositionForAnchor(portOffset, angleDeg, armEnd) },
+      {
+        type: ATTACHED_VALVE_TYPE,
+        angleDeg: valveAngleDeg,
+        position: getPositionForAnchor(getOnLineAnchorOffset(valveMetadata), valveAngleDeg, armStart),
+      },
+    ],
+  }
 }
 
 /**
@@ -203,6 +386,15 @@ export function resolveFreeEndAttachment(
  *
  * Yarıçap YOK: "en yakına yapışır" kuralı gereği hangi açık uç en yakınsa ona
  * bağlanır; hiç açık uç yoksa yerleştirme de olmaz.
+ *
+ * DİKEY borunun (K102) açık ucu da aday (kullanıcı isteği, 2026-08: "z
+ * ekseninde bulunan borulara da araçlarımızı yerleştirebilelim") — bu modda
+ * kolun yönü borudan DEĞİL imleçten geliyor, yani çakışık uçtaki tanımsız plan
+ * yönü kolu hiç ilgilendirmiyor. Sayaçtaki (`resolveFreeEndAttachment`) durum
+ * farklı: orada hattın kendisi o yöne uzatılıyor, o yüzden kolon için ayrı bir
+ * yol var (`resolveVerticalArmAttachment`). Cihaz kolu kendi kotunu taşımaz,
+ * bağlandığı düğümden okur (`getAttachedLineElevationCm`) — kolonun ucuna
+ * takılan cihaz o kotta durur.
  */
 export function resolveNearestLineAttachment(
   lines: readonly InstallationLine[],
@@ -211,7 +403,7 @@ export function resolveNearestLineAttachment(
   type: InstallationElementType,
   cursor: PlanPoint,
 ): NearestLineAttachment | null {
-  const hit = findNearestFreeLineEnd(lines, connections, cursor, Number.POSITIVE_INFINITY)
+  const hit = findNearestFreeLineEnd(lines, connections, cursor, Number.POSITIVE_INFINITY, true)
   if (!hit) return null
 
   const metadata = getMetadata(type)
@@ -231,9 +423,14 @@ export function resolveNearestLineAttachment(
   )
   const rotated = rotatePlanOffset(portOffset, angleDeg)
   const valveMetadata = getMetadata(ATTACHED_VALVE_TYPE)
+  // Kolonun plan yönü YOKTUR (iki ucu aynı x,y): düğüme oturan vana plan
+  // ekseninde çizilir — `resolveVerticalEndAttachment` ile aynı kural.
+  const isVerticalHost = isSamePoint(hit.neighbor.position, hit.point.position)
   const valveAngleDeg = getOnLineAngleDeg(
     valveMetadata,
-    getDirectionAngleDeg(hit.neighbor.position, hit.point.position),
+    isVerticalHost
+      ? VERTICAL_PLAN_ANGLE_DEG
+      : getDirectionAngleDeg(hit.neighbor.position, hit.point.position),
   )
 
   return {

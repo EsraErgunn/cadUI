@@ -48,3 +48,27 @@ Cihazdan çıkan ilk segment ağzın eksenine KİLİTLİ
 (`dischargeDraft.ts` → `projectOntoOutletAxis`); sonraki köşeler serbest. Serbest
 bırakılsaydı ızgaraya yuvarlanan ikinci tık eksene hemen hiç düşmez ve kanal
 cihazdan eğik çıkardı.
+
+## Kanalın kotu — çıktığı CİHAZDAN gelir
+
+Kullanıcı isteği (2026-08): "eklenen havalandırma ve baca da konulduğu cihazın
+yüksekliğini alsın". Kanal cihazın deşarj ağzından çıkar; sıfır kalsaydı
+izometrikte cihaz havada, bacası yerde görünürdü.
+
+İki türün modeli farklı olduğu için çözüm de iki yolludur:
+
+- **Baca** (`ChimneyLineProperties`) kendi `startHeightCm`/`endHeightCm`
+  alanlarını TAŞIR ve panelden düzenlenebilir → kot ÇİZİM ANINDA yazılır
+  (`useDischargeTool.commitDraft`, `getElementElevationCm` ile cihazdan okunur,
+  DÜZ: iki uç aynı). `addLine`/`pushLine` artık `chimney` alanını da kabul
+  ediyor — önceden yalnız `pipe`/`branch` geçiyordu, bu yüzden çizilen her baca
+  0 kotunda doğuyordu.
+- **Havalandırma kanalı** (`VentilationDuctLineProperties` = `isSubDuct`,
+  `isForced`) kot alanı taşımaz ve panelinde kot yoktur → değer SAKLANMAZ,
+  TÜRETİLİR: `getDischargeSourceElevationCm` hattın kendi `outlet` bağlantısından
+  cihaza ulaşır ve onun kotunu okur. Aynı türetme K102 öncesi çizilmiş
+  (kot alanı boş) bacaları da kurtarır. Desen `applianceStub` ile aynı
+  (`getAttachedLineElevationCm`): kot borularda durur, ona tutunan okur.
+
+Modele kot alanı EKLENMEDİ (havalandırma için): tüketicisi olmayan bir alan
+kaydedilen JSON'a girer ve round-trip sözleşmesini büyütürdü.
