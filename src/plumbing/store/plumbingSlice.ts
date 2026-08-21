@@ -49,6 +49,7 @@ import { resolveMoveTargets } from '../core/moveTargets'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
 import { DEFAULT_ELEMENT_ANGLE_DEG, DEFAULT_ELEMENT_SCALE } from '../core/placement'
 import { isPortOccupied } from '../core/portSnap'
+import { resolvePipeResizeShift } from '../core/resizeTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
 
 export type AddElementInput = {
@@ -779,40 +780,60 @@ export const createPlumbingSlice: StateCreator<
       if (isMoved) record()
     },
 
+    /**
+     * "Boy" alanı: borunun BİTİŞ ucu hedefe kayar ve ucuna bağlı ne varsa
+     * (dirsek, vana, sayaç, devam boruları ve onların üstündeki elemanlar)
+     * AYNI KAYMAYLA ötelenir — hiçbiri gerilmez (kullanıcı isteği, 2026-08).
+     * Kimin öteleneceği saf hesapta: `core/resizeTargets.ts`. Eskiden yalnız
+     * o köşedeki kaynaklı uçlar hedefe taşınıyordu (devam borusu ESNİYORDU) ve
+     * yayılım bir port çapasına değerse işlem TÜMÜYLE reddediliyordu.
+     *
+     * Kot farkı da aynı mantıkla taşınır: bütünüyle ötelenen borular
+     * `startHeightCm`/`endHeightCm`'lerini delta kadar kaydırır, yoksa eğik
+     * bir boru kısaldığında ağın geri kalanı 3B'de kopardı.
+     */
     resizePipeEnd: (lineId, endPointId, position, endHeightCm) => {
       let isChanged = false
 
       set((draft) => {
         const line = draft.installationLines.find((candidate) => candidate.id === lineId)
-        if (!line) return
+        const endPoint = line?.points.find((candidate) => candidate.id === endPointId)
+        if (!line || !endPoint) return
 
-        const linked = getLinkedLinePoints(
+        const deltaX = position.x - endPoint.position.x
+        const deltaY = position.y - endPoint.position.y
+        const deltaHeightCm = endHeightCm - (line.pipe?.endHeightCm ?? 0)
+
+        // Kayma UYGULANMADAN önce hesaplanır: küme mevcut bağ durumuna bakar.
+        const shift = resolvePipeResizeShift(
           draft.installationLines,
           draft.installationConnections,
+          draft.floorPipeLinks,
           lineId,
           endPointId,
         )
-        const anchored = getPortAnchoredPointIds(
-          draft.installationLines,
-          draft.installationConnections,
-        )
-        const floorLinkAnchored = getFloorLinkAnchoredPointIds(draft.floorPipeLinks)
-        if (linked.some((link) => anchored.has(link.pointId) || floorLinkAnchored.has(link.pointId))) return
 
-        for (const link of linked) {
-          const linkedLine = draft.installationLines.find((candidate) => candidate.id === link.lineId)
-          const point = linkedLine?.points.find((candidate) => candidate.id === link.pointId)
-          if (!point) continue
-          if (point.position.x === position.x && point.position.y === position.y) continue
-
-          point.position = position
+        if (deltaX !== 0 || deltaY !== 0) {
+          endPoint.position = position
           isChanged = true
 
-          if (point.inlineElementId !== undefined) {
-            const element = draft.installationElements.find(
-              (candidate) => candidate.id === point.inlineElementId,
-            )
-            if (element) element.position = position
+          for (const candidate of draft.installationLines) {
+            for (const point of candidate.points) {
+              if (!shift.pointIds.has(point.id)) continue
+              point.position = { x: point.position.x + deltaX, y: point.position.y + deltaY }
+            }
+          }
+          for (const element of draft.installationElements) {
+            if (!shift.elementIds.has(element.id)) continue
+            element.position = { x: element.position.x + deltaX, y: element.position.y + deltaY }
+          }
+        }
+
+        if (deltaHeightCm !== 0) {
+          for (const candidate of draft.installationLines) {
+            if (!shift.lineIds.has(candidate.id) || !candidate.pipe) continue
+            candidate.pipe.startHeightCm += deltaHeightCm
+            candidate.pipe.endHeightCm += deltaHeightCm
           }
         }
 

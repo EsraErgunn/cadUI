@@ -11,6 +11,7 @@ import type {
   LineClipboardEntry,
 } from '../core/clipboard'
 import type { DischargeDraft } from '../core/dischargeDraft'
+import type { DraftAxisDirection } from '../core/draftKeyboard'
 import { mergeElementIds, toggleElementId } from '../core/elementSelection'
 import type { InstallationLineKind } from '../core/installationModel'
 import type { LineChain } from '../core/lineChain'
@@ -89,16 +90,19 @@ export type PendingCascadeDeletion = {
 }
 
 /**
- * `commitDraftFloorLink` (`floorLinkActions.ts`) hedef kata geçtiğinde
- * bağlantının BİR ucu (mevcut kattaki nokta) belli, karşı taraf henüz yok —
- * hedef katta ilk boru adımı yazılana kadar (`useLineTool.ts` `commitStep`)
- * burada bekler. Yalnız BİR taraf dolu olur: `below*` VEYA `above*`, ikisi
- * birden değil (ayırt edici alan yok, çünkü hangisinin eksik olduğu zaten
- * hangi alanların dolu olduğundan anlaşılır).
+ * Klavyeyle çizim sırasında ekrana gelen sayısal kutunun ne SORDUĞU
+ * (kullanıcı isteği, 2026-08). İki kip, tek kutu:
+ *
+ * - `length`: bir ok tuşuna basıldı, eksen kilitlendi, kutu UZUNLUK istiyor.
+ * - `elevation`: `+`/`-`'ye basıldı, kutu KOT FARKI istiyor; işaret tuştan
+ *   gelir, kullanıcı yalnız miktarı yazar.
+ *
+ * `null` = kutu kapalı. Yalnız aktif bir `draftLine` varken kurulur ve taslak
+ * düşünce/araç değişince temizlenir — hedefi olmayan bir kutu kafa karıştırır.
  */
-export type PendingFloorLink =
-  | { belowFloorId: Id; aboveFloorId: Id; belowPointId: Id; position: PlanPoint }
-  | { belowFloorId: Id; aboveFloorId: Id; abovePointId: Id; position: PlanPoint }
+export type DraftKeyboardInput =
+  | { mode: 'length'; direction: DraftAxisDirection }
+  | { mode: 'elevation'; sign: 1 | -1 }
 
 type PlumbingUiState = {
   selectedElementIds: Id[]
@@ -162,9 +166,9 @@ type PlumbingUiState = {
   pendingCascadeDeletion: PendingCascadeDeletion | null
   requestCascadeDeletion: (request: PendingCascadeDeletion) => void
   cancelCascadeDeletion: () => void
-  /** Yarım kalan kat bağlantısı; boş = beklenen yok (bkz. `PendingFloorLink`). */
-  pendingFloorLink: PendingFloorLink | null
-  setPendingFloorLink: (link: PendingFloorLink | null) => void
+  /** Klavye çizim kutusu; boş = kutu kapalı (bkz. `DraftKeyboardInput`). */
+  draftKeyboardInput: DraftKeyboardInput | null
+  setDraftKeyboardInput: (input: DraftKeyboardInput | null) => void
 }
 
 /**
@@ -199,7 +203,7 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
     measurement: null,
     assetErrors: {},
     pendingCascadeDeletion: null,
-    pendingFloorLink: null,
+    draftKeyboardInput: null,
 
     setSelectedElements: (elementIds) =>
       set((draft) => {
@@ -249,9 +253,14 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
         state.dischargeDraft = draft
       }),
 
+    // Taslak düşünce klavye kutusu da kapanır: kutunun hedefi taslağın ucuydu,
+    // hedefsiz açık kalırsa yazılan sayı hiçbir yere gitmez. Tek yerde
+    // tutuluyor ki her kapanış yolu (Esc, sağ tık, hedefe bağlanarak bitme,
+    // araç değişimi) ayrı ayrı hatırlamak zorunda kalmasın.
     setDraftLine: (line) =>
       set((draft) => {
         draft.draftLine = line
+        if (!line) draft.draftKeyboardInput = null
       }),
 
     setDraggingLineCorner: (drag) =>
@@ -325,9 +334,9 @@ export const usePlumbingUiStore = create<PlumbingUiState>()(
         draft.pendingCascadeDeletion = null
       }),
 
-    setPendingFloorLink: (link) =>
+    setDraftKeyboardInput: (input) =>
       set((draft) => {
-        draft.pendingFloorLink = link
+        draft.draftKeyboardInput = input
       }),
   })),
 )

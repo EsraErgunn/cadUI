@@ -182,9 +182,10 @@ export function reorderFloorInList<T extends Floor>(
 }
 
 /**
- * Bir üstteki / bir alttaki kat (madde 20: "Üst Kata Geç", Page Up/Down). Uçta
- * undefined döner — döngüsel geçiş YOK: en üst kattayken Page Up ile bodruma
- * düşmek kullanıcının bina içindeki yerini kaybettirir.
+ * Bir üstteki / bir alttaki kat (madde 20: "Üst Kata Geç"). Uçta undefined
+ * döner — döngüsel geçiş YOK: en üst kattayken bir üste basmak kullanıcıyı
+ * bodruma düşürüp bina içindeki yerini kaybettirirdi. Klavye kısayolu YOK
+ * (2026-08): kat yalnız yüzen çubuktan ve kat seçiciden değişir.
  */
 export function getFloorIdInDirection(
   floors: readonly Floor[],

@@ -19,7 +19,6 @@ import { SCENE_COLORS } from '../../scene/sceneTheme'
 import { useCadStore } from '../../store/cadStore'
 import type { InstallationConnection, InstallationLine, InstallationLinePoint } from '../core/installationModel'
 import { getLinePointElevationsCm } from '../core/lineElevation'
-import { isSamePoint } from '../core/lineGeometry'
 import { isDischargeKind } from '../core/lineKinds'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
@@ -274,20 +273,21 @@ function PipeLineMesh({
         </>
       )}
 
-      {/* Plan boyu SIFIR segment (K102) üstten TEK NOKTA görünür — çizgi yok,
-          kot okunmadan görünmez kalırdı. */}
-      {!isGhost &&
-        firstPoint &&
-        lastPoint &&
-        points.length === 2 &&
-        isSamePoint(firstPoint.position, lastPoint.position) && (
-          <PipeElevationGlyph
-            position={firstPoint.position}
-            fromHeightCm={firstElevationCm ?? 0}
-            toHeightCm={lastElevationCm ?? 0}
-            zoom={zoom}
-          />
-        )}
+      {/* Kot DEĞİŞEN her boruda gösterge var — plan boyu sıfır olsun olmasın
+          (kullanıcı isteği, 2026-08: "yükseklik göstergesi hiç gitmesin").
+          Önceden yalnız saf dikey (plan boyu SIFIR, iki noktalı) segmentte
+          çiziliyordu; komşu boru oynatılınca kolonun ucu onunla gidiyor, iki
+          nokta ayrışıyor ve gösterge KAYBOLUYORDU — oysa yükseklik farkı hâlâ
+          oradaydı. İşaret hattın SON noktasında: yükselinen kot orada, ve saf
+          dikeyde iki nokta zaten çakışık olduğu için o durum değişmiyor. */}
+      {!isGhost && lastPoint && firstElevationCm !== lastElevationCm && (
+        <PipeElevationGlyph
+          position={lastPoint.position}
+          fromHeightCm={firstElevationCm ?? 0}
+          toHeightCm={lastElevationCm ?? 0}
+          zoom={zoom}
+        />
+      )}
     </group>
   )
 }

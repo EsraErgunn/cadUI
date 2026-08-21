@@ -13,7 +13,7 @@ import { IsometricHud } from '../isometric/ui/IsometricHud'
 import { IsometricLegend } from '../isometric/ui/IsometricLegend'
 import { IsometricModeSwitch } from '../isometric/ui/IsometricModeSwitch'
 import { CascadeDeleteDialog } from '../plumbing/ui/CascadeDeleteDialog'
-import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
+import { DraftKeyboardInput } from '../plumbing/ui/DraftKeyboardInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
 import { SceneRoot } from '../scene/SceneRoot'
 import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
@@ -72,8 +72,9 @@ export function EditorPage() {
   }
 
   /**
-   * Klavyeden yapılan geçiş ANINDA uygulanır (madde 20); yalnız "Katlar"
-   * penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
+   * Yüzen çubuktaki kat oklarının geçişi ANINDA uygulanır (madde 20); yalnız
+   * "Katlar" penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
+   * Klavyeden kat değiştirme YOK (2026-08, bkz. useEditorShortcuts.ts).
    */
   const goToFloor = (direction: FloorDirection) => {
     const { floors, activeFloorId, setActiveFloor } = useCadStore.getState()
@@ -87,7 +88,6 @@ export function EditorPage() {
     onSaveAs: () => setIsSaveAsOpen(true),
     onOpenFloorManagement: () => setIsFloorDialogOpen(true),
     onOpenFloorCopy: () => setIsFloorCopyOpen(true),
-    onGoToFloor: goToFloor,
   })
 
   return (
@@ -153,8 +153,9 @@ export function EditorPage() {
             <SceneRoot />
             <OpeningToolOptions />
             {/* İki şerit aynı yerde ama asla birlikte görünmez: biri mimari
-                açıklık aracına, öteki tesisat boru aracına (K102) bağlı. */}
-            <PipeElevationInput />
+                açıklık aracına, öteki tesisatta klavyeyle çizime (ok tuşu /
+                `+`-`-`) bağlı. */}
+            <DraftKeyboardInput />
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
                 görünümünde de var (K57); izometrikte çizilecek bir şey yok,
                 orada tuval etkileşimi de yok. */}
