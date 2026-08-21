@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { asMock, buildDetail, buildHistory, buildUnits, renderDetail } from './projectDetailFixture'
+import { setAuthSession } from '../../api/authToken'
+import { ROLE_CODES } from '../../api/roles'
 
 const detailApi = vi.hoisted(() => ({
   getProjectDetail: vi.fn(),
@@ -30,6 +32,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
   vi.clearAllMocks()
 })
 
@@ -126,5 +130,55 @@ describe('poliçe sekmesi (KK-9)', () => {
     await user.click(await screen.findByRole('link', { name: /Poliçelendir/ }))
 
     expect(await screen.findByRole('heading', { name: 'Poliçe Oluşturma' })).toBeInTheDocument()
+  })
+})
+
+/**
+ * Gaz dağıtım kullanıcısı evrak ve poliçeyi GÖRÜR, yazamaz. Sunucudaki sınırın
+ * aynısı: `POST /api/docs` ve `POST /api/policies` uçları
+ * `Authorize(Roles = Admin, ProjectFirmUser)`.
+ */
+describe('proje detayı — gaz dağıtım kullanıcısı', () => {
+  it('evrak sekmesinde "Evrak Ekle" kısayolunu göstermez', async () => {
+    const user = userEvent.setup()
+    renderDetail(undefined, ROLE_CODES.gasDistributionUser)
+
+    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
+
+    // Sekmenin GÖRÜNTÜLEME yüzeyi duruyor (varsayılan mock boş liste →
+    // bilgilendirme kutusu); gizlenen yalnız yazma kısayolu.
+    expect(
+      await screen.findByText(/Projeye ait döküman bulunamamıştır\./),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Evrak Ekle/ })).not.toBeInTheDocument()
+  })
+
+  it('poliçe sekmesinde "Poliçelendir" kısayolunu göstermez', async () => {
+    const user = userEvent.setup()
+    renderDetail(undefined, ROLE_CODES.gasDistributionUser)
+
+    await user.click(await screen.findByRole('tab', { name: 'Poliçe Bilgileri' }))
+
+    expect(screen.queryByRole('link', { name: /Poliçelendir/ })).not.toBeInTheDocument()
+  })
+
+  it('işlemler sekmesinde iki yazma kısayolunu da göstermez', async () => {
+    const user = userEvent.setup()
+    renderDetail(undefined, ROLE_CODES.gasDistributionUser)
+
+    await user.click(await screen.findByRole('tab', { name: 'Proje İşlemleri' }))
+
+    expect(screen.queryByRole('link', { name: /Evrak Ekle/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Poliçelendir/ })).not.toBeInTheDocument()
+  })
+
+  it('yönetici aynı kısayolları görmeye devam eder', async () => {
+    const user = userEvent.setup()
+    renderDetail()
+
+    await user.click(await screen.findByRole('tab', { name: 'Proje İşlemleri' }))
+
+    expect(screen.getByRole('link', { name: /Evrak Ekle/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Poliçelendir/ })).toBeInTheDocument()
   })
 })

@@ -4,6 +4,13 @@ import { isTypingTarget } from '../core/domEvents'
 import { redoActiveView, undoActiveView } from '../store/activeViewHistory'
 
 export type EditorShortcutHandlers = {
+  /**
+   * Salt görüntüleme kipi. Açıkken YAZAN kısayolların hiçbiri çalışmaz:
+   * Ctrl+Z/Y (geri al/yinele), Ctrl+S / Ctrl+Shift+S (kaydet) ve Ctrl+K /
+   * Ctrl+Shift+K (kat yönetimi/kopyalama pencereleri). Tuş YUTULMAZ —
+   * `preventDefault` de çağrılmaz, tarayıcının kendi davranışı serbest kalır.
+   */
+  isReadOnly: boolean
   onSave: () => void
   onSaveAs: () => void
   onOpenFloorManagement: () => void
@@ -31,6 +38,9 @@ export function useEditorShortcuts(handlers: EditorShortcutHandlers): void {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Metin kutusunda Ctrl+Z yazıyı geri almalı, çizimi değil.
       if (isTypingTarget(event.target)) return
+      // Bu dinleyicideki kısayolların TAMAMI yazan işlemler; salt görüntülemede
+      // hiçbiri bağlanmaz. Zoom/pan burada değil (`useViewportControls`).
+      if (handlersRef.current.isReadOnly) return
 
       // KLAVYEDEN KAT DEĞİŞTİRME YOK (kullanıcı kararı, 2026-08): PageUp/PageDown
       // ve ok tuşları eskiden komşu kata geçiriyordu; ok tuşları artık boru

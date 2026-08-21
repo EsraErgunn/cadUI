@@ -114,7 +114,6 @@ describe('DocumentListPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Evraklar/ })).toHaveTextContent('(1)'),
     )
-    expect(screen.getByText('Tüm projelere ait yüklenmiş evraklar')).toBeInTheDocument()
     expect(screen.getByText('Proje Evrakları')).toBeInTheDocument()
   })
 
@@ -234,9 +233,9 @@ describe('DocumentListPage', () => {
     renderPage()
     await screen.findByRole('table')
 
+    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
     await user.selectOptions(screen.getByLabelText('Döküman Tipi'), 'ruhsat')
-    await user.type(screen.getByLabelText('Evrak adında ara'), 'ruhsat')
-    await user.click(screen.getByRole('button', { name: /Filtrele/ }))
+    await user.type(screen.getByLabelText('Evrak adında ara'), 'ruhsat{Enter}')
 
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
@@ -300,5 +299,33 @@ describe('DocumentListPage (proje firması kullanıcısı)', () => {
     expect(screen.getByRole('columnheader', { name: 'Firma Adı' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'G.D Firması' })).toBeInTheDocument()
     expect(screen.getByLabelText('Proje Firması')).toBeInTheDocument()
+  })
+
+  /**
+   * Evrak SİLME sunucuda `Admin, ProjectFirmUser`'a açık
+   * (`DELETE /api/docs/{id}`); okuma uçları rol kısıtı taşımıyor. Gaz dağıtım
+   * kullanıcısı evrağı görür, silemez.
+   */
+  it('evrakları görüntüleyebilir', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Evrak Adı' })).toBeInTheDocument()
+  })
+
+  it('Sil aksiyonunu göstermez', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Aksiyonlar' })).not.toBeInTheDocument()
+  })
+
+  it('yönetici aynı ekranda Sil aksiyonunu görmeye devam eder', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Aksiyonlar' })).toBeInTheDocument()
   })
 })

@@ -21,10 +21,10 @@ import {
 import { buildPolicyFilterChips } from '../ui/admin/policies/policyFilterChips'
 import { usePolicyListParams } from '../ui/admin/policies/usePolicyListParams'
 import { useHomePath } from '../ui/admin/useHomePath'
+import { useCanWriteProjectContent } from '../ui/admin/useRole'
 import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Poliçeler'
-const PAGE_DESCRIPTION = 'Tüm projelere ait poliçeler'
 
 
 
@@ -54,6 +54,9 @@ const DELETE_MESSAGES = {
 
 export function PolicyListPage() {
   const homePath = useHomePath()
+  // Poliçe silme sunucuda `Admin, ProjectFirmUser`'a açık; gaz dağıtım
+  // kullanıcısı listeyi görür ama satır silemez.
+  const canWriteContent = useCanWriteProjectContent()
   const { query, applyFilters, toggleSort, setPage } = usePolicyListParams()
   const queryClient = useQueryClient()
 
@@ -93,9 +96,10 @@ export function PolicyListPage() {
       buildPolicyColumns({
         rowOffset: (query.page - 1) * query.pageSize,
         pendingPolicyId: deletion.pendingId,
+        canDelete: canWriteContent,
         onDelete: deletion.request,
       }),
-    [query.page, query.pageSize, deletion.pendingId, deletion.request],
+    [query.page, query.pageSize, deletion.pendingId, canWriteContent, deletion.request],
   )
 
   const hasActiveFilters = query.search !== '' || query.insuranceCompanyId !== null
@@ -114,7 +118,6 @@ export function PolicyListPage() {
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}
         countLabel={formatCountLabel(data?.totalCount)}
-        description={PAGE_DESCRIPTION}
       />
 
       <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />

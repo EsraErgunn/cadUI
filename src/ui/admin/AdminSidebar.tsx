@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 
 import { getNavItemsForRole, type AdminNavItem } from './adminNavItems'
-import { adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
+import { ADMIN_FOCUS_RING, adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
 import { useRoleCode } from './useRole'
 import { useTheme } from './useTheme'
 import { getWorkspaceIdentity } from './workspaceIdentity'
@@ -105,8 +105,17 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           ${isOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}
       >
         <div className="flex items-center gap-2 border-b border-edge px-5 py-4">
-          <img src={logo} alt="" aria-hidden className="h-8 w-auto shrink-0" />
-          <span className="text-base font-semibold">StarCAD</span>
+          {/* Logo + ad ROLÜN anasayfasına götürür (`identity.homePath`): sabit
+              `/admin` yazılsaydı proje firması ve gaz dağıtım kullanıcısı rol
+              kapısına, yani "yetkiniz yok" ekranına düşerdi. */}
+          <NavLink
+            to={identity.homePath}
+            onClick={onClose}
+            className={`flex min-w-0 items-center gap-2 rounded-md ${ADMIN_FOCUS_RING}`}
+          >
+            <img src={logo} alt="" aria-hidden className="h-8 w-auto shrink-0" />
+            <span className="text-base font-semibold">StarCAD</span>
+          </NavLink>
           <span className="rounded-md border border-edge bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted">
             {identity.badge}
           </span>

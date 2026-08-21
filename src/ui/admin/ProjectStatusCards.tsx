@@ -2,14 +2,14 @@ import { CircleCheck, CircleX, FileClock, PencilRuler } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { formatCount } from './adminFormat'
+import { projectListPathForStatus } from './adminNavItems'
+import { ADMIN_FOCUS_RING, formCardVariants } from './adminVariants'
 import {
   PROJECT_STATUSES,
   PROJECT_STATUS_LABELS,
   type ProjectStatus,
-} from '../../../api/projects'
-import { formatCount } from '../adminFormat'
-import { projectListPathForStatus } from '../adminNavItems'
-import { ADMIN_FOCUS_RING, formCardVariants } from '../adminVariants'
+} from '../../api/projects'
 
 const STATUS_ICONS: Record<ProjectStatus, LucideIcon> = {
   taslak: PencilRuler,
@@ -21,7 +21,7 @@ const STATUS_ICONS: Record<ProjectStatus, LucideIcon> = {
 /** Adet henüz gelmediyse rakam yerine bu; kart yerinde durur, sayfa zıplamaz. */
 const PENDING_VALUE = '…'
 
-interface FirmProjectStatusCardsProps {
+interface ProjectStatusCardsProps {
   /** `undefined` = adetler yolda. Sıfırla KARIŞTIRILMAZ: sıfır gerçek bir cevap. */
   counts: Record<ProjectStatus, number> | undefined
   /** Kartların altında yazan kapsam cümlesi (tarih aralığı). */
@@ -29,7 +29,9 @@ interface FirmProjectStatusCardsProps {
 }
 
 /**
- * Firmanın projelerinin durum dağılımı — proje firması anasayfasının ilk satırı.
+ * Projelerin durum dağılımı — proje firması ve gaz dağıtım anasayfalarının
+ * ORTAK ilk satırı. İkinci ekran gerekince kök klasöre taşındı (CLAUDE.md
+ * klasör sözleşmesi); ikinci bir kopya çıkarılmadı.
  *
  * Yönetici anasayfasındaki `SummaryCards`'ın kopyası DEĞİL: o firma/kullanıcı
  * sayılarını gösteriyor ve kapsam seçicisine bağlı, buradaki dört kart tek bir
@@ -40,7 +42,7 @@ interface FirmProjectStatusCardsProps {
  * paylaşması için tarih aralığı da listenin varsayılanıyla aynı (çağıran
  * hesaplıyor), yoksa kart "12" derken liste 3 satır gösterirdi.
  */
-export function FirmProjectStatusCards({ counts, rangeLabel }: FirmProjectStatusCardsProps) {
+export function ProjectStatusCards({ counts, rangeLabel }: ProjectStatusCardsProps) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
       {PROJECT_STATUSES.map((status) => {

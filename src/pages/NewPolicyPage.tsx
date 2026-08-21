@@ -27,7 +27,6 @@ import type { ProjectDetailTabKey } from '../ui/admin/projectDetail/tabItems'
 import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Poliçe Oluşturma'
-const PAGE_DESCRIPTION = 'Manuel poliçe akışı'
 
 /**
  * Kırılım "Poliçeler" bölümünden GEÇMEZ (K68): ekran bir projenin işlemi,
@@ -135,7 +134,6 @@ export function NewPolicyPage() {
       <PageHeader
         breadcrumb={buildBreadcrumb(project, homePath)}
         title={PAGE_TITLE}
-        description={PAGE_DESCRIPTION}
       />
 
       <p className="text-sm text-ink-muted">

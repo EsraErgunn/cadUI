@@ -15,6 +15,7 @@ import { getSnapToleranceCm } from '../../core/snap'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
+import { isEditorReadOnly } from '../../store/editorReadOnly'
 import { useUiStore } from '../../store/uiStore'
 import {
   isFixedCompanionValve,
@@ -686,6 +687,10 @@ export function useSelectionTool(): SelectionToolState {
      */
     const handleKeyDown = (keyEvent: KeyboardEvent) => {
       if (isTypingTarget(keyEvent.target)) return
+      // Yapıştırma, silme ve çoğaltma çizimi DEĞİŞTİRİR. Kopyalama okuma
+      // sayılırdı ama panoya alınan şeyin yapıştırılacak yeri yok; tüm
+      // dinleyici susturuluyor.
+      if (isEditorReadOnly()) return
 
       const ui = usePlumbingUiStore.getState()
       const { selectedElementIds, selectedLineIds } = ui

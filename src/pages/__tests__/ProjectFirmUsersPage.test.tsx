@@ -40,7 +40,6 @@ describe('ekran açılışı (KK-1)', () => {
     await waitFor(() => expect(heading).toHaveTextContent('(25.566)'))
     expect(screen.getByLabelText('Konum')).toHaveTextContent('Anasayfa')
     expect(screen.getByLabelText('Konum')).toHaveTextContent('Firmalar')
-    expect(screen.getByText('Firma mühendisleri ve yetkilileri')).toBeInTheDocument()
   })
 
   // KK-2: yetki "Tümü", "Aktif" işaretsiz, sağ üstteki sıra korunuyor.
@@ -50,7 +49,8 @@ describe('ekran açılışı (KK-1)', () => {
     expect(await screen.findByLabelText('Yetki')).toHaveValue('')
     expect(screen.getByLabelText('Aktif')).not.toBeChecked()
     expect(screen.getByLabelText(/Kullanıcı adı, ad soyad veya e-postada ara/)).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Filtrele' })).toBeInTheDocument()
+    // "Filtrele" düğmesi KALKTI: kriter seçilir seçilmez uygulanıyor.
+    expect(screen.queryByRole('button', { name: 'Filtrele' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Yeni Kullanıcı/ })).toHaveAttribute(
       'href',
       '/admin/project-firm-users/new',

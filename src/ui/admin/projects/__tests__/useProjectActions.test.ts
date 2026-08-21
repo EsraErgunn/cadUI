@@ -1,16 +1,29 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { submitProjectDecision } from '../../../../api/projectDetail'
 import { deleteProject, submitProject } from '../../../../api/projects'
 import { useProjectActions } from '../useProjectActions'
 
-vi.mock('../../../../api/projects', () => ({
+/**
+ * KISMİ mock: `api/projectDetail` → `projectDetailTypes` zinciri
+ * `PROJECT_STATUSES` sabitini bu modülden okuyor. Tam mock, o sabiti
+ * kaybettirip modülü import edilemez hâle getiriyordu.
+ */
+vi.mock('../../../../api/projects', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../api/projects')>()),
   deleteProject: vi.fn(),
   submitProject: vi.fn(),
 }))
 
+vi.mock('../../../../api/projectDetail', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../api/projectDetail')>()),
+  submitProjectDecision: vi.fn(),
+}))
+
 const deleteProjectMock = vi.mocked(deleteProject)
 const submitProjectMock = vi.mocked(submitProject)
+const submitDecisionMock = vi.mocked(submitProjectDecision)
 
 const PROJECT_ID = 7
 
@@ -96,6 +109,70 @@ describe('useProjectActions', () => {
 
     await waitFor(() => expect(result.current.notice?.tone).toBe('error'))
     expect(result.current.notice?.message).toContain('tekrar deneyin')
+    expect(onChanged).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Onay/ret. Uç `POST /api/projects/{id}/approve|reject`; çağrı proje detayıyla
+ * AYNI fonksiyondan (`submitProjectDecision`) geçiyor.
+ */
+describe('useProjectActions — onay/ret', () => {
+  it('onay isteği doğrudan gider, gerekçe sormaz', async () => {
+    submitDecisionMock.mockResolvedValue({ status: 'onaylanan', approvalCode: null })
+    const onChanged = vi.fn()
+    const { result } = renderHook(() => useProjectActions({ onChanged }))
+
+    act(() => result.current.decide('approve', PROJECT_ID))
+
+    expect(result.current.rejectTargetId).toBeNull()
+    await waitFor(() => expect(submitDecisionMock).toHaveBeenCalledWith(PROJECT_ID, 'approve', null))
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  /** Gerekçe kuralı `requiresReason`'da; diyalog açılmadan istek ATILMAZ. */
+  it('ret önce gerekçe bekler, istek atmaz', () => {
+    const { result } = renderHook(() => useProjectActions({ onChanged: vi.fn() }))
+
+    act(() => result.current.decide('reject', PROJECT_ID))
+
+    expect(result.current.rejectTargetId).toBe(PROJECT_ID)
+    expect(submitDecisionMock).not.toHaveBeenCalled()
+  })
+
+  it('gerekçe onaylanınca ret isteği gider', async () => {
+    submitDecisionMock.mockResolvedValue({ status: 'reddedilen', approvalCode: null })
+    const onChanged = vi.fn()
+    const { result } = renderHook(() => useProjectActions({ onChanged }))
+
+    act(() => result.current.decide('reject', PROJECT_ID))
+    await act(async () => {
+      await result.current.confirmReject('Kolon çapı yetersiz')
+    })
+
+    expect(submitDecisionMock).toHaveBeenCalledWith(PROJECT_ID, 'reject', 'Kolon çapı yetersiz')
+    expect(result.current.rejectTargetId).toBeNull()
+    expect(onChanged).toHaveBeenCalled()
+  })
+
+  it('gerekçe iptal edilince istek atmaz', () => {
+    const { result } = renderHook(() => useProjectActions({ onChanged: vi.fn() }))
+
+    act(() => result.current.decide('reject', PROJECT_ID))
+    act(() => result.current.cancelReject())
+
+    expect(result.current.rejectTargetId).toBeNull()
+    expect(submitDecisionMock).not.toHaveBeenCalled()
+  })
+
+  it('uç hata verirse listeyi tazelemez ve hata bildirir', async () => {
+    submitDecisionMock.mockRejectedValue(new Error('403'))
+    const onChanged = vi.fn()
+    const { result } = renderHook(() => useProjectActions({ onChanged }))
+
+    act(() => result.current.decide('approve', PROJECT_ID))
+
+    await waitFor(() => expect(result.current.notice?.tone).toBe('error'))
     expect(onChanged).not.toHaveBeenCalled()
   })
 })

@@ -18,7 +18,6 @@ import { useHomePath } from '../ui/admin/useHomePath'
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
 
 const PAGE_TITLE = 'Yeni Proje'
-const PAGE_DESCRIPTION = 'Proje tipi, ısınma tipi ve yetkili mühendis alanları parametriktir'
 const CANCEL_TITLE = 'Kaydedilmemiş değişiklikler var'
 const CANCEL_DESCRIPTION =
   'Girdiğiniz bilgiler kaydedilmeden proje listesine dönülecek. Devam edilsin mi?'
@@ -82,7 +81,6 @@ export function NewProjectPage() {
           { label: PAGE_TITLE },
         ]}
         title={PAGE_TITLE}
-        description={PAGE_DESCRIPTION}
       />
 
       {form.submitError !== null && (

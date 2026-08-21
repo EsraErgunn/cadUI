@@ -118,7 +118,8 @@ export async function selectGroup(name: string) {
   // Seçenekler sunucudan geliyor; gelmeden seçim yapılamaz.
   await screen.findByRole('option', { name })
   await setupUser().selectOptions(screen.getByRole('combobox'), name)
-  await screen.findByRole('checkbox', { name: name === 'AKSA' ? 'AKSA-ADANA' : 'ENERYA-KONYA' })
+  // Seçim TEKİL: kutular artık radyo.
+  await screen.findByRole('radio', { name: name === 'AKSA' ? 'AKSA-ADANA' : 'ENERYA-KONYA' })
 }
 
 /** Kaydetmeyi engellemeyecek geçerli bir firma bilgisi doldurur. */
@@ -143,6 +144,6 @@ export async function fillFirmInfo(overrides: Record<string, string> = {}) {
 export async function addAuthorization(gasFirmName = 'AKSA-GEMLİK') {
   const user = setupUser()
 
-  await user.click(screen.getByRole('checkbox', { name: gasFirmName }))
+  await user.click(screen.getByRole('radio', { name: gasFirmName }))
   await user.click(screen.getByRole('button', { name: 'Ekle' }))
 }

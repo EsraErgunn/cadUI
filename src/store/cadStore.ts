@@ -8,6 +8,7 @@ import {
   INITIAL_ARCHITECTURE_DATA,
   type ArchitectureSlice,
 } from './architectureSlice'
+import { isEditorReadOnly } from './editorReadOnly'
 import { createFloorSlice, type FloorSlice } from './floorSlice'
 import {
   areProjectStatesEqual,
@@ -70,6 +71,65 @@ function createEmptyProjectData(): ProjectData {
 // import ediyor, buradan alsalardı cadStore ↔ slice döngüsü oluşurdu (K17).
 
 export { markDirty, takeNextId } from './projectMeta'
+
+/**
+ * Salt görüntüleme kipinde ÇALIŞMAYA DEVAM EDEN slice action'ları.
+ *
+ * İkisi de çizimi DEĞİŞTİRMEZ, bakışı değiştirir:
+ * - `setActiveFloor`: hangi katın çizildiği. `activeFloorId` JSON'a giriyor ama
+ *   kirli işaretine girmiyor (bkz. floor-ordering); engellenseydi salt
+ *   görüntüleyen kullanıcı ilk kattan başka bir kat göremezdi.
+ * - `setIsometricAngles`: izometrik bakış açısı. Aynı gerekçe — açı oynatmak
+ *   bir çizim değişikliği değil (isometricSlice'ın kendi notu).
+ *
+ * Listeye ekleme yapmadan önce sor: bu action `PersistedContent`'i değiştiriyor
+ * mu? Değiştiriyorsa buraya GİRMEZ.
+ */
+const READ_ONLY_SAFE_ACTIONS: ReadonlySet<string> = new Set([
+  'setActiveFloor',
+  'setIsometricAngles',
+])
+
+/**
+ * Merkezî salt görüntüleme kapısı.
+ *
+ * Neden burada: `useCadStore.setState` bu dosyanın DIŞINDA hiç çağrılmıyor —
+ * çizimi değiştiren her yol bir slice action'ından geçiyor. Yani tek bir
+ * sarmalayıcı, tuvalden gelen jesti de panelden gelen düğmeyi de klavyeden
+ * gelen kısayolu da aynı yerde durduruyor. Yüzeyleri tek tek kapatmak
+ * kapsamlıdır ama kanıtlanabilir değildir: yarın `scene/` altına eklenen bir
+ * araç kapıyı atlardı.
+ *
+ * Sarmalanan yalnız SLICE'lar ve `clearProjectDrawing`. `loadProject`,
+ * `resetProject` ve `markSaved` bilerek dışarıda: birincisi çizimin
+ * GÖRÜNMESİNİN tek yolu, ikincisi proje değişiminde gerekli, üçüncüsü kirli
+ * işaretini tazeliyor — üçü de kullanıcının yazdığı bir değişiklik değil.
+ *
+ * ⚠️ Engellenen action `undefined` döndürür. Bu bir SON savunma hattıdır, ilk
+ * değil: kipte olan hiçbir arayüz/sahne yolu buraya kadar gelmiyor (jestler,
+ * klavye ve düğmeler kendi katmanlarında kapalı). Dönüş değerini kullanan bir
+ * çağıran buraya ulaşırsa bu bir hatadır ve testte görünmesi istenir.
+ *
+ * ⚠️ GÜVENLİK SINIRI DEĞİL: çizimi sunucuya yazan tek uç
+ * (`POST /api/projects/{id}/newversion`) zaten rol korumalı.
+ */
+function guardReadOnlyActions<T extends object>(actions: T): T {
+  const guarded: Record<string, unknown> = {}
+
+  for (const [name, value] of Object.entries(actions)) {
+    if (typeof value !== 'function' || READ_ONLY_SAFE_ACTIONS.has(name)) {
+      guarded[name] = value
+      continue
+    }
+
+    const action = value as (...params: unknown[]) => unknown
+    guarded[name] = (...params: unknown[]) =>
+      isEditorReadOnly() ? undefined : action(...params)
+  }
+
+  // Sarmalama yalnız GÖVDEYİ değiştirdi, anahtarları ve imzaları değil.
+  return guarded as T
+}
 
 // temporal EN DIŞTA: immer'ı sarmalı ki geçmişe düşen anlık görüntüler
 // producer bittikten SONRAKİ dondurulmuş state olsun, draft değil.
@@ -139,43 +199,47 @@ export const useCadStore = create<CadState>()(
           useCadStore.getState().loadProject(createEmptyProjectData())
         },
 
-        /**
-         * "Projeyi Temizle": çizim içeriğini boşaltır.
-         *
-         * `resetProject`ten AYRI ve ondan türetilmedi. Üç fark, üçü de bilerek:
-         * - KAT YAPISI KALIR. Kullanıcı katları tek tek kurmuş olabilir; "çizimi
-         *   temizle" onları da silseydi geri getirmenin yolu yalnız Ctrl+Z olurdu.
-         * - GEÇMİŞ SIFIRLANMAZ. Temizlemek bir düzenlemedir, yeni bir başlangıç
-         *   değil: tek Ctrl+Z çizimi geri getirmeli.
-         * - KİRLİ İŞARET DURUR (`markDirty`). Temizlenmiş çizim kaydedilmemiş bir
-         *   değişikliktir; `loadProject` gibi `savedContent` tazelenseydi
-         *   kullanıcı çıkarken uyarılmaz ve işini sessizce kaybederdi.
-         *
-         * `nextUniqueId` GERİ ALINMAZ: silinen id'ler yeniden üretilirse geri
-         * alma sonrası iki nesne aynı id'yi taşır (knowledge/id-scheme.md).
-         */
-        clearProjectDrawing: () => {
-          set((draft) => {
-            draft.points = []
-            draft.walls = []
-            draft.openings = []
-            draft.rooms = []
-            draft.symbols = []
-            draft.areaObjects = []
-            draft.beams = []
-            draft.texts = []
-            draft.installationElements = []
-            draft.installationLines = []
-            draft.installationConnections = []
-            draft.floorPipeLinks = []
-            markDirty(draft)
-          })
-        },
-
-        ...createFloorSlice(...args),
-        ...createIsometricSlice(...args),
-        ...createArchitectureSlice(...args),
-        ...createPlumbingSlice(...args),
+        // Buradan aşağısı SALT GÖRÜNTÜLEME kapısının arkasında. Yukarıdaki
+        // `markSaved` / `loadProject` / `resetProject` bilerek dışarıda:
+        // görüntülemenin kendisi onlara bağlı.
+        ...guardReadOnlyActions({
+          /**
+           * "Projeyi Temizle": çizim içeriğini boşaltır.
+           *
+           * `resetProject`ten AYRI ve ondan türetilmedi. Üç fark, üçü de bilerek:
+           * - KAT YAPISI KALIR. Kullanıcı katları tek tek kurmuş olabilir; "çizimi
+           *   temizle" onları da silseydi geri getirmenin yolu yalnız Ctrl+Z olurdu.
+           * - GEÇMİŞ SIFIRLANMAZ. Temizlemek bir düzenlemedir, yeni bir başlangıç
+           *   değil: tek Ctrl+Z çizimi geri getirmeli.
+           * - KİRLİ İŞARET DURUR (`markDirty`). Temizlenmiş çizim kaydedilmemiş bir
+           *   değişikliktir; `loadProject` gibi `savedContent` tazelenseydi
+           *   kullanıcı çıkarken uyarılmaz ve işini sessizce kaybederdi.
+           *
+           * `nextUniqueId` GERİ ALINMAZ: silinen id'ler yeniden üretilirse geri
+           * alma sonrası iki nesne aynı id'yi taşır (knowledge/id-scheme.md).
+           */
+          clearProjectDrawing: () => {
+            set((draft) => {
+              draft.points = []
+              draft.walls = []
+              draft.openings = []
+              draft.rooms = []
+              draft.symbols = []
+              draft.areaObjects = []
+              draft.beams = []
+              draft.texts = []
+              draft.installationElements = []
+              draft.installationLines = []
+              draft.installationConnections = []
+              draft.floorPipeLinks = []
+              markDirty(draft)
+            })
+          },
+          ...createFloorSlice(...args),
+          ...createIsometricSlice(...args),
+          ...createArchitectureSlice(...args),
+          ...createPlumbingSlice(...args),
+        }),
       }
     }),
     {

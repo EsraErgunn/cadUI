@@ -23,11 +23,10 @@ import {
 import { buildDocumentFilterChips } from '../ui/admin/documents/documentFilterChips'
 import { useDocumentListParams } from '../ui/admin/documents/useDocumentListParams'
 import { useHomePath } from '../ui/admin/useHomePath'
-import { useIsManagementUser } from '../ui/admin/useRole'
+import { useCanWriteProjectContent, useIsManagementUser } from '../ui/admin/useRole'
 import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Evraklar'
-const PAGE_DESCRIPTION = 'Tüm projelere ait yüklenmiş evraklar'
 
 /** İlk madde ROLE göre çözülüyor (`useHomePath`); ekran üç rolde de açık. */
 const BREADCRUMB_TAIL = [{ label: 'Evraklar' }, { label: 'Proje Evrakları' }]
@@ -64,6 +63,9 @@ export function DocumentListPage() {
   // Yönetim ALANLARI (firma sütunları, firma süzgeci) buna bakıyor; verinin
   // kapsamı sunucunun işi.
   const isManagementView = useIsManagementUser()
+  // Evrak silme sunucuda `Admin, ProjectFirmUser`'a açık; gaz dağıtım kullanıcısı
+  // listeyi görür ama satır silemez.
+  const canWriteContent = useCanWriteProjectContent()
   const { query, applyFilters, toggleSort, setPage } = useDocumentListParams()
   const queryClient = useQueryClient()
 
@@ -110,6 +112,7 @@ export function DocumentListPage() {
         documentTypes,
         pendingDocumentId: deletion.pendingId,
         isManagementView,
+        canDelete: canWriteContent,
         onDelete: deletion.request,
       }),
     [
@@ -118,6 +121,7 @@ export function DocumentListPage() {
       documentTypes,
       deletion.pendingId,
       isManagementView,
+      canWriteContent,
       deletion.request,
     ],
   )
@@ -142,7 +146,6 @@ export function DocumentListPage() {
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, ...BREADCRUMB_TAIL]}
         title={PAGE_TITLE}
         countLabel={formatCountLabel(data?.totalCount)}
-        description={PAGE_DESCRIPTION}
       />
 
       <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />

@@ -10,6 +10,7 @@ import { isTypingTarget } from '../../core/domEvents'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
+import { isEditorReadOnly } from '../../store/editorReadOnly'
 import { useUiStore } from '../../store/uiStore'
 import { getDraftAxisDirection, getDraftElevationSign } from '../core/draftKeyboard'
 import { resolveFreeEndAttachment } from '../core/elementAttach'
@@ -483,6 +484,10 @@ export function useLineTool(): LineToolState {
      */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
+      // Ok tuşları ve +/- klavyeyle boru ÇİZİYOR (K-klavye çizimi); salt
+      // görüntülemede taslak zaten hiç başlamaz (jestler kapalı) ama dinleyici
+      // de susturuluyor — tek kapıya güvenmiyoruz.
+      if (isEditorReadOnly()) return
 
       const draft = readDraft()
       if (!draft) return

@@ -1,4 +1,9 @@
-import { ADMIN_HOME_PATH, FIRM_HOME_PATH, FORBIDDEN_PATH } from './adminNavItems'
+import {
+  ADMIN_HOME_PATH,
+  FIRM_HOME_PATH,
+  FORBIDDEN_PATH,
+  GAS_DISTRIBUTION_HOME_PATH,
+} from './adminNavItems'
 import { ROLE_CODES, type RoleCode } from '../../api/roles'
 
 /**
@@ -25,14 +30,13 @@ const IDENTITIES: Record<RoleCode, WorkspaceIdentity> = {
     title: 'Yönetici Paneli',
     homePath: ADMIN_HOME_PATH,
   },
-  // TODO(esra): rolün kendi ekranları gelene kadar yönetici kabuğunu kullanıyor
-  // (bkz. MANAGEMENT_SCREEN_ROLES). Rozet yine de rolü doğru yazıyor: kullanıcıya
-  // "Admin" demek, yetkisini yanlış tarif etmek olurdu.
+  // Artık kendi çalışma alanı var: `/admin` yönetimin, bu rol projeleri
+  // ONAYLIYOR — firma/kullanıcı yönetmiyor. Başlık da bunu söylüyor.
   [ROLE_CODES.gasDistributionUser]: {
     badge: 'Gaz Dağıtım',
-    section: 'Sistem Yönetimi',
-    title: 'Yönetici Paneli',
-    homePath: ADMIN_HOME_PATH,
+    section: 'Gaz Dağıtım Firması',
+    title: 'Dağıtım Paneli',
+    homePath: GAS_DISTRIBUTION_HOME_PATH,
   },
   [ROLE_CODES.projectFirmUser]: {
     badge: 'Firma',

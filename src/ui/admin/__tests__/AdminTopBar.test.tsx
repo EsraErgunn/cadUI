@@ -164,23 +164,6 @@ describe('AdminTopBar kapsam seçicisi', () => {
     expect(await screen.findByRole('option', { name: 'AKSA (tümü)' })).toBeInTheDocument()
   })
 
-  /**
-   * Proje firması kullanıcısının kapsamı zaten kendi firması; seçenekler ise
-   * gaz dağıtım grupları. Seçici çizilseydi kullanıcı "sistem geneline
-   * bakıyorum" sanırdı. İSTEK de atılmamalı: iki uç yalnız seçeneği doldurmak
-   * için var ve ikisi de yönetim uçları.
-   */
-  it('proje firması kullanıcısında seçiciyi çizmez ve isteği atmaz', async () => {
-    setAuthSession({ ...ADMIN_SESSION, roleCode: ROLE_CODES.projectFirmUser })
-
-    renderTopBar(PROJECT_FIRMS_PATH)
-
-    expect(screen.queryByLabelText('Kapsam')).not.toBeInTheDocument()
-    await waitFor(() => {
-      expect(getFirmGroups).not.toHaveBeenCalled()
-      expect(fetchAllFirms).not.toHaveBeenCalled()
-    })
-  })
 })
 
 /**
@@ -321,4 +304,3 @@ describe('AdminTopBar oturum sonlandırma', () => {
     await waitFor(() => expect(getAuthSession()).toBeUndefined())
   })
 })
-

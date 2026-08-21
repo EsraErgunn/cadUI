@@ -26,7 +26,6 @@ import { useDocumentUpload } from '../ui/admin/documents/useDocumentUpload'
 import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Evrak Ekle'
-const PAGE_DESCRIPTION = 'Dosyayı yükleyin, evrak tipini seçin ve ilgili birimleri işaretleyin'
 const PANEL_ID = 'document-source-panel'
 
 const UPLOADED_TITLE = 'Yüklenen Evraklar'
@@ -145,7 +144,6 @@ export function NewDocumentPage() {
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, ...BREADCRUMB_TAIL]}
         title={PAGE_TITLE}
-        description={PAGE_DESCRIPTION}
       />
 
       <p className="text-sm text-ink-muted">

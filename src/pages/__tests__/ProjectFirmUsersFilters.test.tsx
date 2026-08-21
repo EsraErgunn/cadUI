@@ -35,11 +35,11 @@ afterEach(() => {
 })
 
 /**
- * Kriterler "Filtrele" ile uygulanıyor (KK-3/5/6, docs/kararlar.md K47):
- * kutular taslak durumu tutar, düğmeye basılana kadar adres değişmez.
+ * "Filtrele" düğmesi KALKTI: yetki ve "Aktif" seçildiği anda uygulanıyor,
+ * ARAMA ise Enter'da (her harfte istek atmamak için; debounce eklenmedi).
  */
 describe('filtrenin uygulanma anı', () => {
-  it('yazarken istek çıkmaz, "Filtrele" ile tek istek çıkar', async () => {
+  it('yazarken istek çıkmaz, Enter ile tek istek çıkar', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('table')
@@ -48,7 +48,7 @@ describe('filtrenin uygulanma anı', () => {
     await user.type(screen.getByLabelText(/Kullanıcı adı, ad soyad/), 'tolga')
     expect(listApi.getProjectFirmUserList.mock.calls).toHaveLength(callsBefore)
 
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+    await user.keyboard('{Enter}')
 
     await waitFor(() => expect(lastQuery()).toMatchObject({ nameQuery: 'tolga' }))
   })
@@ -72,7 +72,6 @@ describe('yetki ve aktif filtreleri (KK-3, KK-4)', () => {
     await screen.findByRole('table')
 
     await user.selectOptions(screen.getByLabelText('Yetki'), 'firmAuthorizedPerson')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
     await waitFor(() => expect(lastQuery()).toMatchObject({ authorityType: 'firmAuthorizedPerson' }))
   })
@@ -83,7 +82,6 @@ describe('yetki ve aktif filtreleri (KK-3, KK-4)', () => {
     await screen.findByRole('table')
 
     await user.click(screen.getByLabelText('Aktif'))
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
     await waitFor(() => expect(lastQuery()).toMatchObject({ onlyActive: true }))
   })
@@ -96,10 +94,11 @@ describe('kriterlerin birlikte uygulanması (KK-6)', () => {
     renderPage(`${LIST_PATH}?page=4`)
     await screen.findByRole('table')
 
+    // Her seçim kendi isteğini atıyor; son istek üç kriteri birlikte taşıyor
+    // ve sayfa 1'e dönüyor.
     await user.selectOptions(screen.getByLabelText('Yetki'), 'firmEngineer')
     await user.click(screen.getByLabelText('Aktif'))
-    await user.type(screen.getByLabelText(/Kullanıcı adı, ad soyad/), 'tolga')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+    await user.type(screen.getByLabelText(/Kullanıcı adı, ad soyad/), 'tolga{Enter}')
 
     await waitFor(() =>
       expect(lastQuery()).toMatchObject({

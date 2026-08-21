@@ -45,6 +45,7 @@ export function FloatingToolbar({
   const isGridSnapEnabled = useUiStore((state) => state.isGridSnapEnabled)
   const toggleGridSnapEnabled = useUiStore((state) => state.toggleGridSnapEnabled)
   const activeViewId = useUiStore((state) => state.activeViewId)
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
 
   const canUndo = useCanUndoActiveView()
   const canRedo = useCanRedoActiveView()
@@ -99,28 +100,34 @@ export function FloatingToolbar({
           <Hand size={16} strokeWidth={1.8} aria-hidden />
         </button>
 
-        <span className={CANVAS_BAR_DIVIDER} aria-hidden />
+        {/* Geri al/yinele salt görüntülemede HİÇ çizilmez: geri alınacak bir
+            düzenleme zaten yapılamıyor, düğme yalnız hep pasif dururdu. */}
+        {!isReadOnly && (
+          <>
+            <span className={CANVAS_BAR_DIVIDER} aria-hidden />
 
-        <button
-          type="button"
-          onClick={undoActiveView}
-          disabled={!canUndo}
-          title="Geri al (Ctrl+Z)"
-          aria-label="Geri al"
-          className={canvasBarButtonVariants()}
-        >
-          <Undo2 size={16} strokeWidth={1.8} aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={redoActiveView}
-          disabled={!canRedo}
-          title="Yinele (Ctrl+Y)"
-          aria-label="Yinele"
-          className={canvasBarButtonVariants()}
-        >
-          <Redo2 size={16} strokeWidth={1.8} aria-hidden />
-        </button>
+            <button
+              type="button"
+              onClick={undoActiveView}
+              disabled={!canUndo}
+              title="Geri al (Ctrl+Z)"
+              aria-label="Geri al"
+              className={canvasBarButtonVariants()}
+            >
+              <Undo2 size={16} strokeWidth={1.8} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={redoActiveView}
+              disabled={!canRedo}
+              title="Yinele (Ctrl+Y)"
+              aria-label="Yinele"
+              className={canvasBarButtonVariants()}
+            >
+              <Redo2 size={16} strokeWidth={1.8} aria-hidden />
+            </button>
+          </>
+        )}
 
         <span className={CANVAS_BAR_DIVIDER} aria-hidden />
 
@@ -137,6 +144,9 @@ export function FloatingToolbar({
         >
           <ChevronDown size={16} strokeWidth={1.8} aria-hidden />
         </button>
+        {/* Kat OKLARI ve seçici kalıyor: kat değiştirmek bir görüntüleme
+            işlemi. Seçicinin İÇİNDEKİ "Katları Yönet" / "Kat Kopyala"
+            maddeleri yazar, onları `FloorSelect` kendi içinde gizliyor. */}
         <FloorSelect
           onOpenFloorManagement={onOpenFloorManagement}
           onOpenFloorCopy={onOpenFloorCopy}

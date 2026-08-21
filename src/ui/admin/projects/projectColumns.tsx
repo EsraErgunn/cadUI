@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { ProjectListItem, ProjectSortKey, ProjectStatus } from '../../../api/projects'
@@ -8,6 +9,7 @@ import { gasFirmUpdatePath, projectDetailPath } from '../adminNavItems'
 import { ADMIN_CELL_LINK } from '../adminVariants'
 import { DocumentIndicator } from './DocumentIndicator'
 import { HeatingTypeBadge } from './HeatingTypeBadge'
+import { ProjectDecisionActions } from './ProjectDecisionActions'
 import { ProjectRowActions } from './ProjectRowActions'
 import { ProjectTypeBadge } from './ProjectTypeBadge'
 
@@ -25,11 +27,18 @@ export const PROJECT_TABLE_MIN_WIDTH_CLASS = 'min-w-320'
  */
 const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
 
-/** "Firma İsmi"nin yeri: No, İşlemler, P_ID, Proje Adı'ndan hemen sonra. */
-const FIRM_NAME_COLUMN_INDEX = 4
+/** "Firma İsmi"nin yeri: No, İşlemler, Proje Adı'ndan hemen sonra. */
+const FIRM_NAME_COLUMN_INDEX = 3
 
-/** Sil/Gönder yalnız taslak projede anlamlı — sütun bu durumda hiç üretilmez. */
-const ACTIONABLE_STATUS: ProjectStatus = 'taslak'
+/** Sil/Gönder yalnız TASLAK projede anlamlı — sütun başka sekmede üretilmez. */
+const DRAFT_ACTION_STATUS: ProjectStatus = 'taslak'
+
+/**
+ * Onayla/Reddet yalnız ONAY BEKLEYEN projede anlamlı. Sunucu da böyle diyor:
+ * `POST /api/projects/{id}/approve|reject` başka durumda 409 döndürüyor, ve
+ * proje detayı zaten taslakta bu düğmeleri pasifleştiriyor.
+ */
+const DECISION_ACTION_STATUS: ProjectStatus = 'onayBekleyen'
 
 /**
  * Düğmeler satırın KENDİ durumuna bakar (liste ucu satır başına `status`
@@ -37,8 +46,12 @@ const ACTIONABLE_STATUS: ProjectStatus = 'taslak'
  * `Status` ile sunucuda süzülü. Böylece taslak olmayan bir kayıt taslak
  * sekmesine karışsa da ona "Onaya Gönder" teklif edilmez.
  */
-function isActionableRow(project: ProjectListItem, tabStatus: ProjectStatus): boolean {
-  return (project.status ?? tabStatus) === ACTIONABLE_STATUS
+function isRowInStatus(
+  project: ProjectListItem,
+  tabStatus: ProjectStatus,
+  expected: ProjectStatus,
+): boolean {
+  return (project.status ?? tabStatus) === expected
 }
 
 interface ProjectColumnsOptions {
@@ -56,8 +69,25 @@ interface ProjectColumnsOptions {
    * çizilmiyor.
    */
   isManagementView: boolean
+  /**
+   * Taslak eylemleri (Sil + Onaya Gönder) çizilsin mi. Gaz dağıtım kullanıcısı
+   * için `false`: sunucu da o rolü `POST /api/projects` , `DELETE` ve
+   * `.../submit` uçlarından dışlıyor (`Authorize(Roles = Admin,
+   * ProjectFirmUser)`), yani burada gizlenen şey sunucuda da yasak.
+   */
+  canManageDrafts: boolean
+  /**
+   * Onay kuyruğu eylemleri (Onayla + Reddet) çizilsin mi.
+   *
+   * YÖNETİCİDE BİLEREK KAPALI: uç yöneticiye de açık ve proje DETAYINDA düğmeler
+   * zaten var, ama listede hiç olmadılar — buraya eklemek mevcut yönetici
+   * davranışını değiştirmek olurdu. Bu, gaz dağıtım kullanıcısının iş kuyruğu.
+   */
+  canDecidePending: boolean
   onDelete: (projectId: number) => void
   onSubmit: (projectId: number) => void
+  onApprove: (projectId: number) => void
+  onReject: (projectId: number) => void
 }
 
 export function buildProjectColumns({
@@ -65,8 +95,12 @@ export function buildProjectColumns({
   status,
   pendingProjectId,
   isManagementView,
+  canManageDrafts,
+  canDecidePending,
   onDelete,
   onSubmit,
+  onApprove,
+  onReject,
 }: ProjectColumnsOptions): DataTableColumn<ProjectListItem, ProjectSortKey>[] {
   const columns: DataTableColumn<ProjectListItem, ProjectSortKey>[] = [
     {
@@ -80,12 +114,6 @@ export function buildProjectColumns({
       key: 'documents',
       label: 'İşlemler',
       cell: (project) => <DocumentIndicator hasDocuments={project.hasDocuments} />,
-    },
-    {
-      key: 'pId',
-      label: 'P_ID',
-      cellClassName: 'font-mono tabular-nums text-ink',
-      cell: (project) => project.pId,
     },
     {
       key: 'name',
@@ -159,7 +187,21 @@ export function buildProjectColumns({
     })
   }
 
-  if (status !== ACTIONABLE_STATUS) return columns
+  // Eylem sütunu SEKMEYE ve ROLE birlikte bağlı: taslak sekmesinde taslak
+  // sahibinin eylemleri, onay bekleyen sekmesinde karar eylemleri. İkisi asla
+  // aynı anda çizilmez — bir sekme tek bir duruma bakıyor.
+  const actionCell = resolveActionCell({
+    status,
+    canManageDrafts,
+    canDecidePending,
+    pendingProjectId,
+    onDelete,
+    onSubmit,
+    onApprove,
+    onReject,
+  })
+
+  if (actionCell === null) return columns
 
   return [
     ...columns,
@@ -168,15 +210,60 @@ export function buildProjectColumns({
       label: 'Aksiyonlar',
       cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
       headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
-      cell: (project) =>
-        isActionableRow(project, status) ? (
-          <ProjectRowActions
-            projectId={project.id}
-            isPending={pendingProjectId === project.id}
-            onDelete={onDelete}
-            onSubmit={onSubmit}
-          />
-        ) : null,
+      cell: actionCell,
     },
   ]
+}
+
+type ActionCell = (project: ProjectListItem) => ReactNode
+
+/**
+ * Sekmenin eylem hücresi; hiçbir eylem yoksa `null` döner ve sütun HİÇ
+ * üretilmez (boş bir "Aksiyonlar" başlığı kullanıcıya eylem varmış gibi görünür).
+ */
+function resolveActionCell({
+  status,
+  canManageDrafts,
+  canDecidePending,
+  pendingProjectId,
+  onDelete,
+  onSubmit,
+  onApprove,
+  onReject,
+}: Pick<
+  ProjectColumnsOptions,
+  | 'status'
+  | 'canManageDrafts'
+  | 'canDecidePending'
+  | 'pendingProjectId'
+  | 'onDelete'
+  | 'onSubmit'
+  | 'onApprove'
+  | 'onReject'
+>): ActionCell | null {
+  if (canManageDrafts && status === DRAFT_ACTION_STATUS) {
+    return (project) =>
+      isRowInStatus(project, status, DRAFT_ACTION_STATUS) ? (
+        <ProjectRowActions
+          projectId={project.id}
+          isPending={pendingProjectId === project.id}
+          onDelete={onDelete}
+          onSubmit={onSubmit}
+        />
+      ) : null
+  }
+
+  if (canDecidePending && status === DECISION_ACTION_STATUS) {
+    return (project) =>
+      isRowInStatus(project, status, DECISION_ACTION_STATUS) ? (
+        <ProjectDecisionActions
+          projectId={project.id}
+          isPending={pendingProjectId === project.id}
+          onApprove={onApprove}
+          onReject={onReject}
+        />
+      ) : null
+  }
+
+  return null
 }

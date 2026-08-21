@@ -1,4 +1,4 @@
-import { MANAGEMENT_SCREEN_ROLES } from './adminNavItems'
+import { MANAGEMENT_SCREEN_ROLES, PROJECT_CONTENT_WRITER_ROLES } from './adminNavItems'
 import { ROLE_CODES, type RoleCode } from '../../api/roles'
 import { useAuthSession } from '../../api/useAuthSession'
 
@@ -57,4 +57,18 @@ export function useIsGasDistributionUser(): boolean {
  */
 export function useIsManagementUser(): boolean {
   return hasAnyRole(useRoleCode(), MANAGEMENT_SCREEN_ROLES)
+}
+
+/**
+ * Proje içeriğini (proje, evrak, poliçe) YAZABİLİR mi — ekleme, güncelleme,
+ * silme.
+ *
+ * Kümenin gerekçesi `PROJECT_CONTENT_WRITER_ROLES`'te: sunucudaki üç
+ * controller'ın yazma uçları da aynı iki role açık. Burada gizlenen her düğme
+ * sunucuda da reddedilirdi; arayüz o sınırı tekrar etmiyor, GÖSTERİYOR.
+ *
+ * Tanınmayan rol `false` alır (`hasAnyRole`) — yazma yüzeyleri fail-closed.
+ */
+export function useCanWriteProjectContent(): boolean {
+  return hasAnyRole(useRoleCode(), PROJECT_CONTENT_WRITER_ROLES)
 }

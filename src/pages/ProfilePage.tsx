@@ -82,7 +82,6 @@ export function ProfilePage() {
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}
-        description="Kullanıcının kimlik ve iletişim bilgileri"
       />
 
       {savedNotice !== null && (

@@ -26,11 +26,37 @@ export const ADMIN_HOME_PATH = '/admin'
 export const FIRM_HOME_PATH = '/firm'
 
 /**
+ * Gaz dağıtım firması kullanıcısının anasayfası. `/admin` ile PAYLAŞILMADI:
+ * `FIRM_HOME_PATH` ile aynı gerekçe — `/admin` yönetim ekranlarının kökü ve rol
+ * kapısı oraya bağlı. Yol adı `gas-distribution-firms` / `gas-distribution-users`
+ * sabitleriyle aynı sözcüğü kullanıyor.
+ */
+export const GAS_DISTRIBUTION_HOME_PATH = '/gas-distribution'
+
+/**
  * Rolü yetmeyen kullanıcının düştüğü ekran. Sessizce anasayfaya yönlendirmek
  * yerine ayrı bir yol: yanlış yapılandırılmış bir menü maddesi ya da eskimiş bir
  * yer imi "hiçbir şey olmadı" gibi değil, sebebiyle görünsün.
  */
 export const FORBIDDEN_PATH = '/forbidden'
+
+/**
+ * Gaz dağıtım GRUP firmaları (AKSA, ENERYA…). Salt okuma listesi: uçta yazma
+ * işlemleri yalnız Admin'e açık (`POST/PUT/DELETE /api/gasdistributiongroups`)
+ * ve o ekranlar için gereksinim yok. `GET` her role açık.
+ */
+export const GAS_DISTRIBUTION_GROUPS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-groups`
+
+/**
+ * Grup firmalarını GÖREN roller. Sol menüde maddesi YOK — üst bardan açılıyor
+ * (`AdminTopBar`): kapsam seçicisi bu iki rolde çizilmediği için üst barın sol
+ * yuvası zaten boş, ekran oraya oturuyor. Yönetici bu ekranı kullanmıyor;
+ * grupları kendi firma formundan ve kapsam seçicisinden yönetiyor.
+ */
+export const GAS_DISTRIBUTION_GROUPS_VIEWER_ROLES: readonly RoleCode[] = [
+  ROLE_CODES.projectFirmUser,
+  ROLE_CODES.gasDistributionUser,
+]
 
 export const GAS_DISTRIBUTION_FIRMS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-firms`
 export const GAS_FIRM_CREATE_PATH = `${GAS_DISTRIBUTION_FIRMS_PATH}/new`
@@ -159,19 +185,41 @@ export function projectEditorPath(projectId: number): string {
  * YÖNETİM ekranlarını görebilen roller — hem sol menünün süzgeci hem
  * `RequireRole`'ün listesi buradan okur, ikisi ayrışmasın.
  *
- * TODO(esra): `GasDistributionUser` burada GEÇİCİ. Bu görev yalnız
- * ProjectFirmUser'ı ayrıştırdı; gaz dağıtım kullanıcısının ekran kümesi henüz
- * kararlaşmadı ve varsayarak daraltmak, bugün çalışan bir rolü sessizce kapı
- * dışında bırakırdı. Küme belirlenince bu dizi yalnız `admin` kalacak ve o rolün
- * maddeleri `roles` alanlarına tek tek eklenecek.
+ * Yalnız `Admin`. Gaz dağıtım kullanıcısı bir süre burada GEÇİCİ olarak
+ * duruyordu (ekran kümesi kararlaşmamıştı); kararlaştı ve çıkarıldı: o rol
+ * firma/kullanıcı yönetmiyor, projeleri ONAYLIYOR. Kendi ekranları
+ * `ALL_ROLES` maddeleri + `GAS_DISTRIBUTION_HOME_PATH`.
  */
-export const MANAGEMENT_SCREEN_ROLES: readonly RoleCode[] = [
+export const MANAGEMENT_SCREEN_ROLES: readonly RoleCode[] = [ROLE_CODES.admin]
+
+/**
+ * Proje İÇERİĞİNİ yazabilen roller: proje, evrak ve poliçe oluşturma /
+ * güncelleme / silme.
+ *
+ * Sunucudaki sınırın birebir karşılığı — üç controller'da da AYNI öznitelik:
+ * `POST/PUT/DELETE /api/projects`, `/api/docs` ve `/api/policies` hepsi
+ * `[Authorize(Roles = Admin, ProjectFirmUser)]`. Okuma uçları (`GET`) rol
+ * kısıtı taşımıyor; kapsamı `WhereVisibleTo` veriyor.
+ *
+ * Gaz dağıtım kullanıcısı bu içeriği GÖRÜR, YAZMAZ — onun eylemi onay/ret
+ * (`ProjectApprovalController`: approve/reject `Admin, GasDistributionUser`).
+ */
+export const PROJECT_CONTENT_WRITER_ROLES: readonly RoleCode[] = [
   ROLE_CODES.admin,
-  ROLE_CODES.gasDistributionUser,
+  ROLE_CODES.projectFirmUser,
 ]
 
-/** Yönetim ekranlarını görenler + proje firması kullanıcısı; yani herkes. */
-const ALL_ROLES: readonly RoleCode[] = [...MANAGEMENT_SCREEN_ROLES, ROLE_CODES.projectFirmUser]
+/**
+ * Üç rolün de gördüğü ekranlar. `MANAGEMENT_SCREEN_ROLES`'ten TÜRETİLMİYOR:
+ * eskiden `[...MANAGEMENT_SCREEN_ROLES, projectFirmUser]` idi ve yönetim listesi
+ * daralınca gaz dağıtım kullanıcısı buradan da sessizce düşerdi. İki liste ayrı
+ * sorulara cevap veriyor, biri ötekinin alt kümesi diye yazılmamalı.
+ */
+const ALL_ROLES: readonly RoleCode[] = [
+  ROLE_CODES.admin,
+  ROLE_CODES.gasDistributionUser,
+  ROLE_CODES.projectFirmUser,
+]
 
 /**
  * Proje listesinin belirli bir DURUM sekmesi — anasayfa kartlarının hedefi.
@@ -233,6 +281,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     shouldMatchExact: true,
   },
   {
+    key: 'gasDistributionHome',
+    label: 'Anasayfa',
+    icon: House,
+    path: GAS_DISTRIBUTION_HOME_PATH,
+    roles: [ROLE_CODES.gasDistributionUser],
+    shouldMatchExact: true,
+  },
+  {
     key: 'projects',
     label: 'Projeler',
     icon: FolderKanban,
@@ -265,7 +321,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Gaz Dağıtım Kullanıcıları',
     icon: UsersRound,
     path: GAS_DISTRIBUTION_USERS_PATH,
-    roles: MANAGEMENT_SCREEN_ROLES,
+    // Gaz dağıtım kullanıcısı KENDİ firmasının kullanıcılarını görüyor: liste
+    // ucu `WhereVisibleTo` ile token'daki firmaya daraltılıyor
+    // (`UserManager.GetListAsync`). "Yeni Kullanıcı" düğmesi `useIsAdmin`
+    // arkasında kaldığı için o rolde çizilmiyor.
+    roles: [ROLE_CODES.admin, ROLE_CODES.gasDistributionUser],
   },
   { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH, roles: ALL_ROLES },
   {

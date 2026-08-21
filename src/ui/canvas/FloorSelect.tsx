@@ -5,6 +5,7 @@ import { canvasBarButtonVariants, canvasBarMenuItemVariants } from './canvasBarV
 import { getFloorContent, isFloorContentEmpty } from '../../core/floorContent'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
+import { useUiStore } from '../../store/uiStore'
 import { useFloorContentSource } from '../floors/useFloorContentSource'
 
 /**
@@ -37,6 +38,7 @@ type FloorSelectProps = {
 }
 
 export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSelectProps) {
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
   const floors = useCadStore((state) => state.floors)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
   const setActiveFloor = useCadStore((state) => state.setActiveFloor)
@@ -123,7 +125,12 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
 
           {/* Kat YÖNETİMİ listenin altında, ayraçla: yukarısı "hangi kattayım",
               aşağısı "katları değiştir". Üst bardaki Katlar menüsü kalkınca bu
-              iki pencerenin tek girişi burası kaldı. */}
+              iki pencerenin tek girişi burası kaldı.
+
+              Salt görüntülemede bu iki madde HİÇ çizilmez: kat ekleme/silme/
+              kopyalama çizimi değiştirir. Kat SEÇME yukarıda ve açık kalıyor. */}
+          {!isReadOnly && (
+            <>
           <div className="my-1 h-px bg-edge" aria-hidden />
           <button
             type="button"
@@ -145,6 +152,8 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
             Kat Kopyalama
             <span className="ml-auto pl-4 text-xs text-ink-disabled">Ctrl+Shift+K</span>
           </button>
+            </>
+          )}
         </div>
       )}
     </div>

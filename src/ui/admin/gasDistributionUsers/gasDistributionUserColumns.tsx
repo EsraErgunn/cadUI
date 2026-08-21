@@ -35,8 +35,9 @@ function renderPhone(value: string | null | undefined) {
  * Sütunlar istenen sıradan birebir. Sıralanabilir başlık YOK: uç henüz yok,
  * `SortBy`/`SortDir` sözleşmesi yazılmadan başlığa tıklamak boşa istek olurdu.
  *
- * "GDF Kayıt No" sunucunun bugünkü kullanıcı gövdesinde YOK; alan opsiyonel
- * geldiği için hücre uydurma bir değer değil, boş hücre işareti çiziyor.
+ * "GDF Kayıt No" sütunu KALDIRILDI: sunucunun kullanıcı gövdesinde karşılığı
+ * yoktu ve her satırda boş hücre işareti çiziyordu. Alan (`gdfRegistrationNumber`)
+ * şemada opsiyonel olarak duruyor — uç bir gün doldurursa sütun geri gelebilir.
  */
 export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserRow>[] = [
   {
@@ -65,11 +66,5 @@ export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserR
     key: 'projectFirmName',
     label: 'Proje Firması',
     cell: (row) => renderText(row.projectFirmName),
-  },
-  {
-    key: 'gdfRegistrationNumber',
-    label: 'GDF Kayıt No',
-    cellClassName: 'tabular-nums',
-    cell: (row) => renderText(row.gdfRegistrationNumber),
   },
 ]

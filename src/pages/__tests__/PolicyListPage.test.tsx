@@ -4,9 +4,22 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { setAuthSession, type AuthSession } from '../../api/authToken'
 import { POLICY_PAGE_SIZE, type PolicyRow } from '../../api/policies'
 import { resetMockPolicies } from '../../api/policiesMock'
+import { ROLE_CODES } from '../../api/roles'
 import { PolicyListPage } from '../PolicyListPage'
+
+/**
+ * Poliçe SİLME sunucuda `Admin, ProjectFirmUser`'a açık; sütun rol bayrağına
+ * bağlı olduğu için testler oturumsuz render edilemiyor.
+ */
+const ADMIN_SESSION: AuthSession = {
+  token: 'jwt-token',
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  fullName: 'Yönetici',
+  roleCode: ROLE_CODES.admin,
+}
 
 const listPolicies = vi.hoisted(() => vi.fn())
 const deletePolicy = vi.hoisted(() => vi.fn())
@@ -40,7 +53,8 @@ function LocationProbe() {
   return <output data-testid="search">{location.search}</output>
 }
 
-function renderPage() {
+function renderPage(roleCode: string = ROLE_CODES.admin) {
+  setAuthSession({ ...ADMIN_SESSION, roleCode })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -78,6 +92,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
   vi.clearAllMocks()
 })
 
@@ -89,7 +105,6 @@ describe('PolicyListPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Poliçeler/ })).toHaveTextContent('(1)'),
     )
-    expect(screen.getByText('Tüm projelere ait poliçeler')).toBeInTheDocument()
   })
 
   /** Silme ONAYDAN sonra: düğmeye basmak tek başına satırı düşürmemeli. */
@@ -175,8 +190,8 @@ describe('PolicyListPage', () => {
       screen.getByLabelText('Sigorta Şirketi'),
       await screen.findByRole('option', { name: 'Anadolu Sigorta' }),
     )
-    await user.type(screen.getByLabelText(/Poliçe numarası veya proje adında ara/), 'ORNEK')
-    await user.click(screen.getByRole('button', { name: /Filtrele/ }))
+    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
+    await user.type(screen.getByLabelText(/Poliçe numarası veya proje adında ara/), 'ORNEK{Enter}')
 
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
@@ -199,5 +214,39 @@ describe('PolicyListPage', () => {
 
     expect(await screen.findByText(/GET \/api\/policies/)).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Gaz dağıtım kullanıcısı poliçeleri GÖRÜR, yazamaz. Sunucu da böyle diyor:
+ * `POST/PUT/DELETE /api/policies` uçları `Authorize(Roles = Admin,
+ * ProjectFirmUser)`; `GET` uçları rol kısıtı taşımıyor ve kapsamı
+ * `WhereVisibleTo` veriyor.
+ */
+describe('PolicyListPage (gaz dağıtım kullanıcısı)', () => {
+  it('poliçeleri görüntüleyebilir', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Poliçeler/ })).toHaveTextContent('(1)'),
+    )
+  })
+
+  it('Sil aksiyonunu göstermez', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+    // Sütun HİÇ üretilmiyor: boş "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+    expect(screen.queryByRole('columnheader', { name: 'Aksiyonlar' })).not.toBeInTheDocument()
+  })
+
+  it('yönetici aynı ekranda Sil aksiyonunu görmeye devam eder', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Aksiyonlar' })).toBeInTheDocument()
   })
 })

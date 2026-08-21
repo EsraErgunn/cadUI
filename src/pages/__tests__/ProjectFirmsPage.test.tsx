@@ -105,7 +105,6 @@ describe('ekran açılışı', () => {
 
     expect(await screen.findByRole('heading', { name: /Proje Firmaları/ })).toBeInTheDocument()
     expect(screen.getByLabelText('Konum')).toHaveTextContent('Anasayfa')
-    expect(screen.getByText('Sisteme kayıtlı proje (mühendislik) firmaları')).toBeInTheDocument()
   })
 
   it('sütunları belgedeki sırayla listeler', async () => {
@@ -374,6 +373,8 @@ describe('filtre alanı', () => {
     renderPage()
     await findTable()
 
+    // Buradaki "Filtrele" bir UYGULAMA düğmesi değil, kriter alanını AÇAN
+    // düğme — kriterler zaten seçildiği anda uygulanıyor.
     await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
     // "Bölge" kutusu kaldırıldı (K31); kalan iki kriter hâlâ pasif.
@@ -387,7 +388,6 @@ describe('filtre alanı', () => {
     const user = userEvent.setup()
     renderPage()
     await findTable()
-
     await user.click(screen.getByRole('button', { name: 'Filtrele' }))
     await user.click(screen.getByRole('button', { name: 'Filtre alanını kapat' }))
 

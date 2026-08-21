@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
+import { setAuthSession } from '../../api/authToken'
 import type { Sourced } from '../../api/mockGate'
 import type {
   ProjectApprovalInfo,
@@ -13,6 +14,7 @@ import type {
   ProjectSpecs,
   ProjectUnitRow,
 } from '../../api/projectDetail'
+import { ROLE_CODES } from '../../api/roles'
 import { ComingSoonPage } from '../ComingSoonPage'
 import { ProjectDetailPage } from '../ProjectDetailPage'
 
@@ -186,7 +188,22 @@ export function asUnavailable<T>(): Sourced<T> {
  * hedefleri de bağlı: yönlendirmenin gerçekten çalıştığı ancak böyle
  * doğrulanabiliyor (KK-9).
  */
-export function renderDetail(route: string = DETAIL_PATH) {
+/**
+ * Detay ekranı artık ROL okuyor: evrak/poliçe yazma kısayolları
+ * `useCanWriteProjectContent` arkasında. Oturumsuz render'da rol `undefined`
+ * olur ve o kısayollar hiç çizilmez, bu yüzden oturum burada kuruluyor.
+ * Varsayılan yönetici — mevcut testlerin beklentisi bu.
+ */
+export function renderDetail(
+  route: string = DETAIL_PATH,
+  roleCode: string = ROLE_CODES.admin,
+) {
+  setAuthSession({
+    token: 'jwt-token',
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    fullName: 'Kullanıcı',
+    roleCode,
+  })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   return render(

@@ -2,13 +2,13 @@ import { ArrowRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import type { ProjectListItem, ProjectStatus } from '../../../api/projects'
-import { DashboardCard } from '../DashboardCard'
-import { formatDateTime } from '../adminFormat'
-import { projectDetailPath, projectListPathForStatus } from '../adminNavItems'
-import { ADMIN_CELL_LINK, ADMIN_FOCUS_RING } from '../adminVariants'
+import { DashboardCard } from './DashboardCard'
+import { formatDateTime } from './adminFormat'
+import { projectDetailPath, projectListPathForStatus } from './adminNavItems'
+import { ADMIN_CELL_LINK, ADMIN_FOCUS_RING } from './adminVariants'
+import type { ProjectListItem, ProjectStatus } from '../../api/projects'
 
-interface FirmRecentProjectsCardProps {
+interface RecentProjectsCardProps {
   title: string
   icon: LucideIcon
   /** Kartın beslendiği sekme; "Tümünü Gör" oraya gider. */
@@ -27,17 +27,18 @@ const ERROR_MESSAGE = 'Liste yüklenemedi.'
  * sıkıştırmak dar ekranda yatay kaydırma doğuruyordu; burada satır başına ad +
  * güncelleme zamanı yetiyor, ayrıntı için satır proje detayına gidiyor.
  *
- * Aynı bileşen iki kartı da çiziyor (taslaklar ve onay bekleyenler): ikisi de
- * `GET /api/projects`'in aynı sorgusundan yalnız `status` farkıyla besleniyor.
+ * Aynı bileşen her kartı çiziyor: hepsi `GET /api/projects`'in aynı sorgusundan
+ * yalnız `status` farkıyla besleniyor. Proje firması anasayfası taslak/onay
+ * bekleyen, gaz dağıtım anasayfası onay bekleyen/onaylanan gösteriyor.
  */
-export function FirmRecentProjectsCard({
+export function RecentProjectsCard({
   title,
   icon,
   status,
   projects,
   isError,
   emptyMessage,
-}: FirmRecentProjectsCardProps) {
+}: RecentProjectsCardProps) {
   return (
     <DashboardCard
       title={title}
