@@ -6224,3 +6224,146 @@ artık geri oturtulabiliyor.
 Nerede: `src/plumbing/core/lineSnap.ts`,
 `src/plumbing/scene/useSelectionTool.ts`,
 `src/plumbing/scene/InstallationLineMesh.tsx`.
+
+### K130 — Tesisatta alt kat izi TÜMÜYLE kalktı
+
+**Karar.** `plumbing/scene/InstallationBelowGhost.tsx` silindi. Yanındaki
+`INSTALLATION_BELOW_GHOST_ELEVATION_CM` ve `RENDER_ORDER.installationBelowGhost`
+de kalktı — bu adlarla yeni kod yazılmaz. Mimarideki `FloorBelowGhost` DURUYOR,
+karar yalnız tesisat görünümünü bağlar.
+
+**Neden.** Mimaride alt katın duvar izi hizalamaya yarıyor (üst kat duvarı
+alttakinin üstüne oturmalı). Boruda böyle bir kısıt yok: alt kattaki boru üst
+katın borusuyla aynı yerden geçmek zorunda değil, dolayısıyla iz referans değil
+GÜRÜLTÜ oluyordu — kullanıcı çizim sırasında hangi çizginin aktif kata ait
+olduğunu ayırt edemiyordu.
+
+**Neden anahtar değil.** Varsayılanı kapalı bir "Görünüm ▸ Alt kat borusu"
+maddesi de düşünüldü; kimsenin açmayacağı bir anahtar için hem menüde bir
+satır hem sahnede bir katman taşımak gerekiyordu.
+
+Nerede: `src/scene/SceneRoot.tsx`, `src/scene/layers.ts`,
+`src/plumbing/scene/plumbingLayers.ts`.
+
+### K131 — Ölçüler varsayılan AÇIK
+
+**Karar.** `uiStore.isDimensionsVisible` varsayılanı `false` → `true`.
+
+**Neden.** Ölçü, çizimin okunmasının parçası: kullanıcı her oturumda önce
+Görünüm ▸ Ölçüler'i açıyordu. `isElementLabelsVisible`'ın (eleman adları) zaten
+açık olan varsayılanıyla aynı gerekçe; ikisi arasındaki "ölçü isteğe bağlı bir
+kotalama katmanıdır" ayrımı pratikte karşılık bulmadı.
+
+**Değişmeyen.** Bayrak hâlâ TEK (K76 öncesi kural): mimaride duvar parçalarını,
+tesisatta boru boylarını açar. Kaydedilmez, geçmişe girmez.
+
+Nerede: `src/store/uiStore.ts`.
+
+### K132 — Boru ölçüleri mimari görünümde de yazılır
+
+**Karar.** `InstallationGhost` (mimari görünümdeki tesisat izi) artık
+`LengthLabels`'ı da mount ediyor. Etiket hayaletin aksine SOLUKLAŞTIRILMAZ ve
+"Ölçüler" anahtarını aynı yerden okur.
+
+**Neden okunur tonda.** Hattın kendisi bağlam, ölçü ise kullanıcının mimari
+planda okumak İSTEDİĞİ bilgi — soluk yazı bu isteği karşılamazdı.
+
+**Neden yalnız uzunluk.** "Uzunluk + çap" (`DN25 · 1,20 m`) değerlendirildi;
+çap zaten çizgi renginden (K27) ve özellik panelinden okunuyor, etiketi iki
+katına çıkarmak sık köşeli planlarda yazıları üst üste bindiriyordu. Bir boru
+iki görünümde de AYNI etiketi taşır.
+
+Nerede: `src/plumbing/scene/Ghosts.tsx`.
+
+### K133 — Kot etiketi: fark + VARILAN kot
+
+**Karar.** `PipeElevationGlyph` `▲0,75 m` yerine `▲0,75 m (+2,00)` yazar.
+Ayrıca servis kutusunun çıkış kotu kendi sembolünün ALTINA basılır (`+0,15 m`,
+`ServiceBoxElevationLabels`). Kot yazımının tek yolu
+`core/lengthFormat.ts` → `formatSignedMeters` / `formatElevationMeters`:
+uzunluğun aksine İŞARET taşır, çünkü kot mesafe değil zemine göre yönlü konum.
+
+**Neden iki sayı.** Yalnız fark yazılınca kolonun hangi kota çıktığı ancak
+baştaki kot bilinerek hesaplanabiliyordu; yalnız mutlak kot yazılınca K129'un
+koruduğu "ne kadar yükseldi" bilgisi kayboluyordu.
+
+**Neden servis kutusu.** Tesisat kotunun BAŞLADIĞI yer orası; kutunun kotu
+bilinmeden borudaki farklar neye göre okunacağı belirsiz kalıyordu. Sayaç ve
+cihazların kotu bağlı oldukları borudan türüyor (K102) ve her elemana kot
+yazmak planı sayıya boğardı — etiket yalnız `serviceBox` türünde.
+
+**"Ölçüler"e bağlı DEĞİL.** K129'un kuralı: kot göstergesi kaybolmaz. Kot
+store'da da durmaz, `getElementElevationCm` ile türetilir.
+
+Nerede: `src/core/lengthFormat.ts`, `src/plumbing/core/elementLabel.ts`,
+`src/plumbing/scene/PipeElevationGlyph.tsx`,
+`src/plumbing/scene/ServiceBoxElevationLabel.tsx`,
+`src/plumbing/scene/PlumbingLayer.tsx`.
+
+### K134 — Sayaç etiketinde birim + abone bilgisi
+
+**Karar.** Plan görünümündeki sayaç etiketi artık tür adının altına birim,
+abone adı ve abone numarasını yazıyor:
+
+```
+Sayaç
+Birim: 3
+FATMA ÇELİK
+Abone No: 10045
+```
+
+Alanlar zaten modelde vardı (`GasMeterProperties.unitNumber` /
+`.subscriberName` / `.subscriberNo`, özellik panelinde "Birim" / "Abone Adı" /
+"Abone No"); etiket onları görmezden geliyordu — `getElementLabelDetails`
+`gasMeter` için `{}` dönüyordu.
+
+**Neden iki alan ETİKETLİ.** Alt alta duran `3` ile `10045`'in hangisinin birim
+hangisinin abone numarası olduğu okunmuyordu. Abone ADI etiketsiz: bir isim
+kendini zaten söylüyor, ön ek satırı boşuna uzatırdı.
+
+**Yapı.** Detay satırları artık sabit şekilli bir nesne
+(`{ brand, model, description }`) değil SIRALI bir dizi
+(`getElementLabelDetailLines`): türler farklı alan kümesi taşıyabilsin diye.
+Diğer türlerin davranışı değişmedi. Boş/boşluk alan satır olarak hâlâ hiç
+yazılmıyor.
+
+**Kapsam.** Yalnız PLAN etiketi. İzometriğin sayaç etiketi ayrı ve WebCAD
+düzenini izliyor (`isometric/core/isometricLabels.ts` → `Sayaç Daire 3` + sınıf
++ alan + debi), dokunulmadı. Etiketin tutma kutusu (`getElementLabelRectCm`)
+aynı metinden ölçtüğü için genişleyen etiket kendiliğinden tutulabilir kalıyor.
+
+Nerede: `src/plumbing/core/elementLabel.ts`.
+
+### K135 — Kot tabanı delince AŞAĞI kata otomatik geçiş
+
+**Karar.** K104'ün "yalnız YUKARI yön otomatik" kapsam sınırı kalktı. Çizim
+sırasında `-` ile verilen kot aktif katın TABANININ (0) altına inerse: bu katta
+yazılan kot tabanla sınırlanır ve kalan miktar alttaki kata `FloorPipeLink` ile
+otomatik taşınır — `capElevationToFloor`/`crossFloorsWithOverflow` çiftinin
+aynası olarak `capElevationToFloorBase` (saf+testli) ve
+`crossFloorsDownWithUnderflow`.
+
+**Neden.** Kullanıcı bulgusu (2026-08): "boruya `-` yükseklik girince oda
+uzunluğundan fazlaysa alt kata inmeli ama inmiyor". K104 yalnız yukarıyı
+yazmıştı çünkü o turdaki istek metni yalnız "yeni kata çıksın" diyordu.
+
+**Aynanın TEK asimetrisi.** Yukarı çıkarken yeni kata TABANINDAN (0) girilir;
+aşağı inerken TAVANINDAN (`Floor.heightCm`) — üst katın tabanı alttakinin
+tavanıdır. Yeni borunun `startHeightCm`i bu yüzden sıfır değil alt katın
+yüksekliğidir ve kot aşağı doğru tüketilir.
+
+**Eşik neden parametre değil.** Tavan kata göre değişiyor (`Floor.heightCm`),
+taban değişmiyor: her katın tabanı kendi yerel koordinatında sıfırdır (kot
+saklanmaz, `core/floorElevation.ts` türetir).
+
+**Sınırda kat açma.** `addFloor({ isBasement: true })` — `addFloor({})` katı HER
+ZAMAN dizinin en ÜSTÜNE koyar, bodrum bloğu ise BAŞINDA durur (K106'nın
+tuzağının aynısı). Bodrum sınırına (5) ulaşılırsa `addFloor` `undefined` döner
+ve döngü sessizce durur; yukarı yöndeki 40 kat sınırıyla aynı stil.
+
+**Değişmeyen.** Tek bir hedef kot ya tavanı aşar ya tabanı deler, ikisi birden
+olamaz. Yalnız ÇİZİM SIRASINDA (`commitDraftElevation`) — "Boy" alanından
+yeniden boyutlandırma (K128) bu otomasyonu hâlâ tetiklemez. Yalnız `pipe` türü.
+
+Nerede: `src/plumbing/core/lineElevation.ts`,
+`src/plumbing/store/pipeElevationActions.ts`.

@@ -1,4 +1,5 @@
 import { getElementWorldCorners, type SymbolMetadataLookup } from './elementPicking'
+import type { GasMeterProperties } from './elementProperties'
 import type { InstallationElement } from './installationModel'
 import type { InstallationElementType, SymbolMetadata } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
@@ -55,7 +56,42 @@ function getElementLabelDetails(element: InstallationElement): ElementLabelDetai
 }
 
 /**
- * Etiket metni: isim + (girildiyse) marka + model + açıklama, alt alta. Boş
+ * Sayacın etiket satırları: birim + abone adı + abone no (kullanıcı isteği,
+ * 2026-08). Sayaçta marka/model/açıklama alanı hiç yok, bu üçü onların yerini
+ * alıyor.
+ *
+ * İki NUMARA alanı ETİKETLİ yazılır: alt alta duran `3` ile `10045`'in
+ * hangisinin birim hangisinin abone numarası olduğu okunmuyordu. Abone ADI
+ * etiketsiz — bir isim kendini zaten söylüyor, ön ek satırı boşuna uzatırdı.
+ *
+ * İzometrikteki sayaç etiketi AYRI (`isometric/core/isometricLabels.ts`): o
+ * WebCAD'in izometrik düzenini izliyor (`Sayaç Daire 3` + sınıf + alan + debi),
+ * burası plan görünümünün etiketi.
+ */
+function getGasMeterLabelLines(
+  properties: GasMeterProperties | undefined,
+): (string | undefined)[] {
+  if (!properties) return []
+
+  const unitNumber = properties.unitNumber?.trim()
+  const subscriberNo = properties.subscriberNo?.trim()
+  return [
+    unitNumber ? `Birim: ${unitNumber}` : undefined,
+    properties.subscriberName,
+    subscriberNo ? `Abone No: ${subscriberNo}` : undefined,
+  ]
+}
+
+/** Etiketin isimden SONRAKİ satırları — tür başına farklı alan kümesi. */
+function getElementLabelDetailLines(element: InstallationElement): (string | undefined)[] {
+  if (element.type === 'gasMeter') return getGasMeterLabelLines(element.gasMeter)
+
+  const details = getElementLabelDetails(element)
+  return [details.brand, details.model, details.description]
+}
+
+/**
+ * Etiket metni: isim + (girildiyse) türün detay satırları, alt alta. Boş
  * bırakılan alan satır olarak HİÇ gözükmez — sondaki `\n\n` gibi boşluklar
  * doğmasın diye `trim()`den sonra süzülür (kullanıcı isteği, 2026-08).
  */
@@ -63,8 +99,7 @@ export function getElementLabelText(
   element: InstallationElement,
   metadata: SymbolMetadata,
 ): string {
-  const details = getElementLabelDetails(element)
-  return [metadata.label, details.brand, details.model, details.description]
+  return [metadata.label, ...getElementLabelDetailLines(element)]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .join('\n')
@@ -124,6 +159,24 @@ export function getElementLabelOffsetCm(
   return {
     x: (bounds.minX + bounds.maxX) / 2 - element.position.x,
     y: bounds.maxY + (LABEL_MARGIN_PX + ELEMENT_LABEL_SIZE_PX / 2) / zoom - element.position.y,
+  }
+}
+
+/**
+ * KOT yazısının merkezi (plan cm) — ad etiketinin AYNASI: o kutunun ÜSTÜNE,
+ * bu ALTINA yazar. İkisi aynı tarafta olsaydı üst üste binerlerdi ve kot
+ * etiketi ad etiketinin aksine sürüklenemiyor (`labelOffsetCm` taşımıyor),
+ * yani kullanıcı onları elle ayıramazdı.
+ */
+export function getElementElevationLabelAnchorCm(
+  element: InstallationElement,
+  metadata: SymbolMetadata,
+  zoom: number,
+): PlanPoint {
+  const bounds = getElementWorldBoundsCm(element, metadata)
+  return {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: bounds.minY - (LABEL_MARGIN_PX + ELEMENT_LABEL_SIZE_PX / 2) / zoom,
   }
 }
 
