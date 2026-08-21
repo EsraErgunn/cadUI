@@ -131,7 +131,7 @@ export function FloatingToolbar({
           type="button"
           onClick={() => onGoToFloor('down')}
           disabled={!hasFloorBelow}
-          title="Alt kata geç (Page Down)"
+          title="Alt kata geç"
           aria-label="Alt kata geç"
           className={canvasBarButtonVariants()}
         >
@@ -145,7 +145,7 @@ export function FloatingToolbar({
           type="button"
           onClick={() => onGoToFloor('up')}
           disabled={!hasFloorAbove}
-          title="Üst kata geç (Page Up)"
+          title="Üst kata geç"
           aria-label="Üst kata geç"
           className={canvasBarButtonVariants()}
         >

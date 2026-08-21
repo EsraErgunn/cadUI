@@ -33,7 +33,7 @@ import {
 } from '../core/lineCornerLink'
 import { isSamePoint } from '../core/lineGeometry'
 import { getLinesInRect, pickLineAt } from '../core/linePicking'
-import { findNearestPointOnLines } from '../core/lineSnap'
+import { findNearestLineCorner, findNearestPointOnLines } from '../core/lineSnap'
 import { resolveMoveTargets } from '../core/moveTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import { findNearestWallCorner, findNearestWallFace } from '../core/wallSnap'
@@ -90,6 +90,13 @@ type CornerDragTracker = {
   startPosition: PlanPoint
   /** Sürüklemeden bırakılırsa jest bir TIKLAMADIR; seçim gövdeye basışla aynı kuralla değişir. */
   isAdditive: boolean
+  /**
+   * Bu köşeyle BİRLİKTE giden noktalar (`getLinkedLinePoints`). Köşe-köşe
+   * yakalamasında elenir — yoksa köşe kendi kendine yapışırdı. Sürükleme
+   * başında bir kez hesaplanır: jest boyunca bağlar değişmiyor ve her
+   * pointermove'da yeniden taramak boşuna iş olurdu.
+   */
+  linkedPointIds: ReadonlySet<Id>
 }
 
 /**
@@ -277,6 +284,7 @@ export function useSelectionTool(): SelectionToolState {
         pointId: hit.pointId,
         startPosition: hit.position,
         isAdditive: event.shiftKey,
+        linkedPointIds: new Set(linked.map((link) => link.pointId)),
       }
       usePlumbingUiStore
         .getState()
@@ -452,7 +460,10 @@ export function useSelectionTool(): SelectionToolState {
      * serbest hareket edebilsin"). Ctrl duvar yakalamasını da kapatır — tıpkı
      * eleman sürüklemesindeki ızgara kapatma jestiyle aynı.
      */
-    const resolveCornerPosition = (event: DrawSurfacePointerEvent): PlanPoint => {
+    const resolveCornerPosition = (
+      event: DrawSurfacePointerEvent,
+      drag: CornerDragTracker,
+    ): PlanPoint => {
       if (event.ctrlKey) return event.planPoint
 
       const { zoom } = readCameraViewport(camera)
@@ -460,6 +471,20 @@ export function useSelectionTool(): SelectionToolState {
       const gapCm = getWallEdgeGapCm(zoom)
       const cad = useCadStore.getState()
       const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
+
+      // Başka bir hat köşesi duvardan ÖNCE gelir (`useLineTool.resolveSnap` ile
+      // aynı öncelik: bağlantı kurmak konumlandırmadan güçlü bir niyettir).
+      // Kotun net kalması buna bağlı: dikey borunun (K102) geride kalan ucuna
+      // geri getirilen köşe TAM ÜSTÜNE oturur, kolon yeniden düşeyleşir —
+      // yakın duvar yüzü kazansaydı birkaç cm'lik bir kayma kalır ve yükseklik
+      // bir daha asla kesinleşmezdi (kullanıcı isteği, 2026-08).
+      const lineCorner = findNearestLineCorner(
+        readFloorLines(),
+        event.planPoint,
+        radiusCm,
+        drag.linkedPointIds,
+      )
+      if (lineCorner) return lineCorner.position
 
       const corner = findNearestWallCorner(floorWalls, cad.points, event.planPoint, radiusCm, gapCm)
       if (corner) return corner
@@ -492,8 +517,10 @@ export function useSelectionTool(): SelectionToolState {
       }
 
       if (cornerDrag) {
-        const position = resolveCornerPosition(event)
-        usePlumbingUiStore.getState().setDraggingLineCorner({ ...cornerDrag, position })
+        const position = resolveCornerPosition(event, cornerDrag)
+        usePlumbingUiStore
+          .getState()
+          .setDraggingLineCorner({ lineId: cornerDrag.lineId, pointId: cornerDrag.pointId, position })
         return
       }
 

@@ -6092,3 +6092,135 @@ o sabit drei `<Line worldUnits>` shader'ına bağlı ve yalnız plan kamerasın�
 sözleşmesi.
 
 Nerede: `src/scene/SceneRoot.tsx`, `src/isometric/scene/`.
+
+---
+
+### K125 — Klavyeyle boru çizimi: tuş ekseni kilitler, sayı yazar
+
+**Karar.** Aktif bir boru taslağı varken ok tuşları X/Y eksenini, `+`/`-` ise
+kot yönünü **kilitler** ve ekrana tek bir sayısal kutu getirir
+(`DraftKeyboardInput`). Tuşun kendisi boru YAZMAZ — kullanıcı uzunluğu (ya da
+kot farkını) yazıp Enter'a basar. Esc yalnız kutuyu kapatır, çizim sürer.
+
+**Neden kutu, neden tek tuşla adım değil.** Boru bir uzunluk ister; tekrarlı
+tuş basışıyla ızgara adımı ötelemek hem yavaş hem de "250 cm" gibi kesin bir
+değeri veremez. Kot akışıyla (`+`/`-`) simetrik tek desen kaldı.
+
+**Ekranda yukarı = plan +Y.** Kamera X'te −90° dönük ortografik tepe kamera, yani
+three −Z ↔ plan +Y. Tuş ↔ eksen tablosu SADECE `core/draftKeyboard.ts`'te.
+
+**`+` iki `key` üretir.** Klavye düzenine göre `'+'` (Shift'li) ya da `'='`;
+`-`/`_` de öyle. Üçü de kabul edilmezse tuş kullanıcının klavyesinde sessizce
+"çalışmıyor" görünür.
+
+Nerede: `src/plumbing/core/draftKeyboard.ts`,
+`src/plumbing/ui/DraftKeyboardInput.tsx`, `src/plumbing/scene/useLineTool.ts`.
+
+---
+
+### K126 — Klavyeden kat değiştirme TÜMÜYLE kalktı
+
+**Karar.** PageUp/PageDown ve ok tuşlarıyla komşu kata geçiş, ok tuşuyla MANUEL
+kat bağlama (`floorLinkActions.commitDraftFloorLink`) ve onun yarım bağlantı
+durumu (`plumbingUiStore.pendingFloorLink`) kaldırıldı. Kat yalnız yüzen
+çubuğun ▲/▼ düğmelerinden ve kat seçicisinden değişir.
+
+**Neden.** Ok tuşları çizime geçti (K125); aynı tuşun iki işe binmesi zaten
+K105/K106'da guard'larla yamanan karışıklığın kaynağıydı. Tek tuş = tek anlam.
+
+**`FloorPipeLink` DURUYOR.** Tek üreticisi kaldı: kot aktif katın tavanını
+aşınca `pipeElevationActions.crossFloorsWithOverflow`'un otomatik geçişi (K104).
+`FloorLinkGlyph`, `getFloorLinkAnchoredPointIds` ve çapa kuralları aynen geçerli.
+
+**Kot kutusu artık FARK istiyor.** `commitDraftElevationTo(mutlak)` yerine
+`commitDraftElevationBy(fark)`: yön basılan tuşta olduğu için mutlak hedef
+istenseydi tuşun işareti anlamsız kalırdı.
+
+Nerede: `src/pages/useEditorShortcuts.ts`,
+`src/plumbing/scene/useLineTool.ts`, `src/plumbing/store/pipeElevationActions.ts`.
+
+---
+
+### K127 — Adımın tek yazım yolu + Z düğümü halkası
+
+**Karar (yazım).** Bir boru adımını yazan tek fonksiyon
+`store/lineStepActions.ts` → `commitDraftStep(point, endTarget)`. Fare
+(`useLineTool.commitStep`) ve klavye (`commitDraftAxisLength`) oradan geçer;
+iki çağıran ayrı yazsaydı kot/çap/bağlantı alanlarından biri er geç birinde
+unutulurdu. Klavye adımı BİLEREK snap ARAMAZ: yazılan sayı kesindir, en yakın
+porta çekilseydi girilen uzunluk tutmazdı.
+
+**Karar (işaret).** Dikey hareketin yapıldığı ya da yapılacağı düğüm, ekran
+boyunda sabit mor bir halkayla İÇİNE ALINIR (`scene/ElevationNodeRing.tsx`).
+İki yerde çizilir: yerleşmiş saf dikey segment (`PipeElevationGlyph`) ve `+`/`-`
+ile kutusu açılmış taslağın ucu. Planda dikey boru tek nokta gibi göründüğü
+için kullanıcı o düğümü gözle bulamıyordu. Renk kat bağlantı rozetiyle AYNI mor
+(`ELEVATION_INK`) — ikisi de "burada düşey bir şey oluyor" diyor.
+
+**`setDraftLine(null)` kutuyu da kapatır.** Tek invariant store'da: kapanış
+yollarının hepsi (Esc, sağ tık, hedefe bağlanarak bitme, araç değişimi) ayrı
+ayrı hatırlamak zorunda kalmasın.
+
+Nerede: `src/plumbing/store/lineStepActions.ts`,
+`src/plumbing/scene/ElevationNodeRing.tsx`, `src/plumbing/store/plumbingUiStore.ts`.
+
+---
+
+### K128 — "Boy" düzenlemesi ucundaki ağı rijit öteler
+
+**Karar.** Özellik panelindeki **Boy (cm)** alanı borunun bitiş ucunu kaydırınca,
+o ucun ötesindeki her şey aynı kaymayla ötelenir: dirsek, üstündeki vana, devam
+boruları ve onlara bağlı elemanlar. Hiçbiri gerilmez. Bütünüyle ötelenen
+boruların kotu da delta kadar kayar.
+
+**Neden.** Eskiden yalnız o köşedeki kaynaklı uçlar taşınıyordu; devam borusu
+karşı ucundan tutulu kaldığı için esniyordu. Üstelik yayılım bir port çapasına
+değerse işlem TÜMÜYLE reddediliyor, uzunluk hiç değişmiyordu.
+
+**`moveTargets.ts` ile birleştirilmez.** Köşe sürüklemesinde seçim rijit gider,
+aradaki borular ESNER ve port çapası yayılımı DURDURUR. Boy düzenlemesinde
+boyu değişen boru dışında hiçbir şey esnemez, bu yüzden port çapası yayılımı
+DURDURMAZ — durdursaydı elemanın yerinde kalması ağı koparırdı. Kural farklı,
+dosya ayrı (`core/resizeTargets.ts`).
+
+**İki durak var.** Boyu değişen hattın öteki noktaları sabittir (çevrimde
+borunun kendi başı kaymasın); `FloorPipeLink` ucu taşıyan hat rijit ötelenmez
+(K104 — linkin `position`'ı ve karşı kattaki eşi burada kayamaz), o boru esner
+ve öteleme orada biter.
+
+Nerede: `src/plumbing/core/resizeTargets.ts`,
+`src/plumbing/store/plumbingSlice.ts` → `resizePipeEnd`.
+
+---
+
+### K129 — Kot göstergesi kaybolmaz, köşe köşeye yapışır
+
+**Karar (gösterge).** `PipeElevationGlyph`'in "plan boyu SIFIR, iki noktalı
+boru" koşulu kalktı. Tek koşul kaldı: `firstElevationCm !== lastElevationCm`.
+İşaret hattın SON noktasında durur — yükselinen kot orada, ve saf dikeyde iki
+nokta zaten çakışık olduğu için o durum değişmez.
+
+**Neden.** Kolonun ucu komşu yatay boruya kaynaklı; o boru oynatılınca uç
+onunla gidiyor, kolonun iki noktası ayrışıyor ve gösterge kayboluyordu. Oysa
+yükseklik farkı hâlâ oradaydı — kullanıcı "yükseklik göstergesi hiç gitmesin"
+dedi.
+
+**Karar (yakalama).** Köşe sürüklemesinde `resolveCornerPosition` artık
+duvardan ÖNCE `findNearestLineCorner` ile başka bir hat KÖŞESİNE tam oturur.
+Segment gövdesi aday değildir; sürüklemeyle birlikte giden noktalar
+(`getLinkedLinePoints`, sürükleme başında bir kez hesaplanıp
+`CornerDragTracker.linkedPointIds`'te tutulur) elenir — yoksa köşe kendi
+kendine yapışırdı. Ctrl yine tüm yakalamayı kapatır.
+
+**Neden duvarın önünde.** Yakın bir duvar yüzü kazansaydı birkaç santimlik bir
+kayma kalır ve kolon bir daha tam düşey olmazdı; yükseklik hiçbir zaman
+kesinleşmezdi. `useLineTool.resolveSnap`'teki "bağlantı kurmak
+konumlandırmadan güçlü bir niyettir" sırasının aynısı.
+
+**Değişmeyen.** `tryStartCornerDrag`'in "saf dikey borunun KENDİ ucu
+sürüklenmez" kuralı duruyor: kolon yalnız komşusu üzerinden eğilebiliyor, o da
+artık geri oturtulabiliyor.
+
+Nerede: `src/plumbing/core/lineSnap.ts`,
+`src/plumbing/scene/useSelectionTool.ts`,
+`src/plumbing/scene/InstallationLineMesh.tsx`.
