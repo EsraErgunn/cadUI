@@ -72,7 +72,10 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   KLAVYEDEN KAT DEĞİŞTİRME YOK (K126): PageUp/PageDown, ok tuşları, `floorLinkActions.ts`
   ve `pendingFloorLink` SİLİNDİ — bu adlarla yeni kod yazma; kat yalnız yüzen çubuk +
   kat seçici. `FloorPipeLink` duruyor, tek üreticisi otomatik tavan aşımı (K104).
-  Dikey hareket düğümü mor halkayla işaretli (`ElevationNodeRing`).
+  Dikey hareket düğümü mor halkayla işaretli (`ElevationNodeRing`). Kot
+  göstergesi KAYBOLMAZ (K129): tek koşul `firstElevationCm !== lastElevationCm`,
+  ve köşe sürüklemesi duvardan ÖNCE başka bir hat KÖŞESİNE tam oturur
+  (`findNearestLineCorner`) — kolon geri getirilince yeniden düşeyleşsin diye.
   (bkz. knowledge/keyboard-drafting.md)
 - Panelde "Boy (cm)" değişince ucun ötesindeki ağ RİJİT ÖTELENİR, esnemez (K128) —
   hesap `plumbing/core/resizeTargets.ts`'te ve `moveTargets.ts`'ten BİLEREK ayrı

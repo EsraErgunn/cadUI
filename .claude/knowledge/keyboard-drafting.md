@@ -58,6 +58,31 @@ o adım tek boru değil, sayaç + vana yerleştiriyor.
 (`LineDraftPreview`, "yapılacak olan" düğüm). Renk `floorLink` ile AYNI mor
 (`ELEVATION_INK`) — ikisi de "burada düşey bir şey oluyor" diyor.
 
+## Gösterge KAYBOLMAZ + köşe-köşe yakalaması (K129)
+
+`PipeElevationGlyph` eskiden yalnız **plan boyu sıfır, iki noktalı** boruda
+çiziliyordu. Komşu yatay boru oynatılınca kolonun kaynaklı ucu onunla gidiyor,
+iki nokta ayrışıyor ve gösterge kayboluyordu — oysa yükseklik farkı hâlâ
+oradaydı. Artık koşul tek: **`firstElevationCm !== lastElevationCm`**. İşaret
+hattın SON noktasında durur (yükselinen kot orada; saf dikeyde iki nokta zaten
+çakışık olduğu için o durum değişmez).
+
+Kaybolmamak yetmiyordu, kolonun yeniden **düşeyleşebilmesi** de gerekiyordu:
+`useSelectionTool.resolveCornerPosition` artık duvardan ÖNCE
+`findNearestLineCorner` ile başka bir hat köşesine TAM oturur. Elenenler
+sürüklemeyle birlikte giden noktalar (`getLinkedLinePoints`, sürükleme başında
+bir kez hesaplanıp `CornerDragTracker.linkedPointIds`'te tutulur) — yoksa köşe
+kendi kendine yapışırdı. Segment GÖVDESİ aday değil, yalnız köşeler.
+
+Öncelik neden duvarın önünde: yakın bir duvar yüzü kazansaydı birkaç cm'lik
+kayma kalır ve yükseklik bir daha kesinleşmezdi. `useLineTool.resolveSnap`'teki
+"bağlantı kurmak konumlandırmadan güçlü bir niyettir" sırasıyla aynı. Ctrl yine
+tüm yakalamayı kapatır.
+
+`tryStartCornerDrag`'in "saf dikey borunun KENDİ ucu sürüklenmez" kuralı
+DEĞİŞMEDİ — kolon yalnız komşusu üzerinden eğilebiliyor, o da artık geri
+oturtulabiliyor.
+
 ## Kot kutusu artık FARK istiyor
 
 `commitDraftElevationTo(mutlak)` → `commitDraftElevationBy(fark)`. Yön basılan

@@ -6190,3 +6190,37 @@ ve öteleme orada biter.
 
 Nerede: `src/plumbing/core/resizeTargets.ts`,
 `src/plumbing/store/plumbingSlice.ts` → `resizePipeEnd`.
+
+---
+
+### K129 — Kot göstergesi kaybolmaz, köşe köşeye yapışır
+
+**Karar (gösterge).** `PipeElevationGlyph`'in "plan boyu SIFIR, iki noktalı
+boru" koşulu kalktı. Tek koşul kaldı: `firstElevationCm !== lastElevationCm`.
+İşaret hattın SON noktasında durur — yükselinen kot orada, ve saf dikeyde iki
+nokta zaten çakışık olduğu için o durum değişmez.
+
+**Neden.** Kolonun ucu komşu yatay boruya kaynaklı; o boru oynatılınca uç
+onunla gidiyor, kolonun iki noktası ayrışıyor ve gösterge kayboluyordu. Oysa
+yükseklik farkı hâlâ oradaydı — kullanıcı "yükseklik göstergesi hiç gitmesin"
+dedi.
+
+**Karar (yakalama).** Köşe sürüklemesinde `resolveCornerPosition` artık
+duvardan ÖNCE `findNearestLineCorner` ile başka bir hat KÖŞESİNE tam oturur.
+Segment gövdesi aday değildir; sürüklemeyle birlikte giden noktalar
+(`getLinkedLinePoints`, sürükleme başında bir kez hesaplanıp
+`CornerDragTracker.linkedPointIds`'te tutulur) elenir — yoksa köşe kendi
+kendine yapışırdı. Ctrl yine tüm yakalamayı kapatır.
+
+**Neden duvarın önünde.** Yakın bir duvar yüzü kazansaydı birkaç santimlik bir
+kayma kalır ve kolon bir daha tam düşey olmazdı; yükseklik hiçbir zaman
+kesinleşmezdi. `useLineTool.resolveSnap`'teki "bağlantı kurmak
+konumlandırmadan güçlü bir niyettir" sırasının aynısı.
+
+**Değişmeyen.** `tryStartCornerDrag`'in "saf dikey borunun KENDİ ucu
+sürüklenmez" kuralı duruyor: kolon yalnız komşusu üzerinden eğilebiliyor, o da
+artık geri oturtulabiliyor.
+
+Nerede: `src/plumbing/core/lineSnap.ts`,
+`src/plumbing/scene/useSelectionTool.ts`,
+`src/plumbing/scene/InstallationLineMesh.tsx`.
