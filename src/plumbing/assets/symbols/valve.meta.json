@@ -2,12 +2,12 @@
   "id": "valve",
   "label": "Vana",
   "asset": "valve.svg",
-  "viewBox": [0, 0, 32, 22],
-  "origin": [16, 11],
+  "viewBox": [0, 0, 14, 12],
+  "origin": [7, 6],
   "flowDirection": "left-to-right",
   "ports": [
-    { "id": "in", "type": "input", "position": [0, 11], "direction": [1, 0] },
-    { "id": "out", "type": "output", "position": [32, 11], "direction": [1, 0] }
+    { "id": "in", "type": "input", "position": [0, 6], "direction": [1, 0] },
+    { "id": "out", "type": "output", "position": [14, 6], "direction": [1, 0] }
   ],
-  "bounds": { "min": [0, 0], "max": [32, 22] }
+  "bounds": { "min": [0, 0], "max": [14, 12] }
 }

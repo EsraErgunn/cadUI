@@ -14,9 +14,15 @@ const RING_SEGMENTS = 24
  * büyük seçildi — amaç düğümü İÇİNE ALMAK.
  */
 const RING_INNER_RADIUS_PX = 9
-const RING_OUTER_RADIUS_PX = 11
+/** Halkanın dış yarıçapı; `useSelectionTool` dikey borunun tıklama bandını
+ *  buradan alır — basılabilir alan ÇİZİLEN alanla aynı kalsın. */
+export const ELEVATION_NODE_RING_RADIUS_PX = 11
 
-const RING_GEOMETRY = new RingGeometry(RING_INNER_RADIUS_PX, RING_OUTER_RADIUS_PX, RING_SEGMENTS)
+const RING_GEOMETRY = new RingGeometry(
+  RING_INNER_RADIUS_PX,
+  ELEVATION_NODE_RING_RADIUS_PX,
+  RING_SEGMENTS,
+)
 // Yatırma: kamera tepeden bakıyor, dik duran halka çizgi gibi görünürdü.
 RING_GEOMETRY.rotateX(-Math.PI / 2)
 

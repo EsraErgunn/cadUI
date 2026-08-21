@@ -100,3 +100,61 @@ export function collectServiceBoxInstallation(
 
   return { elementIds, lineIds, floorIds }
 }
+
+
+/**
+ * Silinen kümenin BİR ADIM komşusu: gidenlere bağlı kalan hat ve elemanlar.
+ * `deletionActions` bunu silme ÖNCESİ grafik üzerinde çağırıp sağ kalanları
+ * seçili bırakır — kullanıcı Delete'e basmayı sürdürerek zinciri ucundan söker
+ * (kullanıcı isteği, 2026-08).
+ *
+ * Tohum İSTENEN seçim değil GERÇEKTEN silinen kümedir: cihaz silinince kolu ve
+ * bacası da gidiyor, istenenden yürünseydi komşu hep o kol çıkar ve zincir ilk
+ * adımda dururdu.
+ *
+ * `collectServiceBoxInstallation`'ın aksine gaz hattıyla SINIRLI değil: cihazın
+ * bacası/havalandırması da "ona bağlı olan kısım"dır. Kat bağlantısı
+ * (`floorPipeLinks`) BİLEREK dışarıda — komşu başka kata düşseydi seçim
+ * kullanıcının göremediği bir çizime kayardı.
+ */
+export function collectAdjacentInstallation(
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+  removedElementIds: readonly Id[],
+  removedLineIds: readonly Id[],
+): { elementIds: Id[]; lineIds: Id[] } {
+  const adjacency = new Map<Id, Id[]>()
+  const addEdge = (a: Id, b: Id) => {
+    adjacency.set(a, [...(adjacency.get(a) ?? []), b])
+    adjacency.set(b, [...(adjacency.get(b) ?? []), a])
+  }
+
+  for (const connection of connections) {
+    if (connection.target.kind === 'line') {
+      addEdge(connection.lineId, connection.target.lineId)
+      continue
+    }
+    addEdge(connection.lineId, connection.target.elementId)
+  }
+
+  // Boruya oturan armatür ayrı bağlantı kaydı değil, düğümdeki `inlineElementId`.
+  for (const line of lines) {
+    for (const point of line.points) {
+      if (point.inlineElementId !== undefined) addEdge(line.id, point.inlineElementId)
+    }
+  }
+
+  const removed = new Set<Id>([...removedElementIds, ...removedLineIds])
+  const neighbors = new Set<Id>()
+  for (const id of removed) {
+    for (const neighbor of adjacency.get(id) ?? []) {
+      if (!removed.has(neighbor)) neighbors.add(neighbor)
+    }
+  }
+
+  const lineIds = lines.filter((line) => neighbors.has(line.id)).map((line) => line.id)
+  const lineIdSet = new Set(lineIds)
+  const elementIds = [...neighbors].filter((id) => !lineIdSet.has(id))
+
+  return { elementIds, lineIds }
+}
