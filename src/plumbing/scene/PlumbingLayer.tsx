@@ -8,6 +8,7 @@ import { LengthLabels } from './LengthLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
 import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
+import { ServiceBoxElevationLabels } from './ServiceBoxElevationLabel'
 import { SplitLengthLabels } from './SplitLengthLabels'
 import { SymbolInstance } from './SymbolInstance'
 import { useDischargeTool } from './useDischargeTool'
@@ -76,6 +77,10 @@ export function PlumbingLayer() {
         dragDeltaRef={selection.dragDeltaRef}
       />
       <ElementNameLabels
+        draggedElementIds={selection.draggedElementIds}
+        dragDeltaRef={selection.dragDeltaRef}
+      />
+      <ServiceBoxElevationLabels
         draggedElementIds={selection.draggedElementIds}
         dragDeltaRef={selection.dragDeltaRef}
       />

@@ -13,7 +13,6 @@ import { useViewportControls } from './useViewportControls'
 import { IsometricLayer } from '../isometric/scene/IsometricLayer'
 import { ISOMETRIC_COLORS } from '../isometric/scene/isometricTheme'
 import { ArchitectureGhost, InstallationGhost } from '../plumbing/scene/Ghosts'
-import { InstallationBelowGhost } from '../plumbing/scene/InstallationBelowGhost'
 import { PlumbingLayer } from '../plumbing/scene/PlumbingLayer'
 import { useUiStore } from '../store/uiStore'
 
@@ -88,9 +87,9 @@ export function SceneRoot() {
         {activeViewId === 'installation' && (
           <>
             <DrawSurface />
-            {/* Alt kat en geride: hizalama referansı, aktif katın çizimini örtmez
-                (FloorBelowGhost ile aynı sıra kuralı). */}
-            <InstallationBelowGhost />
+            {/* Alt katın boru izi YOK (K130): mimarideki FloorBelowGhost'un
+                aksine burada hizalamaya yaramıyordu, aktif kattaki boruyla
+                karışıyordu. */}
             <ArchitectureGhost />
             <PlumbingLayer />
           </>

@@ -4,7 +4,12 @@ import { getFloorIdInDirection } from '../../core/floors'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 import { advanceChain, startChain } from '../core/lineChain'
-import { capElevationToFloor, clampPipeHeightCm, findMergeablePipeLineId } from '../core/lineElevation'
+import {
+  capElevationToFloor,
+  capElevationToFloorBase,
+  clampPipeHeightCm,
+  findMergeablePipeLineId,
+} from '../core/lineElevation'
 
 /** Proje geneli kat sınırıyla AYNI (`core/floors.ts`) — sonsuz döngüye karşı sağduyu sınırı. */
 const MAX_FLOOR_CROSSINGS = 40
@@ -26,6 +31,11 @@ const MAX_FLOOR_CROSSINGS = 40
  * bir üst kata `crossFloorsWithOverflow` ile taşınır — K102'nin "otomatik
  * kolon YOK" kararı bilinçli olarak geride bırakıldı.
  *
+ * TABANIN altına inerse aynısı aşağı yönde olur (K135,
+ * `capElevationToFloorBase` + `crossFloorsDownWithUnderflow`) — K104'ün
+ * "yalnız yukarı" sınırı kullanıcı isteğiyle kalktı. İki taşma aynı anda
+ * OLAMAZ: tek bir hedef kot ya tavanı aşar ya tabanı deler.
+ *
  * Hook DEĞİL: `clipboardActions.ts` ile aynı gerekçe, cadStore (çizim) ile
  * plumbingUiStore (taslak) arasında köprü, React'e ihtiyaç yok.
  */
@@ -39,10 +49,12 @@ function commitDraftElevation(targetCm: number): boolean {
   const cad = useCadStore.getState()
   const floor = cad.floors.find((candidate) => candidate.id === cad.activeFloorId)
   if (!floor) return false
-  const cap = capElevationToFloor(nextElevationCm, floor.heightCm)
+  const ceilingCap = capElevationToFloor(nextElevationCm, floor.heightCm)
+  const cap = capElevationToFloorBase(ceilingCap.endHeightCm)
 
   const mergeableLineId = findMergeablePipeLineId(draft.anchor, draft.startTarget, cad.installationLines)
-  let belowPointId: Id
+  // Yön-nötr ad: yukarı geçişte alttaki, aşağı geçişte ÜSTTEKİ kattaki uç.
+  let chainEndPointId: Id
   if (mergeableLineId !== null) {
     useCadStore.getState().patchLines([mergeableLineId], (line) => ({
       pipe: { description: '', startHeightCm: 0, ...line.pipe, endHeightCm: cap.endHeightCm },
@@ -51,7 +63,7 @@ function commitDraftElevation(targetCm: number): boolean {
       .getState()
       .installationLines.find((candidate) => candidate.id === mergeableLineId)
     if (!mergedLine) return false
-    belowPointId = mergedLine.points[1].id
+    chainEndPointId = mergedLine.points[1].id
     usePlumbingUiStore.getState().setDraftLine({ ...draft, elevationCm: cap.endHeightCm })
   } else {
     const written = useCadStore.getState().addLine({
@@ -62,14 +74,16 @@ function commitDraftElevation(targetCm: number): boolean {
       pipe: { startHeightCm: draft.elevationCm, endHeightCm: cap.endHeightCm, description: '' },
     })
     if (!written) return false
-    belowPointId = written.endPointId
+    chainEndPointId = written.endPointId
     usePlumbingUiStore
       .getState()
       .setDraftLine({ kind: draft.kind, ...advanceChain(draft, draft.anchor, written, cap.endHeightCm) })
   }
 
-  if (cap.overflowCm > 0) {
-    crossFloorsWithOverflow(draft.anchor, cad.activeFloorId, belowPointId, cap.overflowCm)
+  if (ceilingCap.overflowCm > 0) {
+    crossFloorsWithOverflow(draft.anchor, cad.activeFloorId, chainEndPointId, ceilingCap.overflowCm)
+  } else if (cap.underflowCm > 0) {
+    crossFloorsDownWithUnderflow(draft.anchor, cad.activeFloorId, chainEndPointId, cap.underflowCm)
   }
   return true
 }
@@ -133,6 +147,77 @@ function crossFloorsWithOverflow(
     belowFloorId = aboveFloorId
     belowPointId = written.endPointId
     remainingCm = cap.overflowCm
+
+    if (remainingCm <= 0) {
+      usePlumbingUiStore.getState().setDraftLine({
+        kind: 'pipe',
+        ...startChain(
+          position,
+          { kind: 'linePoint', lineId: written.lineId, pointId: written.endPointId },
+          cap.endHeightCm,
+        ),
+      })
+    }
+  }
+}
+
+/**
+ * Kat TABANINI delen kot: sırayla alttaki kat(lar)a `FloorPipeLink` ile
+ * otomatik inilir — `crossFloorsWithOverflow`un aynası (K135, kullanıcı
+ * isteği 2026-08: "boruya `-` yükseklik girince kat yüksekliğinden fazlaysa
+ * alt kata insin").
+ *
+ * Aynanın TEK asimetrisi alt kata hangi kottan girildiği: yukarı çıkarken yeni
+ * kata TABANINDAN (0) girilir, aşağı inerken TAVANINDAN (`Floor.heightCm`) —
+ * üst katın tabanı alttakinin tavanıdır. Bu yüzden yeni borunun
+ * `startHeightCm`i sıfır değil alt katın yüksekliğidir ve kot aşağı doğru
+ * tüketilir.
+ *
+ * Sınırda kat yoksa `addFloor({ isBasement: true })` çağrılır — `addFloor({})`
+ * katı HER ZAMAN dizinin en ÜSTÜNE koyar, bodrum bloğu ise BAŞINDA durur
+ * (K106'nın tuzağı, bkz. knowledge/pipe-floor-crossing.md).
+ */
+function crossFloorsDownWithUnderflow(
+  position: PlanPoint,
+  startFloorId: Id,
+  startPointId: Id,
+  underflowCm: number,
+): void {
+  let aboveFloorId = startFloorId
+  let abovePointId = startPointId
+  let remainingCm = underflowCm
+
+  for (let step = 0; step < MAX_FLOOR_CROSSINGS && remainingCm > 0; step += 1) {
+    let belowFloorId = getFloorIdInDirection(useCadStore.getState().floors, aboveFloorId, 'down')
+    if (belowFloorId === undefined) {
+      belowFloorId = useCadStore.getState().addFloor({ isBasement: true })
+      if (belowFloorId === undefined) break
+    }
+    useCadStore.getState().setActiveFloor(belowFloorId)
+
+    const belowFloor = useCadStore.getState().floors.find((candidate) => candidate.id === belowFloorId)
+    if (!belowFloor) break
+    const cap = capElevationToFloorBase(belowFloor.heightCm - remainingCm)
+
+    const written = useCadStore.getState().addLine({
+      kind: 'pipe',
+      points: [position, position],
+      pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
+      pipe: { startHeightCm: belowFloor.heightCm, endHeightCm: cap.endHeightCm, description: '' },
+    })
+    if (!written) break
+
+    useCadStore.getState().addFloorPipeLink({
+      belowFloorId,
+      aboveFloorId,
+      belowPointId: written.startPointId,
+      abovePointId,
+      position,
+    })
+
+    aboveFloorId = belowFloorId
+    abovePointId = written.endPointId
+    remainingCm = cap.underflowCm
 
     if (remainingCm <= 0) {
       usePlumbingUiStore.getState().setDraftLine({

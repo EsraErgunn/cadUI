@@ -12,7 +12,11 @@ import {
 type UiState = {
   activeToolId: ToolId | InstallationToolId
   activeViewId: ViewId
-  /** Görünüm ▸ Ölçüleri Göster. Görüntüleme tercihi: kaydedilmez, geçmişe girmez. */
+  /**
+   * Görünüm ▸ Ölçüleri Göster. Görüntüleme tercihi: kaydedilmez, geçmişe girmez.
+   * Varsayılan AÇIK (K131): ölçü çizimin okunmasının parçası, kullanıcının her
+   * oturumda elle açması gereken bir ek değil.
+   */
   isDimensionsVisible: boolean
   /**
    * Kapı/pencere GENİŞLİĞİNİN ölçüsü (K74). `isDimensionsVisible`den BAĞIMSIZ
@@ -96,13 +100,11 @@ export const useUiStore = create<UiState>()(
   immer((set) => ({
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
-    isDimensionsVisible: false,
+    isDimensionsVisible: true,
     // Varsayılan AÇIK: ölçüler açıldığında açıklık genişlikleri hep görünüyordu,
     // yeni anahtar davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
     isOpeningDimensionsVisible: true,
     isCornerAnglesVisible: false,
-    // Ölçülerin aksine varsayılan AÇIK: eleman adı çizimin okunmasına gerekli,
-    // ölçü ise isteğe bağlı bir kotalama katmanı.
     isElementLabelsVisible: true,
     isGridVisible: true,
     isGridSnapEnabled: true,

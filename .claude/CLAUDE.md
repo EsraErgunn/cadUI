@@ -63,12 +63,20 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   `endHeightCm` render'a bağlandı (K102). Saf dikey bağlantı (aynı plan konumunda iki
   nokta, farklı kot) hâlâ mümkün — riski yalnız iki dosyada, genel "sıfır uzunluklu
   segment" koruması olarak ele alınır, `riser` adlı ayrı bir tür YOK.
-  (bkz. knowledge/pipe-elevation.md)
+  Kot EKRANA da basılır (K133): yükseliş noktasında fark + varılan kot
+  (`▲0,75 m (+2,00)`), servis kutusunun altında çıkış kotu (`+0,15 m`). Kot
+  yazımının TEK yeri `core/lengthFormat.ts` (`formatSignedMeters` /
+  `formatElevationMeters`) — uzunluğun aksine işaret taşır. İkisi de "Ölçüler"
+  anahtarına bağlı DEĞİL (K129).
+  (bkz. knowledge/pipe-elevation.md, knowledge/label-visibility.md)
 - Boru ÇİZİMİ klavyeden de sürülür (K125–K127): ok tuşu X/Y eksenini, `+`/`-` kot
   yönünü KİLİTLER ve tek sayısal kutuyu açar — tuş boru yazmaz, Enter yazar. Kot
   kutusu MUTLAK hedef değil FARK ister (`commitDraftElevationBy`). Adımın TEK yazım
   yolu `plumbing/store/lineStepActions.ts`; tuş ↔ eksen eşlemesi SADECE
   `plumbing/core/draftKeyboard.ts`'te (ekranda yukarı = plan +Y).
+  Kot katın TAVANINI aşarsa üst kata, TABANINI delerse alt kata OTOMATİK geçilir
+  (K104 + K135, `capElevationToFloor`/`capElevationToFloorBase`) — aşağı inerken
+  yeni kata tavanından girilir, aynanın tek asimetrisi budur.
   KLAVYEDEN KAT DEĞİŞTİRME YOK (K126): PageUp/PageDown, ok tuşları, `floorLinkActions.ts`
   ve `pendingFloorLink` SİLİNDİ — bu adlarla yeni kod yazma; kat yalnız yüzen çubuk +
   kat seçici. `FloorPipeLink` duruyor, tek üreticisi otomatik tavan aşımı (K104).
@@ -93,7 +101,14 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   onu `validate.ts`'ten alırsa import döngüsü doğar (knowledge/validation-rules.md).
 - `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
-- `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
+- `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C).
+  Ölçüler varsayılan AÇIK (K131), tek bayrak iki görünümü de yönetir. Boru
+  ölçüleri MİMARİ görünümde de yazılır (K132, `InstallationGhost` →
+  `LengthLabels`) ve soluklaştırılmaz; çap etikete girmez, renkten okunur.
+  Tesisatta ALT KAT izi YOK (K130): `InstallationBelowGhost`,
+  `INSTALLATION_BELOW_GHOST_ELEVATION_CM` ve `RENDER_ORDER.installationBelowGhost`
+  SİLİNDİ — bu adlarla yeni kod yazma; mimarideki `FloorBelowGhost` duruyor.
+  (bkz. knowledge/label-visibility.md)
 - `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/ExportDialog(D), PropertyPanel/properties(B), WarningList+validation(C).
   Kabuk yeniden kuruldu (K90–K93): üst barda yalnız Dosya + Araçlar, kip
   ayarları tuvalin yüzen çubuğunda; `StatusBar`, `AxisIndicator` ve

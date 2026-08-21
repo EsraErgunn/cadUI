@@ -62,6 +62,28 @@ export function capElevationToFloor(targetHeightCm: number, floorHeightCm: numbe
   return { endHeightCm: floorHeightCm, overflowCm: targetHeightCm - floorHeightCm }
 }
 
+export type ElevationFloorBaseCap = {
+  /** Bu katta yazılacak kot — tabanın (0) ALTINA inmez. */
+  endHeightCm: number
+  /** Tabanın altında kalan kısım — alttaki kata taşınacak miktar. İnilmediyse 0. */
+  underflowCm: number
+}
+
+/**
+ * `capElevationToFloor`ın AYNADAKİ eşi (K135): hedef kot katın TABANININ
+ * altına inerse bu katta biten kot (0) + alttaki kata taşınacak kalan.
+ * Tavanın aksine eşik parametre DEĞİL — her katın tabanı kendi yerel
+ * koordinatında sıfırdır (kot saklanmaz, `core/floorElevation.ts` türetir).
+ *
+ * K104'ün "yalnız YUKARI yön otomatik" sınırını bilinçli olarak geride
+ * bırakır: kullanıcı `-` ile kat yüksekliğinden fazla kot verdiğinde borunun
+ * alt kata inmesini istedi (2026-08).
+ */
+export function capElevationToFloorBase(targetHeightCm: number): ElevationFloorBaseCap {
+  if (targetHeightCm >= 0) return { endHeightCm: targetHeightCm, underflowCm: 0 }
+  return { endHeightCm: 0, underflowCm: -targetHeightCm }
+}
+
 /**
  * Hattın her noktasındaki kot: kümülatif PLAN uzunluğuna göre başlangıç→bitiş
  * arasında doğrusal enterpolasyon. Plan boyu SIFIR ise (saf dikey bağlantı,

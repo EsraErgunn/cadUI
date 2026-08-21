@@ -7,6 +7,7 @@ import type {
 } from '../installationModel'
 import {
   capElevationToFloor,
+  capElevationToFloorBase,
   getAttachedLineElevationCm,
   getDischargeSourceElevationCm,
   getElementElevationCm,
@@ -26,6 +27,20 @@ describe('capElevationToFloor', () => {
 
   it('tavanı aşan hedef tavanla sınırlanır, fark taşma olur', () => {
     expect(capElevationToFloor(450, 300)).toEqual({ endHeightCm: 300, overflowCm: 150 })
+  })
+})
+
+describe('capElevationToFloorBase', () => {
+  it('tabanın üstündeki hedefi olduğu gibi döner, taşma yoktur', () => {
+    expect(capElevationToFloorBase(150)).toEqual({ endHeightCm: 150, underflowCm: 0 })
+  })
+
+  it('tam tabanda taşma yoktur', () => {
+    expect(capElevationToFloorBase(0)).toEqual({ endHeightCm: 0, underflowCm: 0 })
+  })
+
+  it('tabanın altına inen hedef tabanla sınırlanır, fark taşma olur', () => {
+    expect(capElevationToFloorBase(-150)).toEqual({ endHeightCm: 0, underflowCm: 150 })
   })
 })
 
