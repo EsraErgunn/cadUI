@@ -2,6 +2,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
+import { ELEVATION_NODE_RING_RADIUS_PX } from './ElevationNodeRing'
 import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm, getWallEdgeGapCm } from './snapRadius'
 import { getLoadedSymbol } from './symbolLoader'
@@ -33,7 +34,7 @@ import {
   getPortAnchoredPointIds,
 } from '../core/lineCornerLink'
 import { isSamePoint } from '../core/lineGeometry'
-import { getLinesInRect, pickLineAt } from '../core/linePicking'
+import { getLinesInRect, isPlanZeroLengthLine, pickLineAt } from '../core/linePicking'
 import { findNearestLineCorner, findNearestPointOnLines } from '../core/lineSnap'
 import { resolveMoveTargets } from '../core/moveTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
@@ -314,7 +315,13 @@ export function useSelectionTool(): SelectionToolState {
      */
     const handleEmptyPointerDown = (event: DrawSurfacePointerEvent, zoom: number) => {
       const ui = usePlumbingUiStore.getState()
-      const lineId = pickLineAt(event.planPoint, readFloorLines(), getSnapToleranceCm(zoom))
+      const lines = readFloorLines()
+      const lineId = pickLineAt(
+        event.planPoint,
+        lines,
+        getSnapToleranceCm(zoom),
+        ELEVATION_NODE_RING_RADIUS_PX / zoom,
+      )
       const isGroupSelection = ui.selectedElementIds.length + ui.selectedLineIds.length > 1
 
       if (lineId !== null && isGroupSelection && ui.selectedLineIds.includes(lineId)) {
@@ -322,6 +329,15 @@ export function useSelectionTool(): SelectionToolState {
         // düzenini korur ve kayma ızgara katı olur (eleman sürüklemesiyle aynı).
         const anchor = resolvePlacementPosition(event.planPoint, zoom)
         startElementDrag(ui.selectedElementIds, ui.selectedLineIds, anchor, event.planPoint)
+        return
+      }
+
+      // Saf dikey boru (K102) köşe sürüklemesinin ÖNÜNE geçer: planda tek nokta
+      // olduğu için aynı yerde komşu yatay hattın köşesi de duruyor ve jesti o
+      // kapıyordu — kullanıcı halkaya bassa da dikey boru hiç seçilemiyordu.
+      const hitLine = lines.find((line) => line.id === lineId)
+      if (hitLine && isPlanZeroLengthLine(hitLine)) {
+        selectLine(hitLine.id, event.shiftKey)
         return
       }
 

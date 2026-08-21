@@ -2,7 +2,11 @@ import { usePlumbingUiStore } from './plumbingUiStore'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 import { mergeElementIds } from '../core/elementSelection'
-import { collectServiceBoxInstallation } from '../core/installationReachability'
+import type { InstallationConnection, InstallationLine } from '../core/installationModel'
+import {
+  collectAdjacentInstallation,
+  collectServiceBoxInstallation,
+} from '../core/installationReachability'
 import { collectMeterDownstreamInstallation } from '../core/meterReport'
 
 /**
@@ -69,6 +73,58 @@ export function requestSelectionDeletion(elementIds: readonly Id[], lineIds: rea
     return
   }
 
+  // Ardışık silme (kullanıcı isteği, 2026-08): silinenlere BAĞLI olan parçalar
+  // seçili kalır, böylece Delete'e basmayı sürdürmek zinciri ucundan söker.
+  // Grafik silmeden ÖNCE okunur — sonrasında bağı kuran kayıtlar gitmiş olur.
+  const linesBefore = cad.installationLines
+  const connectionsBefore = cad.installationConnections
+  const elementIdsBefore = cad.installationElements.map((element) => element.id)
+
   cad.removeSelection(elementIds, lineIds)
-  usePlumbingUiStore.getState().clearSelection()
+
+  selectSurvivingNeighbors(linesBefore, connectionsBefore, elementIdsBefore)
+}
+
+/**
+ * Silme bitince, GİDENLERE komşu olup sağ kalanları seçer.
+ *
+ * Tohum İSTENEN seçim değil GERÇEKTEN silinen küme: `applyRemoval` fazlasını da
+ * götürüyor (cihazın kolu ve bacası, hattın armatürleri, kolun refakatçi vanası).
+ * İstenen seçimden yürünseydi cihaz silmede zincir hemen dururdu — cihazın tek
+ * komşusu çoğu zaman kendi koludur, o da cihazla birlikte gittiği için geriye
+ * seçilecek bir şey kalmazdı (kullanıcı bulgusu).
+ */
+function selectSurvivingNeighbors(
+  linesBefore: readonly InstallationLine[],
+  connectionsBefore: readonly InstallationConnection[],
+  elementIdsBefore: readonly Id[],
+): void {
+  const ui = usePlumbingUiStore.getState()
+  const cad = useCadStore.getState()
+
+  const survivingElementIds = new Set(cad.installationElements.map((element) => element.id))
+  const survivingLineIds = new Set(cad.installationLines.map((line) => line.id))
+
+  const removedElementIds = elementIdsBefore.filter((id) => !survivingElementIds.has(id))
+  const removedLineIds = linesBefore
+    .map((line) => line.id)
+    .filter((id) => !survivingLineIds.has(id))
+
+  const adjacent = collectAdjacentInstallation(
+    linesBefore,
+    connectionsBefore,
+    removedElementIds,
+    removedLineIds,
+  )
+
+  const nextElementIds = adjacent.elementIds.filter((id) => survivingElementIds.has(id))
+  const nextLineIds = adjacent.lineIds.filter((id) => survivingLineIds.has(id))
+
+  if (nextElementIds.length === 0 && nextLineIds.length === 0) {
+    ui.clearSelection()
+    return
+  }
+
+  ui.setSelectedElements(nextElementIds)
+  ui.setSelectedLines(nextLineIds)
 }
