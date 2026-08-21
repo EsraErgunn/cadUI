@@ -1,3 +1,4 @@
+import { getElementIsometricAnchor } from './isometricAnchor'
 import { getIsometricLineElevationsCm } from './isometricElevation'
 import type { IsometricElevationContext } from './isometricElevation'
 import type {
@@ -14,6 +15,7 @@ import { planToThree } from '../../core/coords'
 import type { PlanPoint, ThreePosition } from '../../core/coords'
 import { getFloorElevationsCm } from '../../core/floorElevation'
 import type { Floor, FloorPipeLink, Id, ProjectData } from '../../core/model'
+import type { SymbolMetadataLookup } from '../../plumbing/core/elementPicking'
 import type { InstallationLine } from '../../plumbing/core/installationModel'
 import { getElementElevationCm } from '../../plumbing/core/lineElevation'
 import { getLineOuterWidthCm } from '../../plumbing/core/lineKinds'
@@ -29,6 +31,8 @@ export type IsometricSceneInput = Pick<
 
 export type IsometricSceneOptions = {
   angles: IsometricAngles
+  /** Sembol tanımları dışarıdan gelir: `core/` React'e ve sahne yükleyicisine bağlanmaz. */
+  getMetadata: SymbolMetadataLookup
 }
 
 /**
@@ -167,12 +171,27 @@ export function buildIsometricScene(
       const floorOffsetCm = floorElevations.get(element.floorId)
       if (floorOffsetCm === undefined) return null
 
+      // Sembol elemanın ORİJİNİNE değil, boruya DEĞDİĞİ noktaya oturur: aradaki
+      // port ofseti kadar görsel kopukluk kalırdı (kullanıcı bulgusu, 2026-08).
+      const anchor = getElementIsometricAnchor(
+        element,
+        options.getMetadata(element.type),
+        input.installationLines,
+        input.installationConnections,
+      )
+
       return {
         elementId: element.id,
+        anchorOffsetCm: anchor.localOffsetCm,
         position: toWorld(
-          element.position,
+          anchor.position,
           floorOffsetCm +
-            getElementElevationCm(element.id, input.installationLines, input.installationConnections),
+            getElementElevationCm(
+              element.id,
+              input.installationLines,
+              input.installationConnections,
+              input.installationElements,
+            ),
           // Elemanın KENDİ izometrik kaydırması bu turda yok (bkz.
           // izometrik-adimlari.md, sonraki turlar); bağlı olduğu hattın
           // kaymasını da devralmıyor — eleman plan konumunda kalır.

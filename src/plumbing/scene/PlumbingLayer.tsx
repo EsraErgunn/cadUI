@@ -42,7 +42,7 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
             // Ref YALNIZ sürüklenen elemanlara gider: geri kalanı her frame konum yazmaz.
             dragDeltaRef={draggedElementIds.includes(element.id) ? dragDeltaRef : undefined}
             // Elemanın kotu tutunduğu boru/porttan izler (K102) — türetilmiş, store'a yazılmaz.
-            elevationCm={getElementElevationCm(element.id, lines, connections)}
+            elevationCm={getElementElevationCm(element.id, lines, connections, elements)}
           />
         ))}
     </>

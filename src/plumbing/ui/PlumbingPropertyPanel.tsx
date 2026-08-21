@@ -87,7 +87,9 @@ export function PlumbingPropertyPanel() {
       isOpen={isOpen}
       onDelete={handleDelete}
     >
-      {kind.scope === 'element' && kind.elementType === 'serviceBox' && <ServiceBoxProperties />}
+      {kind.scope === 'element' && kind.elementType === 'serviceBox' && (
+        <ServiceBoxProperties elementIds={selectedElementIds} />
+      )}
       {kind.scope === 'element' && kind.elementType === 'regulator' && (
         <RegulatorProperties elementIds={selectedElementIds} />
       )}

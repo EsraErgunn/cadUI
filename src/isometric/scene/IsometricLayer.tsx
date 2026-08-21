@@ -15,6 +15,7 @@ import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { getTargetElementId } from '../../plumbing/core/installationModel'
 import type { InstallationConnection } from '../../plumbing/core/installationModel'
+import { getSymbolMetadata } from '../../plumbing/scene/symbolLoader'
 import { useCameraZoom } from '../../scene/useCameraZoom'
 import { useCadStore } from '../../store/cadStore'
 import type { IsometricElevationContext } from '../core/isometricElevation'
@@ -94,7 +95,7 @@ export function IsometricLayer() {
           installationConnections,
           floorPipeLinks,
         },
-        { angles },
+        { angles, getMetadata: getSymbolMetadata },
       ),
     [
       angles,
@@ -189,6 +190,7 @@ export function IsometricLayer() {
               key={placement.elementId}
               element={element}
               position={placement.position}
+              anchorOffsetCm={placement.anchorOffsetCm}
               isDimmed={connectedElementIds !== null && !connectedElementIds.has(element.id)}
             />
           )

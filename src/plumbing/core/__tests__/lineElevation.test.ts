@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import type {
   InstallationConnection,
+  InstallationElement,
   InstallationLine,
 } from '../installationModel'
 import {
   capElevationToFloor,
   getAttachedLineElevationCm,
+  getDischargeSourceElevationCm,
   getElementElevationCm,
   getLinePointElevationCm,
+  hasPipeElevation,
+  SERVICE_BOX_SEED_HEIGHT_CM,
 } from '../lineElevation'
 
 describe('capElevationToFloor', () => {
@@ -124,5 +128,108 @@ describe('getElementElevationCm — yakıcı cihaz (Adım 3)', () => {
     ]
 
     expect(getElementElevationCm(900, [host], connections)).toBeCloseTo(200, 9)
+  })
+})
+
+describe('getElementElevationCm — servis kutusu varsayılan kotu', () => {
+  const boxId = 950
+  const box: InstallationElement = {
+    id: boxId,
+    floorId: 10,
+    type: 'serviceBox',
+    position: { x: 0, y: 0 },
+    angleDeg: 0,
+    scale: 1,
+  }
+
+  it('borusu henüz çizilmemiş kutu kendi çıkış kotunda (15) durur', () => {
+    expect(getElementElevationCm(boxId, [], [], [box])).toBe(SERVICE_BOX_SEED_HEIGHT_CM)
+  })
+
+  it('boru çizilince kot BORUDAN gelir, varsayılan geçersizdir', () => {
+    const outlet = makeHostPipe()
+    outlet.pipe = { startHeightCm: 40, endHeightCm: 40, description: '' }
+    const connections: InstallationConnection[] = [
+      { lineId: outlet.id, end: 'start', target: { kind: 'port', elementId: boxId, portId: 'out' } },
+    ]
+
+    expect(getElementElevationCm(boxId, [outlet], connections, [box])).toBe(40)
+  })
+
+  it('bağsız DİĞER türler 0 kotunda kalır — varsayılan yalnız servis kutusuna ait', () => {
+    const meter: InstallationElement = { ...box, id: 951, type: 'gasMeter' }
+
+    expect(getElementElevationCm(951, [], [], [meter])).toBe(0)
+  })
+})
+
+describe('hasPipeElevation', () => {
+  it('kotu olan boru için true döner', () => {
+    expect(hasPipeElevation(makeHostPipe())).toBe(true)
+  })
+
+  it('tek ucu yükselmiş boru (kolon) da kot taşır', () => {
+    const line = makeHostPipe()
+    line.pipe = { startHeightCm: 0, endHeightCm: 275, description: '' }
+    expect(hasPipeElevation(line)).toBe(true)
+  })
+
+  it('iki ucu da sıfır olan boru kotsuz sayılır', () => {
+    const line = makeHostPipe()
+    line.pipe = { startHeightCm: 0, endHeightCm: 0, description: '' }
+    expect(hasPipeElevation(line)).toBe(false)
+  })
+
+  it('kot alanı hiç olmayan boru kotsuzdur', () => {
+    const line = makeHostPipe()
+    line.pipe = undefined
+    expect(hasPipeElevation(line)).toBe(false)
+  })
+
+  it('iki uçlu kot taşımayan tür (cihaz kolu) her zaman kotsuzdur', () => {
+    expect(hasPipeElevation(makeApplianceStub())).toBe(false)
+  })
+})
+
+/** Cihazın deşarj ağzından çıkan havalandırma kanalı. Kendi kot alanı YOK. */
+function makeVentilationDuct(): InstallationLine {
+  return {
+    id: 30,
+    floorId: 1,
+    kind: 'ventilationDuct',
+    pipeTypeName: 'DN15',
+    points: [
+      { id: 301, position: { x: 400, y: 260 } },
+      { id: 302, position: { x: 400, y: 600 } },
+    ],
+    segments: [{ id: 303, fromPointId: 301, toPointId: 302 }],
+  }
+}
+
+describe('getDischargeSourceElevationCm', () => {
+  it('kanal, çıktığı CİHAZIN kotunu alır', () => {
+    const lines = [makeHostPipe(), makeApplianceStub(), makeVentilationDuct()]
+    const connections: InstallationConnection[] = [
+      ...makeStubConnections(),
+      {
+        lineId: 30,
+        end: 'start',
+        target: {
+          kind: 'outlet',
+          elementId: APPLIANCE_ID,
+          position: [0, 0],
+          direction: [0, 1],
+        },
+      },
+    ]
+
+    expect(getDischargeSourceElevationCm(makeVentilationDuct(), lines, connections)).toBeCloseTo(
+      HOST_ELEVATION_CM,
+      9,
+    )
+  })
+
+  it('hiçbir cihaza bağlı olmayan kanalda 0 döner', () => {
+    expect(getDischargeSourceElevationCm(makeVentilationDuct(), [], [])).toBe(0)
   })
 })
