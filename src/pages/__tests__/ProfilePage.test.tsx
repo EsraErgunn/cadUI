@@ -101,7 +101,7 @@ describe('veri kaynakları', () => {
   it('kullanıcı alanlarını gösterir', async () => {
     renderPage()
 
-    expect(await screen.findByLabelText(/StarCAD Mobile Kullanıcı Adı/)).toHaveValue(
+    expect(await screen.findByLabelText(/Kullanıcı Adı/)).toHaveValue(
       USER.username,
     )
     // Telefon 1 KULLANICININ telefonu; maskeli gösterilir.
@@ -146,7 +146,7 @@ describe('veri kaynakları', () => {
   it('firma bağı yoksa firma ucuna hiç gitmez', async () => {
     renderPage({ user: { ...USER, projectFirmId: null }, me: { ...ME, projectFirmId: null } })
 
-    expect(await screen.findByLabelText(/StarCAD Mobile Kullanıcı Adı/)).toBeInTheDocument()
+    expect(await screen.findByLabelText(/Kullanıcı Adı/)).toBeInTheDocument()
     expect(firmApi.getProjectFirm).not.toHaveBeenCalled()
   })
 
