@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetPlumbingHistory } from '../../plumbing/store/plumbingHistory'
 import { INITIAL_PLUMBING_DATA } from '../../plumbing/store/plumbingSlice'
-import { usePlumbingUiStore } from '../../plumbing/store/plumbingUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { useEditorShortcuts } from '../useEditorShortcuts'
@@ -14,7 +13,6 @@ type HarnessHandlers = {
   onSaveAs: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
-  onGoToFloor: (direction: 'up' | 'down') => void
 }
 
 /**
@@ -39,7 +37,6 @@ function renderHarness(onSave = vi.fn(), onSaveAs = vi.fn()) {
     onSaveAs,
     onOpenFloorManagement: vi.fn(),
     onOpenFloorCopy: vi.fn(),
-    onGoToFloor: vi.fn(),
   }
   render(<Harness {...handlers} />)
   return onSave
@@ -51,7 +48,6 @@ function renderFloorHarness() {
     onSaveAs: vi.fn(),
     onOpenFloorManagement: vi.fn(),
     onOpenFloorCopy: vi.fn(),
-    onGoToFloor: vi.fn(),
   }
   render(<Harness {...handlers} />)
   return handlers
@@ -210,47 +206,29 @@ describe('kat kısayolları (madde 1)', () => {
     expect(handlers.onOpenFloorCopy).toHaveBeenCalledTimes(1)
   })
 
-  it('Page Up / Page Down aktif katı değiştirir — değiştirici tuş İSTEMEZ', async () => {
-    const handlers = renderFloorHarness()
+  // Klavyeden kat değiştirme KALDIRILDI (kullanıcı kararı, 2026-08): ok tuşları
+  // artık boru çiziminin (plumbing/scene/useLineTool.ts), PageUp/PageDown da
+  // hiçbir şeye bağlı değil. Test bunu KORUR: tuşlar geri gelirse aynı basış
+  // hem çizer hem kat değiştirir.
+  it('Page Up / Page Down ve ok tuşları artık kat DEĞİŞTİRMEZ', async () => {
+    renderFloorHarness()
+    const setActiveFloor = vi.spyOn(useCadStore.getState(), 'setActiveFloor')
 
     await userEvent.keyboard('{PageUp}')
     await userEvent.keyboard('{PageDown}')
-
-    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(1, 'up')
-    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(2, 'down')
-  })
-
-  it('metin kutusunda kat kısayolu ÇALIŞMAZ', async () => {
-    const handlers = renderFloorHarness()
-
-    await userEvent.click(screen.getByRole('textbox', { name: 'not' }))
-    await userEvent.keyboard('{PageUp}')
-    await userEvent.keyboard('{Control>}k{/Control}')
-
-    expect(handlers.onGoToFloor).not.toHaveBeenCalled()
-    expect(handlers.onOpenFloorManagement).not.toHaveBeenCalled()
-  })
-
-  it('ok yukarı/aşağı da aktif katı değiştirir (PageUp/PageDown ile AYNI yön)', async () => {
-    const handlers = renderFloorHarness()
-
     await userEvent.keyboard('{ArrowUp}')
     await userEvent.keyboard('{ArrowDown}')
 
-    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(1, 'up')
-    expect(handlers.onGoToFloor).toHaveBeenNthCalledWith(2, 'down')
+    expect(setActiveFloor).not.toHaveBeenCalled()
+    setActiveFloor.mockRestore()
   })
 
-  it('tesisatta aktif bir taslak hat varken ok tuşları kat DEĞİŞTİRMEZ — kat bağlantısı kurar (useLineTool.ts)', async () => {
+  it('metin kutusunda kat penceresi kısayolu ÇALIŞMAZ', async () => {
     const handlers = renderFloorHarness()
-    usePlumbingUiStore.setState({
-      draftLine: { kind: 'pipe', anchor: { x: 0, y: 0 }, startTarget: null, elevationCm: 0, steps: [] },
-    })
 
-    await userEvent.keyboard('{ArrowDown}')
+    await userEvent.click(screen.getByRole('textbox', { name: 'not' }))
+    await userEvent.keyboard('{Control>}k{/Control}')
 
-    expect(handlers.onGoToFloor).not.toHaveBeenCalled()
-
-    usePlumbingUiStore.setState({ draftLine: null })
+    expect(handlers.onOpenFloorManagement).not.toHaveBeenCalled()
   })
 })

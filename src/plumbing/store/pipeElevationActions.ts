@@ -12,7 +12,7 @@ const MAX_FLOOR_CROSSINGS = 40
 /**
  * Zincirin ucundan AYNI plan konumunda, kotu hedefe değişmiş ikinci bir boru
  * yazar (K102) — normal sol-tık commit'iyle (`addLine`) AYNI yoldan geçer, ayrı
- * bir "kolon yaz" fonksiyonu yok. `PipeElevationInput`'un sayısal kutusu bu
+ * bir "kolon yaz" fonksiyonu yok. `DraftKeyboardInput`'un `+`/`-` kipi bu
  * fonksiyonu çağırır.
  *
  * Zincirin ucu ZATEN aynı konumdaki bir dikey segmentin bitişindeyse yeni bir
@@ -76,10 +76,11 @@ function commitDraftElevation(targetCm: number): boolean {
 
 /**
  * Kat tavanını aşan kot: sırayla üstteki kat(lar)a `FloorPipeLink` ile
- * otomatik geçilir (kullanıcı isteği, 2026-08). `commitDraftFloorLink`'in
- * (`floorLinkActions.ts`) ok-tuşuyla tetiklenen MANUEL akışıyla AYNI üç
- * primitive'i (`addLine`, `addFloorPipeLink`, gerekirse `addFloor`) kullanır
- * — yalnız kullanıcı bir sonraki tıkı beklemeden, otomatik ve döngülü. Her
+ * otomatik geçilir (kullanıcı isteği, 2026-08). Kat bağlantısını kuran TEK
+ * akış artık bu: ok-tuşuyla MANUEL kat bağlama (`floorLinkActions.ts`)
+ * klavyeden kat değiştirmeyle birlikte KALDIRILDI, `FloorPipeLink` yalnız
+ * buradan doğuyor. Üç primitive'i (`addLine`, `addFloorPipeLink`, gerekirse
+ * `addFloor`) doğrudan, döngülü çağırır. Her
  * primitive kendi `set()`+`record()`'unu yaptığı için (K-W) çok katlı bir
  * geçişte birden çok Ctrl+Z adımı oluşması KABUL EDİLEBİLİR — manuel akış da
  * zaten `addLine`/`addFloorPipeLink`'i ayrı adımlar olarak çağırıyordu
@@ -146,7 +147,15 @@ function crossFloorsWithOverflow(
   }
 }
 
-/** Sayısal kutu: zincirin kotunu doğrudan yazılan hedefe taşır. */
-export function commitDraftElevationTo(targetCm: number): boolean {
-  return commitDraftElevation(targetCm)
+/**
+ * `+`/`-` kutusu: zincirin kotunu yazılan MİKTAR kadar yükseltir/alçaltır
+ * (kullanıcı isteği, 2026-08). Girdi mutlak hedef DEĞİL fark: yön zaten
+ * basılan tuşta (`+` yukarı, `-` aşağı), kullanıcı yalnız kaç cm çıkacağını
+ * yazar — mutlak hedef istenseydi tuşun işareti anlamsız kalırdı.
+ */
+export function commitDraftElevationBy(deltaCm: number): boolean {
+  const draft = usePlumbingUiStore.getState().draftLine
+  if (!draft || draft.kind !== 'pipe') return false
+
+  return commitDraftElevation(draft.elevationCm + deltaCm)
 }

@@ -64,6 +64,20 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   nokta, farklı kot) hâlâ mümkün — riski yalnız iki dosyada, genel "sıfır uzunluklu
   segment" koruması olarak ele alınır, `riser` adlı ayrı bir tür YOK.
   (bkz. knowledge/pipe-elevation.md)
+- Boru ÇİZİMİ klavyeden de sürülür (K125–K127): ok tuşu X/Y eksenini, `+`/`-` kot
+  yönünü KİLİTLER ve tek sayısal kutuyu açar — tuş boru yazmaz, Enter yazar. Kot
+  kutusu MUTLAK hedef değil FARK ister (`commitDraftElevationBy`). Adımın TEK yazım
+  yolu `plumbing/store/lineStepActions.ts`; tuş ↔ eksen eşlemesi SADECE
+  `plumbing/core/draftKeyboard.ts`'te (ekranda yukarı = plan +Y).
+  KLAVYEDEN KAT DEĞİŞTİRME YOK (K126): PageUp/PageDown, ok tuşları, `floorLinkActions.ts`
+  ve `pendingFloorLink` SİLİNDİ — bu adlarla yeni kod yazma; kat yalnız yüzen çubuk +
+  kat seçici. `FloorPipeLink` duruyor, tek üreticisi otomatik tavan aşımı (K104).
+  Dikey hareket düğümü mor halkayla işaretli (`ElevationNodeRing`).
+  (bkz. knowledge/keyboard-drafting.md)
+- Panelde "Boy (cm)" değişince ucun ötesindeki ağ RİJİT ÖTELENİR, esnemez (K128) —
+  hesap `plumbing/core/resizeTargets.ts`'te ve `moveTargets.ts`'ten BİLEREK ayrı
+  (orada port çapası yayılımı durdurur, burada durdurmaz).
+  (bkz. knowledge/pipe-resize.md)
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
 - Servis kutusu (`ServiceBox`) kökte TEK nesne (dizi değil) → "tek servis kutusu" kuralı yapı gereği.
 - Kolon (`Riser`) kat dışında, kökte. Kat kopyalanınca KLONLANMAZ; `toFloorId` uzatılır.

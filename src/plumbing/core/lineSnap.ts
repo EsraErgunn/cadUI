@@ -63,3 +63,48 @@ export function findNearestPointOnLines(
 
   return nearest
 }
+
+/** Paylaşılan boş küme: eleme istemeyen çağıranlar için. */
+const NO_POINT_IDS: ReadonlySet<Id> = new Set()
+
+export type LineCornerCandidate = { lineId: Id; pointId: Id; position: PlanPoint }
+
+/**
+ * İmlece en yakın hat KÖŞESİ — segment gövdesi aday DEĞİL. Köşe sürüklemesi
+ * bunu kullanır: sürüklenen köşe başka bir köşenin yakınına gelince TAM
+ * ÜSTÜNE oturur (kullanıcı isteği, 2026-08).
+ *
+ * Asıl derdi kot: saf dikey bir boru (K102) plan boyu SIFIR iki noktadan
+ * ibaret; yanındaki yatay boru oynatılınca kaynaklı uç onunla gider, geride
+ * kalan uçla arasında plan mesafesi doğar ve kolon eğik bir boruya dönüşür.
+ * Köşeye geri getirildiğinde tam çakışma "gözle yaklaştırma" ile sağlanamaz —
+ * bu yakalama olmadan yükseklik hiçbir zaman yeniden net olmaz.
+ *
+ * `excludedPointIds`: sürüklemeyle BİRLİKTE giden noktalar (`getLinkedLinePoints`)
+ * — elenmezse köşe kendi kendine yapışırdı.
+ */
+export function findNearestLineCorner(
+  lines: readonly InstallationLine[],
+  cursor: PlanPoint,
+  radiusCm: number,
+  excludedPointIds: ReadonlySet<Id> = NO_POINT_IDS,
+): LineCornerCandidate | null {
+  if (radiusCm <= 0) return null
+
+  let nearest: LineCornerCandidate | null = null
+  let nearestDistanceCm = Number.POSITIVE_INFINITY
+
+  for (const line of lines) {
+    for (const point of line.points) {
+      if (excludedPointIds.has(point.id)) continue
+
+      const distanceCm = Math.hypot(point.position.x - cursor.x, point.position.y - cursor.y)
+      if (distanceCm > radiusCm || distanceCm >= nearestDistanceCm) continue
+
+      nearest = { lineId: line.id, pointId: point.id, position: point.position }
+      nearestDistanceCm = distanceCm
+    }
+  }
+
+  return nearest
+}

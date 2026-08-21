@@ -4,7 +4,7 @@ import { DEFAULT_FLOOR_HEIGHT_CM, DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '.
 import type { Floor } from '../../../core/model'
 import { useCadStore } from '../../../store/cadStore'
 import { DEFAULT_PIPE_TYPE_NAME } from '../../core/pipeTypes'
-import { commitDraftElevationTo } from '../pipeElevationActions'
+import { commitDraftElevationBy } from '../pipeElevationActions'
 import { usePlumbingUiStore } from '../plumbingUiStore'
 
 /** Kat tavanı testte kolayca aşılabilsin diye küçük (ama geçerli, 200-600 cm) bir yükseklik. */
@@ -36,7 +36,7 @@ function startDraft(elevationCm = 0) {
   usePlumbingUiStore.setState({
     draftLine: { kind: 'pipe', anchor: { x: 0, y: 0 }, startTarget: null, elevationCm, steps: [] },
     activePipeTypeName: DEFAULT_PIPE_TYPE_NAME,
-    pendingFloorLink: null,
+    draftKeyboardInput: null,
   })
 }
 
@@ -44,11 +44,11 @@ beforeEach(() => {
   resetCadState({})
 })
 
-describe('commitDraftElevationTo — kat tavanı içinde kalan normal kot', () => {
+describe('commitDraftElevationBy — kat tavanı içinde kalan normal kot', () => {
   it('tavanın altındaki kot yalnızca aktif katta bir boru yazar, kat geçişi olmaz', () => {
     startDraft()
 
-    expect(commitDraftElevationTo(150)).toBe(true)
+    expect(commitDraftElevationBy(150)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.installationLines).toHaveLength(1)
@@ -60,7 +60,7 @@ describe('commitDraftElevationTo — kat tavanı içinde kalan normal kot', () =
   it('tam tavanda biten kot da kat geçişi TETİKLEMEZ', () => {
     startDraft()
 
-    expect(commitDraftElevationTo(FLOOR_HEIGHT_CM)).toBe(true)
+    expect(commitDraftElevationBy(FLOOR_HEIGHT_CM)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.installationLines[0].pipe?.endHeightCm).toBe(FLOOR_HEIGHT_CM)
@@ -69,12 +69,12 @@ describe('commitDraftElevationTo — kat tavanı içinde kalan normal kot', () =
   })
 })
 
-describe('commitDraftElevationTo — kat tavanını aşan kot', () => {
+describe('commitDraftElevationBy — kat tavanını aşan kot', () => {
   it('tavanı aşan kot bu katta tavana kadar yazar, kalanı YENİ bir üst katta devam ettirir', () => {
     startDraft()
 
     const overflowCm = 150
-    expect(commitDraftElevationTo(FLOOR_HEIGHT_CM + overflowCm)).toBe(true)
+    expect(commitDraftElevationBy(FLOOR_HEIGHT_CM + overflowCm)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.floors).toHaveLength(2)
@@ -110,7 +110,7 @@ describe('commitDraftElevationTo — kat tavanını aşan kot', () => {
     // Zemin (200) + 1. Kat (200) tavanlarını aşıp üçüncü (yeni, varsayılan
     // DEFAULT_FLOOR_HEIGHT_CM) katta 50cm ile biten bir hedef.
     const targetCm = FLOOR_HEIGHT_CM + FLOOR_HEIGHT_CM + 50
-    expect(commitDraftElevationTo(targetCm)).toBe(true)
+    expect(commitDraftElevationBy(targetCm)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.floors).toHaveLength(3)

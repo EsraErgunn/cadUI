@@ -6,6 +6,12 @@ import type { DischargeLineKind } from '../core/lineKinds'
  */
 /** Ölçünün nötr tonu: hattın hiçbir çap rengiyle karışmaz (oda etiketiyle aynı). */
 const MEASUREMENT_INK = '#5b6675'
+/**
+ * "Burada Z ekseninde bir şey oluyor" tonu — kat bağlantı rozeti ve dikey
+ * hareket halkası AYNI mor. İkisi de düşey hareketi işaret ediyor; ayrı iki
+ * renk kullanıcıya iki farklı kavram varmış izlenimi verirdi.
+ */
+const ELEVATION_INK = '#7c3aed'
 
 export const PLUMBING_COLORS = {
   /**
@@ -70,7 +76,13 @@ export const PLUMBING_COLORS = {
    * teal (havalandırma), gri (baca) ve amber (etiket kılavuzu) hepsi başka bir
    * anlam taşıyor — marka sarısı zaten yasak (K27).
    */
-  floorLink: '#7c3aed',
+  floorLink: ELEVATION_INK,
+  /**
+   * Dikey (Z) hareketin olduğu ya da olacağı düğümü saran halka — normal köşe
+   * işaretinden BÜYÜK, çünkü planda dikey boru tek nokta gibi görünüyor ve
+   * kullanıcı o düğümü gözle bulamıyordu (kullanıcı isteği, 2026-08).
+   */
+  pipeElevationNode: ELEVATION_INK,
 } as const
 
 /** Deşarj türü → kontur rengi. Tek kaynak: kanal ve önizlemesi aynı tablodan okur. */

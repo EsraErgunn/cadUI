@@ -13,7 +13,7 @@ const LABEL_SIZE_PX = 14
 const FLAT_ROTATION: readonly [number, number, number] = [-Math.PI / 2, 0, 0]
 /** Saf işaret, tıklanmaz — bu araç HAM `pointerdown`'ı dinliyor
  *  (`subscribeDrawSurface`), R3F'in `onClick`'i asla yetişmiyor. Kata geçiş
- *  zaten PageUp/PageDown (`useEditorShortcuts.ts`) ve kat seçiciyle var. */
+ *  zaten yüzen çubuğun kat oklarıyla ve kat seçiciyle var. */
 const NO_RAYCAST = () => null
 
 /** Aktif kattaki bir `FloorPipeLink`'in kalıcı işareti — `PipeElevationGlyph` ile aynı yerde durur. */
