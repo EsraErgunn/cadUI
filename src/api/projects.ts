@@ -66,6 +66,14 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   reddedilen: 'Reddedilen',
 }
 
+/**
+ * Liste ekranının açılış sekmesi. `DEFAULT_PROJECT_SORT_KEY` ile aynı yerde
+ * duruyor: üçü de "adres bir şey söylemiyorsa ne varsayılır" sorusunun cevabı
+ * ve varsayılan değerler URL'e YAZILMADIĞI için (CLAUDE.md) bağlantı üreten
+ * taraf da bu sabiti bilmek zorunda.
+ */
+export const DEFAULT_PROJECT_STATUS: ProjectStatus = 'taslak'
+
 export const PROJECT_TYPES = [
   'ILAVE',
   'ILAVE_TADILAT',

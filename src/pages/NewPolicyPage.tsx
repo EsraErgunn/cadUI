@@ -10,7 +10,7 @@ import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
-import { ADMIN_HOME_PATH, parseProjectParam, projectDetailPath } from '../ui/admin/adminNavItems'
+import { parseProjectParam, projectDetailPath } from '../ui/admin/adminNavItems'
 import { ADMIN_PARAM_KEYS } from '../ui/admin/adminUrlParams'
 import { PolicyFirmStep } from '../ui/admin/policies/PolicyFirmStep'
 import { PolicyInfoStep } from '../ui/admin/policies/PolicyInfoStep'
@@ -24,6 +24,7 @@ import { PolicyWizardFooter } from '../ui/admin/policies/PolicyWizardFooter'
 import { policyFieldId } from '../ui/admin/policies/policySchema'
 import { usePolicyWizard } from '../ui/admin/policies/usePolicyWizard'
 import type { ProjectDetailTabKey } from '../ui/admin/projectDetail/tabItems'
+import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Poliçe Oluşturma'
 const PAGE_DESCRIPTION = 'Manuel poliçe akışı'
@@ -32,9 +33,9 @@ const PAGE_DESCRIPTION = 'Manuel poliçe akışı'
  * Kırılım "Poliçeler" bölümünden GEÇMEZ (K68): ekran bir projenin işlemi,
  * kullanıcı buraya proje detayından geliyor ve geri dönüşü de oraya.
  */
-function buildBreadcrumb(project: ProjectSummary) {
+function buildBreadcrumb(project: ProjectSummary, homePath: string) {
   return [
-    { label: 'Anasayfa', to: ADMIN_HOME_PATH },
+    { label: 'Anasayfa', to: homePath },
     { label: 'Projeler', to: PROJECT_LIST_PATH },
     { label: project.name, to: projectDetailPath(project.id) },
     { label: PAGE_TITLE },
@@ -57,6 +58,7 @@ const CANCEL_DIALOG = {
 }
 
 export function NewPolicyPage() {
+  const homePath = useHomePath()
   // Kimlik YOLDA (K68): adres zaten `/projects/:projectId/policies/new`.
   const { projectId: rawProjectId } = useParams()
   const projectId = parseProjectParam(rawProjectId ?? null)
@@ -131,7 +133,7 @@ export function NewPolicyPage() {
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
-        breadcrumb={buildBreadcrumb(project)}
+        breadcrumb={buildBreadcrumb(project, homePath)}
         title={PAGE_TITLE}
         description={PAGE_DESCRIPTION}
       />

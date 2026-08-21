@@ -10,10 +10,27 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { ADMIN_PARAM_KEYS } from './adminUrlParams'
+import { DEFAULT_PROJECT_STATUS, type ProjectStatus } from '../../api/projects'
+import { ROLE_CODES, type RoleCode } from '../../api/roles'
 import { PROJECT_LIST_PATH } from '../../pages/useCloseEditor'
 
 /** Yönetici kabuğunun kökü; Anasayfa bu yolun index route'u (router.tsx). */
 export const ADMIN_HOME_PATH = '/admin'
+
+/**
+ * Proje firması kullanıcısının anasayfası. `/admin` ile PAYLAŞILMADI: o yol
+ * yönetim ekranlarının kökü ve rol kapısı oraya bağlı — aynı adrese rolüne göre
+ * farklı ekran basmak, korumayı rota ağacından çıkarıp bileşenin içine gömerdi.
+ */
+export const FIRM_HOME_PATH = '/firm'
+
+/**
+ * Rolü yetmeyen kullanıcının düştüğü ekran. Sessizce anasayfaya yönlendirmek
+ * yerine ayrı bir yol: yanlış yapılandırılmış bir menü maddesi ya da eskimiş bir
+ * yer imi "hiçbir şey olmadı" gibi değil, sebebiyle görünsün.
+ */
+export const FORBIDDEN_PATH = '/forbidden'
 
 export const GAS_DISTRIBUTION_FIRMS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-firms`
 export const GAS_FIRM_CREATE_PATH = `${GAS_DISTRIBUTION_FIRMS_PATH}/new`
@@ -138,11 +155,50 @@ export function projectEditorPath(projectId: number): string {
   return `${PROJECT_LIST_PATH}/${projectId}/editor`
 }
 
+/**
+ * YÖNETİM ekranlarını görebilen roller — hem sol menünün süzgeci hem
+ * `RequireRole`'ün listesi buradan okur, ikisi ayrışmasın.
+ *
+ * TODO(esra): `GasDistributionUser` burada GEÇİCİ. Bu görev yalnız
+ * ProjectFirmUser'ı ayrıştırdı; gaz dağıtım kullanıcısının ekran kümesi henüz
+ * kararlaşmadı ve varsayarak daraltmak, bugün çalışan bir rolü sessizce kapı
+ * dışında bırakırdı. Küme belirlenince bu dizi yalnız `admin` kalacak ve o rolün
+ * maddeleri `roles` alanlarına tek tek eklenecek.
+ */
+export const MANAGEMENT_SCREEN_ROLES: readonly RoleCode[] = [
+  ROLE_CODES.admin,
+  ROLE_CODES.gasDistributionUser,
+]
+
+/** Yönetim ekranlarını görenler + proje firması kullanıcısı; yani herkes. */
+const ALL_ROLES: readonly RoleCode[] = [...MANAGEMENT_SCREEN_ROLES, ROLE_CODES.projectFirmUser]
+
+/**
+ * Proje listesinin belirli bir DURUM sekmesi — anasayfa kartlarının hedefi.
+ *
+ * Varsayılan sekme adrese YAZILMAZ (CLAUDE.md: varsayılan değer URL'e girmez,
+ * adres temiz kalır); bu yüzden bağlantıyı üreten tarafın da varsayılanı bilmesi
+ * gerekiyor ve sabit `api/projects.ts`'te, sıralama varsayılanlarının yanında.
+ */
+export function projectListPathForStatus(status: ProjectStatus): string {
+  if (status === DEFAULT_PROJECT_STATUS) return PROJECT_LIST_PATH
+
+  return `${PROJECT_LIST_PATH}?${ADMIN_PARAM_KEYS.tab}=${status}`
+}
+
 export interface AdminNavItem {
   key: string
   label: string
   icon: LucideIcon
   path: string
+  /** Maddeyi GÖREN roller. Boş bırakılmaz: rolsüz madde herkese açık demektir. */
+  roles: readonly RoleCode[]
+  /**
+   * `NavLink end` — madde YALNIZ tam eşleşmede işaretlensin. Anasayfalarda şart:
+   * `/admin` diğer yönetici yollarının ön eki, `end` olmadan her alt yolda iki
+   * madde birden işaretli görünür.
+   */
+  shouldMatchExact?: boolean
 }
 
 /**
@@ -157,27 +213,80 @@ export interface AdminNavItem {
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Geçici karşılama ekranı (AdminHomePage). Kendi yolu var; "Projeler" maddesiyle
   // aynı ekranı göstermesin diye proje listesine DEĞİL, /admin'e bakar.
-  { key: 'home', label: 'Anasayfa', icon: House, path: ADMIN_HOME_PATH },
-  { key: 'projects', label: 'Projeler', icon: FolderKanban, path: PROJECT_LIST_PATH },
+  {
+    key: 'home',
+    label: 'Anasayfa',
+    icon: House,
+    path: ADMIN_HOME_PATH,
+    roles: MANAGEMENT_SCREEN_ROLES,
+    shouldMatchExact: true,
+  },
+  // İki Anasayfa maddesi var ama aynı anda YALNIZ BİRİ görünür: yol rolden
+  // türetilmiyor, madde rolün kendi maddesi. Tek maddeye rolüne göre farklı yol
+  // vermek, menüyü yolun tek kaynağı olmaktan çıkarırdı.
+  {
+    key: 'firmHome',
+    label: 'Anasayfa',
+    icon: House,
+    path: FIRM_HOME_PATH,
+    roles: [ROLE_CODES.projectFirmUser],
+    shouldMatchExact: true,
+  },
+  {
+    key: 'projects',
+    label: 'Projeler',
+    icon: FolderKanban,
+    path: PROJECT_LIST_PATH,
+    roles: ALL_ROLES,
+  },
   {
     key: 'gasDistributionFirms',
     label: 'Gaz Dağıtım Firmaları',
     icon: Factory,
     path: GAS_DISTRIBUTION_FIRMS_PATH,
+    roles: MANAGEMENT_SCREEN_ROLES,
   },
-  { key: 'projectFirms', label: 'Proje Firmaları', icon: Building2, path: PROJECT_FIRMS_PATH },
+  {
+    key: 'projectFirms',
+    label: 'Proje Firmaları',
+    icon: Building2,
+    path: PROJECT_FIRMS_PATH,
+    roles: MANAGEMENT_SCREEN_ROLES,
+  },
   {
     key: 'projectFirmUsers',
     label: 'Proje Firması Kullanıcıları',
     icon: Users,
     path: PROJECT_FIRM_USERS_PATH,
+    roles: MANAGEMENT_SCREEN_ROLES,
   },
   {
     key: 'gasDistributionUsers',
     label: 'Gaz Dağıtım Kullanıcıları',
     icon: UsersRound,
     path: GAS_DISTRIBUTION_USERS_PATH,
+    roles: MANAGEMENT_SCREEN_ROLES,
   },
-  { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH },
-  { key: 'policies', label: 'Poliçeler', icon: ShieldCheck, path: POLICIES_PATH },
+  { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH, roles: ALL_ROLES },
+  {
+    key: 'policies',
+    label: 'Poliçeler',
+    icon: ShieldCheck,
+    path: POLICIES_PATH,
+    roles: ALL_ROLES,
+  },
 ]
+
+/**
+ * Rolün göreceği menü. Sıra korunuyor: süzgeç diziyi yeniden dizmez, yalnız
+ * eler — proje firması kullanıcısında Anasayfa / Projeler / Evraklar / Poliçeler
+ * sırası bu yüzden yönetici menüsündeki sırayla aynı.
+ *
+ * Tanınmayan (ya da olmayan) rol BOŞ menü alır. Varsayılan olarak yönetim
+ * maddelerini göstermek, rol adı sunucuda değişince paneli herkese açardı.
+ */
+export function getNavItemsForRole(roleCode: RoleCode | undefined): AdminNavItem[] {
+  if (roleCode === undefined) return []
+
+  return ADMIN_NAV_ITEMS.filter((item) => item.roles.includes(roleCode))
+}

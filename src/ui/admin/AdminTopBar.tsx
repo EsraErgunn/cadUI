@@ -6,6 +6,7 @@ import { UserMenu } from './UserMenu'
 import { buildScopeOptionGroups, parseScopeValue, toScopeValue } from './adminScopeOptions'
 import { adminFieldVariants, adminIconButtonVariants } from './adminVariants'
 import { useAdminScopeParam } from './useAdminScopeParam'
+import { useIsManagementUser } from './useRole'
 import { fetchAllFirms, getFirmGroups } from '../../api/adminFirms'
 
 const SCOPE_SELECT_ID = 'admin-scope'
@@ -26,9 +27,13 @@ const GLOBAL_SCOPE_VALUE = ''
  * `adminScopeOptions.ts`'te, bileşen yalnız çiziyor. Firma listesi liste
  * ekranıyla ORTAK anahtardan geliyor, ikinci bir indirme olmuyor.
  *
- * Seçici HER ekranda etkin (docs/kararlar.md K44). Satırında kapsam bilgisi
- * olmayan kayıt elenmez, o ekranda kapsam bugün sonucu değiştirmez — böylece
- * seçim hiçbir listeyi sessizce boşaltmıyor.
+ * Seçici, kapsamı olan HER YÖNETİCİ ekranında etkin (docs/kararlar.md K44).
+ * Satırında kapsam bilgisi olmayan kayıt elenmez, o ekranda kapsam bugün sonucu
+ * değiştirmez — böylece seçim hiçbir listeyi sessizce boşaltmıyor.
+ *
+ * Proje firması kullanıcısında seçici HİÇ ÇİZİLMEZ: kapsamı zaten kendi
+ * firması, seçenekler ise gaz dağıtım grupları/firmaları — ona "sistem geneline
+ * bakıyorum" yanılgısından başka bir şey vermezdi.
  */
 interface AdminTopBarProps {
   /** Dar ekrandaki menü çekmecesini açar; `lg` ve üstünde düğme görünmez. */
@@ -38,10 +43,14 @@ interface AdminTopBarProps {
 export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   const [globalQuery, setGlobalQuery] = useState('')
   const { scope, setScope } = useAdminScopeParam()
+  const canSelectScope = useIsManagementUser()
 
+  // Seçici çizilmiyorsa listeler de İNMEZ: bu iki istek yalnız seçenekleri
+  // doldurmak için var, `enabled` olmadan her rolde boşuna atılırdı.
   const { data: groups } = useQuery({
     queryKey: ['firmGroups'],
     queryFn: ({ signal }) => getFirmGroups(signal),
+    enabled: canSelectScope,
   })
 
   // Anahtarın kökü firma listesiyle AYNI: bir firma pasifleştirilince o ekranın
@@ -49,6 +58,7 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   const { data: firms } = useQuery({
     queryKey: ['gasDistributionFirms', 'all'],
     queryFn: ({ signal }) => fetchAllFirms(signal),
+    enabled: canSelectScope,
   })
 
   const optionGroups = useMemo(
@@ -67,38 +77,40 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
         <Menu aria-hidden className="size-5" />
       </button>
 
-      <div className="flex min-w-0 items-center gap-2">
-        {/* Etiket her ekranda gizli; seçicinin ne olduğu seçili seçenekten
-            okunuyor. `sr-only`, görünür metin kalkarken erişilebilir adı
-            korumanın yolu — `<label>` silinseydi seçicinin adı kalmazdı. */}
-        <label htmlFor={SCOPE_SELECT_ID} className="sr-only">
-          Kapsam
-        </label>
-        <select
-          id={SCOPE_SELECT_ID}
-          value={toScopeValue(scope)}
-          onChange={(event) => setScope(parseScopeValue(event.target.value))}
-          className={adminFieldVariants({ className: 'w-32 min-w-0 sm:w-44 lg:w-56' })}
-        >
-          <option value={GLOBAL_SCOPE_VALUE}>Sistem geneli</option>
-          {optionGroups.map((optionGroup) => (
-            <optgroup key={optionGroup.label} label={optionGroup.label}>
-              {/* Grubun kendisi de seçilebilmeli; `<optgroup label>` tıklanabilir
-                  değil, bu yüzden ilk satır olarak ayrıca yazılıyor. */}
-              {optionGroup.groupOption !== null && (
-                <option value={optionGroup.groupOption.value}>
-                  {optionGroup.groupOption.label}
-                </option>
-              )}
-              {optionGroup.firmOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </div>
+      {canSelectScope && (
+        <div className="flex min-w-0 items-center gap-2">
+          {/* Etiket her ekranda gizli; seçicinin ne olduğu seçili seçenekten
+              okunuyor. `sr-only`, görünür metin kalkarken erişilebilir adı
+              korumanın yolu — `<label>` silinseydi seçicinin adı kalmazdı. */}
+          <label htmlFor={SCOPE_SELECT_ID} className="sr-only">
+            Kapsam
+          </label>
+          <select
+            id={SCOPE_SELECT_ID}
+            value={toScopeValue(scope)}
+            onChange={(event) => setScope(parseScopeValue(event.target.value))}
+            className={adminFieldVariants({ className: 'w-32 min-w-0 sm:w-44 lg:w-56' })}
+          >
+            <option value={GLOBAL_SCOPE_VALUE}>Sistem geneli</option>
+            {optionGroups.map((optionGroup) => (
+              <optgroup key={optionGroup.label} label={optionGroup.label}>
+                {/* Grubun kendisi de seçilebilmeli; `<optgroup label>` tıklanabilir
+                    değil, bu yüzden ilk satır olarak ayrıca yazılıyor. */}
+                {optionGroup.groupOption !== null && (
+                  <option value={optionGroup.groupOption.value}>
+                    {optionGroup.groupOption.label}
+                  </option>
+                )}
+                {optionGroup.firmOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Genel arama sonuç ekranı kendi issue'sunda gelecek. Dar ekranda
           GİZLENİYOR: 320 px'de kapsam seçici + arama + eylemler aynı satıra

@@ -4,10 +4,23 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getAuthSession, setAuthSession } from '../../../api/authToken'
+import { getAuthSession, setAuthSession, type AuthSession } from '../../../api/authToken'
+import { ROLE_CODES } from '../../../api/roles'
 import { LOGIN_PATH, RequireAuth } from '../../../app/RequireAuth'
 import { AdminTopBar } from '../AdminTopBar'
 import { GAS_DISTRIBUTION_FIRMS_PATH, PROJECT_FIRMS_PATH } from '../adminNavItems'
+
+/**
+ * Kapsam seçicisi YÖNETİM rollerine ait (`MANAGEMENT_SCREEN_ROLES`), bu yüzden
+ * testler artık oturumsuz render edemiyor: rol okunamayınca seçici hiç
+ * çizilmiyor.
+ */
+const ADMIN_SESSION: AuthSession = {
+  token: 'jwt-token',
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  fullName: 'Yönetici',
+  roleCode: ROLE_CODES.admin,
+}
 
 const { getFirmGroups, fetchAllFirms } = vi.hoisted(() => ({
   getFirmGroups: vi.fn(),
@@ -56,11 +69,17 @@ function renderTopBar(pathname: string) {
 }
 
 beforeEach(() => {
+  setAuthSession(ADMIN_SESSION)
   // Çağrı sayısı testler arasında taşınmasın: "hiç istek atılmadı" iddiası buna bakıyor.
   getFirmGroups.mockClear()
   getFirmGroups.mockResolvedValue(GROUPS)
   fetchAllFirms.mockClear()
   fetchAllFirms.mockResolvedValue(FIRMS)
+})
+
+afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
 })
 
 describe('AdminTopBar kapsam seçicisi', () => {
@@ -144,6 +163,24 @@ describe('AdminTopBar kapsam seçicisi', () => {
     expect(screen.getByLabelText('Kapsam')).toBeEnabled()
     expect(await screen.findByRole('option', { name: 'AKSA (tümü)' })).toBeInTheDocument()
   })
+
+  /**
+   * Proje firması kullanıcısının kapsamı zaten kendi firması; seçenekler ise
+   * gaz dağıtım grupları. Seçici çizilseydi kullanıcı "sistem geneline
+   * bakıyorum" sanırdı. İSTEK de atılmamalı: iki uç yalnız seçeneği doldurmak
+   * için var ve ikisi de yönetim uçları.
+   */
+  it('proje firması kullanıcısında seçiciyi çizmez ve isteği atmaz', async () => {
+    setAuthSession({ ...ADMIN_SESSION, roleCode: ROLE_CODES.projectFirmUser })
+
+    renderTopBar(PROJECT_FIRMS_PATH)
+
+    expect(screen.queryByLabelText('Kapsam')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(getFirmGroups).not.toHaveBeenCalled()
+      expect(fetchAllFirms).not.toHaveBeenCalled()
+    })
+  })
 })
 
 /**
@@ -152,15 +189,8 @@ describe('AdminTopBar kapsam seçicisi', () => {
  * uçtan uca sınıyor, yalnız düğmenin tıklanabilirliğini değil.
  */
 describe('AdminTopBar oturum sonlandırma', () => {
-  const SESSION = {
-    token: 'jwt-token',
-    expiresAt: '2099-01-01T00:00:00.000Z',
-    fullName: 'Yönetici',
-    roleCode: 'Admin',
-  }
-
   /** Üst barı gerçek koruma zinciriyle basar; adres çubuğu `LocationProbe`'ta. */
-  function renderProtectedTopBar(session = SESSION) {
+  function renderProtectedTopBar(session = ADMIN_SESSION) {
     setAuthSession(session)
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -206,12 +236,16 @@ describe('AdminTopBar oturum sonlandırma', () => {
     // Yönetici rolünde GÖSTERİLEN ad sabit "Administrator"; oturumdaki gerçek ad
     // (ortama göre "Demo" olabiliyor) üst barda yazılmıyor. Rol yine oturumdan.
     expect(screen.getAllByText('Administrator').length).toBeGreaterThan(0)
-    expect(screen.queryByText(SESSION.fullName)).not.toBeInTheDocument()
+    expect(screen.queryByText(ADMIN_SESSION.fullName)).not.toBeInTheDocument()
     expect(screen.getAllByText('Sistem Yöneticisi').length).toBeGreaterThan(0)
   })
 
   it('yönetici olmayan rolde oturumdaki ad yazılır', async () => {
-    renderProtectedTopBar({ ...SESSION, fullName: 'Ayşe Demir', roleCode: 'ProjectFirmUser' })
+    renderProtectedTopBar({
+      ...ADMIN_SESSION,
+      fullName: 'Ayşe Demir',
+      roleCode: ROLE_CODES.projectFirmUser,
+    })
 
     await userEvent.click(screen.getByRole('button', { expanded: false }))
 

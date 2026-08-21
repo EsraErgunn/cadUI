@@ -30,6 +30,11 @@ interface DocumentFilterBarProps {
   filters: DocumentFilters
   documentTypes: DocumentType[]
   projectFirms: Lookup[]
+  /**
+   * Yönetim görünümü mü. "Proje Firması" süzgeci YALNIZ orada anlamlı: proje
+   * firması kullanıcısının listesi zaten tek firmaya ait.
+   */
+  isManagementView: boolean
   onApply: (filters: DocumentFilters) => void
 }
 
@@ -45,6 +50,7 @@ export function DocumentFilterBar({
   filters,
   documentTypes,
   projectFirms,
+  isManagementView,
   onApply,
 }: DocumentFilterBarProps) {
   const [dateFrom, setDateFrom] = useState(filters.dateFrom)
@@ -109,14 +115,16 @@ export function DocumentFilterBar({
         onChange={setDocTypeCode}
       />
 
-      <FilterSelect
-        id="document-filter-firm"
-        label="Proje Firması"
-        emptyLabel={ANY_OPTION_LABEL}
-        value={projectFirmId === null ? null : String(projectFirmId)}
-        options={toFirmOptions(projectFirms)}
-        onChange={(value) => setProjectFirmId(toLookupId(value))}
-      />
+      {isManagementView && (
+        <FilterSelect
+          id="document-filter-firm"
+          label="Proje Firması"
+          emptyLabel={ANY_OPTION_LABEL}
+          value={projectFirmId === null ? null : String(projectFirmId)}
+          options={toFirmOptions(projectFirms)}
+          onChange={(value) => setProjectFirmId(toLookupId(value))}
+        />
+      )}
 
       <div className="flex min-w-56 flex-1 flex-col gap-1">
         <label htmlFor="document-filter-search" className="text-xs font-medium text-ink-muted">

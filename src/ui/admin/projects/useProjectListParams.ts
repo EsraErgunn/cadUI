@@ -1,10 +1,12 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { GLOBAL_SCOPE } from '../../../api/adminDashboard'
 import type { SortDirection } from '../../../api/listQuery'
 import {
   DEFAULT_PROJECT_SORT_DIR,
   DEFAULT_PROJECT_SORT_KEY,
+  DEFAULT_PROJECT_STATUS,
   PROJECT_PAGE_SIZE,
   PROJECT_SORT_KEYS,
   PROJECT_STATUSES,
@@ -20,11 +22,10 @@ import {
   useAdminParamWriter,
 } from '../adminUrlParams'
 import { useAdminScopeParam } from '../useAdminScopeParam'
-
-const DEFAULT_STATUS: ProjectStatus = 'taslak'
+import { useIsManagementUser } from '../useRole'
 
 function parseStatus(raw: string | null): ProjectStatus {
-  return PROJECT_STATUSES.find((status) => status === raw) ?? DEFAULT_STATUS
+  return PROJECT_STATUSES.find((status) => status === raw) ?? DEFAULT_PROJECT_STATUS
 }
 
 function parseSortKey(raw: string | null): ProjectSortKey {
@@ -68,7 +69,13 @@ export function useProjectListParams(): ProjectListControls {
   // Üst bardaki kapsam da URL'de duruyor; ayrı bir global state yok. Sorgu
   // nesnesinin parçası olduğu için `queryKey: ['projects', query]` kapsam
   // değişince kendiliğinden değişiyor ve eski liste gösterilmiyor.
-  const { scope } = useAdminScopeParam()
+  const { scope: urlScope } = useAdminScopeParam()
+  const isManagementUser = useIsManagementUser()
+  // Kapsam GAZ DAĞITIM grubunu/firmasını seçiyor ve seçicisi yalnız yönetim
+  // rollerinde çiziliyor. Adres elle düzenlenirse parametre yine URL'de
+  // olabilirdi; sorguya geçirmemek onu tek yerde kesiyor. Bu bir güvenlik
+  // sınırı DEĞİL (veri kapsamını sunucu belirliyor), sorgunun tutarlılığı için.
+  const scope = isManagementUser ? urlScope : GLOBAL_SCOPE
 
   const query = useMemo<ProjectListQuery>(() => {
     const defaultRange = lastMonthRange(new Date())
@@ -92,7 +99,7 @@ export function useProjectListParams(): ProjectListControls {
   const setStatus = useCallback(
     // Yalnız sekme ve sayfa değişir; tarih/ilçe/firma/arama olduğu gibi kalır.
     (status: ProjectStatus) =>
-      updateParams({ tab: status === DEFAULT_STATUS ? null : status }, true),
+      updateParams({ tab: status === DEFAULT_PROJECT_STATUS ? null : status }, true),
     [updateParams],
   )
 

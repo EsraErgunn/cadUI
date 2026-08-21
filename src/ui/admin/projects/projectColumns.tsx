@@ -25,6 +25,9 @@ export const PROJECT_TABLE_MIN_WIDTH_CLASS = 'min-w-320'
  */
 const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
 
+/** "Firma İsmi"nin yeri: No, İşlemler, P_ID, Proje Adı'ndan hemen sonra. */
+const FIRM_NAME_COLUMN_INDEX = 4
+
 /** Sil/Gönder yalnız taslak projede anlamlı — sütun bu durumda hiç üretilmez. */
 const ACTIONABLE_STATUS: ProjectStatus = 'taslak'
 
@@ -43,6 +46,16 @@ interface ProjectColumnsOptions {
   rowOffset: number
   status: ProjectStatus
   pendingProjectId: number | null
+  /**
+   * Yönetim görünümü mü (`useIsManagementUser`). Proje firması kullanıcısının
+   * listesindeki her satır ZATEN kendi firmasına ait: "Firma İsmi" sütunu her
+   * satırda aynı değeri tekrar eder, "G.D Firması" ise yönetici firma
+   * düzenleme ekranına bağlantı veriyor — o rolün açamayacağı bir adres.
+   *
+   * Sunucudan gelen veri DEĞİŞMİYOR, yalnız sunum: DTO aynı, iki sütun
+   * çizilmiyor.
+   */
+  isManagementView: boolean
   onDelete: (projectId: number) => void
   onSubmit: (projectId: number) => void
 }
@@ -51,6 +64,7 @@ export function buildProjectColumns({
   rowOffset,
   status,
   pendingProjectId,
+  isManagementView,
   onDelete,
   onSubmit,
 }: ProjectColumnsOptions): DataTableColumn<ProjectListItem, ProjectSortKey>[] {
@@ -82,11 +96,6 @@ export function buildProjectColumns({
           {project.name}
         </Link>
       ),
-    },
-    {
-      key: 'firmName',
-      label: 'Firma İsmi',
-      cell: (project) => (project.firmName === null ? <EmptyValue /> : project.firmName),
     },
     {
       key: 'buildingCode',
@@ -121,7 +130,18 @@ export function buildProjectColumns({
       sortKey: 'createdAt',
       cell: (project) => <DateTimeCell value={project.createdAt} />,
     },
-    {
+  ]
+
+  // Yönetim sütunları listenin ORTASINA giriyor: "Firma İsmi" proje adından
+  // hemen sonra, "G.D Firması" en sonda. Sıra gereksinimde yazılı, bu yüzden
+  // sona eklemek yerine kendi yerlerine yerleştiriliyor.
+  if (isManagementView) {
+    columns.splice(FIRM_NAME_COLUMN_INDEX, 0, {
+      key: 'firmName',
+      label: 'Firma İsmi',
+      cell: (project) => (project.firmName === null ? <EmptyValue /> : project.firmName),
+    })
+    columns.push({
       key: 'gasFirm',
       label: 'G.D Firması',
       cell: (project) => {
@@ -136,8 +156,8 @@ export function buildProjectColumns({
           </Link>
         )
       },
-    },
-  ]
+    })
+  }
 
   if (status !== ACTIONABLE_STATUS) return columns
 

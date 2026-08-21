@@ -35,7 +35,7 @@ const APPLIED_FILTERS: ProjectFilters = {
 
 function renderBar(
   onApply: (filters: ProjectFilters) => void,
-  { haveProjectFirmsFailed = false } = {},
+  { haveProjectFirmsFailed = false, isManagementView = true } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -45,6 +45,7 @@ function renderBar(
         filters={APPLIED_FILTERS}
         projectFirms={PROJECT_FIRMS}
         haveProjectFirmsFailed={haveProjectFirmsFailed}
+        isManagementView={isManagementView}
         onApply={onApply}
       />
     </QueryClientProvider>,
@@ -154,4 +155,17 @@ describe('ProjectFilterBar', () => {
 
     expect(screen.getByLabelText('Bitiş tarihi')).toHaveAttribute('min', '2026-06-15')
   })
+})
+
+/**
+ * Proje firması kullanıcısının listesi zaten tek firmaya ait; süzgeç ona
+ * seçebileceği tek satırı gösterirdi.
+ */
+it('yönetim görünümü dışında Proje Firması süzgecini çizmez', () => {
+  renderBar(vi.fn(), { isManagementView: false })
+
+  expect(screen.queryByLabelText('Proje Firması')).not.toBeInTheDocument()
+  // Diğer süzgeçler yerinde: gizlenen YALNIZ firma kutusu.
+  expect(screen.getByLabelText('İl')).toBeInTheDocument()
+  expect(screen.getByPlaceholderText('Proje Ara...')).toBeInTheDocument()
 })

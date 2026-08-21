@@ -2,9 +2,11 @@ import { Moon, Sun, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 
-import { ADMIN_HOME_PATH, ADMIN_NAV_ITEMS, type AdminNavItem } from './adminNavItems'
+import { getNavItemsForRole, type AdminNavItem } from './adminNavItems'
 import { adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
+import { useRoleCode } from './useRole'
 import { useTheme } from './useTheme'
+import { getWorkspaceIdentity } from './workspaceIdentity'
 import logo from '../../assets/brand/logo3.png'
 
 /**
@@ -21,11 +23,12 @@ function AdminNavEntry({ item, onSelect }: { item: AdminNavItem; onSelect: () =>
       // Çekmecede madde seçilince menü kapanır; açık kalsaydı kullanıcı gittiği
       // sayfayı göremezdi. Geniş ekranda çekmece zaten kapalı sayılıyor.
       onClick={onSelect}
-      // `end` YALNIZ Anasayfa'da: `/admin` her yönetici yolunun ön eki olduğu
-      // için o madde hep etkin görünürdü. Diğer maddeler alt yollarını da
-      // kapsıyor — kırılımda "Poliçeler / Poliçe Oluşturma" yazarken sol menüde
-      // hiçbir maddenin işaretli olmaması kullanıcıyı yolunu kaybetmiş bırakır.
-      end={item.path === ADMIN_HOME_PATH}
+      // `end` YALNIZ Anasayfa maddelerinde (`shouldMatchExact`): `/admin` her
+      // yönetici yolunun ön eki olduğu için o madde hep etkin görünürdü. Diğer
+      // maddeler alt yollarını da kapsıyor — kırılımda "Poliçeler / Poliçe
+      // Oluşturma" yazarken sol menüde hiçbir maddenin işaretli olmaması
+      // kullanıcıyı yolunu kaybetmiş bırakır.
+      end={item.shouldMatchExact === true}
       className={({ isActive }) => adminNavItemVariants({ tone: isActive ? 'active' : 'plain' })}
     >
       {({ isActive }) => (
@@ -54,6 +57,11 @@ interface AdminSidebarProps {
  */
 export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const { theme, toggleTheme } = useTheme()
+  // Menü ve başlık AYNI rolden türer: madde gizlenip başlık "Yönetici Paneli"
+  // kalsaydı kullanıcı yanlış bir panelde olduğunu sanırdı.
+  const roleCode = useRoleCode()
+  const identity = getWorkspaceIdentity(roleCode)
+  const navItems = getNavItemsForRole(roleCode)
 
   // Esc çekmeceyi kapatır; klavye kullanıcısı menüde kilitli kalmasın.
   useEffect(() => {
@@ -100,7 +108,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           <img src={logo} alt="" aria-hidden className="h-8 w-auto shrink-0" />
           <span className="text-base font-semibold">StarCAD</span>
           <span className="rounded-md border border-edge bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted">
-            Admin
+            {identity.badge}
           </span>
 
           <button
@@ -115,13 +123,13 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
         <div className="px-5 pt-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted">
-            Sistem Yönetimi
+            {identity.section}
           </p>
-          <h2 className="mt-1 text-base font-semibold">Yönetici Paneli</h2>
+          <h2 className="mt-1 text-base font-semibold">{identity.title}</h2>
         </div>
 
         <ul className="mt-4 flex flex-col gap-1 px-3 pb-5">
-          {ADMIN_NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <li key={item.key}>
               <AdminNavEntry item={item} onSelect={onClose} />
             </li>

@@ -4,8 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { setAuthSession, type AuthSession } from '../../api/authToken'
 import { DOCUMENT_PAGE_SIZE, type DocumentRow } from '../../api/documents'
 import { resetMockDocuments } from '../../api/documentsMock'
+import { ROLE_CODES } from '../../api/roles'
 import { DocumentListPage } from '../DocumentListPage'
 
 const listDocuments = vi.hoisted(() => vi.fn())
@@ -46,7 +48,8 @@ function LocationProbe() {
   return <output data-testid="search">{location.search}</output>
 }
 
-function renderPage() {
+function renderPage(roleCode: string = ROLE_CODES.admin) {
+  setAuthSession({ ...ADMIN_SESSION, roleCode })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -77,13 +80,29 @@ function asMock(items: DocumentRow[]) {
   }
 }
 
+
+/**
+ * Bu testler YÖNETİCİ görünümünü sınıyor: firma sütunları ve "Proje Firması"
+ * süzgeci yalnız yönetim rollerinde çiziliyor (`useIsManagementUser`), oturumsuz
+ * render'da hiç görünmezdi.
+ */
+const ADMIN_SESSION: AuthSession = {
+  token: 'jwt-token',
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  fullName: 'Yönetici',
+  roleCode: ROLE_CODES.admin,
+}
+
 beforeEach(() => {
+  setAuthSession(ADMIN_SESSION)
   resetMockDocuments()
   listDocuments.mockResolvedValue(asMock([buildDocument()]))
   deleteDocument.mockResolvedValue({ ok: true })
 })
 
 afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
   vi.clearAllMocks()
 })
 
@@ -252,5 +271,34 @@ describe('DocumentListPage', () => {
     const query = listDocuments.mock.calls[0][0] as { dateFrom: string; pageSize: number }
     expect(query.dateFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(query.pageSize).toBe(30)
+  })
+})
+
+/**
+ * Evrak ekranının VERİSİ hâlâ mock (sunucuda `GET /api/docs` ucuna bağlı bir
+ * istemci yok); burada sınanan rol ayrımı, yani yönetim ALANLARININ
+ * çizilmemesi. Kapsam yine sunucunun işi.
+ */
+describe('DocumentListPage (proje firması kullanıcısı)', () => {
+  it('firma sütunlarını ve firma süzgecini göstermez', async () => {
+    renderPage(ROLE_CODES.projectFirmUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('columnheader', { name: 'Firma Adı' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'G.D Firması' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Proje Firması')).not.toBeInTheDocument()
+
+    // Evrakın kendi alanları duruyor.
+    expect(screen.getByRole('columnheader', { name: 'Evrak Adı' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Evrak Tipi' })).toBeInTheDocument()
+  })
+
+  it('yönetici aynı ekranda firma sütunlarını görmeye devam eder', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.getByRole('columnheader', { name: 'Firma Adı' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'G.D Firması' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Proje Firması')).toBeInTheDocument()
   })
 })
