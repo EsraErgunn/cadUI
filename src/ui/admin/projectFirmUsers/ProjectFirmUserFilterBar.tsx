@@ -15,11 +15,10 @@ import {
   ADMIN_TOOLBAR_SEARCH_FIELD,
   ADMIN_TOOLBAR_SEARCH_WRAPPER,
 } from '../adminToolbarLayout'
-import { ADMIN_CHECKBOX, adminButtonVariants, adminFieldVariants } from '../adminVariants'
+import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
 import { useIsAdmin } from '../useIsAdmin'
 
 const AUTHORITY_FIELD_ID = 'project-firm-user-authority'
-const ACTIVE_FIELD_ID = 'project-firm-user-only-active'
 const SEARCH_FIELD_ID = 'project-firm-user-search'
 
 /** Seçim yapılmamış hâl: "Tümü" (KK-2). Boş dize `<option>` değeri, null'ın DOM karşılığı yok. */
@@ -32,11 +31,7 @@ interface ProjectFirmUserFilterBarProps {
 }
 
 function areFiltersEqual(left: ProjectFirmUserFilters, right: ProjectFirmUserFilters): boolean {
-  return (
-    left.nameQuery === right.nameQuery &&
-    left.authorityType === right.authorityType &&
-    left.onlyActive === right.onlyActive
-  )
+  return left.nameQuery === right.nameQuery && left.authorityType === right.authorityType
 }
 
 /**
@@ -85,19 +80,6 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
             </option>
           ))}
         </select>
-
-        <div className="flex items-center gap-2">
-          <input
-            id={ACTIVE_FIELD_ID}
-            type="checkbox"
-            checked={draft.onlyActive}
-            onChange={(event) => applyNow({ onlyActive: event.target.checked })}
-            className={ADMIN_CHECKBOX}
-          />
-          <label htmlFor={ACTIVE_FIELD_ID} className="text-sm text-ink">
-            Aktif
-          </label>
-        </div>
 
         <div className={ADMIN_TOOLBAR_SEARCH_WRAPPER}>
           <Search

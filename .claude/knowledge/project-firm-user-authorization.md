@@ -64,4 +64,4 @@ sapma, belgeye not düşülmesi gerekir.
 | Benzersizlik | Müsaitlik ucu AÇILMAYACAK. `POST /api/auth/register` çakışmada 409 + `{ message }` dönüyor; form 409'u alana basacak. Soft-delete edilmiş kullanıcının adı/e-postası da rezerve. |
 | Sayfalama zarfı | `page/pageSize/q/authorityType/onlyActive` → `{ items, totalCount, page, pageSize }`. Repodaki İLK sayfalı uç olacak; mevcut uçlar düz dizi dönmeye devam edecek. |
 | Uç yolu | `/api/users` (tablo tek: `Users`). Proje firması ekranı `?projectFirmId=` ile süzer. Oluşturma `POST /api/auth/register`'da kalır. |
-| Kullanıcı "Aktif" alanı | `SoftDeleteEntity.IsActive` global query filter'a bağlı → pasif kayıt sorgudan HİÇ dönmez. KK-4 pasif kullanıcının listelenmesini şart koştuğu için ayrı `IsEnabled` kolonu gerekiyor. |
+| Kullanıcı "Aktif" alanı | `SoftDeleteEntity.IsActive` global query filter'a bağlı → pasif kayıt sorgudan HİÇ dönmez. KK-4 pasif kullanıcının listelenmesini şart koşuyordu; **süzgeç kaldırıldı (K130)**, ayrı `IsEnabled` kolonu artık gerekmiyor. |

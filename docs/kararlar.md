@@ -6367,3 +6367,76 @@ yeniden boyutlandırma (K128) bu otomasyonu hâlâ tetiklemez. Yalnız `pipe` t�
 
 Nerede: `src/plumbing/core/lineElevation.ts`,
 `src/plumbing/store/pipeElevationActions.ts`.
+
+### K130 — Proje firması kullanıcılarında "Aktif" filtresi KALKTI
+
+**Karar.** Liste ekranındaki "Aktif" onay kutusu, `active` adres parametresi,
+"Yalnız aktif" çipi ve bunları besleyen `onlyActive` sorgu alanı silindi.
+Kayıt üzerindeki `isActive` alanları (`ProjectFirmUserDetail`,
+`ProjectFirmUserCompetency`) de kalktı — süzgeç gidince onları okuyan kimse
+kalmadı, mock'ta üretilen pasiflik ölü veriydi.
+
+**Neden.** Sunucuda karşılığı YOK ve yakında da olmayacak: `SoftDeleteEntity.IsActive`
+global query filter'a bağlı, pasif kayıt sorgudan hiç dönmüyor — KK-4'ün istediği
+"pasif kayıtlar da listelensin" davranışı ayrı bir `IsEnabled` kolonu istiyordu
+(bkz. docs/api-eksikleri-kullanicilar.md, backend 2026-08-11 yanıtı). Uç
+açıldığında çalışmayacak bir kutuyu ekranda tutmak, kullanıcıya var olmayan bir
+süzgeç vaat etmekti.
+
+**Gereksinim.** Belgedeki madde 3 ve KK-4 bu kararla GEÇERSİZ. Formdaki "Aktif"
+anahtarı (madde 14 / KK-18) zaten daha önce kalkmıştı.
+
+Nerede: `src/ui/admin/projectFirmUsers/`, `src/api/projectFirmUserDto.ts`,
+`src/api/projectFirmUsersMock.ts`, `src/ui/admin/adminUrlParams.ts`.
+
+### K131 — Proje firması kullanıcıları listesi `Sourced` zarfına geçti
+
+**Karar.** `getProjectFirmUserList` artık `Sourced<PagedResult<…>>` dönüyor.
+Geliştirmede ekranın üstünde KAPATILAMAZ `MockDataNotice` şeridi duruyor;
+üretim derlemesinde satırlar hiç kurulmuyor ve tablo yerine
+`MissingSourceNotice` (`GET /api/projectfirmusers`) çıkıyor. Poliçe listesiyle
+(K51) birebir aynı desen.
+
+**Neden.** Ekran uydurma bir kullanıcı kadrosunu tablo hâlinde, hiçbir uyarı
+olmadan gösteriyordu — kayıt/güncelleme formu "sunucuya yazılmadı" diyordu ama
+LİSTE susuyordu. `MockDataNotice`'in sözleşmesi zaten mock kapısına bağlı
+(K50): şeridi kapısız kullanmak bileşenin kendi notunu yalanlardı.
+
+**Şeritte ne yazıyor.** "Kullanıcı satırları" — satırların FİRMA sütunları
+gerçek uçlardan geliyor (`GET /api/gasdistributionfirms`, `GET /api/projectfirms`),
+uydurma olan yalnız kullanıcının kendisi. Genel bir "veriler eksik" cümlesi bu
+ayrımı söylemezdi.
+
+**Sonradan genişledi (K132).** Detay/güncelleme ve yazma yolu da aynı kapıya
+alındı; bölümün tamamı tek kural altında.
+
+Nerede: `src/api/projectFirmUsers.ts`, `src/pages/ProjectFirmUsersPage.tsx`.
+
+### K132 — Kullanıcı bölümünün TAMAMI mock kapısının arkasında
+
+**Karar.** K131'in zarfı bölümün kalanına da uygulandı:
+
+- `getProjectFirmUser` → `Sourced<ProjectFirmUserDetail>`. Geliştirmede form
+  `MockDataNotice` şeridiyle açılıyor; üretimde kayıt hiç kurulmuyor ve form
+  YERİNE `MissingSourceNotice` (`GET /api/projectfirmusers/{id}`) çıkıyor.
+- `saveProjectFirmUser` yazmayı `mockedData`'dan geçiriyor ve
+  `{ ok: false, reason: 'unavailable' }` kolu kazandı. Üretimde bellekteki
+  depoya kayıt DÜŞMÜYOR; kullanıcı formda kalıyor ve sebebini okuyor.
+
+**Neden.** Doldurulmuş bir form, tablodaki uydurma satırdan daha inandırıcı:
+listede "örnek veri" diye bakılan bir kayıt, güncelleme ekranında adı soyadı
+telefonu yerli yerinde gerçek bir kişiye benziyordu. Yazma tarafı da aynı
+sebeple kapandı — hiçbir yerde gösterilmeyecek bir depoya kayıt eklemek,
+kullanıcıya yapılmamış bir işi yapılmış göstermek.
+
+**Neden oluşturma ekranı açık kaldı.** Boş bir form sahte veri GÖSTERMİYOR;
+K50'nin yasakladığı şey uydurma değerin gerçek sanılması. Kullanıcı doldurup
+"Kaydet"e bastığında üretimde net bir hata alıyor, sessizce başarı değil.
+
+**Bugün ulaşılamayan kollar.** `findTakenProjectFirmUserFields` üretimde boş
+depoya bakıp "kullanılmıyor" diyor; sonuç zaten kaydın `unavailable` ile
+reddedilmesini değiştirmiyor, bu yüzden ayrı bir kol açılmadı.
+
+Nerede: `src/api/projectFirmUsers.ts`, `src/api/projectFirmUserForm.ts`,
+`src/pages/ProjectFirmUserFormPage.tsx`,
+`src/ui/admin/projectFirmUsers/useProjectFirmUserForm.ts`.

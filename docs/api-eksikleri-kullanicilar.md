@@ -11,7 +11,7 @@ tek yerde toplar.
 | `authorityType` | Rol DEĞİL (teyit edildi). `Code`/`CodeGroup` altyapısında `YetkiTipi` grubu, `codeValue` = `FirmEngineer` / `FirmAuthorizedPerson`. Ekranda `name`, mantıkta `codeValue`. |
 | Benzersizlik (KK-16) | Müsaitlik ucu AÇILMAYACAK. `register` çakışmada 409 + `{ message }` döndürüyor; form 409'u alana basacak. Soft-delete edilmiş kayıtların adı/e-postası da rezerve. |
 | Sayfalama zarfı | Kabul: `{ items, totalCount, page, pageSize }`. Repodaki İLK sayfalı uç; mevcut uçlar düz dizi dönmeye devam edecek (tip tarafında ayrı ele alınacak). |
-| Kullanıcı "Aktif" | `SoftDeleteEntity.IsActive` global query filter'a bağlı, pasif kayıt sorgudan hiç dönmez → KK-4 için ayrı `IsEnabled` kolonu gerekiyor. |
+| Kullanıcı "Aktif" | `SoftDeleteEntity.IsActive` global query filter'a bağlı, pasif kayıt sorgudan hiç dönmez → KK-4 için ayrı `IsEnabled` kolonu gerekiyordu. **KAPANDI:** süzgeç ekrandan kaldırıldı (K130), `IsEnabled` kolonu İSTENMİYOR. |
 
 **AÇIK ve BLOKE EDEN:** kullanıcının çoklu yetkisi (`UserAuthorization`) ve buna
 bağlı olarak sayfalamanın satır bazlı mı kullanıcı bazlı mı olacağı.

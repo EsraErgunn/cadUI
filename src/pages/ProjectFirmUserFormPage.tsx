@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 
 import { getProjectFirmUser } from '../api/projectFirmUsers'
+import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
+import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, PROJECT_FIRM_USERS_PATH } from '../ui/admin/adminNavItems'
@@ -17,6 +19,14 @@ const CREATE_TITLE = 'Yeni Proje Firma Kullanıcısı Oluşturma'
 const UPDATE_TITLE = 'Proje Firma Kullanıcısı Güncelleme'
 
 /** Belge madde 8 / KK-13, birebir. */
+
+/**
+ * Şeritte sayılan bölüm. Formu dolduran kişi UYDURMA; yalnız güncelleme
+ * ekranında görünür, oluşturmada doldurulmuş bir alan zaten yok.
+ */
+const MOCK_SECTIONS = ['Kullanıcının bilgileri (ad, kullanıcı adı, e-posta, telefon)']
+
+const MISSING_ENDPOINT_HINT = 'GET /api/projectfirmusers/{id}'
 
 function buildBreadcrumb(title: string) {
   return [
@@ -37,11 +47,16 @@ export function ProjectFirmUserFormPage() {
   const { userId: rawUserId } = useParams()
   const userId = rawUserId === undefined ? null : Number(rawUserId)
 
-  const { data, isPending, isError, refetch } = useQuery({
+  const { data: sourced, isPending, isError, refetch } = useQuery({
     queryKey: ['projectFirmUser', userId],
     queryFn: ({ signal }) => getProjectFirmUser(userId ?? 0, signal),
     enabled: userId !== null,
   })
+
+  // Üretim derlemesinde uydurma kayıt HİÇ kurulmuyor (K51): doldurulmuş bir
+  // form, tablodaki sahte satırdan daha inandırıcı görünürdü.
+  const user = sourced?.source === 'unavailable' ? undefined : sourced?.data
+  const isSourceMissing = sourced?.source === 'unavailable'
 
   const title = userId === null ? CREATE_TITLE : UPDATE_TITLE
 
@@ -49,14 +64,18 @@ export function ProjectFirmUserFormPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <PageHeader breadcrumb={buildBreadcrumb(title)} title={title} />
 
+      <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
+
       {userId !== null && isPending && <QueryLoading message="Kullanıcı yükleniyor…" />}
 
       {userId !== null && isError && (
         <QueryError message="Kullanıcı bilgileri yüklenemedi." onRetry={() => void refetch()} />
       )}
 
+      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
+
       {userId === null && <ProjectFirmUserForm user={null} />}
-      {userId !== null && data !== undefined && <ProjectFirmUserForm user={data} />}
+      {userId !== null && user !== undefined && <ProjectFirmUserForm user={user} />}
     </div>
   )
 }
