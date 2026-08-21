@@ -26,8 +26,13 @@ interface DocumentColumnsOptions {
   documentTypes: DocumentType[]
   /** İsteği süren satır; o satırın düğmesi kilitlenir. */
   pendingDocumentId: number | null
+  /** Yönetim görünümü mü (`useIsManagementUser`); firma sütunlarını açar. */
+  isManagementView: boolean
   onDelete: (documentId: number) => void
 }
+
+/** Firma sütunlarının yeri: "Tesisat No"dan sonra, "Aksiyonlar"dan önce. */
+const FIRM_COLUMN_INDEX = 8
 
 /**
  * "Firma Adı" ve "G.D Firması" DÜZ METİN: ikisinin de gidebileceği bir salt
@@ -40,9 +45,10 @@ export function buildDocumentColumns({
   rowOffset,
   documentTypes,
   pendingDocumentId,
+  isManagementView,
   onDelete,
 }: DocumentColumnsOptions): DataTableColumn<DocumentRow, DocumentSortKey>[] {
-  return [
+  const columns: DataTableColumn<DocumentRow, DocumentSortKey>[] = [
     {
       key: 'no',
       label: 'No',
@@ -105,17 +111,6 @@ export function buildDocumentColumns({
         document.installationNo === null ? <EmptyValue /> : document.installationNo,
     },
     {
-      key: 'firmName',
-      label: 'Firma Adı',
-      cell: (document) => (document.firmName === null ? <EmptyValue /> : document.firmName),
-    },
-    {
-      key: 'gasFirmName',
-      label: 'G.D Firması',
-      cell: (document) =>
-        document.gasFirmName === null ? <EmptyValue /> : document.gasFirmName,
-    },
-    {
       key: 'actions',
       label: 'Aksiyonlar',
       cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
@@ -133,4 +128,23 @@ export function buildDocumentColumns({
       ),
     },
   ]
+
+  // Firma sütunları YÖNETİM görünümüne özel. Proje firması kullanıcısının
+  // listesindeki her evrak zaten kendi firmasının: "Firma Adı" her satırda aynı
+  // değeri tekrar eder, "G.D Firması" ise onun yönetmediği bir firmayı anlatır.
+  // Gelen VERİ değişmiyor (`DocumentRow` aynı), yalnız iki sütun çizilmiyor.
+  if (isManagementView) {
+    columns.splice(FIRM_COLUMN_INDEX, 0, {
+      key: 'firmName',
+      label: 'Firma Adı',
+      cell: (document) => (document.firmName === null ? <EmptyValue /> : document.firmName),
+    }, {
+      key: 'gasFirmName',
+      label: 'G.D Firması',
+      cell: (document) =>
+        document.gasFirmName === null ? <EmptyValue /> : document.gasFirmName,
+    })
+  }
+
+  return columns
 }

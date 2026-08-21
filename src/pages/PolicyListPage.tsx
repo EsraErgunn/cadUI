@@ -12,7 +12,6 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
-import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { PolicyFilterBar } from '../ui/admin/policies/PolicyFilterBar'
 import {
   POLICY_TABLE_CAPTION,
@@ -21,12 +20,13 @@ import {
 } from '../ui/admin/policies/policyColumns'
 import { buildPolicyFilterChips } from '../ui/admin/policies/policyFilterChips'
 import { usePolicyListParams } from '../ui/admin/policies/usePolicyListParams'
+import { useHomePath } from '../ui/admin/useHomePath'
 import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Poliçeler'
 const PAGE_DESCRIPTION = 'Tüm projelere ait poliçeler'
 
-const BREADCRUMB = [{ label: 'Anasayfa', to: ADMIN_HOME_PATH }, { label: PAGE_TITLE }]
+
 
 const EMPTY_WITH_FILTERS =
   'Kriterlere uyan poliçe bulunamadı. Aramayı veya sigorta şirketi seçimini kaldırın.'
@@ -53,6 +53,7 @@ const DELETE_MESSAGES = {
 }
 
 export function PolicyListPage() {
+  const homePath = useHomePath()
   const { query, applyFilters, toggleSort, setPage } = usePolicyListParams()
   const queryClient = useQueryClient()
 
@@ -110,7 +111,7 @@ export function PolicyListPage() {
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
-        breadcrumb={BREADCRUMB}
+        breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}
         countLabel={formatCountLabel(data?.totalCount)}
         description={PAGE_DESCRIPTION}

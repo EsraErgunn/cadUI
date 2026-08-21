@@ -12,7 +12,6 @@ import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
 import {
-  ADMIN_HOME_PATH,
   PROJECT_PARAM,
   parseProjectParam,
   projectDetailPath,
@@ -24,6 +23,7 @@ import { ProjectDocumentPicker } from '../ui/admin/documents/ProjectDocumentPick
 import { UploadedDocumentRow } from '../ui/admin/documents/UploadedDocumentRow'
 import type { DocumentSource } from '../ui/admin/documents/documentSources'
 import { useDocumentUpload } from '../ui/admin/documents/useDocumentUpload'
+import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Evrak Ekle'
 const PAGE_DESCRIPTION = 'Dosyayı yükleyin, evrak tipini seçin ve ilgili birimleri işaretleyin'
@@ -40,13 +40,11 @@ const SAVE_ERROR_MESSAGES = {
     'Evrak yükleme ucu sunucuda henüz yok; kayıt yapılamadı (POST /api/projects/{id}/docs).',
 } as const
 
-const BREADCRUMB = [
-  { label: 'Anasayfa', to: ADMIN_HOME_PATH },
-  { label: 'Projeler', to: PROJECT_LIST_PATH },
-  { label: PAGE_TITLE },
-]
+/** İlk madde ROLE göre çözülüyor (`useHomePath`); ekran üç rolde de açık. */
+const BREADCRUMB_TAIL = [{ label: 'Projeler', to: PROJECT_LIST_PATH }, { label: PAGE_TITLE }]
 
 export function NewDocumentPage() {
+  const homePath = useHomePath()
   const [searchParams] = useSearchParams()
   const projectId = parseProjectParam(searchParams.get(PROJECT_PARAM))
   const navigate = useNavigate()
@@ -145,7 +143,7 @@ export function NewDocumentPage() {
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
-        breadcrumb={BREADCRUMB}
+        breadcrumb={[{ label: 'Anasayfa', to: homePath }, ...BREADCRUMB_TAIL]}
         title={PAGE_TITLE}
         description={PAGE_DESCRIPTION}
       />

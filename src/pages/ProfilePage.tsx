@@ -8,13 +8,13 @@ import { getUser } from '../api/users'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError } from '../ui/admin/QueryStates'
-import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { ProfileFormCard, ProfileFormSkeleton } from '../ui/admin/profile/ProfileFormCard'
 import { toProfileValues, useProfileForm } from '../ui/admin/profile/useProfileForm'
+import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Kişi Bilgileri'
 
-const BREADCRUMB = [{ label: 'Anasayfa', to: ADMIN_HOME_PATH }, { label: PAGE_TITLE }]
+
 
 const SAVED_MESSAGE = 'Kişi bilgileriniz güncellendi.'
 
@@ -34,6 +34,7 @@ const NO_FIRM_MESSAGE =
  * atılmıyor ve alanlar sahte veriyle DOLDURULMUYOR — boş ve kilitli kalıyorlar.
  */
 export function ProfilePage() {
+  const homePath = useHomePath()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [savedNotice, setSavedNotice] = useState<string | null>(null)
@@ -79,7 +80,7 @@ export function ProfilePage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
       <PageHeader
-        breadcrumb={BREADCRUMB}
+        breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}
         description="Kullanıcının kimlik ve iletişim bilgileri"
       />

@@ -1,7 +1,7 @@
 import { Clock } from 'lucide-react'
 
-import { DashboardCard } from './DashboardCard'
 import type { DensityBy, DensityRow } from '../../../api/adminDashboard'
+import { DashboardCard } from '../DashboardCard'
 import { formatCount } from '../adminFormat'
 
 interface DensityCardProps {

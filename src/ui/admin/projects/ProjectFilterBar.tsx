@@ -34,6 +34,12 @@ interface ProjectFilterBarProps {
   projectFirms: Lookup[]
   /** Liste çekilemedi mi — kutu boş açılıp "firma yok" sanısı vermesin. */
   haveProjectFirmsFailed?: boolean
+  /**
+   * Yönetim görünümü mü. "Proje Firması" süzgeci YALNIZ orada anlamlı: proje
+   * firması kullanıcısı zaten tek bir firmanın projelerini görüyor, kutu ona
+   * seçebileceği tek satırı ya da hiç seçemeyeceği firmaları gösterirdi.
+   */
+  isManagementView: boolean
   onApply: (filters: ProjectFilters) => void
 }
 
@@ -54,6 +60,7 @@ export function ProjectFilterBar({
   filters,
   projectFirms,
   haveProjectFirmsFailed = false,
+  isManagementView,
   onApply,
 }: ProjectFilterBarProps) {
   const [dateFrom, setDateFrom] = useState(filters.dateFrom)
@@ -151,16 +158,18 @@ export function ProjectFilterBar({
         onChange={(value) => setDistrictId(toLookupId(value))}
       />
 
-      <FilterSelect
-        id="project-filter-firm"
-        label="Proje Firması"
-        emptyLabel={ANY_OPTION_LABEL}
-        value={projectFirmId === null ? null : String(projectFirmId)}
-        options={toOptions(projectFirms)}
-        isDisabled={haveProjectFirmsFailed}
-        hint={haveProjectFirmsFailed ? FIRM_ERROR_HINT : undefined}
-        onChange={(value) => setProjectFirmId(toLookupId(value))}
-      />
+      {isManagementView && (
+        <FilterSelect
+          id="project-filter-firm"
+          label="Proje Firması"
+          emptyLabel={ANY_OPTION_LABEL}
+          value={projectFirmId === null ? null : String(projectFirmId)}
+          options={toOptions(projectFirms)}
+          isDisabled={haveProjectFirmsFailed}
+          hint={haveProjectFirmsFailed ? FIRM_ERROR_HINT : undefined}
+          onChange={(value) => setProjectFirmId(toLookupId(value))}
+        />
+      )}
 
       <div className="flex min-w-56 flex-1 flex-col gap-1">
         <label htmlFor="project-filter-search" className="text-xs font-medium text-ink-muted">

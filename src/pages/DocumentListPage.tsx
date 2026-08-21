@@ -14,7 +14,6 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
-import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { DocumentFilterBar } from '../ui/admin/documents/DocumentFilterBar'
 import {
   DOCUMENT_TABLE_CAPTION,
@@ -23,16 +22,15 @@ import {
 } from '../ui/admin/documents/documentColumns'
 import { buildDocumentFilterChips } from '../ui/admin/documents/documentFilterChips'
 import { useDocumentListParams } from '../ui/admin/documents/useDocumentListParams'
+import { useHomePath } from '../ui/admin/useHomePath'
+import { useIsManagementUser } from '../ui/admin/useRole'
 import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Evraklar'
 const PAGE_DESCRIPTION = 'Tüm projelere ait yüklenmiş evraklar'
 
-const BREADCRUMB = [
-  { label: 'Anasayfa', to: ADMIN_HOME_PATH },
-  { label: 'Evraklar' },
-  { label: 'Proje Evrakları' },
-]
+/** İlk madde ROLE göre çözülüyor (`useHomePath`); ekran üç rolde de açık. */
+const BREADCRUMB_TAIL = [{ label: 'Evraklar' }, { label: 'Proje Evrakları' }]
 
 /** Sekme çubuğu YOK: belgedeki iki sekmeden "Favoriler" kapsam dışı kaldı, tek
     sekmelik bir şerit kullanıcıya seçenek varmış izlenimi verirdi. */
@@ -62,6 +60,10 @@ const DELETE_MESSAGES = {
 }
 
 export function DocumentListPage() {
+  const homePath = useHomePath()
+  // Yönetim ALANLARI (firma sütunları, firma süzgeci) buna bakıyor; verinin
+  // kapsamı sunucunun işi.
+  const isManagementView = useIsManagementUser()
   const { query, applyFilters, toggleSort, setPage } = useDocumentListParams()
   const queryClient = useQueryClient()
 
@@ -77,10 +79,12 @@ export function DocumentListPage() {
   const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
   const isSourceMissing = sourced?.source === 'unavailable'
 
+  // Süzgeç kutusu yalnız yönetim görünümünde var; listeyi de orada indiriyoruz.
   const { data: projectFirms } = useQuery({
     queryKey: ['projectFirms'],
     queryFn: ({ signal }) => getProjectFirms(signal),
     staleTime: LOOKUP_STALE_MS,
+    enabled: isManagementView,
   })
 
   // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı; sabit
@@ -105,9 +109,17 @@ export function DocumentListPage() {
         rowOffset: (query.page - 1) * query.pageSize,
         documentTypes,
         pendingDocumentId: deletion.pendingId,
+        isManagementView,
         onDelete: deletion.request,
       }),
-    [query.page, query.pageSize, documentTypes, deletion.pendingId, deletion.request],
+    [
+      query.page,
+      query.pageSize,
+      documentTypes,
+      deletion.pendingId,
+      isManagementView,
+      deletion.request,
+    ],
   )
 
   const hasActiveFilters =
@@ -127,7 +139,7 @@ export function DocumentListPage() {
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
-        breadcrumb={BREADCRUMB}
+        breadcrumb={[{ label: 'Anasayfa', to: homePath }, ...BREADCRUMB_TAIL]}
         title={PAGE_TITLE}
         countLabel={formatCountLabel(data?.totalCount)}
         description={PAGE_DESCRIPTION}
@@ -144,6 +156,7 @@ export function DocumentListPage() {
       )}
 
       <DocumentFilterBar
+        isManagementView={isManagementView}
         key={filterKey}
         filters={appliedFilters}
         documentTypes={documentTypes}

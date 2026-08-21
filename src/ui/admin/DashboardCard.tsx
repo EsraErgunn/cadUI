@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 
-import { formCardVariants } from '../adminVariants'
+import { formCardVariants } from './adminVariants'
 
 interface DashboardCardProps {
   title: string
@@ -12,7 +12,9 @@ interface DashboardCardProps {
 }
 
 /**
- * Gösterge panelinin kart kabuğu. `FormCard` ile aynı işi yapmıyor: o form
+ * Gösterge panellerinin ORTAK kart kabuğu — yönetici anasayfası da proje
+ * firması anasayfası da bunu kullanıyor. İkinci ekran gerekince kök klasöre
+ * taşındı (CLAUDE.md klasör sözleşmesi); ikinci bir kopya çıkarılmadı. `FormCard` ile aynı işi yapmıyor: o form
  * bölümü için `<section>` + zorunlu ikon kuruyor, burada başlığın sağında ek
  * bir yuva var ve ikon opsiyonel.
  *

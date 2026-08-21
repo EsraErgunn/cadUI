@@ -1,12 +1,25 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
+import { setAuthSession } from '../../../api/authToken'
+import { ROLE_CODES, type RoleCode } from '../../../api/roles'
 import { AdminSidebar } from '../AdminSidebar'
-import { ADMIN_NAV_ITEMS } from '../adminNavItems'
+import { FIRM_HOME_PATH, getNavItemsForRole } from '../adminNavItems'
 
-function renderSidebar(route = '/admin') {
+/**
+ * Menü artık ROLE göre süzülüyor, bu yüzden oturum kurulmadan render edilemez:
+ * rolü okunamayan kullanıcı hiçbir madde görmez (kasıtlı — bilinmeyen rol
+ * paneli açmasın).
+ */
+function renderSidebar(route = '/admin', roleCode: RoleCode = ROLE_CODES.admin) {
+  setAuthSession({
+    token: 'jwt-token',
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    fullName: 'Kullanıcı',
+    roleCode,
+  })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   return render(
@@ -17,6 +30,21 @@ function renderSidebar(route = '/admin') {
     </QueryClientProvider>,
   )
 }
+
+const ADMIN_NAV_ITEMS = getNavItemsForRole(ROLE_CODES.admin)
+
+/** Proje firması kullanıcısına KAPALI maddeler. */
+const MANAGEMENT_LABELS = [
+  'Gaz Dağıtım Firmaları',
+  'Proje Firmaları',
+  'Proje Firması Kullanıcıları',
+  'Gaz Dağıtım Kullanıcıları',
+]
+
+afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
+})
 
 describe('AdminSidebar', () => {
   /**
@@ -96,5 +124,77 @@ describe('AdminSidebar', () => {
 
     expect(screen.getByRole('link', { name: /Anasayfa/ })).toHaveTextContent('(bulunulan sayfa)')
     expect(screen.getAllByText('(bulunulan sayfa)')).toHaveLength(1)
+  })
+})
+
+/**
+ * Rol ayrımı. Menüden gizlemek TEK BAŞINA yetmiyor (rota koruması ayrı,
+ * `RequireRole`) ama yönetim maddelerinin proje firması kullanıcısına hiç
+ * görünmemesi bu ekranın işi.
+ */
+describe('AdminSidebar rol bazlı menü', () => {
+  it('proje firması kullanıcısına yalnız dört madde gösterir', () => {
+    renderSidebar(FIRM_HOME_PATH, ROLE_CODES.projectFirmUser)
+
+    const labels = screen.getAllByRole('link').map((link) => link.textContent)
+    expect(labels).toEqual([
+      expect.stringContaining('Anasayfa'),
+      expect.stringContaining('Projeler'),
+      expect.stringContaining('Evraklar'),
+      expect.stringContaining('Poliçeler'),
+    ])
+  })
+
+  it.each(MANAGEMENT_LABELS)('proje firması kullanıcısı "%s" maddesini görmez', (label) => {
+    renderSidebar(FIRM_HOME_PATH, ROLE_CODES.projectFirmUser)
+
+    expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()
+  })
+
+  // Anasayfa maddesi rolün KENDİ yoluna gider; /admin ona kapalı.
+  it('proje firması kullanıcısının Anasayfa maddesi /firm adresine gider', () => {
+    renderSidebar(FIRM_HOME_PATH, ROLE_CODES.projectFirmUser)
+
+    expect(screen.getByRole('link', { name: /Anasayfa/ })).toHaveAttribute('href', FIRM_HOME_PATH)
+    expect(screen.getByRole('link', { name: /Anasayfa/ })).toHaveTextContent('(bulunulan sayfa)')
+  })
+
+  it('kabuğun başlığı rolden gelir', () => {
+    renderSidebar(FIRM_HOME_PATH, ROLE_CODES.projectFirmUser)
+
+    expect(screen.getByText('Firma Paneli')).toBeInTheDocument()
+    expect(screen.queryByText('Yönetici Paneli')).not.toBeInTheDocument()
+  })
+
+  // Yönetici menüsü BOZULMADI: sekiz maddenin hepsi yerinde.
+  it('yönetici menüsü tüm yönetim maddelerini göstermeye devam eder', () => {
+    renderSidebar('/admin')
+
+    for (const label of MANAGEMENT_LABELS) {
+      expect(screen.getByRole('link', { name: new RegExp(label) })).toBeInTheDocument()
+    }
+  })
+
+  /**
+   * Rolü tanınmayan kullanıcı BOŞ menü görür. Varsayılan olarak yönetim
+   * maddelerini göstermek, rol adı sunucuda değişince paneli herkese açardı.
+   */
+  it('tanınmayan rol hiçbir madde görmez', () => {
+    setAuthSession({
+      token: 'jwt-token',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      fullName: 'Kullanıcı',
+      roleCode: 'BilinmeyenRol',
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/admin']}>
+          <AdminSidebar isOpen onClose={() => {}} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryAllByRole('link')).toHaveLength(0)
   })
 })

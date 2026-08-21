@@ -1,9 +1,9 @@
 import { FilePlus2, FolderOpen, Sparkles, UserPlus, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { DashboardCard } from './DashboardCard'
 import type { Permission } from '../../../api/permissions'
 import { PROJECT_LIST_PATH } from '../../../pages/useCloseEditor'
+import { DashboardCard } from '../DashboardCard'
 import {
   GAS_FIRM_CREATE_PATH,
   PROJECT_FIRM_CREATE_PATH,
