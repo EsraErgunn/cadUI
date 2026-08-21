@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProjectFirmUserListProbe } from './ProjectFirmUserListProbe'
 import { UrlProbe } from './UrlProbe'
 import type { PagedResult } from '../../api/listQuery'
+import type { Sourced } from '../../api/mockGate'
 import type {
   ProjectFirmUserDetail,
   ProjectFirmUserRow,
@@ -31,11 +32,16 @@ export function buildRow(overrides: Partial<ProjectFirmUserRow> = {}): ProjectFi
   }
 }
 
+/** Liste `Sourced` zarfıyla dönüyor: sahte veri yalnız geliştirmede üretilir
+    (K51). Testler geliştirme derlemesinde koştuğu için `mock` kolu. */
 export function buildPage(
   rows: ProjectFirmUserRow[],
   overrides: Partial<PagedResult<ProjectFirmUserRow>> = {},
-): PagedResult<ProjectFirmUserRow> {
-  return { items: rows, totalCount: rows.length, page: 1, pageSize: 30, ...overrides }
+): Sourced<PagedResult<ProjectFirmUserRow>> {
+  return {
+    source: 'mock',
+    data: { items: rows, totalCount: rows.length, page: 1, pageSize: 30, ...overrides },
+  }
 }
 
 export const MOCK_GAS_FIRMS = [
@@ -57,7 +63,6 @@ export function buildDetail(
     username: 'tolga.ertek',
     email: 'tolga.ertek@tekhnelogos.com',
     phone: '05321180880',
-    isActive: true,
     competencies: [
       {
         id: 5001,
@@ -65,7 +70,6 @@ export function buildDetail(
         projectFirm: MOCK_PROJECT_FIRMS[0],
         authorityType: 'firmEngineer',
         gdfRegistrationNumber: '512',
-        isActive: true,
       },
     ],
     ...overrides,

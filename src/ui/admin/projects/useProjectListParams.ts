@@ -5,6 +5,7 @@ import type { SortDirection } from '../../../api/listQuery'
 import {
   DEFAULT_PROJECT_SORT_DIR,
   DEFAULT_PROJECT_SORT_KEY,
+  DEFAULT_PROJECT_STATUS,
   PROJECT_PAGE_SIZE,
   PROJECT_SORT_KEYS,
   PROJECT_STATUSES,
@@ -21,10 +22,8 @@ import {
 } from '../adminUrlParams'
 import { useAdminScopeParam } from '../useAdminScopeParam'
 
-const DEFAULT_STATUS: ProjectStatus = 'taslak'
-
 function parseStatus(raw: string | null): ProjectStatus {
-  return PROJECT_STATUSES.find((status) => status === raw) ?? DEFAULT_STATUS
+  return PROJECT_STATUSES.find((status) => status === raw) ?? DEFAULT_PROJECT_STATUS
 }
 
 function parseSortKey(raw: string | null): ProjectSortKey {
@@ -68,6 +67,10 @@ export function useProjectListParams(): ProjectListControls {
   // Üst bardaki kapsam da URL'de duruyor; ayrı bir global state yok. Sorgu
   // nesnesinin parçası olduğu için `queryKey: ['projects', query]` kapsam
   // değişince kendiliğinden değişiyor ve eski liste gösterilmiyor.
+  // Kapsam seçicisi üç rolde de çiziliyor (üst bar herkeste aynı), bu yüzden
+  // seçim de üç rolde de sorguya giriyor. DARALTMA yapıyor, genişletme değil:
+  // sunucu zaten `WhereVisibleTo` ile kullanıcının görebildiği kümeyi veriyor,
+  // `gdGroupId`/`gdFirmId` onun İÇİNDE süzüyor.
   const { scope } = useAdminScopeParam()
 
   const query = useMemo<ProjectListQuery>(() => {
@@ -92,7 +95,7 @@ export function useProjectListParams(): ProjectListControls {
   const setStatus = useCallback(
     // Yalnız sekme ve sayfa değişir; tarih/ilçe/firma/arama olduğu gibi kalır.
     (status: ProjectStatus) =>
-      updateParams({ tab: status === DEFAULT_STATUS ? null : status }, true),
+      updateParams({ tab: status === DEFAULT_PROJECT_STATUS ? null : status }, true),
     [updateParams],
   )
 

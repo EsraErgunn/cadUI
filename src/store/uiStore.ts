@@ -68,6 +68,21 @@ type UiState = {
    */
   isPanModeActive: boolean
   /**
+   * SALT GÖRÜNTÜLEME kipi: çizim görünür ama hiçbir şekilde değiştirilemez.
+   * `isPanModeActive` ile aynı kategori — editörün çalışma KİPİ, çizim verisi
+   * değil: kaydedilmez, zundo geçmişine girmez, projeyi kirletmez.
+   *
+   * Kipi kuran tek yer `pages/EditorPage.tsx` (rolden türetir); okuyan yerler
+   * tuval otobüsü (`scene/DrawSurface`), klavye dinleyicileri, arayüz yüzeyleri
+   * ve cadStore'un merkezî kapısı.
+   *
+   * ⚠️ Bu bir GÜVENLİK sınırı DEĞİL. Çizimin sunucuya yazılmasının tek yolu
+   * `POST /api/projects/{id}/newversion` ve o uç zaten
+   * `Authorize(Roles = Admin, ProjectFirmUser)` ile korunuyor. Buradaki kip,
+   * kullanıcıya yapamayacağı işi yaptırmamak içindir.
+   */
+  isEditorReadOnly: boolean
+  /**
    * Hata kontrollerindeki "göster" için TEK SEFERLİK kamera isteği. Zoom/pan
    * hâlâ kamerada yaşıyor (aşağıdaki nota bkz.) — burada duran şey görüntünün
    * kendisi değil, DOM tarafından verilmiş bir emir: liste `<Canvas>` dışında,
@@ -88,6 +103,7 @@ type UiState = {
   toggleAreaObjectNamesVisible: () => void
   toggleRoomNamesVisible: () => void
   setPanModeActive: (isActive: boolean) => void
+  setEditorReadOnly: (isReadOnly: boolean) => void
 }
 
 /**
@@ -111,6 +127,9 @@ export const useUiStore = create<UiState>()(
     isAreaObjectNamesVisible: true,
     isRoomNamesVisible: true,
     isPanModeActive: false,
+    // Varsayılan KAPALI: kipi yalnız editör açıkça kuruyor, yani yönetici ve
+    // proje firması kullanıcısı için hiçbir şey değişmiyor.
+    isEditorReadOnly: false,
     pendingFocusBounds: null,
 
     requestFocus: (bounds) =>
@@ -191,6 +210,11 @@ export const useUiStore = create<UiState>()(
     setPanModeActive: (isActive) =>
       set((draft) => {
         draft.isPanModeActive = isActive
+      }),
+
+    setEditorReadOnly: (isReadOnly) =>
+      set((draft) => {
+        draft.isEditorReadOnly = isReadOnly
       }),
   })),
 )

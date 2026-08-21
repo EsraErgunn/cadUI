@@ -1,5 +1,6 @@
 import { MOCK_LATENCY_MS, delay, fetchAllFirms } from './adminFirms'
 import type { PagedResult } from './listQuery'
+import { isMockDataAllowed, mockedData, type Sourced } from './mockGate'
 import type {
   FirmReference,
   ProjectFirmUserDetail,
@@ -79,35 +80,51 @@ async function seedFromRealFirms(signal?: AbortSignal): Promise<void> {
  * sözleşmeyi taklit ediyor: sorgu parametre olarak gider, yanıt yalnız o
  * sayfayı ve filtrelenmiş toplamı taşır — istemcide dilimleyen bir ara katman
  * yazılmadı (K46).
+ *
+ * `Sourced` zarfı ŞART (K51): satırların KULLANICI kısmı uydurma ve ekran bunu
+ * söylemek zorunda. Üretim derlemesinde liste hiç kurulmaz — uydurma bir
+ * kullanıcı kadrosu bir demoda gerçek sanılırdı; orada ekran "kaynağı yok" der.
  */
 export async function getProjectFirmUserList(
   query: ProjectFirmUserQuery,
   signal?: AbortSignal,
-): Promise<PagedResult<ProjectFirmUserRow>> {
-  if (!isEndpointImplemented('firmUserList')) {
-    await seedFromRealFirms(signal)
-    await delay(MOCK_LATENCY_MS, signal)
-    return queryMockProjectFirmUsers(query)
+): Promise<Sourced<PagedResult<ProjectFirmUserRow>>> {
+  if (isEndpointImplemented('firmUserList')) {
+    throw new Error('getProjectFirmUserList: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  throw new Error('getProjectFirmUserList: uç bağlandı ama gövdesi yazılmadı.')
+  // Tohum GERÇEK firma uçlarından geliyor; üretimde onu da çekmenin anlamı yok.
+  if (!isMockDataAllowed()) return mockedData(() => queryMockProjectFirmUsers(query))
+
+  await seedFromRealFirms(signal)
+  await delay(MOCK_LATENCY_MS, signal)
+  return mockedData(() => queryMockProjectFirmUsers(query))
 }
 
-/** Güncelleme ekranını dolduran kayıt (KK-25). */
+/**
+ * Güncelleme ekranını dolduran kayıt (KK-25).
+ *
+ * Listeyle AYNI zarf (K51): uydurma bir kişinin adı, e-postası ve telefonu
+ * doldurulmuş bir form, tablodaki uydurma satırdan daha inandırıcı görünür.
+ * Üretim derlemesinde kayıt hiç kurulmaz, ekran "kaynağı yok" der.
+ */
 export async function getProjectFirmUser(
   userId: number,
   signal?: AbortSignal,
-): Promise<ProjectFirmUserDetail> {
-  if (!isEndpointImplemented('firmUserDetail')) {
-    // Doğrudan güncelleme adresine gelen kullanıcı için satırlar henüz
-    // tohumlanmamış olabilir; liste ekranından geçmek şart olmasın.
-    await seedFromRealFirms(signal)
-    await delay(MOCK_LATENCY_MS, signal)
-
-    const user = findMockProjectFirmUser(userId)
-    if (user === null) throw new Error('Kullanıcı bulunamadı.')
-    return user
+): Promise<Sourced<ProjectFirmUserDetail>> {
+  if (isEndpointImplemented('firmUserDetail')) {
+    throw new Error('getProjectFirmUser: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  throw new Error('getProjectFirmUser: uç bağlandı ama gövdesi yazılmadı.')
+  if (!isMockDataAllowed()) return { source: 'unavailable', data: null }
+
+  // Doğrudan güncelleme adresine gelen kullanıcı için satırlar henüz
+  // tohumlanmamış olabilir; liste ekranından geçmek şart olmasın.
+  await seedFromRealFirms(signal)
+  await delay(MOCK_LATENCY_MS, signal)
+
+  const user = findMockProjectFirmUser(userId)
+  // Bulunamayan kayıt "kaynak yok" DEĞİL gerçek bir hata: adres yanlış.
+  if (user === null) throw new Error('Kullanıcı bulunamadı.')
+  return mockedData(() => user)
 }

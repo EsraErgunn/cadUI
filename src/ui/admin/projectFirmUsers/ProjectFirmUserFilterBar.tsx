@@ -1,5 +1,5 @@
-import { Funnel, Search, UserPlus } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { Search, UserPlus } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { ProjectFirmUserFilters } from './useProjectFirmUserListParams'
@@ -15,11 +15,10 @@ import {
   ADMIN_TOOLBAR_SEARCH_FIELD,
   ADMIN_TOOLBAR_SEARCH_WRAPPER,
 } from '../adminToolbarLayout'
-import { ADMIN_CHECKBOX, adminButtonVariants, adminFieldVariants } from '../adminVariants'
+import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
 import { useIsAdmin } from '../useIsAdmin'
 
 const AUTHORITY_FIELD_ID = 'project-firm-user-authority'
-const ACTIVE_FIELD_ID = 'project-firm-user-only-active'
 const SEARCH_FIELD_ID = 'project-firm-user-search'
 
 /** Seçim yapılmamış hâl: "Tümü" (KK-2). Boş dize `<option>` değeri, null'ın DOM karşılığı yok. */
@@ -32,11 +31,7 @@ interface ProjectFirmUserFilterBarProps {
 }
 
 function areFiltersEqual(left: ProjectFirmUserFilters, right: ProjectFirmUserFilters): boolean {
-  return (
-    left.nameQuery === right.nameQuery &&
-    left.authorityType === right.authorityType &&
-    left.onlyActive === right.onlyActive
-  )
+  return left.nameQuery === right.nameQuery && left.authorityType === right.authorityType
 }
 
 /**
@@ -57,23 +52,24 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
     setDraft(filters)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    onApply(draft)
+  /**
+   * Seçim yapılır yapılmaz uygulanır ("Filtrele" düğmesi KALKTI). Arama kutusu
+   * KONTROLLÜ olduğu için her harfte istek atmamak adına Enter'da uygulanıyor;
+   * debounce EKLENMEDİ.
+   */
+  const applyNow = (changed: Partial<ProjectFirmUserFilters>) => {
+    const next = { ...draft, ...changed }
+    setDraft(next)
+    onApply(next)
   }
 
   return (
     <div className={ADMIN_TOOLBAR_ROW}>
-      <form onSubmit={handleSubmit} className={ADMIN_TOOLBAR_FORM}>
+      <div className={ADMIN_TOOLBAR_FORM}>
         <select
           id={AUTHORITY_FIELD_ID}
           value={draft.authorityType ?? ALL_AUTHORITIES_VALUE}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              authorityType: parseAuthorityType(event.target.value),
-            }))
-          }
+          onChange={(event) => applyNow({ authorityType: parseAuthorityType(event.target.value) })}
           aria-label="Yetki"
           className={adminFieldVariants({ className: 'w-full min-w-0 pr-8 sm:w-44' })}
         >
@@ -84,21 +80,6 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
             </option>
           ))}
         </select>
-
-        <div className="flex items-center gap-2">
-          <input
-            id={ACTIVE_FIELD_ID}
-            type="checkbox"
-            checked={draft.onlyActive}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, onlyActive: event.target.checked }))
-            }
-            className={ADMIN_CHECKBOX}
-          />
-          <label htmlFor={ACTIVE_FIELD_ID} className="text-sm text-ink">
-            Aktif
-          </label>
-        </div>
 
         <div className={ADMIN_TOOLBAR_SEARCH_WRAPPER}>
           <Search
@@ -112,17 +93,17 @@ export function ProjectFirmUserFilterBar({ filters, onApply }: ProjectFirmUserFi
             onChange={(event) =>
               setDraft((current) => ({ ...current, nameQuery: event.target.value }))
             }
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return
+              event.preventDefault()
+              onApply(draft)
+            }}
             aria-label="Kullanıcı adı, ad soyad veya e-postada ara"
             placeholder="Kullanıcı Adı"
             className={adminFieldVariants({ className: ADMIN_TOOLBAR_SEARCH_FIELD })}
           />
         </div>
-
-        <button type="submit" className={adminButtonVariants({ tone: 'secondary' })}>
-          <Funnel aria-hidden className="size-4" />
-          Filtrele
-        </button>
-      </form>
+      </div>
 
       {isAdmin && (
         <Link

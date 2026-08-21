@@ -64,16 +64,6 @@ describe('KK-1 — ekran açılışı', () => {
 
     expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
   })
-
-  it('belgedeki açıklamayı gösterir', async () => {
-    openForm()
-
-    expect(
-      await screen.findByText(
-        'Firmanın çalışacağı G.D. bölgelerini seçip yeterlilik bilgilerini ekleyin',
-      ),
-    ).toBeInTheDocument()
-  })
 })
 
 describe('KK-2 — grup seçimi ve bölge listesi', () => {
@@ -81,24 +71,24 @@ describe('KK-2 — grup seçimi ve bölge listesi', () => {
     openForm()
     await selectGroup('AKSA')
 
-    expect(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' })).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'ENERYA-KONYA' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'ENERYA-KONYA' })).not.toBeInTheDocument()
 
     await selectGroup('ENERYA')
 
-    expect(screen.getByRole('checkbox', { name: 'ENERYA-KONYA' })).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'AKSA-GEMLİK' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'ENERYA-KONYA' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'AKSA-GEMLİK' })).not.toBeInTheDocument()
   })
 
   it('grup değişince işaretleri temizler ve bunu kullanıcıya bildirir', async () => {
     openForm()
     await selectGroup('AKSA')
-    await userEvent.click(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-GEMLİK' }))
 
     await selectGroup('ENERYA')
 
     expect(screen.getByText(GAS_FIRM_SELECTION_CLEARED_NOTICE)).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'ENERYA-KONYA' })).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: 'ENERYA-KONYA' })).not.toBeChecked()
   })
 
   // İlk seçimde kaybolan bir şey yok; "temizlendi" demek yanıltıcı olurdu.
@@ -111,15 +101,17 @@ describe('KK-2 — grup seçimi ve bölge listesi', () => {
 })
 
 describe('KK-3 — bölge seçimi', () => {
-  it('birden fazla kayıt işaretlenebilir', async () => {
+  it('yalnız TEK kayıt seçilebilir', async () => {
     openForm()
     await selectGroup('AKSA')
 
-    await userEvent.click(screen.getByRole('checkbox', { name: 'AKSA-ADANA' }))
-    await userEvent.click(screen.getByRole('checkbox', { name: 'AKSA-BOLU' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-ADANA' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-BOLU' }))
 
-    expect(screen.getByRole('checkbox', { name: 'AKSA-ADANA' })).toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'AKSA-BOLU' })).toBeChecked()
+    // İkinci seçim BİRİNCİYİ DÜŞÜRÜR: sertifika numarası tek bir yetkilendirme
+    // kaydına ait ve eşsiz olmak zorunda.
+    expect(screen.getByRole('radio', { name: 'AKSA-BOLU' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'AKSA-ADANA' })).not.toBeChecked()
   })
 
   // Arama Türkçe duyarsız: düz klavyeyle yazan kullanıcı "GEMLİK"i bulmalı.
@@ -129,20 +121,16 @@ describe('KK-3 — bölge seçimi', () => {
 
     await userEvent.type(screen.getByLabelText('Bölge ara'), 'gemlik')
 
-    expect(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' })).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'AKSA-ADANA' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'AKSA-ADANA' })).not.toBeInTheDocument()
   })
 
-  it('"Tümünü Seç" yalnız görünen bölgeleri işaretler', async () => {
+  /** Tekil seçimde "Tümünü Seç"in karşılığı yok; düğme kaldırıldı. */
+  it('"Tümünü Seç" seçeneği yoktur', async () => {
     openForm()
     await selectGroup('AKSA')
-    await userEvent.type(screen.getByLabelText('Bölge ara'), 'bolu')
 
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Tümünü Seç' }))
-    await userEvent.clear(screen.getByLabelText('Bölge ara'))
-
-    expect(screen.getByRole('checkbox', { name: 'AKSA-BOLU' })).toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'AKSA-ADANA' })).not.toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Tümünü Seç' })).not.toBeInTheDocument()
   })
 
   it('bölge işaretlenmeden "Ekle" yetkilendirme eklemez', async () => {
@@ -160,7 +148,7 @@ describe('KK-3 — bölge seçimi', () => {
   it('yeterlilik no diye bir alan yoktur ve yokluğu eklemeyi engellemez', async () => {
     openForm()
     await selectGroup('AKSA')
-    await userEvent.click(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-GEMLİK' }))
 
     expect(screen.queryByLabelText(/^Yeterlilik No/)).not.toBeInTheDocument()
 
@@ -223,7 +211,7 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     await addAuthorization()
 
     expect(screen.getByLabelText(/^Sertifika No/)).toHaveValue('')
-    expect(screen.getByRole('checkbox', { name: 'AKSA-GEMLİK' })).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).not.toBeChecked()
     expect(screen.getByRole('combobox')).toHaveValue('1')
   })
 })

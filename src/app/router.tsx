@@ -10,7 +10,9 @@ import {
 } from 'react-router-dom'
 
 import { LOGIN_PATH, RequireAuth } from './RequireAuth'
+import { RequireRole } from './RequireRole'
 import { importEditorPage } from './editorChunk'
+import { ROLE_CODES } from '../api/roles'
 import { LoginPage } from '../pages/LoginPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
 import { AdminLayout } from '../ui/admin/AdminLayout'
@@ -18,9 +20,16 @@ import {
   ANNOUNCEMENTS_PATH,
   DOCUMENTS_PATH,
   DOCUMENT_CREATE_PATH,
+  FIRM_HOME_PATH,
+  FORBIDDEN_PATH,
+  GAS_DISTRIBUTION_GROUPS_PATH,
+  GAS_DISTRIBUTION_GROUPS_VIEWER_ROLES,
+  GAS_DISTRIBUTION_HOME_PATH,
   GAS_DISTRIBUTION_USERS_PATH,
   GAS_DISTRIBUTION_USER_CREATE_PATH,
+  MANAGEMENT_SCREEN_ROLES,
   POLICIES_PATH,
+  PROJECT_CONTENT_WRITER_ROLES,
   POLICY_CREATE_ROUTE,
   PROFILE_PATH,
   PROJECT_CREATE_PATH,
@@ -103,6 +112,19 @@ const ProjectListPage = lazy(async () => ({
 const ProfilePage = lazy(async () => ({
   default: (await import('../pages/ProfilePage')).ProfilePage,
 }))
+const ForbiddenPage = lazy(async () => ({
+  default: (await import('../pages/ForbiddenPage')).ForbiddenPage,
+}))
+const FirmUserHomePage = lazy(async () => ({
+  default: (await import('../pages/firmUser/FirmUserHomePage')).FirmUserHomePage,
+}))
+const GasDistributionGroupsPage = lazy(async () => ({
+  default: (await import('../pages/GasDistributionGroupsPage')).GasDistributionGroupsPage,
+}))
+const GasDistributionHomePage = lazy(async () => ({
+  default: (await import('../pages/gasDistributionUser/GasDistributionHomePage'))
+    .GasDistributionHomePage,
+}))
 
 /** Sayfa parçası inerken görünen ara ekran; boş beyaz kare bırakmaz. */
 function RouteFallback() {
@@ -158,15 +180,59 @@ const router = createBrowserRouter(
       >
         <Route path={PROJECT_LIST_PATH} element={<ProjectListPage />} />
         {/* Statik parça dinamik olandan önce eşleşir (React Router sıralaması),
-            yoksa /projects/new detayı "new" kimliğiyle açmaya çalışırdı. */}
-        <Route path={PROJECT_CREATE_PATH} element={<NewProjectPage />} />
+            yoksa /projects/new detayı "new" kimliğiyle açmaya çalışırdı.
+
+            Proje AÇMA rol kapısının arkasında: sunucu da `POST /api/projects`'i
+            yalnız Admin ve ProjectFirmUser'a açıyor. Gaz dağıtım kullanıcısı
+            düğmeyi görmüyor; adresi elle yazarsa da form açılmamalı — yoksa
+            doldurup kaydedince 403 alırdı. */}
+        <Route
+          element={
+            <RequireRole allowed={PROJECT_CONTENT_WRITER_ROLES}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path={PROJECT_CREATE_PATH} element={<NewProjectPage />} />
+          {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Poliçe bölümünün
+              altında DEĞİL projenin altında (K68): sihirbaz bir projenin işlemi,
+              sol menüde "Projeler" işaretli kalmalı. */}
+          <Route path={POLICY_CREATE_ROUTE} element={<NewPolicyPage />} />
+        </Route>
         {/* Proje detayı kabuğun İÇİNDE: sol menü ve üst bar duruyor, kırılım
-            "Anasayfa / Projeler / Proje Detay" (KK-1). */}
+            "Anasayfa / Projeler / Proje Detay" (KK-1). Rol kapısı YOK: üç rol de
+            projeyi görüntüleyebiliyor, kapsamı sunucu veriyor. */}
         <Route path={`${PROJECT_LIST_PATH}/:projectId`} element={<ProjectDetailPage />} />
-        {/* Proje detayındaki "Poliçelendir" hedefi (KK-9). Poliçe bölümünün
-            altında DEĞİL projenin altında (K68): sihirbaz bir projenin işlemi,
-            sol menüde "Projeler" işaretli kalmalı. */}
-        <Route path={POLICY_CREATE_ROUTE} element={<NewPolicyPage />} />
+
+        {/* Rol anasayfaları. Üçü de `/admin` index'inden AYRI ekranlar ve her
+            biri kendi rolüne kapalı: `/admin` yönetimin, `/firm` proje
+            firmasının, `/gas-distribution` gaz dağıtım kullanıcısının. Tek
+            adrese rolüne göre farklı ekran basmak, korumayı rota ağacından
+            çıkarıp bileşenin içine gömerdi. */}
+        <Route
+          element={
+            <RequireRole allowed={[ROLE_CODES.projectFirmUser]}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path={FIRM_HOME_PATH} element={<FirmUserHomePage />} />
+        </Route>
+
+        <Route
+          element={
+            <RequireRole allowed={[ROLE_CODES.gasDistributionUser]}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path={GAS_DISTRIBUTION_HOME_PATH} element={<GasDistributionHomePage />} />
+        </Route>
+
+        {/* Rolü yetmeyen kullanıcının indiği ekran. Rol kapısının DIŞINDA
+            olmak zorunda: kapının kendisi buraya yönlendiriyor, korumalı
+            olsaydı kendi kendine dönen bir döngü kurardı. */}
+        <Route path={FORBIDDEN_PATH} element={<ForbiddenPage />} />
       </Route>
 
       {/* Editör kabuk dışında: tam ekran çizim alanı. Detay ekranı
@@ -190,51 +256,104 @@ const router = createBrowserRouter(
           </RequireAuth>
         }
       >
-        <Route index element={<AdminHomePage />} />
-        <Route path="gas-distribution-firms" element={<GasDistributionFirmsPage />} />
-        {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
-            yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
-        <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
-        <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
-
-        <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
-        {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
-            yoksa /new güncelleme rotasına "new" kimliğiyle düşerdi. */}
-        <Route path={PROJECT_FIRM_CREATE_PATH} element={<NewProjectFirmPage />} />
-
-        <Route path={PROJECT_FIRM_USERS_PATH} element={<ProjectFirmUsersPage />} />
-        {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
-            yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
-        <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ProjectFirmUserFormPage />} />
+        {/* YÖNETİM ekranları: rol kapısı burada, tek yerde. Sol menüden
+            gizlemek yetmez — adres çubuğuna yazan kullanıcı ekranı yine
+            görürdü. Kapı yalnız GÖRÜNÜRLÜĞÜ kesiyor; uçların kendisi
+            fail-closed (knowledge/access-control.md). */}
         <Route
-          path={`${PROJECT_FIRM_USERS_PATH}/:userId`}
-          element={<ProjectFirmUserFormPage />}
-        />
+          element={
+            <RequireRole allowed={MANAGEMENT_SCREEN_ROLES}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route index element={<AdminHomePage />} />
+          <Route path="gas-distribution-firms" element={<GasDistributionFirmsPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
+          <Route path="gas-distribution-firms/new" element={<GasDistributionFirmFormPage />} />
+          <Route path="gas-distribution-firms/:firmId" element={<GasDistributionFirmFormPage />} />
 
-        <Route path={GAS_DISTRIBUTION_USERS_PATH} element={<GasDistributionUsersPage />} />
-        {/* Güncelleme rotası YOK: uç yalnız oluşturmayı destekliyor. */}
-        <Route
-          path={GAS_DISTRIBUTION_USER_CREATE_PATH}
-          element={<GasDistributionUserFormPage />}
-        />
+          <Route path={PROJECT_FIRMS_PATH} element={<ProjectFirmsPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new güncelleme rotasına "new" kimliğiyle düşerdi. */}
+          <Route path={PROJECT_FIRM_CREATE_PATH} element={<NewProjectFirmPage />} />
+          {/* Firma adının hedefi. Kayıt TEKİL uçtan çekilir, form onunla
+              doldurulur ve `PUT /api/projectfirms/{id}` ile kaydedilir. */}
+          <Route path={PROJECT_FIRM_UPDATE_ROUTE} element={<ProjectFirmUpdatePage />} />
 
-        <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
+          <Route path={PROJECT_FIRM_USERS_PATH} element={<ProjectFirmUsersPage />} />
+          {/* Statik parça dinamik olandan ÖNCE eşleşir (React Router sıralaması),
+              yoksa /new formu "new" kimliğiyle güncelleme modunda açardı. */}
+          <Route path={PROJECT_FIRM_USER_CREATE_PATH} element={<ProjectFirmUserFormPage />} />
+          <Route
+            path={`${PROJECT_FIRM_USERS_PATH}/:userId`}
+            element={<ProjectFirmUserFormPage />}
+          />
+
+          {/* Güncelleme rotası YOK: uç yalnız oluşturmayı destekliyor. Kullanıcı
+              OLUŞTURMA yönetim kapısında kalıyor — `POST /api/auth/register`
+              yalnız Admin'e açık. LİSTE aşağıda, kapının dışında. */}
+          <Route
+            path={GAS_DISTRIBUTION_USER_CREATE_PATH}
+            element={<GasDistributionUserFormPage />}
+          />
+
+          <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
+        </Route>
+
+        {/* Buradan aşağısı rol kapısının DIŞINDA: üç kullanıcı tipinin de
+            kullandığı ekranlar. Yolları `/admin` altında kalıyor çünkü adres
+            taşımak `DOCUMENT_CREATE_PATH` gibi sabitleri ve onlara bağlı
+            kırılımları da taşımak olurdu — yol bir adres, yetki değil. */}
 
         {/* Kişi Bilgileri: üst bardaki kullanıcı menüsünden açılıyor, sol
             menüde maddesi yok — kişisel ayar, yönetim bölümü değil. */}
         <Route path={PROFILE_PATH} element={<ProfilePage />} />
 
-        {/* Sol menünün ve anasayfadaki hızlı işlemlerin ekranı YAZILMAMIŞ
-            hedefleri. Ekran gelince YALNIZ buradaki element değişecek; yolun
-            kendisi bugünden doğru, bağlantılara dokunulmayacak. */}
-        {/* Firma adının hedefi. Kayıt TEKİL uçtan çekilir, form onunla
-            doldurulur ve `PUT /api/projectfirms/{id}` ile kaydedilir. */}
-        <Route path={PROJECT_FIRM_UPDATE_ROUTE} element={<ProjectFirmUpdatePage />} />
+        {/* Gaz dağıtım kullanıcıları LİSTESİ: yönetici ve gaz dağıtım kullanıcısı.
+            İkincisi kendi firmasının kullanıcılarını görüyor — `GET /api/users`
+            `WhereVisibleTo` ile token'daki firmaya daraltılıyor, istemci ayrıca
+            bir kapsam parametresi göndermiyor. */}
+        <Route
+          element={
+            <RequireRole allowed={[ROLE_CODES.admin, ROLE_CODES.gasDistributionUser]}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path={GAS_DISTRIBUTION_USERS_PATH} element={<GasDistributionUsersPage />} />
+        </Route>
+
+        {/* Grup firmaları salt okuma; `GET /api/gasdistributiongroups` her role
+            açık. Menüde proje firması ve gaz dağıtım kullanıcısında görünüyor. */}
+        <Route
+          element={
+            <RequireRole allowed={GAS_DISTRIBUTION_GROUPS_VIEWER_ROLES}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path={GAS_DISTRIBUTION_GROUPS_PATH} element={<GasDistributionGroupsPage />} />
+        </Route>
+
         <Route path={DOCUMENTS_PATH} element={<DocumentListPage />} />
         {/* Statik parça dinamik olandan ÖNCE eşleşir kuralı burada gerekmiyor:
             /new'in dinamik kardeşi yok. Proje kimliği yolda değil query'de
-            (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor. */}
-        <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
+            (`?project=`), çünkü evrak GELİNEN projeye bağlanıyor.
+
+            Yazma rotası: sunucu `POST /api/docs`'u yalnız Admin ve
+            ProjectFirmUser'a açıyor. Gaz dağıtım kullanıcısı düğmeyi görmüyor;
+            adresi elle yazarsa da form açılmamalı. */}
+        <Route
+          element={
+            <RequireRole allowed={PROJECT_CONTENT_WRITER_ROLES}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path={DOCUMENT_CREATE_PATH} element={<NewDocumentPage />} />
+        </Route>
 
         {/* Poliçe LİSTESİ: bütün projelerin poliçeleri. Oluşturma akışı burada
             DEĞİL, projenin altında (K68). */}

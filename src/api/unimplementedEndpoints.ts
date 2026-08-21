@@ -12,7 +12,7 @@
  * Beklenen sözleşme taslağı: docs/api-eksikleri-kullanicilar.md
  */
 export const UNIMPLEMENTED_ENDPOINTS = {
-  /** TODO(esra): GET /api/projectfirmusers?page&pageSize&q&authorityType&onlyActive */
+  /** TODO(esra): GET /api/projectfirmusers?page&pageSize&q&authorityType */
   firmUserList: 'GET /api/projectfirmusers',
   /** TODO(esra): GET /api/projectfirmusers/{id} — güncelleme ekranını besleyecek. */
   firmUserDetail: 'GET /api/projectfirmusers/{id}',

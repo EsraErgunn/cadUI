@@ -1,4 +1,5 @@
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
+import { mockedData } from './mockGate'
 import type { ProjectFirmUserPayload } from './projectFirmUserDto'
 import {
   createMockProjectFirmUser,
@@ -25,15 +26,19 @@ import { isEndpointImplemented } from './unimplementedEndpoints'
  * ucu mu açılacak — açık soru, bkz. docs/api-eksikleri-kullanicilar.md
  */
 
-export interface ProjectFirmUserSaveResult {
-  userId: number
-  /**
-   * Kayıt gerçekten sunucuya yazıldı mı. Bugün HER ZAMAN `false`: uç yok.
-   * Karar burada veriliyor, arayüzde değil — uç açılınca koşulsuz `true` olacak
-   * ve ekranlarda hiçbir şey değişmeyecek.
-   */
-  isPersisted: boolean
-}
+export type ProjectFirmUserSaveResult =
+  | {
+      ok: true
+      userId: number
+      /**
+       * Kayıt gerçekten sunucuya yazıldı mı. Bugün HER ZAMAN `false`: uç yok.
+       * Karar burada veriliyor, arayüzde değil — uç açılınca koşulsuz `true`
+       * olacak ve ekranlarda hiçbir şey değişmeyecek.
+       */
+      isPersisted: boolean
+    }
+  /** Üretim derlemesi: yazacak uç da yok, sahte kayıt üretme izni de (K50). */
+  | { ok: false; reason: 'unavailable' }
 
 /**
  * Oluşturma ve güncelleme TEK giriş: ekran da tek (KK-25). `userId` doluysa
@@ -45,18 +50,24 @@ export async function saveProjectFirmUser(
 ): Promise<ProjectFirmUserSaveResult> {
   const endpoint = userId === null ? 'firmUserCreate' : 'firmUserUpdate'
 
-  if (!isEndpointImplemented(endpoint)) {
-    await delay(MOCK_LATENCY_MS)
-
-    if (userId === null) {
-      return { userId: createMockProjectFirmUser(payload), isPersisted: false }
-    }
-
-    updateMockProjectFirmUser(userId, payload)
-    return { userId, isPersisted: false }
+  if (isEndpointImplemented(endpoint)) {
+    throw new Error('saveProjectFirmUser: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  throw new Error('saveProjectFirmUser: uç bağlandı ama gövdesi yazılmadı.')
+  await delay(MOCK_LATENCY_MS)
+
+  // Yazma da mock kapısından geçiyor (K50): üretimde kaydın gideceği bir yer
+  // yok — bellekteki depoya yazmak, kullanıcıya yapılmamış bir işi yapılmış
+  // göstermek olurdu. Liste ve detay orada zaten "kaynağı yok" diyor.
+  const written = mockedData(() => {
+    if (userId === null) return createMockProjectFirmUser(payload)
+
+    updateMockProjectFirmUser(userId, payload)
+    return userId
+  })
+
+  if (written.source === 'unavailable') return { ok: false, reason: 'unavailable' }
+  return { ok: true, userId: written.data, isPersisted: false }
 }
 
 export type ProjectFirmUserTakenFields = MockTakenFields

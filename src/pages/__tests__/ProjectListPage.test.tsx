@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { setAuthSession, type AuthSession } from '../../api/authToken'
+import { ROLE_CODES } from '../../api/roles'
 import { ProjectListPage } from '../ProjectListPage'
 
 /** Varsayılan tarih aralığı son bir ay; kayıtlar bugünden olmalı ki süzülmesin. */
@@ -62,12 +64,13 @@ function respondByPath(input: RequestInfo | URL): Response {
     })
   }
 
-  return jsonResponse({
-    items: API_PROJECTS,
-    totalCount: API_PROJECTS.length,
-    page: 1,
-    pageSize: 30,
-  })
+  // Satır durumu SEKMEDEN geliyor: liste ucu sunucuda süzülü olduğu için stub
+  // da hangi sekmenin sorulduğuna göre `status` yazıyor. Karar düğmeleri satırın
+  // kendi durumuna bakıyor (`isRowInStatus`), sekmeye değil.
+  const status = new URL(String(input)).searchParams.get('Status')
+  const items = API_PROJECTS.map((project) => ({ ...project, status }))
+
+  return jsonResponse({ items, totalCount: items.length, page: 1, pageSize: 30 })
 }
 
 /** İstek URL'lerini yeni→eski sırada verir; son çağrı en sonda. */
@@ -83,7 +86,8 @@ function LocationProbe() {
   return <output data-testid="search">{location.search}</output>
 }
 
-function renderPage() {
+function renderPage(roleCode: string = ROLE_CODES.admin) {
+  setAuthSession({ ...ADMIN_SESSION, roleCode })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -104,7 +108,21 @@ function renderPage() {
   )
 }
 
+
+/**
+ * Bu testler YÖNETİCİ görünümünü sınıyor: firma sütunları ve "Proje Firması"
+ * süzgeci yalnız yönetim rollerinde çiziliyor (`useIsManagementUser`), oturumsuz
+ * render'da hiç görünmezdi.
+ */
+const ADMIN_SESSION: AuthSession = {
+  token: 'jwt-token',
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  fullName: 'Yönetici',
+  roleCode: ROLE_CODES.admin,
+}
+
 beforeEach(() => {
+  setAuthSession(ADMIN_SESSION)
   vi.stubGlobal(
     'fetch',
     vi.fn().mockImplementation((input: RequestInfo | URL) => Promise.resolve(respondByPath(input))),
@@ -112,6 +130,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
   vi.unstubAllGlobals()
 })
 
@@ -127,8 +147,8 @@ describe('ProjectListPage (duman)', () => {
     expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Taslak')
     expect(screen.getAllByRole('button', { name: 'Gönder' }).length).toBeGreaterThan(0)
 
-    await user.type(screen.getByPlaceholderText('Proje Ara...'), 'gül')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+    // "Filtrele" düğmesi kalktı: arama Enter'da uygulanıyor.
+    await user.type(screen.getByPlaceholderText('Proje Ara...'), 'gül{Enter}')
     await waitFor(() => expect(screen.getByTestId('search').textContent).toContain('q=g'))
 
     await user.click(screen.getByRole('tab', { name: /Onaylanan/ }))
@@ -222,7 +242,6 @@ describe('ProjectListPage (duman)', () => {
     const firmSelect = screen.getByLabelText('Proje Firması')
     await screen.findByRole('option', { name: 'Anadolu Mühendislik Ltd. Şti.' })
     await user.selectOptions(firmSelect, '11')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
     // SON istek bakılır: ilk istek süzgeç uygulanmadan önce atılmıştı.
     await waitFor(() =>
@@ -230,7 +249,6 @@ describe('ProjectListPage (duman)', () => {
     )
 
     await user.selectOptions(screen.getByLabelText('Proje Firması'), '')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
     await waitFor(() =>
       expect(fetchCalls().at(-1)?.searchParams.has('ProjectFirmId')).toBe(false),
@@ -252,5 +270,168 @@ describe('ProjectListPage (duman)', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getAllByRole('row')).toHaveLength(rowCount)
+  })
+})
+
+/**
+ * Rol ayrımı. Satırların KAPSAMI burada sınanmıyor — onu sunucu belirliyor;
+ * sınanan, yönetim ALANLARININ çizilmemesi ve istemcinin kendi kendine bir
+ * firma süzgeci uydurmaması.
+ */
+describe('ProjectListPage (proje firması kullanıcısı)', () => {
+  it('firma sütunlarını ve firma süzgecini göstermez', async () => {
+    renderPage(ROLE_CODES.projectFirmUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('columnheader', { name: 'Firma İsmi' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'G.D Firması' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Proje Firması')).not.toBeInTheDocument()
+
+    // Listenin kendisi ve kalan sütunlar yerinde: gizlenen YALNIZ firma alanları.
+    expect(screen.getByRole('columnheader', { name: 'Proje Adı' })).toBeInTheDocument()
+    expect(screen.getByText('Çınar Sitesi')).toBeInTheDocument()
+  })
+
+  /**
+   * `ProjectFirmId` bir GÜVENLİK filtresi değil; istemcinin gönderdiği kimlik
+   * kullanıcı tarafından değiştirilebilir. Kapsamı sunucu token'dan uyguluyor,
+   * bu yüzden istemci parametreyi kendiliğinden EKLEMEZ.
+   */
+  it('firma kapsamını kendisi süzmeye çalışmaz', async () => {
+    renderPage(ROLE_CODES.projectFirmUser)
+    await screen.findByRole('table')
+
+    for (const url of fetchCalls()) {
+      expect(url.searchParams.get('ProjectFirmId')).toBeNull()
+      expect(url.searchParams.get('gdGroupId')).toBeNull()
+      expect(url.searchParams.get('gdFirmId')).toBeNull()
+    }
+  })
+
+  /** Firma listesi ucu yalnız süzgeç kutusu için vardı; kutu yoksa istek de yok. */
+  it('kullanmayacağı firma listesini indirmez', async () => {
+    renderPage(ROLE_CODES.projectFirmUser)
+    await screen.findByRole('table')
+
+    const paths = vi.mocked(fetch).mock.calls.map((call) => new URL(String(call[0])).pathname)
+    expect(paths).not.toContain('/api/projectfirms')
+  })
+
+  it('yönetici aynı ekranda firma sütunlarını görmeye devam eder', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.getByRole('columnheader', { name: 'Firma İsmi' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'G.D Firması' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Proje Firması')).toBeInTheDocument()
+  })
+})
+
+/**
+ * Gaz dağıtım kullanıcısı proje YAZMAZ, KARAR VERİR. Sunucu da böyle diyor:
+ * `POST /api/projects`, `DELETE /api/projects/{id}` ve `.../submit` uçları
+ * `Authorize(Roles = Admin, ProjectFirmUser)` ile korunuyor; `.../approve` ve
+ * `.../reject` ise `Admin, GasDistributionUser`. Buradaki görünürlük o
+ * sınırın arayüzdeki karşılığı.
+ */
+describe('ProjectListPage (gaz dağıtım kullanıcısı)', () => {
+  it('Yeni Proje düğmesini göstermez', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('link', { name: /Yeni Proje/ })).not.toBeInTheDocument()
+  })
+
+  it('taslak sekmesinde Sil ve Gönder aksiyonlarını göstermez', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Gönder' })).not.toBeInTheDocument()
+    // Eylem sütunu HİÇ üretilmiyor: boş bir "Aksiyonlar" başlığı eylem varmış
+    // gibi görünürdü.
+    expect(screen.queryByRole('columnheader', { name: 'Aksiyonlar' })).not.toBeInTheDocument()
+  })
+
+  it('taslak sekmesinde Onayla/Reddet göstermez', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('button', { name: /Onayla/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reddet/ })).not.toBeInTheDocument()
+  })
+
+  it('onay bekleyen sekmesinde Onayla ve Reddet gösterir', async () => {
+    const user = userEvent.setup()
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('tab', { name: /Onay Bekleyen/ }))
+
+    expect(await screen.findAllByRole('button', { name: /Onayla/ })).toHaveLength(
+      API_PROJECTS.length,
+    )
+    expect(screen.getAllByRole('button', { name: /Reddet/ })).toHaveLength(API_PROJECTS.length)
+    expect(screen.queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['Onaylanan', 'onaylanan'],
+    ['Reddedilen', 'reddedilen'],
+  ])('%s sekmesinde karar aksiyonu göstermez', async (tabLabel) => {
+    const user = userEvent.setup()
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('tab', { name: new RegExp(tabLabel) }))
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('button', { name: /Onayla/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reddet/ })).not.toBeInTheDocument()
+  })
+
+  it('Onayla mevcut onay ucuna gider', async () => {
+    const user = userEvent.setup()
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+    await user.click(screen.getByRole('tab', { name: /Onay Bekleyen/ }))
+
+    const approveButtons = await screen.findAllByRole('button', { name: /Onayla/ })
+    await user.click(approveButtons[0])
+
+    const posted = vi
+      .mocked(fetch)
+      .mock.calls.find((call) => String(call[0]).includes('/approve'))
+    expect(posted).toBeDefined()
+    expect(new URL(String(posted?.[0])).pathname).toBe(`/api/projects/${API_PROJECTS[0].id}/approve`)
+    expect(await screen.findByText(/Proje onaylandı/)).toBeInTheDocument()
+  })
+
+  /**
+   * Ret GEREKÇESİZ gitmez: kural `requiresReason` (api/projectDetail.ts) ve
+   * proje detayı da aynı kapıdan geçiyor. Diyalog açılmadan istek atılmamalı.
+   */
+  it('Reddet önce gerekçe diyaloğunu açar, sonra ret ucuna gider', async () => {
+    const user = userEvent.setup()
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+    await user.click(screen.getByRole('tab', { name: /Onay Bekleyen/ }))
+
+    const rejectButtons = await screen.findAllByRole('button', { name: /Reddet/ })
+    await user.click(rejectButtons[0])
+
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      vi.mocked(fetch).mock.calls.some((call) => String(call[0]).includes('/reject')),
+    ).toBe(false)
+
+    // Sorgu diyaloğun İÇİNE kapsanıyor: satırlardaki "Reddet" düğmeleri de
+    // ekranda duruyor ve aynı ada sahip.
+    await user.type(within(dialog).getByRole('textbox'), 'Kolon çapı yetersiz')
+    await user.click(within(dialog).getByRole('button', { name: 'Reddet' }))
+
+    const posted = vi.mocked(fetch).mock.calls.find((call) => String(call[0]).includes('/reject'))
+    expect(posted).toBeDefined()
+    expect(String(posted?.[1]?.body)).toContain('Kolon çapı yetersiz')
   })
 })

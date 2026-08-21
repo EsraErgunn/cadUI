@@ -29,9 +29,9 @@ function renderWithUrl(url: string) {
 
 const LIST_PATH = '/admin/project-firm-users'
 
-const ALL_FILTERS = { nameQuery: '', authorityType: null, onlyActive: false } as const
+const ALL_FILTERS = { nameQuery: '', authorityType: null } as const
 
-// KK-2: açılışta yetki "Tümü", "Aktif" işaretsiz, liste tüm kullanıcıları gösterir.
+// KK-2: açılışta yetki "Tümü", liste tüm kullanıcıları gösterir.
 describe('okuma', () => {
   it('URL boşken varsayılanları üretir', () => {
     const { result } = renderWithUrl(LIST_PATH)
@@ -39,19 +39,17 @@ describe('okuma', () => {
     expect(result.current.controls.query).toMatchObject({
       nameQuery: '',
       authorityType: null,
-      onlyActive: false,
       page: 1,
       pageSize: 30,
     })
   })
 
   it('adresteki kriterleri okur', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?q=tolga&type=firmEngineer&active=1&page=3`)
+    const { result } = renderWithUrl(`${LIST_PATH}?q=tolga&type=firmEngineer&page=3`)
 
     expect(result.current.controls.query).toMatchObject({
       nameQuery: 'tolga',
       authorityType: 'firmEngineer',
-      onlyActive: true,
       page: 3,
     })
   })
@@ -70,20 +68,18 @@ describe('okuma', () => {
 })
 
 describe('filtre uygulama (KK-6)', () => {
-  it('üç kriteri birlikte adrese yazar', () => {
+  it('kriterleri birlikte adrese yazar', () => {
     const { result } = renderWithUrl(LIST_PATH)
 
     act(() =>
       result.current.controls.applyFilters({
         nameQuery: 'tolga',
         authorityType: 'firmAuthorizedPerson',
-        onlyActive: true,
       }),
     )
 
     expect(result.current.search).toContain('q=tolga')
     expect(result.current.search).toContain('type=firmAuthorizedPerson')
-    expect(result.current.search).toContain('active=1')
   })
 
   it('kriter değişince ilk sayfaya döner', () => {
@@ -96,13 +92,12 @@ describe('filtre uygulama (KK-6)', () => {
   })
 
   // Varsayılan değerler adrese YAZILMAZ; bağlantı temiz kalır.
-  it('"Tümü" ve işaretsiz durum adresten düşer', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?type=firmEngineer&active=1&q=tolga`)
+  it('"Tümü" adresten düşer', () => {
+    const { result } = renderWithUrl(`${LIST_PATH}?type=firmEngineer&q=tolga`)
 
     act(() => result.current.controls.applyFilters(ALL_FILTERS))
 
     expect(result.current.search).not.toContain('type=')
-    expect(result.current.search).not.toContain('active=')
     expect(result.current.search).not.toContain('q=')
   })
 
@@ -118,14 +113,13 @@ describe('filtre uygulama (KK-6)', () => {
 // KK-12: sayfa değiştirilince uygulanan filtreler korunur.
 describe('sayfalama (KK-12)', () => {
   it('sayfa değişince filtreler adreste kalır', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?q=tolga&type=firmEngineer&active=1`)
+    const { result } = renderWithUrl(`${LIST_PATH}?q=tolga&type=firmEngineer`)
 
     act(() => result.current.controls.setPage(3))
 
     expect(result.current.controls.query).toMatchObject({
       nameQuery: 'tolga',
       authorityType: 'firmEngineer',
-      onlyActive: true,
       page: 3,
     })
   })

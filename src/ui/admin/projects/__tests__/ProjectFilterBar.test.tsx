@@ -35,7 +35,7 @@ const APPLIED_FILTERS: ProjectFilters = {
 
 function renderBar(
   onApply: (filters: ProjectFilters) => void,
-  { haveProjectFirmsFailed = false } = {},
+  { haveProjectFirmsFailed = false, isManagementView = true } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -45,6 +45,7 @@ function renderBar(
         filters={APPLIED_FILTERS}
         projectFirms={PROJECT_FIRMS}
         haveProjectFirmsFailed={haveProjectFirmsFailed}
+        isManagementView={isManagementView}
         onApply={onApply}
       />
     </QueryClientProvider>,
@@ -66,21 +67,29 @@ beforeEach(() => {
 })
 
 describe('ProjectFilterBar', () => {
-  it('yazarken istek atmaz, yalnız Filtrele ile uygular', async () => {
+  /**
+   * "Filtrele" düğmesi KALKTI: seçim yapılır yapılmaz uygulanıyor. Yazılmış
+   * arama metni seçim sırasında KAYBOLMAMALI — ref'ten okunuyor.
+   */
+  it('seçim yapılır yapılmaz uygular ve yazılan aramayı korur', async () => {
     const user = userEvent.setup()
     const onApply = vi.fn()
     renderBar(onApply)
 
     await user.type(screen.getByPlaceholderText('Proje Ara...'), 'yıldız')
-    await selectCity(user, '6')
-    await waitFor(() => expect(screen.getByLabelText('İlçe')).not.toBeDisabled())
-    await user.selectOptions(screen.getByLabelText('İlçe'), '2')
+    // Yazmak TEK BAŞINA istek atmaz: arama Enter'da uygulanıyor.
     expect(onApply).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+    await selectCity(user, '6')
 
-    expect(onApply).toHaveBeenCalledTimes(1)
-    expect(onApply).toHaveBeenCalledWith({
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ cityId: 6, districtId: null, search: 'yıldız' }),
+    )
+
+    await waitFor(() => expect(screen.getByLabelText('İlçe')).not.toBeDisabled())
+    await user.selectOptions(screen.getByLabelText('İlçe'), '2')
+
+    expect(onApply).toHaveBeenLastCalledWith({
       dateFrom: '2026-06-01',
       dateTo: '2026-07-01',
       cityId: 6,
@@ -88,6 +97,23 @@ describe('ProjectFilterBar', () => {
       projectFirmId: null,
       search: 'yıldız',
     })
+  })
+
+  it('aramayı Enter ile uygular', async () => {
+    const user = userEvent.setup()
+    const onApply = vi.fn()
+    renderBar(onApply)
+
+    await user.type(screen.getByPlaceholderText('Proje Ara...'), 'yıldız{Enter}')
+
+    expect(onApply).toHaveBeenCalledTimes(1)
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ search: 'yıldız' }))
+  })
+
+  it('Filtrele düğmesi kalmadı', () => {
+    renderBar(vi.fn())
+
+    expect(screen.queryByRole('button', { name: 'Filtrele' })).not.toBeInTheDocument()
   })
 
   /** İlçe ucu il kimliği istiyor: il seçilmeden istek ATILMAMALI. */
@@ -154,4 +180,17 @@ describe('ProjectFilterBar', () => {
 
     expect(screen.getByLabelText('Bitiş tarihi')).toHaveAttribute('min', '2026-06-15')
   })
+})
+
+/**
+ * Proje firması kullanıcısının listesi zaten tek firmaya ait; süzgeç ona
+ * seçebileceği tek satırı gösterirdi.
+ */
+it('yönetim görünümü dışında Proje Firması süzgecini çizmez', () => {
+  renderBar(vi.fn(), { isManagementView: false })
+
+  expect(screen.queryByLabelText('Proje Firması')).not.toBeInTheDocument()
+  // Diğer süzgeçler yerinde: gizlenen YALNIZ firma kutusu.
+  expect(screen.getByLabelText('İl')).toBeInTheDocument()
+  expect(screen.getByPlaceholderText('Proje Ara...')).toBeInTheDocument()
 })

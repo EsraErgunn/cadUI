@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { Funnel } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState } from 'react'
 
 import { getCities, getCityDistricts, type Lookup } from '../../../api/projects'
 import { FilterSelect, type FilterSelectOption } from '../FilterSelect'
-import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
+import { adminFieldVariants } from '../adminVariants'
 import type { ProjectFilters } from './useProjectListParams'
 
 const SEARCH_FIELD = 'projectSearch'
@@ -34,12 +33,23 @@ interface ProjectFilterBarProps {
   projectFirms: Lookup[]
   /** Liste çekilemedi mi — kutu boş açılıp "firma yok" sanısı vermesin. */
   haveProjectFirmsFailed?: boolean
+  /**
+   * Yönetim görünümü mü. "Proje Firması" süzgeci YALNIZ orada anlamlı: proje
+   * firması kullanıcısı zaten tek bir firmanın projelerini görüyor, kutu ona
+   * seçebileceği tek satırı ya da hiç seçemeyeceği firmaları gösterirdi.
+   */
+  isManagementView: boolean
   onApply: (filters: ProjectFilters) => void
 }
 
 /**
- * Filtre çubuğu kendi TASLAK durumunu tutar; istek yalnız "Filtrele" ile veya
- * arama alanında Enter ile atılır (her tuş vuruşunda değil).
+ * Seçim yapılır yapılmaz uygulanır: il, ilçe, proje firması ve tarihler
+ * değiştiği anda sorgu gider — "Filtrele" düğmesi KALKTI. Kullanıcı seçtiği
+ * kriterin sonucunu görmek için ikinci bir tıklama yapmıyor.
+ *
+ * ARAMA kutusu ayrı: her tuş vuruşunda istek atmamak için Enter'da uygulanıyor
+ * (debounce EKLENMEDİ — uçta arama parametresi zaten yok, gelen sayfa istemcide
+ * süzülüyor).
  *
  * İl ve ilçe listeleri BURADA çekiliyor, sayfadan prop olarak gelmiyor: ilçe
  * listesi TASLAK ildeki seçime bağlı (kullanıcı ili değiştirip henüz
@@ -54,6 +64,7 @@ export function ProjectFilterBar({
   filters,
   projectFirms,
   haveProjectFirmsFailed = false,
+  isManagementView,
   onApply,
 }: ProjectFilterBarProps) {
   const [dateFrom, setDateFrom] = useState(filters.dateFrom)
@@ -61,6 +72,21 @@ export function ProjectFilterBar({
   const [cityId, setCityId] = useState(filters.cityId)
   const [districtId, setDistrictId] = useState(filters.districtId)
   const [projectFirmId, setProjectFirmId] = useState(filters.projectFirmId)
+  // Arama kutusu KONTROLSÜZ kalıyor (her harfte render yok); değeri uygulama
+  // anında ref'ten okunuyor ki seçim değişince yazılmış metin kaybolmasın.
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  const applyNow = (changed: Partial<ProjectFilters>) => {
+    onApply({
+      dateFrom,
+      dateTo,
+      cityId,
+      districtId,
+      projectFirmId,
+      search: searchRef.current?.value.trim() ?? filters.search,
+      ...changed,
+    })
+  }
 
   const { data: cities } = useQuery({
     queryKey: ['cities'],
@@ -77,29 +103,18 @@ export function ProjectFilterBar({
   })
 
   const handleCityChange = (raw: string | null) => {
-    setCityId(toLookupId(raw))
-    // İl değişti: eski ilçe yeni ilin listesinde bulunmayabilir.
+    const nextCityId = toLookupId(raw)
+    setCityId(nextCityId)
+    // İl değişti: eski ilçe yeni ilin listesinde bulunmayabilir. İkisi TEK
+    // istekte gidiyor, yoksa aradaki an geçersiz bir il/ilçe çifti sorardı.
     setDistrictId(null)
-  }
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const rawSearch = new FormData(event.currentTarget).get(SEARCH_FIELD)
-
-    onApply({
-      dateFrom,
-      dateTo,
-      cityId,
-      districtId,
-      projectFirmId,
-      search: typeof rawSearch === 'string' ? rawSearch.trim() : '',
-    })
+    applyNow({ cityId: nextCityId, districtId: null })
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
+    <div
       aria-label="Proje filtreleri"
+      role="group"
       className="flex flex-col gap-4 rounded-xl border border-edge bg-surface p-4
                  md:flex-row md:flex-wrap md:items-end"
     >
@@ -115,7 +130,10 @@ export function ProjectFilterBar({
             // Başlangıç bitişi geçemesin: geçersiz aralık isteğe hiç çıkmasın.
             max={dateTo}
             aria-label="Başlangıç tarihi"
-            onChange={(event) => setDateFrom(event.target.value)}
+            onChange={(event) => {
+              setDateFrom(event.target.value)
+              applyNow({ dateFrom: event.target.value })
+            }}
             className={adminFieldVariants({ className: 'min-w-0 flex-1' })}
           />
           <span aria-hidden className="shrink-0 text-ink-muted">
@@ -126,7 +144,10 @@ export function ProjectFilterBar({
             value={dateTo}
             min={dateFrom}
             aria-label="Bitiş tarihi"
-            onChange={(event) => setDateTo(event.target.value)}
+            onChange={(event) => {
+              setDateTo(event.target.value)
+              applyNow({ dateTo: event.target.value })
+            }}
             className={adminFieldVariants({ className: 'min-w-0 flex-1' })}
           />
         </div>
@@ -148,42 +169,52 @@ export function ProjectFilterBar({
         value={districtId === null ? null : String(districtId)}
         options={toOptions(districts ?? [])}
         isDisabled={cityId === null || areDistrictsPending}
-        onChange={(value) => setDistrictId(toLookupId(value))}
+        onChange={(value) => {
+          const nextDistrictId = toLookupId(value)
+          setDistrictId(nextDistrictId)
+          applyNow({ districtId: nextDistrictId })
+        }}
       />
 
-      <FilterSelect
-        id="project-filter-firm"
-        label="Proje Firması"
-        emptyLabel={ANY_OPTION_LABEL}
-        value={projectFirmId === null ? null : String(projectFirmId)}
-        options={toOptions(projectFirms)}
-        isDisabled={haveProjectFirmsFailed}
-        hint={haveProjectFirmsFailed ? FIRM_ERROR_HINT : undefined}
-        onChange={(value) => setProjectFirmId(toLookupId(value))}
-      />
+      {isManagementView && (
+        <FilterSelect
+          id="project-filter-firm"
+          label="Proje Firması"
+          emptyLabel={ANY_OPTION_LABEL}
+          value={projectFirmId === null ? null : String(projectFirmId)}
+          options={toOptions(projectFirms)}
+          isDisabled={haveProjectFirmsFailed}
+          hint={haveProjectFirmsFailed ? FIRM_ERROR_HINT : undefined}
+          onChange={(value) => {
+            const nextFirmId = toLookupId(value)
+            setProjectFirmId(nextFirmId)
+            applyNow({ projectFirmId: nextFirmId })
+          }}
+        />
+      )}
 
       <div className="flex min-w-56 flex-1 flex-col gap-1">
         <label htmlFor="project-filter-search" className="text-xs font-medium text-ink-muted">
           Proje Ara
         </label>
         <input
+          ref={searchRef}
           id="project-filter-search"
           type="search"
           name={SEARCH_FIELD}
           defaultValue={filters.search}
           aria-label={SEARCH_LABEL}
           placeholder={SEARCH_PLACEHOLDER}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return
+            // Form KALMADI (submit düğmesi kalkınca örtük gönderim de gitti);
+            // arama Enter'da açıkça uygulanıyor.
+            event.preventDefault()
+            applyNow({ search: event.currentTarget.value.trim() })
+          }}
           className={adminFieldVariants()}
         />
       </div>
-
-      <button
-        type="submit"
-        className={adminButtonVariants({ tone: 'secondary', className: 'w-full md:w-auto' })}
-      >
-        <Funnel aria-hidden className="size-4" />
-        Filtrele
-      </button>
-    </form>
+    </div>
   )
 }

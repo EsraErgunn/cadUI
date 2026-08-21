@@ -8,8 +8,9 @@ import type { ProjectDetail, ProjectDetailStatus } from '../../../api/projectDet
 import { prefetchEditorPage } from '../../../app/editorChunk'
 import { PROJECT_LIST_PATH } from '../../../pages/useCloseEditor'
 import { Breadcrumb } from '../Breadcrumb'
-import { ADMIN_HOME_PATH, projectEditorPath } from '../adminNavItems'
+import { projectEditorPath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
+import { useHomePath } from '../useHomePath'
 
 const DRAFT_ACTION_HINT = 'Taslak proje işleme alınamaz; firma tarafından gönderilmesi gerekir.'
 
@@ -40,6 +41,7 @@ export function ProjectDetailHeader({
   onDownloadPdf,
 }: ProjectDetailHeaderProps) {
   const { server, extras } = detail
+  const homePath = useHomePath()
 
   // Kullanıcı buradaysa editöre girmesi kuvvetle muhtemel: parçayı düğmeye
   // basmadan indir. Soğuk geçiş 2220 ms, ısıtılmış geçiş 16 ms (K101).
@@ -50,7 +52,7 @@ export function ProjectDetailHeader({
       <div className="min-w-0">
         <Breadcrumb
           items={[
-            { label: 'Anasayfa', to: ADMIN_HOME_PATH },
+            { label: 'Anasayfa', to: homePath },
             { label: 'Projeler', to: PROJECT_LIST_PATH },
             { label: 'Proje Detay' },
           ]}

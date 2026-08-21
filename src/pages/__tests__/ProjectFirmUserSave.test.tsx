@@ -24,12 +24,13 @@ vi.mock('../../api/projectFirmUserForm', async (importOriginal) => ({
 }))
 
 beforeEach(() => {
-  readApi.getProjectFirmUser.mockResolvedValue(buildDetail())
+  // Kayıt `Sourced` zarfıyla dönüyor (K51); testler geliştirme kolunda koşuyor.
+  readApi.getProjectFirmUser.mockResolvedValue({ source: 'mock', data: buildDetail() })
   formApi.findTakenProjectFirmUserFields.mockResolvedValue({
     isEmailTaken: false,
     isUsernameTaken: false,
   })
-  formApi.saveProjectFirmUser.mockResolvedValue({ userId: 1001, isPersisted: false })
+  formApi.saveProjectFirmUser.mockResolvedValue({ ok: true, userId: 1001, isPersisted: false })
 })
 
 afterEach(() => {

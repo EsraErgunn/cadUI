@@ -5,7 +5,6 @@ import { NewProjectFirmForm } from '../ui/admin/projectFirms/NewProjectFirmForm'
 const PAGE_TITLE = 'Yeni Proje Firması Ekle'
 
 /** Belge madde 15, birebir. */
-const DESCRIPTION = 'Firmanın çalışacağı G.D. bölgelerini seçip yeterlilik bilgilerini ekleyin'
 
 const BREADCRUMB = [
   { label: 'Anasayfa', to: ADMIN_HOME_PATH },
@@ -22,7 +21,7 @@ const BREADCRUMB = [
 export function NewProjectFirmPage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} description={DESCRIPTION} />
+      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} />
 
       <NewProjectFirmForm />
     </div>

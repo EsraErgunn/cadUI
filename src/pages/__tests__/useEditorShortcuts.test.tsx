@@ -9,6 +9,8 @@ import { useUiStore } from '../../store/uiStore'
 import { useEditorShortcuts } from '../useEditorShortcuts'
 
 type HarnessHandlers = {
+  /** Varsayılan `false`: mevcut testler YAZAN kullanıcıyı sınıyor. */
+  isReadOnly?: boolean
   onSave: () => void
   onSaveAs: () => void
   onOpenFloorManagement: () => void
@@ -25,8 +27,8 @@ function addTrackedPoint(): void {
   }))
 }
 
-function Harness(handlers: HarnessHandlers) {
-  useEditorShortcuts(handlers)
+function Harness({ isReadOnly = false, ...handlers }: HarnessHandlers) {
+  useEditorShortcuts({ ...handlers, isReadOnly })
   // Kısayolun metin kutusunda susmasını sınamak için bir giriş alanı da var.
   return <input aria-label="not" />
 }
@@ -230,5 +232,60 @@ describe('kat kısayolları (madde 1)', () => {
     await userEvent.keyboard('{Control>}k{/Control}')
 
     expect(handlers.onOpenFloorManagement).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Salt görüntüleme: bu dinleyicideki kısayolların TAMAMI yazan işlem.
+ * Kısayolun çalışmadığını "handler çağrılmadı" ile değil, MUTASYONUN
+ * gerçekleşmediği ile de sınıyoruz (geri al).
+ */
+describe('useEditorShortcuts — salt görüntüleme', () => {
+  it('Ctrl+S kaydetmeyi tetiklemez', async () => {
+    const onSave = vi.fn()
+    render(<Harness isReadOnly onSave={onSave} onSaveAs={vi.fn()} onOpenFloorManagement={vi.fn()} onOpenFloorCopy={vi.fn()} />)
+
+    await userEvent.keyboard('{Control>}s{/Control}')
+
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('Ctrl+Shift+S farklı kaydetmeyi tetiklemez', async () => {
+    const onSaveAs = vi.fn()
+    render(<Harness isReadOnly onSave={vi.fn()} onSaveAs={onSaveAs} onOpenFloorManagement={vi.fn()} onOpenFloorCopy={vi.fn()} />)
+
+    await userEvent.keyboard('{Control>}{Shift>}s{/Shift}{/Control}')
+
+    expect(onSaveAs).not.toHaveBeenCalled()
+  })
+
+  it('Ctrl+K ve Ctrl+Shift+K kat pencerelerini açmaz', async () => {
+    const onOpenFloorManagement = vi.fn()
+    const onOpenFloorCopy = vi.fn()
+    render(
+      <Harness
+        isReadOnly
+        onSave={vi.fn()}
+        onSaveAs={vi.fn()}
+        onOpenFloorManagement={onOpenFloorManagement}
+        onOpenFloorCopy={onOpenFloorCopy}
+      />,
+    )
+
+    await userEvent.keyboard('{Control>}k{/Control}')
+    await userEvent.keyboard('{Control>}{Shift>}k{/Shift}{/Control}')
+
+    expect(onOpenFloorManagement).not.toHaveBeenCalled()
+    expect(onOpenFloorCopy).not.toHaveBeenCalled()
+  })
+
+  it('Ctrl+Z çizimi geri almaz', async () => {
+    render(<Harness isReadOnly onSave={vi.fn()} onSaveAs={vi.fn()} onOpenFloorManagement={vi.fn()} onOpenFloorCopy={vi.fn()} />)
+    addTrackedPoint()
+    const pointCount = useCadStore.getState().points.length
+
+    await userEvent.keyboard('{Control>}z{/Control}')
+
+    expect(useCadStore.getState().points).toHaveLength(pointCount)
   })
 })

@@ -21,6 +21,13 @@ interface PolicyColumnsOptions {
   rowOffset: number
   /** İsteği süren satır; o satırın düğmesi kilitlenir. */
   pendingPolicyId: number | null
+  /**
+   * Poliçe silinebilir mi (`useCanWriteProjectContent`). Sunucu da
+   * `DELETE /api/policies/{id}` ucunu `Admin, ProjectFirmUser`'a açıyor; gaz
+   * dağıtım kullanıcısı poliçeyi GÖRÜR, silemez. Yetkisizde sütun HİÇ
+   * üretilmez — boş bir "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+   */
+  canDelete: boolean
   onDelete: (policyId: number) => void
 }
 
@@ -33,9 +40,10 @@ interface PolicyColumnsOptions {
 export function buildPolicyColumns({
   rowOffset,
   pendingPolicyId,
+  canDelete,
   onDelete,
 }: PolicyColumnsOptions): DataTableColumn<PolicyRow, PolicySortKey>[] {
-  return [
+  const columns: DataTableColumn<PolicyRow, PolicySortKey>[] = [
     {
       key: 'no',
       label: 'No',
@@ -95,7 +103,10 @@ export function buildPolicyColumns({
       label: 'Yöntem',
       cell: (policy) => POLICY_METHOD_LABELS[policy.method],
     },
-    {
+  ]
+
+  if (canDelete) {
+    columns.push({
       key: 'actions',
       label: 'Aksiyonlar',
       cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
@@ -111,6 +122,8 @@ export function buildPolicyColumns({
           Sil
         </button>
       ),
-    },
-  ]
+    })
+  }
+
+  return columns
 }

@@ -138,12 +138,14 @@ describe('ProjectListPage — kabuk içinde kaydırma düzeni', () => {
     renderInShell({ createdProjectName: 'Proje 3', createdProjectPId: '24002' })
 
     // Şeritteki proje numarası ile vurgulanan satır aynı kayda işaret etmeli.
+    // P_ID SÜTUNU KALKTI: satır artık proje ADIYLA bulunuyor; vurgunun kendisi
+    // hâlâ `pId` eşleşmesine bakıyor (veri duruyor, yalnız çizilmiyor).
     expect(await screen.findByText(/Proje numarası: 24002/)).toBeInTheDocument()
-    const row = (await screen.findByText('24002')).closest('tr')
+    const row = (await screen.findByRole('link', { name: 'Proje 3' })).closest('tr')
     expect(classList(row as Element)).toContain('bg-success/10')
 
     // Diğer satırlar etkilenmez.
-    const otherRow = screen.getByText('24000').closest('tr')
+    const otherRow = screen.getByRole('link', { name: 'Proje 1' }).closest('tr')
     expect(classList(otherRow as Element)).not.toContain('bg-success/10')
 
     await act(async () => {

@@ -1,5 +1,10 @@
 import { useCallback, useState } from 'react'
 
+import {
+  requiresReason,
+  submitProjectDecision,
+  type ProjectDecision,
+} from '../../../api/projectDetail'
 import { deleteProject, submitProject } from '../../../api/projects'
 import type { NoticeTone } from '../NoticeBar'
 
@@ -10,6 +15,13 @@ const SUBMIT_SUCCESS_MESSAGE = 'Proje onaya gönderildi. Artık "Onay Bekleyen" 
 const SUBMIT_ERROR_MESSAGE = 'Proje gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
 const MISSING_DOCUMENTS_MESSAGE =
   'Proje onaya gönderilemedi: aşağıdaki evraklar eksik. Evrakları yükleyip tekrar gönderin.'
+
+const DECISION_SUCCESS_MESSAGES: Record<ProjectDecision, string> = {
+  approve: 'Proje onaylandı.',
+  reject: 'Proje reddedildi.',
+}
+
+const DECISION_ERROR_MESSAGE = 'İşlem tamamlanamadı. Lütfen tekrar deneyin.'
 
 export interface ProjectActionNotice {
   tone: NoticeTone
@@ -32,12 +44,22 @@ export interface ProjectActions {
   cancelDelete: () => void
   confirmDelete: () => Promise<void>
   submit: (projectId: number) => Promise<void>
+  /**
+   * Onay / ret. Gerekçe gerektiren karar diyaloğu AÇAR, gerektirmeyen doğrudan
+   * gider — kural `requiresReason`'da, proje detayıyla ORTAK.
+   */
+  decide: (decision: ProjectDecision, projectId: number) => void
+  /** Gerekçe diyaloğunun hedefi; `null` ise diyalog kapalı. */
+  rejectTargetId: number | null
+  cancelReject: () => void
+  confirmReject: (reason: string) => Promise<void>
   dismissNotice: () => void
 }
 
 export function useProjectActions({ onChanged }: UseProjectActionsOptions): ProjectActions {
   const [pendingProjectId, setPendingProjectId] = useState<number | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
+  const [rejectTargetId, setRejectTargetId] = useState<number | null>(null)
   const [notice, setNotice] = useState<ProjectActionNotice | null>(null)
 
   // Silme isteği ONAYDAN ÖNCE atılmaz: bu çağrı yalnız diyaloğu açar.
@@ -93,6 +115,52 @@ export function useProjectActions({ onChanged }: UseProjectActionsOptions): Proj
     [onChanged],
   )
 
+  /**
+   * Onay/ret isteği. Uç `POST /api/projects/{id}/approve|reject` ve çağrı
+   * proje detayıyla AYNI fonksiyondan geçiyor (`submitProjectDecision`) — ikinci
+   * bir karar mekanizması yazılmadı.
+   *
+   * Detaydaki `useProjectDecisions`'tan farkı, sonucu yerel durumla EZMEMESİ:
+   * liste ucu satırın gerçek durumunu döndürüyor, tazelemek yeterli. O hook tek
+   * bir projeye bağlı (`useProjectDecisions(projectId)`) ve satır satır
+   * kullanılamaz.
+   */
+  const runDecision = useCallback(
+    async (decision: ProjectDecision, projectId: number, reason: string | null) => {
+      setPendingProjectId(projectId)
+      try {
+        const result = await submitProjectDecision(projectId, decision, reason)
+        const approvalNote =
+          result.approvalCode === null ? '' : ` Onay kodu: ${result.approvalCode}.`
+
+        setNotice({ tone: 'success', message: `${DECISION_SUCCESS_MESSAGES[decision]}${approvalNote}` })
+        onChanged()
+      } catch {
+        setNotice({ tone: 'error', message: DECISION_ERROR_MESSAGE })
+      } finally {
+        setPendingProjectId(null)
+        setRejectTargetId(null)
+      }
+    },
+    [onChanged],
+  )
+
+  const decide = useCallback(
+    (decision: ProjectDecision, projectId: number) => {
+      setNotice(null)
+
+      // Gerekçe kuralının TEK kaynağı `requiresReason`; detay ekranı da aynı
+      // kapıdan geçiyor, iki ekran ayrışmasın.
+      if (requiresReason(decision)) {
+        setRejectTargetId(projectId)
+        return
+      }
+
+      void runDecision(decision, projectId, null)
+    },
+    [runDecision],
+  )
+
   const dismissNotice = useCallback(() => setNotice(null), [])
 
   return {
@@ -103,6 +171,13 @@ export function useProjectActions({ onChanged }: UseProjectActionsOptions): Proj
     cancelDelete,
     confirmDelete,
     submit,
+    decide,
+    rejectTargetId,
+    cancelReject: () => setRejectTargetId(null),
+    confirmReject: async (reason: string) => {
+      if (rejectTargetId === null) return
+      await runDecision('reject', rejectTargetId, reason)
+    },
     dismissNotice,
   }
 }

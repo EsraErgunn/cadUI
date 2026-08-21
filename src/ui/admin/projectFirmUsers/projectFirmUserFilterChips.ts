@@ -31,15 +31,6 @@ export function buildProjectFirmUserFilterChips({
     })
   }
 
-  if (query.onlyActive) {
-    chips.push({
-      key: ADMIN_PARAM_KEYS.onlyActive,
-      label: 'Durum',
-      value: 'Yalnız aktif',
-      onRemove: () => onRemove({ onlyActive: false }),
-    })
-  }
-
   if (query.nameQuery !== '') {
     chips.push({
       key: ADMIN_PARAM_KEYS.nameQuery,

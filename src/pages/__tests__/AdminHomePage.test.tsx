@@ -126,7 +126,6 @@ describe('KK-1 ekran açılışı', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     // Başlık altı YALNIZ ana başlığı söyler; tarih "Bugün" kartında, kapsam adı
     // özet kartlarının altında yazıyor.
-    expect(screen.getByText('Sistem geneli durum')).toBeInTheDocument()
   })
 
   it('sağ üstte "Duyuru Yayınla" bulunur ve etkindir', async () => {

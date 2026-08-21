@@ -60,6 +60,13 @@ export function Toolbar() {
   const activeToolId = useUiStore((state) => state.activeToolId)
   const activeViewId = useUiStore((state) => state.activeViewId)
   const setActiveTool = useUiStore((state) => state.setActiveTool)
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
+
+  // Salt görüntülemede palet HİÇ çizilmez: çizim araçlarının tamamı yazma
+  // aracı ve tuval jestleri zaten susturulmuş durumda (`scene/DrawSurface`).
+  // Pasif bir palet göstermek, tıklanan aracın neden çalışmadığını
+  // söylemeyen bir yüzey bırakırdı.
+  if (isReadOnly) return null
 
   // Palet görünümle birlikte TAMAMEN değişir; tesisat araçları mimarinin altına eklenmez.
   if (activeViewId === 'installation') return <PlumbingToolbar />

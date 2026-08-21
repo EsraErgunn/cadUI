@@ -35,11 +35,11 @@ afterEach(() => {
 })
 
 /**
- * Kriterler "Filtrele" ile uygulanıyor (KK-3/5/6, docs/kararlar.md K47):
- * kutular taslak durumu tutar, düğmeye basılana kadar adres değişmez.
+ * "Filtrele" düğmesi KALKTI: yetki seçildiği anda uygulanıyor, ARAMA ise
+ * Enter'da (her harfte istek atmamak için; debounce eklenmedi).
  */
 describe('filtrenin uygulanma anı', () => {
-  it('yazarken istek çıkmaz, "Filtrele" ile tek istek çıkar', async () => {
+  it('yazarken istek çıkmaz, Enter ile tek istek çıkar', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('table')
@@ -48,7 +48,7 @@ describe('filtrenin uygulanma anı', () => {
     await user.type(screen.getByLabelText(/Kullanıcı adı, ad soyad/), 'tolga')
     expect(listApi.getProjectFirmUserList.mock.calls).toHaveLength(callsBefore)
 
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+    await user.keyboard('{Enter}')
 
     await waitFor(() => expect(lastQuery()).toMatchObject({ nameQuery: 'tolga' }))
   })
@@ -65,46 +65,33 @@ describe('filtrenin uygulanma anı', () => {
   })
 })
 
-describe('yetki ve aktif filtreleri (KK-3, KK-4)', () => {
+describe('yetki filtresi (KK-3)', () => {
   it('seçilen yetki sunucuya gider', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('table')
 
     await user.selectOptions(screen.getByLabelText('Yetki'), 'firmAuthorizedPerson')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
 
     await waitFor(() => expect(lastQuery()).toMatchObject({ authorityType: 'firmAuthorizedPerson' }))
   })
-
-  it('"Aktif" işaretlenince yalnız aktif kayıtlar istenir', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByRole('table')
-
-    await user.click(screen.getByLabelText('Aktif'))
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
-
-    await waitFor(() => expect(lastQuery()).toMatchObject({ onlyActive: true }))
-  })
 })
 
-// KK-6: üç kriter birlikte gider, liste ilk sayfadan başlar.
+// KK-6: kriterler birlikte gider, liste ilk sayfadan başlar.
 describe('kriterlerin birlikte uygulanması (KK-6)', () => {
-  it('üç kriteri tek istekte gönderir ve ilk sayfaya döner', async () => {
+  it('kriterleri tek istekte gönderir ve ilk sayfaya döner', async () => {
     const user = userEvent.setup()
     renderPage(`${LIST_PATH}?page=4`)
     await screen.findByRole('table')
 
+    // Her seçim kendi isteğini atıyor; son istek iki kriteri birlikte taşıyor
+    // ve sayfa 1'e dönüyor.
     await user.selectOptions(screen.getByLabelText('Yetki'), 'firmEngineer')
-    await user.click(screen.getByLabelText('Aktif'))
-    await user.type(screen.getByLabelText(/Kullanıcı adı, ad soyad/), 'tolga')
-    await user.click(screen.getByRole('button', { name: 'Filtrele' }))
+    await user.type(screen.getByLabelText(/Kullanıcı adı, ad soyad/), 'tolga{Enter}')
 
     await waitFor(() =>
       expect(lastQuery()).toMatchObject({
         authorityType: 'firmEngineer',
-        onlyActive: true,
         nameQuery: 'tolga',
         page: 1,
       }),
@@ -115,12 +102,11 @@ describe('kriterlerin birlikte uygulanması (KK-6)', () => {
 describe('uygulanan filtre çipleri', () => {
   it('uygulanan kriterleri çip olarak gösterir ve tek tek kaldırır', async () => {
     const user = userEvent.setup()
-    renderPage(`${LIST_PATH}?q=tolga&type=firmEngineer&active=1`)
+    renderPage(`${LIST_PATH}?q=tolga&type=firmEngineer`)
     await screen.findByRole('table')
 
     const chips = screen.getByLabelText('Uygulanan filtreler')
     expect(chips).toHaveTextContent('Firma Mühendisi')
-    expect(chips).toHaveTextContent('Yalnız aktif')
     expect(chips).toHaveTextContent('tolga')
 
     await user.click(screen.getByRole('button', { name: 'Yetki filtresini kaldır' }))

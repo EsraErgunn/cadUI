@@ -7,7 +7,6 @@ import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
-import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
 import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../ui/admin/adminVariants'
 import { NewProjectBuildingCard } from '../ui/admin/projects/NewProjectBuildingCard'
 import { NewProjectInfoCard } from '../ui/admin/projects/NewProjectInfoCard'
@@ -15,15 +14,16 @@ import { NewProjectInstallationCard } from '../ui/admin/projects/NewProjectInsta
 import { newProjectFieldId } from '../ui/admin/projects/newProjectSchema'
 import { useNewProjectForm } from '../ui/admin/projects/useNewProjectForm'
 import { useNewProjectLookups } from '../ui/admin/projects/useNewProjectLookups'
+import { useHomePath } from '../ui/admin/useHomePath'
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
 
 const PAGE_TITLE = 'Yeni Proje'
-const PAGE_DESCRIPTION = 'Proje tipi, ısınma tipi ve yetkili mühendis alanları parametriktir'
 const CANCEL_TITLE = 'Kaydedilmemiş değişiklikler var'
 const CANCEL_DESCRIPTION =
   'Girdiğiniz bilgiler kaydedilmeden proje listesine dönülecek. Devam edilsin mi?'
 
 export function NewProjectPage() {
+  const homePath = useHomePath()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isAdmin = useIsAdmin()
@@ -76,12 +76,11 @@ export function NewProjectPage() {
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
       <PageHeader
         breadcrumb={[
-          { label: 'Anasayfa', to: ADMIN_HOME_PATH },
+          { label: 'Anasayfa', to: homePath },
           { label: 'Projeler', to: PROJECT_LIST_PATH },
           { label: PAGE_TITLE },
         ]}
         title={PAGE_TITLE}
-        description={PAGE_DESCRIPTION}
       />
 
       {form.submitError !== null && (
