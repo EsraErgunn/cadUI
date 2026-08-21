@@ -154,7 +154,6 @@ export function ProjectFirmsPage() {
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={formatCountLabel(data === undefined ? undefined : totalCount)}
-          description="Sisteme kayıtlı proje (mühendislik) firmaları"
         />
         <ProjectFirmTableToolbar
           nameQuery={query.nameQuery}

@@ -10,6 +10,7 @@ import {
   buildUnits,
   renderDetail,
 } from './projectDetailFixture'
+import { setAuthSession } from '../../api/authToken'
 
 const detailApi = vi.hoisted(() => ({
   getProjectDetail: vi.fn(),
@@ -37,6 +38,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
   vi.clearAllMocks()
 })
 

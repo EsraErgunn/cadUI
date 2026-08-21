@@ -4,7 +4,6 @@ import { GasDistributionUserForm } from '../ui/admin/gasDistributionUsers/GasDis
 
 const LIST_TITLE = 'Gaz Dağıtım Kullanıcıları'
 const PAGE_TITLE = 'Yeni Gaz Dağıtım Kullanıcısı'
-const DESCRIPTION = 'Bir gaz dağıtım firmasına bağlı kullanıcı hesabı oluşturun'
 
 const BREADCRUMB = [
   { label: 'Anasayfa', to: ADMIN_HOME_PATH },
@@ -22,7 +21,7 @@ const BREADCRUMB = [
 export function GasDistributionUserFormPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
-      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} description={DESCRIPTION} />
+      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} />
 
       <GasDistributionUserForm />
     </div>

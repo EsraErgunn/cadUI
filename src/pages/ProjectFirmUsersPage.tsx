@@ -24,7 +24,6 @@ import { useSavedProjectFirmUserNotice } from '../ui/admin/projectFirmUsers/useS
 const PAGE_TITLE = 'Proje Firması Kullanıcıları'
 
 /** Belge madde 1 / KK-1, birebir. */
-const DESCRIPTION = 'Firma mühendisleri ve yetkilileri'
 
 const BREADCRUMB = [
   { label: 'Anasayfa', to: ADMIN_HOME_PATH },
@@ -71,7 +70,6 @@ export function ProjectFirmUsersPage() {
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={formatCountLabel(totalCount)}
-          description={DESCRIPTION}
         />
         <ProjectFirmUserFilterBar
           filters={{

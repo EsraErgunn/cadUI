@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronDown, Info } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { EditorActions } from './menu/EditorActions'
 import { MenuDropdown } from './menu/MenuDropdown'
@@ -14,6 +14,7 @@ import {
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
 import { MENU_ICONS } from './menu/menuIcons'
+import { useUiStore } from '../store/uiStore'
 import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
 type MenuBarProps = {
@@ -50,6 +51,7 @@ export function MenuBar({
   isSaving,
   versionHistory,
 }: MenuBarProps) {
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const barRef = useRef<HTMLElement>(null)
 
@@ -73,6 +75,23 @@ export function MenuBar({
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [openMenuId])
+
+  /**
+   * Salt görüntülemede kapatılan DOSYA maddeleri. `MenuDropdown`'ın hâzır
+   * `unavailableItemIds` prop'u kullanılıyor — menü için ikinci bir pasiflik
+   * mekanizması yazılmadı.
+   *
+   * "Dışa Aktar" LİSTEDE YOK: JSON'u dışarı yazmak çizimi değiştirmiyor, bir
+   * okuma işlemi. Kapatılanların dördü de çizime yazar (Kaydet ve Farklı Kaydet
+   * sunucuya, İçe Aktar ve Projeyi Temizle doğrudan store'a).
+   */
+  const unavailableItemIds = useMemo(
+    () =>
+      isReadOnly
+        ? new Set([SAVE_ITEM_ID, SAVE_AS_ITEM_ID, IMPORT_ITEM_ID, CLEAR_PROJECT_ITEM_ID])
+        : undefined,
+    [isReadOnly],
+  )
 
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
@@ -121,7 +140,11 @@ export function MenuBar({
                 />
               </button>
               {openMenuId === menu.id && (
-                <MenuDropdown menu={menu} onSelectItem={handleSelectItem} />
+                <MenuDropdown
+                  menu={menu}
+                  onSelectItem={handleSelectItem}
+                  unavailableItemIds={unavailableItemIds}
+                />
               )}
             </div>
           )
@@ -148,7 +171,12 @@ export function MenuBar({
       </button>
       <div className="flex-1" />
 
-      <EditorActions onSave={onSave} isSaving={isSaving} versionHistory={versionHistory} />
+      <EditorActions
+        onSave={onSave}
+        isSaving={isSaving}
+        isReadOnly={isReadOnly}
+        versionHistory={versionHistory}
+      />
     </header>
   )
 }

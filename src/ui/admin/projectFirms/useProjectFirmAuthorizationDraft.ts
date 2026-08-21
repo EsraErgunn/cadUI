@@ -45,16 +45,16 @@ export interface ProjectFirmAuthorizationDraft {
   visibleGasFirms: AuthorizationGasFirm[]
   areGasFirmsPending: boolean
   gasFirmSearch: string
-  checkedGasFirmIds: number[]
+  /** TEK seçim (K-single): en fazla bir gaz dağıtım firması. */
+  selectedGasFirmId: number | null
   certificateNumber: string
   errors: AuthorizationDraftErrors
   /** Grup değişiminde işaretlerin temizlendiğini duyuran metin; okununca kalır. */
   clearedNotice: string | null
   setGroupId: (groupId: string) => void
   setGasFirmSearch: (search: string) => void
-  toggleGasFirm: (gasDistributionFirmId: number) => void
+  selectGasFirm: (gasDistributionFirmId: number) => void
   /** Görünen (süzülmüş) kayıtların tamamını işaretler veya işareti kaldırır. */
-  toggleAllVisibleGasFirms: (isChecked: boolean) => void
   setCertificateNumber: (value: string) => void
   add: () => void
 }
@@ -78,7 +78,7 @@ export function useProjectFirmAuthorizationDraft({
 }: UseProjectFirmAuthorizationDraftOptions): ProjectFirmAuthorizationDraft {
   const [groupId, setGroupIdValue] = useState('')
   const [gasFirmSearch, setGasFirmSearch] = useState('')
-  const [checkedGasFirmIds, setCheckedGasFirmIds] = useState<number[]>([])
+  const [selectedGasFirmId, setSelectedGasFirmId] = useState<number | null>(null)
   const [certificateNumber, setCertificateNumber] = useState('')
   const [errors, setErrors] = useState<AuthorizationDraftErrors>({})
   const [clearedNotice, setClearedNotice] = useState<string | null>(null)
@@ -127,47 +127,34 @@ export function useProjectFirmAuthorizationDraft({
       setGroupIdValue(nextGroupId)
       setGasFirmSearch('')
       setErrors((current) => ({ ...current, group: undefined, gasFirms: undefined }))
-      setCheckedGasFirmIds([])
+      setSelectedGasFirmId(null)
       // Bildirim yalnız gerçekten bir şey kaybolduysa çıkar; ilk seçimde
       // "temizlendi" demek kullanıcıyı olmayan bir kayıp için endişelendirirdi.
       // Karar güncelleyicinin İÇİNDE verilemez: `setState` çağrısı saf olmayan
       // bir güncelleyici demektir, React onu iki kez çalıştırabilir.
-      setClearedNotice(
-        checkedGasFirmIds.length > 0 ? GAS_FIRM_SELECTION_CLEARED_NOTICE : null,
-      )
+      setClearedNotice(selectedGasFirmId !== null ? GAS_FIRM_SELECTION_CLEARED_NOTICE : null)
     },
-    [checkedGasFirmIds],
+    [selectedGasFirmId],
   )
 
-  const toggleGasFirm = useCallback((gasDistributionFirmId: number) => {
-    setCheckedGasFirmIds((current) =>
-      current.includes(gasDistributionFirmId)
-        ? current.filter((id) => id !== gasDistributionFirmId)
-        : [...current, gasDistributionFirmId],
-    )
+  /**
+   * Seçim TEKİL: bir proje firmasına tek "Ekle" ile yalnız bir gaz dağıtım
+   * firması bağlanır. Sertifika No o kayda ait ve eşsiz olmak zorunda —
+   * çoklu seçimde tek numara N firmaya birden yazılıyordu.
+   *
+   * "Tümünü Seç" bu yüzden KALKTI: tekil seçimde karşılığı yok.
+   */
+  const selectGasFirm = useCallback((gasDistributionFirmId: number) => {
+    setSelectedGasFirmId(gasDistributionFirmId)
     setErrors((current) => ({ ...current, gasFirms: undefined }))
   }, [])
 
-  const toggleAllVisibleGasFirms = useCallback(
-    (isChecked: boolean) => {
-      const visibleIds = visibleGasFirms.map((gasFirm) => gasFirm.id)
-
-      setCheckedGasFirmIds((current) => {
-        // Süzülmüş listede çalışır: arama yapan kullanıcının GÖRMEDİĞİ kayıtlar
-        // ne işaretlenir ne de işareti kaldırılır.
-        if (!isChecked) return current.filter((id) => !visibleIds.includes(id))
-        return [...new Set([...current, ...visibleIds])]
-      })
-      setErrors((current) => ({ ...current, gasFirms: undefined }))
-    },
-    [visibleGasFirms],
-  )
-
   const add = useCallback(() => {
     const group = selectedGroup ?? undefined
-    const selectedGasFirms = gasFirms.filter((gasFirm) =>
-      checkedGasFirmIds.includes(gasFirm.id),
-    )
+    // Tek seçim, ama alt katman (`buildProjectFirmAuthorizations`,
+    // `findDuplicateGasFirms`) LİSTE ile çalışıyor: tek öğeli dizi olarak
+    // geçiliyor, o taraf değişmedi.
+    const selectedGasFirms = gasFirms.filter((gasFirm) => gasFirm.id === selectedGasFirmId)
     const nextErrors: AuthorizationDraftErrors = {}
 
     if (group === undefined) nextErrors.group = AUTHORIZATION_ERRORS.group
@@ -193,17 +180,10 @@ export function useProjectFirmAuthorizationDraft({
     // ASSUMPTION: Belge "Ekle" sonrası taslağın ne olacağını söylemiyor.
     // İşaretler ve numara sıfırlanır, GRUP kalır: kullanıcı çoğunlukla aynı
     // grubun başka firmaları için ikinci bir kayıt ekliyor.
-    setCheckedGasFirmIds([])
+    setSelectedGasFirmId(null)
     setCertificateNumber('')
     setClearedNotice(null)
-  }, [
-    authorizations,
-    certificateNumber,
-    checkedGasFirmIds,
-    gasFirms,
-    onAdd,
-    selectedGroup,
-  ])
+  }, [authorizations, certificateNumber, selectedGasFirmId, gasFirms, onAdd, selectedGroup])
 
   return {
     groups: groups ?? [],
@@ -212,14 +192,13 @@ export function useProjectFirmAuthorizationDraft({
     visibleGasFirms,
     areGasFirmsPending: selectedGroup !== null && areGasFirmsPending,
     gasFirmSearch,
-    checkedGasFirmIds,
+    selectedGasFirmId,
     certificateNumber,
     errors,
     clearedNotice,
     setGroupId,
     setGasFirmSearch,
-    toggleGasFirm,
-    toggleAllVisibleGasFirms,
+    selectGasFirm,
     setCertificateNumber,
     add,
   }

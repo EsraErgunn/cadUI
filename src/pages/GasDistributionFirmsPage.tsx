@@ -93,7 +93,6 @@ export function GasDistributionFirmsPage() {
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={formatCountLabel(data?.totalCount)}
-          description="Sisteme kayıtlı tüm gaz dağıtım firmaları"
         />
         <FirmTableToolbar
           nameQuery={query.nameQuery}

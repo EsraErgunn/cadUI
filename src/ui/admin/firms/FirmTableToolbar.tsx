@@ -28,19 +28,11 @@ export function FirmTableToolbar({
 
   return (
     <div className={ADMIN_TOOLBAR_ROW}>
-      {/* Enter ile "Filtrele" aynı işi yapsın diye ikisi de formun submit'i.
-          key={nameQuery}: URL dışarıdan değişince (geri tuşu, etiket kaldırma)
-          kutu yeni değerle yeniden kurulur — kopya state tutmaya gerek kalmaz. */}
-      <form
-        key={nameQuery}
-        className={ADMIN_TOOLBAR_FORM}
-        onSubmit={(event) => {
-          event.preventDefault()
-          const value = new FormData(event.currentTarget).get(NAME_QUERY_FIELD)
-          onApplyNameQuery(typeof value === 'string' ? value.trim() : '')
-          onOpenFilterPanel()
-        }}
-      >
+      {/* Manuel "uygula" adımı KALKTI: arama Enter'da uygulanıyor, "Filtrele"
+          artık yalnız kriter alanını açıyor (proje firmaları çubuğuyla aynı
+          davranış). key={nameQuery}: URL dışarıdan değişince (geri tuşu, etiket
+          kaldırma) kutu yeni değerle yeniden kurulur — kopya state gerekmez. */}
+      <div key={nameQuery} className={ADMIN_TOOLBAR_FORM}>
         <div className={ADMIN_TOOLBAR_SEARCH_WRAPPER}>
           <Search
             aria-hidden
@@ -50,6 +42,11 @@ export function FirmTableToolbar({
             type="search"
             name={NAME_QUERY_FIELD}
             defaultValue={nameQuery}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return
+              event.preventDefault()
+              onApplyNameQuery(event.currentTarget.value.trim())
+            }}
             aria-label="Firma adında ara"
             placeholder="Firma Adı"
             className={adminFieldVariants({ className: ADMIN_TOOLBAR_SEARCH_FIELD })}
@@ -57,14 +54,14 @@ export function FirmTableToolbar({
         </div>
 
         <button
-          type="submit"
-          aria-label="Filtrele"
+          type="button"
+          onClick={onOpenFilterPanel}
           className={adminButtonVariants({ tone: 'secondary' })}
         >
           <Funnel aria-hidden className="size-4" />
           Filtrele
         </button>
-      </form>
+      </div>
 
       {canCreateFirm && (
         <Link

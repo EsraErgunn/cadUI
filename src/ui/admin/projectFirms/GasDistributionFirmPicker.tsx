@@ -18,20 +18,25 @@ interface GasDistributionFirmPickerProps {
   label: string
   labelNote?: string
   gasFirms: AuthorizationGasFirm[]
-  checkedGasFirmIds: number[]
+  /** TEK seçim; `null` = henüz seçilmedi. */
+  selectedGasFirmId: number | null
   search: string
   isPending: boolean
   /** Grup seçilmeden liste yüklenmez; boş hâlin metni buna göre değişir. */
   hasSelectedGroup: boolean
   error?: string
   onSearchChange: (search: string) => void
-  onToggleGasFirm: (gasDistributionFirmId: number) => void
-  onToggleAll: (isChecked: boolean) => void
+  onSelectGasFirm: (gasDistributionFirmId: number) => void
 }
 
 /**
- * Yetkilendirilecek gaz dağıtım firmalarının seçimi: iki sütunlu onay kutusu
- * ızgarası, üstünde arama ve "Tümünü Seç" (belge madde 17-19).
+ * Yetkilendirilecek gaz dağıtım firmasının seçimi: iki sütunlu RADYO ızgarası,
+ * üstünde arama.
+ *
+ * Seçim TEKİL (belge madde 17-19'daki çoklu seçimden bilinçli sapma): sertifika
+ * numarası tek bir yetkilendirme kaydına ait ve eşsiz olmak zorunda, çoklu
+ * seçimde aynı numara N firmaya birden yazılıyordu. "Tümünü Seç" bu yüzden
+ * kalktı — tekil seçimde karşılığı yok.
  *
  * Etiket belgeden geldiği gibi "G.D Firması Bölgeleri" kalıyor; kutulardaki
  * kayıtlar coğrafi bölge değil bölge lisanslı FİRMA ve adları "AKSA-ADANA"
@@ -47,20 +52,16 @@ export function GasDistributionFirmPicker({
   label,
   labelNote,
   gasFirms,
-  checkedGasFirmIds,
+  selectedGasFirmId,
   search,
   isPending,
   hasSelectedGroup,
   error,
   onSearchChange,
-  onToggleGasFirm,
-  onToggleAll,
+  onSelectGasFirm,
 }: GasDistributionFirmPickerProps) {
   const labelId = `${id}-label`
   const searchId = `${id}-search`
-  const selectAllId = `${id}-select-all`
-  const areAllChecked =
-    gasFirms.length > 0 && gasFirms.every((gasFirm) => checkedGasFirmIds.includes(gasFirm.id))
 
   return (
     <div className={fieldFrameVariants({ layout: 'horizontal' })}>
@@ -88,25 +89,12 @@ export function GasDistributionFirmPicker({
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              id={selectAllId}
-              type="checkbox"
-              checked={areAllChecked}
-              disabled={gasFirms.length === 0}
-              onChange={(event) => onToggleAll(event.target.checked)}
-              className={ADMIN_CHECKBOX}
-            />
-            <label htmlFor={selectAllId} className="text-sm text-ink">
-              Tümünü Seç
-            </label>
-          </div>
         </div>
 
         {/* Kayıt sayısı fazla olduğunda alan KENDİ İÇİNDE kayar (belge madde 18):
             sayfanın tamamı uzayıp "Ekle" düğmesi ekrandan çıkmasın. */}
         <div
-          role="group"
+          role="radiogroup"
           aria-labelledby={labelId}
           className="max-h-64 overflow-y-auto rounded-lg border border-edge bg-surface p-3"
         >
@@ -123,10 +111,13 @@ export function GasDistributionFirmPicker({
           <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
             {gasFirms.map((gasFirm) => (
               <label key={gasFirm.id} className="flex items-center gap-2 text-sm text-ink">
+                {/* Radyo: aynı `name` ile tarayıcı tekilliği kendisi uyguluyor,
+                    ayrıca ok tuşlarıyla gezinme geliyor. */}
                 <input
-                  type="checkbox"
-                  checked={checkedGasFirmIds.includes(gasFirm.id)}
-                  onChange={() => onToggleGasFirm(gasFirm.id)}
+                  type="radio"
+                  name={id}
+                  checked={selectedGasFirmId === gasFirm.id}
+                  onChange={() => onSelectGasFirm(gasFirm.id)}
                   className={ADMIN_CHECKBOX}
                 />
                 {gasFirm.name}
@@ -138,7 +129,8 @@ export function GasDistributionFirmPicker({
         {/* Sayı arama sonucuyla değişiyor: duyurulmazsa ekran okuyucu kullanıcısı
             süzmenin çalıştığını göremez. */}
         <p aria-live="polite" className="text-xs text-ink-muted">
-          {gasFirms.length} bölge listeleniyor, {checkedGasFirmIds.length} tanesi işaretli.
+          {gasFirms.length} bölge listeleniyor,{' '}
+          {selectedGasFirmId === null ? 'seçim yapılmadı' : '1 tanesi seçili'}.
         </p>
 
         {error !== undefined && <FieldError id={errorId(id)}>{error}</FieldError>}

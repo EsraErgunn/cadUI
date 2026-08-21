@@ -25,7 +25,6 @@ import {
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
 
 const PAGE_TITLE = 'Gaz Dağıtım Kullanıcıları'
-const PAGE_DESCRIPTION = 'Gaz dağıtım firmalarının kullanıcıları'
 
 const BREADCRUMB = [
   { label: 'Anasayfa', to: ADMIN_HOME_PATH },
@@ -86,7 +85,6 @@ export function GasDistributionUsersPage() {
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={formatCountLabel(data?.totalCount)}
-          description={PAGE_DESCRIPTION}
         />
 
         {isAdmin && (

@@ -25,7 +25,6 @@ const EMPTY_SEARCH_MESSAGE =
   'Aramaya uyan duyuru bulunamadı. Aramayı değiştirip tekrar deneyin.'
 
 /** Liste kapsamdan bağımsız: duyuru varlığı sunucuda yok, süzgeç de yok. */
-const PAGE_DESCRIPTION = 'Kullanıcı ekranlarında görünen tüm duyurular'
 
 /**
  * Duyuru listesi. Anasayfadaki kart en yeni iki duyuruyu gösteriyor, bu ekran
@@ -71,7 +70,6 @@ export function AnnouncementsPage() {
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={data === undefined ? '…' : String(data.totalCount)}
-          description={PAGE_DESCRIPTION}
         />
         <AnnouncementsToolbar
           textQuery={query.textQuery}

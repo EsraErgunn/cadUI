@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { GLOBAL_SCOPE } from '../../../api/adminDashboard'
 import type { SortDirection } from '../../../api/listQuery'
 import {
   DEFAULT_PROJECT_SORT_DIR,
@@ -22,7 +21,6 @@ import {
   useAdminParamWriter,
 } from '../adminUrlParams'
 import { useAdminScopeParam } from '../useAdminScopeParam'
-import { useIsManagementUser } from '../useRole'
 
 function parseStatus(raw: string | null): ProjectStatus {
   return PROJECT_STATUSES.find((status) => status === raw) ?? DEFAULT_PROJECT_STATUS
@@ -69,13 +67,11 @@ export function useProjectListParams(): ProjectListControls {
   // Üst bardaki kapsam da URL'de duruyor; ayrı bir global state yok. Sorgu
   // nesnesinin parçası olduğu için `queryKey: ['projects', query]` kapsam
   // değişince kendiliğinden değişiyor ve eski liste gösterilmiyor.
-  const { scope: urlScope } = useAdminScopeParam()
-  const isManagementUser = useIsManagementUser()
-  // Kapsam GAZ DAĞITIM grubunu/firmasını seçiyor ve seçicisi yalnız yönetim
-  // rollerinde çiziliyor. Adres elle düzenlenirse parametre yine URL'de
-  // olabilirdi; sorguya geçirmemek onu tek yerde kesiyor. Bu bir güvenlik
-  // sınırı DEĞİL (veri kapsamını sunucu belirliyor), sorgunun tutarlılığı için.
-  const scope = isManagementUser ? urlScope : GLOBAL_SCOPE
+  // Kapsam seçicisi üç rolde de çiziliyor (üst bar herkeste aynı), bu yüzden
+  // seçim de üç rolde de sorguya giriyor. DARALTMA yapıyor, genişletme değil:
+  // sunucu zaten `WhereVisibleTo` ile kullanıcının görebildiği kümeyi veriyor,
+  // `gdGroupId`/`gdFirmId` onun İÇİNDE süzüyor.
+  const { scope } = useAdminScopeParam()
 
   const query = useMemo<ProjectListQuery>(() => {
     const defaultRange = lastMonthRange(new Date())

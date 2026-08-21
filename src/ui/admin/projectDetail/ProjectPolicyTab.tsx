@@ -10,6 +10,7 @@ import { MissingSourceNotice } from '../MissingSourceNotice'
 import { formatCurrency, formatPlainDate } from '../adminFormat'
 import { policyCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
+import { useCanWriteProjectContent } from '../useRole'
 import { detailBadgeVariants } from './projectDetailVariants'
 
 const EMPTY_MESSAGE = 'Proje Poliçe Kaydı Bulunamamıştır.'
@@ -71,17 +72,23 @@ export function ProjectPolicyTab({
   projectId: number
   policies: Sourced<ProjectPolicyRow[]> | undefined
 }) {
+  // Poliçe OLUŞTURMA sunucuda `Admin, ProjectFirmUser`'a açık
+  // (`POST /api/policies`); gaz dağıtım kullanıcısı poliçeleri görür, açamaz.
+  const canWriteContent = useCanWriteProjectContent()
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Link
-          to={policyCreatePath(projectId)}
-          className={adminButtonVariants({ tone: 'primary' })}
-        >
-          <ShieldPlus aria-hidden className="size-4" />
-          Poliçelendir
-        </Link>
-      </div>
+      {canWriteContent && (
+        <div>
+          <Link
+            to={policyCreatePath(projectId)}
+            className={adminButtonVariants({ tone: 'primary' })}
+          >
+            <ShieldPlus aria-hidden className="size-4" />
+            Poliçelendir
+          </Link>
+        </div>
+      )}
 
       {policies === undefined || policies.source === 'unavailable' ? (
         <MissingSourceNotice endpointHint="GET /api/projects/{id}/policies" />

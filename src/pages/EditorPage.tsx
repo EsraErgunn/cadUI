@@ -3,6 +3,7 @@ import { useBlocker } from 'react-router-dom'
 
 import { useCloseEditor } from './useCloseEditor'
 import { useEditorExit } from './useEditorExit'
+import { useEditorReadOnlyMode } from './useEditorReadOnlyMode'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
 import { useProjectImport } from './useProjectImport'
@@ -27,11 +28,13 @@ import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
+import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
   const activeViewId = useUiStore((state) => state.activeViewId)
+  const isReadOnly = useEditorReadOnlyMode()
   const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
     useProjectPersistence()
   const exportProject = useProjectExport()
@@ -42,7 +45,13 @@ export function EditorPage() {
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
   const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
-  const handleSave = () => void save()
+  // Salt görüntülemede kaydetme yolu HİÇ çağrılmaz: düğme ve kısayol zaten
+  // yok, bu son kapı elle tetiklenen bir çağrıyı da durdurur. Sunucu da aynı
+  // şeyi söylüyor (`newversion` → Admin, ProjectFirmUser).
+  const handleSave = () => {
+    if (isReadOnly) return
+    void save()
+  }
 
   // Sekme kapatma / yenileme tarayıcının kendi sorusuyla; uygulama İÇİ her
   // çıkış (düğme, menü, geri tuşu) aşağıdaki engelle.
@@ -84,6 +93,9 @@ export function EditorPage() {
   }
 
   useEditorShortcuts({
+    // Salt görüntülemede yazan kısayolların HİÇBİRİ bağlanmıyor (kaydet,
+    // farklı kaydet, kat pencereleri, geri al/yinele) — hook'un kendi içinde.
+    isReadOnly,
     onSave: handleSave,
     onSaveAs: () => setIsSaveAsOpen(true),
     onOpenFloorManagement: () => setIsFloorDialogOpen(true),
@@ -151,6 +163,9 @@ export function EditorPage() {
         <div className="relative flex min-h-0 flex-1 pl-3">
           <main className="relative min-w-0 flex-1 overflow-hidden">
             <SceneRoot />
+            {/* Şerit tuvalin üstünde ve her görünümde: izometrikte de aynı
+                kısıt geçerli. */}
+            {isReadOnly && <ReadOnlyNotice />}
             <OpeningToolOptions />
             {/* İki şerit aynı yerde ama asla birlikte görünmez: biri mimari
                 açıklık aracına, öteki tesisatta klavyeyle çizime (ok tuşu /

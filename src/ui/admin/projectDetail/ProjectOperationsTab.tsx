@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import type { ProjectDecision } from '../../../api/projectDetail'
 import { documentCreatePath, policyCreatePath } from '../adminNavItems'
+import { useCanWriteProjectContent } from '../useRole'
 import { quickActionVariants } from './projectDetailVariants'
 
 const DRAFT_HINT = 'Taslak proje işleme alınamaz; firma tarafından gönderilmesi gerekir.'
@@ -46,6 +47,8 @@ export function ProjectOperationsTab({
   onDecision,
   onPdfReport,
 }: ProjectOperationsTabProps) {
+  const canWriteContent = useCanWriteProjectContent()
+
   return (
     <section aria-label="Proje İşlemleri" className="flex flex-col gap-4">
       {canApprove && isDraft && (
@@ -82,15 +85,24 @@ export function ProjectOperationsTab({
           PDF Rapor Al
         </button>
 
-        <Link to={documentCreatePath(projectId)} className={quickActionVariants()}>
-          <Plus aria-hidden className="size-5 text-ink-muted" />
-          Evrak Ekle
-        </Link>
+        {/* Evrak ve poliçe YAZMA kısayolları: sunucu ikisini de
+            `Admin, ProjectFirmUser`'a açıyor (`POST /api/docs`,
+            `POST /api/policies`). Gaz dağıtım kullanıcısının işi karar vermek;
+            kısayollar ona hiç çizilmiyor. Kararların kendisi yukarıda ve
+            `canApprove` arkasında. */}
+        {canWriteContent && (
+          <>
+            <Link to={documentCreatePath(projectId)} className={quickActionVariants()}>
+              <Plus aria-hidden className="size-5 text-ink-muted" />
+              Evrak Ekle
+            </Link>
 
-        <Link to={policyCreatePath(projectId)} className={quickActionVariants()}>
-          <ShieldPlus aria-hidden className="size-5 text-ink-muted" />
-          Poliçelendir
-        </Link>
+            <Link to={policyCreatePath(projectId)} className={quickActionVariants()}>
+              <ShieldPlus aria-hidden className="size-5 text-ink-muted" />
+              Poliçelendir
+            </Link>
+          </>
+        )}
       </div>
     </section>
   )

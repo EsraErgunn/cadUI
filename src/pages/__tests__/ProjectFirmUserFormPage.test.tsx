@@ -44,7 +44,6 @@ describe('oluşturma ekranının açılışı (KK-13)', () => {
     expect(
       screen.getByRole('heading', { name: 'Yeni Proje Firma Kullanıcısı Oluşturma' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Oluşturma ve güncelleme aynı ekranı kullanır')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Kullanıcı Bilgileri/ })).toBeInTheDocument()
     // "Kullanıcı Yetkinlikleri" bölümü ekrandan kaldırıldı.
     expect(screen.queryByRole('heading', { name: /Kullanıcı Yetkinlikleri/ })).toBeNull()

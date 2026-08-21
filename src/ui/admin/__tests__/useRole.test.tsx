@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { setAuthSession } from '../../../api/authToken'
 import { ROLE_CODES } from '../../../api/roles'
-import { getNavItemsForRole } from '../adminNavItems'
+import { MANAGEMENT_SCREEN_ROLES, getNavItemsForRole } from '../adminNavItems'
 import { hasAnyRole, toRoleCode, useRoleCode } from '../useRole'
 import { getWorkspaceIdentity, resolveHomePath } from '../workspaceIdentity'
 
@@ -67,6 +67,7 @@ describe('getNavItemsForRole', () => {
   it('proje firması kullanıcısına yönetim maddesi vermez', () => {
     const keys = getNavItemsForRole(ROLE_CODES.projectFirmUser).map((item) => item.key)
 
+    // "Grup Firmaları" sol menüde DEĞİL, üst barda (`AdminTopBar`).
     expect(keys).toEqual(['firmHome', 'projects', 'documents', 'policies'])
   })
 
@@ -85,15 +86,46 @@ describe('getNavItemsForRole', () => {
     ])
   })
 
+  /**
+   * Gaz dağıtım kullanıcısı bir süre `MANAGEMENT_SCREEN_ROLES`'te GEÇİCİ olarak
+   * duruyordu ve yönetim menüsünü görüyordu. Artık kendi kümesi var: projeleri
+   * onaylıyor, firma/kullanıcı yönetmiyor.
+   */
+  it('gaz dağıtım kullanıcısına yönetim maddesi vermez', () => {
+    const keys = getNavItemsForRole(ROLE_CODES.gasDistributionUser).map((item) => item.key)
+
+    // "Gaz Dağıtım Kullanıcıları" bu rolde VAR: liste ucu `WhereVisibleTo` ile
+    // token'daki firmaya daraltılıyor, yani kendi firmasının kullanıcıları.
+    expect(keys).toEqual([
+      'gasDistributionHome',
+      'projects',
+      'gasDistributionUsers',
+      'documents',
+      'policies',
+    ])
+  })
+
   it('tanınmayan role boş menü verir', () => {
     expect(getNavItemsForRole(undefined)).toEqual([])
   })
 })
 
+describe('MANAGEMENT_SCREEN_ROLES', () => {
+  /**
+   * Bu dizi hem menü süzgeci hem `RequireRole` listesi. Gaz dağıtım kullanıcısı
+   * buradan çıkarıldı — geri sızarsa altı yönetim ekranı birden ona açılır.
+   */
+  it('yalnız yöneticiyi içerir', () => {
+    expect(MANAGEMENT_SCREEN_ROLES).toEqual([ROLE_CODES.admin])
+  })
+})
+
 describe('workspaceIdentity', () => {
+  // Üç rol, üç ayrı adres: hiçbiri ötekinin anasayfasına düşmemeli.
   it('rolün anasayfasını verir', () => {
     expect(resolveHomePath(ROLE_CODES.admin)).toBe('/admin')
     expect(resolveHomePath(ROLE_CODES.projectFirmUser)).toBe('/firm')
+    expect(resolveHomePath(ROLE_CODES.gasDistributionUser)).toBe('/gas-distribution')
   })
 
   /** Tanınmayan rolün "çalışma alanı" yok; anasayfası yetkisiz ekranı. */
@@ -104,5 +136,9 @@ describe('workspaceIdentity', () => {
 
   it('proje firması kullanıcısına yönetici başlığını göstermez', () => {
     expect(getWorkspaceIdentity(ROLE_CODES.projectFirmUser).title).toBe('Firma Paneli')
+  })
+
+  it('gaz dağıtım kullanıcısına yönetici başlığını göstermez', () => {
+    expect(getWorkspaceIdentity(ROLE_CODES.gasDistributionUser).title).toBe('Dağıtım Paneli')
   })
 })

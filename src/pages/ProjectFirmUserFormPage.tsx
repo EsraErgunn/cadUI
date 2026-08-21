@@ -17,7 +17,6 @@ const CREATE_TITLE = 'Yeni Proje Firma Kullanıcısı Oluşturma'
 const UPDATE_TITLE = 'Proje Firma Kullanıcısı Güncelleme'
 
 /** Belge madde 8 / KK-13, birebir. */
-const DESCRIPTION = 'Oluşturma ve güncelleme aynı ekranı kullanır'
 
 function buildBreadcrumb(title: string) {
   return [
@@ -48,7 +47,7 @@ export function ProjectFirmUserFormPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-      <PageHeader breadcrumb={buildBreadcrumb(title)} title={title} description={DESCRIPTION} />
+      <PageHeader breadcrumb={buildBreadcrumb(title)} title={title} />
 
       {userId !== null && isPending && <QueryLoading message="Kullanıcı yükleniyor…" />}
 

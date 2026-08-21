@@ -14,15 +14,13 @@ import {
   type ProjectStatusCountsQuery,
 } from '../../api/projects'
 import { PageHeader } from '../../ui/admin/PageHeader'
+import { ProjectStatusCards } from '../../ui/admin/ProjectStatusCards'
+import { RecentProjectsCard } from '../../ui/admin/RecentProjectsCard'
 import { lastMonthRange } from '../../ui/admin/adminDateRange'
 import { FIRM_HOME_PATH, PROJECT_CREATE_PATH } from '../../ui/admin/adminNavItems'
 import { adminButtonVariants } from '../../ui/admin/adminVariants'
-import { FirmProjectStatusCards } from '../../ui/admin/firmUser/FirmProjectStatusCards'
-import { FirmRecentProjectsCard } from '../../ui/admin/firmUser/FirmRecentProjectsCard'
 
 const PAGE_TITLE = 'Anasayfa'
-const PAGE_DESCRIPTION =
-  'Firmanızın projeleri ve bekleyen işleri. Sayılar son bir aylık kayıtları kapsar.'
 
 /** Kartta gösterilecek en fazla proje. Tabloyu değil, kısa bir özeti besliyor. */
 const RECENT_PROJECT_COUNT = 5
@@ -83,7 +81,6 @@ export function FirmUserHomePage() {
         <PageHeader
           breadcrumb={[{ label: 'Anasayfa', to: FIRM_HOME_PATH }]}
           title={PAGE_TITLE}
-          description={PAGE_DESCRIPTION}
         />
 
         <Link to={PROJECT_CREATE_PATH} className={adminButtonVariants({ tone: 'primary' })}>
@@ -92,12 +89,12 @@ export function FirmUserHomePage() {
         </Link>
       </div>
 
-      <FirmProjectStatusCards counts={statusCounts} rangeLabel="Son bir ay" />
+      <ProjectStatusCards counts={statusCounts} rangeLabel="Son bir ay" />
 
       {/* İki kart eşit sütun: soldaki kullanıcının DEVAM ETTİĞİ iş, sağdaki
           karşı taraftan cevap beklediği iş. Telefonda alt alta iner. */}
       <div className="grid items-start gap-5 lg:grid-cols-2">
-        <FirmRecentProjectsCard
+        <RecentProjectsCard
           title="Devam Eden Taslaklar"
           icon={PencilRuler}
           status="taslak"
@@ -105,7 +102,7 @@ export function FirmUserHomePage() {
           isError={drafts.isError}
           emptyMessage="Taslak projeniz yok. Yeni bir proje oluşturabilirsiniz."
         />
-        <FirmRecentProjectsCard
+        <RecentProjectsCard
           title="Onay Bekleyenler"
           icon={FileClock}
           status="onayBekleyen"

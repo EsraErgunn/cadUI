@@ -28,10 +28,17 @@ interface DocumentColumnsOptions {
   pendingDocumentId: number | null
   /** Yönetim görünümü mü (`useIsManagementUser`); firma sütunlarını açar. */
   isManagementView: boolean
+  /**
+   * Evrak silinebilir mi (`useCanWriteProjectContent`). Sunucu da
+   * `DELETE /api/docs/{id}` ucunu `Admin, ProjectFirmUser`'a açıyor; gaz dağıtım
+   * kullanıcısı evrağı GÖRÜR, silemez. Yetkisizde sütun HİÇ üretilmez —
+   * içi boş bir "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+   */
+  canDelete: boolean
   onDelete: (documentId: number) => void
 }
 
-/** Firma sütunlarının yeri: "Tesisat No"dan sonra, "Aksiyonlar"dan önce. */
+/** Firma sütunlarının yeri: "Tesisat No"dan hemen sonra. */
 const FIRM_COLUMN_INDEX = 8
 
 /**
@@ -46,6 +53,7 @@ export function buildDocumentColumns({
   documentTypes,
   pendingDocumentId,
   isManagementView,
+  canDelete,
   onDelete,
 }: DocumentColumnsOptions): DataTableColumn<DocumentRow, DocumentSortKey>[] {
   const columns: DataTableColumn<DocumentRow, DocumentSortKey>[] = [
@@ -110,23 +118,6 @@ export function buildDocumentColumns({
       cell: (document) =>
         document.installationNo === null ? <EmptyValue /> : document.installationNo,
     },
-    {
-      key: 'actions',
-      label: 'Aksiyonlar',
-      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
-      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
-      cell: (document) => (
-        <button
-          type="button"
-          onClick={() => onDelete(document.id)}
-          disabled={pendingDocumentId === document.id}
-          aria-busy={pendingDocumentId === document.id}
-          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
-        >
-          Sil
-        </button>
-      ),
-    },
   ]
 
   // Firma sütunları YÖNETİM görünümüne özel. Proje firması kullanıcısının
@@ -143,6 +134,26 @@ export function buildDocumentColumns({
       label: 'G.D Firması',
       cell: (document) =>
         document.gasFirmName === null ? <EmptyValue /> : document.gasFirmName,
+    })
+  }
+
+  if (canDelete) {
+    columns.push({
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (document) => (
+        <button
+          type="button"
+          onClick={() => onDelete(document.id)}
+          disabled={pendingDocumentId === document.id}
+          aria-busy={pendingDocumentId === document.id}
+          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+        >
+          Sil
+        </button>
+      ),
     })
   }
 

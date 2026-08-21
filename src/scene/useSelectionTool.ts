@@ -22,6 +22,7 @@ import { getSymbolsOnFloor } from '../core/symbolPlacement'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
+import { isEditorReadOnly } from '../store/editorReadOnly'
 import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
@@ -184,6 +185,9 @@ export function useSelectionTool(): void {
      */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
+      // Silme ve çoğaltma çizimi DEĞİŞTİRİR; salt görüntülemede tuş yutulmaz,
+      // yalnız işlem yapılmaz (tarayıcının kendi davranışı serbest kalsın).
+      if (isEditorReadOnly()) return
 
       const ui = useArchitectureUiStore.getState()
       if (ui.selection.length === 0) return

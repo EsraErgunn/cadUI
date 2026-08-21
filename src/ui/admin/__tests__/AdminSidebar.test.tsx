@@ -6,7 +6,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { setAuthSession } from '../../../api/authToken'
 import { ROLE_CODES, type RoleCode } from '../../../api/roles'
 import { AdminSidebar } from '../AdminSidebar'
-import { FIRM_HOME_PATH, getNavItemsForRole } from '../adminNavItems'
+import {
+  FIRM_HOME_PATH,
+  GAS_DISTRIBUTION_HOME_PATH,
+  getNavItemsForRole,
+} from '../adminNavItems'
 
 /**
  * Menü artık ROLE göre süzülüyor, bu yüzden oturum kurulmadan render edilemez:
@@ -55,7 +59,8 @@ describe('AdminSidebar', () => {
   it('her madde bağlantıdır, pasif düğme kalmadı', () => {
     renderSidebar()
 
-    expect(screen.getAllByRole('link')).toHaveLength(ADMIN_NAV_ITEMS.length)
+    // +1: StarCAD logosu da artık rolün anasayfasına giden bir bağlantı.
+    expect(screen.getAllByRole('link')).toHaveLength(ADMIN_NAV_ITEMS.length + 1)
     for (const item of ADMIN_NAV_ITEMS) {
       expect(screen.getByRole('link', { name: new RegExp(item.label) })).toBeInTheDocument()
     }
@@ -137,7 +142,9 @@ describe('AdminSidebar rol bazlı menü', () => {
     renderSidebar(FIRM_HOME_PATH, ROLE_CODES.projectFirmUser)
 
     const labels = screen.getAllByRole('link').map((link) => link.textContent)
+    // İlk bağlantı StarCAD logosu; menü maddeleri onun ardından geliyor.
     expect(labels).toEqual([
+      expect.stringContaining('StarCAD'),
       expect.stringContaining('Anasayfa'),
       expect.stringContaining('Projeler'),
       expect.stringContaining('Evraklar'),
@@ -175,6 +182,47 @@ describe('AdminSidebar rol bazlı menü', () => {
     }
   })
 
+  it('gaz dağıtım kullanıcısına yalnız dört madde gösterir', () => {
+    renderSidebar(GAS_DISTRIBUTION_HOME_PATH, ROLE_CODES.gasDistributionUser)
+
+    const labels = screen.getAllByRole('link').map((link) => link.textContent)
+    expect(labels).toEqual([
+      expect.stringContaining('StarCAD'),
+      expect.stringContaining('Anasayfa'),
+      expect.stringContaining('Projeler'),
+      expect.stringContaining('Gaz Dağıtım Kullanıcıları'),
+      expect.stringContaining('Evraklar'),
+      expect.stringContaining('Poliçeler'),
+    ])
+  })
+
+  /** Gaz dağıtım kullanıcısının GÖRDÜĞÜ "Gaz Dağıtım Kullanıcıları" hariç. */
+  const gasUserHiddenLabels = MANAGEMENT_LABELS.filter(
+    (label) => label !== 'Gaz Dağıtım Kullanıcıları',
+  )
+
+  it.each(gasUserHiddenLabels)('gaz dağıtım kullanıcısı "%s" maddesini görmez', (label) => {
+    renderSidebar(GAS_DISTRIBUTION_HOME_PATH, ROLE_CODES.gasDistributionUser)
+
+    expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()
+  })
+
+  // Üç rolün Anasayfa maddesi üç ayrı adrese gider; hiçbiri ötekine sızmamalı.
+  it('gaz dağıtım kullanıcısının Anasayfa maddesi /gas-distribution adresine gider', () => {
+    renderSidebar(GAS_DISTRIBUTION_HOME_PATH, ROLE_CODES.gasDistributionUser)
+
+    const home = screen.getByRole('link', { name: /Anasayfa/ })
+    expect(home).toHaveAttribute('href', GAS_DISTRIBUTION_HOME_PATH)
+    expect(home).toHaveTextContent('(bulunulan sayfa)')
+  })
+
+  it('gaz dağıtım kabuğunun başlığı rolden gelir', () => {
+    renderSidebar(GAS_DISTRIBUTION_HOME_PATH, ROLE_CODES.gasDistributionUser)
+
+    expect(screen.getByText('Dağıtım Paneli')).toBeInTheDocument()
+    expect(screen.queryByText('Yönetici Paneli')).not.toBeInTheDocument()
+  })
+
   /**
    * Rolü tanınmayan kullanıcı BOŞ menü görür. Varsayılan olarak yönetim
    * maddelerini göstermek, rol adı sunucuda değişince paneli herkese açardı.
@@ -195,6 +243,8 @@ describe('AdminSidebar rol bazlı menü', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.queryAllByRole('link')).toHaveLength(0)
+    // Menü maddesi YOK; kalan tek bağlantı StarCAD logosu.
+    expect(screen.queryAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link')).toHaveTextContent('StarCAD')
   })
 })

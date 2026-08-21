@@ -22,6 +22,7 @@ import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
 import { ADMIN_ROW_HIGHLIGHT, adminButtonVariants } from '../ui/admin/adminVariants'
+import { ReasonDialog } from '../ui/admin/projectDetail/ReasonDialog'
 import { CreatedProjectNotice } from '../ui/admin/projects/CreatedProjectNotice'
 import { LOCATION_STALE_MS, ProjectFilterBar } from '../ui/admin/projects/ProjectFilterBar'
 import { StatusTabs } from '../ui/admin/projects/StatusTabs'
@@ -34,16 +35,22 @@ import { buildProjectFilterChips } from '../ui/admin/projects/projectFilterChips
 import { useCreatedProjectNotice } from '../ui/admin/projects/useCreatedProjectNotice'
 import { useProjectActions } from '../ui/admin/projects/useProjectActions'
 import { useProjectListParams } from '../ui/admin/projects/useProjectListParams'
+import { useCanApproveProject } from '../ui/admin/useCanApproveProject'
 import { useHomePath } from '../ui/admin/useHomePath'
-import { useIsManagementUser } from '../ui/admin/useRole'
+import { useIsGasDistributionUser, useIsManagementUser } from '../ui/admin/useRole'
 
 const PANEL_ID = 'project-list-panel'
 const LOOKUP_STALE_MS = 5 * 60 * 1000
 
-const DOCUMENT_HINT = 'İşlemler sütunundaki evrak ikonu yeşilse projede yüklü evrak vardır.'
 const EMPTY_WITH_FILTERS =
   'Kriterlere uyan proje bulunamadı. Tarih aralığını genişletin veya ilçe/firma seçimini kaldırın.'
 const EMPTY_WITHOUT_FILTERS = 'Bu durumda kayıtlı proje yok.'
+
+const REJECT_DIALOG_COPY = {
+  title: 'Proje reddedilsin mi?',
+  description: 'Gerekçe işlem geçmişine kaydedilir ve firma kullanıcısına iletilir.',
+  confirmLabel: 'Reddet',
+}
 
 export function ProjectListPage() {
   const { query, setStatus, applyFilters, toggleSort, setPage } = useProjectListParams()
@@ -53,6 +60,16 @@ export function ProjectListPage() {
   // istemci ayrıca `ProjectFirmId` göndermiyor.
   const isManagementView = useIsManagementUser()
   const homePath = useHomePath()
+  // Gaz dağıtım kullanıcısı proje YAZMAZ, KARAR VERİR: sunucu da onu
+  // `POST /api/projects`, `DELETE /api/projects/{id}` ve `.../submit`
+  // uçlarından dışlıyor (`Authorize(Roles = Admin, ProjectFirmUser)`).
+  const isGasDistributionUser = useIsGasDistributionUser()
+  const canApproveProject = useCanApproveProject()
+  const canManageDrafts = !isGasDistributionUser
+  // Karar YETKİSİ mevcut kapıdan (`useCanApproveProject`); listede GÖSTERME
+  // kararı ise role özel — yöneticinin listesi bilerek değişmedi, onun onay/ret
+  // düğmeleri proje detayında kalıyor.
+  const canDecidePending = isGasDistributionUser && canApproveProject
 
   // Rozetler sekmeden ve sayfalamadan bağımsız, yalnız filtre kriterlerine bakar.
   const countsQuery = useMemo<ProjectStatusCountsQuery>(
@@ -132,7 +149,7 @@ export function ProjectListPage() {
   }, [queryClient])
 
   const actions = useProjectActions({ onChanged: refreshLists })
-  const { pendingProjectId, requestDelete, submit } = actions
+  const { pendingProjectId, requestDelete, submit, decide } = actions
 
   // Yeni proje ekranından dönüşteki bildirim; şeridi ve yeni satırın vurgusunu
   // aynı kaynak besliyor.
@@ -145,8 +162,12 @@ export function ProjectListPage() {
         status: query.status,
         pendingProjectId,
         isManagementView,
+        canManageDrafts,
+        canDecidePending,
         onDelete: requestDelete,
         onSubmit: (projectId) => void submit(projectId),
+        onApprove: (projectId) => decide('approve', projectId),
+        onReject: (projectId) => decide('reject', projectId),
       }),
     [
       query.page,
@@ -154,8 +175,11 @@ export function ProjectListPage() {
       query.status,
       pendingProjectId,
       isManagementView,
+      canManageDrafts,
+      canDecidePending,
       requestDelete,
       submit,
+      decide,
     ],
   )
 
@@ -191,13 +215,17 @@ export function ProjectListPage() {
           ]}
           title={statusTitle}
           countLabel={data === undefined ? '…' : String(data.totalCount)}
-          description={DOCUMENT_HINT}
         />
 
-        <Link to={PROJECT_CREATE_PATH} className={adminButtonVariants({ tone: 'primary' })}>
-          <Plus aria-hidden className="size-4" />
-          Yeni Proje
-        </Link>
+        {/* Proje AÇMA yetkisi olmayan rolde düğme hiç çizilmez; pasif düğme
+            kullanıcıya neden yapamadığını söylemez. Sunucu da aynı: `POST
+            /api/projects` yalnız Admin ve ProjectFirmUser'a açık. */}
+        {canManageDrafts && (
+          <Link to={PROJECT_CREATE_PATH} className={adminButtonVariants({ tone: 'primary' })}>
+            <Plus aria-hidden className="size-4" />
+            Yeni Proje
+          </Link>
+        )}
       </div>
 
       <CreatedProjectNotice notice={createdNotice} />
@@ -273,6 +301,17 @@ export function ProjectListPage() {
           </StaleContent>
         )}
       </div>
+
+      {actions.rejectTargetId !== null && (
+        <ReasonDialog
+          title={REJECT_DIALOG_COPY.title}
+          description={REJECT_DIALOG_COPY.description}
+          confirmLabel={REJECT_DIALOG_COPY.confirmLabel}
+          isPending={actions.pendingProjectId !== null}
+          onConfirm={(reason) => void actions.confirmReject(reason)}
+          onCancel={actions.cancelReject}
+        />
+      )}
 
       {actions.deleteTargetId !== null && (
         <ConfirmDialog

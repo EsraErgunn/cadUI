@@ -21,7 +21,6 @@ import { useAdminScopeParam } from '../ui/admin/useAdminScopeParam'
 
 const PAGE_TITLE = 'Genel Bakış'
 
-const PAGE_DESCRIPTION = 'Sistem geneli durum'
 
 const BREADCRUMB = [{ label: 'Anasayfa', to: ADMIN_HOME_PATH }, { label: 'Dashboard' }]
 
@@ -76,7 +75,6 @@ export function AdminHomePage() {
         <PageHeader
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
-          description={PAGE_DESCRIPTION}
         />
 
         <button

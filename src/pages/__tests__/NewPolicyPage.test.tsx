@@ -56,9 +56,6 @@ describe('NewPolicyPage — erişim ve adım göstergesi', () => {
     renderPolicyPage()
 
     expect(await screen.findByRole('heading', { name: 'Poliçe Oluşturma' })).toBeInTheDocument()
-    expect(
-      screen.getByText('Manuel poliçe akışı'),
-    ).toBeInTheDocument()
 
     const trail = screen.getByRole('navigation', { name: 'Konum' })
     expect(within(trail).getByRole('link', { name: 'Anasayfa' })).toBeInTheDocument()
