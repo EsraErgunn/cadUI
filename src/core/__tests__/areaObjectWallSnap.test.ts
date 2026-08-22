@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AreaObjectShape } from '../areaObject'
-import { findAreaObjectWallSnap, hasAreaObjectWallSnap } from '../areaObjectWallSnap'
+import {
+  findAreaObjectWallSnap,
+  hasAreaObjectWallSnap,
+  snapPointToWallFace,
+} from '../areaObjectWallSnap'
 import type { Point, Wall } from '../model'
 import { DEFAULT_WALL_THICKNESS_CM } from '../wall'
 
@@ -48,16 +52,33 @@ describe('hasAreaObjectWallSnap', () => {
 })
 
 describe('findAreaObjectWallSnap', () => {
-  it('nesneyi duvarın YÜZÜNE yaslar, içine sokmaz', () => {
-    // Duvar yüzü y = 10; 50 cm kolonun merkezi 10 + 25 = 35'te olmalı.
-    const result = snap({ x: 300, y: 30 })
+  it('nesneyi duvarın ÜSTÜNE oturtur: dış kenarı KARŞI yüzle hizalanır', () => {
+    // Kullanıcının asıl istediği hiza. Karşı yüz y = −10; 50 cm kolonun merkezi
+    // −10 + 25 = 15'te, yani kolon duvarı kaplayıp mahale taşıyor.
+    const result = snap({ x: 300, y: 12 })
 
-    expect(result?.position).toEqual({ x: 300, y: 35 })
+    expect(result?.kind).toBe('onWall')
+    expect(result?.position).toEqual({ x: 300, y: 15 })
     expect(result?.wallId).toBe(WALL.id)
+  })
+
+  it('duvarın DIŞINDA duran nesneyi yüzüne yaslar', () => {
+    // Yakın yüz y = 10; merkez 10 + 25 = 35.
+    const result = snap({ x: 300, y: 33 })
+
+    expect(result?.kind).toBe('besideWall')
+    expect(result?.position).toEqual({ x: 300, y: 35 })
+  })
+
+  it('İKİ hizadan imlece YAKIN olanı kazanır', () => {
+    // Adaylar 15 ve 35; ortası 25.
+    expect(snap({ x: 300, y: 22 })?.kind).toBe('onWall')
+    expect(snap({ x: 300, y: 28 })?.kind).toBe('besideWall')
   })
 
   it('imlecin bulunduğu TARAFA yaslar', () => {
     expect(snap({ x: 300, y: -30 })?.position.y).toBeCloseTo(-35, 6)
+    expect(snap({ x: 300, y: -12 })?.position.y).toBeCloseTo(-15, 6)
   })
 
   it('duvar boyunca SERBEST kayar: yalnız dik yön kelepçelenir', () => {
@@ -75,17 +96,20 @@ describe('findAreaObjectWallSnap', () => {
     expect(snap({ x: 900, y: 20 })).toBeUndefined()
   })
 
-  it('yakınlık nesnenin KENARINDAN ölçülür, merkezinden değil', () => {
-    // Merkez yüzden 35 cm uzakken kenar TAM yüze değiyor: boşluk 0, yakalanır.
+  it('yakalama yarıçapı nesnenin BOYUNU içerir, yalnız merkezi değil', () => {
+    // Merkez yüzden 25 cm uzakken kenar TAM yüze değiyor: yakalanır.
     expect(snap({ x: 300, y: 35 })).toBeDefined()
-    // Kenar toleransın dışına çıkınca bırakır (35 + 25 = 60 > 10 + 15).
+    // Nesne duvara hiç değemiyorsa bırakır (35 + 25 = 60 > 10 + 25 + 15).
     expect(snap({ x: 300, y: 60 })).toBeUndefined()
   })
 
-  it('duvara GÖMÜLÜ nesne dışarı itilir (negatif boşluk da yakalanır)', () => {
+  it('duvarın ortasındaki nesne ÜSTÜNE oturur, dışarı atılmaz', () => {
+    // Eski davranış nesneyi duvarın yanına itiyordu; kullanıcı "duvarın
+    // üstünde olacak şekilde" dedi.
     const result = snap({ x: 300, y: 4 })
 
-    expect(result?.position.y).toBeCloseTo(35, 6)
+    expect(result?.kind).toBe('onWall')
+    expect(result?.position.y).toBeCloseTo(15, 6)
   })
 
   it('duvarın açısını bildirir; yaslanma payı DÖNDÜRÜLMÜŞ hâlden hesaplanır', () => {
@@ -110,9 +134,11 @@ describe('findAreaObjectWallSnap', () => {
 
   it('dikdörtgen nesnede pay dik yöndeki YARI BOYDAN gelir', () => {
     // 50 geniş × 100 uzun, duvara hizalı: dik yönde yarı boy 50.
-    const result = snap({ x: 300, y: 30 }, { ...COLUMN, lengthCm: 100 })
+    // Adaylar: üstünde 50 − 10 = 40, yanında 10 + 50 = 60.
+    const tall = { ...COLUMN, lengthCm: 100 }
 
-    expect(result?.position.y).toBeCloseTo(10 + 50, 6)
+    expect(snap({ x: 300, y: 30 }, tall)?.position.y).toBeCloseTo(40, 6)
+    expect(snap({ x: 300, y: 58 }, tall)?.position.y).toBeCloseTo(60, 6)
   })
 
   it('hizalanmayan (taşınan) nesnede pay MEVCUT açıdan hesaplanır', () => {
@@ -151,8 +177,38 @@ describe('findAreaObjectWallSnap', () => {
       true,
     )
 
-    // y = 100'deki duvar daha yakın; kolon onun alt yüzüne (100 − 10 − 25) yaslanır.
+    // y = 100'deki duvar daha yakın; kolon onun ÜSTÜNE oturur (100 − 25 + 10).
     expect(result?.wallId).toBe(farWall.id)
-    expect(result?.position.y).toBeCloseTo(65, 6)
+    expect(result?.kind).toBe('onWall')
+    expect(result?.position.y).toBeCloseTo(85, 6)
+  })
+})
+
+/**
+ * Boyutlandırma yakalaması: sürüklenen köşe duvarın yüzüne oturur, böylece
+ * nesnenin KENARI duvarla hizalanır (kullanıcı isteği).
+ */
+describe('snapPointToWallFace', () => {
+  const face = (target: { x: number; y: number }, toleranceCm = TOLERANCE_CM) =>
+    snapPointToWallFace(target, [WALL], POINTS, toleranceCm)
+
+  it('köşeyi en yakın YÜZE oturtur, yalnız DİK bileşeni değiştirir', () => {
+    const result = face({ x: 240, y: 16 })
+
+    expect(result?.y).toBeCloseTo(10, 6)
+    // Duvar boyunca imleci izlemeye devam eder.
+    expect(result?.x).toBeCloseTo(240, 6)
+  })
+
+  it('duvarın İKİ yüzü de aday: içerideki köşe karşı yüze de oturabilir', () => {
+    expect(face({ x: 240, y: -6 })?.y).toBeCloseTo(-10, 6)
+  })
+
+  it('toleransın dışındaki köşeye dokunmaz', () => {
+    expect(face({ x: 240, y: 60 })).toBeUndefined()
+  })
+
+  it('duvarı olmayan projede undefined döner', () => {
+    expect(snapPointToWallFace({ x: 0, y: 0 }, [], [], TOLERANCE_CM)).toBeUndefined()
   })
 })

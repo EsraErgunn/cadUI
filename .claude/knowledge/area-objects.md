@@ -394,9 +394,19 @@ basış anındaki şekilden (`grab.origin`) hesaplıyor; canlı şekilden hesapl
 öncelik duvar → ızgara, Ctrl ikisini birden kapatır. Merdiven ve kolon
 havalandırması yapışmaz.
 
-⚠️ Yakınlık nesnenin KENARIYLA duvarın yüzü arasındaki boşluktan ölçülür.
-Merkezden ölçülseydi mıknatıs ancak nesne duvara yarıya kadar gömülüyken
-tutardı (yaslanmış 50 cm'lik kolonun merkezi yüzden 25 cm uzakta).
+⚠️ İKİ hiza var, imlece yakın olan kazanır: `onWall` (nesne duvarın ÜSTÜNDE,
+dış kenarı KARŞI yüzle hizalı — kullanıcının asıl istediği) ve `besideWall`
+(nesne duvarın dışında, yüzüne değiyor). Eşitlikte `onWall` kazanır.
+
+⚠️ Yakalama yarıçapı nesnenin BOYUNU içerir; yalnız merkez–eksen uzaklığına
+bakılsaydı duvarın tam üstündeki 50 cm'lik kolon bile toleransın dışında
+kalırdı.
+
+⚠️ BOYUTLANDIRMADA da çalışıyor: sürüklenen köşe duvar yüzüne oturuyor
+(`snapPointToWallFace`), böylece nesnenin kenarı duvarla hizalanıyor.
+
+⚠️ Duvara oturan kolon açıklıkla ÇAKIŞABİLİR; `addAreaObject` K35/K36
+gerekçesiyle sessizce reddeder — kapının üstüne kolon oturmaz.
 
 ⚠️ Pay nesnenin AÇISINDAN türetilir (köşelerin duvar normaline izdüşümü),
 `lengthCm / 2` sabiti değil — döndürülmüş nesne de tam yaslanır.

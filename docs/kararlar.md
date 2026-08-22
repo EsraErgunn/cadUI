@@ -7008,15 +7008,28 @@ Kullanıcı: "kolonlar ve baca şaftı duvarlara da snaplenmeli sadece ızgaraya
 değil". Yerleşim önceliği artık **duvar → ızgara**: imleç bir duvarın yüzüne
 yakınsa nesne oraya yaslanır, değilse eski ızgara yakalaması çalışır.
 
-**Yaslanma = yüze DEĞMEK, içine girmemek.** Merkez = duvar ekseni üzerindeki
-izdüşüm + normal × (duvarın yarı kalınlığı + nesnenin o yöndeki yarı
-kalınlığı). Nesne duvar boyunca serbest kayar (izdüşüm imleci izler), yalnız
-duvarın ucunu geçmez — `projectOntoSegment` uçlara kelepçeliyor.
+**İKİ hiza var, imlece yakın olan kazanır** (`AreaObjectWallSnapKind`):
 
-⚠️ **Yakınlık nesnenin KENARINDAN ölçülüyor, merkezinden değil.** Yaslanmış bir
-kolonun merkezi zaten yüzden yarım kolon (25 cm) uzakta durur; merkezden ölçen
-bir mıknatıs ancak nesne duvara YARIYA KADAR GÖMÜLÜYKEN tetiklenirdi. Negatif
-boşluk da (nesne duvarın içinde) yakalanır ve nesne dışarı itilir.
+- `onWall` — nesne duvarın **ÜSTÜNDE** durur, dış kenarı duvarın KARŞI yüzüyle
+  hizalanır; kolon duvarı kaplar ve mahale taşar. Kullanıcının asıl istediği bu
+  ("duvarın üstünde olacak şekilde duvarın kenarına snaplenmeli", ekran
+  görüntüsüyle geldi).
+- `besideWall` — nesne duvarın DIŞINDA, yüzüne değerek durur. İlk turda tek
+  davranış buydu; kullanıcı "hem şimdiki yaptığına snaplenme olsun" dediği için
+  KALDI, ama önceliği yok: eşitlikte `onWall` kazanır.
+
+Merkez, duvar ekseni üzerindeki izdüşüm + normal × (aday hizanın uzaklığı).
+Nesne duvar boyunca serbest kayar (izdüşüm imleci izler), yalnız duvarın ucunu
+geçmez — `projectOntoSegment` uçlara kelepçeliyor.
+
+⚠️ **Yakalama YARIÇAPI nesnenin BOYUNU içerir.** Yalnız merkez–eksen uzaklığına
+bakılsaydı 50 cm'lik bir kolon, duvarın tam üstünde dururken bile toleransın
+dışında kalırdı: yaslanmış hâlde merkez zaten yüzden yarım kolon uzakta.
+
+⚠️ **Duvara oturan kolon artık açıklıkla ÇAKIŞABİLİR** ve `addAreaObject`
+K35/K36 gerekçesiyle reddeder (id bile harcanmaz, araç sessizce kabul eder).
+Bu bir gerileme değil, kuralın doğal sonucu — kapının üstüne kolon oturmaz;
+tarayıcıda ilk denemede karşılaşıldı.
 
 ⚠️ **Pay, nesnenin AÇISINDAN türetiliyor** (`lengthCm / 2` sabiti DEĞİL): köşeler
 duvar normaline izdüşürülüp en büyüğü alınıyor, böylece 37° dönmüş bir kolon da
@@ -7042,9 +7055,15 @@ gitmez — yakalama yalnız yerleşim anında çalışan bir mıknatıstır.
 ⚠️ Ctrl İKİSİNİ birden kapatır (ızgara + duvar): serbest yerleştirme için tek
 tuş yetmeli, kullanıcı "hangisi hangi tuşta" diye düşünmesin.
 
+**BOYUTLANDIRMADA da çalışır** (kullanıcı istedi): sürüklenen KÖŞE en yakın
+duvar yüzüne oturuyor (`snapPointToWallFace`), böylece nesnenin KENARI duvarla
+hizalanıyor. Ayrı bir "kenarı hizala" matematiği yazılmadı — köşe yüze
+oturunca `resizeAreaObjectFromCorner` kenarı zaten oraya taşıyor. Duvarın İKİ
+yüzü de aday.
+
 `AddAreaObjectInput.angleDeg` opsiyonel eklendi (varsayılan 0) — eski
 çağıranların davranışı değişmedi.
 
 Nerede: `core/areaObjectWallSnap.ts` (+ testi), `scene/useAreaObjectTool.ts`,
-`scene/useAreaObjectSelectionTool.ts`, `scene/ArchitectureLayer.tsx` (önizleme
-açısı), `store/areaObjectOps.ts`.
+`scene/useAreaObjectSelectionTool.ts`, `scene/useAreaObjectHandleTool.ts`,
+`scene/ArchitectureLayer.tsx` (önizleme açısı), `store/areaObjectOps.ts`.
