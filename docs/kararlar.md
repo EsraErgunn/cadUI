@@ -7067,3 +7067,65 @@ yüzü de aday.
 Nerede: `core/areaObjectWallSnap.ts` (+ testi), `scene/useAreaObjectTool.ts`,
 `scene/useAreaObjectSelectionTool.ts`, `scene/useAreaObjectHandleTool.ts`,
 `scene/ArchitectureLayer.tsx` (önizleme açısı), `store/areaObjectOps.ts`.
+
+### K140 — Çizilen eksene göre aynalama
+
+Kullanıcı: "çizilecek yatay veya dikey bir eksene göre de aynalama işlemi ekle;
+ona tıkladığımızda ekranda bir çizgi çekelim ve seçili olan tüm şeyler o çizgiye
+göre aynalansın."
+
+**Yeni dönüşüm türü `mirrorLine`** (`origin` + `angleDeg`), paneldeki `mirror`ı
+GENELLER: 0° yatay aynanın, 90° dikey aynanın ta kendisi. İkisi yine de ayrı
+duruyor — panel düğmeleri seçimin KENDİ merkezine göre çalışıyor (dayanak sınır
+kutusu), buradaki eksen ise kullanıcının koyduğu bağımsız bir doğru.
+
+Nokta yansıması: fark vektörü doğrunun İKİ KATI açısıyla döndürülüp dik bileşeni
+çevriliyor. Nesnenin kendi açısı da yansıyor: `2θ − açı` (θ=0 → `−açı`, θ=90 →
+`180 − açı`, yani var olan iki özel durumla birebir aynı).
+
+⚠️ **Çeyrek dönüş katlarında TAM trigonometri** (`cosDeg`/`sinDeg`): `Math.sin(Math.PI)`
+1.22e-16 verdiği için dikey eksende aynalanan nokta 240 yerine 240.00000000000003
+çıkıyordu (test yakaladı). Artık iki yol aynı eksende birebir aynı sayıyı
+üretiyor ve "iki kez aynala = başa dön" tam sağlanıyor. `rotate` bilerek
+DOKUNULMADI — o kod uzun süredir kullanımda, ayrı iş.
+
+**Jest bir ARAÇ olarak kuruldu** (`mirrorAxis`), palette görünmüyor —
+`SELECTION_TOOL`un deseni. Sebep: tuvale yapılan tıklamanın seçimi değiştirmemesi
+gerekiyor ve bütün mimari hook'lar zaten `activeToolId`ye bakıp çekiliyor.
+Alternatifi her birine tek tek "aynalama bekliyor mu" kontrolü eklemekti (K44
+dersinin pahalı hâli). Araç değişimi seçimi TEMİZLEMEDİĞİ için seçim jest
+boyunca duruyor.
+
+**İşlem TAŞIMA değil ÇOĞALTMA** (kullanıcı isteği: "bu işlem kopyalama işlemi
+olmalı, ilk hali silinmemeli"): kaynak yerinde kalıyor, aynalanmış kopya
+ekleniyor ve seçim kopyaya geçiyor — çoğaltma düğmesiyle aynı sözleşme.
+
+`duplicateSelectionWithTransform` iki adımı TEK `set` içinde yapıyor: kopya önce
+YERİNDE çıkıyor (sıfır öteleme), sonra kopyaya dönüşüm uygulanıyor. Böylece iki
+iyi test edilmiş yol yeniden kullanılıyor ve kullanıcı için tek Ctrl+Z oluyor.
+Duvar bölme/oda hesabı SONDA bir kez koşuyor — kopya üst üsteyken bölünseydi
+üst üste binen duvarlar birbirini bölerdi (K24 tuzağı).
+
+⚠️ Kopyalanan duvara bağlı sembol artık KOPYA duvara yapışıyor. Eskiden her
+hâlükârda kaynak duvarda kalıyordu: aynalanan duvarın panosu kaynakta kalıp tek
+duvarda iki pano görünürdü. Çoğaltma düğmesi için de düzelme.
+
+İki tık: birincisi ekseni başlatır, ikincisi uygular ve seçim aracına döner.
+Sağ tık/Esc yarım ekseni bırakır. Açı 15°'ye YAKALANIR (Ctrl serbest) —
+kullanıcının istediği yatay/dikey eksen elle tam tutturulamaz, 0/90 adımın
+içinde.
+
+⚠️ Eksen bir NESNE DEĞİL: uygulandıktan sonra saklanmıyor, ikinci bir aynalama
+için yeniden çiziliyor. Saklamak "çizimin parçası mı" sorusunu açardı (ölçümün
+K80'deki kararıyla aynı çizgi). Önizleme çizgisi tıklanan iki noktanın ÖTESİNE
+uzatılıyor: ayna bir DOĞRU, çizilen parça onu yalnız tarif ediyor.
+
+⚠️ Kısmi seçimde ortak köşeler yüzünden çizim ESNER: seçili duvarların köşesi
+seçilmeyen duvarla paylaşılıyorsa o köşe yansırken komşusu yerinde kalıyor. Bu
+yeni değil — paneldeki döndürme/aynalama da aynı `transformSelectionInDraft`
+üzerinden aynı şeyi yapıyor (K49 modeli).
+
+Nerede: `core/transform.ts`, `core/tools.ts`, `scene/useMirrorAxisTool.ts`,
+`scene/MirrorAxisOverlay.tsx`, `scene/ArchitectureLayer.tsx`,
+`store/architectureUiStore.ts`, `ui/properties/SelectionActions.tsx`,
+`ui/tools/toolIcons.ts`.

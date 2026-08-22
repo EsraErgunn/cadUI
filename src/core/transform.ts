@@ -20,12 +20,64 @@ export type PlanTransform =
   | { kind: 'translate'; dxCm: number; dyCm: number }
   | { kind: 'rotate'; pivot: PlanPoint; angleDeg: number }
   | { kind: 'mirror'; pivot: PlanPoint; axis: MirrorAxis }
+  /**
+   * Kullanıcının ÇİZDİĞİ eksene göre aynalama: `origin`den geçen, `angleDeg`
+   * eğimindeki doğru. `mirror`ı GENELLER — 0° yatay aynanın, 90° dikey aynanın
+   * ta kendisi. İkisi yine de ayrı duruyor: paneldeki iki düğme "seçimin kendi
+   * merkezine göre" çalışıyor ve dayanağı sınır kutusundan alıyor, buradaki
+   * eksen ise kullanıcının koyduğu bağımsız bir doğru.
+   */
+  | { kind: 'mirrorLine'; origin: PlanPoint; angleDeg: number }
+
+/**
+ * Çeyrek dönüş katlarında TAM değer döndüren trigonometri.
+ *
+ * `Math.cos(Math.PI)` −1 verse de `Math.sin(Math.PI)` 1.22e-16 veriyor; dikey
+ * eksende aynalanan bir nokta bu yüzden 240 yerine 240.00000000000003 çıkıyordu
+ * (testte yakalandı). Artık iki yol — panelin `mirror`ı ve tuvalde çizilen
+ * `mirrorLine` — aynı eksende BİREBİR aynı sayıyı üretiyor; üstelik "iki kez
+ * aynala = başa dön" da tam sağlanıyor.
+ *
+ * `rotate` bilerek DOKUNULMADI: o kod uzun süredir kullanımda ve bu dalın konusu
+ * değil — aynı düzeltme gerekirse ayrı bir iş.
+ */
+function cosDeg(angleDeg: number): number {
+  const normalized = ((angleDeg % 360) + 360) % 360
+  if (normalized === 0) return 1
+  if (normalized === 90 || normalized === 270) return 0
+  if (normalized === 180) return -1
+  return Math.cos(normalized * RAD_PER_DEG)
+}
+
+function sinDeg(angleDeg: number): number {
+  const normalized = ((angleDeg % 360) + 360) % 360
+  if (normalized === 0 || normalized === 180) return 0
+  if (normalized === 90) return 1
+  if (normalized === 270) return -1
+  return Math.sin(normalized * RAD_PER_DEG)
+}
 
 export function applyTransform(point: PlanPoint, transform: PlanTransform): PlanPoint {
   if (transform.kind === 'translate') {
     return {
       x: normalizeZero(point.x + transform.dxCm),
       y: normalizeZero(point.y + transform.dyCm),
+    }
+  }
+
+  if (transform.kind === 'mirrorLine') {
+    // Doğruya göre yansıma: fark vektörü, doğrunun İKİ KATI açısıyla döndürülüp
+    // dik bileşeni çevrilir. 0°'de y, 90°'de x işaret değiştirir — yani `mirror`
+    // ile birebir aynı sonuç, yalnız eksen serbest.
+    const dx = point.x - transform.origin.x
+    const dy = point.y - transform.origin.y
+    const doubled = 2 * transform.angleDeg
+    const cos = cosDeg(doubled)
+    const sin = sinDeg(doubled)
+
+    return {
+      x: normalizeZero(transform.origin.x + dx * cos + dy * sin),
+      y: normalizeZero(transform.origin.y + dx * sin - dy * cos),
     }
   }
 
@@ -105,16 +157,23 @@ export function snapAngleDeg(angleDeg: number, stepDeg: number = ROTATION_STEP_D
  *
  * Aynalama açıyı da yansıtır: yatay aynada (y çevrilir) açı işaret değiştirir,
  * dikey aynada (x çevrilir) 180°'den çıkarılır. Öteleme açıya dokunmaz.
+ *
+ * Serbest eksende (`mirrorLine`) kural genel hâliyle `2θ − açı`; θ = 0 verince
+ * `−açı`, θ = 90 verince `180 − açı` çıkıyor, yani yukarıdaki iki özel durumla
+ * BİREBİR aynı.
  */
 export function applyTransformToAngleDeg(angleDeg: number, transform: PlanTransform): number {
   if (transform.kind === 'translate') return angleDeg
 
-  const next =
-    transform.kind === 'rotate'
-      ? angleDeg + transform.angleDeg
-      : transform.axis === 'horizontal'
-        ? -angleDeg
-        : 180 - angleDeg
-
+  const next = getMirroredOrRotatedAngleDeg(angleDeg, transform)
   return normalizeZero(((next % 360) + 360) % 360)
+}
+
+function getMirroredOrRotatedAngleDeg(
+  angleDeg: number,
+  transform: Exclude<PlanTransform, { kind: 'translate' }>,
+): number {
+  if (transform.kind === 'rotate') return angleDeg + transform.angleDeg
+  if (transform.kind === 'mirrorLine') return 2 * transform.angleDeg - angleDeg
+  return transform.axis === 'horizontal' ? -angleDeg : 180 - angleDeg
 }

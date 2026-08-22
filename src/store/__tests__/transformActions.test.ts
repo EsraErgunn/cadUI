@@ -237,3 +237,73 @@ describe('duplicateSelection', () => {
     expect(useCadStore.getState().revision).toBe(0)
   })
 })
+
+/**
+ * Çizilen eksene göre aynalama (K140) bunu kullanıyor: sonuç bir KOPYA, kaynak
+ * yerinde kalıyor.
+ */
+describe('duplicateSelectionWithTransform', () => {
+  const selection: Selection = [{ kind: 'wall', id: DIAGONAL_WALL_ID }]
+
+  it('KAYNAĞI yerinde bırakır, kopyayı dönüştürür', () => {
+    const source = useCadStore.getState().walls.find((wall) => wall.id === DIAGONAL_WALL_ID)!
+    // p2 seçildi: p1 (600, 0) tam eksenin üstünde, yansıması kendisi olurdu.
+    const sourceP2 = findPoint(source.p2Id)!
+    const before = { x: sourceP2.x, y: sourceP2.y }
+
+    const created = useCadStore.getState().duplicateSelectionWithTransform(selection, {
+      kind: 'mirrorLine',
+      origin: { x: 0, y: 0 },
+      angleDeg: 0,
+    })
+
+    expect(created).toHaveLength(1)
+    // Kaynak KIPIRDAMADI.
+    expect(findPoint(source.p2Id)).toMatchObject(before)
+
+    // Kopya yatay eksende yansımış: y işaret değiştirdi, x aynı kaldı.
+    const copy = useCadStore.getState().walls.find((wall) => wall.id === created[0].id)!
+    expect(findPoint(copy.p2Id)).toMatchObject({ x: before.x, y: -before.y })
+  })
+
+  it('kopya kaynağın köşelerini PAYLAŞMAZ — sonradan taşımak kaynağı bozmasın', () => {
+    const [copy] = useCadStore.getState().duplicateSelectionWithTransform(selection, {
+      kind: 'mirrorLine',
+      origin: { x: 0, y: 0 },
+      angleDeg: 0,
+    })
+
+    const state = useCadStore.getState()
+    const source = state.walls.find((wall) => wall.id === DIAGONAL_WALL_ID)
+    const copied = state.walls.find((wall) => wall.id === copy.id)
+
+    expect(copied?.p1Id).not.toBe(source?.p1Id)
+    expect(copied?.p2Id).not.toBe(source?.p2Id)
+  })
+
+  it('TEK geri alma adımı: bir Ctrl+Z kopyayı tümüyle kaldırır', () => {
+    const before = useCadStore.getState().walls.length
+
+    useCadStore.getState().duplicateSelectionWithTransform(selection, {
+      kind: 'mirrorLine',
+      origin: { x: 0, y: 0 },
+      angleDeg: 90,
+    })
+    expect(useCadStore.getState().walls.length).toBe(before + 1)
+
+    useCadStore.temporal.getState().undo()
+
+    expect(useCadStore.getState().walls.length).toBe(before)
+  })
+
+  it('boş seçimde hiçbir şey yazmaz', () => {
+    const before = useCadStore.getState().walls.length
+
+    expect(
+      useCadStore
+        .getState()
+        .duplicateSelectionWithTransform([], { kind: 'mirrorLine', origin: { x: 0, y: 0 }, angleDeg: 0 }),
+    ).toEqual([])
+    expect(useCadStore.getState().walls.length).toBe(before)
+  })
+})

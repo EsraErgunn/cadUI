@@ -179,6 +179,34 @@ export function createTransformActions(set: DraftSetter) {
       return isApplied
     },
 
+    /**
+     * Seçimin DÖNÜŞTÜRÜLMÜŞ kopyasını üretir; kaynak yerinde kalır (K140:
+     * "bu işlem kopyalama işlemi olmalı, ilk hali silinmemeli").
+     *
+     * İki adım TEK `set` içinde: önce kopya YERİNDE çıkarılıyor (sıfır öteleme),
+     * sonra kopyaya dönüşüm uygulanıyor. Böylece iki iyi test edilmiş yol
+     * yeniden kullanılıyor ve kullanıcı için tek Ctrl+Z adımı oluyor.
+     *
+     * ⚠️ Duvar bölme/oda hesabı SONDA bir kez koşuyor: kopya daha üst üsteyken
+     * bölünseydi, üst üste binen duvarlar birbirini bölerdi (K24 tuzağı).
+     */
+    duplicateSelectionWithTransform: (
+      selection: Selection,
+      transform: PlanTransform,
+    ): Selection => {
+      let created: Selection = []
+      set((draft) => {
+        created = duplicateSelectionInDraft(draft, selection, { dxCm: 0, dyCm: 0 })
+        if (created.length === 0) return
+
+        transformSelectionInDraft(draft, created, transform)
+        splitWallsAtIntersections(draft)
+        recomputeRoomsInDraft(draft)
+        markDirty(draft)
+      })
+      return created
+    },
+
     duplicateSelection: (
       selection: Selection,
       offset: { dxCm: number; dyCm: number },

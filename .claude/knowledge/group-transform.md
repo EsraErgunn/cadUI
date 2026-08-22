@@ -92,3 +92,30 @@ kopyayı kaynağın katına koyuyor.
 **Dosya:** core/transform.ts · core/idRemap.ts · core/wall.ts
 (`collectWallPointIds`) · store/transformOps.ts · store/duplicateOps.ts ·
 ui/properties/SelectionActions.tsx · scene/useWallSelectionTool.ts
+
+## Çizilen eksene göre aynalama (K140)
+
+⚠️ `mirrorLine` (`origin` + `angleDeg`) paneldeki `mirror`ı GENELLER: 0° yatay,
+90° dikey aynanın ta kendisi. Nokta yansıması iki katı açıyla döndürme + dik
+bileşeni çevirme; nesnenin kendi açısı `2θ − açı`.
+
+⚠️ Çeyrek dönüş katlarında TAM trigonometri (`cosDeg`/`sinDeg`): `Math.sin(Math.PI)`
+1.22e-16 verdiği için dikey aynada 240 → 240.00000000000003 çıkıyordu. İki yol
+artık birebir aynı sayıyı üretiyor. `rotate` bilerek dokunulmadı.
+
+⚠️ Jest palette GÖRÜNMEYEN bir ARAÇ (`mirrorAxis`, `SELECTION_TOOL` deseni):
+tuvale yapılan tıklama seçimi değiştirmemeli ve bütün mimari hook'lar zaten
+`activeToolId`ye bakıp çekiliyor — alternatifi her hook'a ayrı kontrol eklemekti.
+Araç değişimi seçimi temizlemediği için seçim jest boyunca duruyor.
+
+⚠️ Eksen SAKLANMAZ (ölçüm gibi geçici); önizleme çizgisi tıklanan iki noktanın
+ötesine uzatılır çünkü ayna bir DOĞRU.
+
+⚠️ **Sonuç KOPYADIR, taşıma değil** (kullanıcı isteği): kaynak yerinde kalır,
+seçim kopyaya geçer. `duplicateSelectionWithTransform` kopyayı önce YERİNDE
+çıkarıp sonra dönüştürüyor — iki test edilmiş yolu birleştiriyor, duvar bölme
+ve oda hesabı sonda bir kez koşuyor (kopya üst üsteyken bölünseydi duvarlar
+birbirini bölerdi).
+
+⚠️ Kopyalanan duvara bağlı sembol KOPYA duvara yapışır; eskiden kaynak duvarda
+kalıyor ve tek duvarda iki pano görünüyordu.
