@@ -6894,3 +6894,51 @@ açılmamalı — ekranda da tek desen var.
 `hasElementNameLabel`): merdiven ve vana etiketsiz. Yazılan şey TÜRÜN adı
 ("Kolon"), nesnenin kodu ("K-01") değil.
 
+
+### K137 — Mimari kontur `worldUnits`ten piksele geçti; kiriş çizgisi inceldi
+
+Kullanıcı: "mimari nesneler ekranın kenar kısımlarına yaklaştıkça ve zoom out
+yaptıkça silik gözükmeye başlıyor bunu istemiyoruz" + "kiriş çizgileri bir tık
+inceltilmeli".
+
+İKİ ayrı soluklaşma vardı, ikisinin de sebebi `worldUnits`:
+
+1. **Ekran kenarlarına doğru incelme.** `worldUnits` shader'ı göz ışınlarının
+   tek noktadan çıktığını varsayıyor (perspektif). Kameramız ortografik,
+   ışınlar paralel ve kamera 100.000 cm yukarıda; fragment hesabı bu büyüklükte
+   float32 hassasiyetini yiyor. **Bu tuzak duvarda ZATEN teşhis edilmiş ve
+   çözülmüştü** (`wallStyle.ts`, piksel yoluna geçiş) — alan nesnesi, kiriş ve
+   ikisinin tesisat görünümündeki hayaletleri o düzeltmenin dışında kalmıştı.
+2. **Uzaklaşınca kaybolma.** K43'ün kendi "bilinen sınır" notu: cm sabitken
+   çizgi zoom ile küçülüyor, en uzak zoom'da (0,1) gövde 0,5 px eder.
+
+**Çözüm:** kalınlık `cm × zoom` ile piksel cinsinden veriliyor ve
+`MIN_ARCHITECTURE_STROKE_PX = 1,5` tabanına dayanıyor. Görünen boyut
+`worldUnits`in çizmesi gerekenle AYNI; fark, hesabın shader yerine bizde olması
+ve alt sınır koyabilmemiz. Duvarın tabanı (3 px) kullanılmadı: o değer kapsül
+uçlarının kavşakta binmesinden geliyor, konturda öyle bir sorun yok ve 3 px en
+uzak zoom'da 2,5 cm'lik ayrıntı çizgisini 20 cm'lik duvarla eşitlerdi.
+
+K43 aynı sorunu kalınlık ARTIRARAK çözmeye çalışmış ve "kaybolmasın" ile
+"kalın durmasın" arasında sıkışmıştı; taban piksel ikilemi ortadan kaldırıyor.
+Aynı notta önerilen `alphaToCoverage` yolu da GEREKMEDİ — üstelik duvarda o
+yol kavşakta hale bırakıp geri alınmıştı.
+
+**Kiriş konturu `DEFAULT_WALL_THICKNESS_CM / 6`** (5 cm → 3,3 cm). Eskiden alan
+nesnesinin gövdesiyle aynıydı; kesitin dışında kalan bir eleman olarak üstünden
+geçtiği duvarı bastırmamalı.
+
+**Sabitler tek yerde:** `scene/architectureStrokeStyle.ts`. Kalınlıklar gerçek
+nesne ve hayaleti tarafından ORTAK okunuyor — iki dosyada kopyaydılar ve
+"gerçeğiyle aynı oran" yorumuna rağmen elle senkron tutuluyorlardı.
+
+⚠️ Kesik ölçüleri (`dashSize`/`gapSize`) cm KALIR: çizgi boyunca ölçülüyorlar,
+genişlik biriminden bağımsızlar. Tarayıcıda doğrulandı (zoom değişince kirişteki
+kesik sayısı sabit).
+
+⚠️ Zoom kapsayıcıda BİR kez okunup prop olarak dağıtılıyor (`Walls` deseni);
+nesne başına `useCameraZoom` çağrısı kare başına N geri çağrım demekti.
+
+Nerede: `scene/architectureStrokeStyle.ts` (+ testi), `scene/AreaObject.tsx`,
+`scene/Beam.tsx`, `scene/ArchitectureLayer.tsx`,
+`plumbing/scene/ArchitectureGhostFixtures.tsx`, `plumbing/scene/Ghosts.tsx`.

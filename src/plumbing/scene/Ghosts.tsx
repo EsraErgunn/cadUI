@@ -143,7 +143,7 @@ export function ArchitectureGhost() {
       ))}
 
       {floorBeams.map((beam) => (
-        <GhostBeam key={beam.id} beam={beam} />
+        <GhostBeam key={beam.id} beam={beam} zoom={zoom} />
       ))}
 
       {floorSymbolPoses.map((symbol) => (
@@ -151,7 +151,12 @@ export function ArchitectureGhost() {
       ))}
 
       {floorAreaObjects.map((areaObject) => (
-        <GhostAreaObject key={areaObject.id} type={areaObject.type} areaObject={areaObject} />
+        <GhostAreaObject
+          key={areaObject.id}
+          type={areaObject.type}
+          areaObject={areaObject}
+          zoom={zoom}
+        />
       ))}
     </group>
   )
