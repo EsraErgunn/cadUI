@@ -3,6 +3,7 @@ import {
   extendBounds,
   type LabelBounds,
 } from './isometricLabelSvg'
+import type { PlanSymbolAsset } from './planSvgInstallation'
 import { n, svgLine, svgPolyline, svgText, SVG_COLORS } from './svgPrimitives'
 import { projectIsometric, type IsometricAngles } from '../../isometric/core/isometricProjection'
 import {
@@ -12,7 +13,8 @@ import {
 } from '../../isometric/core/isometricScene'
 import type { SymbolMetadataLookup } from '../../plumbing/core/elementPicking'
 import type { InstallationLine } from '../../plumbing/core/installationModel'
-import type { ThreePosition } from '../coords'
+import type { InstallationElementType } from '../../plumbing/core/symbolMetadata'
+import type { PlanPoint, ThreePosition } from '../coords'
 
 /** Yazı boyu ve çizgi kalınlıkları, sahne köşegenine oranla. */
 const TITLE_SIZE_RATIO = 0.045
@@ -30,6 +32,8 @@ export type IsometricSvgInput = IsometricSceneInput & {
   getMetadata: SymbolMetadataLookup
   /** Hat rengi sahne katmanından gelir (planSvg ile aynı gerekçe). */
   resolveLineColor: (line: InstallationLine) => string
+  /** Eleman sembolü; varlıklar bundler'a bağlı, core saf kalıyor (planSvg ile aynı). */
+  resolveSymbol: (type: InstallationElementType) => PlanSymbolAsset | undefined
   /** Yazı tipi ailesi; PDF'e gömülen fontun adıyla AYNI olmalı. */
   fontFamily: string
 }
@@ -103,6 +107,25 @@ export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | unde
     body.push(svgLine(from, to, pipeWidthCm, SVG_COLORS.object, true))
   }
 
+  // --- Eleman sembolleri: hatların ÜSTÜNDE, etiketlerin altında (plan sayfasıyla
+  // aynı sıra).
+  const elementById = new Map(input.installationElements.map((el) => [el.id, el]))
+  for (const placement of scene.elements) {
+    const element = elementById.get(placement.elementId)
+    if (!element) continue
+
+    const asset = input.resolveSymbol(element.type)
+    // Sembolü çözülemeyen eleman çizilmez; ekranda da yer tutucuya düşüyor.
+    if (!asset) continue
+
+    const at = project(placement.position)
+    extendBounds(bounds, at)
+    body.push(
+      `<g transform="${toBillboardTransform(at, placement.anchorOffsetCm, element.scale, asset)}">` +
+        `${asset.body}</g>`,
+    )
+  }
+
   body.push(...buildIsometricLabelSvg(input, scene, { extentCm, labelSizeCm, leaderWidthCm }, bounds))
 
   // --- Başlık
@@ -132,4 +155,29 @@ export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | unde
     widthCm: boxRight - boxLeft,
     heightCm: boxTop - boxBottom,
   }
+}
+
+/**
+ * Sembolün kendi svg uzayından izometrik çıktı uzayına dönüşüm.
+ *
+ * ⚠️ DÖNDÜRME YOK. İzometrikte sembol bir BILLBOARD: ekrandaki
+ * `IsometricElement` de onu kameraya dönük çiziyor, elemanın plan açısı
+ * uygulanmıyor. Plan sayfasındaki `toSymbolTransform`dan tek farkı bu.
+ *
+ * Çapa kaydırması ÖLÇEKTEN ÖNCE ve 1:1 cm uygulanır (ekranla aynı sıra):
+ * sembolün boruya değdiği nokta tam `position`a otursun diye.
+ *
+ * y bir kez çevriliyor: izdüşüm düzleminde +y YUKARI, çıktı svg'sinde AŞAĞI.
+ */
+function toBillboardTransform(
+  at: PlanPoint,
+  anchorOffsetCm: PlanPoint,
+  scale: number,
+  asset: PlanSymbolAsset,
+): string {
+  return (
+    `translate(${n(at.x - anchorOffsetCm.x)} ${n(-(at.y - anchorOffsetCm.y))}) ` +
+    `scale(${n(scale)}) ` +
+    `translate(${n(-asset.originX)} ${n(-asset.originY)})`
+  )
 }

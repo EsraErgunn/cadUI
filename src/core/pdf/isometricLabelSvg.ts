@@ -33,6 +33,22 @@ export const LABEL_SEPARATION_FACTOR = 1.15
  */
 export const PAPER_RING_TIGHTNESS = 0.18
 
+/**
+ * Etiketleri çizime doğru ÇEKEN oran (0–1); halka yarıçapının kaçta kaçında
+ * duracakları.
+ *
+ * `getIsometricLabelDistanceCm` en az 240 cm dayatıyor — ekranda doğru, orada
+ * yazı ekran-sabit boyutta ve çizimin üstüne binmemesi gerekiyor. Küçük bir
+ * tesisatta (tek kolon + iki kol) bu taban, kâğıtta boruların birkaç katı
+ * uzunlukta kılavuz çizgileri üretiyordu.
+ *
+ * ⚠️ Yalnız yarıçapı kısmak etiketleri ÜST ÜSTE bindirir: aynı açısal aralık
+ * daha küçük yarıçapta daha dar bir yay demek. Bu yüzden yerleşime verilen
+ * ayırma payı aynı oranda BÜYÜTÜLÜYOR — gerçek aralık korunuyor, yalnız halka
+ * içeri alınıyor.
+ */
+export const PAPER_LABEL_PULL = 0.5
+
 /** Bir karakterin ortalama genişliği, punto başına (coverPageCells ile aynı tahmin). */
 export const CHAR_WIDTH_RATIO = 0.55
 
@@ -142,13 +158,20 @@ export function buildIsometricLabelSvg(
     scene.bounds.center,
     input.angles,
     scene.bounds.sizeCm * PAPER_RING_TIGHTNESS,
-    minSeparationCm,
+    // Yarıçap sonra `PAPER_LABEL_PULL` ile kısalacağı için pay şimdiden aynı
+    // oranda büyütülüyor; yoksa çekilen etiketler birbirine girerdi.
+    minSeparationCm / PAPER_LABEL_PULL,
   )
 
   const body: string[] = []
   for (const entry of entries) {
     const anchorPoint = projectIsometric(entry.anchor, input.angles)
-    const offsetCm = entry.storedOffsetCm ?? placements.get(entry.key) ?? { x: 0, y: 0 }
+    // Kullanıcının elle taşıdığı etiket OLDUĞU YERDE kalır: çekme yalnız
+    // otomatik yerleşim için.
+    const placed = placements.get(entry.key)
+    const offsetCm =
+      entry.storedOffsetCm ??
+      (placed ? { x: placed.x * PAPER_LABEL_PULL, y: placed.y * PAPER_LABEL_PULL } : { x: 0, y: 0 })
     const at = { x: anchorPoint.x + offsetCm.x, y: anchorPoint.y + offsetCm.y }
 
     // Kılavuz çizgisi: etiket çapasından uzaktaysa hangi nesneye ait olduğu

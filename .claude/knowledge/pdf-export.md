@@ -82,6 +82,50 @@ kutuları BOŞ basar. Detay ekranı aynı değerleri kesikli "mock" işaretiyle
 gösteriyor, KÂĞITTA öyle bir işaret yok — uçlar bağlanana kadar çıktıdaki bu
 alanlara güvenilmemeli.
 
+## İzometrik şema sayfası
+
+Ekrandaki izometrikle AYNI çekirdek fonksiyonlardan: `buildIsometricScene`
+geometriyi, `projectIsometric` izdüşümü, `isometricLabels` etiket metnini,
+`layoutIsometricLabels` halka yerleşimini veriyor. Sayfa EN SONDA.
+
+⚠️ Döndürülebilirlik PDF'e GEÇMEZ; sayfa tek açıda donmuş görüntüdür. Açı
+KULLANICININ EKRANDA BAKTIĞI açıdır (`isometricAngles`). Sabit bir açı basmak,
+elle ayrılmış binmeleri (`isometricOffsetCm`) geri getirirdi.
+
+⚠️ Sayfa ÖLÇEKSİZ: izdüşümde uzunluklar kısalır, cetvelle ölçülemez. Gerçek boy
+etiketten okunur. Vaziyet planıyla aynı yoldan (`drawFittedSvg`) sığdırılıyor.
+
+⚠️ Borular TEK ÇİZGİ (kullanıcı kararı, referans şemayla aynı okunuş); çap
+yazıdan okunuyor.
+
+⚠️ Eleman sembolleri BILLBOARD: plan açısı UYGULANMAZ, ekrandaki
+`IsometricElement` de kameraya dönük çiziyor. Plan sayfasının
+`toSymbolTransform`ından tek farkı bu; çapa kaydırması ölçekten ÖNCE ve 1:1 cm.
+İlk sürümde semboller HİÇ çizilmemişti — sayfada yalnız boru ve yazı vardı.
+
+⚠️ **Etiket halkası kâğıt için daraltılıyor.** `layoutIsometricLabels` halkayı
+sahne boyutunun yarısı kadar dışarı koyuyor (`PAPER_RING_TIGHTNESS` bunu kısar)
+ve `getIsometricLabelDistanceCm` en az 240 cm dayatıyor (`PAPER_LABEL_PULL`
+bunu çeker). İkisi de ekranda doğru: yazı ekran-sabit boyutta, kamera
+uzaklaşınca okunur kalıyor. Kâğıtta her şey BİRLİKTE küçüldüğü için aynı halka
+çizimi ortada minik bir leke yapıyordu (ölçüldü: 1500 cm'lik sahne 3883 cm'lik
+kutuya yayılıyordu).
+
+⚠️ Yalnız yarıçapı kısmak etiketleri ÜST ÜSTE bindirir (aynı açısal aralık daha
+küçük yayda demek) — ayırma payı aynı oranda BÜYÜTÜLÜYOR. Kullanıcının elle
+taşıdığı etiket çekilmez.
+
+⚠️ Ayırma payı satır YÜKSEKLİĞİNDEN hesaplanamaz: künyeler geniş
+("12000 kcal/h" tek satırda dört satır yüksekliği kadar yer kaplıyor). Pay EN
+GENİŞ etiketten geliyor; sınır kutusuna da yazı genişliği katılıyor, yoksa
+ortalanmış etiketin yarısı kırpılıyordu.
+
+⚠️ Tesisatı olmayan projede sayfa HİÇ basılmaz. (Kat planında durum farklı:
+orada boş sayfa "bu kat boş" bilgisini taşıyor.)
+
+⚠️ Etiketlenen hatlar EKRANDAKİ kuralla aynı (`isConsumptionLine`): yalnız
+tüketim noktasına varanlar. Numara süzülmüş liste üzerinden, atlama yok.
+
 ## Neden jspdf + svg2pdf
 
 | | pdf-lib | jspdf + svg2pdf |
@@ -257,7 +301,7 @@ yazılmaz.
 **Dosya:** core/pdf/{paper,planSvg,planSvgObjects,planSvgAnnotations,
 planSvgInstallation,svgPrimitives,coverPage,coverPageCells,coverPageFields,
 sitePlanSvg,elevationSvg,footprint,footprintSvg,floorLevels,installationSummary,
-projectPayload}.ts ·
+projectPayload,isometricSvg,isometricLabelSvg}.ts ·
 ui/pdf/{renderPlanPdf,planPdfFont,planPdfLogo,ExportPdfDialog,ExportPdfOptions,
 useExportPdf}.ts(x) · pages/{useProjectSummary,useProjectFileOpen}.ts ·
 store/cadStore.ts (loadProjectDrawing) ·

@@ -6554,6 +6554,20 @@ yükseklikle ayrılan iki etiket yan yana çakışıyordu. Pay EN GENİŞ etiket
 geliyor. Aynı sebeple sınır kutusuna yazı GENİŞLİĞİ de katılıyor — yalnız çapa
 sayılsaydı ortalanmış etiketin yarısı kırpılırdı.
 
+⚠️ Eleman sembolleri BILLBOARD çizilir: plan açısı UYGULANMAZ, çünkü ekrandaki
+`IsometricElement` de sembolü kameraya dönük gösteriyor. Plan sayfasının
+`toSymbolTransform`ından tek farkı bu; çapa kaydırması ölçekten ÖNCE ve 1:1 cm
+uygulanıyor (ekranla aynı sıra), yoksa sembol boruya değdiği noktadan kayardı.
+İlk sürümde semboller HİÇ çizilmemişti — sayfada yalnız borular ve yazılar vardı
+(kullanıcı bulgusu).
+
+⚠️ Etiketler halka yarıçapının `PAPER_LABEL_PULL` katında duruyor.
+`getIsometricLabelDistanceCm` en az 240 cm dayatıyor; ekranda doğru ama küçük
+bir tesisatta kâğıtta boruların birkaç katı uzunlukta kılavuz çizgileri
+üretiyordu. ⚠️ Yalnız yarıçapı kısmak etiketleri ÜST ÜSTE bindirir (aynı açısal
+aralık daha küçük yayda demek), bu yüzden yerleşime verilen ayırma payı aynı
+oranda BÜYÜTÜLÜYOR. Kullanıcının elle taşıdığı etiket çekilmez.
+
 ⚠️ Tesisatı olmayan projede izometrik sayfa HİÇ basılmaz: boş bir izometrik
 okuyucuya bir şey söylemez. Kat planında durum farklı, orada boş sayfa "bu kat
 boş" bilgisini taşıyor.

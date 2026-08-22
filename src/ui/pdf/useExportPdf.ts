@@ -216,6 +216,7 @@ function buildIsometric(source: IsometricSource): IsometricSvg | undefined {
     angles: source.isometricAngles,
     getMetadata: getSymbolMetadata,
     resolveLineColor: resolveInstallationLineColor,
+    resolveSymbol: resolveSymbolAsset,
     fontFamily: PDF_FONT_FAMILY,
   })
 }
