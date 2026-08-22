@@ -7001,3 +7001,50 @@ dokunulmadan bırakıldı.
 Nerede: `core/architectureSymbol.ts` (`isPointInSymbol`), `core/architectureHover.ts`,
 `core/pointSymbolLabel.ts` (+ testi), `core/labelLeader.ts`, `core/areaObjectLabel.ts`,
 `scene/PointSymbolNameLabels.tsx`, `scene/ArchitectureLayer.tsx`, `store/uiStore.ts`.
+
+### K139 — Kolon ve baca şaftı duvarın YÜZÜNE yaslanıyor
+
+Kullanıcı: "kolonlar ve baca şaftı duvarlara da snaplenmeli sadece ızgaraya
+değil". Yerleşim önceliği artık **duvar → ızgara**: imleç bir duvarın yüzüne
+yakınsa nesne oraya yaslanır, değilse eski ızgara yakalaması çalışır.
+
+**Yaslanma = yüze DEĞMEK, içine girmemek.** Merkez = duvar ekseni üzerindeki
+izdüşüm + normal × (duvarın yarı kalınlığı + nesnenin o yöndeki yarı
+kalınlığı). Nesne duvar boyunca serbest kayar (izdüşüm imleci izler), yalnız
+duvarın ucunu geçmez — `projectOntoSegment` uçlara kelepçeliyor.
+
+⚠️ **Yakınlık nesnenin KENARINDAN ölçülüyor, merkezinden değil.** Yaslanmış bir
+kolonun merkezi zaten yüzden yarım kolon (25 cm) uzakta durur; merkezden ölçen
+bir mıknatıs ancak nesne duvara YARIYA KADAR GÖMÜLÜYKEN tetiklenirdi. Negatif
+boşluk da (nesne duvarın içinde) yakalanır ve nesne dışarı itilir.
+
+⚠️ **Pay, nesnenin AÇISINDAN türetiliyor** (`lengthCm / 2` sabiti DEĞİL): köşeler
+duvar normaline izdüşürülüp en büyüğü alınıyor, böylece 37° dönmüş bir kolon da
+tam yaslanır, köşesi duvara girmez.
+
+**Yerleştirmede nesne duvarın AÇISINI alır, taşımada ALMAZ.** Yeni nesnenin
+açısı yok, eğik duvarda ızgara hizasında durursa duvarın içine girerdi; taşınan
+nesnenin ise kullanıcının verdiği bir açısı VAR ve taşıma jesti onu sessizce
+silmemeli (döndürmenin kendi tutamacı var). Bu yüzden çekirdek fonksiyon
+`isAlignedToWall` alıyor — açık olduğunda pay, nesnenin duvara döndürülmüş
+hâlinden hesaplanıyor.
+
+⚠️ Hangi TÜRLER yapışır: kolon ve baca şaftı (kullanıcı seçti). Merdiven
+dışarıda — mahalin ortasında da durabiliyor ve mıknatıs onu istemediği yere
+çekerdi; kolon havalandırması da dışarıda, şaftın yanında duruyor duvarın
+değil. `Record<AreaObjectType, boolean>` olduğu için yeni bir tip eklenip burası
+unutulursa DERLEME kırılır.
+
+⚠️ Bu bir BAĞLANMA değil: nesne serbest kalmaya devam ediyor (`PointSymbol`in
+duvara bağlanma modeli GİRMEDİ). Duvar sonradan taşınırsa kolon peşinden
+gitmez — yakalama yalnız yerleşim anında çalışan bir mıknatıstır.
+
+⚠️ Ctrl İKİSİNİ birden kapatır (ızgara + duvar): serbest yerleştirme için tek
+tuş yetmeli, kullanıcı "hangisi hangi tuşta" diye düşünmesin.
+
+`AddAreaObjectInput.angleDeg` opsiyonel eklendi (varsayılan 0) — eski
+çağıranların davranışı değişmedi.
+
+Nerede: `core/areaObjectWallSnap.ts` (+ testi), `scene/useAreaObjectTool.ts`,
+`scene/useAreaObjectSelectionTool.ts`, `scene/ArchitectureLayer.tsx` (önizleme
+açısı), `store/areaObjectOps.ts`.

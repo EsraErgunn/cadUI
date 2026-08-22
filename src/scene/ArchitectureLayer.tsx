@@ -218,7 +218,7 @@ function AreaObjects() {
             y: preview.position.y,
             widthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].widthCm,
             lengthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].lengthCm,
-            angleDeg: 0,
+            angleDeg: preview.angleDeg,
           }}
           zoom={zoom}
           tone="preview"
