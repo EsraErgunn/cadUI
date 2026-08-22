@@ -5,6 +5,7 @@ import {
 } from './areaObject'
 import { getAreaObjectLocalBounds } from './areaObjectHandles'
 import type { PlanPoint } from './coords'
+import { getLabelRectCm } from './labelLeader'
 import type { AreaObject, AreaObjectType, Id } from './model'
 import { isPointInRect, type PlanRect } from './selection'
 
@@ -12,10 +13,6 @@ import { isPointInRect, type PlanRect } from './selection'
 export const AREA_OBJECT_LABEL_SIZE_PX = 12
 /** Varsayılan etiket, nesnenin kutusunun bu kadar üstünde durur (ekran pikseli). */
 const LABEL_MARGIN_PX = 16
-/** Roboto ~0.6em ortalama karakter genişliği — tutma kutusu kabaca yazı kadar. */
-const LABEL_CHAR_WIDTH_PX = 7.2
-/** Tutma kutusuna eklenen pay: yazının tam sınırına nişan almak gerekmesin. */
-const LABEL_HIT_PADDING_PX = 3
 
 /**
  * Ad etiketi GÖSTERİLEN türler (kullanıcı seçti). Merdiven dışarıda: iniş oku ve
@@ -97,27 +94,16 @@ export function getAreaObjectLabelAnchorCm(
 }
 
 /**
- * Etiketin tutma kutusu. Troika yazıyı ölçmeden kaba karakter genişliğiyle
- * kestirilir — tutma sınavı saf kalsın diye render'dan ölçü sızdırılmaz;
- * birkaç piksellik sapma pay ile kapanır (`getElementLabelRectCm` ile aynı).
+ * Etiketin tutma kutusu. Hesap `core/labelLeader.ts`'te ORTAK: mimari cihazın
+ * ad etiketi de aynı kutuyu istiyor ve iki kopya, biri değiştirilince öteki
+ * unutulacak türden.
  */
 export function getAreaObjectLabelRectCm(
   anchor: PlanPoint,
   label: string,
   zoom: number,
 ): PlanRect {
-  const halfWidthCm =
-    (Math.max(label.length * LABEL_CHAR_WIDTH_PX, AREA_OBJECT_LABEL_SIZE_PX) / 2 +
-      LABEL_HIT_PADDING_PX) /
-    zoom
-  const halfHeightCm = (AREA_OBJECT_LABEL_SIZE_PX / 2 + LABEL_HIT_PADDING_PX) / zoom
-
-  return {
-    minX: anchor.x - halfWidthCm,
-    minY: anchor.y - halfHeightCm,
-    maxX: anchor.x + halfWidthCm,
-    maxY: anchor.y + halfHeightCm,
-  }
+  return getLabelRectCm(anchor, label, AREA_OBJECT_LABEL_SIZE_PX, zoom)
 }
 
 /**

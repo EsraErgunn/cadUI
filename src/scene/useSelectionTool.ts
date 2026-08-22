@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findPointSymbolLabelAt } from './usePointSymbolLabelTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
@@ -102,6 +103,8 @@ export function useSelectionTool(): void {
       if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
       // Ad etiketi gövdenin DIŞINDA ve serbestçe taşınabiliyor: o basış etiketin.
       if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Cihaz ad etiketi de gövdesinin DIŞINDA ve serbestçe taşınabiliyor (K138).
+      if (findPointSymbolLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
       // Metin `resolveArchitectureTarget` zincirinde YOK (K81): oraya girseydi
       // bir notun üstüne düşen duvar seçilemez olurdu. Sonuç olarak hedef
       // çözümlemesi metnin üstünü "boşluk" sayıyor ve çerçeve seçimi başlıyordu

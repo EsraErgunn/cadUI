@@ -132,3 +132,41 @@ kullanıcının çizimi elimizdedir ama erişilemez. Bu tuzağa iki kez düşül
 commit'te yazılır ve testi eklenir. Bit-bit tur bozulmaz, çünkü
 `serializeProjectData` her zaman tam şekli yazar — göç yalnız ESKİ dosyanın ilk
 açılışında çalışır, sonraki kayıtta alan dosyaya girer.
+
+## Ad etiketi ve tutma alanı (K138)
+
+⚠️ **Tutma alanı ÇİZİLEN geometriden.** Sınav sembolün KENDİ ekseninde yapılır:
+hedef, duvarın açısı ve montaj yüzü geri alınarak yerel eksene taşınır
+(`isPointInAreaObject` ile aynı yöntem), sonra geometrinin kutusuyla
+karşılaştırılır. Çekme çizgisi de geometrinin parçası, o da tutulabilir.
+
+Eskiden ÇAPA NOKTASI etrafında, kenarı `çekme çizgisi boyu + derinlik` olan bir
+KARE vardı — çekme çizgili cihazda 114 cm'lik bir alan ve işaretin bulunmadığı
+üç yöne de yayılıyordu. Kullanıcı "seçim alanı çok geniş" dedi: cihazın
+yanındaki boşluğa yapılan tıklama duvara/odaya gitmeli.
+
+⚠️ **Ad etiketi cihazın BAKTIĞI yöne konur**, dünya +y'sine değil. İlk sürüm
+sabit "yukarı" kullanıyordu: aşağı bakan bir cihazda işaret duvarın altında,
+yazısı üstünde kalıyor ve kılavuz duvarı kesip komşu odaya düşüyordu. Yön
+cihazın yerel +y'sinden (`outwardSign` uygulanmış) geliyor; YAZI dönmez, yalnız
+nereye konacağı döner.
+
+**Etiket sürüklenebilir**, kayma `PointSymbol.labelOffsetCm`'te — alan
+nesnesindekiyle aynı desen: canlı kayma `architectureUiStore`'da, bırakılınca
+tek yazım, ızgaraya yakalanmaz. Tutma sınavı `pickPointSymbolLabelAt`.
+
+⚠️ Şema alanı OPSİYONEL: eski kayıtta yok, zorunlu tutulmak dosyayı açılmaz
+yapardı (yukarıdaki göç kuralı).
+
+⚠️ Alan nesnesinin etiketi ÖNCELİKLİ (ikisi üst üste gelirse tek etiket
+taşınsın); beş araç hook'u da cihaz etiketini sorup jesti bırakıyor.
+
+⚠️ Görünürlük anahtarı alan nesnesiyle ORTAK (`isAreaObjectNamesVisible`,
+menüde "Nesne adları"): kullanıcı için ikisi de nesnenin adı.
+
+⚠️ Etiket kutusu hesabı `core/labelLeader.ts` → `getLabelRectCm`'de ORTAK
+(mimari cihaz + alan nesnesi). Tesisatın `getElementLabelRectCm`'i hâlâ kendi
+kopyası — fay sınırı yüzünden değil, dokunulmadığı için; oraya el atılırsa
+buraya bağlanmalı.
+
+**Yeni dosyalar:** core/pointSymbolLabel.ts · scene/PointSymbolNameLabels.tsx

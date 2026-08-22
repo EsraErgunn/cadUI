@@ -50,9 +50,14 @@ type UiState = {
    */
   isGridSnapEnabled: boolean
   /**
-   * Alan nesnesi ad etiketleri (kolon/baca şaftı/kolon havalandırması, K50).
-   * Varsayılan AÇIK: etiket eklenirken hep görünürdü, anahtar davranışı
-   * değiştirmemeli — yalnız kapatma imkânı ekliyor.
+   * Mimari ad etiketleri: alan nesneleri (kolon/baca şaftı/kolon havalandırması,
+   * K50) ve mimari cihazlar (alarm/sensör/söndürücü/pano/şalter/menfez/
+   * aydınlatma). Varsayılan AÇIK: etiket eklenirken hep görünürdü, anahtar
+   * davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
+   *
+   * İki nesne ailesi TEK anahtar paylaşıyor: menüdeki adı "Nesne adları" ve
+   * kullanıcı için ikisi de nesnenin adı; ayrı iki madde gereksiz bir ayrım
+   * olurdu.
    */
   isAreaObjectNamesVisible: boolean
   /**

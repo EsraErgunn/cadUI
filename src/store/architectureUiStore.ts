@@ -119,6 +119,12 @@ type AreaObjectLabelDrag = {
   offsetCm: PlanPoint
 }
 
+/** Cihaz ad etiketinin canlı kayması; AreaObjectLabelDrag ile aynı gerekçe. */
+type PointSymbolLabelDrag = {
+  symbolId: Id
+  offsetCm: PlanPoint
+}
+
 type ArchitectureUiState = {
   /**
    * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
@@ -149,6 +155,7 @@ type ArchitectureUiState = {
   draggingSymbols: SymbolDrag | null
   draggingAreaObjects: AreaObjectDrag | null
   draggingAreaObjectLabel: AreaObjectLabelDrag | null
+  draggingPointSymbolLabel: PointSymbolLabelDrag | null
   draggingBeams: BeamDrag | null
   beamHandleDrag: BeamHandleDrag | null
   /** İmleç kirişin bir ucunun üstünde mi? Tutamacın vurgusu bunu okur. */
@@ -173,6 +180,7 @@ type ArchitectureUiState = {
   toggleSelected: (item: SelectionItem) => void
   clearSelection: () => void
   setMarquee: (marquee: PlanRect | null) => void
+  setDraggingPointSymbolLabel: (drag: PointSymbolLabelDrag | null) => void
   startMeasurement: (start: PlanPoint) => void
   finishMeasurement: (end: PlanPoint) => void
   clearMeasurement: () => void
@@ -211,6 +219,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingSymbols: null,
     draggingAreaObjects: null,
     draggingAreaObjectLabel: null,
+    draggingPointSymbolLabel: null,
     draggingBeams: null,
     beamHandleDrag: null,
     isBeamHandleHovered: false,
@@ -286,6 +295,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingAreaObjectLabel: (drag) =>
       set((draft) => {
         draft.draggingAreaObjectLabel = drag
+      }),
+
+    setDraggingPointSymbolLabel: (drag) =>
+      set((draft) => {
+        draft.draggingPointSymbolLabel = drag
       }),
 
     setDraggingBeams: (drag) =>

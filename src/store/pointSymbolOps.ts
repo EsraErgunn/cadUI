@@ -2,6 +2,7 @@ import type { DraftSetter } from './architecturePropertyOps'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
 import { markDirty, takeNextId } from './projectMeta'
+import type { PlanPoint } from '../core/coords'
 import type { Id, PointSymbolType, SymbolAttachment } from '../core/model'
 import { getNextSymbolLabel, isSymbolLabelTaken, isSymbolLabelValid } from '../core/pointSymbol'
 import { getSymbolFloorId } from '../core/symbolPlacement'
@@ -46,6 +47,8 @@ export type PointSymbolActions = {
   /** Çakışan etiket REDDEDİLİR (KK-10). */
   setPointSymbolLabel: (symbolId: Id, label: string) => boolean
   setPointSymbolNote: (symbolId: Id, note: string) => boolean
+  /** Ad etiketinin kayması; sürükleme bırakılınca TEK yazım (K138). */
+  setPointSymbolLabelOffset: (symbolId: Id, offsetCm: PlanPoint) => boolean
 }
 
 /**
@@ -154,6 +157,25 @@ export function createPointSymbolActions(set: DraftSetter): PointSymbolActions {
         if (!symbol || symbol.note === note) return
 
         symbol.note = note
+        isApplied = true
+        markDirty(draft)
+      })
+      return isApplied
+    },
+
+    /** `setAreaObjectLabelOffset` ile birebir aynı sözleşme ve aynı gerekçeler. */
+    setPointSymbolLabelOffset: (symbolId: Id, offsetCm: PlanPoint): boolean => {
+      let isApplied = false
+      set((draft) => {
+        const symbol = draft.symbols.find((candidate) => candidate.id === symbolId)
+        if (!symbol) return
+        // Aynı değerde yazma: sürüklemeden bırakılan etiket geçmişe boş adım
+        // yazmasın (K13'ün "reddedilen action geçmişi kirletmez" kuralı).
+        if (symbol.labelOffsetCm?.x === offsetCm.x && symbol.labelOffsetCm?.y === offsetCm.y) {
+          return
+        }
+
+        symbol.labelOffsetCm = offsetCm
         isApplied = true
         markDirty(draft)
       })
