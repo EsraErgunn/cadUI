@@ -33,6 +33,7 @@ async function renderPdfText(projectJson: string): Promise<string> {
     scale: '1:50',
     cover: undefined,
     sitePlan: undefined,
+    isometric: undefined,
     projectJson,
   })
 

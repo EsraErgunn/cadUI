@@ -12,15 +12,22 @@ import {
   getInstallationSummary,
   type InstallationSummaryInput,
 } from '../../core/pdf/installationSummary'
+import { buildIsometricSvg, type IsometricSvg } from '../../core/pdf/isometricSvg'
 import { getPlanBounds } from '../../core/pdf/paper'
 import { buildPlanSvg, type PlanSvg } from '../../core/pdf/planSvg'
 import { buildSitePlanSvg, type SitePlanSvg } from '../../core/pdf/sitePlanSvg'
 import { serializeProjectDataForBackend } from '../../core/projectExportFormat'
+import type { IsometricAngles } from '../../isometric/core/isometricProjection'
+import type { IsometricSceneInput } from '../../isometric/core/isometricScene'
 import type { ProjectSummary } from '../../pages/useProjectSummary'
-import type { InstallationElement } from '../../plumbing/core/installationModel'
+import type {
+  InstallationElement,
+  InstallationLine,
+} from '../../plumbing/core/installationModel'
 import { isDischargeKind } from '../../plumbing/core/lineKinds'
 import { getLineColor } from '../../plumbing/scene/lineStyle'
 import { DISCHARGE_STROKE_COLORS } from '../../plumbing/scene/plumbingTheme'
+import { getSymbolMetadata } from '../../plumbing/scene/symbolLoader'
 import { selectProjectData, useCadStore } from '../../store/cadStore'
 
 /** Kapaktaki logo yazısı; uygulamanın adı tek yerde. */
@@ -171,6 +178,49 @@ function buildSitePlan(request: ExportPdfRequest, source: SitePlanSource): SiteP
 }
 
 /**
+ * Hat rengi. Renk kuralı sahne katmanında; `core/` onu import edemez (kural
+ * 1/2), bu yüzden geri çağrımla dışarıdan veriliyor.
+ *
+ * Baca/havalandırma ÇAPTAN renk almaz — gaz taşımıyorlar, kendi renkleri var
+ * (ekrandaki `DischargeRunMesh` ile aynı).
+ *
+ * Kat planı ve izometrik sayfa AYNI fonksiyonu kullanıyor: iki kopya olsaydı
+ * bir boru iki sayfada iki farklı renkte çıkabilirdi.
+ */
+function resolveInstallationLineColor(line: InstallationLine): string {
+  return isDischargeKind(line.kind)
+    ? DISCHARGE_STROKE_COLORS[line.kind]
+    : getLineColor(line.pipeTypeName)
+}
+
+type IsometricSource = IsometricSceneInput & { isometricAngles: IsometricAngles }
+
+/**
+ * İzometrik şema sayfası.
+ *
+ * Açı store'dan, yani KULLANICININ EKRANDA BAKTIĞI açıdan geliyor. Sabit bir
+ * açı basmak, kullanıcının elle ayırdığı binmeleri (`isometricOffsetCm`) geri
+ * getirirdi — o düzenleme baktığı açıya göre yapılmış.
+ *
+ * Tesisatı olmayan projede `undefined` döner ve sayfa HİÇ basılmaz: boş bir
+ * izometrik sayfa okuyucuya bir şey söylemez. (Kat planında durum farklı, orada
+ * boş sayfa "bu kat boş" bilgisini taşıyor.)
+ */
+function buildIsometric(source: IsometricSource): IsometricSvg | undefined {
+  return buildIsometricSvg({
+    floors: source.floors,
+    installationElements: source.installationElements,
+    installationLines: source.installationLines,
+    installationConnections: source.installationConnections,
+    floorPipeLinks: source.floorPipeLinks,
+    angles: source.isometricAngles,
+    getMetadata: getSymbolMetadata,
+    resolveLineColor: resolveInstallationLineColor,
+    fontFamily: PDF_FONT_FAMILY,
+  })
+}
+
+/**
  * Çizimi PDF'e basar ve indirtir.
  *
  * Store'dan okuma `getState()` ile ANLIK: dışa aktarma bir jest, abone olunacak
@@ -201,13 +251,7 @@ export function useExportPdf(): ExportPdfState {
           installationElements: state.installationElements,
           floorId,
           fontFamily: PDF_FONT_FAMILY,
-          // Renk kuralı sahne katmanında; core onu import edemez (kural 1/2).
-          // Baca/havalandırma ÇAPTAN renk almaz — gaz taşımıyorlar, kendi
-          // renkleri var (ekrandaki DischargeRunMesh ile aynı).
-          resolveLineColor: (line) =>
-            isDischargeKind(line.kind)
-              ? DISCHARGE_STROKE_COLORS[line.kind]
-              : getLineColor(line.pipeTypeName),
+          resolveLineColor: resolveInstallationLineColor,
           resolveSymbolAsset,
           resolveElementLabel,
         }),
@@ -227,6 +271,7 @@ export function useExportPdf(): ExportPdfState {
         sitePlan: request.settings.isSitePlanVisible
           ? buildSitePlan(request, state)
           : undefined,
+        isometric: request.settings.isIsometricVisible ? buildIsometric(state) : undefined,
       })
 
       downloadBlob(toProjectFileName(request.project.number), blob)

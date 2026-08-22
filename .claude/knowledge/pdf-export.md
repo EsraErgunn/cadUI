@@ -11,6 +11,8 @@ store → core/pdf/planSvg.ts        → SVG metni (plan cm, y çevrili)
       → core/pdf/sitePlanSvg.ts   → vaziyet planı SVG'si (ölçeksiz, şematik)
         ├ elevationSvg.ts          → kat yığını kesiti (gerçek kotlar)
         └ footprint.ts/footprintSvg.ts → kuşbakışı kontur + SERVİS KUTUSU
+      → core/pdf/isometricSvg.ts   → izometrik şema (ölçeksiz, tek çizgi)
+        └ isometricLabelSvg.ts     → halka yerleşimi + kılavuz çizgileri
       → core/pdf/projectPayload.ts → proje JSON'u XMP metadata'sına gömer/okur
       → ui/pdf/renderPlanPdf.ts    → jsPDF + svg2pdf, çok sayfa, Blob
 ```

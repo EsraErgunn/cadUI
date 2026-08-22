@@ -4,6 +4,7 @@ import { svg2pdf } from 'svg2pdf.js'
 import { embedPdfFont, PDF_FONT_FAMILY } from './planPdfFont'
 import { loadPdfLogo } from './planPdfLogo'
 import { layoutCoverPage, type CoverPageInfo } from '../../core/pdf/coverPage'
+import type { IsometricSvg } from '../../core/pdf/isometricSvg'
 import {
   fitPlanToPage,
   getDrawableArea,
@@ -33,6 +34,12 @@ export type RenderPlanPdfInput = {
   /** Vaziyet planı sayfası; istenmediyse `undefined`. Kapaktan sonra gelir. */
   sitePlan: SitePlanSvg | undefined
   /**
+   * İzometrik şema; istenmediyse ya da çizilecek tesisat yoksa `undefined`.
+   * EN SONDA: belge önce binayı ve katları anlatır, izometrik tesisatın
+   * bütününü özetleyerek kapatır.
+   */
+  isometric: IsometricSvg | undefined
+  /**
    * Belgeye GÖMÜLECEK proje JSON'u. Dosyayı hem pafta hem proje dosyası yapan
    * şey bu — "Proje Dosyasını Aç" sayfayı okumaz, bunu geri alır.
    */
@@ -60,9 +67,10 @@ function parseSvg(markup: string): Element {
 /**
  * Belgeyi basar ve dosyayı döndürür.
  *
- * SAYFA SIRASI: kapak → vaziyet planı → kat planları. Katların sırasını çağıran
- * belirler (`pages`) ve o sıra ZEMİNDEN YUKARI çıkar — belge binayı aşağıdan
- * yukarı gezer, çünkü tesisat da servis kutusundan yukarı doğru okunur.
+ * SAYFA SIRASI: kapak → vaziyet planı → kat planları → izometrik. Katların
+ * sırasını çağıran belirler (`pages`) ve o sıra ZEMİNDEN YUKARI çıkar — belge
+ * binayı aşağıdan yukarı gezer, çünkü tesisat da servis kutusundan yukarı
+ * doğru okunur. İzometrik EN SONDA: tesisatın bütününü özetleyerek kapatıyor.
  *
  * Boş kat da basılır: sayfası boş çıkar ama SAYFASI çıkar — yoksa çıktıdaki
  * kat sayısı seçilenden az olur ve hangisinin boş olduğu anlaşılmaz.
@@ -123,6 +131,11 @@ export async function renderPlanPdf(input: RenderPlanPdfInput): Promise<Blob> {
     }
   }
 
+  if (input.isometric) {
+    startPage()
+    await drawFittedSvg(doc, pageSize, area, input.isometric)
+  }
+
   return doc.output('blob')
 }
 
@@ -130,14 +143,16 @@ export async function renderPlanPdf(input: RenderPlanPdfInput): Promise<Blob> {
  * Ölçeksiz bir SVG'yi çizim alanına sığdırır ve ORTALAR.
  *
  * Kat planında ölçek kutsaldır ve sığdırma yapılmaz (`paper.ts`); vaziyet planı
- * ise şematiktir, cetvelle ölçülmez — bu yüzden burada oranı bozmadan
- * küçültmek meşru. İki yolun ayrı durmasının sebebi tam da bu ayrım.
+ * ile izometrik şema ise ÖLÇEKSİZDİR — biri temsilî, ötekinde izdüşüm
+ * uzunlukları kısaltıyor (gerçek boy etiketten okunur). İkisi de cetvelle
+ * ölçülmediği için oranı bozmadan küçültmek meşru; iki yolun ayrı durmasının
+ * sebebi tam da bu ayrım.
  */
 async function drawFittedSvg(
   doc: jsPDF,
   pageSize: PageSizePt,
   area: PageArea,
-  svg: SitePlanSvg,
+  svg: SitePlanSvg | IsometricSvg,
 ): Promise<void> {
   const scale = Math.min(area.widthPt / svg.widthCm, area.heightPt / svg.heightCm)
   const widthPt = svg.widthCm * scale

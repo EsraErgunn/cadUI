@@ -6516,11 +6516,53 @@ Nerede: `src/api/projectFirmUsers.ts`, `src/api/projectFirmUserForm.ts`,
 =======
 ### K136 — PDF vektör; çizim önce SVG olur, sayfaya ölçek TAŞINIR
 
-Çıktı tek bir PROJE DOSYASI: kapak → vaziyet planı → kat planları. Menüde
-"Proje Dosyasını İndir" tek madde, kapsam (hangi sayfalar, hangi katlar)
-pencerede seçilir. İki menü maddesi ("PDF'e Aktar" + "PDF'e Aktar (Katlar)")
-KALKTI: kullanıcıyı pencereyi görmeden kapsama karar vermeye zorluyordu, oysa
-kapsam da bir dışa aktarma ayarı.
+Çıktı tek bir PROJE DOSYASI: kapak → vaziyet planı → kat planları → izometrik
+şema. Menüde "Proje Dosyasını İndir" tek madde, kapsam (hangi sayfalar, hangi
+katlar) pencerede seçilir. İki menü maddesi ("PDF'e Aktar" + "PDF'e Aktar
+(Katlar)") KALKTI: kullanıcıyı pencereyi görmeden kapsama karar vermeye
+zorluyordu, oysa kapsam da bir dışa aktarma ayarı.
+
+**İZOMETRİK ŞEMA sayfası EN SONDA.** Ekrandaki izometrikle AYNI çekirdek
+fonksiyonlardan üretiliyor (`buildIsometricScene` + `projectIsometric` +
+`isometricLabels` + `layoutIsometricLabels`); kâğıt kendi çizim dilini
+uydurmuyor.
+
+⚠️ **Döndürülebilirlik PDF'e geçmez**; sayfa tek açıda donmuş görüntüdür. Açı
+KULLANICININ EKRANDA BAKTIĞI açıdır. Sabit bir açı basmak, kullanıcının elle
+ayırdığı binmeleri (`isometricOffsetCm`) geri getirirdi — o düzenleme baktığı
+açıya göre yapılmış.
+
+⚠️ Sayfa ÖLÇEKSİZ: izdüşümde uzunluklar kısalır (foreshortening), cetvelle
+ölçülemez. Gerçek boy etiketten okunur; referans paftada da öyle. Bu yüzden
+vaziyet planıyla aynı yoldan (`drawFittedSvg`) sığdırılıyor, üstünde ölçek
+yazmıyor.
+
+⚠️ Borular TEK ÇİZGİ, ekrandaki gibi kalınlıklarıyla değil (kullanıcı kararı):
+şemanın işi güzergâhı göstermek, çap yazıdan (DN25) okunuyor. Kalınlıkla
+çizilince yoğun projede etiketlere yer kalmıyordu.
+
+⚠️ **Etiket halkası kâğıt için DARALTILIYOR** (`PAPER_RING_TIGHTNESS`).
+`layoutIsometricLabels` halkayı sahne boyutunun YARISI kadar dışarı koyuyor;
+ekranda doğru, çünkü yazı ekran-sabit boyutta ve kamera uzaklaşınca da okunur
+kalıyor. Kâğıtta her şey BİRLİKTE küçüldüğü için aynı halka, çizimi sayfanın
+ortasında minik bir leke yapıyor, kalanını kılavuz çizgileri dolduruyordu
+(ölçüldü: 1500 cm'lik sahne 3883 cm'lik kutuya yayılıyordu).
+
+⚠️ Etiket ayırma payı satır YÜKSEKLİĞİNDEN hesaplanamaz: künyeler geniş
+("12000 kcal/h" tek satırda dört satır yüksekliği kadar yer kaplıyor) ve
+yükseklikle ayrılan iki etiket yan yana çakışıyordu. Pay EN GENİŞ etiketten
+geliyor. Aynı sebeple sınır kutusuna yazı GENİŞLİĞİ de katılıyor — yalnız çapa
+sayılsaydı ortalanmış etiketin yarısı kırpılırdı.
+
+⚠️ Tesisatı olmayan projede izometrik sayfa HİÇ basılmaz: boş bir izometrik
+okuyucuya bir şey söylemez. Kat planında durum farklı, orada boş sayfa "bu kat
+boş" bilgisini taşıyor.
+
+⚠️ Referans paftadaki bazı yazıların modelde karşılığı YOK (`Tük.Nok`,
+`Abonelik`, `Belge Tarihi`, `Bağ.Nes`, topraklama özellikleri, "mevcut" /
+"es verilmiştir"); kâğıda çıkmıyorlar. Ayrıca referansta segment etiketleri
+KAT PLANLARINDA da var — bizde o etiketler yalnız izometrikte üretiliyor, plan
+sayfasına taşınması ayrı bir iş olarak bırakıldı.
 
 **Dosya hem PAFTA hem PROJE DOSYASI: veri belgeye gömülü.** "Proje Dosyasını
 Aç" bunun tersini yapıyor ve çizimi geri yüklüyor.

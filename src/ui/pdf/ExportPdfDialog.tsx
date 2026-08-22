@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: ExportPdfSettings = {
   scale: DEFAULT_PDF_SCALE,
   isCoverVisible: true,
   isSitePlanVisible: true,
+  isIsometricVisible: true,
 }
 
 type ExportPdfDialogProps = {
@@ -131,7 +132,8 @@ export function ExportPdfDialog({ project, onClose }: ExportPdfDialogProps) {
             isExporting ||
             (exportFloorIds.length === 0 &&
               !settings.isCoverVisible &&
-              !settings.isSitePlanVisible)
+              !settings.isSitePlanVisible &&
+              !settings.isIsometricVisible)
           }
           className={`${chromeButtonVariants({ tone: 'active' })} ${FOCUS_RING}`}
         >

@@ -22,6 +22,8 @@ export type ExportPdfSettings = {
   isCoverVisible: boolean
   /** Kapaktan sonraki sayfa: kat yığını kesiti ve parsel çerçevesi. */
   isSitePlanVisible: boolean
+  /** En sondaki sayfa: tesisatın izometrik şeması. */
+  isIsometricVisible: boolean
 }
 
 type ExportPdfOptionsProps = {
@@ -137,6 +139,12 @@ export function ExportPdfOptions({ settings, isDisabled, onChange }: ExportPdfOp
           isChecked={settings.isSitePlanVisible}
           isDisabled={isDisabled}
           onChange={(isSitePlanVisible) => onChange({ ...settings, isSitePlanVisible })}
+        />
+        <Toggle
+          label="İzometrik şema"
+          isChecked={settings.isIsometricVisible}
+          isDisabled={isDisabled}
+          onChange={(isIsometricVisible) => onChange({ ...settings, isIsometricVisible })}
         />
       </fieldset>
     </div>
