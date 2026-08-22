@@ -4,12 +4,18 @@ import { FONT_URL } from './LengthLabels'
 import { ARCHITECTURE_GHOST_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import type { AreaObjectShape } from '../../core/areaObject'
-import { getAreaObjectPlanGeometry, type AreaObjectStrokeRole } from '../../core/areaObjectGeometry'
+import { getAreaObjectPlanGeometry } from '../../core/areaObjectGeometry'
 import { getBeamCorners, type BeamShape } from '../../core/beam'
 import { planToThree, type PlanPoint } from '../../core/coords'
 import type { AreaObjectType } from '../../core/model'
 import { triangulatePolygon } from '../../core/roomFill'
-import { DEFAULT_WALL_THICKNESS_CM } from '../../core/wall'
+import {
+  AREA_OBJECT_STROKE_WIDTHS_CM,
+  BEAM_DASH_SIZE_CM,
+  BEAM_GAP_SIZE_CM,
+  BEAM_STROKE_WIDTH_CM,
+  getArchitectureStrokeWidthPx,
+} from '../../scene/architectureStrokeStyle'
 import { ARCHITECTURE_COLORS } from '../../scene/architectureTheme'
 import { RENDER_ORDER } from '../../scene/layers'
 import { SCENE_COLORS } from '../../scene/sceneTheme'
@@ -103,16 +109,15 @@ export function GhostRoomLabel({ anchor, name }: { anchor: PlanPoint; name: stri
   )
 }
 
-/** Kirişin kesik konturu duvardan TÜRETİLİR — gerçek `Beam.tsx` ile aynı oran. */
-const GHOST_BEAM_STROKE_WIDTH_CM = DEFAULT_WALL_THICKNESS_CM / 4
-const GHOST_BEAM_DASH_SIZE_CM = DEFAULT_WALL_THICKNESS_CM
-const GHOST_BEAM_GAP_SIZE_CM = DEFAULT_WALL_THICKNESS_CM * 0.6
-
 /**
  * Hayalet kiriş: `Beam.tsx` ile AYNI dikdörtgen + kesik kontur, tek soluk
  * renkte. Sıfır boy kirişte `getBeamCorners` undefined döner, çizilmez.
+ *
+ * Kalınlık sabitleri gerçek kirişle ORTAK (`architectureStrokeStyle.ts`);
+ * burada kopyaları duruyordu ve "gerçeğiyle aynı oran" notuna rağmen ikisi
+ * elle senkron tutuluyordu.
  */
-export function GhostBeam({ beam }: { beam: BeamShape }) {
+export function GhostBeam({ beam, zoom }: { beam: BeamShape; zoom: number }) {
   const corners = getBeamCorners(beam)
   if (!corners) return null
 
@@ -143,11 +148,10 @@ export function GhostBeam({ beam }: { beam: BeamShape }) {
           planToThree(corner, ARCHITECTURE_GHOST_ELEVATION_CM),
         )}
         color={PLUMBING_COLORS.architectureGhost}
-        worldUnits
-        lineWidth={GHOST_BEAM_STROKE_WIDTH_CM}
+        lineWidth={getArchitectureStrokeWidthPx(BEAM_STROKE_WIDTH_CM, zoom)}
         dashed
-        dashSize={GHOST_BEAM_DASH_SIZE_CM}
-        gapSize={GHOST_BEAM_GAP_SIZE_CM}
+        dashSize={BEAM_DASH_SIZE_CM}
+        gapSize={BEAM_GAP_SIZE_CM}
         frustumCulled={false}
         renderOrder={RENDER_ORDER.architectureGhostBeam}
         depthWrite={false}
@@ -158,12 +162,6 @@ export function GhostBeam({ beam }: { beam: BeamShape }) {
   )
 }
 
-/** Gövde/ayrıntı kalınlığı gerçek `AreaObject.tsx` ile AYNI (duvardan türetilir). */
-const GHOST_AREA_OBJECT_STROKE_WIDTHS: Record<AreaObjectStrokeRole, number> = {
-  body: DEFAULT_WALL_THICKNESS_CM / 4,
-  detail: DEFAULT_WALL_THICKNESS_CM / 8,
-}
-
 /**
  * Hayalet alan nesnesi (merdiven/kolon/baca şaftı/kolon havalandırması):
  * `AreaObject.tsx` ile AYNI geometriden (`core/areaObjectGeometry.ts`), tek
@@ -172,9 +170,11 @@ const GHOST_AREA_OBJECT_STROKE_WIDTHS: Record<AreaObjectStrokeRole, number> = {
 export function GhostAreaObject({
   type,
   areaObject,
+  zoom,
 }: {
   type: AreaObjectType
   areaObject: AreaObjectShape
+  zoom: number
 }) {
   const geometry = getAreaObjectPlanGeometry(type, areaObject)
 
@@ -207,8 +207,10 @@ export function GhostAreaObject({
             planToThree(point, ARCHITECTURE_GHOST_ELEVATION_CM),
           )}
           color={PLUMBING_COLORS.architectureGhost}
-          worldUnits
-          lineWidth={GHOST_AREA_OBJECT_STROKE_WIDTHS[stroke.role]}
+          lineWidth={getArchitectureStrokeWidthPx(
+            AREA_OBJECT_STROKE_WIDTHS_CM[stroke.role],
+            zoom,
+          )}
           frustumCulled={false}
           renderOrder={RENDER_ORDER.architectureGhostAreaObject}
           depthWrite={false}

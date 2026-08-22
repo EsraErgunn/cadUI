@@ -22,6 +22,7 @@ import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
 import { useAreaObjectTool } from './useAreaObjectTool'
 import { useBeamSelectionTool } from './useBeamSelectionTool'
 import { useBeamTool } from './useBeamTool'
+import { useCameraZoom } from './useCameraZoom'
 import { useMeasurementTool } from './useMeasurementTool'
 import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
@@ -152,6 +153,8 @@ function PointSymbols() {
  */
 function AreaObjects() {
   const preview = useAreaObjectTool()
+  // Zoom BİR kez okunur ve nesnelere dağıtılır (Walls ile aynı gerekçe).
+  const zoom = useCameraZoom()
   useAreaObjectSelectionTool()
   // Ad etiketi sürüklemesi; jest sahipliği `findAreaObjectLabelAt` ile veriliyor.
   useAreaObjectLabelTool()
@@ -198,6 +201,7 @@ function AreaObjects() {
               type={areaObject.type}
               areaObject={drawn}
               tone={tone}
+              zoom={zoom}
             />
           )
         })}
@@ -212,6 +216,7 @@ function AreaObjects() {
             lengthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].lengthCm,
             angleDeg: 0,
           }}
+          zoom={zoom}
           tone="preview"
         />
       )}
@@ -225,6 +230,8 @@ function AreaObjects() {
  */
 function Beams() {
   const preview = useBeamTool()
+  // Zoom BİR kez okunur ve kirişlere dağıtılır (Walls ile aynı gerekçe).
+  const zoom = useCameraZoom()
   useBeamSelectionTool()
   const beams = useCadStore((state) => state.beams)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -266,7 +273,7 @@ function Beams() {
                 : beam
 
           // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
-          return <Beam key={beam.id} beamId={beam.id} beam={drawn} tone={tone} />
+          return <Beam key={beam.id} beamId={beam.id} beam={drawn} tone={tone} zoom={zoom} />
         })}
 
       {/* Önizleme yalnız birinci uç konduktan SONRA çizilir: tek nokta bir
@@ -281,6 +288,7 @@ function Beams() {
             thicknessCm: DEFAULT_BEAM_THICKNESS_CM,
           }}
           tone="preview"
+          zoom={zoom}
         />
       )}
     </>
