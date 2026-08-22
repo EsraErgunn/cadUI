@@ -25,12 +25,13 @@ const PRIMARY_BUTTON = 0
 
 /**
  * Tutamaç başına imleç biçimi. Döndürme için standart bir imleç yok; `grab`
- * "tut ve çevir"i en yakın anlatan yerleşik biçim. Boyutlandırma sağ-alt
- * köşede olduğu için çapraz `nwse-resize`.
+ * "tut ve çevir"i en yakın anlatan yerleşik biçim. İki boyutlandırma tutamacı
+ * da AYNI köşegen üzerinde (sol-üst ↔ sağ-alt), bu yüzden ikisi de `nwse`.
  */
 const HANDLE_CURSORS: Record<AreaObjectHandleKind, string> = {
   rotate: 'grab',
-  resize: 'nwse-resize',
+  resizeBottomRight: 'nwse-resize',
+  resizeTopLeft: 'nwse-resize',
 }
 
 /**
@@ -106,18 +107,21 @@ export function useAreaObjectHandleTool(): void {
 
     /** Sürüklemenin o anki önizleme şekli — hem çizim hem bırakma bunu kullanır. */
     const readShape = (event: DrawSurfacePointerEvent): AreaObjectShape | undefined => {
-      if (!grab) return undefined
+      // Yerel `const`: `grab` kapanış değişkeni olduğu için tür daraltması araya
+      // giren çağrılarda kayboluyor, kind'ı boyutlandırmaya geçiremiyorduk.
+      const current = grab
+      if (!current) return undefined
 
-      if (grab.kind === 'rotate') {
+      if (current.kind === 'rotate') {
         const raw = getAreaObjectAngleFromPointer(event.planPoint, {
-          x: grab.origin.x,
-          y: grab.origin.y,
+          x: current.origin.x,
+          y: current.origin.y,
         })
         // Açı KK-3'ün 15° adımına yakalanır; Ctrl bunu KAPATIR — boyutlandırmada
         // Ctrl ızgarayı kapatıyor, döndürmede hiçbir şey yapmıyordu, yani aynı
         // tuş aynı jestte iki farklı anlama geliyordu (K51).
         return {
-          ...grab.origin,
+          ...current.origin,
           angleDeg: event.ctrlKey ? normalizeAngleDeg(raw) : snapAngleDeg(raw),
         }
       }
@@ -127,13 +131,14 @@ export function useAreaObjectHandleTool(): void {
       const target = event.ctrlKey ? event.planPoint : getPlacementPosition(event.planPoint, zoom)
 
       return {
-        ...grab.origin,
+        ...current.origin,
         ...resizeAreaObjectFromCorner(
-          grab.type,
-          grab.origin,
+          current.type,
+          current.origin,
           target,
           MIN_AREA_OBJECT_SIZE_CM,
           zoom,
+          current.kind,
         ),
       }
     }
