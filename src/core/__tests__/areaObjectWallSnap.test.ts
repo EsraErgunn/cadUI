@@ -211,4 +211,23 @@ describe('snapPointToWallFace', () => {
   it('duvarı olmayan projede undefined döner', () => {
     expect(snapPointToWallFace({ x: 0, y: 0 }, [], [], TOLERANCE_CM)).toBeUndefined()
   })
+  it('aynı doğrultuda ama UZAKTAKİ duvara ışınlanmaz (kullanıcı bulgusu)', () => {
+    // Duvar 800–1400 arasında, hedef 100'de: normal bileşeni yalnız 5 cm ama
+    // duvar 700 cm ötede. Eski sınav bunu "yakın" sayıp köşeyi oraya taşıyor,
+    // boyutlandırmada 100 cm'lik kenar 800 cm'ye fırlıyordu.
+    const farPoints: Point[] = [
+      { id: 1, floorId: FLOOR_ID, x: 800, y: 0 },
+      { id: 2, floorId: FLOOR_ID, x: 1400, y: 0 },
+    ]
+
+    expect(
+      snapPointToWallFace({ x: 100, y: 5 }, [WALL], farPoints, TOLERANCE_CM),
+    ).toBeUndefined()
+  })
+
+  it('duvarın UCUNA yakın köşe hâlâ yakalanır', () => {
+    // Ucun 5 cm ötesi: gerçek uzaklık da küçük, aday olmayı sürdürür.
+    expect(face({ x: 605, y: 5 })?.y).toBeCloseTo(10, 6)
+  })
+
 })

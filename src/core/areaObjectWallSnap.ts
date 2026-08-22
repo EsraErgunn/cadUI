@@ -188,6 +188,14 @@ export function snapPointToWallFace(
     if (!ends || getSegmentLength(ends.p1, ends.p2) < MIN_WALL_LENGTH_FOR_SNAP_CM) continue
 
     const projection = projectOntoSegment(ends.p1, ends.p2, target)
+
+    // ⚠️ ÖNCE gerçek uzaklık: köşe bu duvarın bandına yakın DEĞİLSE aday değil.
+    // Aşağıdaki `signedCm` yalnız NORMAL bileşeni ölçüyor ve izdüşüm duvarın
+    // UCUNA kelepçelendiğinde yanıltıyor — aynı doğrultuda ama metrelerce
+    // ötedeki bir duvarın normal bileşeni de küçük çıkıyor, köşe oraya
+    // ışınlanıyor ve nesne 100 cm'den 800 cm'ye fırlıyordu (kullanıcı bulgusu).
+    if (projection.distanceCm > wall.thickness / 2 + toleranceCm) continue
+
     const radians = (getSegmentAngleDeg(ends.p1, ends.p2) * Math.PI) / 180
     const normal = { x: -Math.sin(radians), y: Math.cos(radians) }
     const signedCm =
