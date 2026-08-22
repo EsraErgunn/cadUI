@@ -10,6 +10,39 @@ import { isPointInRect, type PlanRect } from './selection'
  * ad etiketi aynı hesabı istiyor; `plumbing/core/` altında kalsaydı mimari taraf
  * onu import edemez (fay sınırı) ve ikinci bir kopya yazılırdı.
  */
+/** Roboto ~0.6em ortalama karakter genişliği — kutu kabaca yazı kadar. */
+const LABEL_CHAR_WIDTH_PX = 7.2
+/** Kutuya eklenen pay: yazının tam sınırına nişan almak gerekmesin. */
+const LABEL_HIT_PADDING_PX = 3
+
+/**
+ * Bir ad etiketinin kapladığı dikdörtgen (plan cm). Hem kılavuzun nerede
+ * biteceği hem de etiketin tutulabilir alanı bunu okur.
+ *
+ * Troika yazıyı ölçmeden kaba karakter genişliğiyle kestiriliyor: hesap saf
+ * kalsın diye render'dan ölçü sızdırılmaz, birkaç piksellik sapma pay ile
+ * kapanır. Yazı EKRAN-SABİT boyda olduğu için ölçüler `px / zoom` ile cm'ye
+ * çevrilir.
+ */
+export function getLabelRectCm(
+  anchor: PlanPoint,
+  label: string,
+  sizePx: number,
+  zoom: number,
+): PlanRect {
+  const widestLineLength = Math.max(...label.split('\n').map((line) => line.length))
+  const halfWidthCm =
+    (Math.max(widestLineLength * LABEL_CHAR_WIDTH_PX, sizePx) / 2 + LABEL_HIT_PADDING_PX) / zoom
+  const halfHeightCm = (sizePx / 2 + LABEL_HIT_PADDING_PX) / zoom
+
+  return {
+    minX: anchor.x - halfWidthCm,
+    minY: anchor.y - halfHeightCm,
+    maxX: anchor.x + halfWidthCm,
+    maxY: anchor.y + halfHeightCm,
+  }
+}
+
 export function clipLeaderEndToRectCm(
   start: PlanPoint,
   end: PlanPoint,

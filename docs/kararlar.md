@@ -6942,3 +6942,62 @@ nesne başına `useCameraZoom` çağrısı kare başına N geri çağrım demekt
 Nerede: `scene/architectureStrokeStyle.ts` (+ testi), `scene/AreaObject.tsx`,
 `scene/Beam.tsx`, `scene/ArchitectureLayer.tsx`,
 `plumbing/scene/ArchitectureGhostFixtures.tsx`, `plumbing/scene/Ghosts.tsx`.
+
+### K138 — Mimari cihaza AD etiketi; seçim alanı çizimin üstüne daraldı
+
+İki kullanıcı isteği, aynı dosya ailesi: "mimari cihazlara isim eklenecek alarm
+cihazı deprem sensörü yangın söndürücü vs hepsine" ve "mimari cihazların seçim
+alanı çok geniş, onu sadece çizimin kendisinin üstüne geldiğinde aktive olacak
+şekilde değiştir".
+
+**Seçim alanı.** Eskiden ÇAPA NOKTASI etrafında, kenarı
+`çekme çizgisi boyu + derinlik` olan bir KARE kullanılıyordu: çekme çizgili
+cihazda 114 cm'lik bir alan ve işaretin bulunmadığı üç yöne de yayılıyor.
+Artık sınav sembolün KENDİ ekseninde: hedef, duvarın açısı ve montaj yüzü geri
+alınarak yerel eksene taşınıyor (`isPointInAreaObject` ile aynı yöntem) ve
+ÇİZİLEN geometrinin kutusuyla karşılaştırılıyor. Kutu `SYMBOL_DISPLAY`
+ölçülerinden hesaplanmıyor, geometrinin kendisinden okunuyor — yeni bir şekil
+eklendiğinde tutma alanı kendiliğinden doğru olur. Çekme çizgisi de çizimin
+parçası olduğu için kutuya dahil; `toleranceCm` payı duruyor (ince çizgiye tam
+nişan almak gerekmesin).
+
+`isPointInSymbol` artık `position` değil `pose` alıyor: açı ve montaj yüzü
+olmadan yerel eksene geçilemiyor.
+
+**Ad etiketi.** Alan nesnesinin etiketiyle AYNI desen (kesikli kılavuz + ekran-
+sabit yazı, `AreaObjectNameLabels`) ve AYNI görünürlük anahtarı
+(`isAreaObjectNamesVisible`, menüde "Nesne adları") — kullanıcı için ikisi de
+nesnenin adı, ayrı iki madde gereksiz bir ayrım olurdu. Yazan şey TÜRÜN adı
+("Deprem Sensörü"), cihazın kodu ("DS-01") değil. TÜM tipler etiketleniyor
+(kullanıcı: "hepsine"); alan nesnesinde merdivenin dışarıda bırakılma gerekçesi
+burada yok, cihaz işaretlerinin hiçbiri kendi başına okunmuyor.
+
+⚠️ **Etiket cihazın BAKTIĞI yöne konur, dünya +y'sine değil.** İlk sürüm sabit
+"yukarı" kullanıyordu; tarayıcıda görüldü ki aşağı bakan bir cihazda işaret
+duvarın altında, yazısı üstünde kalıyor, kılavuz duvarı kesip komşu odaya
+düşüyor. Yön cihazın yerel +y'sinden geliyor (`outwardSign` uygulanmış), yazının
+KENDİSİ dönmüyor — dik duruyor, yalnız nereye konacağı dönüyor.
+
+**Etiket sürüklenebilir** (kullanıcı istedi; ilk turda kapsam dışı bırakılmıştı).
+Kayma `PointSymbol.labelOffsetCm`'te ve alan nesnesindekiyle birebir aynı desen:
+canlı kayma `architectureUiStore`'da durur, bırakılınca TEK
+`setPointSymbolLabelOffset` yazımı olur (tek markDirty, tek Ctrl+Z); kayma
+ızgaraya YAKALANMAZ — etiket bir açıklama notu, çizim geometrisi değil.
+
+⚠️ Şema alanı OPSİYONEL ve varsayılana eşitken dosyaya YAZILMAZ: eski
+kayıtlarda alan yok, zorunlu tutulsaydı depodaki her proje AÇILMAZDI
+(knowledge/point-symbols.md'deki göç kuralı).
+
+⚠️ Alan nesnesinin etiketi ÖNCELİKLİ: ikisi üst üste geldiğinde iki hook da
+kendi jestini başlatır ve iki etiket birden taşınırdı. Beş araç hook'u
+(`useSelectionTool`, `useWallSelectionTool`, `usePointDragTool`,
+`useAreaObjectSelectionTool`, `usePointSymbolSelectionTool`) artık cihaz
+etiketini de soruyor ve doluysa jesti hiç başlatmıyor (K44 dersi).
+
+Etiket kutusu hesabı `core/labelLeader.ts` → `getLabelRectCm`'e taşındı; alan
+nesnesininki oraya bağlandı. Tesisatın kopyası (`getElementLabelRectCm`)
+dokunulmadan bırakıldı.
+
+Nerede: `core/architectureSymbol.ts` (`isPointInSymbol`), `core/architectureHover.ts`,
+`core/pointSymbolLabel.ts` (+ testi), `core/labelLeader.ts`, `core/areaObjectLabel.ts`,
+`scene/PointSymbolNameLabels.tsx`, `scene/ArchitectureLayer.tsx`, `store/uiStore.ts`.

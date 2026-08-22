@@ -214,26 +214,85 @@ export function getPointSymbolPlanGeometry(
 }
 
 /**
- * İmleç sembolün üstünde mi?
+ * Sembolün YEREL sınır kutusu — ÇİZİLEN geometriden okunur, `SYMBOL_DISPLAY`
+ * ölçülerinden hesaplanmaz. Çekme çizgisi de geometrinin parçası olduğu için
+ * kutuya dahildir: kullanıcı çizginin üstüne bastığında da cihazı tutar.
  *
- * Çekme çizgili cihazda tutulabilir alan İŞARETİN etrafıdır, duvar yüzü değil:
- * kullanıcı ekranda gördüğü kutuya basar. Bu yüzden erişim mesafesi çizgi boyunu
- * da kapsar — duvar yüzünden işaretin dış kenarına kadar.
+ * `getAreaObjectLocalBounds` ile aynı gerekçe: yeni bir şekil eklendiğinde
+ * tutma alanı kendiliğinden doğru olur, tip başına elle bakım gerekmez.
+ */
+function getSymbolLocalBounds(
+  type: PointSymbolType,
+  wallThicknessCm: number | undefined,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const geometry = getPointSymbolGeometry(type, wallThicknessCm)
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  for (const stroke of geometry.strokes) {
+    for (const point of stroke.points) {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    }
+  }
+
+  // Geometrisi olmayan (kuramsal) şekilde ölçüye düşülür; sonsuz döndürmeyelim.
+  if (!Number.isFinite(minX)) {
+    const display = SYMBOL_DISPLAY[type]
+    return {
+      minX: -display.widthCm / 2,
+      minY: -display.depthCm / 2,
+      maxX: display.widthCm / 2,
+      maxY: display.depthCm / 2,
+    }
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+/**
+ * İmleç sembolün ÇİZİMİNİN üstünde mi?
+ *
+ * ⚠️ Sınav sembolün KENDİ ekseninde yapılır: hedef, duvarın açısı ve montaj
+ * yüzü geri alınarak yerel eksene taşınır (`isPointInAreaObject` ile aynı
+ * yöntem), sonra çizilen geometrinin kutusuyla karşılaştırılır.
+ *
+ * Eskiden ÇAPA NOKTASI etrafında, kenarı `çekme çizgisi boyu + derinlik` olan
+ * bir KARE kullanılıyordu — çekme çizgili bir cihazda 114 cm'lik bir alan, üstelik
+ * işaretin bulunmadığı üç yöne de yayılıyordu. Kullanıcı "seçim alanı çok geniş,
+ * sadece çizimin kendisinin üstüne geldiğinde aktive olsun" dedi: sembolün
+ * yanındaki boşluğa yapılan tıklama duvara/odaya gitmeliydi, cihaza değil.
+ *
+ * `toleranceCm` payı DURUYOR (yakalama toleransıyla aynı): ince çekme çizgisine
+ * tam nişan almak gerekmesin.
  */
 export function isPointInSymbol(
   target: PlanPoint,
-  position: PlanPoint,
+  pose: SymbolPose,
   toleranceCm: number,
   type: PointSymbolType,
 ): boolean {
-  const display = SYMBOL_DISPLAY[type]
-  const outerReach =
-    display.style === 'leader'
-      ? (display.leaderLengthCm ?? DEFAULT_LEADER_LENGTH_CM) + display.depthCm
-      : Math.max(display.widthCm, display.depthCm) / 2
+  const bounds = getSymbolLocalBounds(type, pose.wallThicknessCm)
 
-  const reach = outerReach + toleranceCm
-  return Math.abs(target.x - position.x) <= reach && Math.abs(target.y - position.y) <= reach
+  // Plan → yerel: konumu çıkar, açıyı geri al, dışa bakan yönü düzelt
+  // (`toPlanPoints`in tersi, aynı sırada).
+  const rotated = applyTransform(
+    { x: target.x - pose.position.x, y: target.y - pose.position.y },
+    { kind: 'rotate', pivot: { x: 0, y: 0 }, angleDeg: -pose.rotationDeg },
+  )
+  const local = { x: rotated.x, y: rotated.y * pose.outwardSign }
+
+  return (
+    local.x >= bounds.minX - toleranceCm &&
+    local.x <= bounds.maxX + toleranceCm &&
+    local.y >= bounds.minY - toleranceCm &&
+    local.y <= bounds.maxY + toleranceCm
+  )
 }
 
 export type { SymbolGeometry, SymbolStroke, SymbolStrokeRole } from './symbolShapes'

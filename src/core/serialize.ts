@@ -98,6 +98,7 @@ const symbolAttachmentSchema = z.discriminatedUnion('attachment', [
     type: symbolTypeSchema,
     label: z.string(),
     note: z.string(),
+    labelOffsetCm: z.object({ x: z.number(), y: z.number() }).optional(),
     attachment: z.literal('wall'),
     wallId: idSchema,
     offsetCm: z.number(),
@@ -108,6 +109,7 @@ const symbolAttachmentSchema = z.discriminatedUnion('attachment', [
     type: symbolTypeSchema,
     label: z.string(),
     note: z.string(),
+    labelOffsetCm: z.object({ x: z.number(), y: z.number() }).optional(),
     attachment: z.literal('free'),
     floorId: idSchema,
     x: z.number(),
@@ -357,6 +359,7 @@ function toPointSymbolJson(symbol: PointSymbol) {
     type: symbol.type,
     label: symbol.label,
     note: symbol.note,
+    labelOffsetCm: symbol.labelOffsetCm,
     attachment: symbol.attachment,
   }
 

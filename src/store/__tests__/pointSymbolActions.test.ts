@@ -215,3 +215,34 @@ describe('kalıcılık', () => {
     expect(useCadStore.getState().symbols).toHaveLength(1)
   })
 })
+
+describe('setPointSymbolLabelOffset', () => {
+  beforeEach(resetState)
+
+  it('kaymayı yazar', () => {
+    const id = useCadStore.getState().addPointSymbol({ type: 'alarmDevice', attachment: freeAt({ x: 100, y: 100 }) })!
+
+    expect(useCadStore.getState().setPointSymbolLabelOffset(id, { x: 40, y: 90 })).toBe(true)
+    expect(useCadStore.getState().symbols[0].labelOffsetCm).toEqual({ x: 40, y: 90 })
+  })
+
+  it('AYNI değerde yazmaz — sürüklemeden bırakılan etiket geçmişe boş adım koymasın', () => {
+    const id = useCadStore.getState().addPointSymbol({ type: 'alarmDevice', attachment: freeAt({ x: 100, y: 100 }) })!
+    useCadStore.getState().setPointSymbolLabelOffset(id, { x: 40, y: 90 })
+
+    expect(useCadStore.getState().setPointSymbolLabelOffset(id, { x: 40, y: 90 })).toBe(false)
+  })
+
+  it('GERİ ALINABİLİR: etiket eski yerine döner', () => {
+    const id = useCadStore.getState().addPointSymbol({ type: 'alarmDevice', attachment: freeAt({ x: 100, y: 100 }) })!
+    useCadStore.getState().setPointSymbolLabelOffset(id, { x: 40, y: 90 })
+
+    useCadStore.temporal.getState().undo()
+
+    expect(useCadStore.getState().symbols[0].labelOffsetCm).toBeUndefined()
+  })
+
+  it('olmayan sembolde sessizce reddedilir', () => {
+    expect(useCadStore.getState().setPointSymbolLabelOffset(999, { x: 1, y: 2 })).toBe(false)
+  })
+})

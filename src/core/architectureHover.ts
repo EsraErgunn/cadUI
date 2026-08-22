@@ -58,7 +58,7 @@ export function resolveArchitectureTarget(
     const pose = getSymbolPose(candidate, context.walls, context.points)
     return (
       pose !== undefined &&
-      isPointInSymbol(target, pose.position, context.toleranceCm, candidate.type)
+      isPointInSymbol(target, pose, context.toleranceCm, candidate.type)
     )
   })
   if (symbol) return { kind: 'symbol', symbolId: symbol.id }

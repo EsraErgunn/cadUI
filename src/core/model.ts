@@ -160,6 +160,15 @@ export type PointSymbol = {
    * dayanıyor (serialize.ts).
    */
   note: string
+  /**
+   * Ad etiketinin cihazın ÇAPA NOKTASINA göre kayması (cm). Alan YOKSA etiket
+   * varsayılan yerinde (çizimin dışında, cihazın baktığı yönde) durur.
+   *
+   * Opsiyonel ve varsayılana eşitken YAZILMAZ — `AreaObject.labelOffsetCm` ile
+   * birebir aynı gerekçe: mutlak konum değil KAYMA saklanır ki duvar taşınınca
+   * etiket cihazla birlikte gelsin.
+   */
+  labelOffsetCm?: PlanPoint
 } & SymbolAttachment
 
 /**

@@ -8,6 +8,7 @@ import { MeasurementOverlay } from './MeasurementOverlay'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
+import { PointSymbolNameLabels } from './PointSymbolNameLabels'
 import { Rooms } from './Room'
 import { RoomTool } from './RoomTool'
 import { SelectionMarquee } from './SelectionMarquee'
@@ -25,6 +26,7 @@ import { useBeamTool } from './useBeamTool'
 import { useCameraZoom } from './useCameraZoom'
 import { useMeasurementTool } from './useMeasurementTool'
 import { useOpeningTool } from './useOpeningTool'
+import { usePointSymbolLabelTool } from './usePointSymbolLabelTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRightClickReturnsToSelection } from './useRightClickReturnsToSelection'
@@ -94,6 +96,8 @@ function Openings() {
 function PointSymbols() {
   const preview = usePointSymbolTool()
   usePointSymbolSelectionTool()
+  // Ad etiketi sürüklemesi; jest sahipliği `findPointSymbolLabelAt` ile veriliyor.
+  usePointSymbolLabelTool()
   const symbols = useCadStore((state) => state.symbols)
   // Açıklıkla aynı gerekçe (K108): duvara oturan sembol de kopmayı görmeli.
   const { points: symbolPoints, walls: symbolWalls } = useArchitectureDraft()
@@ -356,6 +360,7 @@ export function ArchitectureLayer() {
       <Texts />
       {/* Ad etiketleri tutamaçlarla aynı katmanda: her şeyin üstünde okunmalı. */}
       <AreaObjectNameLabels />
+      <PointSymbolNameLabels />
       {/* Ölçüler tutamaçların ALTINDA (RENDER_ORDER.measurement < handle): sayı
           köşe tutamacını örterse köşe tutulamaz hâle gelirdi. */}
       <WallDimensionLabels />
