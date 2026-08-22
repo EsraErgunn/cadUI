@@ -1,11 +1,11 @@
 import { Html, Line } from '@react-three/drei'
-import { ArrowDownRight, RotateCw } from 'lucide-react'
+import { ArrowDownRight, ArrowUpLeft, RotateCw } from 'lucide-react'
 
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { useAreaObjectHandleTool } from './useAreaObjectHandleTool'
 import { useCameraZoom } from './useCameraZoom'
-import type { AreaObjectShape } from '../core/areaObject'
+import { isAreaObjectRotatable, type AreaObjectShape } from '../core/areaObject'
 import {
   getAreaObjectHandleLayout,
   HANDLE_ICON_PX,
@@ -28,6 +28,13 @@ type IconButtonProps = {
   isHovered: boolean
 }
 
+/** İkon tutamacın DIŞA bakan yönünü gösterir; kullanıcı hangi köşeyi çektiğini görsün. */
+const HANDLE_ICONS: Record<AreaObjectHandleKind, typeof RotateCw> = {
+  rotate: RotateCw,
+  resizeBottomRight: ArrowDownRight,
+  resizeTopLeft: ArrowUpLeft,
+}
+
 /**
  * Tek tutamaç ikonu. `pointer-events: none` ŞART: tıklama tuvale ulaşmalı —
  * tutma kararını `useAreaObjectHandleTool` saf geometriyle veriyor. Overlay
@@ -40,7 +47,7 @@ type IconButtonProps = {
  * içerideki sınıf tek başına yetmez — sarmalayıcı basışı yutar.
  */
 function HandleIcon({ kind, position, isHovered }: IconButtonProps) {
-  const Icon = kind === 'rotate' ? RotateCw : ArrowDownRight
+  const Icon = HANDLE_ICONS[kind]
 
   return (
     <Html
@@ -129,21 +136,30 @@ function TransformOverlay({ type, shape, draggingKind, hoveredKind }: TransformO
         raycast={() => null}
       />
 
+      {/* Döndürme yalnız açısı GÖRÜNEN tiplerde: kolon havalandırması çember,
+          döndürmek ekranda hiçbir şeyi değiştirmiyordu (kullanıcı kararı). */}
+      {isAreaObjectRotatable(type) && (
+        <HandleIcon
+          kind="rotate"
+          position={layout.rotate}
+          isHovered={hoveredKind === 'rotate' || draggingKind === 'rotate'}
+        />
+      )}
       <HandleIcon
-        kind="rotate"
-        position={layout.rotate}
-        isHovered={hoveredKind === 'rotate' || draggingKind === 'rotate'}
+        kind="resizeBottomRight"
+        position={layout.resizeBottomRight}
+        isHovered={hoveredKind === 'resizeBottomRight' || draggingKind === 'resizeBottomRight'}
       />
       <HandleIcon
-        kind="resize"
-        position={layout.resize}
-        isHovered={hoveredKind === 'resize' || draggingKind === 'resize'}
+        kind="resizeTopLeft"
+        position={layout.resizeTopLeft}
+        isHovered={hoveredKind === 'resizeTopLeft' || draggingKind === 'resizeTopLeft'}
       />
 
       {draggingKind && (
         <HandleTooltip
           text={formatHandleTooltip(draggingKind, shape)}
-          position={draggingKind === 'rotate' ? layout.rotate : layout.resize}
+          position={layout[draggingKind]}
         />
       )}
     </group>

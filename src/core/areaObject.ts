@@ -59,6 +59,30 @@ export function hasAreaObjectRectangleSize(type: AreaObjectType): boolean {
 }
 
 /**
+ * Nesne DÖNDÜRÜLEBİLİR mi?
+ *
+ * Kolon havalandırması yalnız çember çiziyor: döndürmek ekranda hiçbir şeyi
+ * değiştirmiyordu, tutamaç ve panel alanı boşuna yer kaplıyordu (kullanıcı
+ * kararı). `hasAreaObjectRectangleSize`'a bağlanmadı — ikisi bugün aynı tipe
+ * denk düşüyor ama farklı sorular: biri ÖLÇÜNÜN kaç sayı olduğunu, öteki
+ * AÇININ bir şey değiştirip değiştirmediğini soruyor.
+ *
+ * `angleDeg` modelde KALIYOR: eski projelerde yazılı değeri silmek round-trip
+ * eşitliğini bozardı, üstelik döndürülmüş bir çember zaten aynı görünür.
+ */
+const ROTATABLE_TYPES: Record<AreaObjectType, boolean> = {
+  stairs: true,
+  structuralColumn: true,
+  // Kare dış hattı var: döndürmek görünür bir fark yaratıyor.
+  flueShaft: true,
+  columnVentilation: false,
+}
+
+export function isAreaObjectRotatable(type: AreaObjectType): boolean {
+  return ROTATABLE_TYPES[type]
+}
+
+/**
  * Tıkla-yerleştirmede kullanılan başlangıç boyutu; sürükleyerek boyutlandırma
  * (tutamaç) bunu sonradan değiştirir.
  */

@@ -1,5 +1,6 @@
 import {
   hasAreaObjectRectangleSize,
+  isAreaObjectRotatable,
   toAreaObjectPlanPoints,
   type AreaObjectShape,
 } from './areaObject'
@@ -20,7 +21,21 @@ export const HANDLE_HIT_PX = 28
 /** İkon kutunun bu kadar DIŞINDA durur — geometrinin parçası gibi görünmesin. */
 const HANDLE_OFFSET_PX = 18
 
-export type AreaObjectHandleKind = 'rotate' | 'resize'
+/**
+ * Boyutlandırma İKİ köşede: ekranda sağ-alt ve sol-üst. Tek köşe varken
+ * kullanıcı nesneyi yalnız bir yönden büyütebiliyordu — karşı kenarı
+ * ayarlamak için önce nesneyi taşıyıp sonra boyutlandırmak gerekiyordu.
+ *
+ * Ad KÖŞEYİ söylüyor ("resize" değil): hangi köşenin çakılı kalacağı buradan
+ * okunuyor, sürüklenen köşenin karşısı sabittir.
+ */
+export type AreaObjectResizeKind = 'resizeBottomRight' | 'resizeTopLeft'
+
+export type AreaObjectHandleKind = 'rotate' | AreaObjectResizeKind
+
+export function isResizeHandleKind(kind: AreaObjectHandleKind): kind is AreaObjectResizeKind {
+  return kind !== 'rotate'
+}
 
 /** Nesnenin YEREL (döndürülmemiş, merkeze göreli) sınır kutusu. */
 export type AreaObjectLocalBounds = {
@@ -33,12 +48,24 @@ export type AreaObjectLocalBounds = {
 export type AreaObjectHandleLayout = {
   /** Döndürme ikonu — kutunun ÜST-ORTA noktasının biraz dışında. */
   rotate: PlanPoint
-  /** Boyutlandırma ikonu — kutunun SAĞ-ALT köşesinin biraz dışında. */
-  resize: PlanPoint
+  /** Boyutlandırma ikonları — kutunun sağ-alt ve sol-üst köşelerinin dışında. */
+  resizeBottomRight: PlanPoint
+  resizeTopLeft: PlanPoint
   /** Kutunun dört köşesi (plan), seçim çerçevesi için. */
   boxCorners: PlanPoint[]
-  /** Resize sırasında yerinde çakılı kalan karşı köşe (kutunun SOL-ÜSTÜ). */
-  fixedCorner: PlanPoint
+  /** Her tutamacın KARŞI köşesi: sürükleme boyunca yerinde çakılı kalan nokta. */
+  fixedCorners: Record<AreaObjectResizeKind, PlanPoint>
+}
+
+/**
+ * Tutamacın nesnenin YEREL ekseninde hangi yönde durduğu. Sağ-alt köşe
+ * (+genişlik, −uzunluk), sol-üst köşe (−genişlik, +uzunluk) — ikisi birbirinin
+ * tam tersi. Boyut hesabı bu işaretlerle tek fonksiyonda toplanıyor, köşe
+ * başına ayrı formül yazılmıyor.
+ */
+const RESIZE_AXIS_SIGNS: Record<AreaObjectResizeKind, { u: number; v: number }> = {
+  resizeBottomRight: { u: 1, v: -1 },
+  resizeTopLeft: { u: -1, v: 1 },
 }
 
 /**
@@ -96,8 +123,13 @@ export function getAreaObjectLocalBounds(
  * boyutlandırır.
  *
  * Yerel eksende +y ekranda YUKARI (bkz. `Cameras.tsx`), bu yüzden döndürme
- * ikonu +y ucundan, boyutlandırma ikonu (+x, −y) köşesinden — yani ekranda
- * sağ-alttan — dışarı taşar.
+ * ikonu +y ucundan, boyutlandırma ikonları (+x, −y) ve (−x, +y) köşelerinden —
+ * yani ekranda sağ-alt ve sol-üstten — dışarı taşar.
+ *
+ * Döndürme ikonu ÜST-ORTADA duruyor; sol-üst boyutlandırma ikonu köşede
+ * olduğu için ikisi çakışmaz (kutunun yarı genişliği en dar nesnede bile
+ * ikonlar arasına giriyor, çakışırsa `findAreaObjectHandleAt`'in sırası kararı
+ * deterministik tutar).
  */
 export function getAreaObjectHandleLayout(
   type: AreaObjectType,
@@ -108,9 +140,10 @@ export function getAreaObjectHandleLayout(
   const offsetCm = HANDLE_OFFSET_PX / zoom
   const centerX = (bounds.minX + bounds.maxX) / 2
 
-  const [rotate, resize, ...boxCorners] = toAreaObjectPlanPoints(shape, [
+  const [rotate, resizeBottomRight, resizeTopLeft, ...boxCorners] = toAreaObjectPlanPoints(shape, [
     { x: centerX, y: bounds.maxY + offsetCm },
     { x: bounds.maxX + offsetCm, y: bounds.minY - offsetCm },
+    { x: bounds.minX - offsetCm, y: bounds.maxY + offsetCm },
     { x: bounds.minX, y: bounds.minY },
     { x: bounds.maxX, y: bounds.minY },
     { x: bounds.maxX, y: bounds.maxY },
@@ -119,10 +152,16 @@ export function getAreaObjectHandleLayout(
 
   return {
     rotate,
-    resize,
+    resizeBottomRight,
+    resizeTopLeft,
     boxCorners,
-    // Sol-üst köşe: resize sırasında sabit kalan (boxCorners sırasının son ögesi).
-    fixedCorner: boxCorners[3],
+    fixedCorners: {
+      // Sürüklenen köşenin KARŞISI çakılı kalır: sağ-alt sürüklenirken sol-üst,
+      // sol-üst sürüklenirken sağ-alt (boxCorners sırası: sol-alt, sağ-alt,
+      // sağ-üst, sol-üst).
+      resizeBottomRight: boxCorners[3],
+      resizeTopLeft: boxCorners[1],
+    },
   }
 }
 
@@ -143,8 +182,13 @@ export function findAreaObjectHandleAt(
   const layout = getAreaObjectHandleLayout(type, shape, zoom)
   const reachCm = HANDLE_HIT_PX / 2 / zoom
 
-  if (getSegmentLength(target, layout.resize) <= reachCm) return 'resize'
-  if (getSegmentLength(target, layout.rotate) <= reachCm) return 'rotate'
+  if (getSegmentLength(target, layout.resizeBottomRight) <= reachCm) return 'resizeBottomRight'
+  if (getSegmentLength(target, layout.resizeTopLeft) <= reachCm) return 'resizeTopLeft'
+  // Döndürülemeyen tipte ikon HİÇ çizilmiyor; burada da yakalanmamalı, yoksa
+  // görünmeyen bir tutamaç jesti sahiplenir ve tıklama nesneye ulaşmaz.
+  if (isAreaObjectRotatable(type) && getSegmentLength(target, layout.rotate) <= reachCm) {
+    return 'rotate'
+  }
   return undefined
 }
 
@@ -165,8 +209,8 @@ export function getAreaObjectAngleFromPointer(target: PlanPoint, center: PlanPoi
 }
 
 /**
- * Sağ-alt köşe sürüklenirken KARŞI köşe (sol-üst) yerinde çakılı kalır — klasik
- * CAD davranışı, kullanıcı seçti. Merkez de kaydığı için sonuç x/y ve boyutu
+ * Bir köşe sürüklenirken KARŞI köşe yerinde çakılı kalır — klasik CAD
+ * davranışı, kullanıcı seçti. Merkez de kaydığı için sonuç x/y ve boyutu
  * BİRLİKTE taşır: store'a tek yazımda gitmeli, yoksa iki ayrı Ctrl+Z adımı olur.
  *
  * Hesap nesnenin KENDİ eksenine göre: sabit köşeden imlece giden vektör, yerel
@@ -192,8 +236,10 @@ export function resizeAreaObjectFromCorner(
   target: PlanPoint,
   minSizeCm: number,
   zoom: number,
+  kind: AreaObjectResizeKind,
 ): { x: number; y: number; widthCm: number; lengthCm: number } {
-  const { fixedCorner } = getAreaObjectHandleLayout(type, shape, zoom)
+  const fixedCorner = getAreaObjectHandleLayout(type, shape, zoom).fixedCorners[kind]
+  const axisSigns = RESIZE_AXIS_SIGNS[kind]
   const radians = shape.angleDeg * RAD_PER_DEG
   const cos = Math.cos(radians)
   const sin = Math.sin(radians)
@@ -208,11 +254,12 @@ export function resizeAreaObjectFromCorner(
   const vX = -sin
   const vY = cos
 
-  // Sürüklenen köşe sabit köşeden +genişlik (u) ve −uzunluk (v) uzakta; uzunluk
-  // izdüşümü bu yüzden ters işaretli okunur. İşaret KORUNUR: imleç sabit köşeyi
-  // geçtiğinde izdüşüm negatife düşer ve nesne karşı yöne büyümeye devam eder.
-  const signedWidthCm = dx * uX + dy * uY
-  const signedLengthCm = -(dx * vX + dy * vY)
+  // Sürüklenen köşe sabit köşeden yerel eksende hangi yönde duruyorsa izdüşüm o
+  // işaretle okunur (`RESIZE_AXIS_SIGNS`): sağ-alt köşe (+u, −v), sol-üst köşe
+  // (−u, +v). İşaret KORUNUR: imleç sabit köşeyi geçtiğinde izdüşüm negatife
+  // düşer ve nesne karşı yöne büyümeye devam eder.
+  const signedWidthCm = (dx * uX + dy * uY) * axisSigns.u
+  const signedLengthCm = (dx * vX + dy * vY) * axisSigns.v
 
   // Boyut her zaman POZİTİF; hangi yöne büyüdüğü işarette taşınır ve merkeze
   // uygulanır. Negatif genişlik/uzunluk modele hiç girmez — sınır kutusu,
@@ -228,12 +275,16 @@ export function resizeAreaObjectFromCorner(
   const widthCm = isDiameterOnly ? diameterCm : projectedWidthCm
   const lengthCm = isDiameterOnly ? diameterCm : projectedLengthCm
 
-  // Merkez = sabit köşe + yarım genişlik (±u) + yarım uzunluk (∓v). İşaretler
-  // olmasaydı nesne sabit köşenin daima sağ-altında kalır, imleç karşı tarafa
-  // geçtiğinde asgari boyda KİLİTLENİRDİ.
+  // Merkez = sabit köşe + yarım genişlik (±u) + yarım uzunluk (±v); yönler yine
+  // tutamacın kendi işaretlerinden. İşaretler olmasaydı nesne sabit köşenin
+  // daima aynı tarafında kalır, imleç karşı tarafa geçtiğinde asgari boyda
+  // KİLİTLENİRDİ.
+  const halfWidthCm = widthSign * axisSigns.u * (widthCm / 2)
+  const halfLengthCm = lengthSign * axisSigns.v * (lengthCm / 2)
+
   return {
-    x: fixedCorner.x + widthSign * (widthCm / 2) * uX - lengthSign * (lengthCm / 2) * vX,
-    y: fixedCorner.y + widthSign * (widthCm / 2) * uY - lengthSign * (lengthCm / 2) * vY,
+    x: fixedCorner.x + halfWidthCm * uX + halfLengthCm * vX,
+    y: fixedCorner.y + halfWidthCm * uY + halfLengthCm * vY,
     widthCm,
     lengthCm,
   }

@@ -9,6 +9,7 @@ import {
   HANDLE_HIT_PX,
   resizeAreaObjectFromCorner,
 } from '../areaObjectHandles'
+import type { PlanPoint } from '../coords'
 import type { AreaObject } from '../model'
 
 const FLOOR_ID = 1
@@ -75,14 +76,22 @@ describe('getAreaObjectHandleLayout', () => {
     const layout = getAreaObjectHandleLayout('structuralColumn', makeAreaObject(), ZOOM)
 
     // Ekranda +y yukarı (Cameras.tsx): sağ-alt = (+x, −y).
-    expect(layout.resize.x).toBeGreaterThan(50)
-    expect(layout.resize.y).toBeLessThan(-50)
+    expect(layout.resizeBottomRight.x).toBeGreaterThan(50)
+    expect(layout.resizeBottomRight.y).toBeLessThan(-50)
   })
 
-  it('sabit köşe kutunun SOL-ÜSTÜ — resize orayı çakılı tutar', () => {
+  it('ikinci boyutlandırma ikonu kutunun SOL-ÜST köşesinin dışında durur', () => {
     const layout = getAreaObjectHandleLayout('structuralColumn', makeAreaObject(), ZOOM)
 
-    expect(layout.fixedCorner).toEqual({ x: -50, y: 50 })
+    expect(layout.resizeTopLeft.x).toBeLessThan(-50)
+    expect(layout.resizeTopLeft.y).toBeGreaterThan(50)
+  })
+
+  it('her tutamacın sabit köşesi KARŞI köşedir', () => {
+    const layout = getAreaObjectHandleLayout('structuralColumn', makeAreaObject(), ZOOM)
+
+    expect(layout.fixedCorners.resizeBottomRight).toEqual({ x: -50, y: 50 })
+    expect(layout.fixedCorners.resizeTopLeft).toEqual({ x: 50, y: -50 })
   })
 
   it('ikonların kutuya uzaklığı EKRAN pikselinde sabit — zoom ile ters ölçeklenir', () => {
@@ -112,8 +121,28 @@ describe('findAreaObjectHandleAt', () => {
   const layout = getAreaObjectHandleLayout('structuralColumn', object, ZOOM)
 
   it('ikonun üstündeyken onu verir', () => {
-    expect(findAreaObjectHandleAt(layout.resize, 'structuralColumn', object, ZOOM)).toBe('resize')
+    expect(findAreaObjectHandleAt(layout.resizeBottomRight, 'structuralColumn', object, ZOOM)).toBe(
+      'resizeBottomRight',
+    )
+    expect(findAreaObjectHandleAt(layout.resizeTopLeft, 'structuralColumn', object, ZOOM)).toBe(
+      'resizeTopLeft',
+    )
     expect(findAreaObjectHandleAt(layout.rotate, 'structuralColumn', object, ZOOM)).toBe('rotate')
+  })
+
+  it('kolon havalandırmasında DÖNDÜRME tutamacı yok — çember, açı görünmez', () => {
+    const vent = makeAreaObject({ type: 'columnVentilation' })
+    const ventLayout = getAreaObjectHandleLayout('columnVentilation', vent, ZOOM)
+
+    // İkon çizilmiyor; burada da yakalanmamalı, yoksa görünmeyen bir tutamaç
+    // jesti sahiplenir ve tıklama nesneye hiç ulaşmaz.
+    expect(
+      findAreaObjectHandleAt(ventLayout.rotate, 'columnVentilation', vent, ZOOM),
+    ).toBeUndefined()
+    // Boyutlandırma DURUYOR: çapı hâlâ tutamaçla veriliyor.
+    expect(
+      findAreaObjectHandleAt(ventLayout.resizeBottomRight, 'columnVentilation', vent, ZOOM),
+    ).toBe('resizeBottomRight')
   })
 
   it('ikonlardan uzakta undefined döner', () => {
@@ -123,14 +152,16 @@ describe('findAreaObjectHandleAt', () => {
   it('tutma alanı EKRAN pikselinde sabit: uzaklaşınca dünya karşılığı büyür', () => {
     // Zoom 1'de erişim yarıçapı HANDLE_HIT_PX/2 cm; onun bir tık dışı ıskalar.
     const justOutside = {
-      x: layout.resize.x + HANDLE_HIT_PX / 2 + 2,
-      y: layout.resize.y,
+      x: layout.resizeBottomRight.x + HANDLE_HIT_PX / 2 + 2,
+      y: layout.resizeBottomRight.y,
     }
     expect(findAreaObjectHandleAt(justOutside, 'structuralColumn', object, 1)).toBeUndefined()
 
     // Zoom 0.5'te aynı piksel yarıçapı iki kat dünya birimi eder → artık yakalar.
     const layoutFar = getAreaObjectHandleLayout('structuralColumn', object, 0.5)
-    expect(findAreaObjectHandleAt(layoutFar.resize, 'structuralColumn', object, 0.5)).toBe('resize')
+    expect(
+      findAreaObjectHandleAt(layoutFar.resizeBottomRight, 'structuralColumn', object, 0.5),
+    ).toBe('resizeBottomRight')
   })
 })
 
@@ -156,7 +187,8 @@ describe('getAreaObjectAngleFromPointer', () => {
 describe('resizeAreaObjectFromCorner', () => {
   it('karşı köşe SABİT kalır, nesne oradan büyür', () => {
     const object = makeAreaObject()
-    const fixedBefore = getAreaObjectHandleLayout('structuralColumn', object, ZOOM).fixedCorner
+    const fixedBefore = getAreaObjectHandleLayout('structuralColumn', object, ZOOM).fixedCorners
+      .resizeBottomRight
 
     const next = resizeAreaObjectFromCorner(
       'structuralColumn',
@@ -164,12 +196,10 @@ describe('resizeAreaObjectFromCorner', () => {
       { x: 150, y: -150 },
       MIN_AREA_OBJECT_SIZE_CM,
       ZOOM,
+      'resizeBottomRight',
     )
-    const fixedAfter = getAreaObjectHandleLayout(
-      'structuralColumn',
-      { ...object, ...next },
-      ZOOM,
-    ).fixedCorner
+    const fixedAfter = getAreaObjectHandleLayout('structuralColumn', { ...object, ...next }, ZOOM)
+      .fixedCorners.resizeBottomRight
 
     expect(fixedAfter.x).toBeCloseTo(fixedBefore.x, 5)
     expect(fixedAfter.y).toBeCloseTo(fixedBefore.y, 5)
@@ -179,7 +209,8 @@ describe('resizeAreaObjectFromCorner', () => {
 
   it('döndürülmüş nesnede de karşı köşe sabit kalır', () => {
     const object = makeAreaObject({ x: 40, y: 25, angleDeg: 37 })
-    const fixedBefore = getAreaObjectHandleLayout('structuralColumn', object, ZOOM).fixedCorner
+    const fixedBefore = getAreaObjectHandleLayout('structuralColumn', object, ZOOM).fixedCorners
+      .resizeBottomRight
 
     const next = resizeAreaObjectFromCorner(
       'structuralColumn',
@@ -187,12 +218,10 @@ describe('resizeAreaObjectFromCorner', () => {
       { x: 200, y: -120 },
       MIN_AREA_OBJECT_SIZE_CM,
       ZOOM,
+      'resizeBottomRight',
     )
-    const fixedAfter = getAreaObjectHandleLayout(
-      'structuralColumn',
-      { ...object, ...next },
-      ZOOM,
-    ).fixedCorner
+    const fixedAfter = getAreaObjectHandleLayout('structuralColumn', { ...object, ...next }, ZOOM)
+      .fixedCorners.resizeBottomRight
 
     expect(fixedAfter.x).toBeCloseTo(fixedBefore.x, 5)
     expect(fixedAfter.y).toBeCloseTo(fixedBefore.y, 5)
@@ -209,6 +238,7 @@ describe('resizeAreaObjectFromCorner', () => {
       { x: -50, y: 50 },
       MIN_AREA_OBJECT_SIZE_CM,
       ZOOM,
+      'resizeBottomRight',
     )
 
     expect(next.widthCm).toBe(MIN_AREA_OBJECT_SIZE_CM)
@@ -216,8 +246,83 @@ describe('resizeAreaObjectFromCorner', () => {
   })
 })
 
+/**
+ * SOL-ÜST tutamaç, sağ-alttakinin aynası: sabit köşe sağ-alt, büyüme yönü
+ * yukarı-sol. Tek tutamaç varken kullanıcı nesneyi ancak taşıyıp yeniden
+ * boyutlandırarak öbür yönden ayarlayabiliyordu.
+ */
+describe('resizeAreaObjectFromCorner — sol-üst tutamaç', () => {
+  const resizeTopLeft = (target: PlanPoint, shape: AreaObjectShape = makeAreaObject()) =>
+    resizeAreaObjectFromCorner(
+      'structuralColumn',
+      shape,
+      target,
+      MIN_AREA_OBJECT_SIZE_CM,
+      ZOOM,
+      'resizeTopLeft',
+    )
+
+  it('SAĞ-ALT köşe sabit kalır, nesne yukarı-sola büyür', () => {
+    const next = resizeTopLeft({ x: -150, y: 150 })
+
+    expect(next.widthCm).toBeCloseTo(200, 5)
+    expect(next.lengthCm).toBeCloseTo(200, 5)
+    // Sağ-alt köşe = merkez + yarım genişlik, merkez − yarım uzunluk.
+    expect(next.x + next.widthCm / 2).toBeCloseTo(50, 5)
+    expect(next.y - next.lengthCm / 2).toBeCloseTo(-50, 5)
+  })
+
+  it('döndürülmüş nesnede de sabit köşe yerinde kalır', () => {
+    const object = makeAreaObject({ x: 40, y: 25, angleDeg: 37 })
+    const fixedBefore = getAreaObjectHandleLayout('structuralColumn', object, ZOOM).fixedCorners
+      .resizeTopLeft
+
+    const next = resizeTopLeft({ x: -200, y: 120 }, object)
+    const fixedAfter = getAreaObjectHandleLayout('structuralColumn', { ...object, ...next }, ZOOM)
+      .fixedCorners.resizeTopLeft
+
+    expect(fixedAfter.x).toBeCloseTo(fixedBefore.x, 5)
+    expect(fixedAfter.y).toBeCloseTo(fixedBefore.y, 5)
+  })
+
+  it('sabit köşenin ötesine geçince karşı yöne büyür — sağ-alttakiyle aynı kural', () => {
+    // Sabit köşe (50, -50); imleç onun sağ-altına geçiyor.
+    const next = resizeTopLeft({ x: 150, y: -150 })
+
+    expect(next.widthCm).toBe(100)
+    expect(next.lengthCm).toBe(100)
+    // Nesne sabit köşenin SAĞ-ALTINA taşındı.
+    expect(next.x).toBe(100)
+    expect(next.y).toBe(-100)
+  })
+
+  it('iki tutamaç birbirinin AYNASI: aynı hedefe zıt köşelerden aynı boy çıkar', () => {
+    const fromBottomRight = resizeAreaObjectFromCorner(
+      'structuralColumn',
+      makeAreaObject(),
+      { x: 150, y: -150 },
+      MIN_AREA_OBJECT_SIZE_CM,
+      ZOOM,
+      'resizeBottomRight',
+    )
+    const fromTopLeft = resizeTopLeft({ x: -150, y: 150 })
+
+    expect(fromTopLeft.widthCm).toBeCloseTo(fromBottomRight.widthCm, 5)
+    expect(fromTopLeft.lengthCm).toBeCloseTo(fromBottomRight.lengthCm, 5)
+    // Merkezler zıt yönde kaydı: biri sağ-alta, öteki sol-üste.
+    expect(fromTopLeft.x).toBeCloseTo(-fromBottomRight.x, 5)
+    expect(fromTopLeft.y).toBeCloseTo(-fromBottomRight.y, 5)
+  })
+})
+
 describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır (K52)', () => {
-  const vent: AreaObjectShape = { x: 0, y: 0, widthCm: 100, lengthCm: 100, angleDeg: 0 }
+  const vent: AreaObjectShape = {
+    x: 0,
+    y: 0,
+    widthCm: 100,
+    lengthCm: 100,
+    angleDeg: 0,
+  }
 
   it('SADECE aşağı çekmek çapı büyütür (daire kaymaz, büyür)', () => {
     // Sabit köşe sol-üst = (-50, 50). Aşağı: y ekseninde uzaklaş, x sabit.
@@ -227,6 +332,7 @@ describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır
       { x: 50, y: -150 },
       1,
       1,
+      'resizeBottomRight',
     )
 
     // İki ölçü EŞİT: çap = izdüşümlerin büyüğü (uzunluk 200).
@@ -243,6 +349,7 @@ describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır
       { x: 50, y: -150 },
       1,
       1,
+      'resizeBottomRight',
     )
 
     // Merkez − yarım çap = sol-üst köşe, başlangıçtakiyle aynı.
@@ -257,6 +364,7 @@ describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır
       { x: 50, y: -150 },
       1,
       1,
+      'resizeBottomRight',
     )
 
     expect(next.widthCm).toBeCloseTo(100, 6)
@@ -271,8 +379,18 @@ describe('resizeAreaObjectFromCorner — kolon havalandırması tek ÇAP taşır
  * Fixture 100×100, merkezi orijinde, açı 0 → sabit köşe (sol-üst) = (-50, 50).
  */
 describe('resizeAreaObjectFromCorner — sabit köşenin ÖTESİNE geçiş', () => {
-  const resize = (target: { x: number; y: number }, type: AreaObject['type'] = 'structuralColumn') =>
-    resizeAreaObjectFromCorner(type, makeAreaObject(), target, MIN_AREA_OBJECT_SIZE_CM, ZOOM)
+  const resize = (
+    target: { x: number; y: number },
+    type: AreaObject['type'] = 'structuralColumn',
+  ) =>
+    resizeAreaObjectFromCorner(
+      type,
+      makeAreaObject(),
+      target,
+      MIN_AREA_OBJECT_SIZE_CM,
+      ZOOM,
+      'resizeBottomRight',
+    )
 
   it('yatayda karşı tarafa geçince SOLA büyür, sağ kenarı sabit köşede kalır', () => {
     const next = resize({ x: -150, y: -150 })
@@ -294,7 +412,12 @@ describe('resizeAreaObjectFromCorner — sabit köşenin ÖTESİNE geçiş', () 
   it('iki eksende birden geçilebilir', () => {
     const next = resize({ x: -150, y: 150 })
 
-    expect(next).toMatchObject({ x: -100, y: 100, widthCm: 100, lengthCm: 100 })
+    expect(next).toMatchObject({
+      x: -100,
+      y: 100,
+      widthCm: 100,
+      lengthCm: 100,
+    })
   })
 
   it('eksenler BAĞIMSIZ: yalnız yatayda geçmek dikeyi çevirmez', () => {
