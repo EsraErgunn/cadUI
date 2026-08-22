@@ -31,6 +31,10 @@ export const SAVE_AS_ITEM_ID = 'saveAs'
 export const IMPORT_ITEM_ID = 'import'
 export const EXPORT_ITEM_ID = 'export'
 export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
+/** "Proje Dosyasını İndir" — pafta + gömülü proje verisi taşıyan PDF. */
+export const DOWNLOAD_PROJECT_FILE_ITEM_ID = 'downloadProjectFile'
+/** "Proje Dosyasını Aç" — aynı PDF'ten çizimi geri yükler. */
+export const OPEN_PROJECT_FILE_ITEM_ID = 'openProjectFile'
 
 /**
  * Menü YALNIZ dosya biçimi işlerini taşır. Üst barda kendi düğmesi olan hiçbir
@@ -41,9 +45,11 @@ export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
  * - "Proje Bilgileri" → sahne değiştiricinin yanındaki bilgi ikonu
  * - "Gönder" → sağdaki "Gönder" düğmesi
  *
- * "Proje Dosyasını Aç/İndir" JSON'dan BAŞKA bir biçim için ayrılmış; biçim
- * kararlaşmadığı için pasif duruyorlar ve İçe/Dışa Aktar'ın kopyası DEĞİLLER.
- * Etiketlerdeki "(JSON)" bu ayrımı görünür kılıyor.
+ * "Proje Dosyasını İndir/Aç" artık ÇALIŞIYOR ve biçimi PDF: indirilen dosya hem
+ * basılabilir pafta hem de çizimin kendisi — proje verisi belgeye GÖMÜLÜ
+ * (core/pdf/projectPayload.ts), "Aç" onu geri okuyor. İçe/Dışa Aktar (JSON) ile
+ * kopya değiller: o ikisi ham veri alışverişi, bunlar teslim edilebilir dosya.
+ * Etiketlerdeki "(JSON)" ayrımı bu yüzden duruyor.
  */
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -77,14 +83,18 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
       },
       {
         items: [
-          { id: 'exportPdf', label: "PDF'e Aktar", ...DISABLED },
-          { id: 'exportPdfFloors', label: "PDF'e Aktar (Katlar)", ...DISABLED },
-        ],
-      },
-      {
-        items: [
-          { id: 'openProjectFile', label: 'Proje Dosyasını Aç', ...DISABLED },
-          { id: 'downloadProjectFile', label: 'Proje Dosyasını İndir', ...DISABLED },
+          {
+            id: DOWNLOAD_PROJECT_FILE_ITEM_ID,
+            label: 'Proje Dosyasını İndir',
+            kind: 'command',
+            isEnabled: true,
+          },
+          {
+            id: OPEN_PROJECT_FILE_ITEM_ID,
+            label: 'Proje Dosyasını Aç',
+            kind: 'command',
+            isEnabled: true,
+          },
         ],
       },
       {

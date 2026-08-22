@@ -7,9 +7,11 @@ import { ViewSwitcher } from './menu/ViewSwitcher'
 import { editorBarButtonVariants } from './menu/editorBarVariants'
 import {
   CLEAR_PROJECT_ITEM_ID,
+  DOWNLOAD_PROJECT_FILE_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   IMPORT_ITEM_ID,
+  OPEN_PROJECT_FILE_ITEM_ID,
   SAVE_AS_ITEM_ID,
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
@@ -21,6 +23,10 @@ type MenuBarProps = {
   onCloseEditor: () => void
   /** Onay penceresini AÇAR; temizleme kararını çağıran verir, bar yalnız haber eder. */
   onClearProject: () => void
+  /** Proje dosyası (PDF) penceresini açar; kat seçimi ve sayfa ayarları orada. */
+  onDownloadProjectFile: () => void
+  /** Proje dosyası (PDF) seçicisini açar; çizim o dosyadan geri yüklenir. */
+  onOpenProjectFile: () => void
   onSave: () => void
   onSaveAs: () => void
   onImport: () => void
@@ -44,6 +50,8 @@ type MenuBarProps = {
 export function MenuBar({
   onCloseEditor,
   onClearProject,
+  onDownloadProjectFile,
+  onOpenProjectFile,
   onSave,
   onSaveAs,
   onImport,
@@ -81,14 +89,21 @@ export function MenuBar({
    * `unavailableItemIds` prop'u kullanılıyor — menü için ikinci bir pasiflik
    * mekanizması yazılmadı.
    *
-   * "Dışa Aktar" LİSTEDE YOK: JSON'u dışarı yazmak çizimi değiştirmiyor, bir
-   * okuma işlemi. Kapatılanların dördü de çizime yazar (Kaydet ve Farklı Kaydet
-   * sunucuya, İçe Aktar ve Projeyi Temizle doğrudan store'a).
+   * "Dışa Aktar" ve "Proje Dosyasını İndir" LİSTEDE YOK: ikisi de dosyayı
+   * dışarı yazıyor, çizime dokunmuyor — okuma işlemi. Kapatılanların hepsi
+   * çizime yazar (Kaydet ve Farklı Kaydet sunucuya; İçe Aktar, Proje Dosyasını
+   * Aç ve Projeyi Temizle doğrudan store'a).
    */
   const unavailableItemIds = useMemo(
     () =>
       isReadOnly
-        ? new Set([SAVE_ITEM_ID, SAVE_AS_ITEM_ID, IMPORT_ITEM_ID, CLEAR_PROJECT_ITEM_ID])
+        ? new Set([
+            SAVE_ITEM_ID,
+            SAVE_AS_ITEM_ID,
+            IMPORT_ITEM_ID,
+            OPEN_PROJECT_FILE_ITEM_ID,
+            CLEAR_PROJECT_ITEM_ID,
+          ])
         : undefined,
     [isReadOnly],
   )
@@ -97,6 +112,8 @@ export function MenuBar({
     setOpenMenuId(null)
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLEAR_PROJECT_ITEM_ID) onClearProject()
+    if (itemId === DOWNLOAD_PROJECT_FILE_ITEM_ID) onDownloadProjectFile()
+    if (itemId === OPEN_PROJECT_FILE_ITEM_ID) onOpenProjectFile()
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()

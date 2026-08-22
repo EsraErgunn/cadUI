@@ -6513,3 +6513,384 @@ reddedilmesini değiştirmiyor, bu yüzden ayrı bir kol açılmadı.
 Nerede: `src/api/projectFirmUsers.ts`, `src/api/projectFirmUserForm.ts`,
 `src/pages/ProjectFirmUserFormPage.tsx`,
 `src/ui/admin/projectFirmUsers/useProjectFirmUserForm.ts`.
+=======
+### K136 — PDF vektör; çizim önce SVG olur, sayfaya ölçek TAŞINIR
+
+Çıktı tek bir PROJE DOSYASI: kapak → vaziyet planı → kat planları → izometrik
+şema. Menüde "Proje Dosyasını İndir" tek madde, kapsam (hangi sayfalar, hangi
+katlar) pencerede seçilir. İki menü maddesi ("PDF'e Aktar" + "PDF'e Aktar
+(Katlar)") KALKTI: kullanıcıyı pencereyi görmeden kapsama karar vermeye
+zorluyordu, oysa kapsam da bir dışa aktarma ayarı.
+
+**İZOMETRİK ŞEMA sayfası EN SONDA.** Ekrandaki izometrikle AYNI çekirdek
+fonksiyonlardan üretiliyor (`buildIsometricScene` + `projectIsometric` +
+`isometricLabels` + `layoutIsometricLabels`); kâğıt kendi çizim dilini
+uydurmuyor.
+
+⚠️ **Döndürülebilirlik PDF'e geçmez**; sayfa tek açıda donmuş görüntüdür. Açı
+KULLANICININ EKRANDA BAKTIĞI açıdır. Sabit bir açı basmak, kullanıcının elle
+ayırdığı binmeleri (`isometricOffsetCm`) geri getirirdi — o düzenleme baktığı
+açıya göre yapılmış.
+
+⚠️ Sayfa ÖLÇEKSİZ: izdüşümde uzunluklar kısalır (foreshortening), cetvelle
+ölçülemez. Gerçek boy etiketten okunur; referans paftada da öyle. Bu yüzden
+vaziyet planıyla aynı yoldan (`drawFittedSvg`) sığdırılıyor, üstünde ölçek
+yazmıyor.
+
+⚠️ Borular TEK ÇİZGİ, ekrandaki gibi kalınlıklarıyla değil (kullanıcı kararı):
+şemanın işi güzergâhı göstermek, çap yazıdan (DN25) okunuyor. Kalınlıkla
+çizilince yoğun projede etiketlere yer kalmıyordu.
+
+⚠️ **Etiket halkası kâğıt için DARALTILIYOR** (`PAPER_RING_TIGHTNESS`).
+`layoutIsometricLabels` halkayı sahne boyutunun YARISI kadar dışarı koyuyor;
+ekranda doğru, çünkü yazı ekran-sabit boyutta ve kamera uzaklaşınca da okunur
+kalıyor. Kâğıtta her şey BİRLİKTE küçüldüğü için aynı halka, çizimi sayfanın
+ortasında minik bir leke yapıyor, kalanını kılavuz çizgileri dolduruyordu
+(ölçüldü: 1500 cm'lik sahne 3883 cm'lik kutuya yayılıyordu).
+
+⚠️ Etiket ayırma payı satır YÜKSEKLİĞİNDEN hesaplanamaz: künyeler geniş
+("12000 kcal/h" tek satırda dört satır yüksekliği kadar yer kaplıyor) ve
+yükseklikle ayrılan iki etiket yan yana çakışıyordu. Pay EN GENİŞ etiketten
+geliyor. Aynı sebeple sınır kutusuna yazı GENİŞLİĞİ de katılıyor — yalnız çapa
+sayılsaydı ortalanmış etiketin yarısı kırpılırdı.
+
+⚠️ Eleman sembolleri BILLBOARD çizilir: plan açısı UYGULANMAZ, çünkü ekrandaki
+`IsometricElement` de sembolü kameraya dönük gösteriyor. Plan sayfasının
+`toSymbolTransform`ından tek farkı bu; çapa kaydırması ölçekten ÖNCE ve 1:1 cm
+uygulanıyor (ekranla aynı sıra), yoksa sembol boruya değdiği noktadan kayardı.
+İlk sürümde semboller HİÇ çizilmemişti — sayfada yalnız borular ve yazılar vardı
+(kullanıcı bulgusu).
+
+⚠️ Etiketler halka yarıçapının `PAPER_LABEL_PULL` katında duruyor.
+`getIsometricLabelDistanceCm` en az 240 cm dayatıyor; ekranda doğru ama küçük
+bir tesisatta kâğıtta boruların birkaç katı uzunlukta kılavuz çizgileri
+üretiyordu. ⚠️ Yalnız yarıçapı kısmak etiketleri ÜST ÜSTE bindirir (aynı açısal
+aralık daha küçük yayda demek), bu yüzden yerleşime verilen ayırma payı aynı
+oranda BÜYÜTÜLÜYOR. Kullanıcının elle taşıdığı etiket çekilmez.
+
+⚠️ Tesisatı olmayan projede izometrik sayfa HİÇ basılmaz: boş bir izometrik
+okuyucuya bir şey söylemez. Kat planında durum farklı, orada boş sayfa "bu kat
+boş" bilgisini taşıyor.
+
+⚠️ Referans paftadaki bazı yazıların modelde karşılığı YOK (`Tük.Nok`,
+`Abonelik`, `Belge Tarihi`, `Bağ.Nes`, topraklama özellikleri, "mevcut" /
+"es verilmiştir"); kâğıda çıkmıyorlar. Ayrıca referansta segment etiketleri
+KAT PLANLARINDA da var — bizde o etiketler yalnız izometrikte üretiliyor, plan
+sayfasına taşınması ayrı bir iş olarak bırakıldı.
+
+**Dosya hem PAFTA hem PROJE DOSYASI: veri belgeye gömülü.** "Proje Dosyasını
+Aç" bunun tersini yapıyor ve çizimi geri yüklüyor.
+
+⚠️ Sayfa OKUNMUYOR, okunamaz da: PDF'te duvar diye bir şey yok, vektör yolları
+var. Vektörden model üretmek (yolları tanıyıp duvara/boruya çevirmek) ayrı ve
+kayıplı bir iş. Bunun yerine dışa aktarırken proje JSON'u belgenin XMP
+metadata'sına gömülüyor, açarken oradan geri alınıyor
+(`core/pdf/projectPayload.ts`). Gömülen şey `serializeProjectDataForBackend`in
+ürettiği JSON — "Dışa Aktar (JSON)" ve sunucuya kaydetmeyle AYNI kaynak, yani
+"indirip geri açınca ne kaydettiysem onu alırım" garantisi tek yerden geliyor.
+
+⚠️ Bedeli: yalnız STARCAD'in ürettiği dosya açılabilir. Başka programın
+PDF'inde bu veri yoktur; anlaşılır bir hata verilir, sessizce boş proje
+YÜKLENMEZ.
+
+**Dosya adı `<proje numarası>.starcad.pdf`.** UZANTI `.pdf` KALIR.
+
+⚠️ Bir ara uzantı `.starcad` yapıldı ve GERİ ALINDI: dosya gerçekten bir PDF,
+uzantıyı değiştirmek onu işletim sistemi için başka bir TÜR yapıyordu — çift
+tıklayınca görüntüleyici açılmıyor, basmak için elle yeniden adlandırmak
+gerekiyordu. `.starcad` bu yüzden uzantı değil ADIN PARÇASI: dosyanın içinde
+çizim verisi de olduğunu söylüyor ama PDF davranışını bozmuyor.
+
+Ada kat adı gibi bir EK konmuyor: seçilen sayfa/kat kapsamı çıktının GÖRÜNEN
+kısmını belirliyor, gömülü veri her zaman projenin tamamı.
+
+**"Proje Dosyasını Aç" yalnız ÇİZİMİ ve KAT YAPISINI yükler; künyeye dokunmaz.**
+Proje adı, numarası, taraflar ve tarihler zaten store'da durmuyor (CLAUDE.md
+kural 4), uçtan geliyor. Store'a bir kimlik alanı EKLENMEMELİ: eklenirse
+başkasının dosyasını açmak açık projenin künyesini ezer —
+`store/__tests__/loadProjectDrawing.test.ts` bunu kilitliyor.
+
+**Açma GERİ ALINABİLİR.** Bu yüzden `loadProject` DEĞİL ayrı bir
+`loadProjectDrawing` var: `loadProject` geçmişi siliyor çünkü o "başka projeye
+geçiş", oysa dosya açmak bir DÜZENLEME — tek Ctrl+Z önceki çizimi geri
+getirmeli. Aynı gerekçeyle kirli işaret de duruyor (`clearProjectDrawing` ile
+birebir aynı üç kural).
+
+⚠️ Yükleme id sayacını GERİYE ÇEKMEZ (`Math.max`): geri alma açılan çizimi
+kaldırıp eski nesneleri geri getiriyor, küçülen bir sayaç var olan bir id'yi
+ikinci kez üretirdi (knowledge/id-scheme.md yasağı).
+
+⚠️ JSON base64'e çevrilip gömülüyor. XMP bir XML paketi: ham JSON'daki `<`, `&`
+ve tırnaklar paketi bozardı; ayrıca proje verisi Türkçe karakter taşıyor ve
+base64 kodlama belirsizliğini tümüyle kaldırıyor. Bedeli ~%33 boyut.
+
+⚠️ jsPDF 4.2'de dosya EKLEME (attachment) API'si YOK; `addMetadata` var. Bu
+yüzden veri ek dosya olarak değil metadata akışında duruyor. Okuma tarafı PDF'i
+düz metin olarak tarıyor — belge `compress` seçeneği olmadan kurulduğu için
+akış sıkıştırılmamış. **İkisi birbirine bağlı:** sıkıştırma açılırsa arama
+sessizce hiçbir şey bulamaz.
+
+⚠️ Okurken baytlar `latin1` ile çözülüyor: her bayt birebir bir karaktere
+eşleniyor, ikili içerik bozulmadan aranabiliyor. `utf-8` ile çözmek PDF'in ikili
+kısımlarını bozardı.
+
+⚠️ Gelen JSON yine `core/serialize.ts` şemasından geçiyor — "İçe Aktar (JSON)"
+ile AYNI doğrulama yolu, ikinci bir okuma mantığı yazılmadı. Bozuk/eksik dosya
+store'a hiç dokunmadan reddediliyor.
+
+"İçe/Dışa Aktar (JSON)" maddeleri DURUYOR ve kopya değiller: onlar ham veri
+alışverişi, bunlar teslim edilebilir dosya.
+
+**Katlar ZEMİNDEN YUKARI basılır** — `floors` dizisinin kendi sırası. Belge
+binayı aşağıdan yukarı gezer; tesisat da servis kutusundan yukarı doğru okunur.
+İlk sürüm en üst kattan başlıyordu, ters çevrildi.
+
+**ANTET YOK.** Sayfa başına künye bloğu basma kararı geri alındı
+(`core/pdf/titleBlock.ts` SİLİNDİ — bu adla yeni kod yazma): künyeyi kapak
+sayfası taşıyor, kat planı sayfası yalnız çizim. Antet her sayfada aynı bilgiyi
+tekrarlıyor ve çizim alanının içinden yer alıp planın üstüne binebiliyordu.
+
+**Kapak ve vaziyet planı SEÇİLEBİLİR**, ikisi de varsayılan açık. Yalnız çizim
+isteyen kapatabilir.
+
+**Kapaktaki kutular DEĞERİ OLMASA DA çizilir.** Kapak resmi bir belge; boş
+hücre elle doldurulur. Değeri olmayan satırı gizlemek sayfayı her projede
+farklı yükseklikte gösterirdi.
+
+**Kapaktaki her değerin bir REFERANSI var: ya proje detayı ya çizim.** Kural
+"mock veri kullanma" değil, **PDF katmanı kendi kafasından bir şey uydurmasın**.
+Künye alanları proje DETAY EKRANIYLA aynı uçtan (`getProjectDetail`), aynı
+adlarla geliyor; tesisat özeti ise ÇİZİMDEN hesaplanıyor. Kapak hiçbir değer
+türetmiyor, varsaymıyor, sabit yazmıyor.
+
+⚠️ Künye alanlarının çoğu bugün `extras` altında: geliştirmede yer tutucu,
+üretimde `null` (K50/K51). Bu bir ARA DURUM, kusur değil — proje firması ve gaz
+dağıtım kullanıcı ekranları sunucuya eklenince aynı tesisat gerçek değerleri
+taşıyacak (PDF proje firması kullanıcısının ekranından da alınacak ve o
+kullanıcının adı kâğıda çıkacak). Bağlantı bu yüzden ŞİMDİDEN kurulu tutuluyor.
+Bir ara "gerçek değil" diye söküldü ve kapak neredeyse boşaldı; sökmek yanlıştı,
+geri alındı. Kâğıtta ekrandaki kesikli "mock" işareti YOK — uçlar bağlanana
+kadar çıktıdaki bu alanlara güvenilmemeli.
+
+⚠️ Tesisat satırı ÇİZİMDEN: sayaç adedi, cihaz adedi, toplam debi ve kullanım
+basıncı `installationSummary.ts` ile hesaplanıyor ve kaynağı `buildMeterReport`
+— sayaç/cihaz ilişkisini borular üzerinden izleyen TEK yer orası. İkinci bir
+sayım yazılsaydı (elemanları türe göre saymak gibi) sayaca bağlı olmayan bir
+cihaz da toplama girer, kapak birim/cihaz raporundan farklı bir sayı gösterirdi.
+Sayaçların basıncı farklıysa alan BOŞ bırakılıyor: tek sayı seçmek kâğıda
+"tesisatın basıncı budur" yazmak olurdu. Girilmemiş değer SIFIR yazılmıyor —
+"hiç sayaç yok" ile "debisi girilmemiş sayaç var" aynı şey değil.
+
+⚠️ Sayfa ÜÇ DİKDÖRTGEN, aralarında ince beyaz şerit: (1) logo + kaşe/onay,
+(2) tesisat özeti + BİNANIN, (3) PROJE TASARIMCISININ | FİRMANIN + pafta
+künyesi. DIŞ ÇERÇEVE YOK — olsaydı boşluklar çerçevenin içinde kalan şeritlere
+dönerdi ve üç blok tek tablo gibi görünürdü. Sütunlar EŞİT (yarı yarıya), böylece
+ortadaki dikey çizgi kaşe kutularından tasarımcı/firma bloğuna kadar hizalı
+kalıyor. Tesisat satırının kendi başlığı yok: tek satır, bölüm açacak kadar dolu
+değil. Tasarımcı ve firma AYRI başlıklar altında — tek başlıkta birleştirilince
+hangi alanın kişiye, hangisinin firmaya ait olduğu okunmuyordu. Adı soyadının
+hemen altında boş bir İMZA kutusu var.
+
+⚠️ Bant yükseklikleri birbirine göre SABİT punto; sabit bantlar bir katsayıyla
+ölçekleniyor, KALAN kaşe bandına gidiyor ve sayfa tam doluyor. Katsayı iki
+yönden sınırlı: `MAX_BAND_SCALE` (büyük kâğıtta hücreleri de büyütmek 11
+puntoluk yazıyı boşlukta yüzdürüyordu) ve kaşe bandının en azı. Denenip düşen
+iki yaklaşım: oranların toplamı 1 (satır eklenince alt bant taşıyordu) ve tek
+katsayıyla her şeyi ölçeklemek (kaşe bandı A4 dikeyde sayfanın yarısını kaplayıp
+çıktıyı upuzun gösteriyordu).
+
+⚠️ Kapakta satır KAYDIRMA yok — hücre yükseklikleri sabit ve iki satır sığmıyor.
+Taşan ünvan/adres `fitTextToWidth` ile küçültülüyor; küçültme YETMEZSE en küçük
+puntoda "…" ile kısaltılıyor. İki adım birlikte uygulanıyordu ve tam sınırdaki
+metin hem küçültülüp hem kırpılıyordu (ölçüldü: sığan bir vergi numarası
+kesiliyordu). Genişlik tahmini kaba: `core/` fontu göremez (DOM yok, jsPDF yok),
+bu yüzden karakter genişliği sabitten geliyor ve bilerek CÖMERT — gereksiz
+küçültmek, komşu hücreye taşmaktan iyi.
+
+⚠️ **Vaziyet planı ölçekli DEĞİL, iki farklı güven düzeyi taşır.** Kat yığını
+kesiti GERÇEK veriden (`Floor.heightCm`, `isBasement`); parsel SINIRI BOŞ,
+çünkü projede parsel/ada geometrisi yok ve uydurulmuş bir sınır yanlış bilgi
+olurdu. Sayfaya `fitPlanToPage` ile değil SIĞDIRILARAK yerleşir — "ölçek
+kutsaldır" kuralı kat planı içindir, şematik kesit cetvelle ölçülmez.
+
+⚠️ Çerçevenin İÇİ ise gerçek: zemin katın KUŞBAKIŞI KONTURU ve SERVİS
+KUTUSUNUN o kontura göre yeri. Sayfanın asıl işi bu — gazın binaya hangi
+kenardan girdiğini göstermek. Kontur duvarı tek çizgi çizer, kalınlık yok
+sayılır: bu ölçekte bir piksel etmez ve kapsül geometrisini (K23) buraya
+taşımak boşuna karmaşa olurdu. Servis kutusu SINIRLARA katılır (bina dışında,
+bahçe duvarında olabilir) ve kat FİLTRESİZ aranır (bodrumda olabilir).
+Paletteki tek sıcak renk odur (`SVG_COLORS.serviceBox`): sayfadaki her şey
+griyken göz doğrudan oraya gitsin diye.
+
+⚠️ Kot sıfırı ZEMİN: ilk bodrum olmayan katın tabanı. Bodrumlu binada da zemin
+kat 0'dan başlar. Bodrumun kot etiketi TABANINDAN yazılır; tavandan yazılsaydı
+en üstteki bodrumun tavanı 0 çıkıp zemin çizgisinin etiketiyle çakışırdı.
+
+⚠️ Kapaktaki logo RASTER (`assets/brand/starcad.image.png`) — belgenin geri
+kalanı vektör ama marka varlığı bir görsel. Kaynak 1536×1024 / ~2 MB, kapaktaki
+kutuysa yüz punto civarı: doğrudan gömülseydi HER PDF 2 MB ağırlaşırdı, bu
+yüzden önce bir tuvale çizilip küçültülüyor (`ui/pdf/planPdfLogo.ts`).
+Yüklenemezse kapak yine basılır, kutuya "STARCAD" yazılır. Görselin ALTINA
+uygulama adı yazılmaz: logo zaten "StarCAD" diyor.
+
+⚠️ Onay kutularının başlıkları künye etiketlerinden BÜYÜK punto
+(`CoverField.labelSizePt`) ve ALTI ÇİZİLİ. Künye hücresinde asıl bilgi etiketin
+altındaki değerdir, etiket küçük olmalı; onay kutusunda ise yazılacak değer
+yok, etiketin KENDİSİ başlıktır. Kutunun ortası kaşe için BOŞ bırakılıyor,
+künye sağ alt köşeye iniyor: solda projeyi çizen kişi ve firması, sağda dağıtım
+şirketi ve onaylayan mühendis.
+
+⚠️ Bölüm başlıkları DOLGUSUZ. Açık gri zeminle denendi, kâğıtta ağır durdu;
+başlık olduğunu punto farkı söylüyor (künye etiketlerinin neredeyse iki katı) —
+gömülü fontta kalın yüz olmadığı için vurgu zaten boyuttan geliyor.
+
+**Vektör, tuval fotoğrafı DEĞİL.** Bu bir CAD çıktısı: müşteri basacak ve
+üstünde ölçü okuyacak. Raster PDF ilk gün "çalışıyor" der, baskıda geri gelir.
+
+**Yığın `jspdf + svg2pdf.js`** — `.claude/CLAUDE.md`de zaten yazılıydı ve
+ölçüm de onu gösterdi: `pdf-lib` 2022-05'ten beri yayın almamış, jspdf 2026-03,
+svg2pdf 2026-01. Ara SVG katmanının bedava gelen faydası TEST: "duvar şu
+koordinatta, şu kalınlıkta" SVG metninde doğrulanabiliyor, PDF baytlarında
+doğrulanamazdı — `core/`ye test zorunluluğu ancak böyle karşılanıyor.
+
+**SVG birimi PLAN SANTİMİ, punto değil.** Duvar kalınlığı, boru çapı ve yazı
+boyu zaten cm; cm uzayında kurunca `stroke-width` doğrudan gerçek kalınlık
+oluyor ve ölçek değişince hiçbir sayı yeniden hesaplanmıyor — ölçeği
+`width`/`height` öznitelikleri taşıyor. Duvar ekrandaki gibi yuvarlak uçlu
+kalın çizgi (`stroke-linecap="round"`, kapsül — K23), kavşak hesabı yok.
+
+**Ölçek sığdırma için OYNATILMAZ.** 1:100 dendiyse çıktı 1:100'dür; çizim
+sayfaya sığmıyorsa taşar ve kullanıcı uyarılır (`PageFit.isOverflowing`).
+Sığdırmak için ölçeği bozmak, cetvelle ölçen kullanıcıya yanlış sonuç verirdi.
+
+⚠️ **Türkçe için gömülü font ŞART.** jsPDF'in yerleşik fontları WinAnsi
+kodlaması kullanıyor ve `ı ğ ş İ` orada YOK. Üstelik jsPDF hata da vermiyor —
+ölçüldü: Türkçe metne 186,60 genişlik döndürdü ama yanlış glif basacaktı
+(pdf-lib aynı metinde açıkça patlıyor: `WinAnsi cannot encode "ı"`). Sessiz
+bozulma olduğu için gömme adımı atlanamaz.
+
+⚠️ Font YENİ VARLIK DEĞİL: sahnenin kullandığı `roboto-regular.woff`
+`scripts/woffToTtf.mjs` ile TTF'e çevrildi (WOFF zaten zlib'li sfnt; dönüşüm
+kayıpsız). Doğrulama: jsPDF bu TTF ile Türkçe metni 169,21 punto ölçtü,
+pdf-lib aynı fonttan 169,2 — iki bağımsız kütüphane aynı sayıyı verdi.
+Font `fetch` ile TEMBEL yükleniyor, ana pakete girmiyor.
+
+⚠️ jsPDF'in y ekseni sayfanın ÜSTÜNDEN aşağı büyür; `core/pdf/paper.ts` ise
+PDF biçiminin doğal sol-ALT başlangıcını kullanır (plan +y yukarı, kâğıt +y
+yukarı — çevirme yok). Köprü TEK yerde: `ui/pdf/renderPlanPdf.ts` → `toJsPdfY`.
+SVG tarafında da y çevirme tek yerde (`svgPrimitives.ts` → `sy`).
+
+⚠️ Tesisat rengi `resolveLineColor` GERİ ÇAĞRIMIYLA dışarıdan gelir: renk
+kuralı `plumbing/scene/lineStyle.ts`te ve `core/` sahne katmanından import
+edemez (kural 1/2). Geometri core'da, palet ui'da.
+
+⚠️ Boş kat da SAYFASIYLA basılır (`viewBox="0 0 1 1"`): yoksa çıktıda
+hangi katın boş olduğu anlaşılmaz.
+
+⚠️ Proje adı ve numarası çizim store'unda YOK (kural 4: store = kaydedilecek
+JSON). Künye gerçek uçtan çözülüyor (`useProjectSummary` → `getProjectDetail`,
+K63 deseni); uç yanıt vermezse iş durmaz, numara id'ye düşer.
+
+Uçtan uca ölçüm (iki odalı plan, A3 yatay 1:100): çizimli PDF 23 074 bayt,
+aynı ayarlarla boş kat 16 045 bayt — aradaki 7 029 bayt gerçekten sayfaya
+basılan çizim. (Ölçüm gömülü proje verisinden ÖNCE alındı; bugün dosyaya bir de
+çizim JSON'u giriyor.)
+
+⚠️ Kat sırası: dizide `index 0` EN ALT kat ve çıktı da ZEMİNDEN YUKARI, yani
+dizinin kendi sırası. İlk sürüm listeyi ters çevirip en üst kattan başlıyordu,
+düzeltildi.
+
+
+**Pafta bir TESİSAT çıktısıdır, mimari plan değil.** İlk hâlde duvarlar
+neredeyse siyahtı (#1f2933) ve üstünden geçen boru kayboluyordu; ayrıca
+boruya bağlanan elemanlar hiç basılmıyordu (kullanıcı bildirimi). İkisi de
+düzeltildi:
+
+- Mimari, tesisat görünümündeki hayaletle AYNI soluk tonda basılıyor
+  (`#94a3b8`, `plumbing/scene/plumbingTheme.ts` → architectureGhost). Oda
+  dolgusu neredeyse beyaz, ölçü/açı yazıları duvardan bir tık koyu.
+- Tesisat elemanları (vana, sayaç, kazan…) sembolleriyle çiziliyor ve kendi
+  renklerini koruyor — konu onlar.
+
+⚠️ Eleman sembolleri YENİDEN ÇİZİLMEZ: `plumbing/assets/symbols/*.svg` ham
+metin olarak (`?raw`) gömülüp bir `<g transform>` içine konuyor. Sahne aynı
+dosyaları three.js geometrisine çeviriyor; PDF metnin kendisini istiyor.
+`symbolLoader.ts` fay C'nin dosyası olduğu için ona dokunulmadı, okuma
+`ui/pdf/symbolMarkup.ts`'te ayrı duruyor.
+
+⚠️ Sembol dönüşümünde İKİ işaret çevrilmesi var, ikisi de kasıtlı:
+`translate` y'si `-position.y` (çıktı svg'sinde y aşağı), `rotate` açısı
+`-angleDeg` (plan açısı saat yönünün tersine, svg `rotate()` saat yönünde).
+Sembolün İÇ koordinatı çevrilmez — kaynak svg de çıktı svg'si de y-aşağı,
+arada yalnız origin ötelemesi kalıyor.
+
+⚠️ Sembolün 1 svg birimi 1 SANTİMDİR (`elementPicking.ts` `bounds`'u plan cm
+olarak kullanıyor); `element.scale` bunun üstüne çarpan.
+
+
+**Referans paftayla karşılaştırma (kullanıcı örneği).** Eski üründen bir çıktı
+örnek alındı ve şunlar uyarlandı:
+
+- **Palet dengelendi.** İki tur gerekti: duvar önce neredeyse siyahtı
+  (boruyu yutuyordu), sonra tesisat hayaletinin tonuna çekilince fazla soluk
+  kaldı VE duvara oturan mimari semboller duvarla aynı renge düşüp GÖRÜNMEZ
+  oldu (menfez, kullanıcı bildirimi). Şimdi duvar `#6b7280`, sembol `#334155`
+  — sembolün duvardan koyu olması ZORUNLU, testle kilitli.
+- **Kolon DOLU çizilir** (`structuralColumn`): taşıyıcı kütle planda boşluk
+  gibi okunmamalı. Merdiven/baca şaftı kontur kalır — içlerinden tesisat
+  geçebiliyor ve dolgu onu örterdi.
+- **Eleman etiketi**: ad + varsa kapasite. MİNİMUM tutuldu; referansta cihaz
+  başına marka/model/verim/brülör bloğu var ama bizde o alanlar serbest metin
+  ve çoğu projede boş — hepsini basmak boş satır üretirdi. Birim UYDURULMAZ,
+  kullanıcının girdiği metin yazılır.
+
+⚠️ **Sayfa sınırı duvar UÇLARINDAN hesaplanmaz.** Kapsül her yöne yarım
+kalınlık taşar, duvara oturan sembol daha da taşar, tesisat binanın dışından
+dolaşabilir. Yalnız uçlara bakıldığında bu içerik sayfa kenarında KIRPILIYORDU.
+Sınır artık duvar kalınlığını, hat noktalarını, eleman konumlarını ve etiket
+çapalarını kapsıyor.
+
+⚠️ **İçten/dıştan ölçü PAFTAYA EKLENMEDİ.** Referansta duvarların iç ve dış
+boyu ayrı çizgilerle yazılı ve güzel duruyor — ama bu tam olarak K95'te
+KALDIRILAN gösterimdir ve sebebi estetik değil DOĞRULUKTU: sayıların bir kısmı
+yanlış çıkıyordu ve kullanıcı hangisinin gerçek boy olduğunu ayırt edemiyordu.
+PDF'e eklemek iki şeyi birden bozardı: (1) aynı hatalı sayılar kâğıda basılırdı,
+(2) ekran ile kâğıt farklı ölçü sistemi gösterirdi. K95 kapıyı açık bırakmıştı
+("iç/dış ayrımı gerekirse ayrıca ve kendi başına ele alınacak") — doğru sıra
+önce ANA ÇİZİMDE doğru geometriyle çözmek, PDF onu kendiliğinden devralır.
+
+
+**Kâğıt EKRANIN aynısını basar.** Pafta kendi çizim dilini uydurmuyor; her
+nesne sahnedeki geometrisiyle çıkıyor:
+
+- **Alan nesneleri** `getAreaObjectPlanGeometry` ile: merdivenin basamakları ve
+  yön oku, baca şaftının karesi + çemberi, kolon havalandırmasının yalnız
+  çemberi. Önce hepsi kaba bir sınır dikdörtgeniydi ve birbirinden ayırt
+  edilemiyordu (kullanıcı bildirimi).
+- **Kiriş** KESİKLİ konturla (`Beam.tsx` ile aynı): üstten geçen taşıyıcı,
+  duvardan böyle ayrılıyor.
+- **Kapı/pencere** `getOpeningSymbol` ile: söve/yüz çizgileri ve kapı kanadı.
+  Düz beyaz dikdörtgen kapıyla pencereyi ayırt ettirmiyordu.
+- **Baca ve havalandırma** BORU DEĞİL: `getDischargeRunGeometry` ile sabit
+  genişlikte, içi boş, ÇİFT ÇİZGİLİ kanal + türe özgü desen (baca eğik tarama,
+  havalandırma dik panjur) + uç kapağı. Cihaza giren uç kapatılmaz.
+
+⚠️ Baca/havalandırma ÇAPTAN renk ALMAZ — gaz taşımıyorlar. Renkleri
+`DISCHARGE_STROKE_COLORS`ten gelir (baca gri, havalandırma yeşil); ilk turda
+boru rengini alıp kırmızı çıkıyorlardı.
+
+**Ad etiketleri KESİKLİ kılavuzla nesnesine bağlanır** (`planSvgLabels.ts`).
+Ekranda tesisat elemanı da (`ElementNameLabels`) alan nesnesi de
+(`AreaObjectNameLabels`) böyle çiziliyor; etiketin hangi nesneye ait olduğu
+başka türlü okunmuyor. Kılavuz yazının KUTUSUNDA durur, merkezinde değil
+(`clipLeaderEndToRectCm`) — yoksa çizgi yazının içinden geçer.
+
+⚠️ Etiket+kılavuz yolu TEK: `buildLabelSvg`. Bugün tesisat elemanı ve alan
+nesnesi besliyor; kirişe ya da başka bir nesneye ileride ad eklenirse tek
+yapılacak şey buraya bir madde daha vermek. İkinci bir etiket çizim yolu
+açılmamalı — ekranda da tek desen var.
+
+⚠️ Hangi nesnenin adlanacağı EKRANDAKİ kuralla aynı (`hasAreaObjectNameLabel`,
+`hasElementNameLabel`): merdiven ve vana etiketsiz. Yazılan şey TÜRÜN adı
+("Kolon"), nesnenin kodu ("K-01") değil.
+

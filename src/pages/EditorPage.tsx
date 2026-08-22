@@ -6,8 +6,10 @@ import { useEditorExit } from './useEditorExit'
 import { useEditorReadOnlyMode } from './useEditorReadOnlyMode'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
+import { PROJECT_FILE_ACCEPT, useProjectFileOpen } from './useProjectFileOpen'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
+import { useProjectSummary } from './useProjectSummary'
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
 import { IsometricHud } from '../isometric/ui/IsometricHud'
@@ -29,6 +31,7 @@ import { PropertyPanel } from '../ui/PropertyPanel'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
 import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
+import { ExportPdfDialog } from '../ui/pdf/ExportPdfDialog'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
@@ -40,11 +43,19 @@ export function EditorPage() {
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
+  const {
+    inputRef: projectFileInputRef,
+    error: projectFileError,
+    triggerOpen: triggerProjectFileOpen,
+    handleFileSelected: handleProjectFileSelected,
+  } = useProjectFileOpen()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
   const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
+  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
+  const projectSummary = useProjectSummary(projectId)
   // Salt görüntülemede kaydetme yolu HİÇ çağrılmaz: düğme ve kısayol zaten
   // yok, bu son kapı elle tetiklenen bir çağrıyı da durdurur. Sunucu da aynı
   // şeyi söylüyor (`newversion` → Admin, ProjectFirmUser).
@@ -118,6 +129,8 @@ export function EditorPage() {
         <MenuBar
           onCloseEditor={closeEditor}
           onClearProject={() => setIsClearProjectOpen(true)}
+          onDownloadProjectFile={() => setIsPdfDialogOpen(true)}
+          onOpenProjectFile={triggerProjectFileOpen}
           onSave={handleSave}
           onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
@@ -136,6 +149,16 @@ export function EditorPage() {
           onChange={handleFileSelected}
         />
 
+        {/* Dosya > Proje Dosyasını Aç. Ayrı input: kabul edilen tür farklı
+            (PDF); tek input paylaşılsaydı seçicide yanlış filtre görünürdü. */}
+        <input
+          ref={projectFileInputRef}
+          type="file"
+          accept={PROJECT_FILE_ACCEPT}
+          className="hidden"
+          onChange={handleProjectFileSelected}
+        />
+
         {error && (
           <p
             role="alert"
@@ -151,6 +174,15 @@ export function EditorPage() {
             className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
           >
             {importError}
+          </p>
+        )}
+
+        {projectFileError && (
+          <p
+            role="alert"
+            className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
+          >
+            {projectFileError}
           </p>
         )}
 
@@ -206,6 +238,10 @@ export function EditorPage() {
       {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
+
+      {isPdfDialogOpen && (
+        <ExportPdfDialog project={projectSummary} onClose={() => setIsPdfDialogOpen(false)} />
+      )}
 
       {isClearProjectOpen && (
         <ClearProjectDialog

@@ -109,7 +109,12 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   `INSTALLATION_BELOW_GHOST_ELEVATION_CM` ve `RENDER_ORDER.installationBelowGhost`
   SİLİNDİ — bu adlarla yeni kod yazma; mimarideki `FloorBelowGhost` duruyor.
   (bkz. knowledge/label-visibility.md)
-- `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/ExportDialog(D), PropertyPanel/properties(B), WarningList+validation(C).
+- `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/pdf(D), PropertyPanel/properties(B), WarningList+validation(C).
+  PDF dışa aktarma `ui/pdf/` altında (K136); boş yer tutucu `ui/ExportDialog.tsx`
+  SİLİNDİ — bu adla yeni kod yazma. **"Proje Dosyasını İndir/Aç" ARTIK
+  ÇALIŞIYOR** ve biçimi PDF: çizim verisi belgeye gömülü
+  (`core/pdf/projectPayload.ts`), açma onu geri okuyor — sayfadaki VEKTÖRLER
+  OKUNMUYOR, okunamaz da. Yalnız StarCAD'in ürettiği PDF açılır.
   Kabuk yeniden kuruldu (K90–K93): üst barda yalnız Dosya + Araçlar, kip
   ayarları tuvalin yüzen çubuğunda; `StatusBar`, `AxisIndicator` ve
   `menu/ShortcutButtons` SİLİNDİ — bu adlarla yeni kod yazma. **Hata
