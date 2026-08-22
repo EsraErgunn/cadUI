@@ -387,3 +387,33 @@ pozitif ölçü varsayıyor.
 Sabit köşe sürükleme boyunca kaymaz çünkü `useAreaObjectHandleTool` her karede
 basış anındaki şekilden (`grab.origin`) hesaplıyor; canlı şekilden hesaplansaydı
 çevirme anında çapa kayardı.
+
+## Duvara yaslanma (K139)
+
+⚠️ Kolon ve baca şaftı, yerleşirken duvarın YÜZÜNE yaslanır (`core/areaObjectWallSnap.ts`);
+öncelik duvar → ızgara, Ctrl ikisini birden kapatır. Merdiven ve kolon
+havalandırması yapışmaz.
+
+⚠️ İKİ hiza var, imlece yakın olan kazanır: `onWall` (nesne duvarın ÜSTÜNDE,
+dış kenarı KARŞI yüzle hizalı — kullanıcının asıl istediği) ve `besideWall`
+(nesne duvarın dışında, yüzüne değiyor). Eşitlikte `onWall` kazanır.
+
+⚠️ Yakalama yarıçapı nesnenin BOYUNU içerir; yalnız merkez–eksen uzaklığına
+bakılsaydı duvarın tam üstündeki 50 cm'lik kolon bile toleransın dışında
+kalırdı.
+
+⚠️ BOYUTLANDIRMADA da çalışıyor: sürüklenen köşe duvar yüzüne oturuyor
+(`snapPointToWallFace`), böylece nesnenin kenarı duvarla hizalanıyor.
+
+⚠️ Duvara oturan kolon açıklıkla ÇAKIŞABİLİR; `addAreaObject` K35/K36
+gerekçesiyle sessizce reddeder — kapının üstüne kolon oturmaz.
+
+⚠️ Pay nesnenin AÇISINDAN türetilir (köşelerin duvar normaline izdüşümü),
+`lengthCm / 2` sabiti değil — döndürülmüş nesne de tam yaslanır.
+
+⚠️ YERLEŞTİRME nesneyi duvarın açısına döndürür, TAŞIMA döndürmez: taşınan
+nesnenin kullanıcının verdiği bir açısı var ve taşıma jesti onu silmemeli.
+Çekirdek fonksiyon bunu `isAlignedToWall` ile ayırıyor.
+
+⚠️ Bu BAĞLANMA değil (sembolün duvara bağlanma modeli girmedi): duvar sonradan
+taşınırsa nesne peşinden gitmez.

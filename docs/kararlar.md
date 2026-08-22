@@ -7001,3 +7001,69 @@ dokunulmadan bırakıldı.
 Nerede: `core/architectureSymbol.ts` (`isPointInSymbol`), `core/architectureHover.ts`,
 `core/pointSymbolLabel.ts` (+ testi), `core/labelLeader.ts`, `core/areaObjectLabel.ts`,
 `scene/PointSymbolNameLabels.tsx`, `scene/ArchitectureLayer.tsx`, `store/uiStore.ts`.
+
+### K139 — Kolon ve baca şaftı duvarın YÜZÜNE yaslanıyor
+
+Kullanıcı: "kolonlar ve baca şaftı duvarlara da snaplenmeli sadece ızgaraya
+değil". Yerleşim önceliği artık **duvar → ızgara**: imleç bir duvarın yüzüne
+yakınsa nesne oraya yaslanır, değilse eski ızgara yakalaması çalışır.
+
+**İKİ hiza var, imlece yakın olan kazanır** (`AreaObjectWallSnapKind`):
+
+- `onWall` — nesne duvarın **ÜSTÜNDE** durur, dış kenarı duvarın KARŞI yüzüyle
+  hizalanır; kolon duvarı kaplar ve mahale taşar. Kullanıcının asıl istediği bu
+  ("duvarın üstünde olacak şekilde duvarın kenarına snaplenmeli", ekran
+  görüntüsüyle geldi).
+- `besideWall` — nesne duvarın DIŞINDA, yüzüne değerek durur. İlk turda tek
+  davranış buydu; kullanıcı "hem şimdiki yaptığına snaplenme olsun" dediği için
+  KALDI, ama önceliği yok: eşitlikte `onWall` kazanır.
+
+Merkez, duvar ekseni üzerindeki izdüşüm + normal × (aday hizanın uzaklığı).
+Nesne duvar boyunca serbest kayar (izdüşüm imleci izler), yalnız duvarın ucunu
+geçmez — `projectOntoSegment` uçlara kelepçeliyor.
+
+⚠️ **Yakalama YARIÇAPI nesnenin BOYUNU içerir.** Yalnız merkez–eksen uzaklığına
+bakılsaydı 50 cm'lik bir kolon, duvarın tam üstünde dururken bile toleransın
+dışında kalırdı: yaslanmış hâlde merkez zaten yüzden yarım kolon uzakta.
+
+⚠️ **Duvara oturan kolon artık açıklıkla ÇAKIŞABİLİR** ve `addAreaObject`
+K35/K36 gerekçesiyle reddeder (id bile harcanmaz, araç sessizce kabul eder).
+Bu bir gerileme değil, kuralın doğal sonucu — kapının üstüne kolon oturmaz;
+tarayıcıda ilk denemede karşılaşıldı.
+
+⚠️ **Pay, nesnenin AÇISINDAN türetiliyor** (`lengthCm / 2` sabiti DEĞİL): köşeler
+duvar normaline izdüşürülüp en büyüğü alınıyor, böylece 37° dönmüş bir kolon da
+tam yaslanır, köşesi duvara girmez.
+
+**Yerleştirmede nesne duvarın AÇISINI alır, taşımada ALMAZ.** Yeni nesnenin
+açısı yok, eğik duvarda ızgara hizasında durursa duvarın içine girerdi; taşınan
+nesnenin ise kullanıcının verdiği bir açısı VAR ve taşıma jesti onu sessizce
+silmemeli (döndürmenin kendi tutamacı var). Bu yüzden çekirdek fonksiyon
+`isAlignedToWall` alıyor — açık olduğunda pay, nesnenin duvara döndürülmüş
+hâlinden hesaplanıyor.
+
+⚠️ Hangi TÜRLER yapışır: kolon ve baca şaftı (kullanıcı seçti). Merdiven
+dışarıda — mahalin ortasında da durabiliyor ve mıknatıs onu istemediği yere
+çekerdi; kolon havalandırması da dışarıda, şaftın yanında duruyor duvarın
+değil. `Record<AreaObjectType, boolean>` olduğu için yeni bir tip eklenip burası
+unutulursa DERLEME kırılır.
+
+⚠️ Bu bir BAĞLANMA değil: nesne serbest kalmaya devam ediyor (`PointSymbol`in
+duvara bağlanma modeli GİRMEDİ). Duvar sonradan taşınırsa kolon peşinden
+gitmez — yakalama yalnız yerleşim anında çalışan bir mıknatıstır.
+
+⚠️ Ctrl İKİSİNİ birden kapatır (ızgara + duvar): serbest yerleştirme için tek
+tuş yetmeli, kullanıcı "hangisi hangi tuşta" diye düşünmesin.
+
+**BOYUTLANDIRMADA da çalışır** (kullanıcı istedi): sürüklenen KÖŞE en yakın
+duvar yüzüne oturuyor (`snapPointToWallFace`), böylece nesnenin KENARI duvarla
+hizalanıyor. Ayrı bir "kenarı hizala" matematiği yazılmadı — köşe yüze
+oturunca `resizeAreaObjectFromCorner` kenarı zaten oraya taşıyor. Duvarın İKİ
+yüzü de aday.
+
+`AddAreaObjectInput.angleDeg` opsiyonel eklendi (varsayılan 0) — eski
+çağıranların davranışı değişmedi.
+
+Nerede: `core/areaObjectWallSnap.ts` (+ testi), `scene/useAreaObjectTool.ts`,
+`scene/useAreaObjectSelectionTool.ts`, `scene/useAreaObjectHandleTool.ts`,
+`scene/ArchitectureLayer.tsx` (önizleme açısı), `store/areaObjectOps.ts`.

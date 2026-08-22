@@ -11,10 +11,12 @@ import {
   resizeAreaObjectFromCorner,
   type AreaObjectHandleKind,
 } from '../core/areaObjectHandles'
+import { hasAreaObjectWallSnap, snapPointToWallFace } from '../core/areaObjectWallSnap'
 import type { PlanPoint } from '../core/coords'
 import type { AreaObject, Id } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { getSoleSelectedId } from '../core/selection'
+import { getSnapToleranceCm } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { normalizeAngleDeg, snapAngleDeg } from '../core/transform'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -22,6 +24,28 @@ import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
+
+/**
+ * Boyutlandırmada sürüklenen köşenin gideceği nokta: önce DUVAR YÜZÜ, olmazsa
+ * ızgara (K139, yerleştirme/taşımayla aynı öncelik).
+ *
+ * Köşe yüze oturunca nesnenin KENARI da oraya oturuyor — kullanıcı kolonu
+ * duvarın üstünde büyütürken kenarı duvarla hizalı kalsın diye istedi.
+ */
+function snapResizeTarget(type: AreaObject['type'], target: PlanPoint, zoom: number): PlanPoint {
+  if (hasAreaObjectWallSnap(type)) {
+    const cad = useCadStore.getState()
+    const snapped = snapPointToWallFace(
+      target,
+      cad.walls.filter((wall) => wall.floorId === cad.activeFloorId),
+      cad.points,
+      getSnapToleranceCm(zoom),
+    )
+    if (snapped) return snapped
+  }
+
+  return getPlacementPosition(target, zoom)
+}
 
 /**
  * Tutamaç başına imleç biçimi. Döndürme için standart bir imleç yok; `grab`
@@ -126,9 +150,12 @@ export function useAreaObjectHandleTool(): void {
         }
       }
 
-      // Ctrl ızgarayı kapatır — taşıma/yerleştirmeyle aynı jest.
+      // Ctrl ızgarayı ve duvar yakalamasını kapatır — taşıma/yerleştirmeyle
+      // aynı jest.
       const zoom = readZoom()
-      const target = event.ctrlKey ? event.planPoint : getPlacementPosition(event.planPoint, zoom)
+      const target = event.ctrlKey
+        ? event.planPoint
+        : snapResizeTarget(current.type, event.planPoint, zoom)
 
       return {
         ...current.origin,
