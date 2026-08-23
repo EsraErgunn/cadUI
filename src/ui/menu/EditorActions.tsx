@@ -1,4 +1,4 @@
-import { FlaskConical, Save, Send } from 'lucide-react'
+import { Save, Send } from 'lucide-react'
 
 import { editorBarButtonVariants, editorBarPrimaryVariants } from './editorBarVariants'
 import { selectIsProjectDirty, useCadStore } from '../../store/cadStore'
@@ -13,9 +13,9 @@ type EditorActionsProps = {
    * (`POST /api/projects/{id}/newversion` → Admin, ProjectFirmUser); düğmeyi
    * bırakmak kullanıcıyı anlamsız bir 403'e götürürdü.
    *
-   * "Test Et", "Gönder", "Hata Kontrolleri" ve "Kayıt Geçmişi" KALIR: ilk ikisi
-   * zaten pasif, son ikisi yalnız OKUR — sürüm listesini görmek ve seçmek bir
-   * görüntüleme işlemi. (Sürüm YÜKLEME çizimi `loadProject` ile değiştirir ama
+   * "Gönder", "Hata Kontrolleri" ve "Kayıt Geçmişi" KALIR: ilki zaten pasif,
+   * diğer ikisi yalnız OKUR — sürüm listesini görmek ve seçmek bir görüntüleme
+   * işlemi. (Sürüm YÜKLEME çizimi `loadProject` ile değiştirir ama
    * bu bir düzenleme değil, başka bir kaydın görüntülenmesidir.)
    */
   isReadOnly: boolean
@@ -29,9 +29,11 @@ type EditorActionsProps = {
  * kural motoru yazılınca kendi açılır listesine dönüştü (`ValidationMenu`) —
  * Kayıt Geçmişi'yle (K109) aynı desen.
  *
- * "Test Et" HÂLÂ pasif: doküman (hata-kontrol.docx) yalnız hata kontrolleri
- * ekranını tarif ediyor, "Test Et"in ne yaptığı yazılı değil. Aynı işi yapan
- * ikinci bir düğme uydurmaktansa boş bırakıldı (K79).
+ * "Test Et" KALDIRILDI (K142, kullanıcı isteği): hiçbir zaman bağlanmamıştı ve
+ * "zaten hata kontrolleri tuşu o işi yapıyor". Dokümanda da (hata-kontrol.docx)
+ * yalnız hata kontrolleri ekranı tarif ediliyordu; ne yaptığı hiç yazılı
+ * olmayan pasif bir düğme, kullanıcıya bir şey vaat edip vermiyordu (K79 ile
+ * aynı çizgi, bu kez kaldırma yönünde).
  *
  * "Gönder" de pasif ama artık SEBEBİ VAR: hatalar giderilmeden proje onaya
  * gidemez (doküman, Kapsam). Denetim temiz çıksa bile düğme açılmıyor — onaya
@@ -49,16 +51,6 @@ export function EditorActions({
   return (
     <div className="flex items-center gap-2">
       <ValidationMenu />
-      {/* TODO(enfal): "Test Et"in kapsamı analistten netleşince bağlanacak. */}
-      <button
-        type="button"
-        disabled
-        title="Test Et"
-        className={editorBarButtonVariants({ tone: 'card' })}
-      >
-        <FlaskConical size={16} strokeWidth={1.8} aria-hidden />
-        Test Et
-      </button>
       <button
         type="button"
         disabled

@@ -110,27 +110,29 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
     id: 'tools',
     label: 'Araçlar',
     groups: [
+      /*
+       * Menü DÖRT maddeye indi (kullanıcı seçti). Çıkanlar: Birim
+       * Numaralandırmayı Başlat, Tüketim Vanası Branşmanlarını DN25 Yap,
+       * Tüketim Vanalarını Ekle, Tesisat Detayları ve Hata Kontrollerini
+       * Çalıştır.
+       *
+       * Hata kontrolü menüden çıktı ama KAYBOLMADI: üst barda kendi düğmesi var
+       * ve o ÇALIŞIYOR (K115) — menüdeki pasif kopyası ikinci bir giriş yolu
+       * vaat edip hiçbir şey yapmıyordu.
+       *
+       * Kalanların hepsi hâlâ PASİF (`isPlanned` deseni, K79): "tıklanabilir
+       * görünüp hiçbir şey yapmayan madde" yerine "henüz yok" demek.
+       */
       {
         title: 'Toplu İşlemler',
         items: [
           { id: 'defineRooms', label: 'Mahalleri Tanımla', ...DISABLED },
-          { id: 'startUnitNumbering', label: 'Birim Numaralandırmayı Başlat', ...DISABLED },
-          {
-            id: 'setConsumptionValveBranchesDn25',
-            label: 'Tüketim Vanası Branşmanlarını DN25 Yap',
-            ...DISABLED,
-          },
           { id: 'deleteRiserLine', label: 'Kolon Hattını Sil', ...DISABLED },
-          { id: 'addConsumptionValves', label: 'Tüketim Vanalarını Ekle', ...DISABLED },
-          { id: 'deleteUnitInstallations', label: 'Daire İçi Tesisatları Sil', ...DISABLED },
+          { id: 'deleteUnitInstallations', label: 'Tesisat Sil', ...DISABLED },
         ],
       },
       {
-        items: [
-          { id: 'runValidation', label: 'Hata Kontrollerini Çalıştır', ...DISABLED },
-          { id: 'installationDetails', label: 'Tesisat Detayları', ...DISABLED },
-          { id: 'billOfMaterials', label: 'Malzeme Listesi', ...DISABLED },
-        ],
+        items: [{ id: 'billOfMaterials', label: 'Malzeme Listesi', ...DISABLED }],
       },
     ],
   },

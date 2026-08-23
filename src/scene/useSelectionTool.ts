@@ -28,9 +28,6 @@ import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
 
-/** Çoğaltma kopyayı kaynağın üstüne koymaz: kullanıcı ikisini ayırt edebilmeli. */
-const DUPLICATE_OFFSET_CM = 50
-
 /**
  * Çerçeve seçimi, Shift ile ekleme/çıkarma ve seçimin tamamını silme (KK-10).
  *
@@ -188,7 +185,7 @@ export function useSelectionTool(): void {
      */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
-      // Silme ve çoğaltma çizimi DEĞİŞTİRİR; salt görüntülemede tuş yutulmaz,
+      // Silme çizimi DEĞİŞTİRİR; salt görüntülemede tuş yutulmaz,
       // yalnız işlem yapılmaz (tarayıcının kendi davranışı serbest kalsın).
       if (isEditorReadOnly()) return
 
@@ -201,17 +198,14 @@ export function useSelectionTool(): void {
         return
       }
 
-      // Ctrl+D: çoğalt (KK-11). preventDefault şart — tarayıcının "yer imi ekle"si
-      // aynı tuşta.
-      if (event.key.toLowerCase() === 'd' && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault()
-        const created = useCadStore.getState().duplicateSelection(ui.selection, {
-          dxCm: DUPLICATE_OFFSET_CM,
-          dyCm: DUPLICATE_OFFSET_CM,
-        })
-        // Seçim KOPYAYA geçer: kullanıcı çoğalttığı şeyi hemen sürükleyebilsin.
-        if (created.length > 0) ui.setSelection(created)
-      }
+      /*
+       * ÇOĞALTMA KALKTI (K142) — Ctrl+D de, panel düğmesi de. Kopya kaynağın 50
+       * cm yanına düşüyordu ve duvarlar kesişince kesişim bölme (K24) ikisini
+       * birbirine yapıştırıyordu; kullanıcı "gerek yok" dedi.
+       *
+       * Ctrl+D artık YAKALANMIYOR: tuş tarayıcıya bırakıldı, biz üstlenmediğimiz
+       * bir kısayolu `preventDefault` ile yutmayalım.
+       */
     }
 
     const unsubscribe = subscribeDrawSurface({

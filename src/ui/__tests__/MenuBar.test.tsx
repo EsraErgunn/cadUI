@@ -230,11 +230,11 @@ describe('MenuBar', () => {
     expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
   })
 
-  it('Test Et ve Gönder görünür ama pasif (K79)', () => {
-    // Arkalarında henüz akış yok; düğme "bozuk" değil "henüz yok" demeli.
+  it('Test Et KALDIRILDI; Gönder görünür ama pasif (K142)', () => {
+    // "Test Et" hiç bağlanmamıştı ve aynı işi Hata Kontrolleri yapıyor.
     renderMenuBar()
 
-    expect(screen.getByRole('button', { name: 'Test Et' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Test Et' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled()
   })
 

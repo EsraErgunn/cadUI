@@ -7158,3 +7158,40 @@ uydurulmaz. Panel bunu reddedilmiş yazım olarak gösterir.
 
 Nerede: `core/wall.ts` (+ testi), `ui/properties/WallProperties.tsx`,
 `ui/properties/BeamProperties.tsx`.
+
+### K142 — Çoğaltma, "Test Et" ve Araçlar menüsünün yarısı kaldırıldı
+
+Üçü de aynı gerekçeyle: kullanıcıya bir şey vaat edip vermeyen ya da işe
+yaramayan arayüz.
+
+**Çoğaltma (panel düğmesi + Ctrl+D) KALKTI.** Kullanıcı: "kopyalamayı kaldır
+çünkü direkt yapıştırıyor ve bütün duvarlar kesişip yapışıyor gerek yok."
+Kopya kaynağın 50 cm yanına düşüyordu ve kesişim bölme (K24) iki duvarı
+birbirine yapıştırıyordu. Ctrl+D artık YAKALANMIYOR — üstlenmediğimiz bir
+kısayolu `preventDefault` ile yutmuyoruz.
+
+⚠️ `duplicateSelectionInDraft` DURUYOR: çizilen eksene göre aynalama (K140) onun
+üstünde çalışıyor. `duplicateSelection` action'ı da duruyor — kopyalama
+mantığının testleri (id remap, etiket üretimi, düşey eksen kimliği, oda doğması)
+o imzadan geçiyor ve helper hâlâ üretimde koşuyor. Yani kaldırılan şey ARAYÜZ,
+kod yolu değil.
+
+**"Test Et" üst bardan KALKTI.** Hiç bağlanmamıştı ve kullanıcı "zaten hata
+kontrolleri tuşu o işi yapıyor" dedi. Dokümanda (hata-kontrol.docx) da yalnız
+hata kontrolleri ekranı tarif ediliyor. "Gönder" pasif olarak KALIYOR: onun
+pasifliğinin yazılı bir sebebi var (hatalar giderilmeden proje onaya gidemez).
+
+**Araçlar menüsü DÖRT maddeye indi** (kullanıcı seçti): Mahalleri Tanımla,
+Kolon Hattını Sil, Tesisat Sil, Malzeme Listesi. Çıkanlar: Birim
+Numaralandırmayı Başlat, Tüketim Vanası Branşmanlarını DN25 Yap, Tüketim
+Vanalarını Ekle, Tesisat Detayları, Hata Kontrollerini Çalıştır.
+
+⚠️ "Hata Kontrollerini Çalıştır" menüden çıktı ama İŞLEV kaybolmadı: üst barda
+kendi düğmesi var ve o çalışıyor (K115). Menüdeki pasif kopyası ikinci bir
+giriş yolu vaat edip hiçbir şey yapmıyordu.
+
+Kalan dört madde hâlâ PASİF (K79 deseni): "tıklanabilir görünüp hiçbir şey
+yapmayan madde" yerine "henüz yok" demek.
+
+Nerede: `ui/properties/SelectionActions.tsx`, `scene/useSelectionTool.ts`,
+`ui/menu/EditorActions.tsx`, `ui/menu/menuDefinitions.ts`.
