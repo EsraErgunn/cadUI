@@ -7195,3 +7195,27 @@ yapmayan madde" yerine "henüz yok" demek.
 
 Nerede: `ui/properties/SelectionActions.tsx`, `scene/useSelectionTool.ts`,
 `ui/menu/EditorActions.tsx`, `ui/menu/menuDefinitions.ts`.
+
+### K143 — Mimari kısayol ipucu dolduruldu
+
+Kullanıcı: "mimari kısayollar tuşu sol bardaki tuş mouseu götürdüğümüzde mimari
+ekrandaki tüm klavye-Mouse kısayollarını oraya yaz." Bileşen (`ui/ShortcutHint`)
+ve boş liste zaten duruyordu; iş listeyi doldurmaktı.
+
+`core/shortcuts.ts` → `ARCHITECTURE_SHORTCUTS` on altı kayıt: Ctrl+Z / Ctrl+Y /
+Ctrl+Shift+Z, Ctrl+S, Ctrl+Shift+S, Ctrl+K, Ctrl+Shift+K, Delete/Backspace,
+çerçeve seçimi, Shift+tık, Ctrl+sürükle, Ctrl+tutamaç, Esc, sağ tık, tekerlek,
+Space/orta tuşla kaydırma.
+
+⚠️ Liste ÜRETİLMİYOR, elle derlendi: tuşlar beş ayrı hook'ta yakalanıyor ve
+hiçbiri kullanıcıya gösterilecek metin taşımıyor. Kısayol değişirse liste
+kendiliğinden düzelmez.
+
+⚠️ Ctrl metni "Izgarayı kapat (köşe/duvar yakalaması kalır)" — `gridSnapMode.ts`
+YALNIZ ızgarayı kapatıyor, `resolveSnap` köşe/duvar yakalamasını sürdürüyor.
+"Yakalamayı kapat" yazılsaydı kullanıcı olmayan bir davranış arardı; tesisat
+listesindeki aynı satır da bu yüzden böyle.
+
+⚠️ Ctrl+D LİSTEDE YOK: K142'de kaldırıldı, yakalanmıyor bile.
+
+Nerede: `core/shortcuts.ts`.

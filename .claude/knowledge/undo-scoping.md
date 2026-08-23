@@ -53,6 +53,12 @@ Ctrl+S bilerek görünümden bağımsızdır: kayıt tüm projeyi kapsar.
 Palet altındaki soru işareti iki palette de aynı bileşen: `ui/ShortcutHint.tsx`
 (başlık + liste prop olarak gelir, liste boşsa "henüz eklenmedi" yazar).
 Listeler saf veri olarak core'da: tesisat `plumbing/core/plumbingShortcuts.ts`,
-mimari `core/shortcuts.ts` (`ARCHITECTURE_SHORTCUTS` — TODO(Enfal), şimdilik
-boş). Yeni kısayol eklerken ilgili listeyi güncelle; yoksa tuş çalışır ama ipucu
+mimari `core/shortcuts.ts` (`ARCHITECTURE_SHORTCUTS`, K143'te dolduruldu).
+Yeni kısayol eklerken ilgili listeyi güncelle; yoksa tuş çalışır ama ipucu
 sessizce eksik kalır.
+
+Liste ELDE derlendi, üretilmedi: tuşlar beş ayrı yerde yakalanıyor
+(`pages/useEditorShortcuts.ts` Ctrl'lüler, `scene/useSelectionTool.ts` Delete ve
+Shift, `scene/gridSnapMode.ts` Ctrl, `scene/useViewportControls.ts` Space ve
+tekerlek, `scene/useRightClickReturnsToSelection.ts` sağ tık) ve hiçbirinin
+kullanıcıya gösterilecek metni yok. Kısayol taşınırsa listeyi el ile güncelle.
