@@ -77,16 +77,36 @@ export type LineDraft = LineChain & {
  */
 export type Measurement = { start: PlanPoint; end: PlanPoint | null }
 
-/** Kaskad gerektiren silme onayı beklerken tutulan kapsam (`deletionActions.ts` →
- * `requestSelectionDeletion` önceden hesaplar: servis kutusu = bağlı TÜM gaz
- * ağı, sayaç = çıkışındaki alt ağ). `kind` diyalog metnini seçer. `floorIds`
- * kapsamın hangi kat(lar)a yayıldığını söyler — kat bağlantısıyla (kolon
- * devamı) başka kata sıçramışsa `CascadeDeleteDialog` bunu belirtir. */
+/** Kaskad gerektiren silme onayı beklerken tutulan kapsam (`deletionActions.ts`
+ * önceden hesaplar: servis kutusu = bağlı TÜM gaz ağı, sayaç = çıkışındaki alt
+ * ağ, kolon hattı = gövde, daire içi = sayaç sonrası). `kind` diyalog metnini
+ * seçer. `floorIds` kapsamın hangi kat(lar)a yayıldığını söyler — kat
+ * bağlantısıyla (kolon devamı) başka kata sıçramışsa `CascadeDeleteDialog`
+ * bunu belirtir.
+ *
+ * Toplu işlemler için AYRI bir onay penceresi açılmadı: silmenin tek onay ve
+ * tek uygulama yolu olsun, yoksa biri "geri alınabilir" notunu ya da kat
+ * uyarısını unuturdu. */
+/**
+ * Toplu silmelerde onay penceresinin YAZDIĞI ek bilgi (şartname isteği).
+ * Tek tek silmede yok — orada kapsam zaten kullanıcının seçtiği şey.
+ */
+export type CascadeDeletionSummary = {
+  /** Kolon hattında: silinecek toplam hat boyu. */
+  totalLengthCm?: number
+  /**
+   * Daire içi silmede bağımsız bölüm başına döküm. Etiket sayaçtan gelir
+   * (birim no / abone adı), yoksa "Bağımsız bölüm".
+   */
+  unitBreakdown?: { label: string; elementCount: number; lineCount: number }[]
+}
+
 export type PendingCascadeDeletion = {
-  kind: 'serviceBox' | 'gasMeter'
+  kind: 'serviceBox' | 'gasMeter' | 'riserNetwork' | 'unitInstallations'
   elementIds: Id[]
   lineIds: Id[]
   floorIds: Id[]
+  summary?: CascadeDeletionSummary
 }
 
 /**

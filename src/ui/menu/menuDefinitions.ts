@@ -37,6 +37,10 @@ export const DOWNLOAD_PROJECT_FILE_ITEM_ID = 'downloadProjectFile'
 export const OPEN_PROJECT_FILE_ITEM_ID = 'openProjectFile'
 /** "Mahalleri Tanımla" — tanımsız mahalleri tek tek gezdiren kip (K145). */
 export const DEFINE_ROOMS_ITEM_ID = 'defineRooms'
+/** "Kolon Hattını Sil" — gövde (kolon + branşman), daima tüm katlar (K147). */
+export const DELETE_RISER_ITEM_ID = 'deleteRiserLine'
+/** "Daire İçi Tesisatları Sil" — sayaç sonrası, aktif kat (K147). */
+export const DELETE_UNIT_INSTALLATIONS_ITEM_ID = 'deleteUnitInstallations'
 
 /**
  * Menü YALNIZ dosya biçimi işlerini taşır. Üst barda kendi düğmesi olan hiçbir
@@ -122,9 +126,10 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
        * ve o ÇALIŞIYOR (K115) — menüdeki pasif kopyası ikinci bir giriş yolu
        * vaat edip hiçbir şey yapmıyordu.
        *
-       * "Mahalleri Tanımla" K145'te ÇALIŞIR hâle geldi; kalanlar hâlâ PASİF
-       * (`isPlanned` deseni, K79): "tıklanabilir görünüp hiçbir şey yapmayan
-       * madde" yerine "henüz yok" demek.
+       * "Mahalleri Tanımla" K145'te, iki silme maddesi K147'de ÇALIŞIR hâle
+       * geldi. Yalnız "Malzeme Listesi" PASİF kaldı (`isPlanned` deseni, K79):
+       * "tıklanabilir görünüp hiçbir şey yapmayan madde" yerine "henüz yok"
+       * demek.
        */
       {
         title: 'Toplu İşlemler',
@@ -135,8 +140,20 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
             kind: 'command',
             isEnabled: true,
           },
-          { id: 'deleteRiserLine', label: 'Kolon Hattını Sil', ...DISABLED },
-          { id: 'deleteUnitInstallations', label: 'Tesisat Sil', ...DISABLED },
+          {
+            id: DELETE_RISER_ITEM_ID,
+            label: 'Kolon Hattını Sil',
+            kind: 'command',
+            isEnabled: true,
+          },
+          {
+            // Eski etiket "Tesisat Sil"di ve TÜM tesisatı silecek sanılıyordu;
+            // işlem yalnız sayaçtan sonrasını siler (K147).
+            id: DELETE_UNIT_INSTALLATIONS_ITEM_ID,
+            label: 'Daire İçi Tesisatları Sil',
+            kind: 'command',
+            isEnabled: true,
+          },
         ],
       },
       {

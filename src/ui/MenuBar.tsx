@@ -7,7 +7,6 @@ import { ViewSwitcher } from './menu/ViewSwitcher'
 import { editorBarButtonVariants } from './menu/editorBarVariants'
 import {
   CLEAR_PROJECT_ITEM_ID,
-  DEFINE_ROOMS_ITEM_ID,
   DOWNLOAD_PROJECT_FILE_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
@@ -17,9 +16,7 @@ import {
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
 import { MENU_ICONS } from './menu/menuIcons'
-import { getFloorRoomStops } from '../core/roomDefinition'
-import { useArchitectureUiStore } from '../store/architectureUiStore'
-import { useCadStore } from '../store/cadStore'
+import { useToolsMenuActions } from './menu/useToolsMenuActions'
 import { useUiStore } from '../store/uiStore'
 import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
@@ -67,18 +64,7 @@ export function MenuBar({
   const activeViewId = useUiStore((state) => state.activeViewId)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
-  // "Mahalleri Tanımla"nın pasifliği için. Mahal sayısı çizimden TÜRETİLİYOR
-  // (Room kendi katını taşımaz, duvarlarından gelir), o yüzden useMemo: bar her
-  // render'da yüz taraması yapmasın — sürükleme önizlemesi cadStore'a
-  // yazılmadığı için bu bağımlılıklar yalnız gerçek düzenlemede değişir.
-  const rooms = useCadStore((state) => state.rooms)
-  const walls = useCadStore((state) => state.walls)
-  const points = useCadStore((state) => state.points)
-  const activeFloorId = useCadStore((state) => state.activeFloorId)
-  const floorRoomCount = useMemo(
-    () => getFloorRoomStops(rooms, walls, points, activeFloorId).length,
-    [rooms, walls, points, activeFloorId],
-  )
+  const toolsActions = useToolsMenuActions(isReadOnly, activeViewId)
   const barRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -113,49 +99,17 @@ export function MenuBar({
    * Aç ve Projeyi Temizle doğrudan store'a).
    */
   const unavailableItemIds = useMemo(() => {
-    const unavailable = new Set<string>()
+    const unavailable = new Set<string>(toolsActions.unavailableItemIds)
     if (isReadOnly) {
       unavailable.add(SAVE_ITEM_ID)
       unavailable.add(SAVE_AS_ITEM_ID)
       unavailable.add(IMPORT_ITEM_ID)
       unavailable.add(OPEN_PROJECT_FILE_ITEM_ID)
       unavailable.add(CLEAR_PROJECT_ITEM_ID)
-      // Mahal tanımlamak da YAZAR: salt görüntülemede kip hiç açılmamalı.
-      unavailable.add(DEFINE_ROOMS_ITEM_ID)
     }
-    // Mahal MİMARİ görünümün nesnesi; tesisatta ve izometrikte tuvalde
-    // vurgulanacak bir mahal yok, kip boşa açılırdı.
-    if (activeViewId !== 'architecture') unavailable.add(DEFINE_ROOMS_ITEM_ID)
-    // Katta HİÇ mahal yoksa madde pasif: gezilecek durak olmadığı için tıklama
-    // hiçbir şey yapmazdı. "Hepsi tanımlı" hâli pasiflik sebebi DEĞİL — orada
-    // kip gözden geçirme turuna dönüyor (bkz. startRoomDefinition).
-    if (floorRoomCount === 0) unavailable.add(DEFINE_ROOMS_ITEM_ID)
-
     return unavailable.size === 0 ? undefined : unavailable
-  }, [isReadOnly, activeViewId, floorRoomCount])
-
-  /**
-   * Kip için prop YOK: başlatmak saf UI durumu, sayfadan hiçbir şey gerektirmiyor
-   * (Kaydet/İçe Aktar'ın aksine). Kuyruk BURADA hesaplanıp store'a veriliyor —
-   * store cadStore'u okusaydı iki UI store'u birbirine bağlanırdı.
-   *
-   * Tanımsız mahal kalmadıysa kip TÜM mahalleri gezer: gözden geçirme turu.
-   * Böylece madde hiçbir zaman "tıklanıp hiçbir şey yapmayan" duruma düşmez.
-   *
-   * ⚠️ Bu tur SIFIRLAMA DEĞİL — hiçbir tip silinmiyor, kullanıcı yalnız
-   * mahalleri yeniden geziyor ve isterse üstüne yazıyor. Bu yüzden onay
-   * penceresi de YOK: yıkıcı olmayan bir işlem için uyarı, kullanıcının her
-   * seferinde geçtiği gereksiz bir kapıdır (yanlışlıkla yazılan tip zaten
-   * Ctrl+Z ile geri alınır).
-   */
-  const startRoomDefinition = () => {
-    const cad = useCadStore.getState()
-    const stops = getFloorRoomStops(cad.rooms, cad.walls, cad.points, cad.activeFloorId)
-    const undefinedStops = stops.filter((stop) => !stop.isDefined)
-    const queue = undefinedStops.length > 0 ? undefinedStops : stops
-
-    useArchitectureUiStore.getState().startRoomDefinition(queue.map((stop) => stop.roomId))
-  }
+    // Araçlar maddelerinin görünüm/çizim koşulları hook'ta (useToolsMenuActions).
+  }, [isReadOnly, toolsActions.unavailableItemIds])
 
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
@@ -167,7 +121,7 @@ export function MenuBar({
     if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()
     if (itemId === EXPORT_ITEM_ID) onExport()
-    if (itemId === DEFINE_ROOMS_ITEM_ID) startRoomDefinition()
+    toolsActions.run(itemId)
   }
 
   return (
