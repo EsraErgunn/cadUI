@@ -81,7 +81,7 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
 
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Nesne adları' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Yapı elemanı adları' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Oda adları' })).toBeInTheDocument()
     // Izgara ÇUBUĞA taşındı (K153): menüde artık yok, aynı anahtar iki yerde durmasın.
     expect(screen.queryByRole('menuitemcheckbox', { name: 'Izgara' })).not.toBeInTheDocument()
@@ -254,5 +254,36 @@ describe('FloatingToolbar — kat seçici', () => {
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Boru ölçüleri' }))
 
     expect(useUiStore.getState().isPipeLengthsVisible).toBe(false)
+  })
+
+  it('menü ÖBEKLİ: ölçüler / açılar / adlar (K153)', async () => {
+    renderToolbar()
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+
+    const labels = screen
+      .getAllByRole('menuitemcheckbox')
+      .map((item) => item.textContent?.trim())
+
+    expect(labels).toEqual([
+      'Duvar ölçüleri',
+      'Kapı/pencere ölçüleri',
+      'Boru ölçüleri',
+      'Açılar',
+      'Yapı elemanı adları',
+      'Cihaz adları',
+      'Oda adları',
+    ])
+  })
+
+  it('cihaz adları yapı elemanı adlarından BAĞIMSIZ', async () => {
+    useUiStore.setState({ isAreaObjectNamesVisible: true, isDeviceNamesVisible: true })
+    renderToolbar()
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Cihaz adları' }))
+
+    expect(useUiStore.getState().isDeviceNamesVisible).toBe(false)
+    expect(useUiStore.getState().isAreaObjectNamesVisible).toBe(true)
   })
 })

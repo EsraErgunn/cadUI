@@ -7554,5 +7554,18 @@ yaptığını belirsizleştirir (K111'in kuralı). ⚠️ Izgara düğmesi İKİ
 var; snap ise yalnız mimaride (K57 gerekçesi geçerli: tesisatın yakalaması
 ızgara GÖRÜNÜRLÜĞÜNE bağlı, aynı düğme orada başka şey ifade ederdi).
 
+**3. Menü ÖBEKLENDİ ve cihaz adları ayrıldı** (kullanıcı isteği). Düz liste
+yerine ince çizgilerle üç öbek:
+
+1. Ölçüler: Duvar ölçüleri · Kapı/pencere ölçüleri · Boru ölçüleri
+2. Açılar
+3. Adlar: Yapı elemanı adları · Cihaz adları · Oda adları
+
+⚠️ "Nesne adları" → **"Yapı elemanı adları"** ve CİHAZ adları AYRI bir
+anahtara çıktı (`isDeviceNamesVisible`). Eskiden ikisi tek bayraktaydı,
+gerekçesi "kullanıcı için ikisi de nesnenin adı"ydı — K152'de renkler
+ayrılınca yapı elemanı ile cihaz iki ayrı aile oldu, adlandırma da onu izledi.
+
 Nerede: `store/uiStore.ts`, `ui/canvas/ViewOptionsMenu.tsx`,
-`ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`.
+`ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`,
+`scene/PointSymbolNameLabels.tsx`, `scene/usePointSymbolLabelTool.ts`.

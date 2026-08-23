@@ -70,6 +70,13 @@ type UiState = {
    */
   isAreaObjectNamesVisible: boolean
   /**
+   * CİHAZ ad etiketleri (pano, menfez, alarm, yangın söndürücü…). Yapı
+   * elemanı adlarından AYRI bayrak (kullanıcı isteği): ikisi tek anahtardaydı
+   * ve gerekçesi "kullanıcı için ikisi de nesnenin adı"ydı — renkler ayrılınca
+   * (K152) ikisi ayrı aile oldu, adlandırma da ayrıldı.
+   */
+  isDeviceNamesVisible: boolean
+  /**
    * Oda etiketleri. Ad ve alan (m²) TEK blok olarak açılıp kapanır: ikisi
    * aynı çapaya yazılmış tek bir yazı öbeği, ayrı ayrı gizlemek ortada asılı
    * bir sayı bırakırdı.
@@ -116,6 +123,7 @@ type UiState = {
   toggleGridVisible: () => void
   toggleGridSnapEnabled: () => void
   toggleAreaObjectNamesVisible: () => void
+  toggleDeviceNamesVisible: () => void
   toggleRoomNamesVisible: () => void
   setPanModeActive: (isActive: boolean) => void
   setEditorReadOnly: (isReadOnly: boolean) => void
@@ -141,6 +149,7 @@ export const useUiStore = create<UiState>()(
     isGridVisible: true,
     isGridSnapEnabled: true,
     isAreaObjectNamesVisible: true,
+    isDeviceNamesVisible: true,
     isRoomNamesVisible: true,
     isPanModeActive: false,
     // Varsayılan KAPALI: kipi yalnız editör açıkça kuruyor, yani yönetici ve
@@ -221,6 +230,11 @@ export const useUiStore = create<UiState>()(
     toggleAreaObjectNamesVisible: () =>
       set((draft) => {
         draft.isAreaObjectNamesVisible = !draft.isAreaObjectNamesVisible
+      }),
+
+    toggleDeviceNamesVisible: () =>
+      set((draft) => {
+        draft.isDeviceNamesVisible = !draft.isDeviceNamesVisible
       }),
 
     toggleRoomNamesVisible: () =>
