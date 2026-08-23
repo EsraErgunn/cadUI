@@ -33,8 +33,8 @@ type ListPosition = { topPx: number; leftPx: number; widthPx: number; maxHeightP
  * Özellik panelinin seçim alanı.
  *
  * Native `<select>` DEĞİL: açılır listenin YÖNÜNÜ tarayıcı seçiyor ve uzun
- * listelerde (mahal kullanım tipi 15 seçenek) yukarı doğru açılıp garip
- * görünüyordu — CSS'le kontrol edilebilen bir şey değil. Bu liste HER ZAMAN
+ * listelerde (mahal kullanım tipi, yirmiyi aşkın seçenek) yukarı doğru açılıp
+ * garip görünüyordu — CSS'le kontrol edilebilen bir şey değil. Bu liste HER ZAMAN
  * aşağı açılır; yer yetmezse kısalır ve içi kayar.
  *
  * Liste PORTAL ile `body`'ye çiziliyor: panelin içerik alanı `overflow-y-auto`

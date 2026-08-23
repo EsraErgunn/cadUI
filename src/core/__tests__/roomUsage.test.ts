@@ -26,6 +26,13 @@ describe('kullanım tipi listesi', () => {
     expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b, 'tr-TR')))
   })
 
+  it('açık ve kapalı balkon AYRI tip (K144)', () => {
+    // `balcony` DEĞERİ korundu, yalnız etiketi netleşti: eski kayıtlar
+    // silinmiş bir tipe düşmesin.
+    expect(getRoomDisplayName('balcony')).toBe('Balkon (Açık)')
+    expect(getRoomDisplayName('balconyClosed')).toBe('Balkon (Kapalı)')
+  })
+
   it('liste dışı değeri tanımaz', () => {
     expect(isRoomUsageType('kitchen')).toBe(true)
     expect(isRoomUsageType('yatakOdasi')).toBe(false)

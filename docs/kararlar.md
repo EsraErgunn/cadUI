@@ -7219,3 +7219,23 @@ listesindeki aynı satır da bu yüzden böyle.
 ⚠️ Ctrl+D LİSTEDE YOK: K142'de kaldırıldı, yakalanmıyor bile.
 
 Nerede: `core/shortcuts.ts`.
+
+### K144 — Mahal kullanım tipi listesi on tip büyüdü
+
+Kullanıcının referans ekranındaki mahaller listede yoktu. Eklenenler: Oturma
+Odası, Koridor, Dubleks Koridor, Salon (Açık Mutfak), Balkon (Kapalı), Yangın
+Merdiveni, Asansör Boşluğu, Daire, Dükkân, Ofis. Liste 15 → 25.
+
+⚠️ Var olan tiplerin HİÇBİRİ silinmedi (Kazan Dairesi, Çamaşırlık, Kiler, Garaj,
+Depo, Şaft, İş Yeri referans ekranda yok ama duruyor): silinen bir değer eski
+projelerde `z.enum`'dan geçemez ve mahal sessizce "Tanımsız"a düşerdi.
+
+⚠️ `balcony` ETİKETİ değişti ("Balkon" → "Balkon (Açık)"), DEĞERİ değil. Günlük
+dilde "balkon" açık balkondur, eski kayıtların kastı bu; kapalı balkon ayrı tip
+(`balconyClosed`) çünkü tesisat açısından iki hacim aynı şey değil. Değeri de
+değiştirseydik göç gerekirdi.
+
+Liste hâlâ ONAY BEKLİYOR (K116'daki not geçerli) ve değişecek TEK yer
+`core/roomUsage.ts`.
+
+Nerede: `core/roomUsage.ts`.
