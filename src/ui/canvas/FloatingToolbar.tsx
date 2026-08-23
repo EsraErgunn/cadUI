@@ -1,4 +1,13 @@
-import { ChevronDown, ChevronUp, Hand, Magnet, MousePointer2, Redo2, Undo2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  Grid3x3,
+  Hand,
+  Magnet,
+  MousePointer2,
+  Redo2,
+  Undo2,
+} from 'lucide-react'
 
 import { FloorSelect } from './FloorSelect'
 import { ViewOptionsMenu } from './ViewOptionsMenu'
@@ -42,6 +51,8 @@ export function FloatingToolbar({
   const setActiveTool = useUiStore((state) => state.setActiveTool)
   const isPanModeActive = useUiStore((state) => state.isPanModeActive)
   const setPanModeActive = useUiStore((state) => state.setPanModeActive)
+  const isGridVisible = useUiStore((state) => state.isGridVisible)
+  const toggleGridVisible = useUiStore((state) => state.toggleGridVisible)
   const isGridSnapEnabled = useUiStore((state) => state.isGridSnapEnabled)
   const toggleGridSnapEnabled = useUiStore((state) => state.toggleGridSnapEnabled)
   const activeViewId = useUiStore((state) => state.activeViewId)
@@ -162,6 +173,24 @@ export function FloatingToolbar({
           <ChevronUp size={16} strokeWidth={1.8} aria-hidden />
         </button>
 
+        <span className={CANVAS_BAR_DIVIDER} aria-hidden />
+
+        {/* Izgara görünürlüğü Görünüm menüsünden ÇUBUĞA taşındı (K153, kullanıcı
+            isteği): sık açılıp kapanan bir anahtar, iki tık ötede menüde
+            duruyordu. Snap'in YANINDA çünkü ikisi de ızgarayla ilgili — biri
+            onu gösteriyor, öteki ona yapıştırıyor. Menüde artık YOK: aynı
+            anahtarı iki yerde sunmak hangisinin ne yaptığını belirsizleştirir. */}
+        <button
+          type="button"
+          onClick={toggleGridVisible}
+          aria-pressed={isGridVisible}
+          title="Izgarayı göster"
+          aria-label="Izgarayı göster"
+          className={canvasBarButtonVariants({ tone: isGridVisible ? 'active' : 'plain' })}
+        >
+          <Grid3x3 size={16} strokeWidth={1.8} aria-hidden />
+        </button>
+
         {/* Snap YALNIZ mimaride (K57). Tesisatın yakalaması bugün ızgara
             GÖRÜNÜRLÜĞÜNE bağlı (`plumbing/scene/placementSnap.ts`), yani aynı
             düğme orada başka bir şey ifade ederdi — hangi anlamın kalacağı
@@ -169,7 +198,6 @@ export function FloatingToolbar({
             Görünmeyen düğme, yanlış çalışan düğmeden iyidir. */}
         {isArchitecture && (
           <>
-            <span className={CANVAS_BAR_DIVIDER} aria-hidden />
             <button
               type="button"
               onClick={toggleGridSnapEnabled}

@@ -19,6 +19,15 @@ type UiState = {
    */
   isDimensionsVisible: boolean
   /**
+   * BORU boyu yazıları (tesisat görünümü). Duvar ölçülerinden AYRI bayrak
+   * (kullanıcı isteği): K131 ikisini tek anahtarda birleştirmişti, gerekçesi
+   * menü çubugundaki tek "Ölçüleri Göster" maddesinin hangisini kastettiğini
+   * söyleyememesiydi. O menü kalktı (K90) ve iki ölçü artık iki ayrı görünümde
+   * yaşıyor — tek anahtar, tesisatta boru boyunu kapatmak isteyeni mimaride
+   * duvar ölçülerinden de ediyordu.
+   */
+  isPipeLengthsVisible: boolean
+  /**
    * Kapı/pencere GENİŞLİĞİNİN ölçüsü (K74). `isDimensionsVisible`den BAĞIMSIZ
    * (K76): duvar ölçüleri kapalıyken de açık kalabilir — kullanıcı yalnız
    * açıklık genişliklerini görmek isteyebilir ve bunun için planı sayıya
@@ -100,6 +109,7 @@ type UiState = {
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
+  togglePipeLengthsVisible: () => void
   toggleOpeningDimensionsVisible: () => void
   toggleCornerAnglesVisible: () => void
   toggleElementLabelsVisible: () => void
@@ -122,6 +132,7 @@ export const useUiStore = create<UiState>()(
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
     isDimensionsVisible: true,
+    isPipeLengthsVisible: true,
     // Varsayılan AÇIK: ölçüler açıldığında açıklık genişlikleri hep görünüyordu,
     // yeni anahtar davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
     isOpeningDimensionsVisible: true,
@@ -175,6 +186,11 @@ export const useUiStore = create<UiState>()(
     toggleDimensionsVisible: () =>
       set((draft) => {
         draft.isDimensionsVisible = !draft.isDimensionsVisible
+      }),
+
+    togglePipeLengthsVisible: () =>
+      set((draft) => {
+        draft.isPipeLengthsVisible = !draft.isPipeLengthsVisible
       }),
 
     toggleOpeningDimensionsVisible: () =>

@@ -185,9 +185,11 @@ function VisibleLengthLabels({ draggedLineIds, dragDeltaRef }: LengthLabelsProps
  * `useFrame` kurulmaz.
  */
 export function LengthLabels(props: LengthLabelsProps) {
-  const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
+  // Duvar ölçüsünden AYRI anahtar: tesisatta boru boyunu kapatan kullanıcı
+  // mimarideki duvar ölçülerini kaybetmesin.
+  const isPipeLengthsVisible = useUiStore((state) => state.isPipeLengthsVisible)
 
-  if (!isDimensionsVisible) return null
+  if (!isPipeLengthsVisible) return null
 
   return <VisibleLengthLabels {...props} />
 }

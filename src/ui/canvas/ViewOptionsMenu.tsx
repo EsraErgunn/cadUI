@@ -21,14 +21,14 @@ export type ViewOption = {
  * yapıyı kurmak, menü tanımlarına tuvale ait maddeler sokmak demekti.
  */
 export function ViewOptionsMenu() {
-  const isGridVisible = useUiStore((state) => state.isGridVisible)
-  const toggleGridVisible = useUiStore((state) => state.toggleGridVisible)
   const isAreaObjectNamesVisible = useUiStore((state) => state.isAreaObjectNamesVisible)
   const toggleAreaObjectNamesVisible = useUiStore((state) => state.toggleAreaObjectNamesVisible)
   const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   const toggleRoomNamesVisible = useUiStore((state) => state.toggleRoomNamesVisible)
   const isDimensionsVisible = useUiStore((state) => state.isDimensionsVisible)
+  const isPipeLengthsVisible = useUiStore((state) => state.isPipeLengthsVisible)
   const toggleDimensionsVisible = useUiStore((state) => state.toggleDimensionsVisible)
+  const togglePipeLengthsVisible = useUiStore((state) => state.togglePipeLengthsVisible)
   const isOpeningDimensionsVisible = useUiStore((state) => state.isOpeningDimensionsVisible)
   const toggleOpeningDimensionsVisible = useUiStore(
     (state) => state.toggleOpeningDimensionsVisible,
@@ -63,21 +63,13 @@ export function ViewOptionsMenu() {
     }
   }, [isOpen])
 
-  // Izgara İKİ görünümde de var; üstündeki maddeler görünüme özel (K57).
-  const gridOption: ViewOption = {
-    id: 'grid',
-    label: 'Izgara',
-    isChecked: isGridVisible,
-    onToggle: toggleGridVisible,
-  }
-
-  // Ölçüler İKİ görünümde de aynı bayrağı okuyor: kullanıcı için tek bir
-  // "ölçüleri göster" tercihi var, mimaride duvar boyunu tesisatta boru boyunu
-  // açıyor. Ayrı bayrak olsaydı menü çubuğundaki tek "Ölçüleri Göster" maddesi
-  // hangisini kastettiğini söyleyemezdi.
+  // Ölçüler artık YALNIZ mimarinin: duvar parçalarının boyu. Boru boyu kendi
+  // anahtarında (K153) — K131 ikisini tek bayrakta birleştirmişti, gerekçesi
+  // menü çubuğundaki tek maddeydi; o menü kalktı ve iki ölçü iki ayrı
+  // görünümde yaşıyor.
   const dimensionsOption: ViewOption = {
     id: 'dimensions',
-    label: 'Ölçüler',
+    label: 'Duvar ölçüleri',
     isChecked: isDimensionsVisible,
     onToggle: toggleDimensionsVisible,
   }
@@ -115,21 +107,24 @@ export function ViewOptionsMenu() {
       isChecked: isRoomNamesVisible,
       onToggle: toggleRoomNamesVisible,
     },
-    gridOption,
   ]
 
   // Tesisatın kendi anahtarları; ikisi de menü çubuğunun Görünüm menüsünde
   // zaten vardı, çubuk onları TUVALE getiriyor — durum tek yerde (uiStore),
   // iki arayüz aynı bayrağı okuyor.
   const installationOptions: ViewOption[] = [
-    dimensionsOption,
+    {
+      id: 'pipeLengths',
+      label: 'Boru ölçüleri',
+      isChecked: isPipeLengthsVisible,
+      onToggle: togglePipeLengthsVisible,
+    },
     {
       id: 'elementLabels',
       label: 'Eleman adları',
       isChecked: isElementLabelsVisible,
       onToggle: toggleElementLabelsVisible,
     },
-    gridOption,
   ]
 
   const options = activeViewId === 'installation' ? installationOptions : architectureOptions

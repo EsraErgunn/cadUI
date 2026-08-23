@@ -7520,3 +7520,31 @@ Nerede: `scene/architectureTheme.ts`, `scene/sceneTheme.ts`,
 `scene/architectureStrokeStyle.ts`, `scene/PointSymbol.tsx`,
 `scene/AreaObject.tsx`, `scene/Beam.tsx`, `scene/WallDimensionLabels.tsx`,
 `scene/AreaObjectNameLabels.tsx`, `scene/PointSymbolNameLabels.tsx`.
+
+### K153 — Boru ölçüsü kendi anahtarına ayrıldı, ızgara çubuğa taşındı
+
+Kullanıcı: "tesisat boru uzunlukları için floating barda görünüme ekleyelim,
+ölçüler düzenli olmuş olur" + "görünümdeki ızgara tuşunu floating bara icon
+olarak taşı, snap işaretinin yanına".
+
+**1. Ölçüler ikiye ayrıldı.** `isDimensionsVisible` artık YALNIZ mimarinin
+(duvar parçası ölçüsü); boru boyu kendi bayrağında (`isPipeLengthsVisible`).
+Menüdeki etiket de netleşti: "Ölçüler" → mimaride **"Duvar ölçüleri"**,
+tesisatta **"Boru ölçüleri"**.
+
+⚠️ Bu K131'in "tek bayrak iki görünümü de yönetir" kararını GERİ ALIYOR. O
+kararın gerekçesi menü çubuğundaki tek "Ölçüleri Göster" maddesinin hangisini
+kastettiğini söyleyememesiydi; o menü K90'da kalktı ve K150'den sonra iki ölçü
+gerçekten iki ayrı görünümde yaşıyor. Tek anahtar, tesisatta boru boyunu
+kapatmak isteyeni mimaride duvar ölçülerinden de ediyordu.
+
+**2. Izgara görünürlüğü Görünüm menüsünden ÇUBUĞA taşındı**, snap düğmesinin
+YANINA: ikisi de ızgarayla ilgili — biri onu gösteriyor, öteki ona yapıştırıyor.
+
+⚠️ Izgara menüde artık YOK. Aynı anahtarı iki yerde sunmak hangisinin ne
+yaptığını belirsizleştirir (K111'in kuralı). ⚠️ Izgara düğmesi İKİ görünümde de
+var; snap ise yalnız mimaride (K57 gerekçesi geçerli: tesisatın yakalaması
+ızgara GÖRÜNÜRLÜĞÜNE bağlı, aynı düğme orada başka şey ifade ederdi).
+
+Nerede: `store/uiStore.ts`, `ui/canvas/ViewOptionsMenu.tsx`,
+`ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`.

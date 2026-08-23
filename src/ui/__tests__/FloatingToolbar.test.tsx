@@ -83,7 +83,8 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
     expect(screen.getByRole('menuitemcheckbox', { name: 'Nesne adları' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Oda adları' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Izgara' })).toBeInTheDocument()
+    // Izgara ÇUBUĞA taşındı (K153): menüde artık yok, aynı anahtar iki yerde durmasın.
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Izgara' })).not.toBeInTheDocument()
   })
 
   it('Görünüm menüsü tesisatta ölçü/eleman adlarını gösterir', async () => {
@@ -92,10 +93,10 @@ describe('FloatingToolbar — görünüme göre değişenler', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
 
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Ölçüler' })).toBeInTheDocument()
+    // Boru ölçüsü duvar ölçüsünden AYRI anahtar (K153).
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Boru ölçüleri' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Eleman adları' })).toBeInTheDocument()
-    // Izgara İKİ görünümde de var.
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Izgara' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Duvar ölçüleri' })).not.toBeInTheDocument()
     // Mimariye özel maddeler tesisatta YOK.
     expect(screen.queryByRole('menuitemcheckbox', { name: 'Oda adları' })).not.toBeInTheDocument()
   })
@@ -204,5 +205,35 @@ describe('FloatingToolbar — kat seçici', () => {
     await userEvent.click(screen.getByRole('button', { name: floorButtonName }))
     await userEvent.click(screen.getByRole('menuitem', { name: /Kat Kopyalama/ }))
     expect(onOpenFloorCopy).toHaveBeenCalledTimes(1)
+  })
+
+  it('ızgara düğmesi çubukta ve İKİ görünümde de var (K153)', async () => {
+    renderToolbar()
+    expect(screen.getByRole('button', { name: 'Izgarayı göster' })).toBeInTheDocument()
+
+    useUiStore.setState({ activeViewId: 'installation' })
+    renderToolbar()
+    expect(screen.getAllByRole('button', { name: 'Izgarayı göster' }).length).toBeGreaterThan(0)
+  })
+
+  it('ızgara düğmesi bayrağı çevirir', async () => {
+    useUiStore.setState({ isGridVisible: true })
+    renderToolbar()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Izgarayı göster' }))
+
+    expect(useUiStore.getState().isGridVisible).toBe(false)
+  })
+
+  it('boru ölçüsü duvar ölçüsünden BAĞIMSIZ (K153)', async () => {
+    useUiStore.setState({ activeViewId: 'installation', isDimensionsVisible: true, isPipeLengthsVisible: true })
+    renderToolbar()
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Boru ölçüleri' }))
+
+    expect(useUiStore.getState().isPipeLengthsVisible).toBe(false)
+    // Duvar ölçüleri ETKİLENMEZ — eskiden tek bayraktı.
+    expect(useUiStore.getState().isDimensionsVisible).toBe(true)
   })
 })
