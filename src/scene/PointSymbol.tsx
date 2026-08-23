@@ -4,7 +4,7 @@ import {
   POINT_SYMBOL_ELEVATION_CM,
   POINT_SYMBOL_PREVIEW_ELEVATION_CM,
 } from './architectureLayers'
-import { ARCHITECTURE_COLORS } from './architectureTheme'
+import { POINT_SYMBOL_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import {
@@ -16,6 +16,9 @@ import type { PointSymbol as PointSymbolData } from '../core/model'
 import type { SymbolPose } from '../core/symbolPlacement'
 
 /** Gövde çizgisi detaydan kalın: sembolün silueti uzaktan da okunsun. */
+/** Yalnız önizlemede saydamlık; yerleşmiş sembol tam opak (AreaObject ile aynı). */
+const PREVIEW_OPACITY = 0.45
+
 const STROKE_WIDTHS: Record<SymbolStrokeRole, number> = {
   body: 1.8,
   detail: 1.2,
@@ -23,11 +26,18 @@ const STROKE_WIDTHS: Record<SymbolStrokeRole, number> = {
 
 export type PointSymbolTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
-const TONE_COLORS: Record<PointSymbolTone, string> = {
-  normal: ARCHITECTURE_COLORS.pointSymbol,
-  hovered: SCENE_COLORS.wallHover,
-  selected: SCENE_COLORS.selection,
-  preview: ARCHITECTURE_COLORS.previewValid,
+/**
+ * Renk TÜRDEN gelir; ton yalnız hangi alanın okunacağını seçer.
+ *
+ * ⚠️ Önizleme ve hover da TÜRÜN rengini kullanır (kullanıcı isteği): eskiden
+ * ikisi de nötr griydi ve kullanıcı yerleştirmeden önce cihazın gerçek rengini
+ * göremiyordu. SEÇİM dışarıda kalır — o sistem geneli tek renk (mavi).
+ */
+function getPointSymbolColor(type: PointSymbolData['type'], tone: PointSymbolTone): string {
+  if (tone === 'selected') return SCENE_COLORS.selection
+
+  const family = POINT_SYMBOL_COLORS[type]
+  return tone === 'hovered' ? family.hover : family.symbol
 }
 
 type PointSymbolProps = {
@@ -72,8 +82,12 @@ export function PointSymbol({ type, pose, tone, symbolId }: PointSymbolProps) {
     ? POINT_SYMBOL_PREVIEW_ELEVATION_CM
     : POINT_SYMBOL_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.pointSymbol
-  const color = TONE_COLORS[tone]
+  const color = getPointSymbolColor(type, tone)
   const geometry = getPointSymbolPlanGeometry(type, pose)
+  // Önizleme GERÇEK rengi taşır, yalnız yarı saydam (kullanıcı isteği):
+  // "yerleştirince böyle görünecek" bilgisi renkten okunmalı, ayrı bir gri
+  // önizleme rengi bunu gizliyordu. Alan nesnesindeki desenin aynısı.
+  const opacity = isPreview ? PREVIEW_OPACITY : 1
 
   return (
     <group userData={symbolId === undefined ? undefined : { id: symbolId }}>
@@ -93,7 +107,13 @@ export function PointSymbol({ type, pose, tone, symbolId }: PointSymbolProps) {
               args={[toFillPositions(fill, elevationCm), 3]}
             />
           </bufferGeometry>
-          <meshBasicMaterial color={color} depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial
+            color={color}
+            transparent={isPreview}
+            opacity={opacity}
+            depthWrite={false}
+            toneMapped={false}
+          />
         </mesh>
       ))}
 
@@ -103,6 +123,8 @@ export function PointSymbol({ type, pose, tone, symbolId }: PointSymbolProps) {
           points={stroke.points.map((point) => planToThree(point, elevationCm))}
           color={color}
           lineWidth={STROKE_WIDTHS[stroke.role]}
+          transparent={isPreview}
+          opacity={opacity}
           frustumCulled={false}
           renderOrder={renderOrder}
           depthWrite={false}

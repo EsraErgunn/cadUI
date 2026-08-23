@@ -76,7 +76,7 @@ function AreaObjectNameLabel({ areaObject, shape, zoom }: AreaObjectNameLabelPro
           planToThree(center, HANDLE_ELEVATION_CM),
           planToThree(leaderEnd, HANDLE_ELEVATION_CM),
         ]}
-        color={ARCHITECTURE_COLORS.areaObjectStroke}
+        color={ARCHITECTURE_COLORS.areaObjectLabel}
         lineWidth={LEADER_WIDTH_PX}
         dashed
         dashSize={LEADER_DASH_SIZE_CM}
@@ -96,7 +96,7 @@ function AreaObjectNameLabel({ areaObject, shape, zoom }: AreaObjectNameLabelPro
         <Text
           font={FONT_URL}
           fontSize={AREA_OBJECT_LABEL_SIZE_PX}
-          color={ARCHITECTURE_COLORS.areaObjectStroke}
+          color={ARCHITECTURE_COLORS.areaObjectLabel}
           anchorX="center"
           anchorY="middle"
           renderOrder={RENDER_ORDER.label}

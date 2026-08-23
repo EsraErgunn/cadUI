@@ -26,15 +26,15 @@ export const SCENE_COLORS = {
    * iç yüzüne kadar çekilir, çünkü saydam geçişte renderOrder onu duvarın
    * altında tutmaya yetmiyor (K31).
    */
-  roomFill: '#8a94a3',
-  roomFillOpacity: 0.22,
+  roomFill: '#94a3b8',
+  roomFillOpacity: 0.16,
   /**
    * Mahal tanımlama kipinde SIRADAKİ mahal. Renk yine seçim mavisi (kip açıkken
    * seçim temizleniyor, karışacak ikinci bir mavi yok) ama dolgu daha dolu:
    * kamera oraya gitse bile hangi hacmin sorulduğu tek bakışta okunmalı.
    */
   roomDefinitionFillOpacity: 0.42,
-  roomLabel: '#5b6675',
+  roomLabel: '#46505f',
   /** Oda adının arkasındaki rozet: beyaza yakın, dolgu üstünde ad okunur kalsın. */
   roomLabelBadge: '#f7f8fa',
   /** İmleç duvarın üstündeyken: bir tık açık. Seçim DEĞİL, yalnız "buradasın". */

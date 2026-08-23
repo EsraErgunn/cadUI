@@ -47,7 +47,7 @@ describe('mimari kontur kalınlıkları', () => {
   })
 
   it('kalınlıklar duvardan TÜRETİLİR — varsayılan duvar değişince oran korunur', () => {
-    expect(AREA_OBJECT_STROKE_WIDTHS_CM.body).toBe(DEFAULT_WALL_THICKNESS_CM / 4)
-    expect(BEAM_STROKE_WIDTH_CM).toBe(DEFAULT_WALL_THICKNESS_CM / 6)
+    expect(AREA_OBJECT_STROKE_WIDTHS_CM.body).toBe(DEFAULT_WALL_THICKNESS_CM / 6)
+    expect(BEAM_STROKE_WIDTH_CM).toBe(DEFAULT_WALL_THICKNESS_CM / 8)
   })
 })

@@ -7464,3 +7464,59 @@ duvar rengine ÇOK YAKIN — duvara oturan cihazlar (menfez) okunurluk kaybediyo
 Palet seçilince ikisi birlikte çözülecek.
 
 Nerede: `scene/sceneTheme.ts`.
+
+### K152 — Mimari renk sistemi: aileler, kendi ölçü katmanı, ton yönleri
+
+Kullanıcı: "her şey çok gri geliyor bana". Sebep tek tek renklerde değil
+YAPIDAydı: mimari katmanın altı tonu da aynı dar gri aralığındaydı ve üç ayrı
+şey aynı token'ı paylaşıyordu.
+
+⚠️ İki gizli ödünç alma bulundu ve kesildi:
+
+- **Duvar ölçüsünün kendi rengi YOKTU**, `ARCHITECTURE_COLORS.wall`'ı ödünç
+  alıyordu; ölçü katmanı duvarla aynı ağırlıkta okunuyordu.
+- **Cihaz ad etiketi `areaObjectStroke` ödünç alıyordu**: cihaz bir renkte, ADI
+  başka renkte çiziliyordu.
+
+**Cihaz rengi artık TÜRE GÖRE.** Eskiden tek renkti ve gerekçesi "cihazı ayırt
+eden RENK değil ŞEKİL"di; kullanıcı planda güvenlik ekipmanını bir bakışta
+görmek istediği için bu kural DEĞİŞTİ (`POINT_SYMBOL_COLORS`).
+
+| Katman | Renk |
+|---|---|
+| Duvar + kiriş | `#2e3446` — kiriş duvarla AYNI: ikisi de taşıyıcı yapı |
+| Alan nesnesi (kolon/şaft/havalandırma/merdiven) | `#5a6472`, yazı `#3f4854`, hover `#8b95a5` |
+| Güvenlik (söndürücü/şalter/alarm/sensör) | `#c62828`, yazı `#8f1d1d`, hover `#e05252` |
+| Menfez + pano | `#9ec3d4`, yazı `#4a7d92`, hover `#c3dde8` |
+| Aydınlatma | `#e08a1e`, yazı `#a35c07`, hover `#f0a94b` |
+| Duvar ölçüsü | `#4e2f8f` (koyu, soğuk mor) |
+| Açıklık ölçüsü | `#8b5cf6` (aynı ailenin açık tonu) |
+| Oda dolgusu | `#94a3b8` · 0,16 · etiket `#46505f` |
+
+**Ton yönleri tüm ailelerde AYNI** (kullanıcı kuralı, teste bağlandı):
+
+- **hover AÇILIR** — nesne imleç altında aydınlanır. Önce koyulaştırma
+  denenmişti; buz mavisi gibi AÇIK bir aile koyulaşınca "seçildi" gibi
+  okunuyordu, aydınlanma ise her ailede aynı anlama geliyor.
+- **ad etiketi KOYULAŞIR** — beyaz zeminde okunsun.
+- **önizleme AYNI renk, yarı saydam** (`PREVIEW_OPACITY`): "yerleştirince böyle
+  görünecek" bilgisi renkten okunmalı; ayrı bir gri önizleme rengi bunu
+  gizliyordu. Alan nesnesindeki desen cihazlara da taşındı.
+- **SEÇİM bu kuralın DIŞINDA**: sistem geneli tek renk (mavi).
+
+⚠️ Alan nesnesi duvardan AÇIK olmak ZORUNDA: kolon/şaft çoğu kez duvarın
+ÜSTÜNE oturuyor ve orada ayırt edilebilmeli — koyulaştırmanın tabanı bu.
+Konturları da inceltildi (gövde 1/6, ayrıntı 1/11 duvar kalınlığı).
+
+⚠️ Marka sarısı (#FFC107) tuvale GİRMEZ; aydınlatma kehribarı ondan uzak
+seçildi. Güvenlik kırmızısı reddedilen yerleştirmenin kırmızısından
+(`previewInvalid`, #d64545) ayrı — ikisi karışırsa her söndürücü hata sanılır.
+
+`ARCHITECTURE_COLORS.wall` → `beam` olarak yeniden adlandırıldı (duvarı zaten
+`SCENE_COLORS.wallFill` çiziyordu); ölü kalan `pointSymbol` ve
+`pointSymbolLabel` token'ları silindi.
+
+Nerede: `scene/architectureTheme.ts`, `scene/sceneTheme.ts`,
+`scene/architectureStrokeStyle.ts`, `scene/PointSymbol.tsx`,
+`scene/AreaObject.tsx`, `scene/Beam.tsx`, `scene/WallDimensionLabels.tsx`,
+`scene/AreaObjectNameLabels.tsx`, `scene/PointSymbolNameLabels.tsx`.
