@@ -17,7 +17,7 @@ import { getPlanBounds } from '../../core/pdf/paper'
 import { buildPlanSvg, type PlanSvg } from '../../core/pdf/planSvg'
 import { buildSitePlanSvg, type SitePlanSvg } from '../../core/pdf/sitePlanSvg'
 import { serializeProjectDataForBackend } from '../../core/projectExportFormat'
-import type { IsometricAngles } from '../../isometric/core/isometricProjection'
+import { getObliqueProjection } from '../../isometric/core/isometricProjection'
 import type { IsometricSceneInput } from '../../isometric/core/isometricScene'
 import type { ProjectSummary } from '../../pages/useProjectSummary'
 import type {
@@ -193,27 +193,31 @@ function resolveInstallationLineColor(line: InstallationLine): string {
     : getLineColor(line.pipeTypeName)
 }
 
-type IsometricSource = IsometricSceneInput & { isometricAngles: IsometricAngles }
-
 /**
  * İzometrik şema sayfası.
  *
- * Açı store'dan, yani KULLANICININ EKRANDA BAKTIĞI açıdan geliyor. Sabit bir
- * açı basmak, kullanıcının elle ayırdığı binmeleri (`isometricOffsetCm`) geri
- * getirirdi — o düzenleme baktığı açıya göre yapılmış.
+ * ⚠️ Açı SABİT (`ISOMETRIC_ANGLES_PAPER`, K155), store'dan gelmiyor. Eskiden
+ * kullanıcının ekranda baktığı açıyla basılıyordu; "Üstten" ön ayarındayken
+ * sayfa neredeyse plan görünümüne çöküyordu. Teslim edilen pafta kamera
+ * durumuna bağlı olmamalı.
+ *
+ * Elle ayrılmış binmeler bundan ZARAR GÖRMEZ: `isometricOffsetCm` 2B EKRAN
+ * kaydırması olarak saklanıyor ve sahne onu aynı açıyla dünyaya çevirip aynı
+ * açıyla geri projekte ediyor — kaydırma kâğıdın kendi düzleminde birebir aynı
+ * kalıyor. Değişen tek şey hangi boruların o açıda gerçekten binişmesi.
  *
  * Tesisatı olmayan projede `undefined` döner ve sayfa HİÇ basılmaz: boş bir
  * izometrik sayfa okuyucuya bir şey söylemez. (Kat planında durum farklı, orada
  * boş sayfa "bu kat boş" bilgisini taşıyor.)
  */
-function buildIsometric(source: IsometricSource): IsometricSvg | undefined {
+function buildIsometric(source: IsometricSceneInput): IsometricSvg | undefined {
   return buildIsometricSvg({
     floors: source.floors,
     installationElements: source.installationElements,
     installationLines: source.installationLines,
     installationConnections: source.installationConnections,
     floorPipeLinks: source.floorPipeLinks,
-    angles: source.isometricAngles,
+    projection: getObliqueProjection(),
     getMetadata: getSymbolMetadata,
     resolveLineColor: resolveInstallationLineColor,
     resolveSymbol: resolveSymbolAsset,

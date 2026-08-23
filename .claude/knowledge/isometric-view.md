@@ -33,6 +33,53 @@ Hazır açılar: **Varsayılan** ve **Üstten** (α sınırda, 90°'de kamera y�
 tanımsız kalırdı). Yan görünümler yok — α = 0'da zemin düzlemi kenardan
 görünüp kat yerleşimi tek çizgiye çöküyor, o iş plan görünümünün.
 
+**⚠️ KÂĞIDIN İZDÜŞÜMÜ AYRI, SABİT ve OBLİK** (`getObliqueProjection`, K155).
+PDF izometrik sayfası ekrandaki α/β'yı KULLANMAZ ve aynı izdüşüm ailesinde bile
+değildir.
+
+| Model ekseni | Kâğıttaki yön |
+|---|---|
+| plan x | TAM YATAY (0°) |
+| plan y | 30° EĞİK (sol-aşağı, −150°) |
+| kot | TAM DİKEY (90°) |
+
+⚠️ Bu bir izometri DEĞİL, oblik (cavalier) izdüşümdür. İzometride üç eksen eşit
+kısalır; kot dikeyken bu, kalan iki ekseni ZORUNLU olarak ±30°'ye oturtur — yani
+hiçbir eksen yatay olamaz. Kullanıcının gerçek gaz paftası ve ona ait iki kat
+planı ölçüldü, yatay segmentler var: o çizim izometri değil, kâğıt referansa
+uyuyor. Önce gerçek izometri (β = 135°) yazılmıştı, referans görülünce DÖNÜLDÜ.
+
+⚠️ Oblik hiçbir kamera açısıyla elde EDİLEMEZ: `Rx(α)·Ry(β)` ailesinde plan x'i
+yatay yapan tek durum β = 0/180 ve orada plan y düşeyle ÇAKIŞIYOR (ölçüldü, +Y
+ve +Z ikisi de 90°) — plan derinliği kayboluyor. Oblik ortografik bir bakış
+değil, bir KESME dönüşümü.
+
+**Bu yüzden ekran ile kâğıt AYRIŞTI.** Ekrandaki 3B görünüm gerçek ortografik
+kamerayla çiziliyor ve kesme yapamaz; orada döndürülebilir izometri kalıyor.
+K122 geçerli: α/β hâlâ projeye yazılıyor ve EKRANI yönetiyor, kalkan tek şey
+kâğıda gitmesi. Eskiden gidiyordu ve "Üstten" ön ayarında (α = 89°) sayfa
+neredeyse plan görünümüne çöküyordu.
+
+⚠️ `IsometricAngles` yerine artık `IsometricProjection` geçiyor: `project` +
+`offsetToWorld`. `buildIsometricScene`, `layoutIsometricLabels` ve
+`buildIsometricSvg` açı DEĞİL izdüşüm alır; ekran `getCameraProjection(angles)`,
+kâğıt `getObliqueProjection()` verir.
+
+⚠️ **`project(offsetToWorld(o)) === o` sözleşmesi zorunlu** ve teste bağlı —
+elle ayrılmış binmeler (`isometricOffsetCm`) 2B saklanıp 3B uygulanıyor, eşitlik
+bozulursa yerlerinden oynarlar.
+
+⚠️ Eğik eksenin yönü (sol-aşağı) okunabilirlik için: sağ-yukarı alınsa plan x
+ile yalnız 30° ayrılır ve dikdörtgen kat ince bir dilime çöker. Aynı eksenin
+öteki işareti, tek değişiklikle çevrilir.
+
+⚠️ PDF sayfası SCREENSHOT DEĞİL ve hiç olmadı: 3B koordinat → izdüşüm → SVG →
+bbox+autofit → `svg2pdf`. "PDF'teki canvas görüntüsünü kaldır" isteği geldiğinde
+kaldırılacak bir şey bulunamadı — kusur açı kaynağında ve izdüşüm ailesindeydi.
+
+Yönler `isometricPaperAxes.test.ts`'te kilitli (12 yön vakası, oran korunumu,
+yatay eksenin KISALMAMASI, kaydırma gidiş-dönüşü).
+
 **Üç eksi tesadüf değil.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y
 AŞAĞI (hem kotta hem plan y'sinde, EaselJS düzeni), z güneye. Bizim three
 uzayımız sağ elli. Satırlar olduğu gibi alınırsa kamera yerin ALTINDA kalır:

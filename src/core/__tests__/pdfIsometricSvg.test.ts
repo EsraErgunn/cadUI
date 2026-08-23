@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import sampleProject from '../../../docs/sample-project.json'
-import { ISOMETRIC_ANGLES_DEFAULT } from '../../isometric/core/isometricProjection'
+import {
+  getCameraProjection,
+  ISOMETRIC_ANGLES_DEFAULT,
+} from '../../isometric/core/isometricProjection'
 import { isDischargeKind } from '../../plumbing/core/lineKinds'
 import { getSymbolMetadata } from '../../plumbing/scene/symbolLoader'
 import { resolveSymbolAsset } from '../../ui/pdf/symbolMarkup'
@@ -28,7 +31,7 @@ function build(overrides: Partial<ProjectData> = {}) {
     installationConnections:
       overrides.installationConnections ?? SAMPLE.installationConnections,
     floorPipeLinks: overrides.floorPipeLinks ?? SAMPLE.floorPipeLinks,
-    angles: ISOMETRIC_ANGLES_DEFAULT,
+    projection: getCameraProjection(ISOMETRIC_ANGLES_DEFAULT),
     getMetadata: getSymbolMetadata,
     resolveLineColor: (line) => (isDischargeKind(line.kind) ? DISCHARGE_COLOR : GAS_COLOR),
     resolveSymbol: resolveSymbolAsset,

@@ -5,7 +5,7 @@ import {
 } from './isometricLabelSvg'
 import type { PlanSymbolAsset } from './planSvgInstallation'
 import { n, svgLine, svgPolyline, svgText, SVG_COLORS } from './svgPrimitives'
-import { projectIsometric, type IsometricAngles } from '../../isometric/core/isometricProjection'
+import type { IsometricProjection } from '../../isometric/core/isometricProjection'
 import {
   buildIsometricScene,
   getIsometricBoundsDiagonalCm,
@@ -14,7 +14,7 @@ import {
 import type { SymbolMetadataLookup } from '../../plumbing/core/elementPicking'
 import type { InstallationLine } from '../../plumbing/core/installationModel'
 import type { InstallationElementType } from '../../plumbing/core/symbolMetadata'
-import type { PlanPoint, ThreePosition } from '../coords'
+import type { PlanPoint } from '../coords'
 
 /** Yazı boyu ve çizgi kalınlıkları, sahne köşegenine oranla. */
 const TITLE_SIZE_RATIO = 0.045
@@ -27,7 +27,8 @@ const MARGIN_RATIO = 0.06
 
 
 export type IsometricSvgInput = IsometricSceneInput & {
-  angles: IsometricAngles
+  /** Kâğıdın izdüşümü; ekranın kamera açısından BAĞIMSIZ (K155). */
+  projection: IsometricProjection
   /** Sembol tanımları dışarıdan: `core/` sahne yükleyicisine bağlanmaz (kural 1/2). */
   getMetadata: SymbolMetadataLookup
   /** Hat rengi sahne katmanından gelir (planSvg ile aynı gerekçe). */
@@ -66,8 +67,11 @@ export type IsometricSvg = {
  * getirirdi — o düzenleme baktığı açıya göre yapılmış.
  */
 export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | undefined {
-  const { angles, fontFamily } = input
-  const scene = buildIsometricScene(input, { angles, getMetadata: input.getMetadata })
+  const { projection, fontFamily } = input
+  const scene = buildIsometricScene(input, {
+    projection,
+    getMetadata: input.getMetadata,
+  })
   if (!scene.bounds) return undefined
 
   const extentCm = getIsometricBoundsDiagonalCm(scene.bounds)
@@ -76,7 +80,7 @@ export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | unde
   const pipeWidthCm = extentCm * PIPE_WIDTH_RATIO
   const leaderWidthCm = extentCm * LEADER_WIDTH_RATIO
 
-  const project = (position: ThreePosition) => projectIsometric(position, angles)
+  const project = projection.project
 
   const body: string[] = []
   const bounds: LabelBounds = {

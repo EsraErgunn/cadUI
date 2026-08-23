@@ -7667,3 +7667,77 @@ kat planı artık çağırmıyor.
 **Kolonun dolgusu da kalktı.** Eski gerekçe "taşıyıcı kütle planda boşluk gibi
 okunmamalı"ydı; altından geçen boru mimari yüzeyin arkasında kalmasın diye kural
 düştü.
+
+
+### K155 — İzometrik pafta SABİT ve OBLİK; ekranın kamera izometrisinden ayrıldı
+
+Kullanıcı: "PDF'teki Three.js screenshot / canvas görüntüsü yaklaşımını kaldır,
+gerçek izometrik tesisat şeması üret."
+
+⚠️ **Ortada screenshot YOKTU.** İzometrik sayfa K136'dan beri saf vektör:
+`isometricSvg.ts` boruların gerçek 3B koordinatlarını projekte ediyor,
+bounding box'tan `viewBox` kuruyor, `svg2pdf` ile basıyor. Three.js, kamera,
+renderer, canvas ya da PNG yolun hiçbir yerinde yok; PDF'teki tek raster şey
+kapaktaki firma logosu. İstenen akışın tamamı (3B nokta → toIso → 2B → SVG →
+bbox+autofit → jsPDF) zaten mevcuttu, `xPipe`/`yPipe` gibi bir eksen
+sınıflandırması da hiç olmamıştı. Kaldırılacak bir şey bulunamadı.
+
+**İki gerçek kusur vardı:**
+
+1. **Açı ekrandan geliyordu** (K122). "Üstten" ön ayarındayken (α = 89°) sayfa
+   neredeyse plan görünümüne çöküyordu — teknik olarak screenshot değil ama
+   DAVRANIŞ olarak kamera görüntüsü.
+2. **İzdüşüm yanlış AİLEDENDİ.** Kâğıt ortografik izometri çiziyordu; teslim
+   edilen gerçek gaz paftaları OBLİK çiziliyor.
+
+**Karar: kâğıdın kendi izdüşümü var** (`getObliqueProjection`), ekrandan
+tümüyle bağımsız ve sabit.
+
+| Model ekseni | Kâğıttaki yön |
+|---|---|
+| plan x | TAM YATAY (0°) |
+| plan y | 30° EĞİK (sol-aşağı, −150°) |
+| kot | TAM DİKEY (90°) |
+
+⚠️ **Bu bir İZOMETRİ DEĞİL, oblik (cavalier) izdüşüm — ve bilinçli.** Gerçek
+izometride üç eksen EŞİT kısalır; kot dikey sabitlenince bu, kalan iki ekseni
+ZORUNLU olarak yataydan ±30°'ye oturtur, yani hiçbir eksen yatay OLAMAZ.
+Kullanıcının referans paftasında ve ona ait iki kat planında yatay segmentler
+ölçüldü (uzun bağlantı 30,1°, `h:` etiketli her şey tam dikey, `L: 1 m`
+segmentleri tam yatay) — o çizim izometri değil. Kâğıt referansa uyar.
+
+⚠️ Önce gerçek izometri (β = 135°) yazıldı ve kullanıcıya "X yatay olursa
+izometri olmaz" denildi; kullanıcı referans belgesini gösterince karar DÖNDÜ.
+Genel doğru burada belirleyici değil, teslim edilen belgenin biçimi belirleyici.
+
+⚠️ **Oblik hiçbir KAMERA açısıyla elde edilemez.** `Rx(α)·Ry(β)` ailesinde plan
+x'i yatay yapan tek durum β = 0/180 ve orada plan y ekseni düşeyle ÇAKIŞIYOR
+(ölçüldü: +Y ve +Z ikisi de 90°), plan derinliği tümüyle kayboluyor. Oblik
+ortografik bir bakış değil, bir KESME (shear) dönüşümü.
+
+**Sonuç: ekran ile kâğıt bilerek AYRIŞTI.** Ekrandaki 3B görünüm gerçek bir
+ortografik kamerayla çiziliyor ve kesme yapamaz; orada döndürülebilir izometri
+kalıyor (K122 geçerli, α/β hâlâ projeye yazılıyor ve EKRANI yönetiyor). Kalkan
+tek şey o açının KÂĞIDA gitmesi.
+
+⚠️ Bu yüzden `IsometricAngles` (bir kamera) yerine `IsometricProjection`
+soyutlaması geçti: `project` + `offsetToWorld`. `buildIsometricScene`,
+`layoutIsometricLabels` ve `buildIsometricSvg` artık açı değil izdüşüm alıyor;
+ekran `getCameraProjection(angles)`, kâğıt `getObliqueProjection()` veriyor.
+
+⚠️ **`project(offsetToWorld(o)) === o` sözleşmesi ZORUNLU** ve teste bağlı.
+Kullanıcının elle ayırdığı etiket/dal kaymaları (`isometricOffsetCm`, K121) 2B
+saklanıp sahnede 3B uygulanıyor; bu eşitlik bozulursa kaymalar yerinden oynar.
+Oblik'te yatay kayma three x'e, düşey kayma kota gidiyor — ikisinin de z
+bileşeni sıfır olduğu için eğik eksen hiç karışmıyor.
+
+⚠️ Eğik eksenin YÖNÜ (sol-aşağı) okunabilirlik için: plan x yatay olduğundan
+eğik ekseni sağ-yukarı almak ikisini yalnız 30° ayırır ve dikdörtgen bir kat
+ince bir dilime çöker; sol-aşağıda ayrım 150° olur. Referans paftada koşu
+sağ-yukarı gidiyor ama bu aynı eksenin öteki işareti — projenin plan yönüne
+bağlı, tek işaret değişikliğiyle çevrilir.
+
+12 yön vakası teste bağlandı (`isometricPaperAxes.test.ts`): altı eksen yönü,
+dört yatay bileşim, X/Y ilerlerken ±Z, artı oran korunumu, üç bileşenli borunun
+tek doğru çıkması, yatay eksenin KISALMAMASI (oblik'in tanımı) ve kaydırma
+gidiş-dönüşü.

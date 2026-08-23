@@ -20,6 +20,7 @@ import { useCameraZoom } from '../../scene/useCameraZoom'
 import { useCadStore } from '../../store/cadStore'
 import type { IsometricElevationContext } from '../core/isometricElevation'
 import { applyIsometricDrag } from '../core/isometricOffset'
+import { getCameraProjection } from '../core/isometricProjection'
 import { buildIsometricScene } from '../core/isometricScene'
 import { useIsometricUiStore } from '../store/isometricUiStore'
 
@@ -95,7 +96,7 @@ export function IsometricLayer() {
           installationConnections,
           floorPipeLinks,
         },
-        { angles, getMetadata: getSymbolMetadata },
+        { projection: getCameraProjection(angles), getMetadata: getSymbolMetadata },
       ),
     [
       angles,

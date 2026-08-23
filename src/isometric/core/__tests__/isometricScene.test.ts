@@ -6,7 +6,11 @@ import type {
   InstallationElement,
   InstallationLine,
 } from '../../../plumbing/core/installationModel'
-import { ISOMETRIC_ANGLES_DEFAULT, projectIsometric } from '../isometricProjection'
+import {
+  getCameraProjection,
+  ISOMETRIC_ANGLES_DEFAULT,
+  projectIsometric,
+} from '../isometricProjection'
 import { makeTestMetadata } from './isometricTestMetadata'
 import { buildIsometricScene } from '../isometricScene'
 import type { IsometricSceneInput, IsometricSceneOptions } from '../isometricScene'
@@ -15,7 +19,10 @@ const GROUND: Floor = { id: 1, name: 'Zemin Kat', heightCm: 300, isBasement: fal
 const FIRST: Floor = { id: 2, name: '1. Kat', heightCm: 280, isBasement: false }
 const BASEMENT: Floor = { id: 3, name: 'Bodrum', heightCm: 250, isBasement: true }
 
-const NO_GAP: IsometricSceneOptions = { angles: ISOMETRIC_ANGLES_DEFAULT, getMetadata: makeTestMetadata }
+const NO_GAP: IsometricSceneOptions = {
+  projection: getCameraProjection(ISOMETRIC_ANGLES_DEFAULT),
+  getMetadata: makeTestMetadata,
+}
 
 function makePipe(
   id: number,

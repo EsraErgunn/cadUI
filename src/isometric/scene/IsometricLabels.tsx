@@ -23,7 +23,7 @@ import {
   isConsumptionLine,
 } from '../core/isometricLabels'
 import type { IsometricLineGeometry, IsometricSceneData } from '../core/isometricModel'
-import type { IsometricAngles } from '../core/isometricProjection'
+import { getCameraProjection, type IsometricAngles } from '../core/isometricProjection'
 
 /** Etiketler arası açının en az kaç satır boyu olacağı; yazı+nefes payı. */
 const LABEL_SEPARATION_EXTRA_LINES = 1
@@ -160,7 +160,7 @@ export function IsometricLabels({
     return layoutIsometricLabels(
       requests,
       scene.bounds.center,
-      angles,
+      getCameraProjection(angles),
       scene.bounds.sizeCm,
       minSeparationCm,
     )

@@ -9,7 +9,6 @@ import {
   getIsometricLineLabelLines,
   isConsumptionLine,
 } from '../../isometric/core/isometricLabels'
-import { projectIsometric } from '../../isometric/core/isometricProjection'
 import type { buildIsometricScene } from '../../isometric/core/isometricScene'
 import type { PlanPoint, ThreePosition } from '../coords'
 
@@ -156,7 +155,7 @@ export function buildIsometricLabelSvg(
   const placements = layoutIsometricLabels(
     entries.map(({ key, anchor, distanceFactor }) => ({ key, anchor, distanceFactor })),
     scene.bounds.center,
-    input.angles,
+    input.projection,
     scene.bounds.sizeCm * PAPER_RING_TIGHTNESS,
     // Yarıçap sonra `PAPER_LABEL_PULL` ile kısalacağı için pay şimdiden aynı
     // oranda büyütülüyor; yoksa çekilen etiketler birbirine girerdi.
@@ -165,7 +164,7 @@ export function buildIsometricLabelSvg(
 
   const body: string[] = []
   for (const entry of entries) {
-    const anchorPoint = projectIsometric(entry.anchor, input.angles)
+    const anchorPoint = input.projection.project(entry.anchor)
     // Kullanıcının elle taşıdığı etiket OLDUĞU YERDE kalır: çekme yalnız
     // otomatik yerleşim için.
     const placed = placements.get(entry.key)

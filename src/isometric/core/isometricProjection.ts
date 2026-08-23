@@ -28,6 +28,79 @@ export const ISOMETRIC_ANGLES_DEFAULT: IsometricAngles = {
 }
 
 /**
+ * Bir 3B noktayı çizim düzlemine indiren izdüşüm.
+ *
+ * Soyutlama `IsometricAngles`in YERİNE geçti (K155) çünkü kâğıt artık bir
+ * KAMERA görüntüsü değil: ekran ortografik kamerayla döndürülebilir bir
+ * izometri gösteriyor, pafta ise sabit bir OBLİK çizim ve oblik hiçbir kamera
+ * açısıyla elde edilemez (bkz. `getObliqueProjection`). İkisinin ortak yanı
+ * yalnız "3B nokta → 2B nokta" olduğu için sözleşme bu iki fonksiyona indi.
+ */
+export type IsometricProjection = {
+  /** Three noktasının çizim koordinatı (cm, y YUKARI). */
+  project: (position: ThreePosition) => PlanPoint
+  /**
+   * Çizim düzlemindeki bir kaydırmanın dünya karşılığı. `project` ile GİDİŞ
+   * DÖNÜŞ birim işlem olmak ZORUNDA: `project(offsetToWorld(o)) === o`.
+   * Kullanıcının elle ayırdığı etiket/dal kaymaları 2B saklanıyor ve sahnede
+   * 3B uygulanıyor; bu eşitlik bozulursa kaymalar kayar.
+   */
+  offsetToWorld: (offsetCm: PlanPoint) => Vec3
+}
+
+/** Ekranın izdüşümü: döndürülebilir ortografik kamera. */
+export function getCameraProjection(angles: IsometricAngles): IsometricProjection {
+  return {
+    project: (position) => projectIsometric(position, angles),
+    offsetToWorld: (offsetCm) => isometricOffsetToWorld(offsetCm, angles),
+  }
+}
+
+/** Oblik çizimde eğik eksenin yatayla yaptığı açı. Referans paftada 30°. */
+const OBLIQUE_AXIS_DEG = 30
+
+/**
+ * PAFTANIN izdüşümü: sabit OBLİK çizim (K155).
+ *
+ * Kullanıcının elindeki gerçek gaz paftası ve ona ait kat planları ölçüldü;
+ * ikisi de aynı şeyi söylüyor:
+ *
+ *     plan x → TAM YATAY      plan y → 30° EĞİK      kot → TAM DİKEY
+ *
+ * ⚠️ Bu bir İZOMETRİ DEĞİL, oblik (cavalier) izdüşümdür ve bu bilinçli. Gerçek
+ * izometride üç eksen eşit kısalır; kot dikey sabitlenince bu, kalan iki ekseni
+ * ZORUNLU olarak yataydan ±30°'ye oturtur — yani hiçbir eksen yatay olamaz.
+ * Referans paftada yatay segmentler var, dolayısıyla o çizim izometri değil.
+ * Kâğıt referansa uyar; sayfa başlığı da bu yüzden şema der.
+ *
+ * ⚠️ Kamera açısıyla ELDE EDİLEMEZ. `Rx(α)·Ry(β)` ailesinde plan x'i yatay yapan
+ * tek durum β = 0/180 ve orada plan y ekseni düşeyle ÇAKIŞIYOR (ölçüldü: +Y ve
+ * +Z ikisi de 90°) — plan derinliği tümüyle kayboluyor. Oblik ortografik bir
+ * bakış değil, bir KESME (shear) dönüşümü; bu yüzden ekrandaki 3B görünüm onu
+ * gösteremez ve kâğıt ile ekran bilerek ayrışıyor.
+ *
+ * ⚠️ Eğik eksenin YÖNÜ (sağ-yukarı değil sol-aşağı) okunabilirlik için: plan x
+ * yatay olduğundan, eğik ekseni sağ-yukarı almak ikisini yalnız 30° ayırır ve
+ * dikdörtgen bir kat ince bir dilime çöker. Sol-aşağıda ayrım 150° olur, plan
+ * geniş bir paralelkenar gibi okunur.
+ */
+export function getObliqueProjection(): IsometricProjection {
+  const cos = Math.cos(toRadians(OBLIQUE_AXIS_DEG))
+  const sin = Math.sin(toRadians(OBLIQUE_AXIS_DEG))
+
+  return {
+    // three = (plan x, kot, −plan y) olduğu için plan y = −z. Eğik eksenin
+    // katkısı bu yüzden +z ile yazılıyor; ayrı bir koordinat dönüşümü değil,
+    // `coords.ts`'in kuralının burada okunması.
+    project: ([x, y, z]) => ({ x: x + z * cos, y: y + z * sin }),
+    // project(offsetToWorld(o)) = o: yatay kayma three x'e, düşey kayma three
+    // y'ye (kota) gider; ikisinin de z bileşeni sıfır olduğu için eğik eksen
+    // hiç karışmıyor.
+    offsetToWorld: (offsetCm) => [offsetCm.x, offsetCm.y, 0],
+  }
+}
+
+/**
  * α 90°'yi geçerse kamera zemin düzleminin altına düşer ve çizim ters görünür;
  * 0'ın altında da aynı şey ayna simetrisiyle olur. β serbestçe döner, sınır
  * yerine 360'a göre sarılır.
