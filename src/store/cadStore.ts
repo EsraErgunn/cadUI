@@ -27,6 +27,10 @@ import { DEFAULT_FLOOR_ID, type ProjectData } from '../core/model'
 import { ISOMETRIC_ANGLES_DEFAULT } from '../isometric/core/isometricProjection'
 import type { IsometricAngles } from '../isometric/core/isometricProjection'
 import { createIsometricSlice, type IsometricSlice } from '../isometric/store/isometricSlice'
+import {
+  recordPlumbingHistory,
+  resetPlumbingHistory,
+} from '../plumbing/store/plumbingHistory'
 import { createPlumbingSlice, type PlumbingSlice } from '../plumbing/store/plumbingSlice'
 
 export type CadState = ProjectMetaSlice &
@@ -70,6 +74,34 @@ function createEmptyProjectData(): ProjectData {
     installationConnections: [],
     floorPipeLinks: [],
   }
+}
+
+/**
+ * Tesisat geçmişi aynasını cadStore'daki GERÇEK duruma eşitler.
+ *
+ * Ayna (`plumbingHistory`) kendini güncellemiyor: yalnız `plumbingSlice`'ın
+ * tesisat action'ları `record()` çağırıyor. Yükleme/temizleme oradan geçmediği
+ * için ayna bayat kalıyordu — ve zundo bir SONRAKİ tesisat düzenlemesinde o
+ * bayat hâli "önceki durum" diye geçmişe itiyordu. Sonuç: proje açıp ilk
+ * tesisat işlemini yapan kullanıcı Ctrl+Z'ye basınca TÜM tesisatı kaybediyordu
+ * (kullanıcı bulgusu; toplu silmeyle görünür oldu).
+ *
+ * `isNewBeginning`: yükleme mi (geçmiş sıfırlanır) yoksa düzenleme mi (önceki
+ * durum geçmişe adım olarak düşer). Ayrım `useCadStore.temporal.clear()`
+ * çağrılan yerlerle birebir aynı.
+ */
+function mirrorPlumbingHistory(isNewBeginning: boolean): void {
+  const { installationElements, installationLines, installationConnections, floorPipeLinks } =
+    useCadStore.getState()
+  const snapshot = {
+    installationElements,
+    installationLines,
+    installationConnections,
+    floorPipeLinks,
+  }
+
+  if (isNewBeginning) resetPlumbingHistory(snapshot)
+  else recordPlumbingHistory(snapshot)
 }
 
 // takeNextId/markDirty projectMeta.ts'te: slice'lar onları çalışma zamanında
@@ -197,6 +229,12 @@ export const useCadStore = create<CadState>()(
           // Geçmiş SIFIRLANIR: yükleme bir düzenleme değil, yeni bir başlangıç.
           // Temizlenmezse Ctrl+Z kullanıcıyı önceki projenin çizimine götürür.
           useCadStore.temporal.getState().clear()
+          // ⚠️ Tesisat geçmişi AYRI bir ayna (plumbingHistory) ve kendini
+          // güncellemez: `plumbingSlice.record()` yalnız tesisat action'larından
+          // sonra çalışıyor, yükleme oradan geçmiyor. Burada tohumlanmazsa ayna
+          // BOŞ kalır ve projedeki ilk tesisat düzenlemesinde zundo o boş hâli
+          // geçmişe iter — Ctrl+Z bütün tesisatı siler (kullanıcı bulgusu).
+          mirrorPlumbingHistory(true)
         },
 
         // Yükleme yoluyla AYNI kapıdan geçer: boş proje de bir "yeni başlangıç",
@@ -252,6 +290,9 @@ export const useCadStore = create<CadState>()(
               draft.floorPipeLinks = data.floorPipeLinks
               markDirty(draft)
             })
+            // Bu bir DÜZENLEME (geçmiş sıfırlanmıyor, K136): ayna yeni durumu
+            // alır, önceki durum tesisat geçmişine adım olarak düşer.
+            mirrorPlumbingHistory(false)
           },
 
           /**
@@ -285,6 +326,8 @@ export const useCadStore = create<CadState>()(
               draft.floorPipeLinks = []
               markDirty(draft)
             })
+            // Temizleme de bir düzenleme: tek Ctrl+Z tesisatı geri getirmeli.
+            mirrorPlumbingHistory(false)
           },
           ...createFloorSlice(...args),
           ...createIsometricSlice(...args),
