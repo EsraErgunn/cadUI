@@ -1,7 +1,9 @@
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
+import { RoomUsagePicker } from './RoomUsagePicker'
 import { roomDefinitionChipVariants } from './canvasBarVariants'
+import { includesTr } from '../../api/turkishText'
 import { isTypingTarget } from '../../core/domEvents'
 import { getFloorRoomStops, getRoomFocusBounds } from '../../core/roomDefinition'
 import { toSquareMetres } from '../../core/roomLabel'
@@ -12,9 +14,6 @@ import {
 } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-
-/** İlk dokuz rozet rakam tuşuyla da seçilir; sonrası yalnız fareyle. */
-const QUICK_KEY_COUNT = 9
 
 function formatAreaM2(areaCm2: number): string {
   const areaM2 = toSquareMetres(areaCm2)
@@ -57,6 +56,20 @@ export function RoomDefinitionCard() {
   const currentStop = currentRoomId === undefined ? undefined : stopsByRoomId.get(currentRoomId)
   const options = useMemo(() => getRoomUsageOptions(), [])
 
+  /**
+   * Yazarak süzme: yirmi beş rozet arasında gözle aramak zorlaşıyor (kullanıcı
+   * bulgusu). Arama Türkçe duyarsız (`includesTr`) — "şaft" için "saft",
+   * "Çamaşırlık" için "camasir" de bulur.
+   *
+   * Kutu, tipe hızlı ulaşmanın TEK yolu: rozetlerdeki rakam kısayolları
+   * kaldırıldı (dokuz tuş yirmi beş tipe yetmiyordu).
+   */
+  const [query, setQuery] = useState('')
+  const visibleOptions = useMemo(
+    () => (query.trim() === '' ? options : options.filter((o) => includesTr(o.label, query))),
+    [options, query],
+  )
+
   // Durak değişince kamera oraya gider. İstek store'dan geçiyor: zoom/pan
   // kamerada yaşıyor ve DOM tarafı kamerayı doğrudan oynatamaz (ViewportFocus).
   const focusCorners = currentStop?.corners
@@ -79,15 +92,24 @@ export function RoomDefinitionCard() {
     const currentQueue = state.roomDefinitionQueue
     if (!currentQueue) return
 
-    const nextIndex = currentQueue.findIndex(
+    const nextUndefined = currentQueue.findIndex(
       (roomId, position) =>
         position > state.roomDefinitionIndex &&
         roomId !== justDefinedRoomId &&
         stopsByRoomId.get(roomId)?.isDefined === false,
     )
+    if (nextUndefined !== -1) {
+      state.goToRoomDefinitionIndex(nextUndefined)
+      return
+    }
 
-    if (nextIndex === -1) state.stopRoomDefinition()
-    else state.goToRoomDefinitionIndex(nextIndex)
+    // ⚠️ İleride tanımsız durak yoksa kip HEMEN kapanmaz, sıradaki durağa geçer:
+    // gözden geçirme turunda (hepsi tanımlıyken açılan tur) kuyruktaki her durak
+    // zaten tanımlı olduğu için "tanımsız ara" hiçbir zaman bulamaz ve ilk
+    // düzeltmeden sonra kip kendini kapatıyordu. Kapanma yalnız SON durakta.
+    const isLastStop = state.roomDefinitionIndex >= currentQueue.length - 1
+    if (isLastStop) state.stopRoomDefinition()
+    else state.goToRoomDefinitionIndex(state.roomDefinitionIndex + 1)
   }
 
   const commitUsageType = (usageType: RoomUsageType) => {
@@ -96,6 +118,9 @@ export function RoomDefinitionCard() {
     if (roomId === undefined) return
 
     useCadStore.getState().setRoomUsageType(roomId, usageType)
+    // Arama sıradaki mahale TAŞINMAZ: her mahal kendi tipini arar, önceki
+    // süzgeç açık kalsaydı kullanıcı yarım listeyle karşılaşırdı.
+    setQuery('')
     advanceAfter(roomId)
   }
 
@@ -111,27 +136,19 @@ export function RoomDefinitionCard() {
         store.stopRoomDefinition()
         return
       }
-      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-        event.preventDefault()
-        const step = event.key === 'ArrowRight' ? 1 : -1
-        store.goToRoomDefinitionIndex(store.roomDefinitionIndex + step)
-        return
-      }
+      // RAKAM KISAYOLU YOK (kullanıcı kararı): dokuz tuş yirmi beş tipe
+      // yetmiyordu. Tip yazmanın hızlı yolu arama kutusu — orada Enter, görünen
+      // ilk rozeti seçiyor.
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
 
-      // Rakam tuşu = o sıradaki rozet. Rozetler tr-TR sırasında dizildiği için
-      // rakam da ekranda görünen sırayı izler.
-      const digit = Number(event.key)
-      if (!Number.isInteger(digit) || digit < 1 || digit > QUICK_KEY_COUNT) return
-      const option = options[digit - 1]
-      if (option) commitUsageType(option.value)
+      event.preventDefault()
+      const step = event.key === 'ArrowRight' ? 1 : -1
+      store.goToRoomDefinitionIndex(store.roomDefinitionIndex + step)
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-    // Dinleyici store'u HER TUŞTA yeniden okuyor; bağımlılığa yazılan tek şey
-    // kipin açık olup olmadığı ve rozet listesi.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, options])
+  }, [isActive])
 
   if (queue === null) return null
 
@@ -221,23 +238,13 @@ export function RoomDefinitionCard() {
           )}
         </p>
 
-        <div className="flex flex-wrap gap-1.5 p-4 pt-2.5">
-          {options.map((option, position) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => commitUsageType(option.value)}
-              className={roomDefinitionChipVariants()}
-            >
-              {position < QUICK_KEY_COUNT && (
-                <kbd className="rounded bg-surface-sunken px-1 text-[10px] text-ink-muted">
-                  {position + 1}
-                </kbd>
-              )}
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <RoomUsagePicker
+          query={query}
+          onQueryChange={setQuery}
+          visibleOptions={visibleOptions}
+          onPick={commitUsageType}
+          onDismiss={() => useArchitectureUiStore.getState().stopRoomDefinition()}
+        />
       </section>
     </div>
   )

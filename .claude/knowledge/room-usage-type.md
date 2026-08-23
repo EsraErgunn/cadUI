@@ -114,3 +114,28 @@ tanımlıysa da kamera oraya gitmeli.
 sağda ikinci bir tanımlama arayüzü demekti.
 
 Menü maddesi salt görüntülemede ve mimari dışı görünümlerde pasiftir.
+
+### Gözden geçirme turu, arama, odak payı (K146)
+
+Tanımsız mahal kalmadıysa menü maddesi PASİF OLMAZ; kip TÜM mahalleri gezer
+(gözden geçirme turu). ⚠️ Tur sıfırlama değil, hiçbir tip silinmez — bu yüzden
+onay penceresi de yok. Madde yalnız katta hiç mahal yokken pasif.
+
+⚠️ `advanceAfter` önce ileride TANIMSIZ durak arar, bulamazsa SIRADAKİ durağa
+geçer; kip yalnız SON durakta kapanır. "Yalnız tanımsız ara" hâli gözden geçirme
+turunda ilk düzeltmeden sonra kipi kapatıyordu.
+
+Rozetlerde arama var (`RoomUsagePicker`, `includesTr` ile Türkçe duyarsız).
+⚠️ Rozetlerde RAKAM KISAYOLU YOK: 1–9 vardı, kullanıcı kaldırttı — dokuz tuş
+yirmi beş tipe yetmiyordu. Bu adlarla yeni kod yazma (`QUICK_KEY_COUNT` silindi).
+⚠️ Kutu autoFocus ALMAZ: odak kutuya gitseydi ok tuşlarıyla durak gezinmesi
+çalışmazdı. ⚠️ Kutuda Escʼi kutunun kendisi işler: pencere dinleyicisi yazı
+alanlarını atlıyor.
+
+Kipten çıkış ÜÇ yolla: kartın X'i, Esc ve TUVALE SOL TIK
+(`scene/useRoomDefinitionExit.ts`). ⚠️ Orta ve sağ tuş çıkarmaz — biri kaydırma,
+öteki araçtan çıkma jesti.
+
+Odak payı bilerek cömert (`FOCUS_MARGIN_RATIO` 0,85 / asgari 150 cm): kullanıcı
+bulgusu "fazla yakın, nerede olduğumuzu anlamıyoruz" — mahalin bağlamı da
+görünmeli.

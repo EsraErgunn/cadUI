@@ -24,10 +24,16 @@ export type RoomDefinitionStop = {
  */
 const ROW_BAND_CM = 100
 
-/** Odaklanırken mahalin çevresinde bırakılan pay (kenar uzunluğunun oranı). */
-const FOCUS_MARGIN_RATIO = 0.35
+/**
+ * Odaklanırken mahalin çevresinde bırakılan pay (kenar uzunluğunun oranı).
+ *
+ * Bilerek CÖMERT: kullanıcı bulgusu "fazla yakın duruyor, nerede olduğumuzu
+ * anlamıyoruz". Mahal ekranı doldurunca komşu duvarlar kadraj dışında kalıyor
+ * ve plan tanınmaz oluyor — sorulan mahalin BAĞLAMI da görünmeli.
+ */
+const FOCUS_MARGIN_RATIO = 0.85
 /** Çok küçük mahalde oran hiçbir şey açmaz; asgari pay santim cinsinden. */
-const MIN_FOCUS_MARGIN_CM = 60
+const MIN_FOCUS_MARGIN_CM = 150
 
 /**
  * "Mahalleri Tanımla" kipinin gezeceği duraklar: aktif kattaki, kullanım tipi

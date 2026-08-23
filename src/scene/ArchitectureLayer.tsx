@@ -32,6 +32,7 @@ import { usePointSymbolLabelTool } from './usePointSymbolLabelTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRightClickReturnsToSelection } from './useRightClickReturnsToSelection'
+import { useRoomDefinitionExit } from './useRoomDefinitionExit'
 import { useSelectionTool } from './useSelectionTool'
 import { useTextSelectionTool } from './useTextSelectionTool'
 import { useTextTool } from './useTextTool'
@@ -309,6 +310,7 @@ function Beams() {
 function SelectionTool() {
   useSelectionTool()
   useRightClickReturnsToSelection()
+  useRoomDefinitionExit()
   return null
 }
 

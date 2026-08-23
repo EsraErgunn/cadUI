@@ -84,9 +84,8 @@ describe('RoomDefinitionCard', () => {
     startMode([UPPER_ROOM_ID, LOWER_ROOM_ID])
     render(<RoomDefinitionCard />)
 
-    // Erişilebilir ad rakam rozetini de taşıyor ("5 Mutfak"); sondan bağlanan
-    // kalıp "Salon (Açık Mutfak)" ile karışmasın diye.
-    await user.click(screen.getByRole('button', { name: /(^|\s)Mutfak$/ }))
+    // Sondan bağlanan kalıp: "Salon (Açık Mutfak)" ile karışmasın.
+    await user.click(screen.getByRole('button', { name: /Mutfak$/ }))
 
     expect(useCadStore.getState().rooms.find((room) => room.id === UPPER_ROOM_ID)?.usageType).toBe(
       'kitchen',
@@ -115,18 +114,16 @@ describe('RoomDefinitionCard', () => {
     expect(bounds?.maxYCm).toBeGreaterThan(400)
   })
 
-  it('rakam tuşu rozetin yerine geçer', async () => {
+  it('rakam tuşu HİÇBİR ŞEY yapmaz — kısayol kaldırıldı', async () => {
     const user = userEvent.setup()
     startMode([LOWER_ROOM_ID])
     render(<RoomDefinitionCard />)
 
-    // 1 = tr-TR sırasının ilk rozeti; hangi tip olduğu listeye bağlı, önemli
-    // olan bir tip YAZILMASI.
     await user.keyboard('1')
 
     expect(
       useCadStore.getState().rooms.find((room) => room.id === LOWER_ROOM_ID)?.usageType,
-    ).toBeDefined()
+    ).toBeUndefined()
   })
 
   it('Esc kipten çıkarır', async () => {
@@ -144,5 +141,78 @@ describe('RoomDefinitionCard', () => {
     render(<RoomDefinitionCard />)
 
     expect(screen.queryByRole('region', { name: 'Mahal tanımlama' })).not.toBeInTheDocument()
+  })
+})
+
+describe('RoomDefinitionCard — arama', () => {
+  it('yazarak süzer ve Türkçe karakteri yok sayar', async () => {
+    const user = userEvent.setup()
+    startMode([LOWER_ROOM_ID])
+    render(<RoomDefinitionCard />)
+
+    await user.type(screen.getByRole('searchbox', { name: 'Mahal tipi ara' }), 'camasir')
+
+    expect(screen.getByRole('button', { name: /Çamaşırlık/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Mutfak$/ })).not.toBeInTheDocument()
+  })
+
+  it('Enter görünen ilk rozeti yazar', async () => {
+    const user = userEvent.setup()
+    startMode([LOWER_ROOM_ID])
+    render(<RoomDefinitionCard />)
+
+    await user.type(screen.getByRole('searchbox', { name: 'Mahal tipi ara' }), 'camasir{Enter}')
+
+    expect(useCadStore.getState().rooms.find((room) => room.id === LOWER_ROOM_ID)?.usageType).toBe(
+      'laundry',
+    )
+  })
+
+  it('kutu doluyken Esc yalnız aramayı temizler, kipten çıkarmaz', async () => {
+    const user = userEvent.setup()
+    startMode([LOWER_ROOM_ID, UPPER_ROOM_ID])
+    render(<RoomDefinitionCard />)
+    const search = screen.getByRole('searchbox', { name: 'Mahal tipi ara' })
+
+    await user.type(search, 'mut{Escape}')
+
+    expect(search).toHaveValue('')
+    expect(useArchitectureUiStore.getState().roomDefinitionQueue).not.toBeNull()
+
+    // Kutu boşken ikinci Esc kipi kapatır — pencere dinleyicisi yazı alanını
+    // atladığı için bunu kutunun kendisi yapıyor.
+    await user.keyboard('{Escape}')
+    expect(useArchitectureUiStore.getState().roomDefinitionQueue).toBeNull()
+  })
+})
+
+describe('RoomDefinitionCard — gözden geçirme turu', () => {
+  it('hepsi tanımlıyken tip yazmak kipi KAPATMAZ, sıradaki durağa geçer', async () => {
+    const user = userEvent.setup()
+    seed([
+      { ...LOWER_ROOM, usageType: 'kitchen' },
+      { ...UPPER_ROOM, usageType: 'livingRoom' },
+    ])
+    startMode([UPPER_ROOM_ID, LOWER_ROOM_ID])
+    render(<RoomDefinitionCard />)
+
+    await user.click(screen.getByRole('button', { name: /Banyo$/ }))
+
+    expect(useArchitectureUiStore.getState().roomDefinitionQueue).not.toBeNull()
+    expect(useArchitectureUiStore.getState().roomDefinitionIndex).toBe(1)
+    expect(useCadStore.getState().rooms.find((room) => room.id === UPPER_ROOM_ID)?.usageType).toBe(
+      'bathroom',
+    )
+  })
+
+  it('son durakta tip yazılınca kip kapanır', async () => {
+    const user = userEvent.setup()
+    seed([{ ...LOWER_ROOM, usageType: 'kitchen' }])
+    startMode([LOWER_ROOM_ID])
+    render(<RoomDefinitionCard />)
+
+    await user.click(screen.getByRole('button', { name: /Banyo$/ }))
+
+    expect(useArchitectureUiStore.getState().roomDefinitionQueue).toBeNull()
   })
 })

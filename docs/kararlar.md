@@ -7289,3 +7289,56 @@ Nerede: `core/roomDefinition.ts`, `store/architectureUiStore.ts`,
 `ui/canvas/RoomDefinitionCard.tsx`, `ui/canvas/canvasBarVariants.ts`,
 `ui/MenuBar.tsx`, `ui/menu/menuDefinitions.ts`, `scene/Room.tsx`,
 `scene/sceneTheme.ts`, `pages/EditorPage.tsx`.
+
+### K146 — Mahal tanımlama kipi: gözden geçirme turu, arama, daha geniş odak
+
+Kullanıcının kip üstünde üç bulgusu.
+
+**1. Hepsi tanımlıyken menü maddesi ne yapmalı?** Kullanıcı "ya pasif olsun ya
+yanında yeniden tanımla tuşu olsun" dedi ve uyarı gerekip gerekmediğinden emin
+değildi. Seçilen yol: madde AKTİF kalır, tanımsız mahal yoksa kip TÜM mahalleri
+gezer — gözden geçirme turu. Böylece ölü tıklama da olmaz, ikinci bir düğme de
+gerekmez.
+
+⚠️ Tur SIFIRLAMA DEĞİL: hiçbir tip silinmiyor, kullanıcı gezip isterse üstüne
+yazıyor. **Bu yüzden onay penceresi de YOK** — yıkıcı olmayan bir işlemin
+uyarısı, kullanıcının her seferinde geçtiği gereksiz bir kapıdır (yanlış yazılan
+tip zaten Ctrl+Z ile döner). "Hepsini sil, baştan tanımla" seçeneği bilerek
+yazılmadı: kimse tipleri kaybetmek istemiyor, istediği şey yeniden GEZMEK.
+
+⚠️ Madde yalnız katta HİÇ mahal yokken pasif (`floorRoomCount === 0`).
+"Hepsi tanımlı" pasiflik sebebi değil.
+
+⚠️ İlerleme mantığı bu yüzden değişti: `advanceAfter` önce ileride TANIMSIZ
+durak arar, bulamazsa SIRADAKİ durağa geçer ve yalnız SON durakta kipi kapatır.
+Eski hâli gözden geçirme turunda ilk düzeltmeden sonra kipi kapatıyordu
+(tarayıcıda yakalandı).
+
+**2. Rozetlerde arama — ve rakam kısayollarının KALDIRILMASI.** Yirmi beş tip arasında gözle aramak zorlaşıyordu.
+Kutu Türkçe duyarsız (`includesTr`): "saft" → Şaft, "camasir" → Çamaşırlık.
+⚠️ Rozetlerdeki 1–9 rakam kısayolları KALDIRILDI (kullanıcı kararı: "hepsine
+yetmiyor"). Tek basışlık tuş dokuz taneydi, liste yirmi beş — kısayol tiplerin
+ancak üçte birine yetiyordu ve "hangilerinde var?" diye bakılan ikinci bir kural
+üretiyordu. Hızlı yol artık yalnız arama kutusu. ⚠️ Kutu yine de ODAK ALMIYOR
+(autoFocus yok): kip açılır açılmaz odak kutuya gitseydi ok tuşlarıyla duraklar
+arasında gezinmek çalışmazdı. ⚠️ Kutuda Esc önce ARAMAYI temizler, boşken kipi
+kapatır — ve bunu kutunun kendisi yapar, çünkü pencere dinleyicisi yazı
+alanlarını atlıyor (`isTypingTarget`). Enter görünen ilk rozeti yazar.
+
+**3. Kamera fazla yakındı.** `FOCUS_MARGIN_RATIO` 0,35 → 0,85 ve asgari pay
+60 → 150 cm. Mahal ekranı doldurunca komşu duvarlar kadraj dışında kalıyor ve
+kullanıcı planda nerede olduğunu kaybediyordu; sorulan mahalin BAĞLAMI da
+görünmeli.
+
+**4. Kipten çıkış yolları.** Kart X'i ve Esc yetmiyordu; kullanıcı "sahneye
+tıklayınca da çıksın" dedi — tuvale dönmek, işi bıraktığının en doğal işareti
+(`scene/useRoomDefinitionExit.ts`). ⚠️ Yalnız SOL tuş: orta tuş kaydırma, sağ tık
+araçtan çıkma jesti (K84); kaydırmak için tuvale basınca kipten düşmek kipi
+kullanılamaz kılardı. Hook <Canvas> içinde mount ediliyor, köprü store — kart
+DOM tarafında ve ui/ ↔ scene/ importu yasak.
+
+Kart 200 satırı aştığı için arama + rozetler `ui/canvas/RoomUsagePicker.tsx`'e
+ayrıldı: kart durakları ve gezinmeyi, picker tip seçmeyi biliyor.
+
+Nerede: `core/roomDefinition.ts`, `ui/canvas/RoomDefinitionCard.tsx`,
+`ui/canvas/RoomUsagePicker.tsx`, `ui/MenuBar.tsx`.
