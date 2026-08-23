@@ -1,7 +1,7 @@
 import { Line, Text } from '@react-three/drei'
 import { Fragment } from 'react'
 
-import { ARCHITECTURE_COLORS } from './architectureTheme'
+import { POINT_SYMBOL_COLORS } from './architectureTheme'
 import { HANDLE_ELEVATION_CM, RENDER_ORDER } from './layers'
 import { useCameraZoom } from './useCameraZoom'
 import { planToThree, type PlanPoint } from '../core/coords'
@@ -45,6 +45,9 @@ function PointSymbolNameLabel({ symbol, pose, zoom }: PointSymbolNameLabelProps)
     ? { x: pose.position.x + draggingOffset.x, y: pose.position.y + draggingOffset.y }
     : getPointSymbolLabelAnchorCm(symbol, pose, zoom)
   const text = getPointSymbolNameLabel(symbol.type)
+  // Etiket cihazın KENDİ hue'sunun koyu tonu: yazı ile şekil aynı aileden
+  // okunsun, göz ikisini kendiliğinden eşleştirsin.
+  const labelColor = POINT_SYMBOL_COLORS[symbol.type].label
 
   // Kılavuz çizimin MERKEZİNDEN çıkar (çapa noktasından değil): çekme çizgili
   // cihazda çapa duvarda, işaret 45 cm dışarıda — çizgi duvardan çıksaydı
@@ -67,7 +70,7 @@ function PointSymbolNameLabel({ symbol, pose, zoom }: PointSymbolNameLabelProps)
           planToThree(center, HANDLE_ELEVATION_CM),
           planToThree(leaderEnd, HANDLE_ELEVATION_CM),
         ]}
-        color={ARCHITECTURE_COLORS.areaObjectStroke}
+        color={labelColor}
         lineWidth={LEADER_WIDTH_PX}
         dashed
         dashSize={LEADER_DASH_SIZE_CM}
@@ -87,7 +90,7 @@ function PointSymbolNameLabel({ symbol, pose, zoom }: PointSymbolNameLabelProps)
         <Text
           font={FONT_URL}
           fontSize={POINT_SYMBOL_LABEL_SIZE_PX}
-          color={ARCHITECTURE_COLORS.areaObjectStroke}
+          color={labelColor}
           anchorX="center"
           anchorY="middle"
           renderOrder={RENDER_ORDER.label}

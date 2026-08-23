@@ -17,11 +17,11 @@ import { triangulatePolygon } from '../core/roomFill'
 export type BeamTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
 const STROKE_COLORS: Record<BeamTone, string> = {
-  normal: ARCHITECTURE_COLORS.wall,
+  normal: ARCHITECTURE_COLORS.beam,
   hovered: SCENE_COLORS.wallHover,
   selected: SCENE_COLORS.selection,
   // Önizleme AYNI renk, yalnız saydam — alan nesnesiyle aynı kural.
-  preview: ARCHITECTURE_COLORS.wall,
+  preview: ARCHITECTURE_COLORS.beam,
 }
 
 const FILL_COLORS: Record<BeamTone, string> = {

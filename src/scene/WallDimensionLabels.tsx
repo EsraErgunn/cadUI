@@ -109,7 +109,7 @@ function DimensionText({
         color={
           annotation.kind === 'opening'
             ? ARCHITECTURE_COLORS.openingDimension
-            : ARCHITECTURE_COLORS.wall
+            : ARCHITECTURE_COLORS.wallDimension
         }
         anchorX="center"
         anchorY="middle"

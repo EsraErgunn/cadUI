@@ -15,9 +15,15 @@ import { triangulatePolygon } from '../core/roomFill'
 
 export type AreaObjectTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
+/**
+ * ⚠️ Hover artık NESNENİN kendi ailesinin koyu tonu (kullanıcı isteği).
+ * Eskiden duvarın hover grisiydi (SCENE_COLORS.wallHover) ve nesne rengi
+ * grileşince ikisi birbirine yaklaştı — imleç üstündeyken hiçbir şey değişmiyor
+ * gibi okunuyordu.
+ */
 const STROKE_COLORS: Record<AreaObjectTone, string> = {
   normal: ARCHITECTURE_COLORS.areaObjectStroke,
-  hovered: SCENE_COLORS.wallHover,
+  hovered: ARCHITECTURE_COLORS.areaObjectHover,
   selected: SCENE_COLORS.selection,
   // Önizleme AYNI renk — yalnız SAYDAM: kullanıcı yerleştirmeden önce
   // "gerçek hâlinin bir tık soluğu"nu görsün, farklı bir renk değil.
@@ -29,7 +35,7 @@ const PREVIEW_OPACITY = 0.45
 
 const FILL_COLORS: Record<AreaObjectTone, string> = {
   normal: ARCHITECTURE_COLORS.areaObjectFill,
-  hovered: SCENE_COLORS.wallHover,
+  hovered: ARCHITECTURE_COLORS.areaObjectHover,
   selected: SCENE_COLORS.selection,
   preview: ARCHITECTURE_COLORS.areaObjectFill,
 }

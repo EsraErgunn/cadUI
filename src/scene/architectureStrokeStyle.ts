@@ -40,22 +40,27 @@ export function getArchitectureStrokeWidthPx(widthCm: number, zoom: number): num
 /**
  * Alan nesnesi: gövde (dış hat) KALIN, ayrıntı (basamak/ok/çember) İNCE.
  *
+ * İkisi de İNCELTİLDİ (kullanıcı isteği): duvar koyulaşınca (K151) kolon/şaft/
+ * merdiven konturu planda duvarla yarışır oldu — nesne yapı değil, yapının
+ * içindeki bir eleman.
+ *
  * Kalınlıklar duvardan TÜRETİLİR ki varsayılan duvar değişince oran korunsun.
  * Gerçek nesne ve tesisat görünümündeki hayaleti AYNI sabitleri okur; iki
  * dosyada ayrı ayrı yazıldıklarında biri değiştirilip öteki unutuluyordu.
  */
 export const AREA_OBJECT_STROKE_WIDTHS_CM: Record<AreaObjectStrokeRole, number> = {
-  body: DEFAULT_WALL_THICKNESS_CM / 4,
-  detail: DEFAULT_WALL_THICKNESS_CM / 8,
+  body: DEFAULT_WALL_THICKNESS_CM / 6,
+  detail: DEFAULT_WALL_THICKNESS_CM / 11,
 }
 
 /**
  * Kiriş konturu alan nesnesinin gövdesinden İNCE (kullanıcı isteği: "bir tık
- * inceltilmeli"). Eskiden ikisi de duvarın dörtte biriydi ve kiriş planda
- * gereğinden ağır duruyordu — kesitin dışında kalan bir eleman, üstünden geçtiği
+ * inceltilmeli"). Alan nesnesi inceltilince (K152) kiriş de aynı oranda inceltildi:
+ * ikisi eşitlenirse bu kural sessizce kaybolurdu. Eskiden ikisi de duvarın
+ * dörtte biriydi ve kiriş planda gereğinden ağır duruyordu — kesitin dışında kalan bir eleman, üstünden geçtiği
  * duvarı bastırmamalı.
  */
-export const BEAM_STROKE_WIDTH_CM = DEFAULT_WALL_THICKNESS_CM / 6
+export const BEAM_STROKE_WIDTH_CM = DEFAULT_WALL_THICKNESS_CM / 8
 
 /**
  * Kesik çizginin boy/boşluk ölçüleri (cm). Duvar kalınlığına oranlanıyor: sabit
