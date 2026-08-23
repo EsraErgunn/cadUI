@@ -103,6 +103,46 @@ describe('buildIsometricSvg', () => {
     for (const transform of transforms) expect(transform).not.toContain('rotate(')
   })
 
+
+  it('sembol KÜÇÜLTÜLÜR: kâğıtta tıklanmıyor, yalnız okunuyor', () => {
+    const transforms = [...build()!.markup.matchAll(/<g transform="([^"]+)"/g)].map(
+      (match) => match[1],
+    )
+
+    // Ekrandaki boyutlarıyla basılınca semboller şemayı kaplıyor ve boruların
+    // arasında yazıya yer kalmıyordu (kullanıcı bildirimi, K157).
+    expect(transforms.length).toBeGreaterThan(0)
+    for (const transform of transforms) {
+      const scale = Number(/scale\(([-\d.]+)\)/.exec(transform)?.[1])
+      expect(scale).toBeGreaterThan(0)
+      expect(scale).toBeLessThan(1)
+    }
+  })
+
+  it('küçültme sembolü borudan KOPARMAZ: çapa da aynı çarpanı alır', () => {
+    // Çapa kaydırması `element.scale` ile çarpılmış hâlde geliyor. Yalnız ölçek
+    // küçültülseydi sembol küçülür, kaydırma eski boyuna göre kalır ve bağlantı
+    // noktası borudan kayardı. İkisi aynı çarpanı alınca port yerinde kalıyor.
+    //
+    // Ölçülebilir hâli: öteleme = bağlantı noktası − çapa×ölçek. Çapa
+    // `element.scale` ile DOĞRU orantılı olduğu için, ölçek 1 → 2 → 3 diye
+    // artarken öteleme EŞİT aralıklarla kaymalı. Kaydırma ile ölçek farklı
+    // çarpanlar alsaydı bu doğrusallık bozulur, sembol boruyu kaçırırdı.
+    const firstTranslate = (scale: number): number => {
+      const markup = build({
+        installationElements: SAMPLE.installationElements.map((element) => ({
+          ...element,
+          scale,
+        })),
+      })!.markup
+      const transform = /<g transform="([^"]+)"/.exec(markup)?.[1] ?? ''
+      return Number(/translate\(([-\d.]+) /.exec(transform)?.[1])
+    }
+
+    const [one, two, three] = [1, 2, 3].map(firstTranslate)
+    expect(Number.isFinite(one)).toBe(true)
+    expect(two - one).toBeCloseTo(three - two, 6)
+  })
   it('tesisatı olmayan projede sayfa ÜRETMEZ', () => {
     // Boş bir izometrik sayfa okuyucuya bir şey söylemez; kat planında durum
     // farklı, orada boş sayfa "bu kat boş" bilgisini taşıyor.

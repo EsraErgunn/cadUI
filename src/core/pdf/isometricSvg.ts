@@ -25,6 +25,22 @@ const LEADER_WIDTH_RATIO = 0.0008
 /** Çevreye bırakılan pay; etiketler kutunun dışına taşmasın. */
 const MARGIN_RATIO = 0.06
 
+/**
+ * Eleman sembollerinin KÂĞITTAKİ ölçek çarpanı (K157).
+ *
+ * Ekrandaki boyutlarıyla basıldıklarında semboller şemanın büyük bölümünü
+ * kaplıyor, boruların arasında yazıya yer bırakmıyordu (kullanıcı bildirimi).
+ * Ekranda o boyut doğru: sembol tıklanabilir bir hedef ve zoom'la büyüyor;
+ * kâğıtta tıklanmıyor, yalnız okunuyor.
+ *
+ * Çarpan çizgi KALINLIĞINI da inceltiyor — ölçek `stroke-width`e de uygulanır,
+ * ayrıca bir incelme ayarı gerekmedi.
+ *
+ * ⚠️ Çapa kaydırmasına da uygulanmak ZORUNDA, yoksa sembol borudan kopar
+ * (bkz. `toBillboardTransform`).
+ */
+const PAPER_SYMBOL_SCALE = 0.55
+
 
 export type IsometricSvgInput = IsometricSceneInput & {
   /** Kâğıdın izdüşümü; ekranın kamera açısından BAĞIMSIZ (K155). */
@@ -171,6 +187,13 @@ export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | unde
  * Çapa kaydırması ÖLÇEKTEN ÖNCE ve 1:1 cm uygulanır (ekranla aynı sıra):
  * sembolün boruya değdiği nokta tam `position`a otursun diye.
  *
+ * ⚠️ `PAPER_SYMBOL_SCALE` hem ölçeğe hem ÇAPA KAYDIRMASINA uygulanır ve ikisi
+ * birlikte olmak ZORUNDA. Kaydırma zaten `element.scale` ile çarpılmış hâlde
+ * geliyor (`getElementIsometricAnchor`); yalnız ölçek küçültülseydi sembol
+ * küçülür ama kaydırma eski boyuna göre kalır, bağlantı noktası borudan
+ * KOPARDI. İkisi aynı çarpanı alınca port yine tam `at`e oturuyor — küçültme
+ * bağlantıyı hiç bozmuyor (teste bağlı).
+ *
  * y bir kez çevriliyor: izdüşüm düzleminde +y YUKARI, çıktı svg'sinde AŞAĞI.
  */
 function toBillboardTransform(
@@ -179,9 +202,12 @@ function toBillboardTransform(
   scale: number,
   asset: PlanSymbolAsset,
 ): string {
+  const offsetX = anchorOffsetCm.x * PAPER_SYMBOL_SCALE
+  const offsetY = anchorOffsetCm.y * PAPER_SYMBOL_SCALE
+
   return (
-    `translate(${n(at.x - anchorOffsetCm.x)} ${n(-(at.y - anchorOffsetCm.y))}) ` +
-    `scale(${n(scale)}) ` +
+    `translate(${n(at.x - offsetX)} ${n(-(at.y - offsetY))}) ` +
+    `scale(${n(scale * PAPER_SYMBOL_SCALE)}) ` +
     `translate(${n(-asset.originX)} ${n(-asset.originY)})`
   )
 }

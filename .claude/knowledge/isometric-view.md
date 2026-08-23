@@ -111,6 +111,39 @@ eşitlikte ANAHTARA bağlı — yoksa aynı proje her basımda farklı çıkar.
 
 Ölçüm (iki katlı tesisat, 6 armatür + 2 sayaç + 2 kombi): 23 → 16 yazı satırı,
 10 → 0 kılavuz çizgisi.
+
+### Sonra eklenenler (K157)
+
+**Servis kutusu** K156da susturulmuştu, geri açıldı: gazın binaya girdiği tek
+nokta, armatürlerle aynı kefeye konamaz. ⚠️ Etiketi TEK SATIR kalıyor —
+referanstaki "S200 / 21 mbar / Yandan Çıkış" satırlarının modelde karşılığı YOK
+(servis kutusunun hiç özellik alanı yok), uydurulmadı.
+
+**Sembol boyu** kâğıtta `PAPER_SYMBOL_SCALE = 0.55`. Ekran boyutuyla basılınca
+semboller şemayı kaplıyor, boruların arasında yazıya yer bırakmıyordu; ekranda
+o boyut doğru (tıklanabilir hedef, zoomla büyüyor), kâğıtta yalnız okunuyor.
+Ayrı bir incelme ayarı gerekmedi: ölçek `stroke-width`e de uygulanıyor.
+
+⚠️ **Çarpan ÇAPA KAYDIRMASINA da uygulanmak zorunda.** Kaydırma zaten
+`element.scale` ile çarpılmış geliyor; yalnız ölçek küçültülseydi sembol
+borudan KOPARDI. Teste bağlı: ölçek 1 → 2 → 3 giderken öteleme eşit
+aralıklarla kaymalı.
+
+### Denenip GERİ ALINAN: segment boyları (K157)
+
+Referans paftadaki `L: 1 m` / `h: 0,3 m` etiketleri istendiği için her
+segmentin kendi uzunluğu kendi yanına basıldı. Gerçek çıktıda kullanıcı geri
+aldırdı: "inanılmaz kalabalık göstermiş".
+
+⚠️ Sebep ÖLÇEK: referansta bir avuç segment var, gerçek bir binada gövde borusu
+onlarca parçaya bölünüyor ve her parçaya bir yazı düşünce K156nın seyreltmesi
+boşa gidiyor — `isConsumptionLine`i doğuran kararla aynı gerekçe.
+
+⚠️ `getIsometricSegmentLengthLabel`, `VERTICAL_SEGMENT_TOLERANCE_CM`,
+`MIN_LABELLED_SEGMENT_CM` ve `LabelBox.direction` SİLİNDİ — bu adlarla yeni kod
+yazma. Yeniden istenirse eşik/seyreltme kuralıyla tasarlanmalı, koşulsuz
+basılmamalı. Boru uzunluğu paftada yine var: tüketim künyesi hattın TOPLAM
+boyunu veriyor.
 **Üç eksi tesadüf değil.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y
 AŞAĞI (hem kotta hem plan y'sinde, EaselJS düzeni), z güneye. Bizim three
 uzayımız sağ elli. Satırlar olduğu gibi alınırsa kamera yerin ALTINDA kalır:

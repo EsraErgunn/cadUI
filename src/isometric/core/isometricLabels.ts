@@ -146,7 +146,18 @@ function getApplianceLabelLines(
  * (orada etiket seçilebilir/sürüklenebilir ve gezinmeye yarıyor).
  */
 export function hasIsometricElementLabel(element: InstallationElement): boolean {
-  return element.type === 'gasMeter' || isBurnerAppliance(element.type)
+  return (
+    element.type === 'gasMeter' ||
+    // SERVİS KUTUSU istisna (K157): gazın binaya girdiği tek nokta, referans
+    // paftada künyesi var ve armatürlerle aynı kefeye konamaz.
+    //
+    // ⚠️ Etiketi tek satır ("Servis Kutusu") kalıyor. Referanstaki "S200 /
+    // 21 mbar / Yandan Çıkış" satırlarının modelde KARŞILIĞI YOK — servis
+    // kutusunun hiç özellik alanı yok (`elementLabel.ts` boş döner). Alanlar
+    // eklenene kadar bu satırlar uydurulmaz.
+    element.type === 'serviceBox' ||
+    isBurnerAppliance(element.type)
+  )
 }
 
 /**

@@ -7797,3 +7797,51 @@ Sonuç aynı fixture'da: **23 → 16 yazı satırı, 10 → 0 kılavuz çizgisi.
 Kutusu S200 / 21 mbar / Yandan Çıkış"); kullanıcıya istisna tutulması seçenek
 olarak sunuldu ve BİLEREK seçilmedi. Geri istenirse `hasIsometricElementLabel`
 tek satırla açılır.
+
+
+### K157 — İzometrik paftada servis kutusu ve sembol boyu
+
+K156'nın seyreltmesinin ardından kullanıcının istekleri.
+
+**1) Servis kutusu künyesi GERİ GELDİ.** K156'da künyesizlerle birlikte
+susturulmuştu; gazın binaya girdiği tek nokta ve referans paftada künyesi var,
+armatürlerle aynı kefeye konamaz.
+
+⚠️ Etiketi TEK SATIR ("Servis Kutusu") kalıyor. Referanstaki "S200 / 21 mbar /
+Yandan Çıkış" satırlarının modelde KARŞILIĞI YOK — servis kutusunun hiç özellik
+alanı yok (`elementLabel.ts` onun için boş nesne döner). Alanlar eklenene kadar
+bu satırlar UYDURULMAZ.
+
+**2) Semboller kâğıtta KÜÇÜLTÜLDÜ** (`PAPER_SYMBOL_SCALE = 0.55`). Ekrandaki
+boyutlarıyla basılınca şemanın büyük bölümünü kaplıyor, boruların arasında
+yazıya yer bırakmıyorlardı. Ekranda o boyut doğru: sembol tıklanabilir bir hedef
+ve zoom'la büyüyor; kâğıtta tıklanmıyor, yalnız okunuyor.
+
+⚠️ Ayrı bir "incelme" ayarı GEREKMEDİ: ölçek `stroke-width`e de uygulanıyor,
+sembol küçülürken çizgisi de inceliyor.
+
+⚠️ **Çarpan çapa kaydırmasına da uygulanmak ZORUNDA.** Kaydırma zaten
+`element.scale` ile çarpılmış geliyor (`getElementIsometricAnchor`); yalnız
+ölçek küçültülseydi sembol küçülür ama kaydırma eski boyuna göre kalır ve
+bağlantı noktası borudan KOPARDI. İkisi aynı çarpanı alınca port yine tam
+yerine oturuyor. Teste bağlandı: ölçek 1 → 2 → 3 giderken öteleme EŞİT
+aralıklarla kaymalı; iki çarpan ayrışırsa bu doğrusallık bozulur.
+
+**3) SEGMENT BOYLARI yazıldı ve GERİ ALINDI.** Referans paftadaki `L: 1 m` /
+`h: 0,3 m` etiketleri istendiği için her segmentin kendi uzunluğu kendi yanına
+basıldı (düşeyler `h:`, kalanı `L:`). Kullanıcı gerçek çıktıda gördü:
+"inanılmaz kalabalık göstermiş".
+
+⚠️ Sebep ÖLÇEK: referans paftada bir avuç segment var, gerçek bir binada gövde
+borusu onlarca parçaya bölünüyor ve her parçaya bir yazı düşünce K156'nın
+seyreltmesi boşa gidiyor. Aynı gerekçe `isConsumptionLine`i doğuran karardaki
+gerekçenin aynısı — orada da her hat parçasına boy/çap yazmak "rakam bulutu"
+yapıyordu.
+
+⚠️ `getIsometricSegmentLengthLabel`, `VERTICAL_SEGMENT_TOLERANCE_CM`,
+`MIN_LABELLED_SEGMENT_CM` ve `LabelBox.direction` SİLİNDİ — bu adlarla yeni kod
+yazma. Segment boyu yeniden istenirse eşik/seyreltme kuralıyla birlikte
+tasarlanmalı, koşulsuz basılmamalı.
+
+Boru uzunluğu paftada YİNE VAR: tüketim künyesindeki `(3) / 4,74 m / DN25`
+hattın toplam boyunu veriyor.
