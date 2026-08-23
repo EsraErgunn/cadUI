@@ -68,18 +68,44 @@ describe('buildPlanSvg', () => {
   it('viewBox çizimi tam sarar ve duvar KALINLIĞINI da kapsar', () => {
     const { markup, bounds } = build()
 
-    // Duvar ekseni 0..400 x 0..300; kapsül her yöne yarım kalınlık (10) taşıyor.
-    // Yalnız eksene bakılsaydı duvarın dış yüzü sayfa kenarında kırpılırdı.
-    expect(bounds).toEqual({ minX: -10, minY: -10, maxX: 410, maxY: 310 })
+    // Duvar ekseni 0..400 x 0..300; kapsül her yöne yarım kalınlık (10) VE
+    // dış konturun kalınlığı (2) kadar taşıyor. Yalnız eksene bakılsaydı
+    // duvarın dış yüzü sayfa kenarında kırpılırdı.
+    expect(bounds).toEqual({ minX: -12, minY: -12, maxX: 412, maxY: 312 })
     // Çevrilmiş uzayda üst kenar y = -maxY.
-    expect(markup).toContain('viewBox="-10 -310 420 320"')
+    expect(markup).toContain('viewBox="-12 -312 424 324"')
   })
 
-  it('oda dolgusu duvarlardan ÖNCE gelir: duvarın üstünü örtmesin', () => {
+  it('duvar İÇİ BOŞ: kontur geçişi boşluk geçişinden ÖNCE ve daha kalın', () => {
+    const { markup } = build()
+    const strokes = [...markup.matchAll(/<line[^>]*stroke="(#[0-9a-f]{6})"[^>]*stroke-width="(\d+)"/g)]
+
+    // Dört duvar iki kez geçiyor: önce hepsi kontur renginde kalın, SONRA hepsi
+    // tam kalınlıkta boşluk renginde. Duvar duvar konturlansaydı kapsüller
+    // kavşakta üst üste biner ve her birinin konturu ötekinin içinden geçerdi.
+    expect(strokes).toHaveLength(8)
+    const outlinePass = strokes.slice(0, 4)
+    const voidPass = strokes.slice(4)
+
+    for (const [, color, width] of outlinePass) {
+      expect(color).not.toBe('#ffffff')
+      // Duvar kalınlığı 20; kontur her yöne 2 taşıyor.
+      expect(width).toBe('24')
+    }
+    for (const [, color, width] of voidPass) {
+      expect(color).toBe('#ffffff')
+      expect(width).toBe('20')
+    }
+  })
+
+  it('oda DOLGUSU basılmaz (K154), yalnız adı ve alanı yazılır', () => {
     const rooms: Room[] = [{ id: 20, wallIds: [10, 11, 12, 13], usageType: 'livingRoom' }]
     const { markup } = build({ rooms })
 
-    expect(markup.indexOf('<polygon')).toBeLessThan(markup.indexOf('<line'))
+    // Pafta tesisat odaklı: dolu hiçbir mimari yüzey yok. Odalı ve odasız
+    // çizimin poligon sayısı aynı kalmalı — fark yalnız yazılarda.
+    expect(markup).not.toContain('<polygon')
+    expect(markup).toContain('>Salon<')
   })
 
   it('oda adı KULLANIM TİPİNDEN türer, alanıyla birlikte yazılır', () => {
@@ -107,6 +133,19 @@ describe('buildPlanSvg', () => {
 
     expect(markup).toContain('fill="#ffffff"')
     expect(markup.indexOf('<line')).toBeLessThan(markup.lastIndexOf('<polygon'))
+  })
+
+  it('açıklığın beyazı duvar YÜZ ÇİZGİSİNİ de siler', () => {
+    const openings: Opening[] = [
+      { id: 30, wallId: 10, offsetCm: 200, widthCm: 90, type: 'window' },
+    ]
+    const { markup } = build({ openings })
+
+    // Poligon tam duvar kalınlığında; olduğu gibi basılsaydı duvarın iki yüz
+    // çizgisi açıklığın önünden kesintisiz geçer, delik okunmazdı. Aynı renkte
+    // kontur poligonu her yöne yarım genişletiyor — kontur kalınlığının İKİ
+    // katı verildiği için taşma tam yüz çizgisi kadar.
+    expect(markup).toMatch(/<polygon[^>]*fill="#ffffff"[^>]*stroke="#ffffff" stroke-width="4"/)
   })
 
   it('BAŞKA kattaki açıklık çizilmez', () => {

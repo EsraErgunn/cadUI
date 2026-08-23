@@ -1,11 +1,9 @@
-import { svgText, SVG_COLORS } from './svgPrimitives'
-import { getCornerAngleAnnotations } from '../cornerAngles'
+import { svgText, PLAN_COLORS } from './svgPrimitives'
 import type { Id, Opening, Point, Wall } from '../model'
 import { getWallDimensionAnnotations } from '../wallDimensions'
 
-/** Ölçü ve açı yazılarının PLAN santimi cinsinden yüksekliği. */
+/** Ölçü yazısının PLAN santimi cinsinden yüksekliği. */
 const DIMENSION_HEIGHT_CM = 14
-const ANGLE_HEIGHT_CM = 12
 
 /**
  * Yazının duvar yüzünden uzaklığı (cm). Ekranda bu boşluk `px / zoom` ile
@@ -13,7 +11,6 @@ const ANGLE_HEIGHT_CM = 12
  * yoksa 1:50 ile 1:200 çıktısında yazı duvara farklı uzaklıkta dururdu.
  */
 const DIMENSION_GAP_CM = 12
-const ANGLE_OFFSET_CM = 28
 
 /** Metre cinsinden, iki ondalık: paftada okunan birim metredir. */
 function formatMetres(lengthCm: number): string {
@@ -29,11 +26,15 @@ export type PlanAnnotationsInput = {
 }
 
 /**
- * Duvar/açıklık ölçüleri ve köşe açıları.
+ * Duvar ve açıklık ölçüleri.
  *
- * Ekranda bu iki katman ayrı ayrı açılıp kapanabiliyor (Görünüm menüsü); kâğıtta
- * İKİSİ DE basılır — pafta ölçüsüz teslim edilmez, ekranda kapalı olması yalnız
- * çizerken kalabalık yapmasın diyedir.
+ * Ekranda ölçü katmanı açılıp kapanabiliyor (Görünüm menüsü); kâğıtta HER ZAMAN
+ * basılır — pafta ölçüsüz teslim edilmez, ekranda kapalı olması yalnız çizerken
+ * kalabalık yapmasın diyedir.
+ *
+ * ⚠️ KÖŞE AÇILARI basılmıyor (K154). Pafta tesisat odaklı: dik köşede "90°"
+ * yazmak mimari bir ayrıntı ve tesisatçıya bir şey söylemiyordu, plandaki
+ * yazı kalabalığını artırıyordu. Ekranda duruyorlar.
  */
 export function buildPlanAnnotationsSvg(input: PlanAnnotationsInput): string[] {
   const { points, walls, openings, floorId, fontFamily } = input
@@ -45,26 +46,12 @@ export function buildPlanAnnotationsSvg(input: PlanAnnotationsInput): string[] {
     isOpeningVisible: true,
   })
 
-  const angles = getCornerAngleAnnotations(walls, points, {
-    activeFloorId: floorId,
-    offsetCm: ANGLE_OFFSET_CM,
-  })
-
-  return [
-    ...dimensions.map((dimension) =>
-      svgText(dimension.position, formatMetres(dimension.lengthCm), {
-        fontFamily,
-        sizeCm: DIMENSION_HEIGHT_CM,
-        color: SVG_COLORS.annotation,
-        angleDeg: dimension.angleDeg,
-      }),
-    ),
-    ...angles.map((angle) =>
-      svgText(angle.position, `${Math.round(angle.angleDeg)}°`, {
-        fontFamily,
-        sizeCm: ANGLE_HEIGHT_CM,
-        color: SVG_COLORS.annotation,
-      }),
-    ),
-  ]
+  return dimensions.map((dimension) =>
+    svgText(dimension.position, formatMetres(dimension.lengthCm), {
+      fontFamily,
+      sizeCm: DIMENSION_HEIGHT_CM,
+      color: PLAN_COLORS.annotation,
+      angleDeg: dimension.angleDeg,
+    }),
+  )
 }

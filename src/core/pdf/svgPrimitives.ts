@@ -4,39 +4,70 @@ import type { PlanPoint } from '../coords'
  * Baskı paleti. Pafta bir TESİSAT çıktısıdır: gaz hattı ve armatürler konu,
  * mimari bağlamdır — ama bağlam OKUNMALI, silinmemeli.
  *
- * ⚠️ İki tur ayar gerekti. Önce duvarlar neredeyse siyahtı (#1f2933) ve
- * üstündeki boruyu yutuyordu. Sonra tesisat hayaletinin tonuna (#94a3b8)
- * çekilince fazla soluk kaldı VE duvara oturan mimari semboller (menfez, pano)
- * duvarla aynı renge düşüp GÖRÜNMEZ oldu. Şimdiki değerler ikisinin ortası:
- * duvar okunur bir gri, sembol ondan belirgin biçimde koyu.
+ * ⚠️ KAPSAM: burası artık görünüş, izometri, vaziyet ve oturum paftalarının
+ * paleti. Kat planı K154'ten beri `PLAN_COLORS`u kullanıyor; buradaki bir
+ * değeri değiştirmek kat planını ETKİLEMEZ, öteki dört paftayı birden etkiler.
+ *
+ * ⚠️ Ton seçimi iki tur ayar istedi. Önce duvarlar neredeyse siyahtı (#1f2933)
+ * ve üstündeki boruyu yutuyordu; sonra tesisat hayaletinin tonuna (#94a3b8)
+ * çekilince fazla soluk kaldı. Şimdiki değer ikisinin ortası.
  */
 export const SVG_COLORS = {
   /** Mimari kütle. Boruyu yutmayacak kadar açık, bağlam olacak kadar okunur. */
   ink: '#6b7280',
-  /** Oda dolgusu: yalnız "burası kapalı hacim" desin. Neredeyse beyaz. */
-  roomFill: '#f7f9fb',
-  openingFill: '#ffffff',
-  /**
-   * Duvara oturan mimari semboller (menfez, pano, aydınlatma…). Duvardan KOYU
-   * olmak zorunda: aynı tonda olsalar duvarın üstünde kaybolurlar.
-   */
-  symbol: '#334155',
   /** Ölçü ve açı yazıları. */
   annotation: '#7c8899',
-  /** Oda adı/alanı, serbest metin ve tesisat eleman etiketleri. */
+  /** Etiket ve ad yazıları. */
   label: '#475569',
   /** Kiriş ve alan nesnesi konturu. */
   object: '#94a3b8',
   /** Etiketi nesnesine bağlayan kesikli kılavuz çizgisi. */
   leader: '#94a3b8',
-  /** Kolon gibi DOLU çizilen yapı elemanları. */
-  objectFill: '#c9d1db',
   /**
    * Servis kutusu — vaziyet planında gazın binaya GİRDİĞİ nokta. Paletteki tek
    * sıcak renk: sayfadaki her şey griyken göz doğrudan oraya gitsin diye.
    */
   serviceBox: '#b91c1c',
 } as const
+
+/**
+ * KAT PLANI paftasının mimari paleti. Pafta tesisat odaklıdır (K154): mimari
+ * yalnız bağlam, o yüzden hiçbir mimari yüzey DOLU basılmaz — her şey içi boş,
+ * ince konturdur ve göz doğrudan renkli tesisata gider.
+ *
+ * ⚠️ `SVG_COLORS`ten AYRI durmasının sebebi kapsam: aynı palet görünüş,
+ * izometri, vaziyet ve oturum paftalarında da kullanılıyor ve onlar bu karardan
+ * etkilenmiyor. Ortak sabitleri değiştirmek dört paftayı birden silikleştirirdi.
+ *
+ * İki kademe var, tek ton değil: duvar taşıyıcı kütle olarak okunmalı, geri
+ * kalan mimari (kapı kanadı, kolon, merdiven, menfez…) ondan belirgin biçimde
+ * daha silik kalır. Tek tonda merdiven basamağı ile duvar aynı ağırlıkta çıkıyor
+ * ve plan yine kalabalık görünüyordu.
+ */
+export const PLAN_COLORS = {
+  /** Duvar ve kiriş konturu — mimarideki en belirgin ton. */
+  wall: '#5b6674',
+  /** Duvarın İÇİ: dolu değil, altındakini kapatan boşluk. */
+  wallVoid: '#ffffff',
+  /** Kapı/pencere, yapı elemanı, cihaz sembolü — bağlam, konu değil. */
+  faint: '#a8b0bb',
+  /** Oda adı/alanı, serbest metin, yapı elemanı adı. */
+  architectureText: '#8a94a1',
+  /** Ölçü ve açı yazıları; mimari yazıdan da siliktir. */
+  annotation: '#a8b0bb',
+  /**
+   * Tesisat eleman etiketi ve kılavuzu. Mimari yazıdan KOYU olmak zorunda:
+   * ikisi de aynı tonda basılınca cihaz adı plan yazısı gibi okunuyordu.
+   */
+  installationText: '#334155',
+} as const
+
+/**
+ * Duvar konturunun kalınlığı (cm). Kâğıtta ince ama kesintisiz okunan en az
+ * değer. `svgPrimitives`te duruyor çünkü İKİ dosya bağlı: duvarı `planSvg`
+ * çiziyor, açıklık beyazını o çizginin üstüne `planSvgArchitecture` taşırıyor.
+ */
+export const WALL_OUTLINE_CM = 2
 
 /** Koordinatları iki ondalıkla yazar: PDF'te fazlası görünmez, dosya şişer. */
 export function n(value: number): string {

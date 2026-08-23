@@ -7,7 +7,7 @@ import {
   type PlanSymbolAsset,
 } from './planSvgInstallation'
 import { buildPlanObjectsSvg, buildPlanTextsSvg } from './planSvgObjects'
-import { n, svgLine, SVG_COLORS } from './svgPrimitives'
+import { n, svgLine, PLAN_COLORS, WALL_OUTLINE_CM } from './svgPrimitives'
 import type {
   InstallationElement,
   InstallationLine,
@@ -72,12 +72,12 @@ export type PlanSvg = {
  * hesaplanmıyor — ölçeği `width`/`height` öznitelikleri taşıyor. Yan faydası,
  * çıktının test edilebilir olması: beklenen koordinat planın kendi koordinatı.
  *
- * Duvar, ekrandaki gibi YUVARLAK UÇLU kalın bir çizgi (kapsül, K23): kavşak
- * hesabı yok, uçlar üst üste binerek dolduruyor.
+ * Duvar İÇİ BOŞ basılır (K154): pafta tesisat odaklı, mimari yalnız bağlam.
+ * Geometri yine ekrandaki YUVARLAK UÇLU kapsül (K23) — kavşak hesabı yok.
  *
- * ⚠️ SIRA anlamlıdır ve ekrandaki `renderOrder` ile aynıdır: oda dolgusu →
- * duvar → açıklık → nesne → tesisat → yazı. Yazılar en sonda çünkü hiçbir
- * şeyin altında kalmamalılar.
+ * ⚠️ SIRA anlamlıdır ve ekrandaki `renderOrder` ile aynıdır: duvar → açıklık →
+ * nesne → tesisat → yazı. Yazılar en sonda çünkü hiçbir şeyin altında
+ * kalmamalılar. Oda DOLGUSU artık yok; adı ve alanı duruyor.
  */
 export function buildPlanSvg(input: PlanSvgInput): PlanSvg {
   const { points, walls, openings, rooms, floorId, fontFamily } = input
@@ -105,23 +105,41 @@ export function buildPlanSvg(input: PlanSvgInput): PlanSvg {
     )
   }
 
-  // 1) Oda dolguları EN ALTTA; duvarın üstüne binerse duvarın yarısını yer.
   const roomsSvg = buildPlanRoomsSvg({ points, floorWalls, rooms, floorId, fontFamily })
-  body.push(...roomsSvg.fills)
   labels.push(...roomsSvg.labels)
 
-  // 2) Duvarlar.
+  // 1) Duvarlar İKİ GEÇİŞTE: içi boş görünsün ama kavşaklar temiz kalsın.
+  //
+  // Her duvarı tek tek konturlamak yanlış sonuç verirdi: kapsüller birleşme
+  // yerlerinde üst üste biner ve her birinin konturu ötekinin İÇİNDEN geçerdi.
+  // Bunun yerine önce TÜM duvarlar kontur renginde `kalınlık + 2×kontur`
+  // genişliğinde, sonra TÜM duvarlar tam kalınlıkta boşluk renginde basılır.
+  // Geriye kalan tek şey birleşimin dış çeperi — polygon union yazmadan.
+  //
+  // ⚠️ İkinci geçiş OPAK: duvarın altında kalan hiçbir şey görünmez. Bu yüzden
+  // duvarlar en altta çizilir ve oda dolgusu artık basılmıyor.
   for (const { wall, capsule } of capsules) {
-    body.push(svgLine(capsule.p1, capsule.p2, wall.thickness, SVG_COLORS.ink, true))
-    // Kapsül yuvarlak uçlu: her yöne yarım kalınlık taşar.
-    addExtent(capsule.p1, wall.thickness / 2)
-    addExtent(capsule.p2, wall.thickness / 2)
+    body.push(
+      svgLine(
+        capsule.p1,
+        capsule.p2,
+        wall.thickness + 2 * WALL_OUTLINE_CM,
+        PLAN_COLORS.wall,
+        true,
+      ),
+    )
+    // Kapsül yuvarlak uçlu: her yöne yarım kalınlık + kontur taşar.
+    addExtent(capsule.p1, wall.thickness / 2 + WALL_OUTLINE_CM)
+    addExtent(capsule.p2, wall.thickness / 2 + WALL_OUTLINE_CM)
+  }
+  for (const { wall, capsule } of capsules) {
+    body.push(svgLine(capsule.p1, capsule.p2, wall.thickness, PLAN_COLORS.wallVoid, true))
   }
 
-  // 3) Açıklıklar duvarın ÜSTÜNE basılır: delik "boşluk" gibi okunsun.
+  // 2) Açıklıklar duvarın ÜSTÜNE basılır: delik "boşluk" gibi okunsun.
   body.push(...buildPlanOpeningsSvg(openings, floorWalls, points))
 
-  // 4) Kiriş / alan nesnesi / sembol, sonra tesisat.
+  // 3) Kiriş / alan nesnesi / sembol, sonra tesisat.
   body.push(
     ...buildPlanObjectsSvg({
       points,
@@ -143,7 +161,7 @@ export function buildPlanSvg(input: PlanSvgInput): PlanSvg {
     }),
   )
 
-  // 5) Yazılar EN ÜSTTE.
+  // 4) Yazılar EN ÜSTTE.
   body.push(
     ...buildPlanAnnotationsSvg({ points, walls: floorWalls, openings, floorId, fontFamily }),
     ...buildPlanTextsSvg(input.texts, floorId, fontFamily),

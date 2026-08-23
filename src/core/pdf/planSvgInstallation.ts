@@ -1,5 +1,5 @@
 import { buildLabelSvg, type PlanLabelledItem } from './planSvgLabels'
-import { n, svgPolyline, SVG_COLORS } from './svgPrimitives'
+import { n, svgPolyline, PLAN_COLORS, SVG_COLORS } from './svgPrimitives'
 import { getDischargeRunGeometry } from '../../plumbing/core/dischargeGeometry'
 import type {
   InstallationElement,
@@ -112,7 +112,7 @@ export function buildPlanInstallationSvg(input: PlanInstallationInput): string[]
   })
 
   // Elemanlar hatların ÜSTÜNDE (armatür borunun üstüne oturur), etiketler en üstte.
-  return [...pipes, ...symbols, ...buildLabelSvg(labelled, input.fontFamily)]
+  return [...pipes, ...symbols, ...buildLabelSvg(labelled, input.fontFamily, PLAN_COLORS.installationText)]
 }
 
 /**

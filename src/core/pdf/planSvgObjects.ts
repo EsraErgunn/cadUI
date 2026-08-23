@@ -1,5 +1,5 @@
 import { buildLabelSvg, type PlanLabelledItem } from './planSvgLabels'
-import { n, svgPolygon, svgPolyline, svgText, SVG_COLORS } from './svgPrimitives'
+import { n, svgPolygon, svgPolyline, svgText, PLAN_COLORS } from './svgPrimitives'
 import { getPointSymbolPlanGeometry } from '../architectureSymbol'
 import { getAreaObjectPlanGeometry } from '../areaObjectGeometry'
 import {
@@ -58,7 +58,7 @@ export function buildPlanObjectsSvg(input: PlanObjectsInput): string[] {
 
     body.push(
       `<polygon points="${corners.map((corner) => `${n(corner.x)},${n(-corner.y)}`).join(' ')}" ` +
-        `fill="none" stroke="${SVG_COLORS.object}" stroke-width="${n(OBJECT_STROKE_CM)}" ` +
+        `fill="none" stroke="${PLAN_COLORS.faint}" stroke-width="${n(OBJECT_STROKE_CM)}" ` +
         `stroke-dasharray="${n(BEAM_DASH_CM)} ${n(BEAM_GAP_CM)}" />`,
     )
   }
@@ -67,18 +67,23 @@ export function buildPlanObjectsSvg(input: PlanObjectsInput): string[] {
     if (areaObject.floorId !== floorId) continue
 
     const geometry = getAreaObjectPlanGeometry(areaObject.type, areaObject)
-    // Kolon DOLU: taşıyıcı kütle planda boşluk gibi okunmamalı. Kalanların içi
-    // boş kalır — merdiven/şaft içinden tesisat geçebiliyor, dolgu onu örterdi.
-    const isSolid = areaObject.type === 'structuralColumn'
+    // Kolon da dahil hiçbiri DOLU değil (K154): pafta tesisat odaklı, altından
+    // geçen boru hiçbir mimari yüzeyin arkasında kalmamalı. Sınır yine çizilir,
+    // yalnız konturla.
     if (geometry.fill.length > 0) {
-      body.push(svgPolygon(geometry.fill, isSolid ? SVG_COLORS.objectFill : 'none'))
+      body.push(
+        svgPolygon(geometry.fill, 'none', {
+          color: PLAN_COLORS.faint,
+          widthCm: OBJECT_STROKE_CM,
+        }),
+      )
     }
     for (const stroke of geometry.strokes) {
       body.push(
         svgPolyline(
           stroke.points,
           stroke.role === 'body' ? OBJECT_STROKE_CM : OBJECT_DETAIL_STROKE_CM,
-          SVG_COLORS.object,
+          PLAN_COLORS.faint,
         ),
       )
     }
@@ -105,23 +110,29 @@ export function buildPlanObjectsSvg(input: PlanObjectsInput): string[] {
 
     const geometry = getPointSymbolPlanGeometry(symbol.type, pose)
 
-    // Duvar renginde DEĞİL: menfez gibi semboller duvarın üstüne oturuyor ve
-    // aynı tonda çizilseler görünmez oluyorlardı (kullanıcı bildirimi).
+    // Cihaz sembolleri de İÇİ BOŞ (K154). Duvarın üstüne oturuyorlar ama artık
+    // duvarın içi de beyaz: dolu bir sembol duvardan taşan tek koyu leke olur
+    // ve gözü tesisattan çalardı.
     for (const fill of geometry.fills) {
-      body.push(svgPolygon(fill, SVG_COLORS.symbol))
+      body.push(
+        svgPolygon(fill, 'none', {
+          color: PLAN_COLORS.faint,
+          widthCm: SYMBOL_BODY_STROKE_CM,
+        }),
+      )
     }
     for (const stroke of geometry.strokes) {
       body.push(
         svgPolyline(
           stroke.points,
           stroke.role === 'body' ? SYMBOL_BODY_STROKE_CM : SYMBOL_DETAIL_STROKE_CM,
-          SVG_COLORS.symbol,
+          PLAN_COLORS.faint,
         ),
       )
     }
   }
 
-  return [...body, ...buildLabelSvg(labelled, fontFamily)]
+  return [...body, ...buildLabelSvg(labelled, fontFamily, PLAN_COLORS.architectureText)]
 }
 
 /**
@@ -141,7 +152,7 @@ export function buildPlanTextsSvg(
         sizeCm: label.heightCm,
         anchor: 'middle',
         angleDeg: label.angleDeg,
-        color: SVG_COLORS.label,
+        color: PLAN_COLORS.architectureText,
       }),
     )
 }
