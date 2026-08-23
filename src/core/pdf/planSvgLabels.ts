@@ -1,4 +1,4 @@
-import { n, svgText, SVG_COLORS } from './svgPrimitives'
+import { n, svgText } from './svgPrimitives'
 import type { PlanPoint } from '../coords'
 import { clipLeaderEndToRectCm } from '../labelLeader'
 import type { PlanRect } from '../selection'
@@ -53,6 +53,10 @@ function getLabelRectCm(item: PlanLabelledItem): PlanRect {
  * Kılavuz yazının KUTUSUNDA durur, merkezinde değil (`clipLeaderEndToRectCm`) —
  * yoksa çizgi yazının içinden geçer.
  *
+ * Renk DIŞARIDAN geliyor çünkü aynı yolu iki farklı ağırlıkta iş kullanıyor:
+ * yapı elemanı adı silik mimari tonunda, tesisat cihazının adı koyu tonda
+ * (K154). Sabit tek renk verilseydi cihaz adı plan yazısı gibi okunurdu.
+ *
  * ⚠️ Bu yol, etiketi OLAN her nesne için ortaktır. Kiriş gibi bugün adı olmayan
  * nesnelere ileride ad eklendiğinde tek yapılacak şey buraya bir madde daha
  * beslemek — ikinci bir etiket/kılavuz çizim yolu açılmamalı.
@@ -60,6 +64,7 @@ function getLabelRectCm(item: PlanLabelledItem): PlanRect {
 export function buildLabelSvg(
   items: readonly PlanLabelledItem[],
   fontFamily: string,
+  color: string,
 ): string[] {
   const body: string[] = []
 
@@ -70,7 +75,7 @@ export function buildLabelSvg(
     body.push(
       `<line x1="${n(item.origin.x)}" y1="${n(-item.origin.y)}" ` +
         `x2="${n(leaderEnd.x)}" y2="${n(-leaderEnd.y)}" ` +
-        `stroke="${SVG_COLORS.leader}" stroke-width="${n(LEADER_WIDTH_CM)}" ` +
+        `stroke="${color}" stroke-width="${n(LEADER_WIDTH_CM)}" ` +
         `stroke-dasharray="${n(LEADER_DASH_CM)} ${n(LEADER_GAP_CM)}" />`,
     )
 
@@ -80,7 +85,7 @@ export function buildLabelSvg(
         svgText(
           { x: item.anchor.x, y: item.anchor.y - index * (LABEL_HEIGHT_CM + LABEL_LINE_GAP_CM) },
           line,
-          { fontFamily, sizeCm: LABEL_HEIGHT_CM, color: SVG_COLORS.label },
+          { fontFamily, sizeCm: LABEL_HEIGHT_CM, color },
         ),
       )
     })

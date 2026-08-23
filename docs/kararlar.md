@@ -7597,3 +7597,73 @@ ayrı bir karar (`persist` sarmalayıcı + hangi alanların kaydedileceği).
 Nerede: `store/uiStore.ts`, `ui/canvas/ViewOptionsMenu.tsx`,
 `ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`,
 `scene/PointSymbolNameLabels.tsx`, `scene/usePointSymbolLabelTool.ts`.
+
+### K154 — Kat planı paftası TESİSAT ODAKLI: mimari içi boş çizilir
+
+Kullanıcı: "PDF'te tesisat odaklı bir görünüm istiyorum, mimari olan her şey
+renksiz gözükebilir; duvarlar içi boş, yalnızca dışında ince bir stroke."
+
+Aynı oturumda başlangıç şikâyeti "K152 renk değişikliklerim PDF'te
+gözükmüyor"du. **Hata değildi ve düzeltilmedi**: PDF'in kendi paleti var,
+ekrandaki mimari renkler oraya hiç ulaşmıyor. Mimari zaten renksizleşeceği için
+ekran paletini kâğıda taşımanın anlamı kalmadı — istek, bu kopukluğu bir karara
+dönüştürdü.
+
+**Tek mod, kip yok.** Pafta her zaman tesisat odaklıdır; "mimari pafta / tesisat
+paftası" seçimi eklenmedi. Kip, `buildPlanSvg` imzasını ve tüm test
+beklentilerini parametreleştirmeyi gerektirirdi ve kimse mimari pafta istemedi.
+
+**Kapsam YALNIZ kat planı.** Görünüş, izometri, vaziyet ve oturum paftaları
+`SVG_COLORS`ü kullanmaya devam ediyor; kat planı yeni `PLAN_COLORS`a taşındı.
+⚠️ Ortak sabitleri değiştirmek dört paftayı birden silikleştirirdi — ikisinin
+ayrı durmasının tek sebebi bu.
+
+⚠️ **Duvar İKİ GEÇİŞTE çiziliyor.** Her duvarı tek tek konturlamak yanlış sonuç
+verir: kapsüller (K23) kavşakta üst üste biner ve her birinin konturu ötekinin
+İÇİNDEN geçer — spagetti. Bunun yerine önce TÜM duvarlar `kalınlık + 2×kontur`
+genişliğinde kontur renginde, sonra TÜM duvarlar tam kalınlıkta beyaz basılıyor.
+Geriye birleşimin dış çeperi kalıyor — polygon union yazmadan, var olan
+`svgLine` ile.
+
+⚠️ İkinci geçiş OPAK. Duvarın altındaki hiçbir şey görünmüyor; bu yüzden
+duvarlar en alta indi ve **oda dolgusu tümden kalktı**.
+
+⚠️ **Açıklığın beyazı şişirilerek basılıyor.** Poligon tam duvar kalınlığında;
+olduğu gibi bırakılsaydı duvarın iki yüz çizgisi açıklığın önünden kesintisiz
+geçer, delik "delik" gibi okunmazdı. Aynı renkte kontur poligonu her yöne yarım
+genişletiyor, bu yüzden pay kontur kalınlığının İKİ katı (`WALL_OUTLINE_CM`
+`svgPrimitives`te duruyor: iki dosya aynı sayıya bağlı).
+
+**İKİ kademe, tek ton değil** (kullanıcı kararı): duvar `#5b6674` belirgin, geri
+kalan mimari `#a8b0bb` silik. Tek tonda merdiven basamağı ile duvar aynı
+ağırlıkta çıkıyor ve plan yine kalabalık okunuyordu.
+
+| Ne | Nasıl |
+|---|---|
+| Duvar + kiriş | `#5b6674` kontur, içi beyaz |
+| Kapı/pencere, kapı KANADI, kolon, merdiven, şaft, cihaz sembolü | `#a8b0bb` kontur, hepsi İÇİ BOŞ |
+| Oda adı + m², serbest metin, yapı elemanı adı | `#8a94a1` |
+| Duvar ölçüsü | `#a8b0bb` |
+| Tesisat eleman etiketi + kılavuzu | `#334155` |
+| Tesisat hatları ve sembolleri | DEĞİŞMEDİ — ekrandaki renginde |
+
+⚠️ **Tesisat kalınlaştırılmadı** (kullanıcı: "tesisat ne ise öyle kalsın").
+Boru genişliği gerçek ÇAPTAN geliyor ve ölçekli paftada ölçülebilir bir bilgi;
+öne çıkarmak için kalınlaştırmak onu bozardı. Öne çıkma arka planın
+silikleşmesinden geliyor.
+
+⚠️ **Etiket rengi artık `buildLabelSvg`e parametre.** Yapı elemanı adı ile cihaz
+adı AYNI çizim yolundan geçiyor; sabit tek renk kalsaydı cihaz adı plan yazısı
+gibi okunurdu.
+
+⚠️ `SVG_COLORS.roomFill`, `openingFill`, `symbol` ve `objectFill` SİLİNDİ —
+sahipsiz kaldılar, bu adlarla yeni kod yazma.
+
+⚠️ **Köşe açıları paftadan KALKTI.** Dik köşede "90°" mimari bir ayrıntı;
+tesisatçıya bir şey söylemiyor ve plandaki yazı kalabalığını artırıyordu.
+Ekranda duruyorlar — kalkan yalnız kâğıt. `getCornerAngleAnnotations` yerinde,
+kat planı artık çağırmıyor.
+
+**Kolonun dolgusu da kalktı.** Eski gerekçe "taşıyıcı kütle planda boşluk gibi
+okunmamalı"ydı; altından geçen boru mimari yüzeyin arkasında kalmasın diye kural
+düştü.

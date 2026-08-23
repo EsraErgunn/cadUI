@@ -40,18 +40,16 @@ const BASE = {
 const build = (overrides: Partial<PlanSvgInput> = {}) =>
   buildPlanSvg({ ...BASE, ...overrides }).markup
 
-describe('ölçü ve açı yazıları', () => {
+describe('ölçü yazıları', () => {
   it('duvar ölçüleri METRE cinsinden basılır', () => {
     // Paftada okunan birim metre; modelin birimi cm.
     expect(build()).toMatch(/>\d+\.\d{2} m</)
   })
 
-  it('köşe açıları derece işaretiyle basılır', () => {
-    expect(build()).toMatch(/>\d+°</)
-  })
-
-  it('dik köşede 90° yazar', () => {
-    expect(build()).toContain('>90°<')
+  it('KÖŞE AÇILARI basılmaz (K154)', () => {
+    // Pafta tesisat odaklı: dik köşede "90°" mimari bir ayrıntı, tesisatçıya
+    // bir şey söylemiyor ve yazı kalabalığını artırıyordu. Ekranda duruyorlar.
+    expect(build()).not.toMatch(/>\d+°</)
   })
 })
 
@@ -276,7 +274,7 @@ describe('baskı paleti', () => {
     for (const stroke of symbolStrokes) expect(stroke).not.toBe(wallStroke())
   })
 
-  it('KOLON dolu, diğer alan nesneleri kontur', () => {
+  it('KOLON da dahil hiçbir alan nesnesi DOLU değil (K154)', () => {
     const base: AreaObject = {
       id: 44,
       type: 'structuralColumn',
@@ -289,10 +287,75 @@ describe('baskı paleti', () => {
       label: 'S-01',
     }
 
-    // Kolon taşıyıcı kütle: planda boşluk gibi okunmamalı. Dolgu ve kontur
-    // AYRI öğe: getAreaObjectPlanGeometry ikisini ayrı veriyor.
-    expect(build({ areaObjects: [base] })).toContain('fill="#c9d1db"')
-    expect(build({ areaObjects: [{ ...base, type: 'stairs' }] })).not.toContain('fill="#c9d1db"')
+    // Kolon eskiden taşıyıcı kütle diye DOLU basılıyordu; pafta tesisat odaklı
+    // olunca kural düştü — altından geçen boru mimari yüzeyin arkasında
+    // kalmamalı. Sınır yine çiziliyor, yalnız konturla.
+    for (const type of ['structuralColumn', 'stairs'] as const) {
+      const markup = build({ areaObjects: [{ ...base, type }] })
+      for (const fill of [...markup.matchAll(/<polygon[^>]*fill="([^"]+)"/g)]) {
+        expect(fill[1]).toBe('none')
+      }
+      expect(markup).toMatch(/<polygon[^>]*stroke="#[0-9a-f]{6}"/)
+    }
+  })
+
+  it('mimarinin İKİ kademesi var: duvar belirgin, geri kalanı silik', () => {
+    const areaObject: AreaObject = {
+      id: 44,
+      type: 'structuralColumn',
+      floorId: FLOOR,
+      x: 200,
+      y: 150,
+      widthCm: 40,
+      lengthCm: 40,
+      angleDeg: 0,
+      label: 'S-01',
+    }
+    const markup = build({ areaObjects: [areaObject] })
+    const objectStroke = (markup.match(/<polyline[^>]*stroke="(#[0-9a-f]{6})"/) ?? [])[1]
+
+    // Tek ton istenmedi (kullanıcı kararı): merdiven basamağı ile duvar aynı
+    // ağırlıkta çıkınca plan yine kalabalık okunuyor.
+    expect(objectStroke).toBeDefined()
+    expect(objectStroke).not.toBe(wallStroke())
+  })
+
+  it('tesisat eleman etiketi mimari yazıdan KOYU', () => {
+    const areaObject: AreaObject = {
+      id: 44,
+      type: 'structuralColumn',
+      floorId: FLOOR,
+      x: 200,
+      y: 150,
+      widthCm: 40,
+      lengthCm: 40,
+      angleDeg: 0,
+      label: 'S-01',
+    }
+    // Yapı elemanı adı ile cihaz adı AYNI çizim yolundan (buildLabelSvg) geçiyor;
+    // renk sabitlenseydi cihaz adı plan yazısı gibi okunurdu.
+    const architectureText = (build({ areaObjects: [areaObject] }).match(
+      /<text[^>]*>Kolon</,
+    ) ?? [])[0]
+    const installationText = (build({
+      installationElements: [
+        {
+          id: 90,
+          floorId: FLOOR,
+          type: 'combiBoiler',
+          position: { x: 200, y: 150 },
+          angleDeg: 0,
+          scale: 1,
+        },
+      ],
+      resolveSymbolAsset: () => ({ body: '<rect />', originX: 0, originY: 0 }),
+      resolveElementLabel: () => ({ anchor: { x: 260, y: 200 }, lines: ['K-01'] }),
+    }).match(/<text[^>]*>K-01</) ?? [])[0]
+
+    expect(architectureText).toBeDefined()
+    expect(installationText).toBeDefined()
+    expect(installationText).not.toContain('#8a94a1')
+    expect(architectureText).toContain('#8a94a1')
   })
 
   it('tesisat KENDİ renginde kalır: solmaz', () => {

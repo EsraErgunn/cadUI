@@ -154,8 +154,9 @@ Her çevirme TEK yerde; üçüncü bir yerde tekrarlama.
 `scripts/woffToTtf.mjs` ile `.woff`tan üretildi. WOFF değişirse TTF de
 yeniden üretilmeli — ikisi elle ayrı ayrı güncellenmez.
 
-⚠️ Kâğıtta ölçü/açı katmanları HER ZAMAN açık (ekranda Görünüm menüsünden
-kapatılabiliyor). Pafta ölçüsüz teslim edilmez.
+⚠️ Kâğıtta ölçü katmanı HER ZAMAN açık (ekranda Görünüm menüsünden
+kapatılabiliyor). Pafta ölçüsüz teslim edilmez. ⚠️ KÖŞE AÇILARI kat planında
+basılmıyor (K154) — ekranda duruyorlar.
 
 ⚠️ Yazı-duvar boşlukları cm cinsinden sabit; ekrandaki `px / zoom` yolu
 kâğıtta 1:50 ile 1:200 arasında farklı boşluk üretirdi.
@@ -163,18 +164,50 @@ kâğıtta 1:50 ile 1:200 arasında farklı boşluk üretirdi.
 
 ## Renk hiyerarşisi: tesisat konu, mimari bağlam
 
-Pafta tesisat çıktısıdır. Mimari, tesisat GÖRÜNÜMÜNDEKİ hayaletle aynı soluk
-tonda (`#94a3b8`); tesisat kendi renginde (hat çapından, sembol kendi
-svg'sinden). İlk sürümde duvar neredeyse siyahtı ve boruyu yutuyordu.
+Pafta tesisat çıktısıdır. Tesisat kendi renginde (hat çapından, sembol kendi
+svg'sinden); mimari yalnız bağlam. İlk sürümde duvar neredeyse siyahtı ve
+boruyu yutuyordu.
+
+⚠️ İKİ palet var ve karıştırılmamalı:
+
+- `PLAN_COLORS` — **yalnız KAT PLANI** (K154). Mimarinin tamamı İÇİ BOŞ, ince
+  kontur; dolu hiçbir mimari yüzey yok.
+- `SVG_COLORS` — görünüş, izometri, vaziyet ve oturum paftaları. Buradaki bir
+  değeri değiştirmek kat planını ETKİLEMEZ, öteki dördünü birden etkiler.
+
+Kat planı (`PLAN_COLORS`), iki kademe — tek ton DEĞİL (kullanıcı kararı; tek
+tonda merdiven basamağı ile duvar aynı ağırlıkta okunuyordu):
 
 | Katman | Renk | Rol |
 |---|---|---|
-| Duvar | `#94a3b8` | bağlam |
-| Oda dolgusu | `#f4f6f9` | kapalı hacim işareti |
-| Ölçü/açı | `#7c8899` | okunur ama sessiz |
-| Oda adı, metin | `#64748b` | mimarinin en okunur parçası |
+| Duvar + kiriş | `#5b6674` kontur, içi beyaz | mimarinin en belirgini |
+| Kapı/pencere, kanat, kolon, merdiven, şaft, cihaz sembolü | `#a8b0bb` kontur, İÇİ BOŞ | bağlam |
+| Duvar ölçüsü | `#a8b0bb` | okunur ama sessiz |
+| Oda adı + m², metin, yapı elemanı adı | `#8a94a1` | mimari yazı |
+| Tesisat eleman etiketi + kılavuzu | `#334155` | KONU |
 | Hat | çaptan (K27) | KONU |
 | Eleman sembolü | kendi svg'sinden | KONU |
+
+⚠️ Duvar İKİ GEÇİŞTE çizilir (`planSvg.ts`): önce TÜM duvarlar
+`kalınlık + 2×WALL_OUTLINE_CM` kontur renginde, sonra TÜM duvarlar tam
+kalınlıkta beyaz. Duvar duvar konturlamak yanlış sonuç verir — kapsüller (K23)
+kavşakta üst üste biner ve her birinin konturu ötekinin İÇİNDEN geçer. İki geçiş
+birleşimin dış çeperini polygon union yazmadan veriyor.
+
+⚠️ İkinci geçiş OPAK: duvarın altındaki hiçbir şey görünmez. Oda dolgusu bu
+yüzden tümden kalktı; oda adı ve alanı duruyor.
+
+⚠️ Açıklığın beyazı, aynı renkte kontur verilerek ŞİŞİRİLİR
+(`WALL_OPENING_BLEED_CM = 2 × WALL_OUTLINE_CM`). Poligon tam duvar
+kalınlığında; olduğu gibi basılsa duvarın iki yüz çizgisi açıklığın önünden
+kesintisiz geçer ve delik "delik" gibi okunmaz.
+
+⚠️ Etiket rengi `buildLabelSvg`e PARAMETRE: yapı elemanı adı ile cihaz adı aynı
+çizim yolundan geçiyor, sabit tek renkte cihaz adı plan yazısı gibi okunuyordu.
+
+⚠️ Ekrandaki mimari renkler (K152) kâğıda ULAŞMAZ ve bu bilinçli — kat planında
+mimari renksiz. Tesisat rengi tek istisna: `resolveLineColor` geri çağrımıyla
+ekranla aynı yerden geliyor.
 
 ## Eleman sembolleri
 
