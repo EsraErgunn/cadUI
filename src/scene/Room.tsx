@@ -12,7 +12,10 @@ import { getWallSetKey } from '../core/roomIdentity'
 import { getRoomLabelAnchor, toSquareMetres } from '../core/roomLabel'
 import { getRoomDisplayName } from '../core/roomUsage'
 import { getSelectedIds } from '../core/selection'
-import { useArchitectureUiStore } from '../store/architectureUiStore'
+import {
+  selectRoomDefinitionRoomId,
+  useArchitectureUiStore,
+} from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
@@ -52,11 +55,13 @@ type RoomShapeProps = {
   /** Etikette YAZAN metin: kullanım tipinin adı ya da "Tanımsız". */
   displayName: string
   isSelected: boolean
+  /** Mahal tanımlama kipinin o an sorduğu mahal mi (K145). */
+  isDefinitionTarget: boolean
   /** Duvarların iç yüzüne çekilmiş dolgu poligonu; oda duvarından inceyse yok. */
   fillCorners: PlanPoint[] | undefined
 }
 
-function RoomShape({ face, displayName, isSelected, fillCorners }: RoomShapeProps) {
+function RoomShape({ face, displayName, isSelected, isDefinitionTarget, fillCorners }: RoomShapeProps) {
   const isRoomNamesVisible = useUiStore((state) => state.isRoomNamesVisible)
   // Etiket çapası odanın DOLGUSUNA değil, gerçek çevrimine göre bulunur; dolgu
   // duvar kalınlığı kadar küçültülmüş bir çizim ayrıntısı, odanın kendisi değil.
@@ -75,11 +80,19 @@ function RoomShape({ face, displayName, isSelected, fillCorners }: RoomShapeProp
               kapalı, sıralamayı renderOrder belirliyor. */}
           {/* Seçiliyken dolgu seçim rengine döner: mahalin gövdesi yok, o yüzden
               geri bildirimi verecek tek yüzey bu. */}
+          {/* Tanımlama kipinin hedefi seçimden daha DOLU çizilir: kip açıkken
+              seçim temizlendiği için ikisi aynı anda görünmez, renk çakışmaz. */}
           <meshBasicMaterial
-            color={isSelected ? SCENE_COLORS.selection : SCENE_COLORS.roomFill}
+            color={
+              isSelected || isDefinitionTarget ? SCENE_COLORS.selection : SCENE_COLORS.roomFill
+            }
             transparent
             opacity={
-              isSelected ? SCENE_COLORS.roomFillOpacity * 2 : SCENE_COLORS.roomFillOpacity
+              isDefinitionTarget
+                ? SCENE_COLORS.roomDefinitionFillOpacity
+                : isSelected
+                  ? SCENE_COLORS.roomFillOpacity * 2
+                  : SCENE_COLORS.roomFillOpacity
             }
             depthWrite={false}
             toneMapped={false}
@@ -109,6 +122,7 @@ export function Rooms() {
   // klonuna bağlı görünmeli, yoksa ekrandaki ile bırakınca olan ayrışır (K103).
   const { points, walls } = useArchitectureDraft()
   const selection = useArchitectureUiStore((state) => state.selection)
+  const definitionRoomId = useArchitectureUiStore(selectRoomDefinitionRoomId)
 
   const shapes = useMemo(() => {
     const faces = findRoomFaces(walls, points, activeFloorId)
@@ -149,6 +163,7 @@ export function Rooms() {
           displayName={shape.displayName}
           fillCorners={shape.fillCorners}
           isSelected={selectedRoomIds.includes(shape.id)}
+          isDefinitionTarget={shape.id === definitionRoomId}
         />
       ))}
     </group>

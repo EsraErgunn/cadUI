@@ -35,6 +35,8 @@ export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
 export const DOWNLOAD_PROJECT_FILE_ITEM_ID = 'downloadProjectFile'
 /** "Proje Dosyasını Aç" — aynı PDF'ten çizimi geri yükler. */
 export const OPEN_PROJECT_FILE_ITEM_ID = 'openProjectFile'
+/** "Mahalleri Tanımla" — tanımsız mahalleri tek tek gezdiren kip (K145). */
+export const DEFINE_ROOMS_ITEM_ID = 'defineRooms'
 
 /**
  * Menü YALNIZ dosya biçimi işlerini taşır. Üst barda kendi düğmesi olan hiçbir
@@ -120,13 +122,19 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
        * ve o ÇALIŞIYOR (K115) — menüdeki pasif kopyası ikinci bir giriş yolu
        * vaat edip hiçbir şey yapmıyordu.
        *
-       * Kalanların hepsi hâlâ PASİF (`isPlanned` deseni, K79): "tıklanabilir
-       * görünüp hiçbir şey yapmayan madde" yerine "henüz yok" demek.
+       * "Mahalleri Tanımla" K145'te ÇALIŞIR hâle geldi; kalanlar hâlâ PASİF
+       * (`isPlanned` deseni, K79): "tıklanabilir görünüp hiçbir şey yapmayan
+       * madde" yerine "henüz yok" demek.
        */
       {
         title: 'Toplu İşlemler',
         items: [
-          { id: 'defineRooms', label: 'Mahalleri Tanımla', ...DISABLED },
+          {
+            id: DEFINE_ROOMS_ITEM_ID,
+            label: 'Mahalleri Tanımla',
+            kind: 'command',
+            isEnabled: true,
+          },
           { id: 'deleteRiserLine', label: 'Kolon Hattını Sil', ...DISABLED },
           { id: 'deleteUnitInstallations', label: 'Tesisat Sil', ...DISABLED },
         ],

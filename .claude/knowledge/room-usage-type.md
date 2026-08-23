@@ -83,3 +83,34 @@ ve `findRoomLabelAt` korumaları K117'de kaldırıldı — tanımın tek yeri pa
   KAPIDA duruyor. Bunlar K115'in açık bıraktığı "dışarıdan erişim" sorusunu da
   çözebilir — giriş kapısı işaretli olsaydı graf tohumu tahmine dayanmazdı
   (bkz. validation-rules.md).
+
+## Toplu tanımlama kipi (K145)
+
+Araçlar > "Mahalleri Tanımla" AKTİF KATTAKİ tanımsız mahalleri tek tek gezer:
+mahal sahnede seçim mavisiyle ve daha dolu (`roomDefinitionFillOpacity`)
+çizilir, kamera ona gider (`uiStore.requestFocus` → `ViewportFocus`), altta
+yüzen kart (`ui/canvas/RoomDefinitionCard.tsx`) tipleri rozet olarak sunar.
+Klavye: 1–9 ilk dokuz rozet, ← → duraklar arası, Esc çıkış.
+
+⚠️ Kuyruk BAŞLARKEN donar — `architectureUiStore.roomDefinitionQueue` yalnız
+id tutar. Canlı türetilseydi tip verilen mahal kuyruktan düşer, ilerleme
+göstergesi gözün önünde değişir ve geri gitmek imkânsız olurdu. Geometri ise
+her render'da `core/roomDefinition.ts` → `getRoomDefinitionQueue` ile taze
+okunur (kip açıkken duvar oynatılabilir).
+
+⚠️ Sıra id'den değil KONUMDAN: üstten alta, sonra soldan sağa, 100 cm'lik satır
+toleransıyla. id sırası çizim sırasıdır ve kamerayı çizimin bir ucundan
+öbürüne savurur.
+
+⚠️ Tip yazılınca bir sonraki değil, ilk TANIMSIZ durağa geçilir; kalan yoksa kip
+kendini kapatır. `advanceAfter` içindeki harita o anda BAYATTIR (yazım henüz
+render'a yansımadı), az önce tanımlanan mahal ayrıca elenir.
+
+⚠️ Kartın geometri kaynağı `getFloorRoomStops`: kattaki TÜM mahalleri verir
+(`isDefined` bayrağıyla), yalnız tanımsızları değil — geri gidilen durak artık
+tanımlıysa da kamera oraya gitmeli.
+
+⚠️ Kip açılırken seçim temizlenir: açık seçim hem ikinci bir mavi vurgu hem de
+sağda ikinci bir tanımlama arayüzü demekti.
+
+Menü maddesi salt görüntülemede ve mimari dışı görünümlerde pasiftir.
