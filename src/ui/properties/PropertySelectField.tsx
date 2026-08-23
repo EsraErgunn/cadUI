@@ -121,15 +121,23 @@ export function PropertySelectField({
     }
     // Kaydırma/boyut değişiminde konum bayatlar; yeniden hesaplamak yerine
     // kapatılıyor — liste zaten tek tıklamalık bir etkileşim.
-    const handleReflow = () => close()
+    const handleResize = () => close()
+
+    // ⚠️ Dinleyici CAPTURE kipinde: listenin KENDİ kaydırması da buraya düşüyor
+    // ve liste açılır açılmaz kapanıyordu (uzun listede aşağı inmek imkânsızdı).
+    // Listenin içi konumu bayatlatmaz — yalnız DIŞARIDAKİ kaydırma kapatır.
+    const handleScroll = (event: Event) => {
+      if (listRef.current?.contains(event.target as Node)) return
+      close()
+    }
 
     document.addEventListener('pointerdown', handlePointerDown)
-    window.addEventListener('resize', handleReflow)
-    window.addEventListener('scroll', handleReflow, true)
+    window.addEventListener('resize', handleResize)
+    window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('resize', handleReflow)
-      window.removeEventListener('scroll', handleReflow, true)
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('scroll', handleScroll, true)
     }
   }, [isOpen, listId])
 
@@ -209,7 +217,10 @@ export function PropertySelectField({
               id={listId}
               role="listbox"
               aria-label={label}
-              className="fixed z-50 overflow-y-auto rounded-md border border-edge bg-surface py-1 shadow-lg"
+              // `overscroll-contain`: liste ucuna gelince kaydırma ARKADAKİ
+              // panele atlamasın — atlarsa o kaydırma listeyi kapatır ve
+              // kullanıcı son seçeneklere ulaşmadan listeyi kaybeder.
+              className="fixed z-50 overflow-y-auto overscroll-contain rounded-md border border-edge bg-surface py-1 shadow-lg"
             >
               {options.map((option, index) => (
                 <li
