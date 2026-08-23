@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -77,6 +77,22 @@ describe('PropertySelectField', () => {
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('listenin KENDİ kaydırması listeyi kapatmaz, dışarıdaki kaydırma kapatır', async () => {
+    const user = userEvent.setup()
+    const { trigger } = renderField()
+
+    await user.click(trigger)
+    const list = screen.getByRole('listbox')
+
+    // Dinleyici capture kipinde: liste içindeki kaydırma da window'a ulaşıyordu
+    // ve uzun listede aşağı inmek imkânsızlaşıyordu.
+    fireEvent.scroll(list)
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+
+    fireEvent.scroll(trigger)
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
   it('ayrışan değerde "Farklı" yazar', () => {
