@@ -5,7 +5,7 @@ import {
 } from './isometricLabelSvg'
 import type { PlanSymbolAsset } from './planSvgInstallation'
 import { n, svgLine, svgPolyline, svgText, SVG_COLORS } from './svgPrimitives'
-import { projectIsometric, type IsometricAngles } from '../../isometric/core/isometricProjection'
+import type { IsometricProjection } from '../../isometric/core/isometricProjection'
 import {
   buildIsometricScene,
   getIsometricBoundsDiagonalCm,
@@ -14,7 +14,7 @@ import {
 import type { SymbolMetadataLookup } from '../../plumbing/core/elementPicking'
 import type { InstallationLine } from '../../plumbing/core/installationModel'
 import type { InstallationElementType } from '../../plumbing/core/symbolMetadata'
-import type { PlanPoint, ThreePosition } from '../coords'
+import type { PlanPoint } from '../coords'
 
 /** Yazı boyu ve çizgi kalınlıkları, sahne köşegenine oranla. */
 const TITLE_SIZE_RATIO = 0.045
@@ -25,9 +25,26 @@ const LEADER_WIDTH_RATIO = 0.0008
 /** Çevreye bırakılan pay; etiketler kutunun dışına taşmasın. */
 const MARGIN_RATIO = 0.06
 
+/**
+ * Eleman sembollerinin KÂĞITTAKİ ölçek çarpanı (K157).
+ *
+ * Ekrandaki boyutlarıyla basıldıklarında semboller şemanın büyük bölümünü
+ * kaplıyor, boruların arasında yazıya yer bırakmıyordu (kullanıcı bildirimi).
+ * Ekranda o boyut doğru: sembol tıklanabilir bir hedef ve zoom'la büyüyor;
+ * kâğıtta tıklanmıyor, yalnız okunuyor.
+ *
+ * Çarpan çizgi KALINLIĞINI da inceltiyor — ölçek `stroke-width`e de uygulanır,
+ * ayrıca bir incelme ayarı gerekmedi.
+ *
+ * ⚠️ Çapa kaydırmasına da uygulanmak ZORUNDA, yoksa sembol borudan kopar
+ * (bkz. `toBillboardTransform`).
+ */
+const PAPER_SYMBOL_SCALE = 0.55
+
 
 export type IsometricSvgInput = IsometricSceneInput & {
-  angles: IsometricAngles
+  /** Kâğıdın izdüşümü; ekranın kamera açısından BAĞIMSIZ (K155). */
+  projection: IsometricProjection
   /** Sembol tanımları dışarıdan: `core/` sahne yükleyicisine bağlanmaz (kural 1/2). */
   getMetadata: SymbolMetadataLookup
   /** Hat rengi sahne katmanından gelir (planSvg ile aynı gerekçe). */
@@ -66,8 +83,11 @@ export type IsometricSvg = {
  * getirirdi — o düzenleme baktığı açıya göre yapılmış.
  */
 export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | undefined {
-  const { angles, fontFamily } = input
-  const scene = buildIsometricScene(input, { angles, getMetadata: input.getMetadata })
+  const { projection, fontFamily } = input
+  const scene = buildIsometricScene(input, {
+    projection,
+    getMetadata: input.getMetadata,
+  })
   if (!scene.bounds) return undefined
 
   const extentCm = getIsometricBoundsDiagonalCm(scene.bounds)
@@ -76,7 +96,7 @@ export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | unde
   const pipeWidthCm = extentCm * PIPE_WIDTH_RATIO
   const leaderWidthCm = extentCm * LEADER_WIDTH_RATIO
 
-  const project = (position: ThreePosition) => projectIsometric(position, angles)
+  const project = projection.project
 
   const body: string[] = []
   const bounds: LabelBounds = {
@@ -167,6 +187,13 @@ export function buildIsometricSvg(input: IsometricSvgInput): IsometricSvg | unde
  * Çapa kaydırması ÖLÇEKTEN ÖNCE ve 1:1 cm uygulanır (ekranla aynı sıra):
  * sembolün boruya değdiği nokta tam `position`a otursun diye.
  *
+ * ⚠️ `PAPER_SYMBOL_SCALE` hem ölçeğe hem ÇAPA KAYDIRMASINA uygulanır ve ikisi
+ * birlikte olmak ZORUNDA. Kaydırma zaten `element.scale` ile çarpılmış hâlde
+ * geliyor (`getElementIsometricAnchor`); yalnız ölçek küçültülseydi sembol
+ * küçülür ama kaydırma eski boyuna göre kalır, bağlantı noktası borudan
+ * KOPARDI. İkisi aynı çarpanı alınca port yine tam `at`e oturuyor — küçültme
+ * bağlantıyı hiç bozmuyor (teste bağlı).
+ *
  * y bir kez çevriliyor: izdüşüm düzleminde +y YUKARI, çıktı svg'sinde AŞAĞI.
  */
 function toBillboardTransform(
@@ -175,9 +202,12 @@ function toBillboardTransform(
   scale: number,
   asset: PlanSymbolAsset,
 ): string {
+  const offsetX = anchorOffsetCm.x * PAPER_SYMBOL_SCALE
+  const offsetY = anchorOffsetCm.y * PAPER_SYMBOL_SCALE
+
   return (
-    `translate(${n(at.x - anchorOffsetCm.x)} ${n(-(at.y - anchorOffsetCm.y))}) ` +
-    `scale(${n(scale)}) ` +
+    `translate(${n(at.x - offsetX)} ${n(-(at.y - offsetY))}) ` +
+    `scale(${n(scale * PAPER_SYMBOL_SCALE)}) ` +
     `translate(${n(-asset.originX)} ${n(-asset.originY)})`
   )
 }

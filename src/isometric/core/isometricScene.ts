@@ -9,8 +9,7 @@ import type {
   IsometricSceneData,
 } from './isometricModel'
 import { getPointIsometricOffsetCm } from './isometricOffset'
-import { isometricOffsetToWorld } from './isometricProjection'
-import type { IsometricAngles } from './isometricProjection'
+import type { IsometricProjection } from './isometricProjection'
 import { planToThree } from '../../core/coords'
 import type { PlanPoint, ThreePosition } from '../../core/coords'
 import { getFloorElevationsCm } from '../../core/floorElevation'
@@ -30,7 +29,8 @@ export type IsometricSceneInput = Pick<
 >
 
 export type IsometricSceneOptions = {
-  angles: IsometricAngles
+  /** Ekran kamerası ya da kâğıdın oblik izdüşümü (K155). */
+  projection: IsometricProjection
   /** Sembol tanımları dışarıdan gelir: `core/` React'e ve sahne yükleyicisine bağlanmaz. */
   getMetadata: SymbolMetadataLookup
 }
@@ -53,10 +53,10 @@ function toWorld(
   planPoint: PlanPoint,
   elevationCm: number,
   offsetCm: PlanPoint,
-  angles: IsometricAngles,
+  projection: IsometricProjection,
 ): ThreePosition {
   const [x, y, z] = planToThree(planPoint, elevationCm)
-  const [dx, dy, dz] = isometricOffsetToWorld(offsetCm, angles)
+  const [dx, dy, dz] = projection.offsetToWorld(offsetCm)
   return [x + dx, y + dy, z + dz]
 }
 
@@ -82,7 +82,7 @@ function buildLineGeometry(
         point.position,
         floorOffsetCm + localElevations[index],
         getPointIsometricOffsetCm(point),
-        options.angles,
+        options.projection,
       ),
     ),
   }
@@ -196,7 +196,7 @@ export function buildIsometricScene(
           // izometrik-adimlari.md, sonraki turlar); bağlı olduğu hattın
           // kaymasını da devralmıyor — eleman plan konumunda kalır.
           { x: 0, y: 0 },
-          options.angles,
+          options.projection,
         ),
       }
     })

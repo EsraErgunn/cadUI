@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest'
 import type { ThreePosition } from '../../../core/coords'
 import { layoutIsometricLabels } from '../isometricLabelLayout'
 import type { IsometricLabelRequest } from '../isometricLabelLayout'
-import { ISOMETRIC_ANGLES_DEFAULT, projectIsometric } from '../isometricProjection'
+import {
+  getCameraProjection,
+  ISOMETRIC_ANGLES_DEFAULT,
+  projectIsometric,
+} from '../isometricProjection'
 
 const CENTER: ThreePosition = [0, 0, 0]
 const SCENE_SIZE_CM = 1000
@@ -13,7 +17,7 @@ function layout(requests: IsometricLabelRequest[], minSeparationCm = MIN_SEPARAT
   return layoutIsometricLabels(
     requests,
     CENTER,
-    ISOMETRIC_ANGLES_DEFAULT,
+    getCameraProjection(ISOMETRIC_ANGLES_DEFAULT),
     SCENE_SIZE_CM,
     minSeparationCm,
   )

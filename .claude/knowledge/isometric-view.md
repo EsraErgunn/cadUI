@@ -33,6 +33,117 @@ Hazır açılar: **Varsayılan** ve **Üstten** (α sınırda, 90°'de kamera y�
 tanımsız kalırdı). Yan görünümler yok — α = 0'da zemin düzlemi kenardan
 görünüp kat yerleşimi tek çizgiye çöküyor, o iş plan görünümünün.
 
+**⚠️ KÂĞIDIN İZDÜŞÜMÜ AYRI, SABİT ve OBLİK** (`getObliqueProjection`, K155).
+PDF izometrik sayfası ekrandaki α/β'yı KULLANMAZ ve aynı izdüşüm ailesinde bile
+değildir.
+
+| Model ekseni | Kâğıttaki yön |
+|---|---|
+| plan x | TAM YATAY (0°) |
+| plan y | 30° EĞİK (sol-aşağı, −150°) |
+| kot | TAM DİKEY (90°) |
+
+⚠️ Bu bir izometri DEĞİL, oblik (cavalier) izdüşümdür. İzometride üç eksen eşit
+kısalır; kot dikeyken bu, kalan iki ekseni ZORUNLU olarak ±30°'ye oturtur — yani
+hiçbir eksen yatay olamaz. Kullanıcının gerçek gaz paftası ve ona ait iki kat
+planı ölçüldü, yatay segmentler var: o çizim izometri değil, kâğıt referansa
+uyuyor. Önce gerçek izometri (β = 135°) yazılmıştı, referans görülünce DÖNÜLDÜ.
+
+⚠️ Oblik hiçbir kamera açısıyla elde EDİLEMEZ: `Rx(α)·Ry(β)` ailesinde plan x'i
+yatay yapan tek durum β = 0/180 ve orada plan y düşeyle ÇAKIŞIYOR (ölçüldü, +Y
+ve +Z ikisi de 90°) — plan derinliği kayboluyor. Oblik ortografik bir bakış
+değil, bir KESME dönüşümü.
+
+**Bu yüzden ekran ile kâğıt AYRIŞTI.** Ekrandaki 3B görünüm gerçek ortografik
+kamerayla çiziliyor ve kesme yapamaz; orada döndürülebilir izometri kalıyor.
+K122 geçerli: α/β hâlâ projeye yazılıyor ve EKRANI yönetiyor, kalkan tek şey
+kâğıda gitmesi. Eskiden gidiyordu ve "Üstten" ön ayarında (α = 89°) sayfa
+neredeyse plan görünümüne çöküyordu.
+
+⚠️ `IsometricAngles` yerine artık `IsometricProjection` geçiyor: `project` +
+`offsetToWorld`. `buildIsometricScene`, `layoutIsometricLabels` ve
+`buildIsometricSvg` açı DEĞİL izdüşüm alır; ekran `getCameraProjection(angles)`,
+kâğıt `getObliqueProjection()` verir.
+
+⚠️ **`project(offsetToWorld(o)) === o` sözleşmesi zorunlu** ve teste bağlı —
+elle ayrılmış binmeler (`isometricOffsetCm`) 2B saklanıp 3B uygulanıyor, eşitlik
+bozulursa yerlerinden oynarlar.
+
+⚠️ Eğik eksenin yönü (sol-aşağı) okunabilirlik için: sağ-yukarı alınsa plan x
+ile yalnız 30° ayrılır ve dikdörtgen kat ince bir dilime çöker. Aynı eksenin
+öteki işareti, tek değişiklikle çevrilir.
+
+⚠️ PDF sayfası SCREENSHOT DEĞİL ve hiç olmadı: 3B koordinat → izdüşüm → SVG →
+bbox+autofit → `svg2pdf`. "PDF'teki canvas görüntüsünü kaldır" isteği geldiğinde
+kaldırılacak bir şey bulunamadı — kusur açı kaynağında ve izdüşüm ailesindeydi.
+
+Yönler `isometricPaperAxes.test.ts`'te kilitli (12 yön vakası, oran korunumu,
+yatay eksenin KISALMAMASI, kaydırma gidiş-dönüşü).
+
+
+## Kâğıtta etiket: künyesizler susar, halka yok (K156)
+
+⚠️ Kâğıt ile ekran etiket konusunda da AYRIŞTI ve bu bilinçli.
+
+**Kim etiketlenir:** kâğıtta yalnız `hasIsometricElementLabel` geçenler — sayaç
+ve yakıcı cihazlar. Kalan sekiz tür (vana, solenoid vana, filtre, manometre,
+regülatör, süzme sayaç, servis kutusu, izolasyon) etiket olarak yalnız kendi
+ADINI yazıyordu; sembolün zaten söylediği şey, referans paftada hiçbiri yok.
+Ekran hepsini yazmaya devam ediyor (orada etiket seçilebilir/sürüklenebilir).
+
+⚠️ Künyesi olmayan yakıcı cihaz yine etiketlenir, türünün adıyla ("Ocak"):
+hangi cihaz olduğu paftanın KONUSU.
+
+**Nereye konur:** kâğıt `layoutLabelsBesideAnchors` (core/pdf) kullanır —
+etiket kendi nesnesinin YANINDA, çakışanlar itilerek ayrılır, kılavuz çizgisi
+İSTİSNA. Ekran `layoutIsometricLabels` (halka) ile kalıyor: yazı ekran-sabit
+boyutta, etiket sürüklenebilir ve çizimden uzak durması gezinmeyi
+kolaylaştırıyor. İki yerleşim YAN YANA durur, biri ötekinin yerine geçmedi.
+
+⚠️ Yeni yerleşimde kayma sahne BOYUTUNDAN bağımsız (etiketin kendi boyu kadar).
+Halka sahne boyutuyla ölçekleniyordu ve `PAPER_RING_TIGHTNESS` /
+`PAPER_LABEL_PULL` bunu kâğıt için sürekli geri kısmaya çalışıyordu; ikisi de
+`LABEL_SEPARATION_FACTOR` ve `distanceFactor` ile birlikte SİLİNDİ.
+
+⚠️ Çakışma çözümünde geri çekme AYIRMADAN ÖNCE yapılır: tersi denendi, turun son
+işlemi çekme olunca sıkışık öbekte ayrılan kutular geri biniyordu. Ayırma yönü
+eşitlikte ANAHTARA bağlı — yoksa aynı proje her basımda farklı çıkar.
+
+Ölçüm (iki katlı tesisat, 6 armatür + 2 sayaç + 2 kombi): 23 → 16 yazı satırı,
+10 → 0 kılavuz çizgisi.
+
+### Sonra eklenenler (K157)
+
+**Servis kutusu** K156da susturulmuştu, geri açıldı: gazın binaya girdiği tek
+nokta, armatürlerle aynı kefeye konamaz. ⚠️ Etiketi TEK SATIR kalıyor —
+referanstaki "S200 / 21 mbar / Yandan Çıkış" satırlarının modelde karşılığı YOK
+(servis kutusunun hiç özellik alanı yok), uydurulmadı.
+
+**Sembol boyu** kâğıtta `PAPER_SYMBOL_SCALE = 0.55`. Ekran boyutuyla basılınca
+semboller şemayı kaplıyor, boruların arasında yazıya yer bırakmıyordu; ekranda
+o boyut doğru (tıklanabilir hedef, zoomla büyüyor), kâğıtta yalnız okunuyor.
+Ayrı bir incelme ayarı gerekmedi: ölçek `stroke-width`e de uygulanıyor.
+
+⚠️ **Çarpan ÇAPA KAYDIRMASINA da uygulanmak zorunda.** Kaydırma zaten
+`element.scale` ile çarpılmış geliyor; yalnız ölçek küçültülseydi sembol
+borudan KOPARDI. Teste bağlı: ölçek 1 → 2 → 3 giderken öteleme eşit
+aralıklarla kaymalı.
+
+### Denenip GERİ ALINAN: segment boyları (K157)
+
+Referans paftadaki `L: 1 m` / `h: 0,3 m` etiketleri istendiği için her
+segmentin kendi uzunluğu kendi yanına basıldı. Gerçek çıktıda kullanıcı geri
+aldırdı: "inanılmaz kalabalık göstermiş".
+
+⚠️ Sebep ÖLÇEK: referansta bir avuç segment var, gerçek bir binada gövde borusu
+onlarca parçaya bölünüyor ve her parçaya bir yazı düşünce K156nın seyreltmesi
+boşa gidiyor — `isConsumptionLine`i doğuran kararla aynı gerekçe.
+
+⚠️ `getIsometricSegmentLengthLabel`, `VERTICAL_SEGMENT_TOLERANCE_CM`,
+`MIN_LABELLED_SEGMENT_CM` ve `LabelBox.direction` SİLİNDİ — bu adlarla yeni kod
+yazma. Yeniden istenirse eşik/seyreltme kuralıyla tasarlanmalı, koşulsuz
+basılmamalı. Boru uzunluğu paftada yine var: tüketim künyesi hattın TOPLAM
+boyunu veriyor.
 **Üç eksi tesadüf değil.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y
 AŞAĞI (hem kotta hem plan y'sinde, EaselJS düzeni), z güneye. Bizim three
 uzayımız sağ elli. Satırlar olduğu gibi alınırsa kamera yerin ALTINDA kalır:

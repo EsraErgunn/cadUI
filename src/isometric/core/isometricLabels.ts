@@ -130,8 +130,43 @@ function getApplianceLabelLines(
 }
 
 /**
+ * Bu elemanın KÜNYESİ var mı? Yalnız sayaç ve yakıcı cihazlar taşır.
+ *
+ * Geri kalan sekiz tür (vana, solenoid vana, filtre, manometre, regülatör,
+ * süzme sayaç, servis kutusu, izolasyon) etiket olarak yalnız KENDİ ADINI
+ * yazıyordu — sembolün zaten söylediği şey. Kâğıtta her biri bir satır artı bir
+ * kılavuz çizgisi üretiyor ve çok katlı binada onlarca "Vana" yazısına
+ * dönüşüyordu (K156, kullanıcı bildirimi); referans paftada bu etiketlerin
+ * hiçbiri yok.
+ *
+ * ⚠️ Künyesi olmayan yakıcı cihaz yine etiketlenir, yalnız türünün adıyla
+ * ("Ocak"): hangi cihaz olduğu paftanın KONUSU, armatürün adı değil.
+ *
+ * ⚠️ Şu an yalnız KÂĞIT bu kurala uyuyor; ekran hepsini yazmaya devam ediyor
+ * (orada etiket seçilebilir/sürüklenebilir ve gezinmeye yarıyor).
+ */
+export function hasIsometricElementLabel(element: InstallationElement): boolean {
+  return (
+    element.type === 'gasMeter' ||
+    // SERVİS KUTUSU istisna (K157): gazın binaya girdiği tek nokta, referans
+    // paftada künyesi var ve armatürlerle aynı kefeye konamaz.
+    //
+    // ⚠️ Etiketi tek satır ("Servis Kutusu") kalıyor. Referanstaki "S200 /
+    // 21 mbar / Yandan Çıkış" satırlarının modelde KARŞILIĞI YOK — servis
+    // kutusunun hiç özellik alanı yok (`elementLabel.ts` boş döner). Alanlar
+    // eklenene kadar bu satırlar uydurulmaz.
+    element.type === 'serviceBox' ||
+    isBurnerAppliance(element.type)
+  )
+}
+
+/**
  * Eleman etiketi. Sayaç ve yakıcı cihaz künyeli, geri kalan yalnız adıyla
  * yazılır — vana/dirsek gibi armatürlerin künyesi izometriği okunmaz yapardı.
+ *
+ * ⚠️ "Yazılır mı" kararı BURADA DEĞİL, `hasIsometricElementLabel`de: metin
+ * üretimi ile görünürlük kuralı ayrı, çünkü ekran ile kâğıt aynı metni
+ * kullanıp farklı süzüyor.
  */
 export function getIsometricElementLabelLines(element: InstallationElement): string[] {
   if (element.type === 'gasMeter') return getGasMeterLabelLines(element)

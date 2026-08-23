@@ -1,6 +1,5 @@
 import { getIsometricLabelDistanceCm } from './isometricLabels'
-import { projectIsometric } from './isometricProjection'
-import type { IsometricAngles } from './isometricProjection'
+import type { IsometricProjection } from './isometricProjection'
 import type { PlanPoint, ThreePosition } from '../../core/coords'
 
 const FULL_TURN_RAD = Math.PI * 2
@@ -68,20 +67,20 @@ function separateAngles(sorted: Placed[], minGapRad: number): number[] {
 export function layoutIsometricLabels(
   requests: readonly IsometricLabelRequest[],
   center: ThreePosition,
-  angles: IsometricAngles,
+  projection: IsometricProjection,
   sceneExtentCm: number,
   minSeparationCm: number,
 ): Map<string, PlanPoint> {
   const placements = new Map<string, PlanPoint>()
   if (requests.length === 0) return placements
 
-  const centerScreen = projectIsometric(center, angles)
+  const centerScreen = projection.project(center)
 
   // Halka çizimi SARMALI: yarıçap en uzak çapadan başlar, yoksa etiketler
   // gövdenin içine düşerdi.
   let anchorRadiusCm = 0
   const projected = requests.map((request) => {
-    const screen = projectIsometric(request.anchor, angles)
+    const screen = projection.project(request.anchor)
     const anchor = { x: screen.x - centerScreen.x, y: screen.y - centerScreen.y }
     anchorRadiusCm = Math.max(anchorRadiusCm, Math.hypot(anchor.x, anchor.y))
     return { request, anchor }

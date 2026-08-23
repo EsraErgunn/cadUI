@@ -9,6 +9,7 @@ import {
   getIsometricElementLabelLines,
   getIsometricLineLabelAnchor,
   getIsometricLineLabelLines,
+  hasIsometricElementLabel,
 } from '../isometricLabels'
 
 function makeLine(overrides: Partial<InstallationLine> = {}): InstallationLine {
@@ -236,5 +237,28 @@ describe('getIsometricLineLabelAnchor', () => {
   it('iki noktadan az olan hatta çapa YOKTUR', () => {
     expect(getIsometricLineLabelAnchor([])).toBeNull()
     expect(getIsometricLineLabelAnchor([[0, 0, 0]])).toBeNull()
+  })
+})
+
+describe('hasIsometricElementLabel', () => {
+  it('sayaç, yakıcı cihaz ve SERVİS KUTUSU etiketlenir', () => {
+    for (const type of ['gasMeter', 'combiBoiler', 'stove', 'serviceBox'] as const) {
+      expect(hasIsometricElementLabel(makeElement({ type }))).toBe(true)
+    }
+  })
+
+  it('künyesiz armatürler kâğıtta SUSAR', () => {
+    // Etiketleri sembolün zaten söylediği adı tekrarlıyordu (K156).
+    for (const type of [
+      'valve',
+      'solenoidValve',
+      'filterKit',
+      'manometer',
+      'regulator',
+      'strainerMeter',
+      'insulation',
+    ] as const) {
+      expect(hasIsometricElementLabel(makeElement({ type }))).toBe(false)
+    }
   })
 })

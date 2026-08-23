@@ -7667,3 +7667,181 @@ kat planı artık çağırmıyor.
 **Kolonun dolgusu da kalktı.** Eski gerekçe "taşıyıcı kütle planda boşluk gibi
 okunmamalı"ydı; altından geçen boru mimari yüzeyin arkasında kalmasın diye kural
 düştü.
+
+
+### K155 — İzometrik pafta SABİT ve OBLİK; ekranın kamera izometrisinden ayrıldı
+
+Kullanıcı: "PDF'teki Three.js screenshot / canvas görüntüsü yaklaşımını kaldır,
+gerçek izometrik tesisat şeması üret."
+
+⚠️ **Ortada screenshot YOKTU.** İzometrik sayfa K136'dan beri saf vektör:
+`isometricSvg.ts` boruların gerçek 3B koordinatlarını projekte ediyor,
+bounding box'tan `viewBox` kuruyor, `svg2pdf` ile basıyor. Three.js, kamera,
+renderer, canvas ya da PNG yolun hiçbir yerinde yok; PDF'teki tek raster şey
+kapaktaki firma logosu. İstenen akışın tamamı (3B nokta → toIso → 2B → SVG →
+bbox+autofit → jsPDF) zaten mevcuttu, `xPipe`/`yPipe` gibi bir eksen
+sınıflandırması da hiç olmamıştı. Kaldırılacak bir şey bulunamadı.
+
+**İki gerçek kusur vardı:**
+
+1. **Açı ekrandan geliyordu** (K122). "Üstten" ön ayarındayken (α = 89°) sayfa
+   neredeyse plan görünümüne çöküyordu — teknik olarak screenshot değil ama
+   DAVRANIŞ olarak kamera görüntüsü.
+2. **İzdüşüm yanlış AİLEDENDİ.** Kâğıt ortografik izometri çiziyordu; teslim
+   edilen gerçek gaz paftaları OBLİK çiziliyor.
+
+**Karar: kâğıdın kendi izdüşümü var** (`getObliqueProjection`), ekrandan
+tümüyle bağımsız ve sabit.
+
+| Model ekseni | Kâğıttaki yön |
+|---|---|
+| plan x | TAM YATAY (0°) |
+| plan y | 30° EĞİK (sol-aşağı, −150°) |
+| kot | TAM DİKEY (90°) |
+
+⚠️ **Bu bir İZOMETRİ DEĞİL, oblik (cavalier) izdüşüm — ve bilinçli.** Gerçek
+izometride üç eksen EŞİT kısalır; kot dikey sabitlenince bu, kalan iki ekseni
+ZORUNLU olarak yataydan ±30°'ye oturtur, yani hiçbir eksen yatay OLAMAZ.
+Kullanıcının referans paftasında ve ona ait iki kat planında yatay segmentler
+ölçüldü (uzun bağlantı 30,1°, `h:` etiketli her şey tam dikey, `L: 1 m`
+segmentleri tam yatay) — o çizim izometri değil. Kâğıt referansa uyar.
+
+⚠️ Önce gerçek izometri (β = 135°) yazıldı ve kullanıcıya "X yatay olursa
+izometri olmaz" denildi; kullanıcı referans belgesini gösterince karar DÖNDÜ.
+Genel doğru burada belirleyici değil, teslim edilen belgenin biçimi belirleyici.
+
+⚠️ **Oblik hiçbir KAMERA açısıyla elde edilemez.** `Rx(α)·Ry(β)` ailesinde plan
+x'i yatay yapan tek durum β = 0/180 ve orada plan y ekseni düşeyle ÇAKIŞIYOR
+(ölçüldü: +Y ve +Z ikisi de 90°), plan derinliği tümüyle kayboluyor. Oblik
+ortografik bir bakış değil, bir KESME (shear) dönüşümü.
+
+**Sonuç: ekran ile kâğıt bilerek AYRIŞTI.** Ekrandaki 3B görünüm gerçek bir
+ortografik kamerayla çiziliyor ve kesme yapamaz; orada döndürülebilir izometri
+kalıyor (K122 geçerli, α/β hâlâ projeye yazılıyor ve EKRANI yönetiyor). Kalkan
+tek şey o açının KÂĞIDA gitmesi.
+
+⚠️ Bu yüzden `IsometricAngles` (bir kamera) yerine `IsometricProjection`
+soyutlaması geçti: `project` + `offsetToWorld`. `buildIsometricScene`,
+`layoutIsometricLabels` ve `buildIsometricSvg` artık açı değil izdüşüm alıyor;
+ekran `getCameraProjection(angles)`, kâğıt `getObliqueProjection()` veriyor.
+
+⚠️ **`project(offsetToWorld(o)) === o` sözleşmesi ZORUNLU** ve teste bağlı.
+Kullanıcının elle ayırdığı etiket/dal kaymaları (`isometricOffsetCm`, K121) 2B
+saklanıp sahnede 3B uygulanıyor; bu eşitlik bozulursa kaymalar yerinden oynar.
+Oblik'te yatay kayma three x'e, düşey kayma kota gidiyor — ikisinin de z
+bileşeni sıfır olduğu için eğik eksen hiç karışmıyor.
+
+⚠️ Eğik eksenin YÖNÜ (sol-aşağı) okunabilirlik için: plan x yatay olduğundan
+eğik ekseni sağ-yukarı almak ikisini yalnız 30° ayırır ve dikdörtgen bir kat
+ince bir dilime çöker; sol-aşağıda ayrım 150° olur. Referans paftada koşu
+sağ-yukarı gidiyor ama bu aynı eksenin öteki işareti — projenin plan yönüne
+bağlı, tek işaret değişikliğiyle çevrilir.
+
+12 yön vakası teste bağlandı (`isometricPaperAxes.test.ts`): altı eksen yönü,
+dört yatay bileşim, X/Y ilerlerken ±Z, artı oran korunumu, üç bileşenli borunun
+tek doğru çıkması, yatay eksenin KISALMAMASI (oblik'in tanımı) ve kaydırma
+gidiş-dönüşü.
+
+### K156 — İzometrik paftada etiket kalabalığı: künyesizler susar, halka kalkar
+
+Kullanıcı: "bu izometri şemasında bu kadar isim kalabalığı olması beni aşırı
+rahatsız ediyor."
+
+Ölçüm: iki katlı küçük bir tesisatta (6 armatür + 2 sayaç + 2 kombi) sayfa **23
+yazı satırı ve 10 kılavuz çizgisi** basıyordu. Kalabalık tek sebepten değil,
+**üçünden** geliyordu ve ikisi düzeltildi.
+
+**1) Her eleman KOŞULSUZ etiketleniyordu.** 15 eleman türünden 8'i yalnız kendi
+ADINI yazıyordu: Vana, Solenoid Vana, Filtre, Manometre, Regülatör, Süzme
+Sayaç, Servis Kutusu, İzolasyon. Hiçbiri sembolün söylemediği bir şey
+söylemiyor, üstelik her biri bir de kılavuz çizgisi getiriyordu. Referans
+paftada bu etiketlerin HİÇBİRİ yok.
+
+⚠️ Kural `hasIsometricElementLabel`de ve YALNIZ sayaç + yakıcı cihaz geçiyor.
+Künyesi olmayan yakıcı cihaz yine etiketlenir (yalnız "Ocak" gibi türünün
+adıyla) — hangi cihaz olduğu paftanın KONUSU, armatürün adı değil.
+
+⚠️ Görünürlük kuralı metin üretiminden AYRI dosyada değil ama ayrı
+FONKSİYONDA: `getIsometricElementLabelLines` metni üretmeye devam ediyor, çünkü
+ekran ile kâğıt aynı metni kullanıp farklı süzüyor.
+
+**2) Yerleşim bir HALKAYDI.** `layoutIsometricLabels` tüm etiketleri çizimin
+etrafında bir çembere diziyor ve her birinden çizimin üstünden geçen kesikli
+bir kılavuz çekiyordu. Etiket sayısı arttıkça çember büyüyor, çizim ortada
+küçülüyordu. Kâğıt artık `layoutLabelsBesideAnchors` kullanıyor: etiket KENDİ
+nesnesinin yanında, çakışanlar itilerek ayrılıyor, kılavuz İSTİSNA.
+
+⚠️ **Ekran DEĞİŞMEDİ.** Halka orada mantıklı: yazı ekran-sabit boyutta,
+kullanıcı etiketi sürükleyebiliyor ve çizimden uzak durması gezinmeyi
+kolaylaştırıyor. İki yerleşim yan yana duruyor, biri ötekinin yerine geçmedi.
+
+⚠️ Yeni yerleşimde kayma sahne BOYUTUNDAN bağımsız (etiketin kendi boyu kadar);
+halka sahne boyutuyla ölçekleniyordu ve `PAPER_RING_TIGHTNESS` /
+`PAPER_LABEL_PULL` bunu kâğıt için sürekli geri kısmaya çalışıyordu. İkisi de
+`LABEL_SEPARATION_FACTOR` ve `distanceFactor` alanıyla birlikte SİLİNDİ — bu
+adlarla kâğıt tarafında yeni kod yazma.
+
+⚠️ Geri çekme AYIRMADAN ÖNCE yapılıyor. Tersi denendi: turun son işlemi çekme
+olunca sıkışık bir öbekte (40 cm içinde beş künye) ayrılan kutular geri
+biniyordu — testte yakalandı.
+
+⚠️ Ayırma yönü eşitlikte ANAHTARA bağlı; yoksa aynı proje her basımda biraz
+farklı çıkardı (teste bağlandı).
+
+**3) Künyeler 4 satıra kadar çıkıyor** — DOKUNULMADI. Referansta da 4 satır var;
+sorun satır uzunluğu değil ADET ve YERLEŞİMDİ.
+
+Sonuç aynı fixture'da: **23 → 16 yazı satırı, 10 → 0 kılavuz çizgisi.**
+
+⚠️ Servis kutusunun künyesi de SUSTU. Referans paftada o künye VAR ("Servis
+Kutusu S200 / 21 mbar / Yandan Çıkış"); kullanıcıya istisna tutulması seçenek
+olarak sunuldu ve BİLEREK seçilmedi. Geri istenirse `hasIsometricElementLabel`
+tek satırla açılır.
+
+
+### K157 — İzometrik paftada servis kutusu ve sembol boyu
+
+K156'nın seyreltmesinin ardından kullanıcının istekleri.
+
+**1) Servis kutusu künyesi GERİ GELDİ.** K156'da künyesizlerle birlikte
+susturulmuştu; gazın binaya girdiği tek nokta ve referans paftada künyesi var,
+armatürlerle aynı kefeye konamaz.
+
+⚠️ Etiketi TEK SATIR ("Servis Kutusu") kalıyor. Referanstaki "S200 / 21 mbar /
+Yandan Çıkış" satırlarının modelde KARŞILIĞI YOK — servis kutusunun hiç özellik
+alanı yok (`elementLabel.ts` onun için boş nesne döner). Alanlar eklenene kadar
+bu satırlar UYDURULMAZ.
+
+**2) Semboller kâğıtta KÜÇÜLTÜLDÜ** (`PAPER_SYMBOL_SCALE = 0.55`). Ekrandaki
+boyutlarıyla basılınca şemanın büyük bölümünü kaplıyor, boruların arasında
+yazıya yer bırakmıyorlardı. Ekranda o boyut doğru: sembol tıklanabilir bir hedef
+ve zoom'la büyüyor; kâğıtta tıklanmıyor, yalnız okunuyor.
+
+⚠️ Ayrı bir "incelme" ayarı GEREKMEDİ: ölçek `stroke-width`e de uygulanıyor,
+sembol küçülürken çizgisi de inceliyor.
+
+⚠️ **Çarpan çapa kaydırmasına da uygulanmak ZORUNDA.** Kaydırma zaten
+`element.scale` ile çarpılmış geliyor (`getElementIsometricAnchor`); yalnız
+ölçek küçültülseydi sembol küçülür ama kaydırma eski boyuna göre kalır ve
+bağlantı noktası borudan KOPARDI. İkisi aynı çarpanı alınca port yine tam
+yerine oturuyor. Teste bağlandı: ölçek 1 → 2 → 3 giderken öteleme EŞİT
+aralıklarla kaymalı; iki çarpan ayrışırsa bu doğrusallık bozulur.
+
+**3) SEGMENT BOYLARI yazıldı ve GERİ ALINDI.** Referans paftadaki `L: 1 m` /
+`h: 0,3 m` etiketleri istendiği için her segmentin kendi uzunluğu kendi yanına
+basıldı (düşeyler `h:`, kalanı `L:`). Kullanıcı gerçek çıktıda gördü:
+"inanılmaz kalabalık göstermiş".
+
+⚠️ Sebep ÖLÇEK: referans paftada bir avuç segment var, gerçek bir binada gövde
+borusu onlarca parçaya bölünüyor ve her parçaya bir yazı düşünce K156'nın
+seyreltmesi boşa gidiyor. Aynı gerekçe `isConsumptionLine`i doğuran karardaki
+gerekçenin aynısı — orada da her hat parçasına boy/çap yazmak "rakam bulutu"
+yapıyordu.
+
+⚠️ `getIsometricSegmentLengthLabel`, `VERTICAL_SEGMENT_TOLERANCE_CM`,
+`MIN_LABELLED_SEGMENT_CM` ve `LabelBox.direction` SİLİNDİ — bu adlarla yeni kod
+yazma. Segment boyu yeniden istenirse eşik/seyreltme kuralıyla birlikte
+tasarlanmalı, koşulsuz basılmamalı.
+
+Boru uzunluğu paftada YİNE VAR: tüketim künyesindeki `(3) / 4,74 m / DN25`
+hattın toplam boyunu veriyor.
