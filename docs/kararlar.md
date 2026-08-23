@@ -7342,3 +7342,33 @@ ayrıldı: kart durakları ve gezinmeyi, picker tip seçmeyi biliyor.
 
 Nerede: `core/roomDefinition.ts`, `ui/canvas/RoomDefinitionCard.tsx`,
 `ui/canvas/RoomUsagePicker.tsx`, `ui/MenuBar.tsx`.
+
+### K148 — Tesisat geri alma, projedeki İLK düzenlemede her şeyi siliyordu
+
+Kullanıcı bulgusu: "kolon hattını sil dedim, geri almaya tıkladığımda her şey
+gidiyor."
+
+**Sebep — tesisat geçmişi aynası tohumlanmıyordu.** `plumbingHistory` cadStore'un
+DIŞINDA ayrı bir ayna store; zundo yalnız onu izliyor ve aynayı SADECE
+`plumbingSlice`'ın tesisat action'ları (`record()`) güncelliyor. Proje yükleme
+oradan geçmediği için ayna projenin başında BOŞ kalıyordu. Kullanıcı ilk tesisat
+düzenlemesini yapınca zundo "önceki durum" diye o boş aynayı geçmişe itiyor,
+Ctrl+Z de bütün tesisatı siliyordu.
+
+⚠️ `resetPlumbingHistory` yazılmıştı ama üretimde HİÇ ÇAĞRILMIYORDU — yalnız
+testlerde. Test kendi aynasını kurduğu için hata testlerde hiç görünmedi.
+
+Düzeltme: cadStore'un tesisata dokunan üç yolu aynayı da eşitliyor
+(`mirrorPlumbingHistory`) — `loadProject` sıfırlayarak (yeni başlangıç,
+`temporal.clear()` ile aynı yerde), `loadProjectDrawing` ve
+`clearProjectDrawing` kaydederek (ikisi de geri alınabilir DÜZENLEME).
+
+⚠️ Aynı sınıftan bir yol daha var: `floorOps` kat silerken o katın tesisatını
+da temizliyor ve aynayı güncellemiyor. Bu adımda DOKUNULMADI — kat silme kendi
+onayı ve kendi testleriyle gelen ayrı bir yol; düzeltilecekse ölçülerek
+düzeltilmeli.
+
+Hata K147'nin toplu silmesiyle görünür oldu ama ondan ÖNCE de vardı: proje
+açıp tek bir boru silen kullanıcı da aynısını yaşıyordu.
+
+Nerede: `store/cadStore.ts`.
