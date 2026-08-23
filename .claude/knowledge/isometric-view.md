@@ -80,6 +80,37 @@ kaldırılacak bir şey bulunamadı — kusur açı kaynağında ve izdüşüm a
 Yönler `isometricPaperAxes.test.ts`'te kilitli (12 yön vakası, oran korunumu,
 yatay eksenin KISALMAMASI, kaydırma gidiş-dönüşü).
 
+
+## Kâğıtta etiket: künyesizler susar, halka yok (K156)
+
+⚠️ Kâğıt ile ekran etiket konusunda da AYRIŞTI ve bu bilinçli.
+
+**Kim etiketlenir:** kâğıtta yalnız `hasIsometricElementLabel` geçenler — sayaç
+ve yakıcı cihazlar. Kalan sekiz tür (vana, solenoid vana, filtre, manometre,
+regülatör, süzme sayaç, servis kutusu, izolasyon) etiket olarak yalnız kendi
+ADINI yazıyordu; sembolün zaten söylediği şey, referans paftada hiçbiri yok.
+Ekran hepsini yazmaya devam ediyor (orada etiket seçilebilir/sürüklenebilir).
+
+⚠️ Künyesi olmayan yakıcı cihaz yine etiketlenir, türünün adıyla ("Ocak"):
+hangi cihaz olduğu paftanın KONUSU.
+
+**Nereye konur:** kâğıt `layoutLabelsBesideAnchors` (core/pdf) kullanır —
+etiket kendi nesnesinin YANINDA, çakışanlar itilerek ayrılır, kılavuz çizgisi
+İSTİSNA. Ekran `layoutIsometricLabels` (halka) ile kalıyor: yazı ekran-sabit
+boyutta, etiket sürüklenebilir ve çizimden uzak durması gezinmeyi
+kolaylaştırıyor. İki yerleşim YAN YANA durur, biri ötekinin yerine geçmedi.
+
+⚠️ Yeni yerleşimde kayma sahne BOYUTUNDAN bağımsız (etiketin kendi boyu kadar).
+Halka sahne boyutuyla ölçekleniyordu ve `PAPER_RING_TIGHTNESS` /
+`PAPER_LABEL_PULL` bunu kâğıt için sürekli geri kısmaya çalışıyordu; ikisi de
+`LABEL_SEPARATION_FACTOR` ve `distanceFactor` ile birlikte SİLİNDİ.
+
+⚠️ Çakışma çözümünde geri çekme AYIRMADAN ÖNCE yapılır: tersi denendi, turun son
+işlemi çekme olunca sıkışık öbekte ayrılan kutular geri biniyordu. Ayırma yönü
+eşitlikte ANAHTARA bağlı — yoksa aynı proje her basımda farklı çıkar.
+
+Ölçüm (iki katlı tesisat, 6 armatür + 2 sayaç + 2 kombi): 23 → 16 yazı satırı,
+10 → 0 kılavuz çizgisi.
 **Üç eksi tesadüf değil.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y
 AŞAĞI (hem kotta hem plan y'sinde, EaselJS düzeni), z güneye. Bizim three
 uzayımız sağ elli. Satırlar olduğu gibi alınırsa kamera yerin ALTINDA kalır:

@@ -7741,3 +7741,59 @@ bağlı, tek işaret değişikliğiyle çevrilir.
 dört yatay bileşim, X/Y ilerlerken ±Z, artı oran korunumu, üç bileşenli borunun
 tek doğru çıkması, yatay eksenin KISALMAMASI (oblik'in tanımı) ve kaydırma
 gidiş-dönüşü.
+
+### K156 — İzometrik paftada etiket kalabalığı: künyesizler susar, halka kalkar
+
+Kullanıcı: "bu izometri şemasında bu kadar isim kalabalığı olması beni aşırı
+rahatsız ediyor."
+
+Ölçüm: iki katlı küçük bir tesisatta (6 armatür + 2 sayaç + 2 kombi) sayfa **23
+yazı satırı ve 10 kılavuz çizgisi** basıyordu. Kalabalık tek sebepten değil,
+**üçünden** geliyordu ve ikisi düzeltildi.
+
+**1) Her eleman KOŞULSUZ etiketleniyordu.** 15 eleman türünden 8'i yalnız kendi
+ADINI yazıyordu: Vana, Solenoid Vana, Filtre, Manometre, Regülatör, Süzme
+Sayaç, Servis Kutusu, İzolasyon. Hiçbiri sembolün söylemediği bir şey
+söylemiyor, üstelik her biri bir de kılavuz çizgisi getiriyordu. Referans
+paftada bu etiketlerin HİÇBİRİ yok.
+
+⚠️ Kural `hasIsometricElementLabel`de ve YALNIZ sayaç + yakıcı cihaz geçiyor.
+Künyesi olmayan yakıcı cihaz yine etiketlenir (yalnız "Ocak" gibi türünün
+adıyla) — hangi cihaz olduğu paftanın KONUSU, armatürün adı değil.
+
+⚠️ Görünürlük kuralı metin üretiminden AYRI dosyada değil ama ayrı
+FONKSİYONDA: `getIsometricElementLabelLines` metni üretmeye devam ediyor, çünkü
+ekran ile kâğıt aynı metni kullanıp farklı süzüyor.
+
+**2) Yerleşim bir HALKAYDI.** `layoutIsometricLabels` tüm etiketleri çizimin
+etrafında bir çembere diziyor ve her birinden çizimin üstünden geçen kesikli
+bir kılavuz çekiyordu. Etiket sayısı arttıkça çember büyüyor, çizim ortada
+küçülüyordu. Kâğıt artık `layoutLabelsBesideAnchors` kullanıyor: etiket KENDİ
+nesnesinin yanında, çakışanlar itilerek ayrılıyor, kılavuz İSTİSNA.
+
+⚠️ **Ekran DEĞİŞMEDİ.** Halka orada mantıklı: yazı ekran-sabit boyutta,
+kullanıcı etiketi sürükleyebiliyor ve çizimden uzak durması gezinmeyi
+kolaylaştırıyor. İki yerleşim yan yana duruyor, biri ötekinin yerine geçmedi.
+
+⚠️ Yeni yerleşimde kayma sahne BOYUTUNDAN bağımsız (etiketin kendi boyu kadar);
+halka sahne boyutuyla ölçekleniyordu ve `PAPER_RING_TIGHTNESS` /
+`PAPER_LABEL_PULL` bunu kâğıt için sürekli geri kısmaya çalışıyordu. İkisi de
+`LABEL_SEPARATION_FACTOR` ve `distanceFactor` alanıyla birlikte SİLİNDİ — bu
+adlarla kâğıt tarafında yeni kod yazma.
+
+⚠️ Geri çekme AYIRMADAN ÖNCE yapılıyor. Tersi denendi: turun son işlemi çekme
+olunca sıkışık bir öbekte (40 cm içinde beş künye) ayrılan kutular geri
+biniyordu — testte yakalandı.
+
+⚠️ Ayırma yönü eşitlikte ANAHTARA bağlı; yoksa aynı proje her basımda biraz
+farklı çıkardı (teste bağlandı).
+
+**3) Künyeler 4 satıra kadar çıkıyor** — DOKUNULMADI. Referansta da 4 satır var;
+sorun satır uzunluğu değil ADET ve YERLEŞİMDİ.
+
+Sonuç aynı fixture'da: **23 → 16 yazı satırı, 10 → 0 kılavuz çizgisi.**
+
+⚠️ Servis kutusunun künyesi de SUSTU. Referans paftada o künye VAR ("Servis
+Kutusu S200 / 21 mbar / Yandan Çıkış"); kullanıcıya istisna tutulması seçenek
+olarak sunuldu ve BİLEREK seçilmedi. Geri istenirse `hasIsometricElementLabel`
+tek satırla açılır.
