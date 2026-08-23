@@ -37,7 +37,7 @@ export function findPointSymbolLabelAt(
   const ui = useUiStore.getState()
   if (ui.activeToolId !== SELECTION_TOOL_ID) return undefined
   // GİZLİ etiket tutulmaz (K56): alan nesnesiyle ORTAK anahtar.
-  if (!ui.isAreaObjectNamesVisible) return undefined
+  if (!ui.isDeviceNamesVisible) return undefined
 
   const cad = useCadStore.getState()
   return pickPointSymbolLabelAt(

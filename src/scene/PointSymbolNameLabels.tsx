@@ -116,7 +116,7 @@ function PointSymbolNameLabel({ symbol, pose, zoom }: PointSymbolNameLabelProps)
  * `AreaObjectNameLabels` ile aynı iş bölümü.
  */
 export function PointSymbolNameLabels() {
-  const isVisible = useUiStore((state) => state.isAreaObjectNamesVisible)
+  const isVisible = useUiStore((state) => state.isDeviceNamesVisible)
   const zoom = useCameraZoom()
   const symbols = useCadStore((state) => state.symbols)
   const walls = useCadStore((state) => state.walls)

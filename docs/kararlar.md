@@ -7520,3 +7520,80 @@ Nerede: `scene/architectureTheme.ts`, `scene/sceneTheme.ts`,
 `scene/architectureStrokeStyle.ts`, `scene/PointSymbol.tsx`,
 `scene/AreaObject.tsx`, `scene/Beam.tsx`, `scene/WallDimensionLabels.tsx`,
 `scene/AreaObjectNameLabels.tsx`, `scene/PointSymbolNameLabels.tsx`.
+
+### K153 — Boru ölçüsü kendi anahtarına ayrıldı, ızgara çubuğa taşındı
+
+Kullanıcı: "tesisat boru uzunlukları için floating barda görünüme ekleyelim,
+ölçüler düzenli olmuş olur" + "görünümdeki ızgara tuşunu floating bara icon
+olarak taşı, snap işaretinin yanına".
+
+**1. Ölçüler ikiye ayrıldı.** `isDimensionsVisible` artık YALNIZ mimarinin
+(duvar parçası ölçüsü); boru boyu kendi bayrağında (`isPipeLengthsVisible`).
+Menüdeki etiket de netleşti: "Ölçüler" → mimaride **"Duvar ölçüleri"**,
+tesisatta **"Boru ölçüleri"**.
+
+⚠️ **"Boru ölçüleri" MİMARİ menüde DE var** (kullanıcı kararı) ve bu bilinçli
+bir istisnadır: mimariden tesisatı yöneten TEK anahtar. Gerekçe — mimarideki
+tesisat izi boru boylarını da yazıyor, kullanıcı duvar ölçüsü okurken onları
+kapatabilmeli ve bunun için tesisat görünümüne geçmek zorunda kalmamalı.
+Bayrak TEK: iki menü, aynı anahtarın iki giriş noktası — birinde kapatılan
+ötekinde de kapalı. Mimari listede EN SONDA duruyor ki mimarinin kendi
+katmanları yukarıda kalsın, istisna sonda okunsun.
+
+⚠️ Bu K131'in "tek bayrak iki görünümü de yönetir" kararını GERİ ALIYOR. O
+kararın gerekçesi menü çubuğundaki tek "Ölçüleri Göster" maddesinin hangisini
+kastettiğini söyleyememesiydi; o menü K90'da kalktı ve K150'den sonra iki ölçü
+gerçekten iki ayrı görünümde yaşıyor. Tek anahtar, tesisatta boru boyunu
+kapatmak isteyeni mimaride duvar ölçülerinden de ediyordu.
+
+**2. Izgara görünürlüğü Görünüm menüsünden ÇUBUĞA taşındı**, snap düğmesinin
+YANINA: ikisi de ızgarayla ilgili — biri onu gösteriyor, öteki ona yapıştırıyor.
+
+⚠️ Izgara menüde artık YOK. Aynı anahtarı iki yerde sunmak hangisinin ne
+yaptığını belirsizleştirir (K111'in kuralı). ⚠️ Izgara düğmesi İKİ görünümde de
+var; snap ise yalnız mimaride (K57 gerekçesi geçerli: tesisatın yakalaması
+ızgara GÖRÜNÜRLÜĞÜNE bağlı, aynı düğme orada başka şey ifade ederdi).
+
+**3. Menü ÖBEKLENDİ ve cihaz adları ayrıldı** (kullanıcı isteği). Düz liste
+yerine ince çizgilerle üç öbek:
+
+1. Ölçüler: Duvar ölçüleri · Kapı/pencere ölçüleri · Boru ölçüleri
+2. Açılar
+3. Adlar: Yapı elemanı adları · Cihaz adları · Oda adları
+
+⚠️ "Nesne adları" → **"Yapı elemanı adları"** ve CİHAZ adları AYRI bir
+anahtara çıktı (`isDeviceNamesVisible`). Eskiden ikisi tek bayraktaydı,
+gerekçesi "kullanıcı için ikisi de nesnenin adı"ydı — K152'de renkler
+ayrılınca yapı elemanı ile cihaz iki ayrı aile oldu, adlandırma da onu izledi.
+
+
+**4. Mimari açılış kadrajı ve ızgaranın kalıcılığı** (kullanıcı kararı).
+
+Açılışta YALNIZ **duvar ölçüleri** ve **oda adları** açık; kapı/pencere ölçüsü,
+açılar, yapı elemanı adları, cihaz adları ve boru ölçüsü KAPALI. Gerekçe: plan
+ilk açıldığında okunabilir olmalı — hepsi açıkken küçük dairelerde yazılar üst
+üste biniyor ve kullanıcı çizimi göremeden katman kapatmakla başlıyordu.
+
+⚠️ Bu, K74/K76'daki "açıklık ölçüsü varsayılan AÇIK" kararını GERİ ALIR. O
+kararın gerekçesi geriye uyumluluktu ("yeni anahtar davranışı değiştirmemeli");
+kullanıcı artık açılış kadrajını bilerek seçti.
+
+⚠️ Boru ölçüsü bayrağı tesisatla PAYLAŞILIYOR, dolayısıyla kapalı varsayılan
+tesisat görünümünü de etkiliyor: orası da boru boyları kapalı açılıyor. Ayrı
+varsayılan istenirse bayrağı ikiye bölmek gerekir ve o zaman "tek anahtar, iki
+giriş noktası" kuralı düşer.
+
+⚠️ **Izgara görünüm geçişinde SIFIRLANMAZ.** Eskiden `setActiveView` tesisatta
+kapatıp mimaride açıyordu; gerekçesi ızgaranın boru hayaletiyle karışmasıydı.
+Anahtar menüden çubuğa çıkınca bu otomatik ezme hataya dönüştü: kullanıcının
+bilerek kapattığı ve önünde duran bir düğme kendiliğinden geri açılıyordu.
+
+⚠️ HİÇBİRİ KALICI DEĞİL: `uiStore` kaydedilmiyor (ne `localStorage` ne sunucu),
+sayfa yenilenince hepsi bu varsayılanlara döner. Bilinçli — bunlar projeye
+değil kullanıcıya ait tercihler ve projeye yazılsaydı bir kullanıcının kapattığı
+katman başka kullanıcıda da kapalı açılırdı. Cihaz başına hatırlama istenirse
+ayrı bir karar (`persist` sarmalayıcı + hangi alanların kaydedileceği).
+
+Nerede: `store/uiStore.ts`, `ui/canvas/ViewOptionsMenu.tsx`,
+`ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`,
+`scene/PointSymbolNameLabels.tsx`, `scene/usePointSymbolLabelTool.ts`.

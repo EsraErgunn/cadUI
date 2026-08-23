@@ -19,6 +19,15 @@ type UiState = {
    */
   isDimensionsVisible: boolean
   /**
+   * BORU boyu yazıları (tesisat görünümü). Duvar ölçülerinden AYRI bayrak
+   * (kullanıcı isteği): K131 ikisini tek anahtarda birleştirmişti, gerekçesi
+   * menü çubugundaki tek "Ölçüleri Göster" maddesinin hangisini kastettiğini
+   * söyleyememesiydi. O menü kalktı (K90) ve iki ölçü artık iki ayrı görünümde
+   * yaşıyor — tek anahtar, tesisatta boru boyunu kapatmak isteyeni mimaride
+   * duvar ölçülerinden de ediyordu.
+   */
+  isPipeLengthsVisible: boolean
+  /**
    * Kapı/pencere GENİŞLİĞİNİN ölçüsü (K74). `isDimensionsVisible`den BAĞIMSIZ
    * (K76): duvar ölçüleri kapalıyken de açık kalabilir — kullanıcı yalnız
    * açıklık genişliklerini görmek isteyebilir ve bunun için planı sayıya
@@ -61,6 +70,13 @@ type UiState = {
    */
   isAreaObjectNamesVisible: boolean
   /**
+   * CİHAZ ad etiketleri (pano, menfez, alarm, yangın söndürücü…). Yapı
+   * elemanı adlarından AYRI bayrak (kullanıcı isteği): ikisi tek anahtardaydı
+   * ve gerekçesi "kullanıcı için ikisi de nesnenin adı"ydı — renkler ayrılınca
+   * (K152) ikisi ayrı aile oldu, adlandırma da ayrıldı.
+   */
+  isDeviceNamesVisible: boolean
+  /**
    * Oda etiketleri. Ad ve alan (m²) TEK blok olarak açılıp kapanır: ikisi
    * aynı çapaya yazılmış tek bir yazı öbeği, ayrı ayrı gizlemek ortada asılı
    * bir sayı bırakırdı.
@@ -100,12 +116,14 @@ type UiState = {
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
+  togglePipeLengthsVisible: () => void
   toggleOpeningDimensionsVisible: () => void
   toggleCornerAnglesVisible: () => void
   toggleElementLabelsVisible: () => void
   toggleGridVisible: () => void
   toggleGridSnapEnabled: () => void
   toggleAreaObjectNamesVisible: () => void
+  toggleDeviceNamesVisible: () => void
   toggleRoomNamesVisible: () => void
   setPanModeActive: (isActive: boolean) => void
   setEditorReadOnly: (isReadOnly: boolean) => void
@@ -121,16 +139,37 @@ export const useUiStore = create<UiState>()(
   immer((set) => ({
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
+    /**
+     * MİMARİ AÇILIŞ KADRAJI (kullanıcı kararı): yalnız DUVAR ÖLÇÜLERİ ve ODA
+     * ADLARI açık. Kalan katmanları isteyen elle açar.
+     *
+     * Gerekçe: plan ilk açıldığında okunabilir olmalı. Hepsi açıkken ölçü, açı,
+     * yapı elemanı adı, cihaz adı ve boru boyu aynı anda yazılıyor ve küçük
+     * dairelerde yazılar üst üste biniyordu — kullanıcı çizimi göremeden
+     * katmanları kapatmakla başlıyordu.
+     *
+     * ⚠️ Bu, K74/K76'daki "açıklık ölçüsü varsayılan AÇIK" kararını GERİ ALIR.
+     * O kararın gerekçesi "yeni anahtar davranışı değiştirmemeli"ydi, yani
+     * geriye uyumluluktu — kullanıcı artık açılış kadrajını bilerek seçti.
+     */
     isDimensionsVisible: true,
-    // Varsayılan AÇIK: ölçüler açıldığında açıklık genişlikleri hep görünüyordu,
-    // yeni anahtar davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
-    isOpeningDimensionsVisible: true,
+    isRoomNamesVisible: true,
+    isOpeningDimensionsVisible: false,
     isCornerAnglesVisible: false,
+    isAreaObjectNamesVisible: false,
+    isDeviceNamesVisible: false,
+    /**
+     * ⚠️ Boru ölçüsü bayrağı TESİSATLA PAYLAŞILIYOR (K153: mimariden tesisatı
+     * yöneten tek anahtar). Mimari açılışı temiz olsun diye KAPALI başlıyor —
+     * bunun bedeli tesisat görünümünün de boru boyları kapalı açılması.
+     * Ayrı varsayılan istenirse bayrağı ikiye bölmek gerekir ve o zaman
+     * "tek anahtar, iki giriş noktası" kuralı düşer.
+     */
+    isPipeLengthsVisible: false,
+    /** Tesisatın KENDİ katmanı; mimari açılış kararının kapsamı dışında. */
     isElementLabelsVisible: true,
     isGridVisible: true,
     isGridSnapEnabled: true,
-    isAreaObjectNamesVisible: true,
-    isRoomNamesVisible: true,
     isPanModeActive: false,
     // Varsayılan KAPALI: kipi yalnız editör açıkça kuruyor, yani yönetici ve
     // proje firması kullanıcısı için hiçbir şey değişmiyor.
@@ -163,18 +202,22 @@ export const useUiStore = create<UiState>()(
         // aracı yeni palette geçersiz kalmasın. isometric'te palet yok, dokunulmaz.
         if (viewId === 'architecture') draft.activeToolId = DEFAULT_TOOL_ID
         if (viewId === 'installation') draft.activeToolId = DEFAULT_INSTALLATION_TOOL_ID
-        // Izgara her görünümün kendi varsayılanına döner: tesisatta arkadaki
-        // ızgara boru/sembol hayaletiyle karışıyordu, mimaride çizim için
-        // gerekli. İsteyen Görünüm ▸ Izgarayı Göster ile elle kapatır/açar —
-        // bu otomatik varsayım o manuel denetimin YERİNE geçmez, yalnız
-        // görünüm değişiminde başlangıç durumunu belirler.
-        if (viewId === 'installation') draft.isGridVisible = false
-        if (viewId === 'architecture') draft.isGridVisible = true
+        // ⚠️ IZGARA GÖRÜNÜM GEÇİŞİNDE SIFIRLANMAZ (kullanıcı kararı, K153).
+        // Eskiden tesisata geçince kapanıp mimariye dönünce açılıyordu;
+        // gerekçesi tesisatta ızgaranın boru hayaletiyle karışmasıydı. Anahtar
+        // menüden ÇUBUĞA çıkınca bu otomatik ezme hataya dönüştü: kullanıcının
+        // bilerek kapattığı ve önünde duran bir düğme kendiliğinden geri
+        // açılıyordu. Izgaranın durumu artık tümüyle kullanıcının.
       }),
 
     toggleDimensionsVisible: () =>
       set((draft) => {
         draft.isDimensionsVisible = !draft.isDimensionsVisible
+      }),
+
+    togglePipeLengthsVisible: () =>
+      set((draft) => {
+        draft.isPipeLengthsVisible = !draft.isPipeLengthsVisible
       }),
 
     toggleOpeningDimensionsVisible: () =>
@@ -205,6 +248,11 @@ export const useUiStore = create<UiState>()(
     toggleAreaObjectNamesVisible: () =>
       set((draft) => {
         draft.isAreaObjectNamesVisible = !draft.isAreaObjectNamesVisible
+      }),
+
+    toggleDeviceNamesVisible: () =>
+      set((draft) => {
+        draft.isDeviceNamesVisible = !draft.isDeviceNamesVisible
       }),
 
     toggleRoomNamesVisible: () =>
