@@ -7343,6 +7343,53 @@ ayrıldı: kart durakları ve gezinmeyi, picker tip seçmeyi biliyor.
 Nerede: `core/roomDefinition.ts`, `ui/canvas/RoomDefinitionCard.tsx`,
 `ui/canvas/RoomUsagePicker.tsx`, `ui/MenuBar.tsx`.
 
+### K147 — Kolon Hattını Sil ve Daire İçi Tesisatları Sil
+
+Araçlar menüsündeki iki pasif madde çalışır hâle geldi. İkisi aynı ağın
+birbirini tümleyen iki kesiti; bölümleme TEK yerde
+(`plumbing/core/networkPartition.ts`).
+
+⚠️ **SINIR SAYAÇ, "tüketim vanası" DEĞİL.** Şartname bağımsız bölümü tüketim
+vanasıyla tanımlıyor ama modelde öyle bir tür YOK: vana tek tür (`valve`) ve
+`ValveProperties.type` serbest metin, "bu bir tüketim vanasıdır" diyen bir
+işaret hiç üretilmiyor (K142'de "Tüketim Vanalarını Ekle" / "DN25 Yap"
+maddelerinin kaldırılma gerekçesi de buydu). Sayaç tiplendirilmiş, "1 daire =
+1 sayaç" kuralı yazılı ve `unitNumber`/`subscriberName` taşıyor — şartnamenin
+"bağımsız bölüm bazında" istediği döküm oradan çıkıyor. Kullanıcı bu
+uyarlamayı onayladı ve "tüketim vanası eklemeyeceğiz" dedi.
+
+Sınır kararı `isUnitBoundaryElement` fonksiyonunda TEK satır: tüketim vanası
+kavramı bir gün eklenirse değişecek tek yer orasıdır, çağıranlar (iki silme,
+sayımlar, onay penceresi) olduğu gibi kalır.
+
+**Kolon Hattını Sil** — servis kutusundan sayaçlara kadar olan gövde (kolon +
+branşman + üstlerindeki armatürler). Kapsam DAİMA TÜM KATLAR, kat seçimi
+sorulmaz (şartname şartı: hat düşeydir, tek katta kesmek onu ortasından
+koparırdı). ⚠️ Servis kutusu gövdeye GİRMEZ — kaynak gidince kullanıcı
+yeniden çizmeye başlayamazdı. Sayaçlar ve daire içi kalır, uçları serbest.
+
+**Daire İçi Tesisatları Sil** — sayaçların çıkışından sonrası. Kapsam AKTİF KAT
+(kullanıcı kararı); kat SAYACIN katıdır, dairenin tesisatı kat bağlantısıyla
+üst kata taşıyorsa o parça da gider. Etiket "Tesisat Sil"den değiştirildi: eski
+ad TÜM tesisatı silecek sanılıyordu.
+
+⚠️ **İki madde YALNIZ TESİSAT görünümünde açık.** Kozmetik değil: geri alma
+AKTİF GÖRÜNÜMÜN geçmişine gidiyor (K123) ve tesisat aynası yalnız
+tesisat/izometrikte gezilir — mimaride çalıştırılsaydı Ctrl+Z tesisatı değil
+DUVARI geri alır, onay penceresindeki "geri alınabilir" sözü yalan olurdu.
+Tarayıcıda yakalandı. İzometrik de dışarıda: orada aktif kat kavramı yok (K124).
+
+Onay penceresi AYRI YAZILMADI: var olan `CascadeDeleteDialog` iki yeni `kind`
+ile genişletildi (kolonda hat uzunluğu, daire içinde bağımsız bölüm bazlı
+döküm). İkinci bir pencere, "geri alınabilir" notunu ve kat yayılma uyarısını
+iki yerde tutmak demekti.
+
+Menü mantığı `ui/menu/useToolsMenuActions.ts`'e taşındı (MenuBar 200 satırı
+aşmıştı); pasiflik hesabı da orada tek yerde.
+
+Nerede: `plumbing/core/networkPartition.ts`, `plumbing/store/deletionActions.ts`,
+`plumbing/store/plumbingUiStore.ts`, `plumbing/ui/CascadeDeleteDialog.tsx`,
+`ui/menu/useToolsMenuActions.ts`, `ui/MenuBar.tsx`, `ui/menu/menuDefinitions.ts`.
 ### K148 — Tesisat geri alma, projedeki İLK düzenlemede her şeyi siliyordu
 
 Kullanıcı bulgusu: "kolon hattını sil dedim, geri almaya tıkladığımda her şey
