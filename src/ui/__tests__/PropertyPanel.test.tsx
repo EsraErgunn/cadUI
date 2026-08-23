@@ -45,8 +45,28 @@ describe('PropertyPanel', () => {
     expect(screen.getByLabelText('Uzunluk (cm)')).toHaveValue(500)
   })
 
-  it('uzunluk salt okunur — köşe komşu duvarlarla paylaşılıyor', () => {
+  it('uzunluk yazımı p2 köşesini doğrultuda taşır (K141)', async () => {
     useArchitectureUiStore.setState({ selection: [{ kind: 'wall', id: WALL_ID }] })
+    render(<PropertyPanel />)
+
+    const input = screen.getByLabelText('Uzunluk (cm)')
+    await userEvent.clear(input)
+    await userEvent.type(input, '300')
+    await userEvent.tab()
+
+    // Duvar 8 = (0,0)-(500,0); p1 sabit kaldığına göre p2 x'i 300 olmalı.
+    const state = useCadStore.getState()
+    const wall = state.walls.find((candidate) => candidate.id === WALL_ID)!
+    expect(state.points.find((point) => point.id === wall.p2Id)).toMatchObject({ x: 300, y: 0 })
+  })
+
+  it('uzunluk ÇOKLU seçimde salt okunur — paylaşılan köşe iki kez oynamasın', () => {
+    useArchitectureUiStore.setState({
+      selection: [
+        { kind: 'wall', id: WALL_ID },
+        { kind: 'wall', id: RIGHT_CORNER_WALL_ID },
+      ],
+    })
     render(<PropertyPanel />)
 
     expect(screen.getByLabelText('Uzunluk (cm)')).toHaveAttribute('readonly')

@@ -121,3 +121,16 @@ açılıp garip görünüyordu. CSS'le kontrol edilebilen bir şey değil.
 - ⚠️ Seçenek **`pointerdown`** ile commit ediliyor: dışarı-tık dinleyicisi de
   pointerdown'da ve click'ten önce çalışıp listeyi kapatıyordu.
 - Testlerde `user.selectOptions` ÇALIŞMAZ; `click` + `getByRole('option')`.
+
+## Uzunluk alanları (K141)
+
+⚠️ Duvar ve kiriş UZUNLUĞU yazılabilir. Kural: **p1 sabit, p2 doğrultu üzerinde
+kayar** — köşeyi/uç tutamacını sürüklemenin klavye karşılığı. Panel trigonometri
+yapmıyor: hesap `core/wall.ts` → `getSegmentEndAtLength`, yazma yolu var olan
+`movePoint`/`moveBeamEnd`.
+
+⚠️ Duvarda p2 komşularla paylaşılıyorsa komşular ESNER ve oda m²'si yeniden
+hesaplanır (sürüklemedekiyle aynı davranış, gizlenmedi).
+
+⚠️ Yalnız TEK nesne seçiliyken yazılabilir: paylaşılan köşe toplu yazımda iki
+kez oynar, sonuç yazım sırasına bağlı olurdu.

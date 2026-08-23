@@ -6,6 +6,7 @@ import {
   getOrphanPointIds,
   getPlacementRange,
   getSegmentAngleDeg,
+  getSegmentEndAtLength,
   getSegmentLength,
   getSegmentMidpoint,
   getSnapPoints,
@@ -231,5 +232,35 @@ describe('getPlacementRange', () => {
 
   it('ucu eksik duvarda undefined döner', () => {
     expect(getPlacementRange(makeWall(99, 1, 404, 20), points, walls)).toBeUndefined()
+  })
+})
+
+/**
+ * Panelden uzunluk yazmanın çekirdeği (K141): p1 sabit, p2 doğrultu üzerinde
+ * kayar. Duvar ve kiriş panelleri aynı fonksiyonu kullanıyor.
+ */
+describe('getSegmentEndAtLength', () => {
+  const a = { x: 100, y: 100 }
+
+  it('yönü KORUR, yalnız boyu değiştirir', () => {
+    // (100,100) → (400,100): yatay, 300 cm. 500 istenince x 600 olur.
+    expect(getSegmentEndAtLength(a, { x: 400, y: 100 }, 500)).toEqual({ x: 600, y: 100 })
+  })
+
+  it('eğik parçada da oran korunur', () => {
+    // 3-4-5 üçgeni: (0,0) → (30,40) 50 cm; 100 istenince iki katı.
+    expect(getSegmentEndAtLength({ x: 0, y: 0 }, { x: 30, y: 40 }, 100)).toEqual({ x: 60, y: 80 })
+  })
+
+  it('kısaltma da aynı yoldan: uç p1e doğru gelir', () => {
+    expect(getSegmentEndAtLength(a, { x: 400, y: 100 }, 100)).toEqual({ x: 200, y: 100 })
+  })
+
+  it('SIFIR boylu parçada undefined döner — yön tanımsız, uydurulmaz', () => {
+    expect(getSegmentEndAtLength(a, { ...a }, 300)).toBeUndefined()
+  })
+
+  it('sıfır uzunluk istenirse uç p1in üstüne gelir (çağıran asgariyi kendi dayatır)', () => {
+    expect(getSegmentEndAtLength(a, { x: 400, y: 100 }, 0)).toEqual({ x: 100, y: 100 })
   })
 })
