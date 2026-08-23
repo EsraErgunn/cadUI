@@ -7443,3 +7443,24 @@ silinecek gövde/daire içi yoksa silme maddeleri kapalı. Salt görüntülemede
 de kapalı (hepsi yazıyor).
 
 Nerede: `ui/menu/useToolsMenuActions.ts`.
+
+### K151 — Duvar rengi koyu lacivert-antrasit
+
+Kullanıcı bir referans görsel paylaştı ve duvar rengi olarak onu istedi.
+`SCENE_COLORS.wallFill` `#6b7280` (orta gri) → `#2e3446`.
+
+**Neden yalnız koyulaştırma değil, hiyerarşi düzeltmesi.** Eski değerde planın
+EN ÖNEMLİ elemanı EN SOLUK çizilendi: kiriş (`#3e4a5a`), açıklık konturu
+(`#5a6675`), alan nesnesi (`#4e5661`) ve cihaz sembolü (`#2f3a49`) duvardan
+KOYUYDU. Artık duvar en koyu, kalan katmanlar ondan açılarak sıralanıyor.
+
+Vurgu tonları duvara göre yeniden dengelendi (bir tık açık kuralı korunarak):
+`wallHover` `#8c93a0` → `#4a5468`, `cornerHover` `#a6adb8` → `#63708a`. Eski
+değerler yeni duvarın yanında "vurgu" değil "başka bir nesne" gibi okunuyordu.
+
+⚠️ AÇIK KALAN İKİ İŞ (kullanıcı henüz seçmedi): mimari NESNE ile mimari CİHAZ
+renginin ayrışması ve ölçü yazısı rengi. `pointSymbol` (`#2f3a49`) artık yeni
+duvar rengine ÇOK YAKIN — duvara oturan cihazlar (menfez) okunurluk kaybediyor.
+Palet seçilince ikisi birlikte çözülecek.
+
+Nerede: `scene/sceneTheme.ts`.
