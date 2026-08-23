@@ -7129,3 +7129,32 @@ Nerede: `core/transform.ts`, `core/tools.ts`, `scene/useMirrorAxisTool.ts`,
 `scene/MirrorAxisOverlay.tsx`, `scene/ArchitectureLayer.tsx`,
 `store/architectureUiStore.ts`, `ui/properties/SelectionActions.tsx`,
 `ui/tools/toolIcons.ts`.
+
+### K141 — Duvar ve kiriş uzunluğu panelden düzenlenebilir
+
+Kullanıcı: "özellik panelinde duvar uzunluğu ve kiriş uzunluğu düzenlenebilir
+olmalı". İkisi de SALT OKUNURDU ve iki panelde de aynı gerekçe yazılıydı: "bir
+sayı hangi ucun oynayacağını söylemiyor". İtiraz bir KURALLA çözüldü.
+
+**Kural: p1 ucu SABİT kalır, p2 mevcut doğrultu üzerinde kaydırılır.** Yani
+köşeyi/uç tutamacını fareyle sürüklemenin klavye karşılığı; duvarda `movePoint`,
+kirişte `moveBeamEnd` — ikisi de zaten var olan eylemler, yeni bir yazma yolu
+açılmadı. Hesap `core/wall.ts` → `getSegmentEndAtLength`te ve iki panel de aynı
+fonksiyonu okuyor.
+
+⚠️ Duvarda p2 komşularla PAYLAŞILIYOR olabilir; o zaman komşular esneyerek bağlı
+kalır ve oda alanları yeniden hesaplanır. Bu, duvarın kendi koordinatını
+taşımamasının doğrudan sonucu ve köşeyi sürüklerken de aynısı oluyor —
+panelde gizlemek kullanıcıyı iki farklı davranışla karşılaştırırdı. Tarayıcıda
+görüldü: 400 → 300 yazınca komşu duvar eğik hâle geldi, iki mahalin m²'si
+değişti.
+
+⚠️ Yalnız TEK nesne seçiliyken yazılabilir. İki duvar köşe paylaşıyorsa toplu
+yazım aynı köşeyi iki kez oynatır ve sonuç yazım SIRASINA bağlı olurdu; kirişte
+de kalınlık/etiket zaten aynı kuralda.
+
+⚠️ Sıfır boylu parçada `getSegmentEndAtLength` `undefined` döner: yön tanımsız,
+uydurulmaz. Panel bunu reddedilmiş yazım olarak gösterir.
+
+Nerede: `core/wall.ts` (+ testi), `ui/properties/WallProperties.tsx`,
+`ui/properties/BeamProperties.tsx`.

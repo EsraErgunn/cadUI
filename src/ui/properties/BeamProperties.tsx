@@ -5,10 +5,12 @@ import {
   getBeamLengthCm,
   isBeamLabelTaken,
   isBeamLabelValid,
+  MIN_BEAM_LENGTH_CM,
   MIN_BEAM_THICKNESS_CM,
 } from '../../core/beam'
 import type { Id } from '../../core/model'
 import { getCommonNumber } from '../../core/propertyFields'
+import { getSegmentEndAtLength } from '../../core/wall'
 import { useCadStore } from '../../store/cadStore'
 
 type BeamPropertiesProps = {
@@ -16,16 +18,17 @@ type BeamPropertiesProps = {
 }
 
 /**
- * `AreaObjectProperties` ile aynı desen: etiket yalnız TEK kirişte düzenlenir,
- * kalınlık her seçilide.
+ * `AreaObjectProperties` ile aynı desen: etiket, kalınlık ve uzunluk yalnız TEK
+ * kiriş seçiliyken düzenlenir.
  *
- * Uzunluk SALT OKUNUR: kirişin boyu iki ucunun konumundan türüyor ve bir sayı
- * hangi ucun oynayacağını söylemiyor. Uzatma tuvalde, uç tutamacıyla yapılır.
+ * Uzunluk artık YAZILABİLİR (K141). "Bir sayı hangi ucun oynayacağını söylemiyor"
+ * itirazı bir KURALLA çözüldü: p1 sabit, p2 doğrultu üzerinde kayar.
  */
 export function BeamProperties({ beamIds }: BeamPropertiesProps) {
   const beams = useCadStore((state) => state.beams)
   const setBeamThickness = useCadStore((state) => state.setBeamThickness)
   const setBeamLabel = useCadStore((state) => state.setBeamLabel)
+  const moveBeamEnd = useCadStore((state) => state.moveBeamEnd)
 
   const selected = beams.filter((beam) => beamIds.includes(beam.id))
   const [labelDraft, setLabelDraft] = useState<string | undefined>(undefined)
@@ -49,6 +52,18 @@ export function BeamProperties({ beamIds }: BeamPropertiesProps) {
   const commitLabel = () => {
     if (labelDraft !== undefined) setBeamLabel(sole.id, labelDraft)
     setLabelDraft(undefined)
+  }
+
+  /** Uzunluğu yazmak = p2 ucunu doğrultu üzerinde taşımak (bkz. alandaki not). */
+  const commitLength = (lengthCm: number): boolean => {
+    const next = getSegmentEndAtLength(
+      { x: sole.x1, y: sole.y1 },
+      { x: sole.x2, y: sole.y2 },
+      lengthCm,
+    )
+    if (!next) return false
+
+    return moveBeamEnd(sole.id, 'p2', next)
   }
 
   return (
@@ -95,12 +110,21 @@ export function BeamProperties({ beamIds }: BeamPropertiesProps) {
         onCommit={isSingle ? (thicknessCm) => setBeamThickness(sole.id, thicknessCm) : undefined}
       />
 
-      <div className="flex items-center justify-between gap-3 py-1">
-        <span className="text-xs text-ink-muted">Uzunluk (cm)</span>
-        <span className="text-sm text-ink-muted">
-          {isSingle ? Math.round(getBeamLengthCm(sole)) : 'Farklı'}
-        </span>
-      </div>
+      {/*
+       * Uzunluk YAZILABİLİR (kullanıcı isteği). Kural duvarınkiyle AYNI: p1 ucu
+       * sabit kalır, p2 mevcut doğrultuda kaydırılır — uç tutamacını sürüklemenin
+       * klavye karşılığı. Kiriş kimseyle köşe paylaşmadığı için burada esneyen
+       * komşu da yok.
+       */}
+      <PropertyNumberField
+        label="Uzunluk (cm)"
+        valueCm={getCommonNumber(selected.map((beam) => Math.round(getBeamLengthCm(beam))))}
+        targetKey={targetKey}
+        minCm={MIN_BEAM_LENGTH_CM}
+        isReadOnly={!isSingle}
+        onCommit={isSingle ? commitLength : undefined}
+        rejectionMessage="Uzunluk yazılamadı: kirişin yönü yok."
+      />
     </div>
   )
 }

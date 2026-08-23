@@ -5,7 +5,12 @@ import {
   MIN_WALL_HEIGHT_CM,
   MIN_WALL_THICKNESS_CM,
 } from '../../core/propertyFields'
-import { getSegmentLength, getWallEnds } from '../../core/wall'
+import {
+  getSegmentEndAtLength,
+  getSegmentLength,
+  getWallEnds,
+  MIN_WALL_LENGTH_CM,
+} from '../../core/wall'
 import { useCadStore } from '../../store/cadStore'
 
 const THICKNESS_STEP_CM = 5
@@ -22,6 +27,7 @@ export function WallProperties({ wallIds }: WallPropertiesProps) {
   const points = useCadStore((state) => state.points)
   const setWallsThickness = useCadStore((state) => state.setWallsThickness)
   const setWallsHeight = useCadStore((state) => state.setWallsHeight)
+  const movePoint = useCadStore((state) => state.movePoint)
 
   const selectedWalls = walls.filter((wall) => wallIds.includes(wall.id))
   if (selectedWalls.length === 0) return null
@@ -32,20 +38,47 @@ export function WallProperties({ wallIds }: WallPropertiesProps) {
   })
 
   const targetKey = `walls-${wallIds.join(',')}`
+  const [sole] = selectedWalls
+  const isSingle = selectedWalls.length === 1
+
+  /**
+   * Uzunluğu yazmak = p2 köşesini doğrultu üzerinde taşımak. Hedef konum
+   * `core`dan geliyor; panel trigonometri yapmıyor.
+   */
+  const commitLength = (lengthCm: number): boolean => {
+    const ends = getWallEnds(sole, points)
+    if (!ends) return false
+
+    const next = getSegmentEndAtLength(ends.p1, ends.p2, lengthCm)
+    if (!next) return false
+
+    movePoint(sole.p2Id, next)
+    return true
+  }
 
   return (
     <div>
       {/*
-       * Uzunluk salt okunur: değiştirmek duvarın p2 köşesini oynatmak demek ve o
-       * köşe komşu duvarlarla PAYLAŞILIYOR — tek alandan yazmak komşuyu da
-       * sürükler. Düzenlenebilir uzunluk (ve KK-7'deki bölüm aralığı) duvar
-       * altyapısı tarafının işi.
+       * Uzunluk YAZILABİLİR (kullanıcı isteği). Kural: p1 ucu SABİT kalır, p2
+       * mevcut doğrultu üzerinde kaydırılır — yani köşeyi fareyle sürüklemenin
+       * klavye karşılığı, `movePoint` de aynı eylem.
+       *
+       * ⚠️ p2 komşu duvarlarla PAYLAŞILIYOR olabilir; o zaman komşular esneyerek
+       * bağlı kalır. Bu modelin doğrudan sonucu (duvar kendi koordinatını
+       * taşımıyor) ve sürüklemede de aynısı oluyor — burada gizlenmesi
+       * kullanıcıyı iki farklı davranışla karşılaştırırdı.
+       *
+       * ⚠️ Yalnız TEK duvar seçiliyken: iki duvar köşe paylaşıyorsa toplu yazım
+       * aynı köşeyi iki kez oynatır ve sonuç yazım SIRASINA bağlı olurdu.
        */}
       <PropertyNumberField
         label="Uzunluk (cm)"
         valueCm={getCommonNumber(lengths)}
         targetKey={targetKey}
-        isReadOnly
+        minCm={MIN_WALL_LENGTH_CM}
+        isReadOnly={!isSingle}
+        onCommit={isSingle ? commitLength : undefined}
+        rejectionMessage="Uzunluk yazılamadı: duvarın yönü yok."
       />
       <PropertyNumberField
         label="Kalınlık (cm)"
