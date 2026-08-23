@@ -236,4 +236,23 @@ describe('FloatingToolbar — kat seçici', () => {
     // Duvar ölçüleri ETKİLENMEZ — eskiden tek bayraktı.
     expect(useUiStore.getState().isDimensionsVisible).toBe(true)
   })
+
+  it('boru ölçüsü MİMARİDE de var — tesisatı oradan yöneten tek anahtar (K153)', async () => {
+    renderToolbar()
+
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Boru ölçüleri' })).toBeInTheDocument()
+  })
+
+  it('iki menüdeki boru ölçüsü AYNI bayrağı yönetir', async () => {
+    useUiStore.setState({ isPipeLengthsVisible: true })
+    renderToolbar()
+
+    // Mimariden kapat.
+    await userEvent.click(screen.getByRole('button', { name: /Görünüm/ }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Boru ölçüleri' }))
+
+    expect(useUiStore.getState().isPipeLengthsVisible).toBe(false)
+  })
 })

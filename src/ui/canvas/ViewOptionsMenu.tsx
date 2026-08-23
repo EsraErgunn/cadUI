@@ -74,6 +74,22 @@ export function ViewOptionsMenu() {
     onToggle: toggleDimensionsVisible,
   }
 
+  /**
+   * ⚠️ TEK İSTİSNA: mimari görünümden TESİSATI yöneten anahtar (kullanıcı
+   * kararı). Mimarideki tesisat izi boru boylarını da yazıyor; kullanıcı
+   * duvar ölçüsü okurken onları kapatabilmeli ve bunun için tesisat
+   * görünümüne geçmek zorunda kalmamalı.
+   *
+   * Bayrak TEK (`isPipeLengthsVisible`): iki menüde iki ayrı madde değil, aynı
+   * anahtarın iki giriş noktası — birinde kapatılan ötekinde de kapalı.
+   */
+  const pipeLengthsOption: ViewOption = {
+    id: 'pipeLengths',
+    label: 'Boru ölçüleri',
+    isChecked: isPipeLengthsVisible,
+    onToggle: togglePipeLengthsVisible,
+  }
+
   const architectureOptions: ViewOption[] = [
     dimensionsOption,
     {
@@ -107,18 +123,15 @@ export function ViewOptionsMenu() {
       isChecked: isRoomNamesVisible,
       onToggle: toggleRoomNamesVisible,
     },
+    // EN SONDA: mimarinin kendi katmanları yukarıda kalsın, istisna sonda okunsun.
+    pipeLengthsOption,
   ]
 
   // Tesisatın kendi anahtarları; ikisi de menü çubuğunun Görünüm menüsünde
   // zaten vardı, çubuk onları TUVALE getiriyor — durum tek yerde (uiStore),
   // iki arayüz aynı bayrağı okuyor.
   const installationOptions: ViewOption[] = [
-    {
-      id: 'pipeLengths',
-      label: 'Boru ölçüleri',
-      isChecked: isPipeLengthsVisible,
-      onToggle: togglePipeLengthsVisible,
-    },
+    pipeLengthsOption,
     {
       id: 'elementLabels',
       label: 'Eleman adları',

@@ -7532,6 +7532,14 @@ olarak taşı, snap işaretinin yanına".
 Menüdeki etiket de netleşti: "Ölçüler" → mimaride **"Duvar ölçüleri"**,
 tesisatta **"Boru ölçüleri"**.
 
+⚠️ **"Boru ölçüleri" MİMARİ menüde DE var** (kullanıcı kararı) ve bu bilinçli
+bir istisnadır: mimariden tesisatı yöneten TEK anahtar. Gerekçe — mimarideki
+tesisat izi boru boylarını da yazıyor, kullanıcı duvar ölçüsü okurken onları
+kapatabilmeli ve bunun için tesisat görünümüne geçmek zorunda kalmamalı.
+Bayrak TEK: iki menü, aynı anahtarın iki giriş noktası — birinde kapatılan
+ötekinde de kapalı. Mimari listede EN SONDA duruyor ki mimarinin kendi
+katmanları yukarıda kalsın, istisna sonda okunsun.
+
 ⚠️ Bu K131'in "tek bayrak iki görünümü de yönetir" kararını GERİ ALIYOR. O
 kararın gerekçesi menü çubuğundaki tek "Ölçüleri Göster" maddesinin hangisini
 kastettiğini söyleyememesiydi; o menü K90'da kalktı ve K150'den sonra iki ölçü
