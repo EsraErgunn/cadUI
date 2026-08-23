@@ -232,17 +232,38 @@ describe('requestUnitInstallationsDeletion', () => {
   })
 })
 
-describe('görünüm kuralı', () => {
-  it('iki silme YALNIZ tesisat görünümünde açık — geri alma oraya bağlı (K123)', async () => {
+/**
+ * Maddeler görünüme göre KAPANMAZ; tıklanınca kullanıcıyı kendi sahnesine
+ * götürür (K149). Geri alma güvenliği böyle korunuyor: işlem çalıştığında aktif
+ * görünüm zaten doğru oluyor (K123/K148).
+ */
+describe('görünüm geçişi', () => {
+  it('mimarideyken silme maddesi AÇIK ve tıklanınca tesisata geçer', async () => {
     const { useToolsMenuActions } = await import('../../../ui/menu/useToolsMenuActions')
+    const { useUiStore } = await import('../../../store/uiStore')
     const { renderHook } = await import('@testing-library/react')
 
-    const inArchitecture = renderHook(() => useToolsMenuActions(false, 'architecture'))
-    expect(inArchitecture.result.current.unavailableItemIds).toEqual(
-      expect.arrayContaining(['deleteRiserLine', 'deleteUnitInstallations']),
-    )
+    useUiStore.getState().setActiveView('architecture')
+    const { result } = renderHook(() => useToolsMenuActions(false))
 
-    const inInstallation = renderHook(() => useToolsMenuActions(false, 'installation'))
-    expect(inInstallation.result.current.unavailableItemIds).not.toContain('deleteRiserLine')
+    expect(result.current.unavailableItemIds).not.toContain('deleteRiserLine')
+
+    result.current.run('deleteRiserLine')
+
+    expect(useUiStore.getState().activeViewId).toBe('installation')
+    expect(pending()?.kind).toBe('riserNetwork')
+  })
+
+  it('tesisattayken mahal tanımlama tıklanınca mimariye geçer', async () => {
+    const { useToolsMenuActions } = await import('../../../ui/menu/useToolsMenuActions')
+    const { useUiStore } = await import('../../../store/uiStore')
+    const { renderHook } = await import('@testing-library/react')
+
+    useUiStore.getState().setActiveView('installation')
+    const { result } = renderHook(() => useToolsMenuActions(false))
+
+    result.current.run('defineRooms')
+
+    expect(useUiStore.getState().activeViewId).toBe('architecture')
   })
 })
