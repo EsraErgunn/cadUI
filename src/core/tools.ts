@@ -41,6 +41,15 @@ export type ToolGroup = {
  */
 const SELECTION_TOOL = { id: 'selection', label: 'Seçim Aracı' } as const
 
+/**
+ * Eksene göre aynalama da PALETTE YOK: özellik panelindeki düğmeden açılıyor ve
+ * yalnız bir seçim varken anlamlı. Yine de gerçek bir ARAÇ, çünkü jesti
+ * sahiplenmesinin en ucuz temiz yolu bu — bütün seçim/çizim hook'ları zaten
+ * `activeToolId`ye bakıp kendi jestlerinden çekiliyor. Alternatifi, her birine
+ * tek tek "aynalama bekliyorsa dur" kontrolü eklemekti (K44 dersinin pahalı hâli).
+ */
+const MIRROR_AXIS_TOOL = { id: 'mirrorAxis', label: 'Eksene Göre Aynala' } as const
+
 export const ARCHITECTURE_TOOL_GROUPS = [
   {
     id: 'shell',
@@ -93,6 +102,7 @@ export const ARCHITECTURE_TOOL_GROUPS = [
 
 type ArchitectureTool =
   | typeof SELECTION_TOOL
+  | typeof MIRROR_AXIS_TOOL
   | (typeof ARCHITECTURE_TOOL_GROUPS)[number]['tools'][number]
 
 /**
@@ -106,6 +116,7 @@ type ArchitectureTool =
  */
 export const ARCHITECTURE_TOOLS: readonly ArchitectureTool[] = [
   SELECTION_TOOL,
+  MIRROR_AXIS_TOOL,
   ...ARCHITECTURE_TOOL_GROUPS.flatMap((group) => group.tools as readonly ArchitectureTool[]),
 ]
 
@@ -123,6 +134,7 @@ export const ERASER_TOOL_ID: ToolId = 'eraser'
 export const BEAM_TOOL_ID: ToolId = 'beam'
 export const TEXT_TOOL_ID: ToolId = 'text'
 export const MEASURE_TOOL_ID: ToolId = 'measure'
+export const MIRROR_AXIS_TOOL_ID: ToolId = 'mirrorAxis'
 
 export function getToolLabel(toolId: ToolId): string {
   const tool = ARCHITECTURE_TOOLS.find((candidate) => candidate.id === toolId)

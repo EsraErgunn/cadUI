@@ -1,10 +1,12 @@
-import { Copy, FlipHorizontal, FlipVertical, RotateCw } from 'lucide-react'
+import { Copy, FlipHorizontal, FlipHorizontal2, FlipVertical, RotateCw } from 'lucide-react'
 
+import { MIRROR_AXIS_TOOL_ID } from '../../core/tools'
 import type { MirrorAxis } from '../../core/transform'
 import { QUARTER_TURN_DEG } from '../../core/transform'
 import { useArchitectureUiStore } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { getSelectionPivot } from '../../store/transformOps'
+import { useUiStore } from '../../store/uiStore'
 import { chromeButtonVariants } from '../controls/buttonVariants'
 
 /** Çoğaltma kopyayı kaynağın üstüne koymaz: kullanıcı ikisini ayırt edebilmeli. */
@@ -22,6 +24,8 @@ export function SelectionActions() {
   const setSelection = useArchitectureUiStore((state) => state.setSelection)
   const transformSelection = useCadStore((state) => state.transformSelection)
   const duplicateSelection = useCadStore((state) => state.duplicateSelection)
+  const setActiveTool = useUiStore((state) => state.setActiveTool)
+  const isMirrorAxisActive = useUiStore((state) => state.activeToolId === MIRROR_AXIS_TOOL_ID)
 
   // Açıklık kendi koordinatını taşımıyor (duvarına offset'le bağlı): YALNIZ
   // açıklık seçiliyken dönüşümün uygulanacağı bir koordinat yok, düğmeler pasif.
@@ -82,6 +86,20 @@ export function SelectionActions() {
         className={chromeButtonVariants({ shape: 'icon' })}
       >
         <FlipVertical size={16} strokeWidth={1.8} aria-hidden />
+      </button>
+      {/* Eksene göre aynalama TUVALDE tamamlanıyor: düğme yalnız aracı açıyor,
+          kullanıcı ekseni çiziyor (`useMirrorAxisTool`). Panelde bitirilebilecek
+          bir iş değil — ayna doğrusunun yeri çizimin üstünde seçiliyor. */}
+      <button
+        type="button"
+        onClick={() => setActiveTool(MIRROR_AXIS_TOOL_ID)}
+        disabled={!isTransformable}
+        title="Çizilen eksende aynala"
+        aria-label="Çizilen eksende aynala"
+        aria-pressed={isMirrorAxisActive}
+        className={chromeButtonVariants({ shape: 'icon', tone: isMirrorAxisActive ? 'active' : 'plain' })}
+      >
+        <FlipHorizontal2 size={16} strokeWidth={1.8} aria-hidden />
       </button>
       <button
         type="button"

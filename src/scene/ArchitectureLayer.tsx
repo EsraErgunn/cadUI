@@ -5,6 +5,7 @@ import { Beam, type BeamTone } from './Beam'
 import { BeamHandles } from './BeamHandles'
 import { CornerAngleLabels } from './CornerAngleLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
+import { MirrorAxisOverlay } from './MirrorAxisOverlay'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
@@ -25,6 +26,7 @@ import { useBeamSelectionTool } from './useBeamSelectionTool'
 import { useBeamTool } from './useBeamTool'
 import { useCameraZoom } from './useCameraZoom'
 import { useMeasurementTool } from './useMeasurementTool'
+import { useMirrorAxisTool } from './useMirrorAxisTool'
 import { useOpeningTool } from './useOpeningTool'
 import { usePointSymbolLabelTool } from './usePointSymbolLabelTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
@@ -315,6 +317,11 @@ function Measurement() {
   return <MeasurementOverlay {...useMeasurementTool()} />
 }
 
+/** Aynalama ekseni: araç + önizleme, Measurement ile aynı desen. */
+function MirrorAxis() {
+  return <MirrorAxisOverlay {...useMirrorAxisTool()} />
+}
+
 /**
  * Metinleri çizer, yerleştirme ve seçim/taşıma/düzenleme araçlarını çalıştırır.
  * AreaObjects ile aynı desen: hook'lar <Canvas> içinde koşmak zorunda.
@@ -366,6 +373,7 @@ export function ArchitectureLayer() {
       <WallDimensionLabels />
       {/* Ölçüm en üstte: kullanıcının o an aldığı okuma hiçbir şeyin altında kalmasın. */}
       <Measurement />
+      <MirrorAxis />
       <CornerAngleLabels />
       <BeamHandles />
       <SelectionMarquee />

@@ -102,17 +102,25 @@ export function duplicateSelectionInDraft(
     const floorId = getSymbolFloorId(symbol, draft.walls)
     if (floorId === undefined) return []
 
-    // Duvara bağlı sembolün kopyası AYNI duvarda, offset kadar kaydırılmış
-    // durur: serbest x/y'ye çevirmek onu duvarından koparırdı.
-    //
-    // Alanlar TEK TEK yazılıyor, `...symbol` ile değil: spread sembolün id ve
-    // label'ını da taşır, aşağıdaki yeni id/etiket sessizce ezilirdi.
+    /*
+     * Duvara bağlı sembolün kopyası, DUVARIN KOPYASINA yapışır — duvar da
+     * seçimdeyse. Eskiden her hâlükârda KAYNAK duvarda kalıp offset kadar
+     * kayıyordu: aynalanan bir duvarın panosu kaynakta kalıyor, tek duvarda iki
+     * pano görünüyordu. Offset kaydırması yalnız duvarı kopyalanmayan sembolde
+     * anlamlı — orada kopya kaynağın üstüne binmesin diye duruyor.
+     *
+     * Alanlar TEK TEK yazılıyor, `...symbol` ile değil: spread sembolün id ve
+     * label'ını da taşır, aşağıdaki yeni id/etiket sessizce ezilirdi.
+     */
+    const copiedWallId =
+      symbol.attachment === 'wall' ? wallRemap.get(symbol.wallId) : undefined
+
     const attachment: SymbolAttachment =
       symbol.attachment === 'wall'
         ? {
             attachment: 'wall',
-            wallId: symbol.wallId,
-            offsetCm: symbol.offsetCm + offset.dxCm,
+            wallId: copiedWallId ?? symbol.wallId,
+            offsetCm: copiedWallId === undefined ? symbol.offsetCm + offset.dxCm : symbol.offsetCm,
             isMountedOnFarFace: symbol.isMountedOnFarFace,
           }
         : {

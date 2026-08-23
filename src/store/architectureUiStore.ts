@@ -155,6 +155,12 @@ type ArchitectureUiState = {
   draggingSymbols: SymbolDrag | null
   draggingAreaObjects: AreaObjectDrag | null
   draggingAreaObjectLabel: AreaObjectLabelDrag | null
+  /**
+   * Çizilmekte olan aynalama ekseninin İLK ucu; null = eksen henüz
+   * başlamadı. Eksen çizimin parçası DEĞİL (ölçüm gibi geçici), bu yüzden
+   * cadStore'da değil burada duruyor.
+   */
+  mirrorAxisStart: PlanPoint | null
   draggingPointSymbolLabel: PointSymbolLabelDrag | null
   draggingBeams: BeamDrag | null
   beamHandleDrag: BeamHandleDrag | null
@@ -190,6 +196,7 @@ type ArchitectureUiState = {
   setDraggingSymbols: (drag: SymbolDrag | null) => void
   setDraggingAreaObjects: (drag: AreaObjectDrag | null) => void
   setDraggingAreaObjectLabel: (drag: AreaObjectLabelDrag | null) => void
+  setMirrorAxisStart: (point: PlanPoint | null) => void
   setDraggingBeams: (drag: BeamDrag | null) => void
   setBeamHandleDrag: (drag: BeamHandleDrag | null) => void
   setBeamHandleHover: (isHovered: boolean) => void
@@ -219,6 +226,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingSymbols: null,
     draggingAreaObjects: null,
     draggingAreaObjectLabel: null,
+    mirrorAxisStart: null,
     draggingPointSymbolLabel: null,
     draggingBeams: null,
     beamHandleDrag: null,
@@ -295,6 +303,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setDraggingAreaObjectLabel: (drag) =>
       set((draft) => {
         draft.draggingAreaObjectLabel = drag
+      }),
+
+    setMirrorAxisStart: (point) =>
+      set((draft) => {
+        draft.mirrorAxisStart = point
       }),
 
     setDraggingPointSymbolLabel: (drag) =>
