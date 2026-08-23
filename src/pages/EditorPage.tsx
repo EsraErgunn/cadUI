@@ -31,6 +31,7 @@ import { PropertyPanel } from '../ui/PropertyPanel'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
 import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
+import { RoomDefinitionCard } from '../ui/canvas/RoomDefinitionCard'
 import { ExportPdfDialog } from '../ui/pdf/ExportPdfDialog'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
@@ -217,6 +218,10 @@ export function EditorPage() {
                 <IsometricLegend />
               </>
             )}
+            {/* Mahal tanımlama kipi YALNIZ mimaride: kart açıkken yüzen çubuğun
+                üstünde durur (z-20 ↔ z-10), ikisi de alt-ortada. Kip kapalıyken
+                bileşen hiçbir şey çizmez. */}
+            {activeViewId === 'architecture' && <RoomDefinitionCard />}
             {activeViewId !== 'isometric' && (
               <FloatingToolbar
                 onGoToFloor={goToFloor}

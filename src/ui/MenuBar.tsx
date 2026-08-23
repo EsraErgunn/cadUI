@@ -7,6 +7,7 @@ import { ViewSwitcher } from './menu/ViewSwitcher'
 import { editorBarButtonVariants } from './menu/editorBarVariants'
 import {
   CLEAR_PROJECT_ITEM_ID,
+  DEFINE_ROOMS_ITEM_ID,
   DOWNLOAD_PROJECT_FILE_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
@@ -16,6 +17,9 @@ import {
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
 import { MENU_ICONS } from './menu/menuIcons'
+import { getRoomDefinitionQueue } from '../core/roomDefinition'
+import { useArchitectureUiStore } from '../store/architectureUiStore'
+import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
@@ -60,6 +64,7 @@ export function MenuBar({
   versionHistory,
 }: MenuBarProps) {
   const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
+  const activeViewId = useUiStore((state) => state.activeViewId)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const barRef = useRef<HTMLElement>(null)
 
@@ -94,19 +99,34 @@ export function MenuBar({
    * çizime yazar (Kaydet ve Farklı Kaydet sunucuya; İçe Aktar, Proje Dosyasını
    * Aç ve Projeyi Temizle doğrudan store'a).
    */
-  const unavailableItemIds = useMemo(
-    () =>
-      isReadOnly
-        ? new Set([
-            SAVE_ITEM_ID,
-            SAVE_AS_ITEM_ID,
-            IMPORT_ITEM_ID,
-            OPEN_PROJECT_FILE_ITEM_ID,
-            CLEAR_PROJECT_ITEM_ID,
-          ])
-        : undefined,
-    [isReadOnly],
-  )
+  const unavailableItemIds = useMemo(() => {
+    const unavailable = new Set<string>()
+    if (isReadOnly) {
+      unavailable.add(SAVE_ITEM_ID)
+      unavailable.add(SAVE_AS_ITEM_ID)
+      unavailable.add(IMPORT_ITEM_ID)
+      unavailable.add(OPEN_PROJECT_FILE_ITEM_ID)
+      unavailable.add(CLEAR_PROJECT_ITEM_ID)
+      // Mahal tanımlamak da YAZAR: salt görüntülemede kip hiç açılmamalı.
+      unavailable.add(DEFINE_ROOMS_ITEM_ID)
+    }
+    // Mahal MİMARİ görünümün nesnesi; tesisatta ve izometrikte tuvalde
+    // vurgulanacak bir mahal yok, kip boşa açılırdı.
+    if (activeViewId !== 'architecture') unavailable.add(DEFINE_ROOMS_ITEM_ID)
+
+    return unavailable.size === 0 ? undefined : unavailable
+  }, [isReadOnly, activeViewId])
+
+  /**
+   * Kip için prop YOK: başlatmak saf UI durumu, sayfadan hiçbir şey gerektirmiyor
+   * (Kaydet/İçe Aktar'ın aksine). Kuyruk BURADA hesaplanıp store'a veriliyor —
+   * store cadStore'u okusaydı iki UI store'u birbirine bağlanırdı.
+   */
+  const startRoomDefinition = () => {
+    const cad = useCadStore.getState()
+    const queue = getRoomDefinitionQueue(cad.rooms, cad.walls, cad.points, cad.activeFloorId)
+    useArchitectureUiStore.getState().startRoomDefinition(queue.map((stop) => stop.roomId))
+  }
 
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
@@ -118,6 +138,7 @@ export function MenuBar({
     if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()
     if (itemId === EXPORT_ITEM_ID) onExport()
+    if (itemId === DEFINE_ROOMS_ITEM_ID) startRoomDefinition()
   }
 
   return (

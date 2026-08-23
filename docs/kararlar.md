@@ -7239,3 +7239,53 @@ Liste hâlâ ONAY BEKLİYOR (K116'daki not geçerli) ve değişecek TEK yer
 `core/roomUsage.ts`.
 
 Nerede: `core/roomUsage.ts`.
+
+### K145 — "Mahalleri Tanımla" kipi: alt kart + kamera odağı
+
+Araçlar menüsündeki pasif madde ÇALIŞIR hâle geldi. Kip, aktif kattaki tanımsız
+mahalleri tek tek geziyor; her durakta mahal ekranda vurgulanıyor, kamera ona
+gidiyor ve altta yüzen bir kart tipleri rozet olarak sunuyor.
+
+**Referans ekranın ORTADAKİ penceresi tekrarlanmadı** (kullanıcı seçti). Orada
+kullanıcı hangi mahali adlandırdığını göremiyor, yalnız başlıktaki kat adına
+güveniyordu. Burada kart alta alındı ki çizim açık kalsın; "hangi oda?" sorusunu
+metin değil ÇİZİMİN KENDİSİ yanıtlıyor.
+
+**Kapsam yalnız AKTİF KAT** (kullanıcı seçti): kip kullanıcı istemeden kat
+değiştirmiyor.
+
+⚠️ Kuyruk BAŞLARKEN donuyor (`architectureUiStore.roomDefinitionQueue`, yalnız
+id'ler). Her karede yeniden türetilseydi tip verilen mahal kuyruktan düşer,
+"3 / 7" göstergesi kullanıcının gözü önünde değişir ve geri gitmek imkânsız
+olurdu. GEOMETRİ ise canlı okunuyor (`getRoomDefinitionQueue`) — kip açıkken
+duvar oynatılabilir.
+
+⚠️ Sıra id'den değil KONUMDAN geliyor (`sortByReadingOrder`: üstten alta, sonra
+soldan sağa, 100 cm'lik satır toleransıyla). id sırası çizim sırasıdır; kamera
+çizimin bir ucundan öbürüne savrulurdu.
+
+⚠️ Tip yazıldıktan sonra bir SONRAKİ durağa değil, ilk TANIMSIZ durağa geçilir;
+kalan yoksa kip kendini kapatır. `advanceAfter` içinde `stopsByRoomId` bilerek
+bayat okunur (yazım henüz render'a yansımadı), o yüzden az önce tanımlanan mahal
+ayrıca eleniyor.
+
+⚠️ Kart yüzen çubuğun ÜSTÜNDE (`bottom-16`), üstünü örtmüyor: kip açıkken de
+kat oku, geri al ve ızgara anahtarı elin altında kalmalı.
+
+⚠️ Kartın geometri kaynağı `getFloorRoomStops` — kuyruğun kendisi değil. Kattaki
+TÜM mahalleri verir (`isDefined` bayrağıyla): geri gidilen durak artık tanımlıysa
+da kamera oraya gitmeli, yoksa kart "bu mahal tanımlandı" derken ekranda başka
+bir yer durur (tarayıcıda yakalandı).
+
+⚠️ Kip açılırken SEÇİM temizleniyor: açık seçim hem ikinci bir mavi vurgu hem de
+sağda ikinci bir tanımlama arayüzü (özellik paneli) demekti.
+
+Menü maddesi salt görüntülemede ve mimari DIŞI görünümlerde pasif: kip yazıyor
+ve mahal mimarinin nesnesi.
+
+Klavye: 1–9 ilk dokuz rozet, ← → duraklar arası, Esc çıkış.
+
+Nerede: `core/roomDefinition.ts`, `store/architectureUiStore.ts`,
+`ui/canvas/RoomDefinitionCard.tsx`, `ui/canvas/canvasBarVariants.ts`,
+`ui/MenuBar.tsx`, `ui/menu/menuDefinitions.ts`, `scene/Room.tsx`,
+`scene/sceneTheme.ts`, `pages/EditorPage.tsx`.

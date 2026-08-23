@@ -21,6 +21,12 @@ export const SCENE_COLORS = {
    */
   roomFill: '#8a94a3',
   roomFillOpacity: 0.22,
+  /**
+   * Mahal tanımlama kipinde SIRADAKİ mahal. Renk yine seçim mavisi (kip açıkken
+   * seçim temizleniyor, karışacak ikinci bir mavi yok) ama dolgu daha dolu:
+   * kamera oraya gitse bile hangi hacmin sorulduğu tek bakışta okunmalı.
+   */
+  roomDefinitionFillOpacity: 0.42,
   roomLabel: '#5b6675',
   /** Oda adının arkasındaki rozet: beyaza yakın, dolgu üstünde ad okunur kalsın. */
   roomLabelBadge: '#f7f8fa',

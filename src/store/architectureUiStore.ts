@@ -180,6 +180,17 @@ type ArchitectureUiState = {
    * Record ama yasak olan tür değil — anahtar string-literal union, kaydedilmiyor.
    */
   openingWidthCm: Record<OpeningType, number>
+  /**
+   * "Mahalleri Tanımla" kipi: gezilecek mahallerin id'leri, kip kapalıyken null.
+   *
+   * Kuyruk BAŞLARKEN dondurulur, her karede yeniden türetilmez: tip seçilen
+   * mahal kuyruktan düşseydi kalan sayısı ve "3 / 7" göstergesi kullanıcının
+   * gözü önünde değişir, geri gitmek de imkânsız olurdu. Geometri yine de
+   * canlı okunuyor — burada yalnız KİMLİK duruyor.
+   */
+  roomDefinitionQueue: Id[] | null
+  /** Kuyrukta kaçıncı duraktayız. Kip kapalıyken anlamsız. */
+  roomDefinitionIndex: number
   /** Seçimi tümüyle değiştirir (tek tıklama, çerçeve sonucu). */
   setSelection: (selection: Selection) => void
   /** Seçiliyse çıkarır, değilse ekler — Shift+tıklama (KK-10). */
@@ -205,6 +216,11 @@ type ArchitectureUiState = {
   setHover: (hover: ArchitectureTarget | null) => void
   setEditingText: (textId: Id | null) => void
   setDraggingTexts: (drag: TextDrag | null) => void
+  /** Kipi başlatır. Boş kuyrukla çağrılırsa kip AÇILMAZ. */
+  startRoomDefinition: (roomIds: readonly Id[]) => void
+  stopRoomDefinition: () => void
+  /** Kuyruk sınırlarının dışına taşmaz; son duraktan ileri gidilmez. */
+  goToRoomDefinitionIndex: (index: number) => void
 }
 
 /**
@@ -237,6 +253,8 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
     editingTextId: null,
     draggingTexts: null,
+    roomDefinitionQueue: null,
+    roomDefinitionIndex: 0,
 
     setSelection: (selection) =>
       set((draft) => {
@@ -359,8 +377,43 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
       set((draft) => {
         draft.draggingTexts = drag
       }),
+
+    startRoomDefinition: (roomIds) =>
+      set((draft) => {
+        // Tanımsız mahal yoksa kip açılmaz: boş bir kart göstermek, kullanıcıya
+        // yapacak iş varmış gibi görünüp hiçbir şey sunmamaktır.
+        if (roomIds.length === 0) return
+        draft.roomDefinitionQueue = [...roomIds]
+        draft.roomDefinitionIndex = 0
+        // Kip kendi vurgusunu çiziyor; açık seçim ikinci bir vurgu ve sağda
+        // ikinci bir tanımlama arayüzü (özellik paneli) demekti.
+        draft.selection = []
+      }),
+
+    stopRoomDefinition: () =>
+      set((draft) => {
+        draft.roomDefinitionQueue = null
+        draft.roomDefinitionIndex = 0
+      }),
+
+    goToRoomDefinitionIndex: (index) =>
+      set((draft) => {
+        if (!draft.roomDefinitionQueue) return
+        draft.roomDefinitionIndex = Math.max(
+          0,
+          Math.min(draft.roomDefinitionQueue.length - 1, index),
+        )
+      }),
   })),
 )
+
+/**
+ * Kipin o an durduğu mahal — yoksa undefined. Kararlı değer (id ya da
+ * undefined) döndürür, yeni nesne değil: doğrudan abone olunabilir.
+ */
+export function selectRoomDefinitionRoomId(state: ArchitectureUiState): Id | undefined {
+  return state.roomDefinitionQueue?.[state.roomDefinitionIndex]
+}
 
 /**
  * Tek açıklık seçiliyken o açıklığın id'si. Açıklığa özel arayüzler (genişlik
