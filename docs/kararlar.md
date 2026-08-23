@@ -7419,3 +7419,27 @@ Hata K147'nin toplu silmesiyle görünür oldu ama ondan ÖNCE de vardı: proje
 açıp tek bir boru silen kullanıcı da aynısını yaşıyordu.
 
 Nerede: `store/cadStore.ts`.
+
+### K149 — Araçlar maddeleri görünüme göre kapanmaz, kullanıcıyı sahnesine ATAR
+
+Kullanıcı fikri: "mimari tasarımda kolon hattını sil / daire içi tesisatı sil
+tuşuna da tıklayabilelim ama tıkladığımızda bizi tesisat sahnesine atsın; aynı
+şekilde tesisat ekranındayken de mahalleri tanımlaya tıklayabilelim ama bizi
+mimari ekrana atsın."
+
+K147'de bu üç madde YANLIŞ görünümde PASİFTİ. Gerekçe sağlamdı (geri alma aktif
+görünümün geçmişine gider, K123/K148) ama çözüm yanlış yerdeydi: kullanıcıya
+"burada yapılamaz" deyip nerede yapılacağını söylemiyordu.
+
+Artık madde her görünümden tıklanabilir; `run` işlemden ÖNCE
+`setActiveView` ile doğru sahneye geçiyor (`goToView`). Geri alma güvenliği
+BOZULMUYOR: işlem çalıştığı anda aktif görünüm zaten doğru.
+
+⚠️ Zaten doğru sahnedeysek `setActiveView` ÇAĞRILMAZ — gereksiz geçiş seçimi
+temizler (K53) ve kullanıcının seçimini sebepsiz düşürürdü.
+
+⚠️ Pasiflik yalnız ÇİZİMDEN gelir artık: katta mahal yoksa "Mahalleri Tanımla",
+silinecek gövde/daire içi yoksa silme maddeleri kapalı. Salt görüntülemede üçü
+de kapalı (hepsi yazıyor).
+
+Nerede: `ui/menu/useToolsMenuActions.ts`.

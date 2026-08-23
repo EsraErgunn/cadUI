@@ -61,10 +61,9 @@ export function MenuBar({
   versionHistory,
 }: MenuBarProps) {
   const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
-  const activeViewId = useUiStore((state) => state.activeViewId)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
-  const toolsActions = useToolsMenuActions(isReadOnly, activeViewId)
+  const toolsActions = useToolsMenuActions(isReadOnly)
   const barRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
