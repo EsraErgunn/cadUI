@@ -104,3 +104,18 @@ yapısı KALIR, geçmiş sıfırlanMAZ (tek Ctrl+Z geri getirir), kirli işaret 
 
 ⚠️ Araçlar menüsü bu temizliğin DIŞINDA. Dokuz maddesinin altısı tesisat toplu
 işlemi (fay C kararı); kalan ikisi silinecek madde değil YAZILACAK özellik.
+
+## İşlevsiz arayüzün temizliği (K142)
+
+⚠️ ÇOĞALTMA arayüzü kalktı (panel düğmesi + Ctrl+D): kopya kaynağın 50 cm yanına
+düşüyor, kesişim bölme (K24) iki duvarı birbirine yapıştırıyordu. Ctrl+D artık
+yakalanmıyor — üstlenmediğimiz kısayolu `preventDefault` ile yutmuyoruz.
+`duplicateSelectionInDraft` ve `duplicateSelection` DURUYOR: aynalama (K140)
+onun üstünde çalışıyor, kaldırılan şey arayüz.
+
+⚠️ "Test Et" üst bardan kalktı — hiç bağlanmamıştı, aynı işi çalışan "Hata
+Kontrolleri" düğmesi yapıyor. "Gönder" pasif KALIYOR: pasifliğinin yazılı bir
+sebebi var (hatalar giderilmeden onaya gidilemez).
+
+⚠️ Araçlar menüsü dört maddeye indi: Mahalleri Tanımla, Kolon Hattını Sil,
+Tesisat Sil, Malzeme Listesi. Hepsi hâlâ pasif (K79 deseni).
