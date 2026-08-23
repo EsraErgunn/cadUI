@@ -16,7 +16,9 @@ centralVentilation, topSideOpenable }`. Kullanım tipi diye bir alan yok.
 ⚠️ Ekran görüntülerindeki **"Tanımsız" bir tip DEĞİL** — boş `label`'ın
 arayüzdeki karşılığı. Liste tipi diye okunursa yanlış bir enum üretilir.
 
-`ROOM_USAGE_TYPES` on beş tip taşıyor ve **analist onayı bekliyor**. Üstüne
+`ROOM_USAGE_TYPES` YİRMİ BEŞ tip taşıyor (K144'te on tip eklendi;
+⚠️ `balcony` etiketi "Balkon (Açık)" oldu, DEĞERİ korundu — kapalı balkon ayrı
+tip) ve **analist onayı bekliyor**. Üstüne
 kural yazma: "hangi cihaz hangi mahale konabilir" AYRI bir tablo ve o tablo hâlâ
 yok (`docs/api-eksikleri-hata-kontrol.md`, Hata3). Liste değişince değişecek TEK
 yer bu dosya.
