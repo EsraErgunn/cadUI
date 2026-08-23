@@ -139,18 +139,37 @@ export const useUiStore = create<UiState>()(
   immer((set) => ({
     activeToolId: DEFAULT_TOOL_ID,
     activeViewId: DEFAULT_VIEW_ID,
+    /**
+     * MİMARİ AÇILIŞ KADRAJI (kullanıcı kararı): yalnız DUVAR ÖLÇÜLERİ ve ODA
+     * ADLARI açık. Kalan katmanları isteyen elle açar.
+     *
+     * Gerekçe: plan ilk açıldığında okunabilir olmalı. Hepsi açıkken ölçü, açı,
+     * yapı elemanı adı, cihaz adı ve boru boyu aynı anda yazılıyor ve küçük
+     * dairelerde yazılar üst üste biniyordu — kullanıcı çizimi göremeden
+     * katmanları kapatmakla başlıyordu.
+     *
+     * ⚠️ Bu, K74/K76'daki "açıklık ölçüsü varsayılan AÇIK" kararını GERİ ALIR.
+     * O kararın gerekçesi "yeni anahtar davranışı değiştirmemeli"ydi, yani
+     * geriye uyumluluktu — kullanıcı artık açılış kadrajını bilerek seçti.
+     */
     isDimensionsVisible: true,
-    isPipeLengthsVisible: true,
-    // Varsayılan AÇIK: ölçüler açıldığında açıklık genişlikleri hep görünüyordu,
-    // yeni anahtar davranışı değiştirmemeli — yalnız kapatma imkânı ekliyor.
-    isOpeningDimensionsVisible: true,
+    isRoomNamesVisible: true,
+    isOpeningDimensionsVisible: false,
     isCornerAnglesVisible: false,
+    isAreaObjectNamesVisible: false,
+    isDeviceNamesVisible: false,
+    /**
+     * ⚠️ Boru ölçüsü bayrağı TESİSATLA PAYLAŞILIYOR (K153: mimariden tesisatı
+     * yöneten tek anahtar). Mimari açılışı temiz olsun diye KAPALI başlıyor —
+     * bunun bedeli tesisat görünümünün de boru boyları kapalı açılması.
+     * Ayrı varsayılan istenirse bayrağı ikiye bölmek gerekir ve o zaman
+     * "tek anahtar, iki giriş noktası" kuralı düşer.
+     */
+    isPipeLengthsVisible: false,
+    /** Tesisatın KENDİ katmanı; mimari açılış kararının kapsamı dışında. */
     isElementLabelsVisible: true,
     isGridVisible: true,
     isGridSnapEnabled: true,
-    isAreaObjectNamesVisible: true,
-    isDeviceNamesVisible: true,
-    isRoomNamesVisible: true,
     isPanModeActive: false,
     // Varsayılan KAPALI: kipi yalnız editör açıkça kuruyor, yani yönetici ve
     // proje firması kullanıcısı için hiçbir şey değişmiyor.
@@ -183,13 +202,12 @@ export const useUiStore = create<UiState>()(
         // aracı yeni palette geçersiz kalmasın. isometric'te palet yok, dokunulmaz.
         if (viewId === 'architecture') draft.activeToolId = DEFAULT_TOOL_ID
         if (viewId === 'installation') draft.activeToolId = DEFAULT_INSTALLATION_TOOL_ID
-        // Izgara her görünümün kendi varsayılanına döner: tesisatta arkadaki
-        // ızgara boru/sembol hayaletiyle karışıyordu, mimaride çizim için
-        // gerekli. İsteyen Görünüm ▸ Izgarayı Göster ile elle kapatır/açar —
-        // bu otomatik varsayım o manuel denetimin YERİNE geçmez, yalnız
-        // görünüm değişiminde başlangıç durumunu belirler.
-        if (viewId === 'installation') draft.isGridVisible = false
-        if (viewId === 'architecture') draft.isGridVisible = true
+        // ⚠️ IZGARA GÖRÜNÜM GEÇİŞİNDE SIFIRLANMAZ (kullanıcı kararı, K153).
+        // Eskiden tesisata geçince kapanıp mimariye dönünce açılıyordu;
+        // gerekçesi tesisatta ızgaranın boru hayaletiyle karışmasıydı. Anahtar
+        // menüden ÇUBUĞA çıkınca bu otomatik ezme hataya dönüştü: kullanıcının
+        // bilerek kapattığı ve önünde duran bir düğme kendiliğinden geri
+        // açılıyordu. Izgaranın durumu artık tümüyle kullanıcının.
       }),
 
     toggleDimensionsVisible: () =>

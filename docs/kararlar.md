@@ -7566,6 +7566,34 @@ anahtara çıktı (`isDeviceNamesVisible`). Eskiden ikisi tek bayraktaydı,
 gerekçesi "kullanıcı için ikisi de nesnenin adı"ydı — K152'de renkler
 ayrılınca yapı elemanı ile cihaz iki ayrı aile oldu, adlandırma da onu izledi.
 
+
+**4. Mimari açılış kadrajı ve ızgaranın kalıcılığı** (kullanıcı kararı).
+
+Açılışta YALNIZ **duvar ölçüleri** ve **oda adları** açık; kapı/pencere ölçüsü,
+açılar, yapı elemanı adları, cihaz adları ve boru ölçüsü KAPALI. Gerekçe: plan
+ilk açıldığında okunabilir olmalı — hepsi açıkken küçük dairelerde yazılar üst
+üste biniyor ve kullanıcı çizimi göremeden katman kapatmakla başlıyordu.
+
+⚠️ Bu, K74/K76'daki "açıklık ölçüsü varsayılan AÇIK" kararını GERİ ALIR. O
+kararın gerekçesi geriye uyumluluktu ("yeni anahtar davranışı değiştirmemeli");
+kullanıcı artık açılış kadrajını bilerek seçti.
+
+⚠️ Boru ölçüsü bayrağı tesisatla PAYLAŞILIYOR, dolayısıyla kapalı varsayılan
+tesisat görünümünü de etkiliyor: orası da boru boyları kapalı açılıyor. Ayrı
+varsayılan istenirse bayrağı ikiye bölmek gerekir ve o zaman "tek anahtar, iki
+giriş noktası" kuralı düşer.
+
+⚠️ **Izgara görünüm geçişinde SIFIRLANMAZ.** Eskiden `setActiveView` tesisatta
+kapatıp mimaride açıyordu; gerekçesi ızgaranın boru hayaletiyle karışmasıydı.
+Anahtar menüden çubuğa çıkınca bu otomatik ezme hataya dönüştü: kullanıcının
+bilerek kapattığı ve önünde duran bir düğme kendiliğinden geri açılıyordu.
+
+⚠️ HİÇBİRİ KALICI DEĞİL: `uiStore` kaydedilmiyor (ne `localStorage` ne sunucu),
+sayfa yenilenince hepsi bu varsayılanlara döner. Bilinçli — bunlar projeye
+değil kullanıcıya ait tercihler ve projeye yazılsaydı bir kullanıcının kapattığı
+katman başka kullanıcıda da kapalı açılırdı. Cihaz başına hatırlama istenirse
+ayrı bir karar (`persist` sarmalayıcı + hangi alanların kaydedileceği).
+
 Nerede: `store/uiStore.ts`, `ui/canvas/ViewOptionsMenu.tsx`,
 `ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`,
 `scene/PointSymbolNameLabels.tsx`, `scene/usePointSymbolLabelTool.ts`.
