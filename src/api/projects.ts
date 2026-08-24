@@ -47,7 +47,13 @@ import { parseProjectJson } from '../core/serialize'
  * POST /api/projects/{id}/submit → "Onaya Gönder"; eksik evrakta
  * `{ ok: false, missingDocuments }`.
  *
- * SUNUCUDA YOK: proje GÜNCELLEME (`PUT /api/projects/{id}`) — gövdesi create
+ * PUT /api/projects/{id} → proje güncelleme. Uç VAR ve `RowVersion` ile
+ * iyimser eşzamanlılık destekliyor; eksik olan EKRAN.
+ * TODO(esra): güncelleme ekranı yazılınca `updateProject` buraya eklenecek —
+ * gövde `ProjectUpdateDto` ve detay ucundan okunan `rowVersion` geri gönderilmeli,
+ * yoksa sunucu 409 döndürür.
+ *
+ * ESKİ NOT (artık geçersiz): proje GÜNCELLEME — gövdesi create
  * alanları + `rowVersion` ister ama `GET /api/projects/{id}` o alanları
  * döndürmediği için doldurulacak bir form da kurulamıyor
  * (bkz. `projectDetailExtras`).

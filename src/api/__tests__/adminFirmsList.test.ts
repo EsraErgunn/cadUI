@@ -45,8 +45,16 @@ function jsonResponse(body: unknown, status = 200): Response {
  * Uç 2026-08-16'da sayfalı zarfa geçti. `totalCount` öğe sayısına eşit:
  * tek sayfaya sığan yanıt, `fetchAllPages` ikinci istek atmasın.
  */
-function listPage(items: unknown[]): Response {
-  return jsonResponse({ items, totalCount: items.length, page: 1, pageSize: 100 })
+function listPage(
+  items: unknown[],
+  envelope: { page?: number; pageSize?: number; totalCount?: number } = {},
+): Response {
+  return jsonResponse({
+    items,
+    totalCount: envelope.totalCount ?? items.length,
+    page: envelope.page ?? 1,
+    pageSize: envelope.pageSize ?? 100,
+  })
 }
 
 function stubFetch(...responses: Response[]) {
@@ -79,46 +87,70 @@ describe('getGasDistributionFirms', () => {
   })
 
   /**
-   * Sayfalama hâlâ İSTEMCİDE (K27). Uca `Page`/`PageSize` GİDİYOR ama ekranın
-   * sayfası olarak değil, "hepsini topla" amacıyla: istenen `pageSize: 1`
-   * sorguya YANSIMAZ, sunucudan azami sayfa istenir ve dilimleme burada yapılır.
+   * Sayfalama artık SUNUCUDA: ekranın istediği sayfa ve boyut olduğu gibi uca
+   * gidiyor. Eskiden bütün kayıtlar sayfa sayfa indirilip istemcide
+   * dilimleniyordu (K27'nin geçici istisnası).
    */
-  it('ekranın sayfa boyutunu uca YANSITMAZ, dilimlemeyi istemcide yapar', async () => {
-    const fetchMock = stubFetch(listPage(LIST_DTO))
+  it('ekranın sayfasını ve boyutunu uca yansıtır', async () => {
+    const fetchMock = stubFetch(listPage(LIST_DTO, { page: 2, pageSize: 1, totalCount: 2 }))
 
-    const page = await getGasDistributionFirms({ ...LIST_QUERY, page: 1, pageSize: 1 })
+    const page = await getGasDistributionFirms({ ...LIST_QUERY, page: 2, pageSize: 1 })
 
-    expect(requestOf(fetchMock).url).not.toContain('PageSize=1&')
-    expect(requestOf(fetchMock).url).toContain('PageSize=100')
-    expect(page.items).toHaveLength(1)
+    const url = requestOf(fetchMock).url
+    expect(url).toContain('Page=2')
+    expect(url).toContain('PageSize=1')
+    // Gelen sayfa olduğu gibi çiziliyor; toplam sunucudan.
+    expect(page.items).toHaveLength(2)
     expect(page.totalCount).toBe(2)
   })
 
-  /**
-   * Benzer ad uyarısı (`useGasFirmForm.checkSimilarNames`) bu fonksiyonu
-   * çağırıyor; fonksiyon gerçek uca gittiği için uyarı da gerçek veriye bakıyor.
-   * Mock'a bakarken veritabanındaki mükerrer adı göremiyordu.
-   */
-  it('ad araması gerçek veriden süzer', async () => {
-    stubFetch(listPage(LIST_DTO))
+  /** Arama uca `Search` olarak gider; gelen sayfa istemcide bir daha süzülmez. */
+  it('aramayı uca Search olarak gönderir', async () => {
+    const fetchMock = stubFetch(listPage(LIST_DTO))
 
-    const page = await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
+    await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
 
-    expect(page.items.map((firm) => firm.name)).toEqual(['ÇORUMGAZ'])
+    expect(requestOf(fetchMock).url).toContain('Search=%C3%A7orum')
+  })
+
+  /** Boş süzgeç parametre olarak HİÇ yazılmaz. */
+  it('boş süzgeçleri sorguya yazmaz', async () => {
+    const fetchMock = stubFetch(listPage(LIST_DTO))
+
+    await getGasDistributionFirms(LIST_QUERY)
+
+    const url = requestOf(fetchMock).url
+    expect(url).not.toContain('Search=')
+    expect(url).not.toContain('GasDistributionGroupId=')
+    expect(url).not.toContain('Id=')
+  })
+
+  /** Üst bardaki kapsam tek firmaysa liste o satıra iner. */
+  it('kapsam firmasını Id olarak gönderir', async () => {
+    const fetchMock = stubFetch(listPage(LIST_DTO))
+
+    await getGasDistributionFirms({ ...LIST_QUERY, scopeFirmId: 7 })
+
+    expect(requestOf(fetchMock).url).toContain('Id=7')
   })
 })
 
 describe('getGasDistributionFirmsByGroup', () => {
-  it('yalnız gruba bağlı kayıtları verir', async () => {
-    stubFetch(listPage(LIST_DTO))
+  /**
+   * Süzgeç SUNUCUDA: eskiden bütün firma listesi indirilip istemcide
+   * süzülüyordu, tek bir grup için onlarca kayıt ağdan geçiyordu.
+   */
+  it('grup süzgecini uca gönderir', async () => {
+    const fetchMock = stubFetch(listPage([LIST_DTO[0]]))
 
     const firms = await getGasDistributionFirmsByGroup(1)
 
+    expect(requestOf(fetchMock).url).toContain('GasDistributionGroupId=1')
     expect(firms.map((firm) => firm.name)).toEqual(['Adana Doğalgaz Dağıtım A.Ş.'])
   })
 
   it('gruba bağlı kayıt yoksa boş döner', async () => {
-    stubFetch(listPage(LIST_DTO))
+    stubFetch(listPage([]))
 
     expect(await getGasDistributionFirmsByGroup(99)).toEqual([])
   })
