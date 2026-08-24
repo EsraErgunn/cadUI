@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 
-import { getProjectFirm } from '../api/projectFirmForm'
+import { getProjectFirm, projectFirmQueryKey } from '../api/projectFirmForm'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, PROJECT_FIRMS_PATH } from '../ui/admin/adminNavItems'
@@ -33,7 +33,7 @@ export function ProjectFirmUpdatePage() {
   const isValidId = Number.isInteger(firmId) && firmId > 0
 
   const { data, isPending, isError, refetch } = useQuery({
-    queryKey: ['projectFirm', firmId],
+    queryKey: projectFirmQueryKey(firmId),
     queryFn: ({ signal }) => getProjectFirm(firmId, { signal }),
     enabled: isValidId,
   })
