@@ -13,10 +13,22 @@ const UNAUTHORIZED = 401
 export class ApiError extends Error {
   readonly status: number
 
-  constructor(status: number, message: string) {
+  /**
+   * Hata yanıtının AYRIŞTIRILMIŞ gövdesi (JSON değilse `undefined`).
+   *
+   * Çoğu uçta hata gövdesi `{ message }` ve `message` alanı zaten yeterli. Ama
+   * bazı uçlarda hatanın KENDİSİ istemcinin işleyeceği veriyi taşıyor — örneğin
+   * `POST /api/projects/{id}/submit` eksik evrak listesini 400 ile döndürüyor.
+   * Gövde burada tutulmasaydı çağıranın onu okumak için isteği ikinci kez
+   * atmaktan başka yolu olmazdı.
+   */
+  readonly body: unknown
+
+  constructor(status: number, message: string, body?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.body = body
   }
 }
 
@@ -99,22 +111,30 @@ function readValidationMessage(body: Record<string, unknown>): string | null {
  * alan bazlı mesajın arkasına düşüyor. 500 veya vekil hatalarında HTML de
  * gelebilir; hiçbiri tutmazsa genel Türkçe mesaja inilir.
  */
-async function readErrorMessage(response: Response): Promise<string> {
+/**
+ * Hata yanıtından hem KULLANICIYA gösterilecek metni hem de ham gövdeyi çıkarır.
+ * Gövde tek seferde okunuyor: `Response` gövdesi bir kez tüketilebiliyor, mesaj
+ * ve gövde için ayrı ayrı okunamazdı.
+ */
+async function readErrorPayload(response: Response): Promise<{ message: string; body: unknown }> {
+  const fallback = `Sunucu ${response.status} döndü.`
+
   try {
     const body: unknown = await response.json()
-    if (!body || typeof body !== 'object') return `Sunucu ${response.status} döndü.`
+    if (!body || typeof body !== 'object') return { message: fallback, body }
 
     const record = body as Record<string, unknown>
-    return (
+    const message =
       readText(record, 'message') ??
       readText(record, 'detail') ??
       readValidationMessage(record) ??
       readText(record, 'title') ??
-      `Sunucu ${response.status} döndü.`
-    )
+      fallback
+
+    return { message, body }
   } catch {
     // gövde JSON değil
-    return `Sunucu ${response.status} döndü.`
+    return { message: fallback, body: undefined }
   }
 }
 
@@ -155,7 +175,10 @@ async function send(request: JsonRequest): Promise<Response> {
     setAuthSession(undefined)
   }
 
-  if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response))
+  if (!response.ok) {
+    const { message, body } = await readErrorPayload(response)
+    throw new ApiError(response.status, message, body)
+  }
   return response
 }
 

@@ -17,6 +17,16 @@ import { createProject, type CreatedProject } from '../../../api/projects'
 const SUBMIT_ERROR_MESSAGE = 'Proje oluşturulamadı. Bağlantınızı kontrol edip tekrar deneyin.'
 
 /**
+ * "Bağlantı Nesnesi" uca `buildingCode` olarak gidiyor ve sunucuda BENZERSİZ;
+ * çakışmada 409 dönüyor (bkz. `createProject`). Sunucunun kendi metni bina
+ * kodundan söz ediyor, formda ise alanın adı "Bağlantı Nesnesi" — kullanıcı
+ * hangi kutuyu düzelteceğini anlayamazdı.
+ */
+const CONFLICT = 409
+
+const CONNECTION_OBJECT_TAKEN_MESSAGE = 'Bu bağlantı nesnesi zaten kullanımda.'
+
+/**
  * Sunucunun kendi mesajı KORUNUR (`http.ts` onu `message`/`detail`/doğrulama
  * sözlüğünden okuyup `ApiError`e koyuyor). Eskiden `catch` her hatayı yutup
  * yerine "Bağlantınızı kontrol edin" yazıyordu: 400 "Proje firması yetkisi
@@ -130,6 +140,14 @@ export function useNewProjectForm({ isAdmin }: UseNewProjectFormOptions): NewPro
       return await createProject(toCreateProjectPayload(data, { isAdmin }))
     } catch (error) {
       // Girilen veri korunur: kullanıcı formu baştan doldurmak zorunda kalmasın.
+      // Çakışma ALAN hatası: şerit yerine kutunun altına yazılıp odak oraya
+      // gidiyor, düzeltilecek tek yer o.
+      if (error instanceof ApiError && error.status === CONFLICT) {
+        setErrors({ connectionObject: CONNECTION_OBJECT_TAKEN_MESSAGE })
+        setFocusField('connectionObject')
+        return null
+      }
+
       setSubmitError(buildSubmitError(error))
       return null
     } finally {
