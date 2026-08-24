@@ -136,13 +136,17 @@ export interface ProjectDetail {
 
 export interface ProjectDeviceRow {
   id: number
-  name: string
-  /** kcal/h (belge: cihaz kapasitesi bu birimde tutulur). */
-  capacityKcalPerHour: number | null
+  name: string | null
+  /**
+   * SERBEST METİN, sayı değil. Çizimden senkronlanan değerler karışık birimli
+   * geliyor ("12000 kcal/h", "24 kW", "14 L/dk", "—"); tek bir birime
+   * çevrilemez, o yüzden olduğu gibi gösteriliyor.
+   */
+  capacity: string | null
   flowCubicMeterPerHour: number | null
   brand: string | null
   model: string | null
-  /** Baca tipi: "AÇIK", "HERMETİK". */
+  /** Baca etiketi: "AÇIK", "HERMETİK". */
   flueType: string | null
 }
 
@@ -151,7 +155,8 @@ export interface ProjectUnitRow {
   unitNumber: string | null
   subscriberName: string | null
   subscriberNo: string | null
-  meterSerial: string | null
+  /** Sayaç SINIFI ("G4"), seri numarası değil — uçtaki adı `meterClassLabel`. */
+  meterLabel: string | null
   flowCubicMeterPerHour: number | null
   pressureMbar: number | null
   areaSquareMeters: number | null

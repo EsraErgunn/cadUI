@@ -10,6 +10,18 @@ import { resetMockDocuments } from '../../api/documentsMock'
 import { ROLE_CODES } from '../../api/roles'
 import { DocumentListPage } from '../DocumentListPage'
 
+/** Kod grubu ucunun yanıtı; etiket çözümü buna bakıyor. */
+const documentTypes = vi.hoisted(() => [
+  { id: 5015, code: 'CustomerAgreement', label: 'Müşteri Sözleşmesi' },
+  { id: 5013, code: 'GeneralDocument', label: 'Genel Evrak' },
+  { id: 5019, code: 'License', label: 'Ruhsat' },
+])
+
+vi.mock('../../api/documentTypes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/documentTypes')>()),
+  getDocumentTypes: () => Promise.resolve(documentTypes),
+}))
+
 const listDocuments = vi.hoisted(() => vi.fn())
 const deleteDocument = vi.hoisted(() => vi.fn())
 
@@ -25,7 +37,7 @@ function buildDocument(overrides: Partial<DocumentRow> = {}): DocumentRow {
   return {
     id: 1,
     fileName: 'musteri-sozlesmesi.pdf',
-    docTypeCode: 'musteriSozlesmesi',
+    docTypeCode: 'CustomerAgreement',
     receivedAt: TODAY,
     unitNames: ['Kolon', 'DMUST'],
     projectId: 4,
@@ -234,12 +246,12 @@ describe('DocumentListPage', () => {
     await screen.findByRole('table')
 
     // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
-    await user.selectOptions(screen.getByLabelText('Döküman Tipi'), 'ruhsat')
+    await user.selectOptions(screen.getByLabelText('Döküman Tipi'), 'License')
     await user.type(screen.getByLabelText('Evrak adında ara'), 'ruhsat{Enter}')
 
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
-      expect(search).toContain('type=ruhsat')
+      expect(search).toContain('type=License')
       expect(search).toContain('q=ruhsat')
       expect(search).not.toContain('page=')
     })

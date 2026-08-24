@@ -1,61 +1,75 @@
+import { z } from 'zod'
+
+import { requestJson } from './http'
+
 /**
- * Evrak tipleri — MOCK. Uç yazmak backend'in işi; burada yalnız ekranların
- * beslendiği liste duruyor.
+ * Evrak tipleri — GERÇEK uç: `GET /api/codes/by-group-name/DocumentType`.
  *
- * Sunucuda parametrik kod grubu mekanizması var (`GET /api/codes/by-group-name/
- * {groupName}`), yani bu liste ileride oradan gelecek. Bugünkü kaynağı
- * gereksinim belgesi. Sözleşme taslağı: docs/api-eksikleri-evraklar.md
+ * Liste bir süre istemcide sabit duruyordu (18 uydurma kod). Kod grubu
+ * mekanizması sunucuda zaten vardı; sabit liste yeni bir tip eklendiğinde
+ * sessizce eskiyor ve o tiple yüklenmiş evrak arayüzde ham kodla görünüyordu.
+ *
+ * `api/codes.ts` KULLANILMIYOR: orası yalnız `{ id, name }` okuyor, burada
+ * `codeValue` de gerekiyor — satırın taşıdığı tip anahtarı o.
  */
 
 export interface DocumentType {
+  /** Sunucudaki kod kimliği; evrak uçlarına `docTypeCodeId` olarak gider. */
+  id: number
+  /** `Code.CodeValue` — satırdaki `docTypeCode` bununla eşleşir. */
   code: string
   label: string
 }
 
+const GROUP_NAME = 'DocumentType'
+
 /**
- * Belgedeki 19 tipten "Favori Evrak" ÇIKARILDI: favori kavramı tümüyle kapsam
- * dışı, seçilebilen ama hiçbir şey yapmayan bir tip kullanıcıya olmayan bir
- * özellik vaat ederdi.
- *
- * Kodlar istemci uydurmasıdır: kod grubu açılınca sunucunun `CodeValue`'ları
- * gelecek. URL'deki `type` filtresi bu kodu taşıdığı için geçişte eski
- * bağlantılar filtresiz açılır — bilinçli.
+ * "Favori Evrak" (`FavoriteDocument`) LİSTEDEN ÇIKARILIR: favori kavramı kapsam
+ * dışı ve seçilebilen ama hiçbir şey yapmayan bir tip kullanıcıya olmayan bir
+ * özellik vaat ederdi. Karar sunucudan önce de böyleydi; uç bağlanınca geri
+ * gelmesin diye eleme burada duruyor.
  */
-const DOCUMENT_TYPES: DocumentType[] = [
-  { code: 'bacaRaporu', label: 'Baca Raporu' },
-  { code: 'cihazBacaAtisBelgesi', label: 'Cihaz Baca Atış Belgesi' },
-  { code: 'cihazMinimumTuketimBeyani', label: 'Cihaz Minimum Tüketim Beyanı' },
-  { code: 'cihazServisKontrolRaporu', label: 'Cihaz Servis Kontrol Raporu' },
-  { code: 'cihazStandartBelgesi', label: 'Cihaz Standart Belgesi' },
-  { code: 'cihazUygunlukBelgesi', label: 'Cihaz Uygunluk Belgesi' },
-  { code: 'daskPolicesi', label: 'DASK Poliçesi' },
-  { code: 'dogalgazUygunlukBelgesi', label: 'Doğalgaz Uygunluk Belgesi' },
-  { code: 'esnekTesisatEgitimBelgesi', label: 'Esnek Tesisat Eğitim Belgesi' },
-  { code: 'esnekTesisatMykBelgesi', label: 'Esnek Tesisat MYK Belgesi' },
-  { code: 'gazYeterlilikBelgesi', label: 'Gaz Yeterlilik Belgesi' },
-  { code: 'genelEvrak', label: 'Genel Evrak' },
-  { code: 'mahalUygunlukBelgesi', label: 'Mahal Uygunluk Belgesi' },
-  { code: 'musteriSozlesmesi', label: 'Müşteri Sözleşmesi' },
-  { code: 'numurataj', label: 'Numurataj' },
-  { code: 'police', label: 'Poliçe' },
-  { code: 'resim', label: 'Resim' },
-  { code: 'ruhsat', label: 'Ruhsat' },
-]
+const EXCLUDED_CODE_VALUES = new Set(['FavoriteDocument'])
+
+const documentTypeDtoSchema = z.array(
+  z.object({
+    id: z.number().int().positive(),
+    codeValue: z.string(),
+    name: z.string(),
+  }),
+)
 
 /**
  * Liste filtresinin ve Evrak Ekle dropdown'ının ORTAK kaynağı (gereksinim 3):
  * iki ekran ayrı liste tutsaydı filtrede hiç görünmeyen bir tiple evrak
  * yüklenebilirdi.
  *
- * Sıralama Türkçe ve BURADA: kod grubu ucuna geçilince sunucunun sırası
- * ('Ç' harfini 'D'den sonra veriyor) dropdown'ı bozmasın.
+ * Sıralama Türkçe ve İSTEMCİDE: sunucunun sırası 'Ç' harfini 'D'den sonra
+ * veriyor ve dropdown'da yanlış görünüyordu.
  */
-export function getDocumentTypes(): DocumentType[] {
-  return [...DOCUMENT_TYPES].sort((left, right) => left.label.localeCompare(right.label, 'tr'))
+export async function getDocumentTypes(signal?: AbortSignal): Promise<DocumentType[]> {
+  const dto = await requestJson(
+    { method: 'GET', path: `/api/codes/by-group-name/${GROUP_NAME}`, signal },
+    documentTypeDtoSchema,
+  )
+
+  return dto
+    .filter((code) => !EXCLUDED_CODE_VALUES.has(code.codeValue))
+    .map((code) => ({ id: code.id, code: code.codeValue, label: code.name }))
+    .sort((left, right) => left.label.localeCompare(right.label, 'tr'))
 }
 
 /** Satırdaki kodun ekranda görünecek karşılığı; tanınmayan kod HAM gösterilir —
     listeye sonradan eklenen bir tip yüzünden hücre boşalmasın. */
 export function resolveDocumentTypeLabel(code: string, types: DocumentType[]): string {
   return types.find((type) => type.code === code)?.label ?? code
+}
+
+/** Filtre kodunu uca gidecek KİMLİĞE çevirir; tanınmayan kod `null` (filtre yok). */
+export function resolveDocumentTypeId(
+  code: string | null,
+  types: DocumentType[],
+): number | null {
+  if (code === null) return null
+  return types.find((type) => type.code === code)?.id ?? null
 }

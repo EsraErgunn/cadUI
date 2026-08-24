@@ -7,7 +7,7 @@ function buildDevice(id: number, name: string): ProjectDeviceRow {
   return {
     id,
     name,
-    capacityKcalPerHour: 13200,
+    capacity: '13200',
     flowCubicMeterPerHour: 1.6,
     brand: null,
     model: null,
@@ -21,7 +21,7 @@ function buildUnit(id: number, devices: ProjectDeviceRow[]): ProjectUnitRow {
     unitNumber: `D${id}`,
     subscriberName: 'ABONE',
     subscriberNo: '1',
-    meterSerial: 'G4',
+    meterLabel: 'G4',
     flowCubicMeterPerHour: 3.5,
     pressureMbar: 21,
     areaSquareMeters: 64,

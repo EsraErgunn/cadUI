@@ -28,22 +28,36 @@ export const END_DATE = '2027-01-01'
  * paylaşılsaydı gövdesi ilk okumada tükenir, yönlendirme sonrası açılan proje
  * detayı boş yanıt görürdü.
  */
+/** `GET /api/insurance-companies` yanıtı; sihirbazın şirket kutusu buradan doluyor. */
+export const INSURANCE_COMPANIES = [
+  { id: 1, title: 'Anadolu Sigorta' },
+  { id: 2, title: 'Aksigorta' },
+  { id: 3, title: 'Allianz' },
+  { id: 4, title: 'Mapfre' },
+]
+
 export function stubProjectFetch(): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn(
-      () =>
-        new Response(
-          JSON.stringify({
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      const body = url.includes('/api/insurance-companies')
+        ? INSURANCE_COMPANIES
+        : {
             id: PROJECT_ID,
             name: PROJECT_NAME,
             code: '30006185',
             createdAt: '2026-07-01T09:00:00.000Z',
             updatedAt: '2026-07-01T09:00:00.000Z',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-    ),
+          }
+
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }),
   )
 }
 

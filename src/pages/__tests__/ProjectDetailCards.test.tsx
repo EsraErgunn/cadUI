@@ -233,7 +233,10 @@ describe('birim ve cihaz tablosu (KK-6)', () => {
     const table = await screen.findByRole('table', { name: /Birim ve cihaz bilgileri/ })
     const cells = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')
 
-    for (const index of [4, 5, 6, 9, 10]) {
+    // Kapasite artık sayısal DEĞİL: çizimden karışık birimli metin geliyor
+    // ("24 kW", "14 L/dk"), sağa hizalamak sayı olmayan değeri sayı gibi
+    // gösterirdi.
+    for (const index of [4, 5, 6, 10]) {
       expect(cells[index]).toHaveClass('text-right')
     }
     expect(cells[1]).not.toHaveClass('text-right')

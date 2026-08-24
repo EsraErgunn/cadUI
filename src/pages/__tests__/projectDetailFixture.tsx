@@ -127,7 +127,7 @@ export function buildUnits(): ProjectUnitRow[] {
       unitNumber: 'D20',
       subscriberName: 'FATMA ÇELİK',
       subscriberNo: '10208728',
-      meterSerial: 'G4',
+      meterLabel: 'G4',
       flowCubicMeterPerHour: 3.5,
       pressureMbar: 21,
       areaSquareMeters: 64,
@@ -136,7 +136,7 @@ export function buildUnits(): ProjectUnitRow[] {
         {
           id: 11,
           name: 'Ocak',
-          capacityKcalPerHour: 13200,
+          capacity: '13200',
           flowCubicMeterPerHour: 1.6,
           brand: null,
           model: null,
@@ -145,7 +145,7 @@ export function buildUnits(): ProjectUnitRow[] {
         {
           id: 12,
           name: 'Kombi',
-          capacityKcalPerHour: 20640,
+          capacity: '20640',
           flowCubicMeterPerHour: 2.5,
           brand: 'BOSCH',
           model: 'Condens 1200 W',
