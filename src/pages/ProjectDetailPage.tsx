@@ -167,11 +167,10 @@ export function ProjectDetailPage() {
       />
 
       {savedDocumentNotice !== null && (
-        // `warning`: işlem başarılı ama YARIM — kayıt sunucuya gitmedi.
+        // Kayıt SUNUCUDA: artık yarım bir işlem değil, düz başarı bildirimi.
         <NoticeBar
-          tone="warning"
+          tone="success"
           message={savedDocumentNotice.message}
-          details={savedDocumentNotice.details}
           onDismiss={savedDocumentNotice.dismiss}
         />
       )}

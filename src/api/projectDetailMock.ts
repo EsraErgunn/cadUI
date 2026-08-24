@@ -1,11 +1,8 @@
-import { resolveDocumentTypeLabel, type DocumentType } from './documentTypes'
-import { getMockDocuments } from './documentsMock'
 import { getMockPolicies } from './policiesMock'
 import type {
   ProjectApprovalInfo,
   ProjectDetailExtras,
   ProjectDetailStatus,
-  ProjectDocumentRow,
   ProjectFirmInfo,
   ProjectPolicyRow,
   ProjectSpecs,
@@ -115,28 +112,6 @@ export function buildMockProjectExtras(
     approval: buildApprovalInfo(projectId, status),
     specs: buildSpecs(projectId),
   }
-}
-
-/**
- * Projenin evrakları Evraklar ekranının deposundan geliyor; burada yalnız
- * SÜTUN eşlemesi var. Bu liste eskiden boş dönüyordu — Evraklar ekranı
- * yazılınca ortak bir depo doğdu ve yüklenen evrağın iki ekranda birden
- * görünmesi (gereksinim 12) ancak öyle mümkün.
- */
-export function buildMockProjectDocuments(
-  projectId: number,
-  documentTypes: DocumentType[],
-): ProjectDocumentRow[] {
-  return getMockDocuments()
-    .filter((document) => document.projectId === projectId)
-    .map((document) => ({
-      id: document.id,
-      fileName: document.fileName,
-      docType: resolveDocumentTypeLabel(document.docTypeCode, documentTypes),
-      sizeBytes: document.sizeBytes,
-      uploadedByName: document.uploadedByName,
-      receivedAt: document.receivedAt,
-    }))
 }
 
 /**

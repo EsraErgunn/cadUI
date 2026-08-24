@@ -13,20 +13,8 @@ const savedDocumentStateSchema = z.object({
 
 export const SAVED_DOCUMENT_MESSAGE = 'Evrak başarıyla yüklendi.'
 
-/**
- * Kayıt SUNUCUYA GİTMEDİ ve bu kullanıcıdan saklanmıyor (K51'in `isPersisted`
- * deseni). Evrak listeye gerçekten giriyor, o yüzden mesajın kendisi doğru;
- * eksik olan kalıcılık ve bunu söylemeyen bir başarı şeridi, kullanıcıya
- * yapılmamış bir işi yapılmış gösterirdi.
- */
-const NOT_PERSISTED_DETAILS = [
-  'Kayıt yalnız bu oturumda tutuluyor; sunucuya yazılmadı.',
-  'Sayfa yenilenince yüklenen evraklar listeden düşer — yükleme ucu ve veritabanı henüz yok.',
-]
-
 export interface SavedDocumentNotice {
   message: string
-  details: string[]
   dismiss: () => void
 }
 
@@ -60,5 +48,5 @@ export function useSavedDocumentNotice(): SavedDocumentNotice | null {
 
   if (message === null) return null
 
-  return { message, details: NOT_PERSISTED_DETAILS, dismiss: () => setMessage(null) }
+  return { message, dismiss: () => setMessage(null) }
 }

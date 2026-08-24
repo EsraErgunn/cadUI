@@ -4,11 +4,19 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getMockDocuments, resetMockDocuments } from '../../api/documentsMock'
 import { NewDocumentPage } from '../NewDocumentPage'
 import { ProjectDetailPage } from '../ProjectDetailPage'
 
 /** Kod grubu ucunun yanıtı; etiket çözümü buna bakıyor. */
+const saveProjectDocuments = vi.hoisted(() => vi.fn())
+const listProjectDocuments = vi.hoisted(() => vi.fn())
+
+vi.mock('../../api/documents', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/documents')>()),
+  saveProjectDocuments,
+  listProjectDocuments,
+}))
+
 const documentTypes = vi.hoisted(() => [
   { id: 5015, code: 'CustomerAgreement', label: 'Müşteri Sözleşmesi' },
   { id: 5013, code: 'GeneralDocument', label: 'Genel Evrak' },
@@ -25,6 +33,26 @@ const PROJECT_ID = 1
 const PROJECT_NAME = 'Demo Doğalgaz Projesi'
 
 /** `GET /api/projects/{id}/units` yanıtı; birim onay kutuları buradan geliyor. */
+/** "Proje Evrakları" sekmesindeki satır; dosya yeniden yüklenmiyor. */
+const EXISTING_DOCUMENT = {
+  id: 91,
+  fileName: 'onceki-ruhsat.pdf',
+  docTypeCodeId: 5019,
+  docTypeName: 'Ruhsat',
+  receivedAt: '2026-07-01T09:00:00.000Z',
+  unitNames: [],
+  projectId: 1,
+  projectName: 'Demo Doğalgaz Projesi',
+  projectPId: null,
+  projectFirmId: null,
+  installationNo: null,
+  firmName: null,
+  gasFirmName: null,
+  sizeBytes: 1024,
+  uploadedByName: null,
+  contentType: 'application/pdf',
+}
+
 const PROJECT_UNITS = [
   { id: 1, unitNumber: 'D20', devices: [] },
   { id: 2, unitNumber: 'D21', devices: [] },
@@ -61,7 +89,8 @@ async function addFiles(user: ReturnType<typeof userEvent.setup>, files: File[])
 }
 
 beforeEach(() => {
-  resetMockDocuments()
+  saveProjectDocuments.mockResolvedValue({ savedCount: 1 })
+  listProjectDocuments.mockResolvedValue({ source: 'server', data: [] })
   // Ekran İKİ uca gidiyor: proje künyesi ve birim listesi. Yanıt yola göre
   // seçiliyor ve HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
   // paylaşılsaydı gövdesi ilk okumada tükenir, ikinci ekran boş yanıt görürdü.
@@ -181,7 +210,7 @@ describe('NewDocumentPage', () => {
     renderPage()
 
     await addFiles(user, [buildFile('ruhsat.pdf')])
-    await user.selectOptions(await screen.findByLabelText('Evrak Tipi'), 'License')
+    await user.selectOptions(await screen.findByLabelText('Evrak Tipi'), '5019')
 
     const unitGroup = screen.getByRole('group', { name: 'Birimler' })
     await user.click(within(unitGroup).getAllByRole('checkbox')[0])
@@ -189,15 +218,17 @@ describe('NewDocumentPage', () => {
     await user.click(screen.getByRole('button', { name: /Kaydet/ }))
 
     expect(await screen.findByText('Evrak başarıyla yüklendi.')).toBeInTheDocument()
-    // Kalıcı olmadığı SÖYLENMELİ: kayıt sunucuya gitmiyor (karar 12).
-    expect(screen.getByText(/sunucuya yazılmadı/)).toBeInTheDocument()
-    expect(screen.getByText(/Sayfa yenilenince yüklenen evraklar listeden düşer/)).toBeInTheDocument()
+    // Kayıt SUNUCUDA: "kalıcı değil" uyarısı kalktı.
+    expect(screen.queryByText(/sunucuya yazılmadı/)).not.toBeInTheDocument()
 
-    const saved = getMockDocuments().filter((document) => document.fileName === 'ruhsat.pdf')
-    expect(saved).toHaveLength(1)
-    expect(saved[0].projectId).toBe(PROJECT_ID)
-    expect(saved[0].docTypeCode).toBe('License')
-    expect(saved[0].unitNames.length).toBeGreaterThan(0)
+    // Tip ve birim KİMLİKLE gidiyor; uç kod metni ya da birim adı kabul etmiyor.
+    // İşaretlenen kutu "Tümünü Seç" olduğu için iki birim de gidiyor.
+    expect(saveProjectDocuments).toHaveBeenCalledWith(PROJECT_ID, [
+      expect.objectContaining({
+        docTypeCodeId: 5019,
+        unitIds: PROJECT_UNITS.map((unit) => unit.id),
+      }),
+    ])
   })
 
   it('satır kaldırılınca listeden düşer', async () => {
@@ -215,6 +246,10 @@ describe('NewDocumentPage', () => {
 
   it('"Proje Evrakları" sekmesinden mevcut evrak yeniden ilişkilendirilebilir', async () => {
     const user = userEvent.setup()
+    listProjectDocuments.mockResolvedValue({
+      source: 'server',
+      data: [EXISTING_DOCUMENT],
+    })
     renderPage()
 
     await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))

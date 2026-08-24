@@ -30,8 +30,6 @@ export const UNIMPLEMENTED_ENDPOINTS = {
    * TODO(esra): GET /api/projects/{id}/detail
    */
   projectDetailExtras: 'GET /api/projects/{id}/detail',
-  /** TODO(esra): GET /api/projects/{id}/docs — Doc + ProjectDoc entity'leri VAR. */
-  projectDocuments: 'GET /api/projects/{id}/docs',
   /** TODO(esra): GET /api/projects/{id}/policies — Policy entity'si ProjectUnit'e bağlı. */
   projectPolicies: 'GET /api/projects/{id}/policies',
   /** TODO(esra): GET /api/insurancecompanies/{id}/agencies — şirkete bağlı acenteler. */
@@ -44,8 +42,6 @@ export const UNIMPLEMENTED_ENDPOINTS = {
   policyList: 'GET /api/policies',
   /** TODO(esra): DELETE /api/policies/{id} — liste ekranındaki "Sil". */
   policyDelete: 'DELETE /api/policies/{id}',
-  /** TODO(esra): DELETE /api/docs/{id} — Evraklar ekranındaki "Sil". */
-  documentDelete: 'DELETE /api/docs/{id}',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */

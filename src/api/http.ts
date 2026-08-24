@@ -214,6 +214,49 @@ export async function requestVoid(request: JsonRequest): Promise<void> {
   await send(request)
 }
 
+export type FormRequest = RequestOptions & {
+  path: string
+  form: FormData
+}
+
+/**
+ * Multipart yükleme (`POST`). `requestJson`'dan ayrı çünkü `Content-Type`
+ * ELLE YAZILAMAZ: `multipart/form-data` başlığı sınır (boundary) belirteci
+ * taşıyor ve onu yalnız tarayıcı üretebiliyor. Başlığı kendimiz koysaydık
+ * sunucu gövdeyi ayrıştıramazdı.
+ *
+ * Yetki başlığı ve hata/oturum kuralları JSON isteğiyle AYNI: gövde
+ * oluşturmayı `send` üstleniyor.
+ */
+export async function uploadForm<TSchema extends z.ZodType>(
+  request: FormRequest,
+  schema: TSchema,
+): Promise<z.infer<TSchema>> {
+  const session = getAuthSession()
+
+  let response: Response
+  try {
+    response = await fetch(buildUrl(request.path), {
+      method: 'POST',
+      signal: request.signal,
+      headers: session ? { Authorization: `Bearer ${session.token}` } : undefined,
+      body: request.form,
+    })
+  } catch (cause) {
+    if (isAbort(cause)) throw cause
+    throw new NetworkError('Sunucuya ulaşılamadı.', { cause })
+  }
+
+  if (response.status === UNAUTHORIZED) setAuthSession(undefined)
+
+  if (!response.ok) {
+    const { message, body } = await readErrorPayload(response)
+    throw new ApiError(response.status, message, body)
+  }
+
+  return schema.parse(await response.json())
+}
+
 /** Presigned URL gibi API DIŞI bir adresten ham metin çeker. */
 export async function fetchText(url: string, options?: RequestOptions): Promise<string> {
   let response: Response

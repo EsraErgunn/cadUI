@@ -1,10 +1,9 @@
 import { z } from 'zod'
 
-import { getDocumentTypes } from './documentTypes'
+import { listProjectDocuments } from './documents'
 import { ApiError, requestJson } from './http'
-import { isMockDataAllowed, mockedData, serverData, type Sourced } from './mockGate'
+import { mockedData, serverData, type Sourced } from './mockGate'
 import {
-  buildMockProjectDocuments,
   buildMockProjectExtras,
   buildMockProjectPolicies,
 } from './projectDetailMock'
@@ -262,24 +261,32 @@ export async function getProjectHistory(
 }
 
 /**
- * Projenin evrakları. Kaynak, Evraklar ekranının BELLEKTEKİ deposuyla AYNI
- * (`documentsMock`): "yüklenen evrak hem projenin evrak listesine hem genel
- * Evraklar ekranına yansır" (gereksinim 12) ancak tek depo varsa doğru olur.
- * İki ayrı mock tutulsaydı aynı evrak bir ekranda görünüp öbüründe kaybolurdu.
+ * Projenin evrakları — GERÇEK uç (`GET /api/docs?ProjectId=`). Evraklar ekranı
+ * da AYNI ucu kullanıyor, bu yüzden "yüklenen evrak hem projenin evrak
+ * listesine hem genel Evraklar ekranına yansır" (gereksinim 12) kendiliğinden
+ * sağlanıyor — iki ayrı kaynak tutulsaydı aynı evrak birinde görünüp öbüründe
+ * kaybolurdu.
+ *
+ * `uploadedByName` liste gövdesinde YOK (yalnız `DocDetailDto` taşıyor); satır
+ * başına ikinci istek atmamak için boş kalıyor ve hücre boş işaretini çiziyor.
  */
 export async function getProjectDocuments(
   projectId: number,
+  signal?: AbortSignal,
 ): Promise<Sourced<ProjectDocumentRow[]>> {
-  if (isEndpointImplemented('projectDocuments')) {
-    throw new Error('getProjectDocuments: uç bağlandı ama gövdesi yazılmadı.')
-  }
+  const documents = await listProjectDocuments(projectId, signal)
+  if (documents.source === 'unavailable') return { source: 'unavailable', data: null }
 
-  // Tip etiketleri GERÇEK uçtan; yalnız mock satırların çizileceği derlemede
-  // isteniyor, üretimde bölüm zaten veri göstermiyor.
-  if (!isMockDataAllowed()) return { source: 'unavailable', data: null }
-
-  const documentTypes = await getDocumentTypes()
-  return mockedData(() => buildMockProjectDocuments(projectId, documentTypes))
+  return serverData(
+    documents.data.map((document) => ({
+      id: document.id,
+      fileName: document.fileName,
+      docType: document.docTypeName,
+      sizeBytes: document.sizeBytes,
+      uploadedByName: document.uploadedByName,
+      receivedAt: document.receivedAt,
+    })),
+  )
 }
 
 export function getProjectPolicies(projectId: number): Promise<Sourced<ProjectPolicyRow[]>> {
