@@ -8001,3 +8001,55 @@ firmanın kayıtlı sorumlusu.
 yazmak, onaylanmamış projede olmayan bir onayı ima ederdi. Bu yüzden satır boş
 kalırken kutu dolu olabiliyor.
 `extras` PDF yolundan tümüyle çıktı; detay EKRANI onu kullanmaya devam ediyor.
+
+### K160 — Mahal kullanım tipi artık SAĞ TIK menüsünde; özellik paneli kalktı
+
+Kullanıcı: mahale sağ tıklayınca oda seçili rengini alsın ve kaydırılabilir
+bir listeden tip seçilsin; mahalin sağdaki özellik paneli tümüyle kalksın.
+
+Mahali adlandırmanın üç yolu vardı ve ikisi uzaktı: özellik paneli önce
+seçmeyi sonra panele gitmeyi istiyordu, "Mahalleri Tanımla" kipi (K145) ise
+TÜM mahalleri gezen bir tur — tek bir odayı düzeltmek için ağır. Sağ tık
+doğrudan o odaya iniyor.
+
+⚠️ Menü YALNIZ seçim aracındayken açılır. Sağ tıkın çizim araçlarında zaten
+bir işi var: aracı bırakıp seçime döndürmek (K84), duvarda ve boruda zinciri
+bitirmek. Menü her araçta açılsaydı bu jestlerin üstüne binerdi. Seçim
+aracında sağ tıkın başka bir işi yok — boşluk orada.
+
+⚠️ Menü açılırken mahal SEÇİLİR: `Room.tsx`in dolgusu seçim rengine dönüyor,
+ayrı bir vurgu katmanı gerekmedi.
+
+⚠️ Konum PLAN koordinatı, ekran koordinatı DEĞİL. Menü drei `<Html>` ile
+çiziliyor ve yerini kameradan alıyor; menü açıkken kaydırıp yakınlaştırmak
+onu mahalin üstünde tutuyor (`TextLabelEditor` deseni ve aynı tuzaklar).
+
+⚠️ Arama kutusunun taslağı yalnız menü AÇIKKEN mount olan bir alt bileşende.
+Dışarıda tutulup effect ile sıfırlansaydı hem fazladan render turu doğardı hem
+de "effect içinde setState" kuralı çiğnenirdi (eslint yakaladı).
+
+**Panel tarafı:** `RoomProperties.tsx` SİLİNDİ ve `PropertyPanel` mahalde HİÇ
+açılmıyor. Panelin mahal dalı zaten yarım çalışıyordu — mahal silinemediği ve
+dönüştürülemediği için "Sil" düğmesi ve grup işlemleri gizleniyordu, yani
+panel kendi kabuğunun yarısını kapatıyordu. `PropertyPanelShell.isDeletable`
+de sahipsiz kaldığı için kalktı — bu adla yeni kod yazma.
+
+⚠️ Panelin iki işi menüye TAŞINDI, kaybolmadı:
+
+- **Alan (m²)** menü başlığının altında; tip seçerken bakılan ilk şey mahalin
+  büyüklüğü. (Tuvaldeki mahal etiketi de yazıyor ama etiket kapatılabiliyor.)
+- **"Tanımsız"** → menüde "Tipi kaldır" eylemi. Taşınmasaydı yanlış seçilen bir
+  tip bir daha temizlenemezdi. Rozetlerin arasına konmadı: bu bir tip değil,
+  tipi kaldıran bir eylem.
+
+⚠️ **ÇOKLU SEÇİM kaybı bilinçli.** Panel birden çok mahale aynı tipi tek
+hamlede yazabiliyordu; sağ tık menüsü tek mahal. Kullanıcı paneli tümüyle
+kaldırmayı istedi ve toplu tanımlamanın kendi aracı zaten var (K145 kipi).
+
+⚠️ `findRoomIdAt` `useSelectionTool` içinde yerel bir closure'dı, `core/roomPick`e
+ÇIKARILDI: sol tık ile sağ tık aynı mahali bulmak zorunda. İki kopya olsaydı
+biri değiştiğinde seçili görünen mahal ile işlem yapılan mahal ayrışırdı.
+
+⚠️ Seçici `RoomDefinitionCard` ile PAYLAŞILIYOR (`RoomUsagePicker`): arama
+kutusu, Türkçe duyarsız süzme ve rozet düzeni iki yerde de aynı. İkinci bir
+liste yazılsaydı tip listesi büyüdüğünde biri geride kalırdı.

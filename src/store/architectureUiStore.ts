@@ -148,6 +148,14 @@ type ArchitectureUiState = {
    * yazılır — her tuş ayrı bir Ctrl+Z adımı olmasın.
    */
   editingTextId: Id | null
+  /**
+   * Mahale SAĞ TIKLA açılan kullanım tipi menüsü (K160); kapalıyken `null`.
+   *
+   * Çapa PLAN koordinatı, ekran koordinatı DEĞİL: menü drei `<Html>` ile
+   * çiziliyor ve konumunu kameradan alıyor, böylece kullanıcı menü açıkken
+   * kaydırıp yakınlaştırsa bile mahalin üstünde kalıyor.
+   */
+  roomUsageMenu: { roomId: Id; anchor: PlanPoint } | null
   /** Taşınan metinlerin GEÇİCİ ötelemesi; draggingAreaObjects ile aynı sözleşme. */
   draggingTexts: TextDrag | null
   draggingPoint: PointDrag | null
@@ -215,6 +223,7 @@ type ArchitectureUiState = {
   setAreaObjectHandleHover: (kind: AreaObjectHandleKind | null) => void
   setHover: (hover: ArchitectureTarget | null) => void
   setEditingText: (textId: Id | null) => void
+  setRoomUsageMenu: (menu: { roomId: Id; anchor: PlanPoint } | null) => void
   setDraggingTexts: (drag: TextDrag | null) => void
   /** Kipi başlatır. Boş kuyrukla çağrılırsa kip AÇILMAZ. */
   startRoomDefinition: (roomIds: readonly Id[]) => void
@@ -252,6 +261,7 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     hover: null,
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
     editingTextId: null,
+    roomUsageMenu: null,
     draggingTexts: null,
     roomDefinitionQueue: null,
     roomDefinitionIndex: 0,
@@ -371,6 +381,11 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     setEditingText: (textId) =>
       set((draft) => {
         draft.editingTextId = textId
+      }),
+
+    setRoomUsageMenu: (menu) =>
+      set((draft) => {
+        draft.roomUsageMenu = menu
       }),
 
     setDraggingTexts: (drag) =>

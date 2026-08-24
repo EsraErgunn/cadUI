@@ -15,8 +15,7 @@ import {
 } from '../core/architectureHover'
 import type { PlanPoint } from '../core/coords'
 import { isTypingTarget } from '../core/domEvents'
-import { findRoomFaceAt, findRoomFaces } from '../core/room'
-import { getWallSetKey } from '../core/roomIdentity'
+import { findRoomIdAt } from '../core/roomPick'
 import { getSelectionInRect, mergeSelection, pruneSelection, toPlanRect } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
 import { getSymbolsOnFloor } from '../core/symbolPlacement'
@@ -60,23 +59,6 @@ export function useSelectionTool(): void {
         floorId: cad.activeFloorId,
         toleranceCm: getSnapToleranceCm(readCameraViewport(camera).zoom),
       }
-    }
-
-    /**
-     * Noktanın düştüğü mahalin kimliği. Yüzler burada TAZE hesaplanıyor çünkü
-     * `Room` geometri taşımıyor (duvarların türevi) — ve hesap yalnız tıklama
-     * anında yapılıyor, hover'da değil.
-     */
-    const findRoomIdAt = (planPoint: PlanPoint): number | undefined => {
-      const cad = useCadStore.getState()
-      const faces = findRoomFaces(cad.walls, cad.points, cad.activeFloorId)
-      const face = findRoomFaceAt(faces, planPoint)
-      if (!face) return undefined
-
-      // Yüz ↔ kayıt eşleşmesi TAM KÜME eşitliğiyle: Room.tsx neyi çiziyorsa
-      // tıklama da onu seçmeli.
-      const key = getWallSetKey(face.wallIds)
-      return cad.rooms.find((room) => getWallSetKey(room.wallIds) === key)?.id
     }
 
     const endMarquee = () => {
@@ -135,7 +117,13 @@ export function useSelectionTool(): void {
         // basış MAHALİN (K117). Mahal `resolveArchitectureTarget` zincirine
         // GİRMİYOR — oraya girseydi hem her hover'da yüz taraması yapılırdı hem
         // de mahalin içinden çerçeve seçimi başlatmak imkânsız olurdu.
-        const roomId = findRoomIdAt(event.planPoint)
+        const cadForRoom = useCadStore.getState()
+        const roomId = findRoomIdAt(event.planPoint, {
+          walls: cadForRoom.walls,
+          points: cadForRoom.points,
+          rooms: cadForRoom.rooms,
+          floorId: cadForRoom.activeFloorId,
+        })
         if (roomId !== undefined) {
           ui.setSelection(mergeSelection(wasAdditive ? ui.selection : [], [
             { kind: 'room', id: roomId },
