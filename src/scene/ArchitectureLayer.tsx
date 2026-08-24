@@ -38,6 +38,7 @@ import { useRoomUsageContextMenu } from './useRoomUsageContextMenu'
 import { useSelectionTool } from './useSelectionTool'
 import { useTextSelectionTool } from './useTextSelectionTool'
 import { useTextTool } from './useTextTool'
+import { useWallNodeTool } from './useWallNodeTool'
 import { DEFAULT_AREA_OBJECT_SIZE_CM } from '../core/areaObject'
 import { DEFAULT_BEAM_THICKNESS_CM } from '../core/beam'
 import { getOpeningOutline } from '../core/opening'
@@ -315,6 +316,9 @@ function SelectionTool() {
   // Mahal menüsü de sağ tık dinliyor ama ÇAKIŞMIYOR: o yalnız seçim aracında
   // açılıyor, "araçtan çık" kuralı ise yalnız seçim DIŞINDA iş yapıyor (K160).
   useRoomUsageContextMenu()
+  // Çift tık: duvarda düğüm açar, düğümde kaldırır (K161). Sağ tık dinleyen iki
+  // hook'la çakışmaz — o jest ayrı.
+  useWallNodeTool()
   useRoomDefinitionExit()
   return <RoomUsageContextMenu />
 }

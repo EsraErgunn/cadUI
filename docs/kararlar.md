@@ -8053,3 +8053,73 @@ biri değiştiğinde seçili görünen mahal ile işlem yapılan mahal ayrışı
 ⚠️ Seçici `RoomDefinitionCard` ile PAYLAŞILIYOR (`RoomUsagePicker`): arama
 kutusu, Türkçe duyarsız süzme ve rozet düzeni iki yerde de aynı. İkinci bir
 liste yazılsaydı tip listesi büyüdüğünde biri geride kalırdı.
+
+### K161 — Duvara çift tık düğüm açar, düğüme çift tık kaldırır
+
+Kullanıcı isteği: duvara çift tıklayınca o noktada düğüm oluşup duvar ikiye
+ayrılsın; bir düğüme çift tıklayınca düğüm kalkıp duvarlar birleşsin — ama üç
+duvarın buluştuğu köşede çalışmasın, yalnız doğrusal duvarlarda.
+
+⚠️ **Yeni geometri yazılmadı.** İki işin de mantığı zaten vardı ve ikisi de
+ORTAK kapıdan geçiyor:
+
+- Bölme: `applyWallSplit` — kesişim bölmesinin (K24) kullandığı yol.
+- Birleştirme: `mergeWallsAtJoint` — taşımanın ürettiği artık düğümleri
+  temizleyen `mergeCollinearWallsInDraft`in (K103) tek eklemlik hâli.
+
+İkisi de bu iş için ÇIKARILDI (refactor), kopyalanmadı: iki kopya olsaydı biri
+"aynı doğrultu" ölçüsünü ya da açıklık kaydırmasını farklı yapabilirdi ve
+kullanıcı aynı jestten iki farklı sonuç alırdı.
+
+⚠️ Bölmenin ÜÇ yan etkisi ayrılamaz ve `applyWallSplit`te birlikte duruyor:
+parça üretimi, odaların duvar kümesinin genişletilmesi (`extendRoomsWithSplitPieces`,
+K31) ve açıklıkların doğru parçaya taşınması. Biri atlanırsa oda adı sessizce
+kaybolur ya da açıklık silinmiş duvara bağlı kalır.
+
+**Reddedilen istekler** (hepsi sessizce düşer, proje KİRLENMEZ):
+
+- Nokta bir AÇIKLIĞIN içine düşüyorsa bölme reddedilir — K24 kuralının aynısı,
+  kullanıcının koyduğu veri sessizce kaybolmaz.
+- Duvarın UCUNA çok yakın tıklama reddedilir (`MIN_PIECE_LENGTH_CM`): orada
+  zaten düğüm var, ikincisi sıfıra yakın bir parça üretirdi.
+- ÜÇ duvarlı köşede birleştirme çalışmaz: düğümü kaldırmak üçüncü duvarı havada
+  bırakırdı, hangi ikisinin birleşeceği de belirsiz olurdu.
+- AÇILI köşede çalışmaz: iki duvar tek doğruya indirilseydi köşe kaybolur,
+  çizim kullanıcının çizmediği bir yere kayardı.
+- Kalınlığı/yüksekliği FARKLI duvarlar birleşmez (K103'ten devralındı).
+
+
+⚠️ **"Doğrusal" EL ÖLÇÜSÜNDE, matematiksel değil.** İlk sürüm taramanın
+payını (1e-6) aynen kullanıyordu ve kullanıcı bildirdi: düğümü elle geri
+düzleştirmek "180'e tamamlanmıyor, zorlanıyor" ve zorla düzleştirilse bile
+birleşme çalışmıyordu. El hiçbir zaman tam 180° tutturamaz.
+
+Tolerans artık ÇAĞIRANDAN geliyor ve iki yol AYRI:
+
+| Yol | Pay | Neden |
+|---|---|---|
+| Tarama (K103, taşıma) | 0 | Temizlediği artıklar makine üretimi, birebir doğrusal. Pay açılsaydı kullanıcının bilerek çizdiği hafif açılı köşeler HER taşımada sessizce düzleşirdi. |
+| Çift tık (K161) | 3° | Açık kullanıcı isteği ve düğüm elle sürüklenmiş olabilir. |
+
+3° insan ölçeğinde: 4 metrelik iki kolda eklemin doğrudan sapması ≈ 5 cm.
+Daha büyüğü, bilerek yapılmış hafif açılı köşeleri yutmaya başlardı.
+
+⚠️ Birleşme geometriyi bu pay kadar DÜZLEŞTİRİR — düğüm silindiği için duvar
+uçtan uca düz gider. Kaçınılmaz ve zaten istenen.
+⚠️ Düğüm tıklanan HAM noktaya değil, onun duvara DİK İZDÜŞÜMÜNE konur. Ham
+nokta yazılsaydı duvar, tıklamanın sapması kadar kırılırdı.
+
+⚠️ Jest YALNIZ seçim aracında dinlenir. Çizim araçlarında çift tıkın kendi
+anlamı var ya da olabilir; her araçta dinlenseydi kullanıcı duvar çizerken
+istemeden düğüm açardı.
+
+⚠️ Sıra önemli: önce DÜĞÜM aranır, sonra duvar (`resolveArchitectureTarget`
+zaten bu sırada). Duvar önce sorulsaydı düğümü kaldırmak hiç mümkün olmaz,
+her çift tık yeni düğüm açardı.
+
+`DrawSurface` çift tıkı HAM olay olarak yayınlamaya başladı (`onDoubleClick`);
+karar aracın hook'unda (kural 7).
+
+⚠️ Tarayıcıda doğrulanamadı: elimizdeki proje boş, çift tıklanacak duvar yok.
+Mantık 15 store testiyle kapalı (bölme, birleştirme, dört ret kuralı, açıklık
+taşıma, kirlilik sayacı) ama JESTİN kendisi kullanıcı gözüyle denenmeli.

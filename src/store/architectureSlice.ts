@@ -8,6 +8,10 @@ import { recomputeRoomsInDraft, setRoomUsageTypeInDraft } from './architectureRo
 import { splitWallsAtIntersections } from './architectureSplit'
 import { runWallOffsetInDraft } from './architectureWallMoveValidity'
 import {
+  mergeWallsAtPointInDraft,
+  splitWallAtPointInDraft,
+} from './architectureWallNode'
+import {
   appendWall,
   appendWallChain,
   mergePointInto,
@@ -102,6 +106,13 @@ export type ArchitectureSlice = ArchitectureData &
   ) => Selection
   /** Mahalin kullanım tipi (madde 104). `undefined` = tip belirtilmemiş. */
   setRoomUsageType: (roomId: Id, usageType: RoomUsageType | undefined) => void
+  /**
+   * Duvara çift tıkla o noktada düğüm açar, duvarı ikiye böler (K161).
+   * Uygulanamayan bir istek sessizce yok sayılır ve proje KİRLENMEZ.
+   */
+  splitWallAtPoint: (wallId: Id, target: PlanPoint) => void
+  /** Düğüme çift tıkla onu kaldırır, doğrusal iki duvarı birleştirir (K161). */
+  mergeWallsAtPoint: (pointId: Id) => void
 }
 export const createArchitectureSlice: StateCreator<
   CadState,
@@ -322,5 +333,22 @@ export const createArchitectureSlice: StateCreator<
   setRoomUsageType: (roomId, usageType) =>
     set((draft) => {
       if (setRoomUsageTypeInDraft(draft, roomId, usageType)) markDirty(draft)
+    }),
+
+  // Mahaller YENİDEN HESAPLANIYOR: bölme/birleşme duvar kümesini değiştiriyor
+  // ve yüz taraması taze kümeyle eşleşmeli (K31). Tek `set()` içinde olması da
+  // jestin tek bir geri alma adımı kalmasını sağlıyor.
+  splitWallAtPoint: (wallId, target) =>
+    set((draft) => {
+      if (!splitWallAtPointInDraft(draft, wallId, target)) return
+      recomputeRoomsInDraft(draft)
+      markDirty(draft)
+    }),
+
+  mergeWallsAtPoint: (pointId) =>
+    set((draft) => {
+      if (!mergeWallsAtPointInDraft(draft, pointId)) return
+      recomputeRoomsInDraft(draft)
+      markDirty(draft)
     }),
 })

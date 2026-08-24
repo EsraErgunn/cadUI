@@ -79,6 +79,11 @@ export function DrawSurface() {
       publish('onPointerUp', event)
     }
 
+    // Ham olay; ne yapılacağına araçlar karar verir (kural 7).
+    const handleDoubleClick = (event: MouseEvent) => {
+      publish('onDoubleClick', event)
+    }
+
     const handleContextMenu = (event: MouseEvent) => {
       // Tarayıcı menüsü açılmasın; sağ tık davranışına araçlar karar verir.
       event.preventDefault()
@@ -105,6 +110,7 @@ export function DrawSurface() {
     domElement.addEventListener('pointermove', handlePointerMove)
     domElement.addEventListener('pointerup', handlePointerUp)
     domElement.addEventListener('pointercancel', handlePointerCancel)
+    domElement.addEventListener('dblclick', handleDoubleClick)
     domElement.addEventListener('contextmenu', handleContextMenu)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
@@ -115,6 +121,7 @@ export function DrawSurface() {
       domElement.removeEventListener('pointermove', handlePointerMove)
       domElement.removeEventListener('pointerup', handlePointerUp)
       domElement.removeEventListener('pointercancel', handlePointerCancel)
+      domElement.removeEventListener('dblclick', handleDoubleClick)
       domElement.removeEventListener('contextmenu', handleContextMenu)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)

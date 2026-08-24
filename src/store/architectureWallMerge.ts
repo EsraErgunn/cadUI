@@ -27,80 +27,32 @@ const EPSILON = 1e-6
  * değişirdi; burada temizlenen yalnız taşımanın kendi ürettiği artık.
  */
 export function mergeCollinearWallsInDraft(draft: CadState): boolean {
-  const floorId = draft.activeFloorId
   const removedWallIds = new Set<Id>()
   const winnerByLoser = new Map<Id, Id>()
-  let isChanged = false
 
   for (const joint of draft.points) {
-    if (joint.floorId !== floorId) continue
+    const merged = mergeWallsAtJoint(draft, joint.id, removedWallIds)
+    if (!merged) continue
 
-    const touching = draft.walls.filter(
-      (wall) =>
-        wall.floorId === floorId &&
-        !removedWallIds.has(wall.id) &&
-        (wall.p1Id === joint.id || wall.p2Id === joint.id),
-    )
-    if (touching.length !== 2) continue
-
-    const [first, second] = touching
-    if (first.thickness !== second.thickness || first.height !== second.height) continue
-
-    const pointById = new Map(draft.points.map((point) => [point.id, point]))
-    const farIdOf = (wall: Wall) => (wall.p1Id === joint.id ? wall.p2Id : wall.p1Id)
-    const farFirst = pointById.get(farIdOf(first))
-    const farSecond = pointById.get(farIdOf(second))
-    if (!farFirst || !farSecond) continue
-
-    // Aynı doğrultu: eklemden çıkan iki kol TERS yönlerde ve çapraz çarpımı sıfır.
-    const a = { x: farFirst.x - joint.x, y: farFirst.y - joint.y }
-    const b = { x: farSecond.x - joint.x, y: farSecond.y - joint.y }
-    const lengths = getSegmentLength(joint, farFirst) * getSegmentLength(joint, farSecond)
-    if (lengths < EPSILON) continue
-    if (Math.abs(a.x * b.y - a.y * b.x) / lengths > EPSILON) continue
-    if (a.x * b.x + a.y * b.y >= 0) continue
-
-    const [winner, loser] = first.id < second.id ? [first, second] : [second, first]
-    const winnerFar = pointById.get(farIdOf(winner))
-    const loserFar = pointById.get(farIdOf(loser))
-    if (!winnerFar || !loserFar) continue
-
-    const winnerLengthCm = getSegmentLength(joint, winnerFar)
-    const loserLengthCm = getSegmentLength(joint, loserFar)
-    const isWinnerP1AtJoint = winner.p1Id === joint.id
-    const isLoserP1AtJoint = loser.p1Id === joint.id
-
-    for (const opening of draft.openings) {
-      if (opening.wallId === loser.id) {
-        // Kaybendeki offset kendi p1'inden; önce EKLEME olan uzaklığa çevir.
-        const fromJointCm = isLoserP1AtJoint
-          ? opening.offsetCm
-          : loserLengthCm - opening.offsetCm
-        opening.wallId = winner.id
-        // Birleşik duvarın p1'i: kazananın ucu eklemdeyse kaybedenin uzak ucu,
-        // değilse kazananın kendi uzak ucu.
-        opening.offsetCm = isWinnerP1AtJoint
-          ? loserLengthCm - fromJointCm
-          : winnerLengthCm + fromJointCm
-        continue
-      }
-
-      // Kazananın p1'i eklemdeyse birleşmeyle p1 değişiyor: kendi açıklıkları da kayar.
-      if (opening.wallId === winner.id && isWinnerP1AtJoint) {
-        opening.offsetCm = loserLengthCm + opening.offsetCm
-      }
-    }
-
-    // Kazananın EKLEMDEKİ ucu, kaybedenin uzak ucuna uzatılır.
-    if (isWinnerP1AtJoint) winner.p1Id = farIdOf(loser)
-    else winner.p2Id = farIdOf(loser)
-
-    removedWallIds.add(loser.id)
-    winnerByLoser.set(loser.id, winner.id)
-    isChanged = true
+    removedWallIds.add(merged.loserId)
+    winnerByLoser.set(merged.loserId, merged.winnerId)
   }
 
-  if (!isChanged) return false
+  return applyWallMerges(draft, removedWallIds, winnerByLoser)
+}
+
+/**
+ * Birleşmenin ORTAK son adımı: kaybedenleri sil, odaların kaydını düzelt.
+ *
+ * Kaybedeni sınırında sayan oda kaydı kazanana GÜNCELLENİR — yoksa taze yüz
+ * taraması eski kaydı eşleştiremez ve kullanıcının verdiği ad kaybolur (K31).
+ */
+function applyWallMerges(
+  draft: CadState,
+  removedWallIds: ReadonlySet<Id>,
+  winnerByLoser: ReadonlyMap<Id, Id>,
+): boolean {
+  if (removedWallIds.size === 0) return false
 
   draft.walls = draft.walls.filter((wall) => !removedWallIds.has(wall.id))
   for (const room of draft.rooms) {
@@ -108,6 +60,107 @@ export function mergeCollinearWallsInDraft(draft: CadState): boolean {
   }
 
   return true
+}
+
+/**
+ * TEK bir eklemi dener: orada yalnız iki duvar buluşuyor ve ikisi de aynı
+ * doğrultudaysa birleştirir, kazanan/kaybeden çiftini döndürür.
+ *
+ * Taramadan AYRI durmak zorunda çünkü çift tıkla düğüm kaldırma (K161) aynı
+ * kararı TEK nokta için soruyor. İki kopya olsaydı biri "aynı doğrultu" ölçüsünü
+ * ya da açıklık kaydırmasını farklı yapabilirdi.
+ *
+ * ⚠️ Duvarları SİLMEZ ve odalara dokunmaz; onu çağıran `applyWallMerges` yapar.
+ * Tarama birden çok eklemi biriktirip tek seferde uyguluyor.
+ */
+export function mergeWallsAtJoint(
+  draft: CadState,
+  jointId: Id,
+  removedWallIds: ReadonlySet<Id> = new Set<Id>(),
+  maxDeviationDeg = 0,
+): { winnerId: Id; loserId: Id } | undefined {
+  const floorId = draft.activeFloorId
+  const joint = draft.points.find((point) => point.id === jointId)
+  if (!joint || joint.floorId !== floorId) return undefined
+
+  const touching = draft.walls.filter(
+    (wall) =>
+      wall.floorId === floorId &&
+      !removedWallIds.has(wall.id) &&
+      (wall.p1Id === joint.id || wall.p2Id === joint.id),
+  )
+  if (touching.length !== 2) return undefined
+
+  const [first, second] = touching
+  // ⚠️ Kalınlığı veya yüksekliği FARKLI iki duvar birleştirilmez: kullanıcının
+  // bilerek koyduğu bir ayrım olabilir, sessizce silmek veri kaybı olurdu.
+  if (first.thickness !== second.thickness || first.height !== second.height) {
+    return undefined
+  }
+
+  const pointById = new Map(draft.points.map((point) => [point.id, point]))
+  const farIdOf = (wall: Wall) => (wall.p1Id === joint.id ? wall.p2Id : wall.p1Id)
+  const farFirst = pointById.get(farIdOf(first))
+  const farSecond = pointById.get(farIdOf(second))
+  if (!farFirst || !farSecond) return undefined
+
+  // Aynı doğrultu: eklemden çıkan iki kol TERS yönlerde ve çapraz çarpımı sıfır.
+  //
+  // ⚠️ Tolerans ÇAĞIRANDAN gelir ve varsayılanı SIFIR (yalnız kayan nokta payı).
+  // Tarama, taşımanın KENDİ ürettiği artık düğümleri temizliyor ve onlar birebir
+  // doğrusal — orada tolerans açmak, kullanıcının bilerek çizdiği hafif açılı
+  // köşeleri her taşımada sessizce düzleştirirdi.
+  //
+  // Çift tık (K161) ise açık bir kullanıcı isteği ve düğümü ELLE sürüklenmiş
+  // olabilir; el hiçbir zaman tam 180° tutturamıyor, o yol kendi insan ölçekli
+  // payını veriyor (kullanıcı bildirimi: "180'e tamamlanmıyor, zorlanıyor").
+  //
+  // Ölçü |sin(sapma)|: kollar tam ters yöndeyken çapraz çarpım sıfırdır.
+  const a = { x: farFirst.x - joint.x, y: farFirst.y - joint.y }
+  const b = { x: farSecond.x - joint.x, y: farSecond.y - joint.y }
+  const lengths = getSegmentLength(joint, farFirst) * getSegmentLength(joint, farSecond)
+  if (lengths < EPSILON) return undefined
+
+  const maxSin = Math.max(EPSILON, Math.sin((maxDeviationDeg * Math.PI) / 180))
+  if (Math.abs(a.x * b.y - a.y * b.x) / lengths > maxSin) return undefined
+  if (a.x * b.x + a.y * b.y >= 0) return undefined
+
+  const [winner, loser] = first.id < second.id ? [first, second] : [second, first]
+  const winnerFar = pointById.get(farIdOf(winner))
+  const loserFar = pointById.get(farIdOf(loser))
+  if (!winnerFar || !loserFar) return undefined
+
+  const winnerLengthCm = getSegmentLength(joint, winnerFar)
+  const loserLengthCm = getSegmentLength(joint, loserFar)
+  const isWinnerP1AtJoint = winner.p1Id === joint.id
+  const isLoserP1AtJoint = loser.p1Id === joint.id
+
+  for (const opening of draft.openings) {
+    if (opening.wallId === loser.id) {
+      // Kaybendeki offset kendi p1'inden; önce EKLEME olan uzaklığa çevir.
+      const fromJointCm = isLoserP1AtJoint
+        ? opening.offsetCm
+        : loserLengthCm - opening.offsetCm
+      opening.wallId = winner.id
+      // Birleşik duvarın p1'i: kazananın ucu eklemdeyse kaybedenin uzak ucu,
+      // değilse kazananın kendi uzak ucu.
+      opening.offsetCm = isWinnerP1AtJoint
+        ? loserLengthCm - fromJointCm
+        : winnerLengthCm + fromJointCm
+      continue
+    }
+
+    // Kazananın p1'i eklemdeyse birleşmeyle p1 değişiyor: kendi açıklıkları da kayar.
+    if (opening.wallId === winner.id && isWinnerP1AtJoint) {
+      opening.offsetCm = loserLengthCm + opening.offsetCm
+    }
+  }
+
+  // Kazananın EKLEMDEKİ ucu, kaybedenin uzak ucuna uzatılır.
+  if (isWinnerP1AtJoint) winner.p1Id = farIdOf(loser)
+  else winner.p2Id = farIdOf(loser)
+
+  return { winnerId: winner.id, loserId: loser.id }
 }
 
 /** Aynı koordinatta sayılma eşiği; kayan nokta payı kadar dar. */
