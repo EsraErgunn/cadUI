@@ -3,12 +3,11 @@ import { z } from 'zod'
 import { listProjectDocuments } from './documents'
 import { ApiError, requestJson } from './http'
 import { mockedData, serverData, type Sourced } from './mockGate'
+import { buildMockProjectPolicies } from './projectDetailMock'
 import {
-  buildMockProjectExtras,
-  buildMockProjectPolicies,
-} from './projectDetailMock'
-import {
+  DRAFT_STATUS,
   type ProjectDetail,
+  type ProjectDetailExtras,
   type ProjectDetailStatus,
   type ProjectDocumentRow,
   type ProjectHistoryRow,
@@ -17,7 +16,7 @@ import {
   type ProjectSummary,
   type ProjectUnitRow,
 } from './projectDetailTypes'
-import { PROJECT_STATUSES } from './projects'
+import { toProjectStatus } from './projects'
 import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
@@ -52,11 +51,23 @@ const projectDetailDtoSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   description: z.string().nullish(),
+  status: z.string().nullish(),
+  projectFirmId: z.number().int().nullish(),
+  gasDistributionFirmId: z.number().int().nullish(),
   buildingCode: z.string().nullish(),
   cityName: z.string().nullish(),
   districtName: z.string().nullish(),
   addressLine: z.string().nullish(),
   blockLotParcel: z.string().nullish(),
+  projectTypeName: z.string().nullish(),
+  heatingTypeName: z.string().nullish(),
+  buildingUsageTypeName: z.string().nullish(),
+  isPermitProject: z.boolean().nullish(),
+  apartmentCount: z.number().int().nullish(),
+  workplaceCount: z.number().int().nullish(),
+  areaSquareMeters: z.number().int().nullish(),
+  capacity: z.number().int().nullish(),
+  serviceBoxPressureMbar: z.number().int().nullish(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -70,21 +81,6 @@ function toProjectPId(raw: { id: number; buildingCode?: string | null }): string
 function toNullable(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed === undefined || trimmed === '' ? null : trimmed
-}
-
-/**
- * Mock durum kimliğe göre dönüyor: hepsi "Taslak" olsaydı onay aksiyonlarının
- * etkin hâli ve onay kartının dolu hâli hiç görülemezdi (KK-2, KK-11).
- *
- * BİLİNEN TUTARSIZLIK: durumun GERÇEK kaynağı liste ucu — `GET /api/projects`
- * satır başına `status` döndürüyor ve `projects.ts` onu `ProjectListItem.status`
- * olarak taşıyor. `GET /api/projects/{id}` ise durumu HİÇ döndürmüyor, bu yüzden
- * detay ekranı aynı proje için listeden farklı (ve geliştirmede uydurma) bir
- * durum gösterebilir. Karar düğmeleri bu değere GÜVENMİYOR: sayfa yalnız durumu
- * gerçekten taslak olan kaydı kilitler (ProjectDetailPage → isDraft).
- */
-function mockStatusOf(projectId: number): ProjectDetailStatus {
-  return PROJECT_STATUSES[projectId % PROJECT_STATUSES.length]
 }
 
 /**
@@ -105,21 +101,96 @@ export async function getProjectDetail(
     pId: toProjectPId(dto),
     name: dto.name,
     description: toNullable(dto.description),
+    status: toProjectDetailStatus(dto.status),
     cityName: toNullable(dto.cityName),
     districtName: toNullable(dto.districtName),
     addressLine: toNullable(dto.addressLine),
     blockLotParcel: toNullable(dto.blockLotParcel),
+    buildingCode: toNullable(dto.buildingCode),
+    projectFirmId: dto.projectFirmId ?? null,
+    gasDistributionFirmId: dto.gasDistributionFirmId ?? null,
+    projectType: toNullable(dto.projectTypeName),
+    heatingType: toNullable(dto.heatingTypeName),
+    buildingUsageType: toNullable(dto.buildingUsageTypeName),
+    isPermitProject: dto.isPermitProject ?? false,
+    apartmentCount: dto.apartmentCount ?? null,
+    workplaceCount: dto.workplaceCount ?? null,
+    areaSquareMeters: dto.areaSquareMeters ?? null,
+    capacityCubicMeterPerHour: dto.capacity ?? null,
+    serviceBoxPressureMbar: dto.serviceBoxPressureMbar ?? null,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   }
 
-  if (isEndpointImplemented('projectDetailExtras')) {
-    throw new Error('getProjectDetail: detay ucu bağlandı ama gövdesi yazılmadı.')
+  return { server, extras: buildExtras(server) }
+}
+
+/**
+ * Sunucunun DÖNDÜRDÜĞÜ alanlardan türetilen ek bölümler.
+ *
+ * Bu paket eskiden tümüyle uydurmaydı (`buildMockProjectExtras`) ve yalnız
+ * geliştirme derlemesinde çiziliyordu. Uç otuz alan döndürdüğü için artık
+ * çoğunun gerçek karşılığı var; KARŞILIĞI OLMAYAN alan `null` bırakılıyor ve
+ * hücre boş işaretini çiziyor — uydurma bir değer yazmak, bir demoda gerçek
+ * sanılırdı.
+ *
+ * Hâlâ kaynağı olmayanlar (ayrı bir uç isterler): firma mühendisi ve vergi
+ * bilgileri, onay tarihi/onaylayan/onay kodu, tesisat numarası, mahalle ve
+ * kapı numarası, sayaç/kat/daire desenleri, .zpd dosya adı.
+ */
+function buildExtras(server: ProjectServerFields): ProjectDetailExtras {
+  return {
+    general: {
+      zpdFileName: '',
+      status: server.status,
+      gasFirmName: '',
+      installationNo: '',
+      neighborhood: null,
+      streetDoorNo: null,
+      projectType: server.projectType ?? '',
+      heatingType: server.heatingType ?? '',
+      isDetached: null,
+      hasLicense: server.isPermitProject,
+    },
+    firm: {
+      engineerName: null,
+      engineerRegistrationNo: null,
+      title: null,
+      address: null,
+      phone: null,
+      competencyNo: null,
+      taxOffice: null,
+      taxNumber: null,
+    },
+    approval: { approvedAt: null, approverName: null, approvalCode: null, note: null },
+    specs: {
+      meterCount: null,
+      floorCount: null,
+      residenceCount: server.apartmentCount,
+      shopCount: server.workplaceCount,
+      boxPressureMbar: server.serviceBoxPressureMbar,
+      usagePressureMbar: null,
+      meterType: null,
+      floorPattern: null,
+      residenceShopPattern: null,
+      totalAreaSquareMeters: server.areaSquareMeters,
+      totalCapacity: server.capacityCubicMeterPerHour,
+      gasAreas: null,
+      renovationNote: null,
+      orderNumber: null,
+      // "Bağlantı Nesnesi" sunucuda bina kodunun kendisi (backend 91baf4c).
+      connectionObject: server.buildingCode,
+    },
   }
+}
 
-  const extras = mockedData(() => buildMockProjectExtras(dto.id, mockStatusOf(dto.id)))
-
-  return { server, extras: extras.source === 'unavailable' ? null : extras.data }
+/**
+ * Bilinmeyen/eksik durum TASLAK sayılır. Çeviri liste ekranıyla ORTAK
+ * (`toProjectStatus`): iki eşleme tutulsaydı aynı proje iki ekranda farklı
+ * durumda görünebilirdi — zaten bu ekranın eski hatası tam olarak buydu.
+ */
+function toProjectDetailStatus(raw: string | null | undefined): ProjectDetailStatus {
+  return toProjectStatus(raw) ?? DRAFT_STATUS
 }
 
 const NOT_FOUND = 404
