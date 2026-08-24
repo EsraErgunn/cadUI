@@ -99,3 +99,12 @@ function getDistanceToSegmentCm(target: PlanPoint, a: PlanPoint, b: PlanPoint): 
   )
   return Math.hypot(target.x - (a.x + dx * t), target.y - (a.y + dy * t))
 }
+
+/**
+ * Serbest çizimin geri alınabilir işlemi (K164).
+ *
+ * Anlık görüntü değil İŞLEM tutuluyor: silgi de geri alınabilmeli ve "eklendi"
+ * ile "silindi" birbirinin tam tersi — tersini almak için darbenin kendisini
+ * saklamak yetiyor.
+ */
+export type SketchOp = { kind: 'add' | 'remove'; stroke: SketchStroke }

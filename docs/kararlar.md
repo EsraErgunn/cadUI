@@ -8208,3 +8208,47 @@ yapışan bir kalem "elle not al" işini yapamazdı.
 
 Darbe KATA bağlı: başka katta çizilen not görünmez. En üstte çiziliyor
 (`RENDER_ORDER.label`) — altında kalan bir not notluğunu yitirir.
+
+### K164 — Serbest çizim Ctrl+Z ile geri alınır
+
+K163 çizgileri bilerek `uiStore`a koymuştu (kaydedilmiyorlar) ve o kararın
+yan etkisi "Ctrl+Z onlara dokunmaz" idi. Kullanıcı bunu istemedi.
+
+⚠️ Çizgiler yine KAYDEDİLMİYOR — çözüm onları cadStore'a taşımak DEĞİL. Orada
+olsalardı projeye yazılırlardı (kural 4) ve WebCAD tur-dönüşü genişlerdi.
+Bunun yerine krokinin KENDİ geri alma yığını var.
+
+**İşlem tutuluyor, anlık görüntü değil** (`SketchOp`): silgi de geri
+alınabilmeli ve "eklendi" ile "silindi" birbirinin tersi — tersini almak için
+darbenin kendisini saklamak yetiyor.
+
+⚠️ **Sıralama sorunu gerçek**: iki geçmiş ayrı store'da yaşıyor (çizim
+zundo'da, kroki `uiStore`da) ve birbirinin zamanını bilmiyorlar. Ctrl+Z'nin
+doğru cevabı "EN SON hangisi yapıldıysa o". Bu yüzden `sketchHistory.ts`
+içinde tek bir sayaç ikisini de damgalıyor:
+
+- Kroki yazımı `markSketchAction()` çağırıyor.
+- Çizim değişikliği cadStore aboneliğiyle yakalanıyor (`revision` artışı).
+
+Sonuç: duvar çizip sonra kroki çizen kullanıcı Ctrl+Z'de KROKİYİ, kroki çizip
+sonra duvar çizen ise DUVARI geri alıyor.
+
+⚠️ ARACA göre dallanmak yanlış olurdu: kullanıcı krokiyi bitirip seçim aracına
+dönmüş olabilir, jest yine krokiyi geri almalı.
+
+⚠️ `revision` sayacı sıralama için KULLANILAMAZ — geri alma geçmişinde izlenen
+alanlar arasında değil (`partializeProjectState`), yani geri alındığında eski
+değerine dönmüyor ve "hangisi daha yeni" sorusunu yanıtlayamıyor. Bu yüzden
+ayrı bir saat gerekti.
+
+⚠️ Damga ÇAĞIRANDAN vuruluyor: `uiStore` `sketchHistory`yi import edemez, o da
+store'u import ediyor (döngü).
+
+⚠️ Geri alma/yineleme saati İLERLETMEZ: ilerletseydi krokiyi geri alan bir
+kullanıcı, ikinci Ctrl+Z'de çizime düşemezdi.
+
+⚠️ Düğmenin AKTİFLİĞİ de kroki yığınına bakıyor: yalnız kroki çizilmiş bir
+projede proje geçmişi boş olur ve düğme pasif görünürdü.
+
+Tesisat/izometrik görünümde kroki yığınına HİÇ bakılmıyor — orada geri alma
+tesisat aynasına gidiyor (K123), kroki mimarinin işi.

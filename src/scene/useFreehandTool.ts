@@ -12,6 +12,7 @@ import {
 } from '../core/sketchStroke'
 import { getSnapToleranceCm } from '../core/snap'
 import { useCadStore } from '../store/cadStore'
+import { markSketchAction } from '../store/sketchHistory'
 import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
@@ -66,6 +67,9 @@ export function useFreehandTool(): PlanPoint[] | undefined {
           floorId: useCadStore.getState().activeFloorId,
           points,
         })
+        // Sıralama damgası ÇAĞIRANDAN: store'un kendisi `sketchHistory`yi
+        // import edemez, o da store'u import ediyor (döngü).
+        markSketchAction()
       }
       points = undefined
       setDraft(undefined)
@@ -82,7 +86,10 @@ export function useFreehandTool(): PlanPoint[] | undefined {
           (stroke) =>
             stroke.floorId === floorId && isStrokeHit(stroke.points, planPoint, toleranceCm),
         )
-      if (hit) useUiStore.getState().removeSketchStroke(hit.id)
+      if (hit) {
+        useUiStore.getState().removeSketchStroke(hit.id)
+        markSketchAction()
+      }
     }
 
     return subscribeDrawSurface({
