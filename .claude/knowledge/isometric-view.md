@@ -39,7 +39,7 @@ değildir.
 
 | Model ekseni | Kâğıttaki yön |
 |---|---|
-| plan x | TAM YATAY (0°) |
+| plan x | TAM YATAY, SOLA (180°) |
 | plan y | 30° EĞİK (sol-aşağı, −150°) |
 | kot | TAM DİKEY (90°) |
 
@@ -69,9 +69,21 @@ kâğıt `getObliqueProjection()` verir.
 elle ayrılmış binmeler (`isometricOffsetCm`) 2B saklanıp 3B uygulanıyor, eşitlik
 bozulursa yerlerinden oynarlar.
 
-⚠️ Eğik eksenin yönü (sol-aşağı) okunabilirlik için: sağ-yukarı alınsa plan x
-ile yalnız 30° ayrılır ve dikdörtgen kat ince bir dilime çöker. Aynı eksenin
-öteki işareti, tek değişiklikle çevrilir.
+⚠️ Eğik eksenin yönü sol-aşağı çünkü derinlik KOTUN TERSİ yöne gitmeli:
+sağ-yukarı alınsa hem "daha uzak oda" hem "üst kat" yukarı giderdi ve çok katlı
+kolon şemasında uzak odalar üst kata binerdi. Sol-aşağıda üç eksen 180° / 90° /
+210° ile ayrık kalıyor. ⚠️ K155'teki gerekçe ("sağ-yukarıda kat ince dilime
+çöker") YANLIŞTI: `(1,0)` ile `±(cos30, sin30)` paralelkenarları birbirinin ayna
+eşi, alanları da eşit (`|sin30| = 0,5`) — ayak izinin ŞEKLİ iki seçimde de aynı.
+
+⚠️ **plan x SOLA bakar (K165)** ve bu yön tercihi değil DÜZELTME. Ölçüt plan
+ayak izinin izdüşüm determinantı: kat planı paftasında +1, eski oblikte
+(`+planX`) **−0,5** yani AYNALANMIŞ, şimdi +0,5. Negatif determinant binayı ters
+elden gösteriyordu — planda solda duran servis kutusu kâğıtta solda kalıp
+borusunu sağa uzatıyordu; doğrusu kutunun SAĞDA, borunun SOLA gelmesi. ⚠️
+`project`teki eksi `offsetToWorld`ta da olmak ZORUNDA (`[-offsetCm.x, …]`),
+yoksa gidiş dönüş `{−o.x, o.y}` verir ve elle ayrılmış etiketler yatayda ters
+düşer. İşareti "sadeleştirme" niyetiyle geri alma.
 
 ⚠️ PDF sayfası SCREENSHOT DEĞİL ve hiç olmadı: 3B koordinat → izdüşüm → SVG →
 bbox+autofit → `svg2pdf`. "PDF'teki canvas görüntüsünü kaldır" isteği geldiğinde
