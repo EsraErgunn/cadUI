@@ -7695,7 +7695,7 @@ tümüyle bağımsız ve sabit.
 
 | Model ekseni | Kâğıttaki yön |
 |---|---|
-| plan x | TAM YATAY (0°) |
+| plan x | TAM YATAY (0°) — ⚠️ K165'te 180°'ye çevrildi |
 | plan y | 30° EĞİK (sol-aşağı, −150°) |
 | kot | TAM DİKEY (90°) |
 
@@ -8252,3 +8252,72 @@ projede proje geçmişi boş olur ve düğme pasif görünürdü.
 
 Tesisat/izometrik görünümde kroki yığınına HİÇ bakılmıyor — orada geri alma
 tesisat aynasına gidiyor (K123), kroki mimarinin işi.
+
+### K165 — İzometrik pafta plana göre AYNALANMIŞTI; plan x ekseni çevrildi
+
+Kullanıcı: "izometride solda servis kutusu ve boru sağa doğru gidiyor ise bu
+matematik yanlış. olması gereken servis kutusunun sağda olup borusunun sola
+gelmesi. sadece x ekseninin yatayda simetrisi alınmış hali olmalı."
+
+K155'in oblik izdüşümünde eğik eksenin açısı ve kotun dikeyliği DOĞRUYDU,
+yanlış olan plan x'in işaretiydi.
+
+| Model ekseni | K155 | K165 |
+|---|---|---|
+| plan x | 0° (sağa) | **180° (sola)** |
+| plan y | −150° (sol-aşağı) | −150° — değişmedi |
+| kot | 90° (dikey) | 90° — değişmedi |
+
+```
+ekran_x = −planX − planY·cos30°      ← tek değişiklik: baştaki eksi
+ekran_y =   kot  − planY·sin30°
+```
+
+**⚠️ Bu bir yön tercihi değil, ÖLÇÜLEBİLİR bir hata.** Ölçüt plan ayak izinin
+izdüşüm determinantı — yönelimin korunup korunmadığını söyleyen sayı:
+
+| Pafta | planX → | planY → | determinant |
+|---|---|---|---|
+| kat planı | (1, 0) | (0, 1) | **+1** |
+| izometrik, K155 | (1, 0) | (−cos30, −sin30) | **−0,5** |
+| izometrik, K165 | (−1, 0) | (−cos30, −sin30) | **+0,5** |
+
+Negatif determinant demek, çizim plana göre AYNALANMIŞ demek: o görüntü hiçbir
+gerçek bakış açısından elde edilemez. K165 işareti artıya çekiyor ve iki pafta
+aynı ele oturuyor.
+
+**⚠️ `offsetToWorld` da değişmek ZORUNDAYDI.** `project(offsetToWorld(o)) === o`
+sözleşmesi (K155) yalnız `project` çevrilseydi bozulur, gidiş dönüş `{−o.x, o.y}`
+verirdi ve elle ayrılmış bütün etiket/dal kaymaları (`isometricOffsetCm`, K121)
+kâğıtta yatayda ters düşerdi. Doğrusu `[-offsetCm.x, offsetCm.y, 0]`. İki satır
+birlikte gider; birini çevirip ötekini bırakma.
+
+**⚠️ K155'in eğik eksen gerekçesi YANLIŞTI, düzeltildi.** Orada "sağ-yukarı
+alınsa plan x ile yalnız 30° ayrılır ve dikdörtgen kat ince bir dilime çöker"
+yazıyordu. Geometrik olarak yanlış: `(1,0)` ile `±(cos30, sin30)` tarafından
+gerilen iki paralelkenar birbirinin ayna eşi, alanları da eşit (`|sin30| = 0,5`)
+ve iç açıları ikisinde de 30° *ile* 150°. Ayak izinin ŞEKLİ iki seçimde de aynı.
+Sol-aşağının gerçek gerekçesi başka ve daha güçlü: **derinlik, kotun TERSİ yöne
+gitmek zorunda** — sağ-yukarı alınsaydı hem "daha uzak oda" hem "üst kat" ekranda
+yukarı giderdi ve çok katlı bir kolon şemasında uzak odalar üst kata binerdi.
+Sonuç aynı kaldı, gerekçe düzeltildi; yanlış gerekçe bir sonrakinin "bunu
+çevirsem ne olur" demesini kolaylaştırıyordu.
+
+**⚠️ Kapsam yalnız KÂĞIT.** `getObliqueProjection`ın tek çağıranı
+`ui/pdf/useExportPdf.ts`; ekran kendi `getCameraProjection(angles)`ını
+kullanıyor ve DEĞİŞMEDİ (K155'in ekran/kâğıt ayrımı yerinde). Katı model ve plan
+paftası da etkilenmiyor.
+
+Yönelim `isometricPaperAxes.test.ts`'te iki testle kilitli: determinantın
+POZİTİF ve 0,5 olması, bir de kullanıcının tarif ettiği durumun kendisi —
+planda soldaki servis kutusunun kâğıtta sağda kalması. Determinant testi asıl
+koruma: biri işareti geri alırsa 12 yön vakasından önce burası kırılır ve
+sebebini de söyler.
+
+**Değişmeyen bilinen sınırlar** (bu kararın konusu değil, tartışıldı ve
+bırakıldı): izdüşüm hâlâ CAVALIER, yani derinlik ekseni ölçek 1,0 ve kâğıdı
+yatayda şişiriyor (cabinet 0,5 seçenek olarak duruyor); ve her paralel
+izdüşümde olduğu gibi bir çekirdek yön var — plan (−0,866, −1) doğrultusunda
+~21° eğimle inen bir hat noktaya çöker. Gaz tesisatı yatay+düşey ağırlıklı
+olduğu için pratikte erişilmiyor: Δkot = 0 olan hiçbir yatay hat, hiçbir düşey
+hat çökmüyor.
