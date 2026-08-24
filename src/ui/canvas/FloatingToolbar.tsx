@@ -142,9 +142,23 @@ export function FloatingToolbar({
 
         <span className={CANVAS_BAR_DIVIDER} aria-hidden />
 
+        {/* Kat OKLARI ve seçici kalıyor: kat değiştirmek bir görüntüleme
+            işlemi. Seçicinin İÇİNDEKİ "Katları Yönet" / "Kat Kopyala"
+            maddeleri yazar, onları `FloorSelect` kendi içinde gizliyor. */}
+        <FloorSelect
+          onOpenFloorManagement={onOpenFloorManagement}
+          onOpenFloorCopy={onOpenFloorCopy}
+        />
         {/* Oklar KOMŞU kata (bir alt/bir üst) tek tıkla götürür — çizerken en sık
             yapılan geçiş bu. Ortadaki açılır ise uzak kata atlamak, boş katı
-            görmek ve kat pencerelerini açmak için. */}
+            görmek ve kat pencerelerini açmak için.
+
+            ⚠️ İkisi YAN YANA ve seçicinin SAĞINDA (kullanıcı isteği). Önce
+            aşağı ok solda, seçici ortada, yukarı ok sağdaydı: iki ok birbirinin
+            eşi bir çift ama araya kat adı girdiği için öyle okunmuyordu, üstelik
+            adın uzunluğu değiştikçe okların yeri kayıyordu. Sıra ↓↑ değil ↑↓
+            DEĞİL — yukarı üstte gibi bir dikey sezgi yok, soldan sağa okuma
+            sırası korunuyor: önce aşağı, sonra yukarı. */}
         <button
           type="button"
           onClick={() => onGoToFloor('down')}
@@ -155,13 +169,6 @@ export function FloatingToolbar({
         >
           <ChevronDown size={16} strokeWidth={1.8} aria-hidden />
         </button>
-        {/* Kat OKLARI ve seçici kalıyor: kat değiştirmek bir görüntüleme
-            işlemi. Seçicinin İÇİNDEKİ "Katları Yönet" / "Kat Kopyala"
-            maddeleri yazar, onları `FloorSelect` kendi içinde gizliyor. */}
-        <FloorSelect
-          onOpenFloorManagement={onOpenFloorManagement}
-          onOpenFloorCopy={onOpenFloorCopy}
-        />
         <button
           type="button"
           onClick={() => onGoToFloor('up')}
