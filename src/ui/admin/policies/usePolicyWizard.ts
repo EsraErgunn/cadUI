@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 
 import {
@@ -14,12 +15,17 @@ import {
   type PolicyFormValues,
   type PolicyStep,
 } from './policySchema'
-import { createProjectPolicy } from '../../../api/policies'
+import { ApiError } from '../../../api/http'
+import { createPolicy } from '../../../api/policies'
 import type { ProjectSummary } from '../../../api/projectDetail'
 
+/**
+ * Yalnız SUNUCUNUN söyleyemediği hâller için. Uç bir hata döndürdüğünde mesajı
+ * o yazıyor (`{ message }`) ve olduğu gibi gösteriliyor: "birimde zaten aktif
+ * poliçe var" gibi cümleleri istemcide tekrar yazmak, sunucu metnini
+ * değiştirdiğinde sessizce eskiyen bir kopya bırakırdı.
+ */
 const SUBMIT_ERROR_MESSAGES = {
-  unavailable:
-    'Poliçe kaydı ekranı sunucuya henüz bağlanmadı; kayıt yapılamadı (POST /api/policies).',
   unexpected: 'Poliçe kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
 } as const
 
@@ -78,6 +84,7 @@ function stepIndex(step: PolicyStep): number {
  * "Poliçe Bilgileri" adımına düşerdi.
  */
 export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): PolicyWizard {
+  const queryClient = useQueryClient()
   // Tembel başlatıcı: başlangıç tarihi bir KEZ hesaplanır, her render'da
   // yeniden üretilseydi kullanıcının değiştirdiği tarih geri gelirdi.
   const [values, setValues] = useState<PolicyFormValues>(() => buildPolicyDefaults(today ?? new Date()))
@@ -146,8 +153,7 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
       return
     }
 
-    // Gövde proje kimliği TAŞIMIYOR (sunucu onu birimden türetiyor); künye
-    // yalnız çağrının ikinci parametresinde, bellekteki depo için.
+    // Gövde proje kimliği TAŞIMIYOR: sunucu projeyi birimden türetiyor.
     const payload = buildPolicyPayload(values)
     if (payload === null || project === undefined) {
       setSubmitError(SUBMIT_ERROR_MESSAGES.unexpected)
@@ -155,22 +161,25 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
     }
 
     setIsSubmitting(true)
-    const result = await createProjectPolicy(payload, project)
-    setIsSubmitting(false)
+    try {
+      await createPolicy(payload)
 
-    if (result.ok) {
+      // Poliçeyi listeleyen İKİ yüzey de tazelenir: bütün projelerin listesi ve
+      // proje detayının poliçe sekmesi. Kullanıcı kayıttan sonra ikisine de
+      // gidebiliyor ve bayat bir listede kendi kaydını göremezdi.
+      void queryClient.invalidateQueries({ queryKey: ['policies'] })
+      void queryClient.invalidateQueries({ queryKey: ['projectPolicies'] })
+
       setStep('done')
-      return
+    } catch (error) {
+      // Sunucunun mesajı OLDUĞU GİBİ gösterilir: "bu birimde zaten aktif bir
+      // poliçe var" (400) ya da doğrulama metni. `http.ts` iki hata gövdesini de
+      // (`{ message }` ve `{ errors }`) tek bir metne indiriyor.
+      setSubmitError(error instanceof ApiError ? error.message : SUBMIT_ERROR_MESSAGES.unexpected)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // Numara aradaki sürede kapılmış olabilir; hatası kendi adımında görünür.
-    if (result.reason === 'duplicateNumber') {
-      failWith(validatePolicyForm(values))
-      return
-    }
-
-    setSubmitError(SUBMIT_ERROR_MESSAGES.unavailable)
-  }, [failWith, project, values])
+  }, [project, queryClient, values])
 
   const goNext = useCallback(async () => {
     // Kayıt ÖZET adımında yapılır, sonuç adımı kayıttan SONRA gösterilir (K64).

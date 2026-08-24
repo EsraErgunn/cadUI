@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { addMockPolicy, resetMockPolicies } from '../../../api/policiesMock'
 import { toIsoDate } from '../adminDateRange'
 import {
   POLICY_ERRORS,
@@ -28,10 +27,6 @@ function buildFilledValues(overrides: Partial<PolicyFormValues> = {}): PolicyFor
     ...overrides,
   }
 }
-
-afterEach(() => {
-  resetMockPolicies()
-})
 
 describe('teminat tutarı metni', () => {
   it('harf, ikinci virgül ve taşan hane REDDEDİLİR (değer değişmez)', () => {
@@ -106,22 +101,25 @@ describe('adım bazlı doğrulama', () => {
     )
   })
 
-  it('sistemde kayıtlı poliçe numarası kabul edilmez (büyük/küçük harf ayırmadan)', () => {
-    addMockPolicy(
-      {
-        projectUnitId: 1,
-        insuranceCompanyId: 1,
-        policyNumber: 'POL-2026-0001',
-        amount: 1000,
-        startDate: '2026-08-13',
-        endDate: '2027-08-13',
-      },
-      { id: 1, name: 'Örnek Proje', pId: '1' },
-    )
+  /**
+   * Sunucuda poliçe numarası için ne benzersiz indeks ne de denetim var
+   * (cadapi @ a6ea695). İstemci bir süre bunu kendi mock deposuna karşı
+   * denetliyordu; kural artık YOK ve tekrar eklenmemeli.
+   */
+  it('aynı poliçe numarası REDDEDİLMEZ — sunucuda benzersizlik kuralı yok', () => {
+    expect(
+      validatePolicyStep('info', buildFilledValues({ policyNumber: 'POL-2026-0001' })).policyNumber,
+    ).toBeUndefined()
+  })
 
-    const errors = validatePolicyStep('info', buildFilledValues({ policyNumber: 'pol-2026-0001' }))
+  /** Sunucudaki `PolicyAddValidator.MaximumLength(50)` erken söyleniyor. */
+  it('50 karakterden uzun poliçe numarası kabul edilmez', () => {
+    const errors = validatePolicyStep('info', buildFilledValues({ policyNumber: 'A'.repeat(51) }))
 
-    expect(errors.policyNumber).toBe(POLICY_ERRORS.policyNumberTaken)
+    expect(errors.policyNumber).toBe(POLICY_ERRORS.policyNumberTooLong)
+    expect(
+      validatePolicyStep('info', buildFilledValues({ policyNumber: 'A'.repeat(50) })).policyNumber,
+    ).toBeUndefined()
   })
 
   it('doldurulmuş form hata vermez', () => {

@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,7 +10,10 @@ import {
   END_DATE,
   POLICY_NUMBER,
   PROJECT_ID,
-  PROJECT_NAME,
+  PROJECT_UNITS,
+  policyPostCalls,
+  resetPolicyPostStub,
+  setPolicyPostFailure,
   fillFirmStep,
   fillInfoStep,
   fillUntilSummary,
@@ -18,8 +22,8 @@ import {
   renderPolicyPage,
   stubProjectFetch,
 } from './newPolicyFixture'
-import { addMockPolicy, getMockPolicies, resetMockPolicies } from '../../api/policiesMock'
 import { toIsoDate } from '../../ui/admin/adminDateRange'
+import { policyCreatePath } from '../../ui/admin/adminNavItems'
 
 const TODAY = toIsoDate(new Date())
 
@@ -31,7 +35,7 @@ async function goToInfoStep(user: ReturnType<typeof userEvent.setup>) {
 }
 
 beforeEach(() => {
-  resetMockPolicies()
+  resetPolicyPostStub()
   stubProjectFetch()
 })
 
@@ -125,26 +129,15 @@ describe('Poliçe bilgileri adımı', () => {
     ).toBeInTheDocument()
   })
 
-  it('sistemde kayıtlı poliçe numarası kabul edilmez (KK-19)', async () => {
-    addMockPolicy(
-      {
-        projectUnitId: 1,
-        insuranceCompanyId: 1,
-        policyNumber: POLICY_NUMBER,
-        amount: 1000,
-        startDate: TODAY,
-        endDate: END_DATE,
-      },
-      { id: PROJECT_ID, name: PROJECT_NAME, pId: String(PROJECT_ID) },
-    )
-
+  /** Benzersizlik kuralı SUNUCUDA YOK; aynı numara adımda engellenmemeli. */
+  it('aynı poliçe numarası adımda engellenmez', async () => {
     const user = userEvent.setup()
     renderPolicyPage()
     await goToInfoStep(user)
     await fillInfoStep(user)
     await user.click(nextButton())
 
-    expect(await screen.findByText('Bu poliçe numarası sistemde kayıtlı.')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Bitir' })).toBeInTheDocument()
   })
 
   it('boş bırakılan alanlar tek tek işaretlenir (KK-19)', async () => {
@@ -208,24 +201,151 @@ describe('Poliçe özeti ve tamamlanma', () => {
       await screen.findByText(/Poliçe kaydedildi ve projeyle ilişkilendirildi/),
     ).toBeInTheDocument()
 
-    // Kayıt HÂLÂ mock deposunda: `createProjectPolicy` acente engeli yüzünden
-    // bağlanmadı. Proje detayındaki sekme ise artık SUNUCUDAN okuyor, yani ikisi
-    // aynı depoyu paylaşmıyor (uç bağlanınca birleşecek).
-    const saved = getMockPolicies()[0]
-    expect(saved.projectId).toBe(PROJECT_ID)
-    expect(saved.policyNumber).toBe(POLICY_NUMBER)
-    expect(saved.amount).toBe(1500000)
-    // Künye gerçek uçtan geldi: liste ekranı projeyi adıyla gösterebilir.
-    expect(saved.projectName).toBe(PROJECT_NAME)
-
     await user.click(screen.getByRole('button', { name: 'Proje Detayına Dön' }))
 
     expect(await screen.findByText(/numaralı poliçe oluşturuldu/)).toBeInTheDocument()
-    // Kalıcı olmadığı SÖYLENMELİ: kayıt sunucuya gitmiyor.
-    expect(screen.getByText(/sunucuya yazılmadı/)).toBeInTheDocument()
+    // "sunucuya yazılmadı" uyarısı KALKTI: kayıt artık gerçekten kalıcı.
+    expect(screen.queryByText(/sunucuya yazılmadı/)).not.toBeInTheDocument()
+  })
 
-    const table = await screen.findByRole('table', { name: /Projeye bağlı poliçeler/ })
-    expect(within(table).getByText(POLICY_NUMBER)).toBeInTheDocument()
-    expect(within(table).getByText(COMPANY_NAME)).toBeInTheDocument()
+  /**
+   * Gövde `PolicyAddDto` ile BİREBİR olmalı. Sunucuda karşılığı olmayan bir alan
+   * göndermek sessizce yok sayılır ve sözleşmenin kaydığını kimse fark etmez.
+   */
+  it('POST gövdesi yalnız PolicyAddDto alanlarını taşır', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    await screen.findByText(/Poliçe kaydedildi/)
+
+    expect(policyPostCalls).toHaveLength(1)
+    const body = policyPostCalls[0].body as Record<string, unknown>
+
+    expect(body).toEqual({
+      projectUnitId: PROJECT_UNITS[0].id,
+      insuranceCompanyId: 1,
+      policyNumber: POLICY_NUMBER,
+      amount: 1500000,
+      startDate: TODAY,
+      endDate: END_DATE,
+    })
+  })
+
+  it('birim kimliği seçilen birimden gelir, projeden TÜRETİLMEZ', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    await screen.findByText(/Poliçe kaydedildi/)
+
+    const body = policyPostCalls[0].body as Record<string, unknown>
+    expect(body.projectUnitId).toBe(PROJECT_UNITS[0].id)
+    expect(body.projectUnitId).not.toBe(PROJECT_ID)
+  })
+
+  it('sigorta şirketi kimliği gövdeye girer', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    await screen.findByText(/Poliçe kaydedildi/)
+
+    expect((policyPostCalls[0].body as Record<string, unknown>).insuranceCompanyId).toBe(1)
+  })
+
+  it('sunucuda karşılığı olmayan alanlar gönderilmez', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    await screen.findByText(/Poliçe kaydedildi/)
+
+    const body = policyPostCalls[0].body as Record<string, unknown>
+    expect(body).not.toHaveProperty('projectId')
+    expect(body).not.toHaveProperty('agencyId')
+    expect(body).not.toHaveProperty('method')
+  })
+
+  /**
+   * Birimde zaten aktif poliçe varsa sunucu `400` + `{ message }` döndürüyor
+   * (`409` DEĞİL) ve eski poliçeyi otomatik KAPATMIYOR. Mesajı sunucu yazıyor;
+   * istemci onu olduğu gibi gösteriyor.
+   */
+  it('400 { message } hatasını sunucunun kendi metniyle gösterir', async () => {
+    const serverMessage =
+      'Bu bağımsız bölümde zaten aktif bir poliçe var. Yeni poliçe eklemeden önce mevcut poliçeyi iptal edin.'
+    setPolicyPostFailure({ status: 400, body: { message: serverMessage } })
+
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+
+    expect(await screen.findByText(serverMessage)).toBeInTheDocument()
+    // Kayıt olmadı: sonuç adımına GEÇİLMEZ, kullanıcı özet adımında kalır.
+    expect(screen.queryByText(/Poliçe kaydedildi/)).not.toBeInTheDocument()
+  })
+
+  /**
+   * Kayıttan sonra poliçeyi listeleyen İKİ yüzey de tazelenmeli: bütün
+   * projelerin listesi (`policies`) ve proje detayının sekmesi
+   * (`projectPolicies`). Biri atlanırsa kullanıcı kendi kaydını bayat bir
+   * listede göremez.
+   */
+  it('başarılı kayıttan sonra poliçe sorgularını geçersizleştirir', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    const user = userEvent.setup()
+    renderPolicyPage(policyCreatePath(PROJECT_ID), client)
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    await screen.findByText(/Poliçe kaydedildi/)
+
+    const keys = invalidate.mock.calls.map(([options]) => options?.queryKey)
+    expect(keys).toContainEqual(['policies'])
+    expect(keys).toContainEqual(['projectPolicies'])
+  })
+
+  it('kayıt başarısızsa sorgular geçersizleştirilmez', async () => {
+    setPolicyPostFailure({ status: 400, body: { message: 'Kayıt reddedildi.' } })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    const user = userEvent.setup()
+    renderPolicyPage(policyCreatePath(PROJECT_ID), client)
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    await screen.findByText('Kayıt reddedildi.')
+
+    const keys = invalidate.mock.calls.map(([options]) => options?.queryKey)
+    expect(keys).not.toContainEqual(['policies'])
+  })
+
+  /** FluentValidation hatası alan bazlı sözlük döndürüyor (`{ errors }`);
+      `http.ts` ilk mesajı çıkarıyor. */
+  it('alan bazlı doğrulama hatasında ilk mesajı gösterir', async () => {
+    setPolicyPostFailure({
+      status: 400,
+      body: { errors: { PolicyNumber: ['Poliçe numarası en fazla 50 karakter olabilir.'] } },
+    })
+
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+
+    expect(
+      await screen.findByText('Poliçe numarası en fazla 50 karakter olabilir.'),
+    ).toBeInTheDocument()
   })
 })

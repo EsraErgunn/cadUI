@@ -13,8 +13,6 @@
  */
 export const UNIMPLEMENTED_ENDPOINTS = {
 
-  /** TODO(esra): POST /api/policies — uç VAR (`PolicyAddDto`), ekran henüz bağlanmadı. */
-  policyCreate: 'POST /api/policies',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */
@@ -26,13 +24,12 @@ export const UNIMPLEMENTED_ENDPOINTS = {
  * hiç olmadı: seçenekler mock değildi, artık daraltma da gerçek uçtan geliyor
  * (`GET /api/project-firm-authorizations?GasDistributionFirmId=`, K87).
  *
- * `policyList` KALKTI: `GET /api/policies` artık `ProjectId` OLMADAN da
- * çağrılabiliyor (backend a6ea695) ve ekran gerçek uca bağlandı.
- *
- * `policyAgencies` de KALKTI ama sebebi farklı — uç açıldığı için değil, ACENTE
- * KAVRAMI OLMADIĞI için: sunucuda poliçenin tek firma alanı
- * `InsuranceCompanyId`. Sihirbazdaki iki kutu tek kutuya indirildi; bu adla
- * yeni kod yazma.
+ * Poliçe uçlarının ÜÇÜ DE listeden kalktı (backend a6ea695):
+ * - `policyList` — `GET /api/policies` artık `ProjectId` olmadan da çağrılıyor.
+ * - `policyCreate` — `POST /api/policies` bağlandı.
+ * - `policyAgencies` — sebebi farklı: uç açıldığı için değil, ACENTE KAVRAMI
+ *   OLMADIĞI için. Poliçenin tek firma alanı `InsuranceCompanyId`; bu adla yeni
+ *   tip, sorgu ya da uç ekleme.
  */
 
 export type UnimplementedEndpoint = keyof typeof UNIMPLEMENTED_ENDPOINTS

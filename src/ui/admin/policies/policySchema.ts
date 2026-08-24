@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { isPolicyNumberTaken, type CreatePolicyPayload, type PolicyMethod } from '../../../api/policies'
+import type { CreatePolicyPayload, PolicyMethod } from '../../../api/policies'
 import { toIsoDate } from '../adminDateRange'
 
 /**
@@ -44,7 +44,7 @@ export const POLICY_ERRORS = {
   insuranceCompany: 'Sigorta şirketi / poliçe firması seçiniz.',
   unit: 'Poliçenin bağlanacağı birimi seçiniz.',
   policyNumber: 'Poliçe no zorunludur.',
-  policyNumberTaken: 'Bu poliçe numarası sistemde kayıtlı.',
+  policyNumberTooLong: 'Poliçe no en fazla 50 karakter olabilir.',
   amount: 'Teminat tutarı zorunludur.',
   amountPositive: 'Teminat tutarı sıfırdan büyük olmalıdır.',
   startDate: 'Başlangıç tarihi zorunludur.',
@@ -70,6 +70,9 @@ export function policyFieldId(field: PolicyField): string {
 export function firstPolicyErrorField(errors: PolicyErrors): PolicyField | null {
   return POLICY_FIELD_ORDER.find((field) => errors[field] !== undefined) ?? null
 }
+
+/** Sunucudaki `PolicyAddValidator` sınırı: `MaximumLength(50)`. */
+const MAX_POLICY_NUMBER_LENGTH = 50
 
 /** Basamak hatasını (bir sıfır fazla) kaydetmeden yakalayan sınır; üst sınır
     tutar olarak konmadı, yalnız hane sayısı sınırlı. */
@@ -137,12 +140,18 @@ function validateInfoStep(values: PolicyFormValues): PolicyErrors {
 
   if (values.projectUnitId === null) errors.projectUnitId = POLICY_ERRORS.unit
 
+  // BENZERSİZLİK DENETİMİ YOK: sunucuda poliçe numarası için ne benzersiz
+  // indeks ne de kontrol var (doğrulandı, cadapi @ a6ea695). Bir süre istemcide
+  // bellekteki mock depoya karşı denetleniyordu ve bu, olmayan bir kısıtı
+  // varmış gibi öğretiyordu. Sunucunun gerçek kuralı başka: bir birimde tek
+  // aktif poliçe — onu da sunucu 400 ile söylüyor.
+  //
+  // Uzunluk sınırı ise GERÇEK: `PolicyAddDto` doğrulayıcısı 50 karakterde
+  // kesiyor, burada erken söyleniyor.
   if (values.policyNumber.trim() === '') {
     errors.policyNumber = POLICY_ERRORS.policyNumber
-  } else if (isPolicyNumberTaken(values.policyNumber)) {
-    // Denetim TEK kapıdan (api/policies). Kural SUNUCUDA YOK — bellekteki mock
-    // deposuna karşı çalışıyor ve kayıt yolu gerçek uca bağlanınca kalkacak.
-    errors.policyNumber = POLICY_ERRORS.policyNumberTaken
+  } else if (values.policyNumber.trim().length > MAX_POLICY_NUMBER_LENGTH) {
+    errors.policyNumber = POLICY_ERRORS.policyNumberTooLong
   }
 
   const amount = parsePolicyAmount(values.amountText)
@@ -191,7 +200,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const policyPayloadSchema = z.object({
   insuranceCompanyId: z.number().int().positive(),
   projectUnitId: z.number().int().positive(),
-  policyNumber: z.string().min(1),
+  policyNumber: z.string().min(1).max(MAX_POLICY_NUMBER_LENGTH),
   amount: z.number().positive(),
   startDate: z.string().regex(ISO_DATE),
   endDate: z.string().regex(ISO_DATE),
