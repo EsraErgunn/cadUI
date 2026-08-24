@@ -3,7 +3,11 @@ import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getCurrentUser } from '../api/auth'
-import { getProjectFirm } from '../api/projectFirmForm'
+import {
+  PROJECT_FIRM_QUERY_KEY,
+  getProjectFirm,
+  projectFirmQueryKey,
+} from '../api/projectFirmForm'
 import { getUser } from '../api/users'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
@@ -56,14 +60,17 @@ export function ProfilePage() {
   const projectFirmId = userQuery.data?.projectFirmId ?? null
 
   const firmQuery = useQuery({
-    queryKey: ['projectFirmDetail', projectFirmId],
+    queryKey: projectFirmQueryKey(projectFirmId),
     queryFn: ({ signal }) => getProjectFirm(projectFirmId ?? 0, { signal }),
     enabled: projectFirmId !== null,
   })
 
   const refreshProfile = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['user'] })
-    void queryClient.invalidateQueries({ queryKey: ['projectFirmDetail'] })
+    // Kimliksiz kök anahtar BİLEREK: önek eşleşmesi firmanın Firma Güncelle
+    // ekranındaki kopyasını da düşürür. Aynı kayıt tek anahtarda toplandığı için
+    // (`projectFirmQueryKey`) iki ekran birbirini bayat bırakamıyor.
+    void queryClient.invalidateQueries({ queryKey: [PROJECT_FIRM_QUERY_KEY] })
     // Firma listesi de aynı kayıttan besleniyor; ünvan değişince tazelensin.
     void queryClient.invalidateQueries({ queryKey: ['projectFirmList'] })
   }, [queryClient])

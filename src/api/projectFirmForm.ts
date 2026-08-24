@@ -159,6 +159,23 @@ export function toCompanyType(isSoleProprietorship: boolean): number {
 }
 
 /**
+ * Tekil firmanın önbellek anahtarı — fonksiyonun YANINDA duruyor.
+ *
+ * Aynı kaydı iki ekran çekiyor (Profil ve Firma Güncelle) ve anahtarı ayrı ayrı
+ * yazdıkları sürece iki farklı ada (`projectFirmDetail` / `projectFirm`)
+ * kaymışlardı: iki kopya önbellek, iki istek ve en kötüsü çapraz tutmayan
+ * geçersizleştirme — biri kaydı güncelleyince ötekinin kopyası bayat kalıyordu.
+ * Anahtarı üreten tek yer burası olduğu sürece o kayma tekrar edemez.
+ */
+export const PROJECT_FIRM_QUERY_KEY = 'projectFirm'
+
+/** Kimlik `null` olabilir: çağıran sorguyu `enabled` ile kapatana kadar anahtar
+    yine de kararlı bir değer taşımalı. */
+export function projectFirmQueryKey(id: number | null): readonly [string, number | null] {
+  return [PROJECT_FIRM_QUERY_KEY, id]
+}
+
+/**
  * Tekil firma (`GET /api/projectfirms/{id}`). Liste ucundan okunmuyor: adres ve
  * ikinci telefon liste satırında YOK.
  */
