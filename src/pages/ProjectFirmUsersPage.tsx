@@ -1,10 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 
-import type { ProjectFirmUserQuery } from '../api/projectFirmUserDto'
 import { getProjectFirmUserList } from '../api/projectFirmUsers'
 import { DataTable } from '../ui/admin/DataTable'
 import { EmptyState } from '../ui/admin/EmptyState'
-import { FilterChips } from '../ui/admin/FilterChips'
 import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
@@ -13,13 +11,11 @@ import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
-import { ProjectFirmUserFilterBar } from '../ui/admin/projectFirmUsers/ProjectFirmUserFilterBar'
 import {
   PROJECT_FIRM_USER_COLUMNS,
   PROJECT_FIRM_USER_TABLE_CAPTION,
   PROJECT_FIRM_USER_TABLE_MIN_WIDTH,
 } from '../ui/admin/projectFirmUsers/projectFirmUserColumns'
-import { buildProjectFirmUserFilterChips } from '../ui/admin/projectFirmUsers/projectFirmUserFilterChips'
 import { useProjectFirmUserListParams } from '../ui/admin/projectFirmUsers/useProjectFirmUserListParams'
 import { useSavedProjectFirmUserNotice } from '../ui/admin/projectFirmUsers/useSavedProjectFirmUserNotice'
 
@@ -48,7 +44,7 @@ const MOCK_SECTIONS = [
 const MISSING_ENDPOINT_HINT = 'GET /api/projectfirmusers'
 
 export function ProjectFirmUsersPage() {
-  const { query, applyFilters, setPage } = useProjectFirmUserListParams()
+  const { query, setPage } = useProjectFirmUserListParams()
   const savedNotice = useSavedProjectFirmUserNotice()
 
   // Sorgu `queryKey`'in PARÇASI: sayfalama ve süzme sunucuda, her kriter
@@ -63,12 +59,6 @@ export function ProjectFirmUsersPage() {
   // bölümün sunucuya bağlı olmadığını söyleyen kutu çıkar.
   const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
   const isSourceMissing = sourced?.source === 'unavailable'
-
-  const applyPatch = (patch: Partial<ProjectFirmUserQuery>) =>
-    applyFilters({
-      nameQuery: patch.nameQuery ?? query.nameQuery,
-      authorityType: patch.authorityType === undefined ? query.authorityType : patch.authorityType,
-    })
 
   const totalCount = data?.totalCount
 
@@ -90,16 +80,7 @@ export function ProjectFirmUsersPage() {
           title={PAGE_TITLE}
           countLabel={formatCountLabel(totalCount)}
         />
-        <ProjectFirmUserFilterBar
-          filters={{
-            nameQuery: query.nameQuery,
-            authorityType: query.authorityType,
-          }}
-          onApply={applyFilters}
-        />
       </div>
-
-      <FilterChips filters={buildProjectFirmUserFilterChips({ query, onRemove: applyPatch })} />
 
       {isPending && <QueryLoading message="Kullanıcılar yükleniyor…" />}
 
@@ -125,7 +106,7 @@ export function ProjectFirmUsersPage() {
               <DataTable
                 rows={data.items}
                 columns={PROJECT_FIRM_USER_COLUMNS}
-                rowKey={(row) => row.competencyId}
+                rowKey={(row) => row.id}
                 caption={PROJECT_FIRM_USER_TABLE_CAPTION}
                 minWidthClassName={PROJECT_FIRM_USER_TABLE_MIN_WIDTH}
                 emptyMessage={NO_RESULT_MESSAGE}

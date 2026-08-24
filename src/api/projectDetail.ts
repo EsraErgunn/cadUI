@@ -2,8 +2,8 @@ import { z } from 'zod'
 
 import { listProjectDocuments } from './documents'
 import { ApiError, requestJson } from './http'
-import { mockedData, serverData, type Sourced } from './mockGate'
-import { buildMockProjectPolicies } from './projectDetailMock'
+import { serverData, type Sourced } from './mockGate'
+import { listProjectPolicies } from './policies'
 import {
   type ProjectDetail,
   type ProjectDetailExtras,
@@ -374,12 +374,23 @@ export async function getProjectDocuments(
   )
 }
 
-export function getProjectPolicies(projectId: number): Promise<Sourced<ProjectPolicyRow[]>> {
-  if (isEndpointImplemented('projectPolicies')) {
-    throw new Error('getProjectPolicies: uç bağlandı ama gövdesi yazılmadı.')
-  }
+export async function getProjectPolicies(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<Sourced<ProjectPolicyRow[]>> {
+  const policies = await listProjectPolicies(projectId, signal)
 
-  return Promise.resolve(mockedData(() => buildMockProjectPolicies(projectId)))
+  return serverData(
+    policies.map((policy) => ({
+      id: policy.id,
+      policyNumber: toNullable(policy.policyNumber),
+      insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
+      unitNumber: toNullable(policy.unitNumber),
+      amount: policy.amount ?? null,
+      startDate: toNullable(policy.startDate),
+      endDate: toNullable(policy.endDate),
+    })),
+  )
 }
 
 export type ProjectDecision = 'approve' | 'reject'

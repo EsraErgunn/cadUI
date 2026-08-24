@@ -206,7 +206,9 @@ describe('Poliçe özeti ve tamamlanma', () => {
       await screen.findByText(/Poliçe kaydedildi ve projeyle ilişkilendirildi/),
     ).toBeInTheDocument()
 
-    // Depo tohumlu (K69); yeni kayıt EN ÜSTTE duruyor.
+    // Kayıt HÂLÂ mock deposunda: `createProjectPolicy` acente engeli yüzünden
+    // bağlanmadı. Proje detayındaki sekme ise artık SUNUCUDAN okuyor, yani ikisi
+    // aynı depoyu paylaşmıyor (uç bağlanınca birleşecek).
     const saved = getMockPolicies()[0]
     expect(saved.projectId).toBe(PROJECT_ID)
     expect(saved.policyNumber).toBe(POLICY_NUMBER)

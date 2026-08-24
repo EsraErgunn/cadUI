@@ -49,9 +49,31 @@ export function stubProjectFetch(): void {
       const url = String(input)
       const body = url.includes('/api/insurance-companies')
         ? INSURANCE_COMPANIES
-        : url.includes('/units')
-          ? PROJECT_UNITS
-          : {
+        : url.includes('/api/policies')
+          ? {
+              items: [
+                {
+                  id: 900,
+                  projectId: PROJECT_ID,
+                  projectUnitId: PROJECT_UNITS[0].id,
+                  unitNumber: PROJECT_UNITS[0].unitNumber,
+                  insuranceCompanyId: 1,
+                  insuranceCompanyTitle: COMPANY_NAME,
+                  policyNumber: POLICY_NUMBER,
+                  amount: 1500000,
+                  startDate: '2026-01-01',
+                  endDate: END_DATE,
+                  isActive: true,
+                  isUnitDeleted: false,
+                },
+              ],
+              totalCount: 1,
+              page: 1,
+              pageSize: 100,
+            }
+          : url.includes('/units')
+            ? PROJECT_UNITS
+            : {
             id: PROJECT_ID,
             name: PROJECT_NAME,
             code: '30006185',

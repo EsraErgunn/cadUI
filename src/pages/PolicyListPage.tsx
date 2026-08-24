@@ -86,7 +86,10 @@ export function PolicyListPage() {
   }, [queryClient])
 
   const deletion = useRowDelete({
-    remove: async (policyId) => (await deletePolicy(policyId)).ok,
+    remove: async (policyId) => {
+      await deletePolicy(policyId)
+      return true
+    },
     messages: DELETE_MESSAGES,
     onDeleted: refreshList,
   })

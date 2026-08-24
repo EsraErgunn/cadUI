@@ -12,19 +12,7 @@
  * Beklenen sözleşme taslağı: docs/api-eksikleri-kullanicilar.md
  */
 export const UNIMPLEMENTED_ENDPOINTS = {
-  /** TODO(esra): GET /api/projectfirmusers?page&pageSize&q&authorityType */
-  firmUserList: 'GET /api/projectfirmusers',
-  /** TODO(esra): GET /api/projectfirmusers/{id} — güncelleme ekranını besleyecek. */
-  firmUserDetail: 'GET /api/projectfirmusers/{id}',
-  /** TODO(esra): POST /api/projectfirmusers — `auth/register` bu gövdeyi taşımıyor. */
-  firmUserCreate: 'POST /api/projectfirmusers',
-  /** TODO(esra): PUT /api/projectfirmusers/{id} — şifre boşsa değişmez (KK-25). */
-  firmUserUpdate: 'PUT /api/projectfirmusers/{id}',
-  /** TODO(esra): GET /api/projectfirmusers/availability?email&username&excludeUserId */
-  firmUserAvailability: 'GET /api/projectfirmusers/availability',
 
-  /** TODO(esra): GET /api/projects/{id}/policies — Policy entity'si ProjectUnit'e bağlı. */
-  projectPolicies: 'GET /api/projects/{id}/policies',
   /** TODO(esra): GET /api/insurancecompanies/{id}/agencies — şirkete bağlı acenteler. */
   policyAgencies: 'GET /api/insurancecompanies/{id}/agencies',
   /** TODO(esra): POST /api/projects/{id}/policies — `Policy` entity'si VAR, controller yok;
@@ -33,8 +21,6 @@ export const UNIMPLEMENTED_ENDPOINTS = {
   /** TODO(esra): GET /api/policies?page&pageSize&q&insuranceCompanyId&sort&dir —
       bütün projelerin poliçeleri; satır proje künyesini de taşımalı. */
   policyList: 'GET /api/policies',
-  /** TODO(esra): DELETE /api/policies/{id} — liste ekranındaki "Sil". */
-  policyDelete: 'DELETE /api/policies/{id}',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */

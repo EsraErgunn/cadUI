@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -7,10 +7,14 @@ import { ProjectFirmUserInfoCard } from './ProjectFirmUserInfoCard'
 import { projectFirmUserFieldId } from './projectFirmUserSchema'
 import { useProjectFirmUserForm } from './useProjectFirmUserForm'
 import type { ProjectFirmUserDetail } from '../../../api/projectFirmUserDto'
+import { getProjectFirmList, type ProjectFirm } from '../../../api/projectFirms'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { PROJECT_FIRM_USERS_PATH } from '../adminNavItems'
 import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../adminVariants'
+
+/** Sabit boş dizi: her render'da yenisi alt bileşeni boşuna yeniden çizerdi. */
+const EMPTY_FIRMS: ProjectFirm[] = []
 
 const CANCEL_TITLE = 'Kaydedilmemiş değişiklikler var'
 const CANCEL_DESCRIPTION = 'Yapılan değişiklikler kaydedilmeden çıkılacaktır.'
@@ -37,12 +41,19 @@ export function ProjectFirmUserForm({ user }: ProjectFirmUserFormProps) {
     clearFocusRequest()
   }, [focusField, clearFocusRequest])
 
-  const goToList = (saved?: { userId: number; isPersisted: boolean }) => {
+  // Proje firması seçenekleri; liste altı ekranda ORTAK anahtarla paylaşılıyor
+  // (K75), bu ekran için ikinci istek çıkmıyor.
+  const { data: projectFirms = EMPTY_FIRMS } = useQuery({
+    queryKey: ['projectFirmList'],
+    queryFn: ({ signal }) => getProjectFirmList(signal),
+  })
+
+  const goToList = (saved?: { userId: number }) => {
     void navigate(PROJECT_FIRM_USERS_PATH, {
       state:
         saved === undefined
           ? undefined
-          : { savedUserId: saved.userId, isPersisted: saved.isPersisted },
+          : { savedUserId: saved.userId },
     })
   }
 
@@ -79,7 +90,7 @@ export function ProjectFirmUserForm({ user }: ProjectFirmUserFormProps) {
         {/* `fieldset` gönderim sürerken TÜM alanları tek hamlede kilitler.
             `min-w-0` şart — tarayıcı varsayılanı `min-content`. */}
         <fieldset disabled={form.isSubmitting} className="flex min-w-0 flex-col gap-5">
-          <ProjectFirmUserInfoCard form={form} />
+          <ProjectFirmUserInfoCard form={form} projectFirms={projectFirms} />
 
           {/* Mockup: sağ altta solda İptal, sağda Kaydet. */}
           <div className="flex flex-wrap justify-end gap-3">

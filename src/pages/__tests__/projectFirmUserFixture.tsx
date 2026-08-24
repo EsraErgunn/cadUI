@@ -18,16 +18,12 @@ export const CREATE_PATH = `${LIST_PATH}/new`
 
 export function buildRow(overrides: Partial<ProjectFirmUserRow> = {}): ProjectFirmUserRow {
   return {
-    competencyId: 5001,
-    userId: 1001,
+    id: 1001,
     username: 'tolga.ertek',
     fullName: 'Tolga Ertek',
     email: 'tolga.ertek@tekhnelogos.com',
     phone: '5555555555',
-    authorityType: 'firmEngineer',
-    gasFirm: { id: 103, name: 'AKSA-GEMLİK' },
     projectFirm: { id: 201, name: 'AA Mühendislik' },
-    gdfRegistrationNumber: null,
     ...overrides,
   }
 }
@@ -63,15 +59,7 @@ export function buildDetail(
     username: 'tolga.ertek',
     email: 'tolga.ertek@tekhnelogos.com',
     phone: '05321180880',
-    competencies: [
-      {
-        id: 5001,
-        gasFirm: MOCK_GAS_FIRMS[0],
-        projectFirm: MOCK_PROJECT_FIRMS[0],
-        authorityType: 'firmEngineer',
-        gdfRegistrationNumber: '512',
-      },
-    ],
+    projectFirmId: 201,
     ...overrides,
   }
 }

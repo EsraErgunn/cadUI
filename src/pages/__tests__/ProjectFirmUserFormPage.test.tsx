@@ -61,19 +61,6 @@ describe('veri kaynağı uyarısı (K51)', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('yazacak yer yokken kayıt listeye dönmez, sebebini söyler', async () => {
-    const user = userEvent.setup()
-    formApi.saveProjectFirmUser.mockResolvedValue({ ok: false, reason: 'unavailable' })
-    renderFormFlow(updateRoute)
-
-    await screen.findByLabelText(/Adı Soyadı/)
-    await user.click(screen.getByRole('button', { name: /Kaydet/ }))
-
-    expect(
-      await screen.findByText('Kullanıcı kaydedilemiyor: bu ekranın sunucu ucu henüz açılmadı.'),
-    ).toBeInTheDocument()
-    expect(screen.getByLabelText(/Adı Soyadı/)).toBeInTheDocument()
-  })
 })
 
 // KK-13: iki bölüm, açıklama ve zorunlu alan yıldızı.

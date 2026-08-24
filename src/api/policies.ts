@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
-import { requestJson } from './http'
-import type { PagedResult, SortDirection } from './listQuery'
+import { requestJson, requestVoid } from './http'
+import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import { mockedData, serverData, type Sourced } from './mockGate'
 import {
   addMockPolicy,
@@ -28,6 +28,97 @@ import { isEndpointImplemented } from './unimplementedEndpoints'
  *
  * Beklenen sözleşme taslağı: docs/api-eksikleri-policeler.md
  */
+
+/**
+ * `PolicyDto` — liste ve tekil detay AYNI gövdeyi döndürüyor.
+ *
+ * Alanların çoğu opsiyonel: poliçe birime bağlı ve birim silinmiş olabiliyor
+ * (`isUnitDeleted`), tutar/tarih de girilmemiş olabiliyor. Zorunlu tutmak, yarım
+ * doldurulmuş tek bir kayıt yüzünden listeyi sınırda öldürürdü.
+ */
+const policyDtoSchema = z.object({
+  id: z.number().int().positive(),
+  projectId: z.number().int(),
+  projectUnitId: z.number().int().nullish(),
+  unitNumber: z.string().nullish(),
+  insuranceCompanyId: z.number().int().nullish(),
+  insuranceCompanyTitle: z.string().nullish(),
+  policyNumber: z.string().nullish(),
+  amount: z.number().nullish(),
+  startDate: z.string().nullish(),
+  endDate: z.string().nullish(),
+  isActive: z.boolean().nullish(),
+  isUnitDeleted: z.boolean().nullish(),
+})
+
+export type PolicyDto = z.infer<typeof policyDtoSchema>
+
+const policyPageSchema = pagedResultSchema(policyDtoSchema)
+
+/** Proje detayındaki sekme sayfalama istemiyor; üst sınır listeyi kesmesin diye yüksek. */
+const PROJECT_POLICY_PAGE_SIZE = 100
+
+/**
+ * Bir PROJENİN poliçeleri — GERÇEK uç (`GET /api/policies?ProjectId=`).
+ *
+ * `excludeUnitDeleted` GÖNDERİLMİYOR: silinmiş birime bağlı poliçe de listede
+ * kalmalı, yoksa kayıt sessizce kaybolur ve kullanıcı sildiği birimle birlikte
+ * poliçesinin de gittiğini fark etmez. Satır `isUnitDeleted` taşıyor, ayrımı
+ * arayüz yapar.
+ */
+export async function listProjectPolicies(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<PolicyDto[]> {
+  const search = new URLSearchParams({
+    ProjectId: String(projectId),
+    Page: '1',
+    PageSize: String(PROJECT_POLICY_PAGE_SIZE),
+  })
+
+  const page = await requestJson(
+    { method: 'GET', path: `/api/policies?${search.toString()}`, signal },
+    policyPageSchema,
+  )
+
+  return page.items
+}
+
+/** Tekil poliçe (`GET /api/policies/{id}`); güncelleme ekranı gelince formu besleyecek. */
+export function getPolicy(policyId: number, signal?: AbortSignal): Promise<PolicyDto> {
+  return requestJson({ method: 'GET', path: `/api/policies/${policyId}`, signal }, policyDtoSchema)
+}
+
+/**
+ * Poliçe güncelleme (`PUT /api/policies/{id}`).
+ *
+ * Ekranı HENÜZ YOK; fonksiyon sözleşmeyi bağlamak için burada — yol ve gövde
+ * biçimi bir yerde yazılı olmazsa ekranı yazan kişi yeniden keşfetmek zorunda
+ * kalır. Gövde birim TAŞIMAZ: `PolicyUpdateDto` birimi almıyor, poliçe başka
+ * bir birime taşınamıyor.
+ *
+ * TODO(esra): güncelleme ekranı yazılınca çağıran buraya bağlanacak.
+ */
+export interface UpdatePolicyPayload {
+  insuranceCompanyId: number | null
+  policyNumber: string | null
+  amount: number | null
+  startDate: string | null
+  endDate: string | null
+}
+
+export function updatePolicy(
+  policyId: number,
+  payload: UpdatePolicyPayload,
+  signal?: AbortSignal,
+): Promise<void> {
+  return requestVoid({
+    method: 'PUT',
+    path: `/api/policies/${policyId}`,
+    rawJsonBody: JSON.stringify(payload),
+    signal,
+  })
+}
 
 export interface InsuranceCompany {
   id: number
@@ -130,27 +221,14 @@ export async function listPolicies(
   return mockedData(() => queryPolicyList(getMockPolicyRows(), query))
 }
 
-export type PolicyDeleteResult = { ok: true } | { ok: false; reason: 'unavailable' }
+/** Poliçe silme — GERÇEK uç (`DELETE /api/policies/{id}`). */
+export async function deletePolicy(policyId: number, signal?: AbortSignal): Promise<void> {
+  await requestVoid({ method: 'DELETE', path: `/api/policies/${policyId}`, signal })
 
-/**
- * Poliçe silme. Depo BELLEKTE: satır gerçekten listeden düşer ama sayfa
- * yenilenince tohum listesine dönülür — çağıran bunu kullanıcıya SÖYLER.
- *
- * Üretim derlemesinde hiç silinmez (`unavailable`): gösterilmeyecek bir depodan
- * kayıt düşürmek, kullanıcıya yapılmamış bir işi yapılmış göstermek olurdu.
- */
-export async function deletePolicy(
-  policyId: number,
-  signal?: AbortSignal,
-): Promise<PolicyDeleteResult> {
-  if (isEndpointImplemented('policyDelete')) {
-    throw new Error('deletePolicy: uç bağlandı ama gövdesi yazılmadı.')
-  }
-
-  await delay(MOCK_LATENCY_MS, signal)
-
-  const removed = mockedData(() => removeMockPolicy(policyId))
-  return removed.source === 'unavailable' ? { ok: false, reason: 'unavailable' } : { ok: true }
+  // Bellekteki depo da temizleniyor: poliçe LİSTESİ ekranı hâlâ mock'tan
+  // besleniyor (uç tüm projeleri listeleyemiyor) ve silinen kayıt orada
+  // durmaya devam ederse kullanıcı silmenin işe yaramadığını sanır.
+  removeMockPolicy(policyId)
 }
 
 /**
