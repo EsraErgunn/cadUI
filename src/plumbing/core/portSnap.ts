@@ -1,6 +1,11 @@
+import { hasPortMarkers } from './attachModes'
 import { getElementWorldCorners, type SymbolMetadataLookup } from './elementPicking'
 import { getTargetElementId } from './installationModel'
-import type { InstallationConnection, InstallationElement } from './installationModel'
+import type {
+  InstallationConnection,
+  InstallationElement,
+  InstallationLine,
+} from './installationModel'
 import { getPortWorldPosition } from './ports'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
@@ -52,6 +57,13 @@ function isWithinElementReach(
  * bağlanamaz. Yarıçap piksel tabanlı gelir (çağıran zoom'a böler), böylece
  * yakalama uzaklığı ekranda sabit hissedilir.
  *
+ * AKIŞ GEÇİŞLİ armatürler (vana, selenoid vana, filtre kiti, süzme sayaç) hiç
+ * taranmaz: portları boruyu AYIRAN bir düğümdür, "buraya bağlan" hedefi değil —
+ * bu yüzden zaten işaret de çizilmiyor (`hasPortMarkers`). Taransaydı görünmez
+ * bir hedefe yapışılırdı ve vananın sağında/solunda iki ayrı çıkış varmış gibi
+ * davranırdı (kullanıcı isteği, 2026-08: "vananın sadece ortadaki çıkışı
+ * olsun"). Vanaya bağlanma yolu MERKEZİDİR (`findNearestInlineArmature`).
+ *
  * Önce eleman kutusuyla kaba eleme, sonra port mesafesi; karşılaştırma mesafe
  * KARELERİ üzerinden yapılır, kare kök hesaplanmaz (Bölüm 15).
  */
@@ -69,6 +81,7 @@ export function findNearestFreePort(
   let nearestDistanceSquared = Number.POSITIVE_INFINITY
 
   for (const element of elements) {
+    if (!hasPortMarkers(element.type)) continue
     if (!isWithinElementReach(element, getMetadata, cursor, radiusCm)) continue
 
     const metadata = getMetadata(element.type)
@@ -116,4 +129,54 @@ export function isLineEndOnPort(
       connection.end === end &&
       getTargetElementId(connection.target) !== null,
   )
+}
+
+export type InlineArmatureCandidate = { elementId: Id; position: PlanPoint }
+
+/**
+ * Bir hat ucunun bırakıldığı yerde bulduğu hedef: elemanın boş PORTU ya da
+ * akış geçişli bir armatürün MERKEZİ (düğüm olarak oturur).
+ */
+export type LineEndDropTarget =
+  | { kind: 'port'; elementId: Id; portId: string }
+  | { kind: 'inline'; elementId: Id }
+
+/**
+ * İmlece en yakın, henüz bir boru düğümünde OTURMAYAN akış geçişli armatür
+ * (vana, selenoid vana, filtre kiti, süzme sayaç). Bunların tek bağlantı yeri
+ * MERKEZİDİR: boru oraya gelir ve armatür o düğümün üstüne oturur — sağdaki ve
+ * soldaki port birer hedef değildir (kullanıcı isteği, 2026-08).
+ */
+export function findNearestInlineArmature(
+  elements: readonly InstallationElement[],
+  lines: readonly InstallationLine[],
+  cursor: PlanPoint,
+  radiusCm: number,
+): InlineArmatureCandidate | null {
+  if (radiusCm <= 0) return null
+
+  const seated = new Set<Id>()
+  for (const line of lines) {
+    for (const point of line.points) {
+      if (point.inlineElementId !== undefined) seated.add(point.inlineElementId)
+    }
+  }
+
+  const maxDistanceSquared = radiusCm * radiusCm
+  let nearest: InlineArmatureCandidate | null = null
+  let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
+  for (const element of elements) {
+    if (hasPortMarkers(element.type) || seated.has(element.id)) continue
+
+    const dx = element.position.x - cursor.x
+    const dy = element.position.y - cursor.y
+    const distanceSquared = dx * dx + dy * dy
+    if (distanceSquared > maxDistanceSquared || distanceSquared >= nearestDistanceSquared) continue
+
+    nearest = { elementId: element.id, position: element.position }
+    nearestDistanceSquared = distanceSquared
+  }
+
+  return nearest
 }

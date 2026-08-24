@@ -85,6 +85,29 @@ describe('Hata6 — hat sonlandırma', () => {
     expect(ruleIds(source)).not.toContain('lineTermination')
   })
 
+  it('ucunda VANA olan hat kapalıdır — uyarı vermez', () => {
+    const open = makeLine(52, 'pipe', [IN_KITCHEN, IN_LIVING], 520)
+    // Son nokta (521) vanayı taşıyor: gaz orada kesiliyor.
+    const closed = {
+      ...open,
+      points: [open.points[0], { ...open.points[1], inlineElementId: 43 }],
+    }
+    const base = makeValidProject()
+    const withOpenEnd = makeValidProject({
+      installationElements: [...base.installationElements, makeElement(43, 'valve', IN_LIVING)],
+      installationLines: [...base.installationLines, open],
+      installationConnections: [
+        ...base.installationConnections,
+        // 52 mutfaktaki köşeden (511) devam ediyor: o uç kavşak, serbest değil.
+        { lineId: 52, end: 'start' as const, target: { kind: 'line' as const, lineId: 51, pointId: 511 } },
+      ],
+    })
+    const withValve = { ...withOpenEnd, installationLines: [...base.installationLines, closed] }
+
+    expect(ruleIds(withOpenEnd)).toContain('lineTermination')
+    expect(ruleIds(withValve)).not.toContain('lineTermination')
+  })
+
   it('baca hattı gaz kuralına girmez', () => {
     const source = makeValidProject({
       installationLines: [

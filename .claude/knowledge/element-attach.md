@@ -356,9 +356,33 @@ görünüşte bir GÖVDESİ ve bir YÖNÜ yoktur; her mod bunu ayrı çözer:
 - `onLine` (armatür) → `resolveVerticalEndAttachment`: boru BÖLÜNMEZ, armatür
   var olan UÇ düğümüne oturur, kotunu oradan alır. Refakatçili eleman
   (regülatör grubu) hariç — dört sembol tek düğüme sığmaz.
-- `lineEnd` (sayaç) → `resolveVerticalArmAttachment`: hat uzatılamaz (uzatılsa
-  kolon eğik boruya dönerdi), kolonun ucundan AYNI kotta kısa bir yatay kol
-  doğar, sayaç onun ucuna oturur, vana kolonun uç düğümüne girer.
+
+  Aynı "uç düğümüne otur" yolu YATAY borunun AÇIK ucunda da var
+  (`resolveFreeEndNodeAttachment`, kullanıcı isteği 2026-08: "boş yere vana
+  ekleyince orası kapansın, ucuna yapışsın, hata kapansın"). Gövde bölmesi ucun
+  dibine düğüm koyamıyor (`MIN_NODE_GAP_CM`), o yüzden vana ya reddediliyor ya
+  da ötesinde SERBEST bir parça bırakıyordu — uç açık kaldığı için Hata6
+  (`lineTermination`) da kapanmıyordu. Uca oturan kesme vanası artık o ucu
+  kapatır (`validateGasNetwork` → `isShutoffValve`). Aday yalnız gerçekten açık
+  uçlar: armatürlü, bağlı ya da başka hattın tutunduğu uç bu yoldan
+  yakalanmaz. İki yol da tek moda düşer: `'endNode'` →
+  `placeElementAtEndNode`; gövde bölmesiyle yarışta YAKIN olan kazanır,
+  eşitlikte düğüm.
+- `lineEnd` (sayaç) → `resolveVerticalLineEndAttachment`: hat uzatılamaz
+  (uzatılsa kolon eğik boruya dönerdi). Vana kolonun uç düğümüne girer, sayaç
+  onun hemen yanında durur ve kolonun o ucu DOĞRUDAN sayacın giriş portuna
+  bağlanır — **arada boru YOKTUR**. Sayacın giriş portu vananın ÇIKIŞ KENARINA
+  oturur (kayma = vananın yarı uzunluğu, `ATTACH_CLEARANCE_CM` payı YOK):
+  ikisinin arasına boru yazılmadığı için pay bırakılsaydı hiçbir şeyin
+  çizilmediği bir boşluk kalırdı (kullanıcı isteği, 2026-08). Vana tek bir
+  MERKEZDİR: kolon ona girer, sayaç ondan çıkar — ikinci bir çıkış (kol borusu)
+  yok.
+
+  Eskiden burada kolonun ucundan kısa bir YATAY KOL borusu doğuyordu
+  (`resolveVerticalArmAttachment`, `placeElementAtVerticalArm`) — kullanıcı
+  isteğiyle (2026-08) kaldırıldı: vana o kolun üstünde duruyormuş gibi
+  görünüyordu, oysa istenen armatürün TEK dikey borunun üstünde olması. Bu
+  adlarla yeni kod yazma.
 - `nearestLine` (yakıcı cihaz) → ayrı bir yol GEREKMEDİ: kolun yönü zaten
   borudan değil İMLEÇTEN geliyor, tek engel `findNearestFreeLineEnd`'in
   çakışık-uç süzgeciydi. Süzgeç artık `shouldAllowVerticalEnd` parametresiyle

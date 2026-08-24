@@ -18,14 +18,17 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/
 import { useCadStore } from '../../store/cadStore'
 import { isEditorReadOnly } from '../../store/editorReadOnly'
 import { useUiStore } from '../../store/uiStore'
+import { getElementAttachMode } from '../core/attachModes'
 import {
   isFixedCompanionValve,
+  resolveDropAttachment,
   resolveOnLineSlide,
   type OnLineSlideTarget,
 } from '../core/elementAttach'
 import { getElementLabelOffsetCm, pickElementLabelAt } from '../core/elementLabel'
 import { getElementsInRect, pickElementAt } from '../core/elementPicking'
 import { pruneElementIds } from '../core/elementSelection'
+import { getTargetElementId } from '../core/installationModel'
 import type { InstallationElement } from '../core/installationModel'
 import { INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import {
@@ -34,9 +37,17 @@ import {
   getPortAnchoredPointIds,
 } from '../core/lineCornerLink'
 import { isSamePoint } from '../core/lineGeometry'
+import { isGasCarryingKind } from '../core/lineKinds'
 import { getLinesInRect, isPlanZeroLengthLine, pickLineAt } from '../core/linePicking'
 import { findNearestLineCorner, findNearestPointOnLines } from '../core/lineSnap'
 import { resolveMoveTargets } from '../core/moveTargets'
+import {
+  findNearestFreePort,
+  findNearestInlineArmature,
+  isLineEndConnected,
+  type InlineArmatureCandidate,
+  type LineEndDropTarget,
+} from '../core/portSnap'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import { findNearestWallCorner, findNearestWallFace } from '../core/wallSnap'
 import {
@@ -48,6 +59,11 @@ import { requestSelectionDeletion } from '../store/deletionActions'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
 const PRIMARY_BUTTON = 0
+
+/** Hattın iki ucu — porta yapışma taraması ikisini de dener. */
+const LINE_ENDS = ['start', 'end'] as const
+
+type LineEndDrop = { lineId: Id; pointId: Id; target: LineEndDropTarget }
 
 /** Paylaşılan boş dizi: hatsız sürüklemede her çağrıda yeni dizi ayırmaz. */
 const NO_LINE_IDS: readonly Id[] = []
@@ -489,8 +505,31 @@ export function useSelectionTool(): SelectionToolState {
       const cad = useCadStore.getState()
       const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
 
+      // Elemanın BOŞ portu (sayacın gözü) her şeyden önce gelir (kullanıcı
+      // isteği, 2026-08: "sonradan taşınan boru sayacın gözüne yapışabilsin ve
+      // bağlanabilsin") — `useLineTool.resolveSnap`'teki port önceliğinin
+      // aynısı: bağlantı kurmak konumlandırmadan güçlü bir niyettir.
+      const port = findNearestFreePort(
+        readFloorElements(),
+        readConnections(),
+        getMetadata,
+        event.planPoint,
+        radiusCm,
+      )
+      if (port) return port.position
+
+      // Akış geçişli armatürün (vana…) tek bağlantı noktası MERKEZİDİR: boru
+      // oraya gelir, armatür ucun üstüne düğüm olarak oturur.
+      const armature = findNearestInlineArmature(
+        readFloorElements(),
+        readFloorLines(),
+        event.planPoint,
+        radiusCm,
+      )
+      if (armature) return armature.position
+
       // Başka bir hat köşesi duvardan ÖNCE gelir (`useLineTool.resolveSnap` ile
-      // aynı öncelik: bağlantı kurmak konumlandırmadan güçlü bir niyettir).
+      // aynı öncelik).
       // Kotun net kalması buna bağlı: dikey borunun (K102) geride kalan ucuna
       // geri getirilen köşe TAM ÜSTÜNE oturur, kolon yeniden düşeyleşir —
       // yakın duvar yüzü kazansaydı birkaç cm'lik bir kayma kalır ve yükseklik
@@ -575,7 +614,101 @@ export function useSelectionTool(): SelectionToolState {
         x: snappedAnchor.x - grab.anchorPosition.x,
         y: snappedAnchor.y - grab.anchorPosition.y,
       }
-      dragDeltaRef.current = delta
+      dragDeltaRef.current = event.ctrlKey
+        ? delta
+        : resolvePortMagnet(grab.elementIds, grab.lineIds, delta).delta
+    }
+
+    /** Bırakılan uç tam bir gözün ya da armatür merkezinin üstündeyse hedef. */
+    const resolveDropTargetAt = (position: PlanPoint): LineEndDropTarget | null => {
+      const radiusCm = getSnapRadiusCm(readCameraViewport(camera).zoom)
+
+      const port = findNearestFreePort(
+        readFloorElements(),
+        readConnections(),
+        getMetadata,
+        position,
+        radiusCm,
+      )
+      if (port && isSamePoint(port.position, position)) {
+        return { kind: 'port', elementId: port.elementId, portId: port.portId }
+      }
+
+      const armature = findNearestInlineArmature(
+        readFloorElements(),
+        readFloorLines(),
+        position,
+        radiusCm,
+      )
+      if (armature && isSamePoint(armature.position, position)) {
+        return { kind: 'inline', elementId: armature.elementId }
+      }
+
+      return null
+    }
+
+    /**
+     * Taşınan borunun SERBEST bir ucu bir elemanın boş portuna (sayacın gözü)
+     * yaklaşırsa kayma o uca oturacak şekilde düzeltilir — ızgara adımı
+     * yüzünden birkaç cm yanına düşmesin (kullanıcı isteği, 2026-08).
+     * Ctrl mıknatısı da kapatır: ızgarayı kapatan jest yakalamayı da kapatıyor.
+     *
+     * İlk bulunan aday kazanır: iki uç aynı anda iki ayrı porta çekilseydi tek
+     * bir kaymayla ikisi birden sağlanamazdı.
+     */
+    const resolvePortMagnet = (
+      elementIds: readonly Id[],
+      lineIds: readonly Id[],
+      delta: PlanPoint,
+    ): { delta: PlanPoint; drops: LineEndDrop[] } => {
+      if (lineIds.length === 0) return { delta, drops: [] }
+
+      const cad = useCadStore.getState()
+      const movedElementIds = new Set(elementIds)
+      const candidates = readFloorElements().filter((element) => !movedElementIds.has(element.id))
+      const radiusCm = getSnapRadiusCm(readCameraViewport(camera).zoom)
+
+      for (const lineId of lineIds) {
+        const line = cad.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) continue
+
+        for (const end of LINE_ENDS) {
+          const point = end === 'start' ? line.points[0] : line.points.at(-1)
+          if (!point || isLineEndConnected(cad.installationConnections, line.id, end)) continue
+
+          const moved = { x: point.position.x + delta.x, y: point.position.y + delta.y }
+          const port = findNearestFreePort(
+            candidates,
+            cad.installationConnections,
+            getMetadata,
+            moved,
+            radiusCm,
+          )
+          const armature = port
+            ? null
+            : findNearestInlineArmature(candidates, cad.installationLines, moved, radiusCm)
+          const magnet = port ?? armature
+          if (!magnet) continue
+
+          return {
+            delta: {
+              x: delta.x + (magnet.position.x - moved.x),
+              y: delta.y + (magnet.position.y - moved.y),
+            },
+            drops: [
+              {
+                lineId: line.id,
+                pointId: point.id,
+                target: port
+                  ? { kind: 'port', elementId: port.elementId, portId: port.portId }
+                  : { kind: 'inline', elementId: (armature as InlineArmatureCandidate).elementId },
+              },
+            ],
+          }
+        }
+      }
+
+      return { delta, drops: [] }
     }
 
     const finishMarquee = (event: DrawSurfacePointerEvent) => {
@@ -650,7 +783,11 @@ export function useSelectionTool(): SelectionToolState {
           selectLine(drag.lineId, drag.isAdditive)
           return
         }
-        useCadStore.getState().moveLinePoint(drag.lineId, drag.pointId, position)
+        // Bırakılan uç bir gözün/armatürün üstüne oturduysa bağ da aynı adımda
+        // yazılır (tek Ctrl+Z).
+        useCadStore
+          .getState()
+          .moveLinePoint(drag.lineId, drag.pointId, position, resolveDropTargetAt(position))
         return
       }
 
@@ -681,8 +818,51 @@ export function useSelectionTool(): SelectionToolState {
       // Yer değişmediyse (yalnız seçmek için tıklama) store'a hiç yazılmaz:
       // yoksa her tıklama geçmişe boş bir adım bırakırdı.
       if (!delta || (delta.x === 0 && delta.y === 0)) return
-      // Eleman + hat TEK çağrıda: bir sürükleme jesti = bir Ctrl+Z.
-      useCadStore.getState().moveElements(elementIds, lineIds, delta)
+      // Eleman + hat TEK çağrıda: bir sürükleme jesti = bir Ctrl+Z. Porta
+      // oturan uçların bağlantısı da aynı çağrıda yazılır.
+      useCadStore
+        .getState()
+        .moveElements(elementIds, lineIds, delta, resolvePortMagnet(elementIds, lineIds, delta).drops)
+      attachDroppedElement(elementIds, lineIds)
+    }
+
+    /**
+     * Bırakılan TEK eleman açık bir boru ucunun dibine düştüyse oraya bağlanır
+     * (kullanıcı isteği, 2026-08: "vana sayaç vs de taşıyınca bağlanabilsin").
+     * Yeni eleman/vana/boru YARATILMAZ, yalnız bağ kurulur ve gövde uca
+     * oturtulur. Zaten bağlı eleman ile çoklu seçim kapsam dışı: ilkinde bağ
+     * taşımayla korunuyor, ikincisinde hangi elemanın bağlanacağı belirsiz.
+     */
+    const attachDroppedElement = (elementIds: readonly Id[], lineIds: readonly Id[]) => {
+      if (elementIds.length !== 1 || lineIds.length > 0) return
+
+      const elementId = elementIds[0]
+      const cad = useCadStore.getState()
+      const element = cad.installationElements.find((candidate) => candidate.id === elementId)
+      if (!element) return
+
+      const mode = getElementAttachMode(element.type)
+      if (mode !== 'onLine' && mode !== 'lineEnd') return
+
+      const isConnected =
+        cad.installationConnections.some(
+          (connection) => getTargetElementId(connection.target) === elementId,
+        ) ||
+        cad.installationLines.some((line) =>
+          line.points.some((point) => point.inlineElementId === elementId),
+        )
+      if (isConnected) return
+
+      const attachment = resolveDropAttachment(
+        readFloorLines().filter((line) => isGasCarryingKind(line.kind)),
+        cad.installationConnections,
+        getMetadata,
+        element.type,
+        mode,
+        element.position,
+        getSnapRadiusCm(readCameraViewport(camera).zoom),
+      )
+      if (attachment) cad.attachDroppedElement(elementId, attachment)
     }
 
     // Esc sürüklemeyi/çerçeveyi/köşe düzenlemesini iptal eder: store'a

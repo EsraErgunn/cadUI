@@ -14,7 +14,7 @@ import type {
 } from './installationModel'
 import type { DischargeLineKind } from './lineKinds'
 import { getPortWorldDirection, getPortWorldPosition, planToSvgLocal } from './ports'
-import { isBurnerAppliance } from './symbolMetadata'
+import { isBurnerAppliance, type SymbolMetadata } from './symbolMetadata'
 import type { PlanPoint } from '../../core/coords'
 
 export type DischargeStart = {
@@ -58,6 +58,26 @@ export function resolveDischargeStart(
 
   const attached = getAttachedDischargeKinds(lines, connections, element.id)
   if (!canAttachDischarge(attached, kind)) return null
+
+  return resolveOutletTowards(element, metadata, kind, cursor)
+}
+
+/**
+ * Ağzı imlece göre YENİDEN oturtur: ilk köşe daha tıklanmadan kullanıcı hangi
+ * tarafa gidiyorsa ağız o kenara kayar (kullanıcı isteği, 2026-08: "istediğimiz
+ * taraftan çizebilelim"). Tıklama anındaki kenara kilitlenseydi ters yöne giden
+ * kanal cihazın gövdesini kesip geçerdi.
+ *
+ * Uygunluk denetimleri (`resolveDischargeStart`) BİR KEZ, çizim başlarken
+ * yapılır; burada yalnız geometri yeniden çözülür.
+ */
+export function resolveOutletTowards(
+  element: InstallationElement,
+  metadata: SymbolMetadata,
+  kind: DischargeLineKind,
+  cursor: PlanPoint,
+): DischargeStart | null {
+  if (!metadata.dischargeBox) return null
 
   const local = planToSvgLocal(element, metadata, cursor)
   const outletOnBox = resolveOutletOnBox(

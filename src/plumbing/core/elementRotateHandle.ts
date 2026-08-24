@@ -8,6 +8,9 @@ import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { getSegmentLength } from '../../core/wall'
 
+/** Bu kadar kısa bir dönme kolunda/hedef mesafesinde açı anlamsızdır. */
+const MIN_SEED_ARM_CM = 0.5
+
 /** Döndürmede PİVOTUN DIŞINDA kalan, elemana bağlı bir hat ucu. */
 export type ElementRotateFollower = {
   lineId: Id
@@ -197,4 +200,60 @@ export function getElementAngleFromPointer(target: PlanPoint, center: PlanPoint)
   const pointerDeg = Math.atan2(target.y - center.y, target.x - center.x) * RAD_TO_DEG
   const angleDeg = pointerDeg - HANDLE_OFFSET_DEG
   return ((angleDeg % 360) + 360) % 360
+}
+
+export type SeedOrientation = {
+  angleDeg: number
+  /** Elemanın yeni konumu — pivot dünyada KIPIRDAMAZ. */
+  position: PlanPoint
+  /** Çıkış portunun dönme sonrası dünya konumu; hattın yeni başlangıcı. */
+  portPosition: PlanPoint
+}
+
+/**
+ * Hattın çıktığı elemanı, ÇIKIŞ portu çizim yönüne bakacak şekilde çevirir
+ * (kullanıcı isteği, 2026-08: "istediğimiz taraftan çizebilelim"). Çıkış tarafı
+ * elemanın açısına kilitli olduğu için ters yöne çizilen boru gövdenin içinden
+ * geçiyordu.
+ *
+ * Pivot (bağlı olduğu nokta ya da serbest elemanda kendi kökeni) dünyada
+ * KIPIRDAMAZ: döndürme elemanı borusundan/portundan KOPARMAZ — `useElementRotateTool`
+ * ile aynı çapa hesabı.
+ *
+ * Port pivotun TAM ÜSTÜNDEYSE null: dönme kolu sıfır, hangi açıda olursa olsun
+ * port aynı yerde kalır, çevirmenin bir anlamı yok.
+ */
+export function resolveSeedOrientation(
+  element: InstallationElement,
+  metadata: SymbolMetadata,
+  pivotLocal: readonly [number, number],
+  portLocal: readonly [number, number],
+  target: PlanPoint,
+): SeedOrientation | null {
+  const pivotOffsetLocal = svgLocalToPlanOffset(pivotLocal, metadata.origin, element.scale)
+  const armLocal = {
+    x: svgLocalToPlanOffset(portLocal, metadata.origin, element.scale).x - pivotOffsetLocal.x,
+    y: svgLocalToPlanOffset(portLocal, metadata.origin, element.scale).y - pivotOffsetLocal.y,
+  }
+  if (Math.hypot(armLocal.x, armLocal.y) < MIN_SEED_ARM_CM) return null
+
+  const currentPivotOffset = rotatePlanOffset(pivotOffsetLocal, element.angleDeg)
+  const pivotWorld = {
+    x: element.position.x + currentPivotOffset.x,
+    y: element.position.y + currentPivotOffset.y,
+  }
+  if (getSegmentLength(pivotWorld, target) < MIN_SEED_ARM_CM) return null
+
+  const targetDeg = Math.atan2(target.y - pivotWorld.y, target.x - pivotWorld.x) * RAD_TO_DEG
+  const armDeg = Math.atan2(armLocal.y, armLocal.x) * RAD_TO_DEG
+  const angleDeg = ((targetDeg - armDeg) % 360 + 360) % 360
+
+  const pivotOffset = rotatePlanOffset(pivotOffsetLocal, angleDeg)
+  const arm = rotatePlanOffset(armLocal, angleDeg)
+
+  return {
+    angleDeg,
+    position: { x: pivotWorld.x - pivotOffset.x, y: pivotWorld.y - pivotOffset.y },
+    portPosition: { x: pivotWorld.x + arm.x, y: pivotWorld.y + arm.y },
+  }
 }

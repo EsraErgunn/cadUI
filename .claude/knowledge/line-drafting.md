@@ -514,3 +514,24 @@ Düzeltme: `findNearestWallFace` artık izdüşümü UCA kelepçelenen duvarlar�
 birleşen İKİ duvarı da hesaba katıyor. Yüz mıknatısı yalnız duvarın GERÇEK
 GÖVDESİNDE (uçlar hariç) aktif kalıyor; K59'daki asıl amacı (45° dahil her
 açıda düz gövdeye keskin yapışma) bozmuyor.
+
+## Çıkış elemanı çizim YÖNÜNE döner — 2026-08
+
+Kullanıcı isteği: "boru ve havalandırmanın çizim yönü belli olmuyor, istediğimiz
+taraftan çizebilelim ve bu bağlantıda kötü görüntü vermesin (izometrikte de)".
+
+Hat bir elemanın PORTUNDAN başlıyorsa (servis kutusu, sayaç) çıkış tarafı
+elemanın açısına kilitliydi: ters yöne çizilen boru gövdenin içinden geçiyordu.
+Artık zincirin İLK adımı yazılmadan önce `useLineTool.orientSeedElement` çalışır:
+
+- Açıyı `core/elementRotateHandle.ts` → `resolveSeedOrientation` hesaplar: çıkış
+  portu tıklanan yöne bakacak şekilde döner, PİVOT (bağlı olduğu nokta ya da
+  serbest elemanda kendi kökeni, `getElementRotateAnchorLocal`) dünyada
+  KIPIRDAMAZ — eleman borusundan kopmaz.
+- Yalnız TAKİPÇİSİZ elemanda: iki ayrı porttan bağlı eleman (branşmandaki sayaç)
+  çevrilseydi öbür borusunun ucunu da sürüklemek gerekirdi.
+- Döndürme kendi `rotateElement` adımını yazar (eleman yerleştirme adımı gibi
+  ayrı bir Ctrl+Z), taslağın çapası yeni port konumuna taşınır.
+
+İzometrik ayrıca ele alınmaz: sahne verisi türetilmiş olduğu için düzelen plan
+geometrisi oraya kendiliğinden yansır.

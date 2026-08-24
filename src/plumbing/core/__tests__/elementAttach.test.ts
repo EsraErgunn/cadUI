@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   resolveFreeEndAttachment,
   resolveNearestLineAttachment,
-  resolveVerticalArmAttachment,
+  resolveVerticalLineEndAttachment,
   resolveVerticalEndAttachment,
 } from '../elementAttach'
 import type { InstallationConnection, InstallationLine } from '../installationModel'
@@ -53,6 +53,11 @@ const HORIZONTAL: InstallationLine = {
   pipe: { startHeightCm: 300, endHeightCm: 300, description: '' },
 }
 
+/** Kolonun DİBİ yatay boruya bağlı; açıkta kalan tek uç tepesidir (101). */
+const RISER_CONNECTIONS: readonly InstallationConnection[] = [
+  { lineId: 1, end: 'start', target: { kind: 'line', lineId: 2, pointId: 200 } },
+]
+
 describe('resolveVerticalEndAttachment', () => {
   it('dikey borunun ucuna yapışır ve o düğümün KOTUNU alır', () => {
     const attachment = resolveVerticalEndAttachment([RISER], getMetadata, 'valve', { x: 4, y: 3 }, 30)
@@ -99,41 +104,73 @@ describe('resolveVerticalEndAttachment', () => {
   })
 })
 
-describe('resolveVerticalArmAttachment', () => {
-  it('kolonun ucundan İMLEÇ tarafına kısa kol çıkar, kot kolondan gelir', () => {
-    const attachment = resolveVerticalArmAttachment([RISER], getMetadata, 'valve', { x: 20, y: 0 }, 30)
+describe('resolveVerticalLineEndAttachment', () => {
+  it('vana kolonun UÇ düğümünde; eleman imleç tarafında, ARADA BORU YOK', () => {
+    const attachment = resolveVerticalLineEndAttachment(
+      [RISER],
+      RISER_CONNECTIONS,
+      getMetadata,
+      'valve',
+      { x: 20, y: 0 },
+      30,
+    )
 
-    expect(attachment?.armStart).toEqual({ x: 0, y: 0 })
-    // Kol boyu = vananın yarı uzunluğu (10) + pay (10).
-    expect(attachment?.armEnd).toEqual({ x: 20, y: 0 })
-    expect(attachment?.elevationCm).toBe(300)
+    expect(attachment?.lineId).toBe(1)
+    expect(attachment?.end).toBe('end')
     expect(attachment?.endPointId).toBe(101)
-  })
-
-  it('kol imlecin bulunduğu tarafa döner', () => {
-    const attachment = resolveVerticalArmAttachment([RISER], getMetadata, 'valve', { x: 0, y: -20 }, 30)
-
-    expect(attachment?.armEnd).toEqual({ x: 0, y: -20 })
-  })
-
-  it('vana kolonun UÇ düğümünde; elemanın GİRİŞ PORTU kolun ucuna oturur', () => {
-    const attachment = resolveVerticalArmAttachment([RISER], getMetadata, 'valve', { x: 20, y: 0 }, 30)
+    expect(attachment?.elevationCm).toBe(300)
     expect(attachment?.placements[1].position).toEqual({ x: 0, y: 0 })
-    // Çapa portun kendisi: gövde portun ötesinde kalır (yarı uzunluk kadar).
-    expect(attachment?.placements[0].position).toEqual({ x: 30, y: 0 })
+    // Giriş portu vananın çıkış kenarında (yarı uzunluk = 10), arada pay yok;
+    // çapa portun kendisi, gövde portun ötesinde (yarı uzunluk kadar) kalır.
+    expect(attachment?.placements[0].position).toEqual({ x: 20, y: 0 })
   })
 
-  it('kolon yakalanamazsa kol da doğmaz', () => {
+  it('eleman imlecin bulunduğu tarafa düşer', () => {
+    const attachment = resolveVerticalLineEndAttachment(
+      [RISER],
+      RISER_CONNECTIONS,
+      getMetadata,
+      'valve',
+      { x: 0, y: -20 },
+      30,
+    )
+
+    // x'te dönme hesabından kalan kayan nokta artığı var (0'a yakın).
+    expect(attachment?.placements[0].position.x).toBeCloseTo(0)
+    expect(attachment?.placements[0].position.y).toBeCloseTo(-20)
+  })
+
+  it('kolonun ucu doluysa aday değil', () => {
+    const topTaken: InstallationLine = {
+      ...RISER,
+      points: [RISER.points[0], { ...RISER.points[1], inlineElementId: 900 }],
+    }
+
     expect(
-      resolveVerticalArmAttachment([HORIZONTAL], getMetadata, 'valve', { x: 150, y: 0 }, 30),
+      resolveVerticalLineEndAttachment(
+        [topTaken],
+        RISER_CONNECTIONS,
+        getMetadata,
+        'valve',
+        { x: 20, y: 0 },
+        30,
+      ),
+    ).toBeNull()
+  })
+
+  it('yatay boru bu yoldan yakalanmaz', () => {
+    expect(
+      resolveVerticalLineEndAttachment(
+        [HORIZONTAL],
+        RISER_CONNECTIONS,
+        getMetadata,
+        'valve',
+        { x: 150, y: 0 },
+        30,
+      ),
     ).toBeNull()
   })
 })
-
-/** Kolonun DİBİ yatay boruya bağlı; açıkta kalan tek uç tepesidir (101). */
-const RISER_CONNECTIONS: readonly InstallationConnection[] = [
-  { lineId: 1, end: 'start', target: { kind: 'line', lineId: 2, pointId: 200 } },
-]
 
 describe('resolveNearestLineAttachment — dikey boru', () => {
   it('yakıcı cihaz kolonun açık ucuna kolla bağlanır', () => {
@@ -187,7 +224,7 @@ describe('resolveNearestLineAttachment — dikey boru', () => {
 })
 
 describe('resolveFreeEndAttachment — kolon hâlâ dışarıda', () => {
-  it('sayaç kolonun ucundan hattı UZATMAZ (kol yolu ayrı: verticalArm)', () => {
+  it('sayaç kolonun ucundan hattı UZATMAZ (dikey yol ayrı: verticalLineEnd)', () => {
     expect(
       resolveFreeEndAttachment([RISER], RISER_CONNECTIONS, getMetadata, 'gasMeter', { x: 0, y: 10 }, 30),
     ).toBeNull()

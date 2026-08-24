@@ -148,3 +148,31 @@ saklanmaz, `core/floorElevation.ts` türetir).
 Tek bir hedef kot ya tavanı aşar ya tabanı deler; `commitDraftElevation` bu
 yüzden iki taşmayı `else if` ile ayırır. Diğer kapsam sınırları (yalnız çizim
 sırasında, yalnız `pipe` türü) DURUYOR.
+
+## Dikey boru SİLİNİNCE ağ kopmaz (2026-08)
+
+Kullanıcı kararı: "katlar arasında yükselti silinirse ona göre bir kayma olsun
+ama kopukluk yaşanmasın." `core/verticalRemoval.ts` → `planVerticalRemoval`
+silme sırasında (`plumbingSlice.applyRemoval`) üç düzeltmeyi birden hesaplar:
+
+1. **Kot kayması**: silinen kolonun BİTİŞ ucundan ulaşılan bütün hatların kotu
+   `endHeightCm - startHeightCm` kadar aşağı çekilir — ağ sürekli kalır, yalnız
+   altındaki yükselti gider.
+2. **Kaynak**: kolonun iki ucu aynı plan konumunda olduğu için geriye kalan iki
+   taraf zaten üst üste gelir; aralarına `InstallationConnection` yazılır, yoksa
+   noktalar üst üste durur ama ağ kopuk sayılırdı.
+3. **Kat inişi** (`floorMoves`): kolon bir `FloorPipeLink` ile ÜST kata
+   geçiyorduysa oradaki ağ — borular, üstündeki armatürler, bağlı cihazlar ve
+   onların kol/baca hatları — olduğu gibi ALT kata iner (kullanıcı isteği:
+   "alt kattan yükselti silinince yeni kattaki araçlar ve borular havada
+   kalıyor, aşağıya kaydıralım"). Kot farkı üst uçtaki noktayı kolonun
+   BAŞLANGIÇ kotuna taşır; kolon tabandan tavana gidiyorduysa (olağan hâl)
+   kotlar hiç değişmez, yalnız `floorId` değişir. İnen ucun altındaki komşuyla
+   kaynağı da aynı planda yazılır.
+4. **Kat bağlantısı**: kat inişiyle çözülmeyen bir `FloorPipeLink` silinen uca
+   bakıyorsa SİLİNMEZ, sağ kalan komşu uca taşınır (`linkRepoints`). Taşınacak
+   komşu yoksa eski davranış sürer: link silinir.
+
+**SINIR**: inen ağın kendisi bir üst kata daha bağlanıyorsa o kat OLDUĞU YERDE
+kalır, yalnız bağlantının ucu yeni kata güncellenir — çok katlı bir kolonun
+ortasından parça silmek üst katları yeniden dizmez.

@@ -115,6 +115,12 @@ basış aynı noktada üst üste binen ayrı bir boru bırakırdı (kullanıcı 
 hattın UCUNA (`linePoint`) bağlıyken geçerli — araya yatay bir adım girdiyse
 artık başka bir noktadayız, yeni boru yazılır (beklenen).
 
+**İSTİSNA — uçta armatür varsa toplanmaz** (kullanıcı isteği, 2026-08): o uç
+düğümünde bir `inlineElementId` (vana vb.) duruyorsa birleştirme YAPILMAZ.
+Birleştirme borunun `endHeightCm`'ini büyütür, armatür o düğümde durduğu için
+vana da yükselirdi ("vanaya kot ekleniyor"). Vanadan sonra girilen kot ondan
+DEVAM etmeli: yeni bir dikey segment yazılır, vana ikisinin arasında kalır.
+
 ## Portlar bilerek 2D kalır
 
 `core/ports.ts` → `getPortWorldPosition` kot TAŞIMAZ. Port bir plan bağlantı

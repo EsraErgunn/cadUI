@@ -86,3 +86,57 @@ modül düzeyinde tek geometri + tek material.
 
 - Dolu/boş port ayrımı: bağlantı verisi Aşama 6'da geliyor, şimdilik hepsi boş halka.
 - `hoveredPortId`: tüketicisi Aşama 6'da doğacak, şimdiden store'a konmadı.
+
+## Bırakınca BAĞLANMA (kaynak) — 2026-08
+
+Seçim aracıyla taşıma artık yalnız konum değiştirmiyor, bağ da kuruyor
+(kullanıcı isteği: "üst üste gelen borular seçme aracıyla taşıyınca
+bağlanabilsin, aynı şekilde vana sayaç vs de").
+
+- **Boru ucu → boru ucu**: `moveLinePoint` taşımadan sonra
+  `core/lineWeld.ts` → `collectWeldConnections` ile ÇAKIŞAN uçlara
+  `InstallationConnection` yazar. Köşe sürüklemesi zaten en yakın hat köşesine
+  tam oturuyordu (`findNearestLineCorner`) ama bu yalnız KONUMDU — kayıt
+  olmadığı için ağ kopuk kalıyor, sonraki taşımada ayrılıyordu. Kaynak yalnız
+  UÇTAN UCA, taşınan uç boştaysa, aynı katta ve farklı hatlar arasında olur;
+  taşınan kümenin kendi noktaları hedef sayılmaz.
+- **Eleman → boru ucu**: `useSelectionTool` bırakma jestinde
+  `resolveDropAttachment` (core/elementAttach.ts) ile açık bir uç arar ve
+  `attachDroppedElement` bağı yazar. Yeni eleman/vana/boru YARATILMAZ: armatür
+  (`onLine`) uç düğümüne oturur (`inlineElementId`), sayaç (`lineEnd`) giriş
+  portundan bağlanır ve gövdesi portu uca gelecek şekilde döner. Zaten bağlı
+  eleman ve çoklu seçim kapsam dışı. Yakıcı cihaz (`nearestLine`) de kapsam
+  dışı — onun bağı kısa bir kol borusu yazmayı gerektirir.
+
+## Porta (sayacın gözüne) yapışma — 2026-08
+
+Taşınan boru bir elemanın BOŞ portuna yapışır ve bağlanır (kullanıcı isteği:
+"sonradan taşınan boru sayacın gözüne yapışabilsin ve bağlanabilsin"). İki
+jestin ikisinde de:
+
+- **Köşe sürüklemesi**: `resolveCornerPosition` artık ÖNCE `findNearestFreePort`
+  bakar (port > hat köşesi > duvar köşesi > duvar yüzü) — `useLineTool`'daki
+  port önceliğinin aynısı. Bırakınca konum tam portun üstündeyse
+  `moveLinePoint`'in yeni `portTarget` parametresiyle bağlantı AYNI adımda
+  yazılır.
+- **Gövde sürüklemesi**: `resolvePortMagnet` taşınan hatların SERBEST uçlarını
+  tarar; biri boş bir porta yaklaşırsa kayma o uca oturacak şekilde düzeltilir
+  (ızgara adımı yüzünden yanına düşmesin) ve `moveElements`'in yeni `portWelds`
+  parametresiyle bağlantı yazılır. İlk bulunan aday kazanır: tek kaymayla iki
+  ayrı port sağlanamaz.
+
+Ctrl ikisinde de mıknatısı kapatır (ızgarayı kapatan jestin aynısı). Dolu port
+aday değildir (`findNearestFreePort`), bağlı uç da taranmaz
+(`isLineEndConnected`).
+
+**Vananın tek bağlantı noktası MERKEZİDİR** (kullanıcı isteği, 2026-08:
+"vananın sadece ortadaki çıkışı olsun, sağ ve soldaki çıkışlar gözükmesin").
+Akış geçişli armatürler (vana, selenoid vana, filtre kiti, süzme sayaç) artık
+`findNearestFreePort` taramasının DIŞINDA — portları boruyu ayıran bir düğüm,
+bağlanılacak hedef değil; zaten işaretleri de çizilmiyordu (`hasPortMarkers`),
+yani görünmez bir hedefe yapışılıyordu. Yerine `findNearestInlineArmature` var:
+boru armatürün MERKEZİNE yapışır ve armatür o ucun üstüne `inlineElementId`
+olarak oturur. Hat ucunun bulduğu hedef `LineEndDropTarget` ile taşınır
+(`{kind:'port'}` ya da `{kind:'inline'}`), ikisini de `applyLineEndDropTarget`
+yazar. YAN ETKİ: hat çizerken de vananın yan portlarına artık yapışılmıyor —
+görünmeyen hedef zaten yapışmamalıydı.

@@ -15,7 +15,12 @@ yerleştirme `onPointerUp`'ta yapılır (`plumbing/scene/usePlacementTool.ts`).
 - `@dnd-kit` bu iş için KULLANILMADI: DOM droppable'ı `<Canvas>` içine dünya
   koordinatı taşımıyor, önizleme yine sahnede çizilecekti.
 
-Yerleştirmeden sonra araç bilerek **aktif kalır** (arka arkaya eleman eklenir).
+Yerleştirmeden sonra araç **Seçim aracına döner** (kullanıcı isteği, 2026-08):
+bir sembol konunca jest bitmiştir, art arda ikinci bir sembol koymak istisna —
+konanı hemen seçip taşımak/düzenlemek kuraldır. Eskiden araç aktif kalıyordu.
+Aracı ZATEN değiştiren yerleştirmeler (servis kutusu ve sayaç boru çizimini
+kendiliğinden başlatır, `startPipeAfterPlacement.ts`) bundan etkilenmez:
+dönüş yalnız araç hâlâ o yerleştirme aracıysa yapılır.
 
 Bırakma noktası aktif zoom'un **ince** ızgara adımına oturur
 (`plumbing/core/placement.ts` → `pickGridLevel(zoom).minorCm`): kullanıcı ekranda

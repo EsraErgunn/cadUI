@@ -66,6 +66,16 @@ pahalı hesap dört kez yapılırdı.
   elemanda bitip oradan başka hat çıkmıyor / eleman zaten yok. **Servis kutusu
   uç saymaz** (gazın kaynağı), **`floorPipeLinks` de saymaz** (hat üst/alt kata
   geçiyor). Deşarj hatları (baca, havalandırma) gaz taşımaz, kapsam dışı.
+- **Ucunda KESME VANASI olan hat serbest değildir** (kullanıcı isteği,
+  2026-08): uç düğümünün `inlineElementId`'si `isShutoffValve`
+  (`plumbing/core/symbolMetadata.ts` → vana, selenoid vana) ise gaz orada
+  kesiliyor, uyarı verilmez. Sayaç/filtre/regülatör bu listede DEĞİL — onlar
+  akışı geçirir, hat devam etmek zorunda. Vanadan yeni bir boru çıkarsa o
+  nokta zaten kavşak olur (vana geçiş armatürüne döner), o hâl de uyarısız.
+- **Branşman kolu (`branchStub`) Hata6'nın DIŞINDA** (kullanıcı isteği,
+  2026-08): kolun yer seviyesindeki ucu bir bağlantı noktası değil, oraya
+  hiçbir şey takılmaz — yerleştirme tarafında da zaten hedef sayılmıyor
+  (`placementResolution.readFloorLines`).
 - **Hata9 bacanın DEŞARJ ucunu** arar: cihaza tutunmayan uç. İki uç da bağlıysa
   ya da hiçbiri değilse son köşe — çizim yönü cihazdan dışarı doğru
   (`dischargeStart.ts`).
