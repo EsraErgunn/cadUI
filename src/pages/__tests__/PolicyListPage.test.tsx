@@ -42,14 +42,11 @@ function buildPolicy(overrides: Partial<PolicyRow> = {}): PolicyRow {
     policyNumber: 'ORNEK-POL-0001',
     insuranceCompanyId: 1,
     insuranceCompanyName: 'Anadolu Sigorta',
-    agencyName: 'Anadolu Sigorta — Örnek Acente 1',
-    method: 'manual',
     amount: 480000,
     startDate: '2026-05-10',
     endDate: '2027-05-10',
     projectId: 4,
     projectName: 'Çınar Sitesi',
-    projectPId: '200011555',
     ...overrides,
   }
 }
@@ -82,18 +79,15 @@ function renderPage(roleCode: string = ROLE_CODES.admin) {
   )
 }
 
-/** Liste `Sourced` zarfıyla dönüyor: sahte veri yalnız geliştirmede üretilir
-    (K51). Testler geliştirme derlemesinde koştuğu için `mock` kolu. */
-function asMock(items: PolicyRow[]) {
-  return {
-    source: 'mock' as const,
-    data: { items, totalCount: items.length, page: 1, pageSize: POLICY_PAGE_SIZE },
-  }
+/** Liste artık GERÇEK uçtan geliyor; `Sourced` zarfı KALKTI, dönen değer düz
+    sayfalı sonuç. */
+function asPage(items: PolicyRow[]) {
+  return { items, totalCount: items.length, page: 1, pageSize: POLICY_PAGE_SIZE }
 }
 
 beforeEach(() => {
   resetMockPolicies()
-  listPolicies.mockResolvedValue(asMock([buildPolicy()]))
+  listPolicies.mockResolvedValue(asPage([buildPolicy()]))
   deletePolicy.mockResolvedValue({ ok: true })
 })
 
@@ -151,23 +145,21 @@ describe('PolicyListPage', () => {
       .getAllByRole('columnheader')
       .map((header) => header.textContent?.trim())
 
+    // "Acente", "ProjeId" ve "Yöntem" YOK: üçünün de sunucuda karşılığı
+    // bulunmuyor, boş ya da uydurma sütun bırakılmadı.
     expect(headers).toEqual([
       'No',
       'Poliçe No',
-      'Sigorta Şirketi',
-      'Acente',
+      'Sigorta Şirketi / Poliçe Firması',
       'Proje Adı',
-      'ProjeId',
       'Teminat Tutarı',
       'Başlangıç',
       'Bitiş',
-      'Yöntem',
       'Aksiyonlar',
     ])
 
     expect(within(table).getByText('ORNEK-POL-0001')).toBeInTheDocument()
     expect(within(table).getByText('10.05.2026')).toBeInTheDocument()
-    expect(within(table).getByText('Manuel Poliçe')).toBeInTheDocument()
 
     const projectLink = within(table).getByRole('link', { name: 'Çınar Sitesi' })
     expect(projectLink).toHaveAttribute('href', '/projects/4')
@@ -176,9 +168,7 @@ describe('PolicyListPage', () => {
   /** Sihirbazdan gelen kayıtta künye çözülemeyebiliyor; uydurma ad yazmak
       yerine boş değer işareti kalır (K63). */
   it('proje adı yoksa bağlantı değil boş değer gösterir', async () => {
-    listPolicies.mockResolvedValue(
-      asMock([buildPolicy({ projectName: null, projectPId: null })]),
-    )
+    listPolicies.mockResolvedValue(asPage([buildPolicy({ projectName: null })]))
     renderPage()
 
     const table = await screen.findByRole('table')
@@ -193,11 +183,11 @@ describe('PolicyListPage', () => {
     // Şirket listesi ayrı bir istekten geliyor; seçenek beklenmezse kutu henüz
     // "Tümü"den ibaret olur.
     await user.selectOptions(
-      screen.getByLabelText('Sigorta Şirketi'),
+      screen.getByLabelText('Sigorta Şirketi / Poliçe Firması'),
       await screen.findByRole('option', { name: 'Anadolu Sigorta' }),
     )
     // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
-    await user.type(screen.getByLabelText(/Poliçe numarası veya proje adında ara/), 'ORNEK{Enter}')
+    await user.type(screen.getByLabelText(/Poliçe no, birim no/), 'ORNEK{Enter}')
 
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
@@ -208,18 +198,37 @@ describe('PolicyListPage', () => {
   })
 
   it('poliçe yoksa nereden oluşturulacağını söyler', async () => {
-    listPolicies.mockResolvedValue(asMock([]))
+    listPolicies.mockResolvedValue(asPage([]))
     renderPage()
 
     expect(await screen.findByText(/Poliçelendir/)).toBeInTheDocument()
   })
 
-  it('kaynak yoksa tablo yerine "sunucuya bağlı değil" kutusu çıkar', async () => {
-    listPolicies.mockResolvedValue({ source: 'unavailable', data: null })
+  /**
+   * Sıralanabilir başlık YOK: uç `SortBy`/`SortDir` almıyor ve sıra sunucuda
+   * sabit. Çalışmayan bir sütun başlığı, olmayandan yanıltıcıdır.
+   */
+  it('hiçbir sütun başlığı sıralama düğmesi değildir', async () => {
     renderPage()
 
-    expect(await screen.findByText(/GET \/api\/policies/)).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).queryAllByRole('button', { name: /sırala/i })).toHaveLength(0)
+    for (const header of within(table).getAllByRole('columnheader')) {
+      expect(header).not.toHaveAttribute('aria-sort')
+    }
+  })
+
+  /** Ekran proje BAĞIMSIZ: uca `ProjectId` gitmemeli, yoksa liste tek projeye
+      daralırdı. Süzgeçler ise sorguya girmeli. */
+  it('sorguyu proje kimliği OLMADAN kurar', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(listPolicies).toHaveBeenCalled()
+    const [query] = listPolicies.mock.calls[0]
+    expect(query.projectId).toBeNull()
+    expect(query).not.toHaveProperty('sortBy')
+    expect(query).not.toHaveProperty('sortDir')
   })
 })
 

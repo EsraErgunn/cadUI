@@ -6,8 +6,13 @@ import { adminFieldVariants } from '../adminVariants'
 import type { PolicyFilters } from './usePolicyListParams'
 
 const SEARCH_FIELD = 'policySearch'
-const SEARCH_LABEL = 'Poliçe numarası veya proje adında ara'
-const SEARCH_PLACEHOLDER = 'Poliçe No / Proje Ara'
+/**
+ * Kapsam SUNUCUNUN aradığı alanlar: poliçe numarası, birim numarası, abone
+ * numarası. Etiket bir süre "proje adında ara" diyordu ama uç proje adında
+ * ARAMIYOR — kullanıcı proje adı yazıp boş sonuç alıyordu.
+ */
+const SEARCH_LABEL = 'Poliçe no, birim no veya abone numarasında ara'
+const SEARCH_PLACEHOLDER = 'Poliçe No / Birim No / Abone No'
 const ANY_OPTION_LABEL = 'Tümü'
 
 function toCompanyOptions(companies: InsuranceCompany[]): FilterSelectOption[] {
@@ -55,7 +60,7 @@ export function PolicyFilterBar({ filters, companies, onApply }: PolicyFilterBar
     >
       <FilterSelect
         id="policy-filter-company"
-        label="Sigorta Şirketi"
+        label="Sigorta Şirketi / Poliçe Firması"
         emptyLabel={ANY_OPTION_LABEL}
         value={insuranceCompanyId === null ? null : String(insuranceCompanyId)}
         options={toCompanyOptions(companies)}
