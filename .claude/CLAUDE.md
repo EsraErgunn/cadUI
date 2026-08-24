@@ -71,12 +71,19 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 ## Dizin yapısı ve sahiplik
 
 - `src/app/` (A) — main, App, router. Giriş koruması SADECE router.tsx'te (RequireAuth).
-- `src/core/` — React yok. coords/viewport/grid/tools/views(D), snap/wall/room/floorClone/areaObject(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A).
+- `src/core/` — React yok. coords/viewport/grid/tools/views/solidModel+solidWall+solidAreaObject+solidSlab(D), snap/wall/room/floorClone/areaObject(B), pipe/graph/validate(C), bom/pdf(D), model/serialize(A).
   Doğrulama SÖZLEŞMESİ `validationModel.ts`'te (yaprak modül) — kural dosyaları
   onu `validate.ts`'ten alırsa import döngüsü doğar (knowledge/validation-rules.md).
 - `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
-- `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C)
+- `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C).
+  `scene/solid/` KATI MODEL görünümüdür (K120): çizimin 3B türevi, geometrisi
+  `core/solidModel.ts`ten gelir — sahne kendi geometri hesabını YAPMAZ. Alan
+  nesnesi kutu DEĞİL (merdiven basamaklı, baca şaftı içi boş boru) ve zemin
+  MAHALE göre renkli — ikisi de plandaki biçimle/kimlikle aynı kaynaktan. Kamera
+  orada TAKAS edilir: ortografik kamera, pan/zoom ve ızgara hiç mount edilmez,
+  yerine perspektif + yörünge gelir (ikisi de `makeDefault` olurdu).
+  (bkz. knowledge/solid-model.md)
 - `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/ExportDialog(D), PropertyPanel/properties(B), WarningList+validation(C).
   Kabuk yeniden kuruldu (K90–K93): üst barda yalnız Dosya + Araçlar, kip
   ayarları tuvalin yüzen çubuğunda; `StatusBar`, `AxisIndicator` ve
@@ -92,9 +99,13 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   kullanır (`ui/properties/PropertyPanelShell`). `ui/versions/` kayıt geçmişi
   listesini ve "Farklı Kaydet" penceresini taşır (K109); liste üst bardaki
   düğmenin ALTINDAN açılır, açık/kapalı durumu bileşenin içindedir.
+  Sahne seçicide DÖRDÜNCÜ düğme var: **Katı Model** (K120). Salt okuma
+  görünümü — araç paleti, özellik paneli ve çizim çubuğu orada mount EDİLMEZ;
+  yerine `ui/canvas/SolidToolbar.tsx` (kapsam + görünürlük anahtarları) gelir.
+  İzometrik düğmesi bununla İLGİSİZ ve hâlâ pasif.
   (bkz. knowledge/editor-shell.md, knowledge/canvas-toolbar.md,
   knowledge/property-panel.md, knowledge/version-history.md,
-  knowledge/validation-rules.md)
+  knowledge/validation-rules.md, knowledge/solid-model.md)
 - `src/ui/admin/` — yönetici paneli: ortak kabuk (AdminLayout/AdminSidebar/AdminTopBar) +
   liste parçaları. Kabuk sayfaya GÖMÜLMEZ, route ebeveynidir. Liste durumu (arama/filtre/
   sıralama/sayfa) URL query param'da, sayfalama sunucu taraflı. Rol modeli KESİNLEŞTİ:
@@ -153,6 +164,11 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
   Hedefte içerik varsa kullanıcı seçer: üzerine yaz (aynı TÜRDEN çizim silinir) ya da o katı
   atla — "hedef boş olmalı" kuralı kalktı, bkz. knowledge/floor-clone.md.
 - İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
+- **Katı Model** çizimin 3B türevidir (K120): kat sayısı/yüksekliği, duvar
+  kalınlığı, açıklıklar, oda döşemeleri, boru kotları ve çapları üst üste
+  binmiş gerçek kütle olarak çizilir. Store'a alan EKLEMEZ. Kapı/pencere
+  yüksekliği, kiriş derinliği ve eleman derinliği modelde YOK — yalnız gösterim
+  sabiti, JSON'a girmez (bkz. knowledge/solid-model.md).
 - Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
 - Renk: marka sarısı #FFC107 çizim alanına GİRMEZ. Seçim rengi mavi. Gaz hattının rengi
   ÇAPINDAN gelir (DN25 kırmızı, DN32/40/50 kendi renkleri — WebCAD ile aynı sınıflandırma,

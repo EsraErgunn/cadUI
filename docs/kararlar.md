@@ -5969,3 +5969,61 @@ Test `placeElementWithStub`'ın ürettiği durumu birebir kurup `removeElements`
 çağırıyor — varsayılan bir şekil değil, gerçek yerleştirmenin çıktısı
 (`plumbing/store/__tests__/applianceRemoval.test.ts`). Geri alma tesisatın
 KENDİ aynasından (`undoPlumbing`), cadStore'un zundo'sundan değil.
+
+### K120 — Katı Model: dördüncü görünüm, çizimin 3B TÜREVİ (izometrik DEĞİL)
+
+Kullanıcı isteği (2026-08): "odalar, borular vs. hepsi kat sayısına ve diğer
+verilere göre 3B render olabilmelidir." Sahne seçicisine dördüncü düğme eklendi:
+**Katı Model** (`ViewId = 'solid'`). İzometrik düğmesi hâlâ PASİF ve kapsam
+dışında — ikisi ayrı iş: izometrik gaz hattının tek parça şematiği, katı model
+binanın kütlesi.
+
+**Model DEĞİŞMEDİ.** Katı model store'a hiçbir alan eklemez; çizimin türevidir
+ve `core/solidModel.ts`te her değişimde yeniden kurulur (oda poligonlarıyla aynı
+kural: geometri kopyalanmaz). Kaydedilen JSON'a tek bir bayt girmedi.
+
+Kütle şuradan gelir: kat kotu ve yüksekliği `core/floorElevation.ts`'ten,
+duvar kalınlığı/yüksekliği `Wall`'dan, döşeme `findRoomFaces` çevriminden, boru
+kotu `pipe.startHeightCm/endHeightCm` oranlamasından (K102), boru çapı
+`PIPE_TYPES`'tan, eleman ayak izi sembolün kendi `bounds`undan.
+
+**Duvar kutusu iki uçtan yarım kalınlık UZAR.** 2B'de duvar yuvarlak uçlu bir
+kapsül (K23) ve kavşağı o yuvarlak uç dolduruyor. Kutu uzatılmasaydı her köşede
+duvar kalınlığı kadar boşluk kalırdı. Uzatılan kutular kavşakta üst üste biniyor,
+hepsi aynı opak renkte olduğu için fark okunmuyor — planla birebir aynı gerekçe.
+
+**Kamera TAKAS edilir, eklenmez.** Katı modelde ortografik kamera +
+`useViewportControls` HİÇ mount edilmez; yerine perspektif kamera + yörünge
+kontrolü gelir (`scene/solid/SolidCamera.tsx`). İkisi birlikte mount edilemez:
+ikisi de `makeDefault`, hangisinin kazandığı mount sırasına kalırdı. Kamera
+konumu PROP olarak verilmez, yalnız "sıfırla" isteğinde elle yazılır — prop
+olsaydı her store yazımında kullanıcının döndürdüğü açı başa dönerdi. İstek,
+varsayılan kamera BİZİMKİ olana kadar bekler: `makeDefault` varsayılanı bir
+layout effect'te değiştirdiği için ilk render'da kontroller hâlâ ortografik
+kameraya bağlı; kontrol edilmeseydi konum o kameraya yazılır ve Katı Model'e
+ilk basışta boş ekran, ikincisinde doğru görüntü gelirdi.
+
+**Zemin MAHALE göre renklenir**: döşemenin rengi `Room.usageType`ten gelir
+(`SOLID_ROOM_COLORS`), mahal kimliği 2B'dekiyle aynı duvar-kümesi imzasından
+(`getWallSetKey`) çözülür. Katı modelde etiket olmadığı için mahal ancak
+renginden okunuyor; tipi verilmemiş mahal nötr renkte kalır, varsayılan bir tip
+UYDURULMAZ (K117).
+
+**Alan nesnesi kutu DEĞİL** (`core/solidAreaObject.ts`): merdiven basamak
+basamak yükselen bir kol (rıht sayısı planla aynı), baca şaftı içi BOŞ bir boru,
+kolon havalandırması dolu silindir, kolon tek kutu. Hepsi plandaki sembolüyle
+aynı biçim — kutu olarak çizildiğinde merdiven boşluğu dolu bir blok, şaft da
+kör bir prizma görünüyordu. Şaftın et kalınlığı da modelde yok, oran olarak
+yazılmış bir GÖSTERİM sabiti (`FLUE_SHAFT_INNER_RATIO`).
+
+⚠️ **Üç ölçü modelde YOK, GÖSTERİM sabiti olarak yazıldı** (`core/solidWall.ts`,
+`core/solidModel.ts`): kapı/pencere yüksekliği (`Opening` yükseklik taşımıyor,
+bkz. K9), kiriş derinliği (`Beam` yükseklik taşımıyor) ve tesisat elemanının
+düşey derinliği (sembol 2B bir damga). Bunlar modele YAZILMAZ, JSON'a girmez;
+gerçek alanlar bir gün eklenirse sabitlerin yerini alır. Eleman ayak izi bu
+listede DEĞİL — o uydurulmuyor, sembolün kendi kutusundan geliyor.
+
+⚠️ **Bilinen sınır:** kotu olmayan hat türleri (baca, havalandırma kanalı, cihaz
+kolu) kat tabanında düz çiziliyor. Modelde o kot YOK ve varsayılmadı — baca
+düşeyde yükselmiş görünmez. Kot alanı eklenirse `core/solidInstallation.ts`
+içindeki `getLineElevationsCm` tek noktadan düzelir.

@@ -1,4 +1,4 @@
-import { Box, Building2, Wrench, type LucideIcon } from 'lucide-react'
+import { Box, Boxes, Building2, Wrench, type LucideIcon } from 'lucide-react'
 
 import { EDITOR_BAR_PANEL, editorBarButtonVariants } from './editorBarVariants'
 import { EDITOR_VIEWS, type ViewId } from '../../core/views'
@@ -8,6 +8,9 @@ import { useUiStore } from '../../store/uiStore'
 const VIEW_ICONS: Record<ViewId, LucideIcon> = {
   architecture: Building2,
   installation: Wrench,
+  // Katı model KÜTLE gösterir (üst üste duran katlar), izometrik tek gövde —
+  // ikisi de kutu ailesinden ama çoğul/tekil ayrımı simgeden okunuyor.
+  solid: Boxes,
   isometric: Box,
 }
 

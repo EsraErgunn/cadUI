@@ -71,8 +71,35 @@ type UiState = {
    * uyguladığı anda `null`'a çeker, yani sürekli bir durum birikmez.
    */
   pendingFocusBounds: PlanBounds | null
+  /**
+   * Katı modelde bütün bina mı yalnız aktif kat mı görünüyor. Varsayılan TÜMÜ:
+   * katı modelin varlık sebebi katların üst üste okunması, tek kat zaten iki
+   * çizim görünümünde var.
+   */
+  isSolidAllFloorsVisible: boolean
+  /** Katı modelde oda döşemeleri. Kapalıyken bina yalnız duvar iskeleti olur. */
+  isSolidSlabsVisible: boolean
+  /** Katı modelde tesisat (boru + eleman). Mimariyi tek başına görmek için kapanır. */
+  isSolidInstallationVisible: boolean
+  /**
+   * Duvarları yarı saydam gösterir: tesisat duvarın ARKASINDA kaldığında
+   * borunun nereden geçtiği başka türlü görünmüyor.
+   */
+  isSolidWallsTransparent: boolean
+  /**
+   * Katı model kamerasını binaya yeniden oturtma isteği. `pendingFocusBounds`
+   * ile aynı gerekçe: kamera <Canvas> içinde yaşıyor, çubuk dışında — arada
+   * store'dan geçen tek seferlik bir emirden başka köprü yok.
+   */
+  pendingSolidCameraReset: boolean
   requestFocus: (bounds: PlanBounds) => void
   clearFocusRequest: () => void
+  toggleSolidAllFloorsVisible: () => void
+  toggleSolidSlabsVisible: () => void
+  toggleSolidInstallationVisible: () => void
+  toggleSolidWallsTransparent: () => void
+  requestSolidCameraReset: () => void
+  clearSolidCameraReset: () => void
   setActiveTool: (toolId: ToolId | InstallationToolId) => void
   setActiveView: (viewId: ViewId) => void
   toggleDimensionsVisible: () => void
@@ -110,6 +137,11 @@ export const useUiStore = create<UiState>()(
     isRoomNamesVisible: true,
     isPanModeActive: false,
     pendingFocusBounds: null,
+    isSolidAllFloorsVisible: true,
+    isSolidSlabsVisible: true,
+    isSolidInstallationVisible: true,
+    isSolidWallsTransparent: false,
+    pendingSolidCameraReset: false,
 
     requestFocus: (bounds) =>
       set((draft) => {
@@ -144,6 +176,10 @@ export const useUiStore = create<UiState>()(
         // görünüm değişiminde başlangıç durumunu belirler.
         if (viewId === 'installation') draft.isGridVisible = false
         if (viewId === 'architecture') draft.isGridVisible = true
+        // Katı modele her girişte kamera binaya yeniden oturur: kullanıcı
+        // çizime devam edip binayı büyütmüş olabilir, eski çerçeve artık
+        // yanlış yere bakıyordur.
+        if (viewId === 'solid') draft.pendingSolidCameraReset = true
       }),
 
     toggleDimensionsVisible: () =>
@@ -189,6 +225,39 @@ export const useUiStore = create<UiState>()(
     setPanModeActive: (isActive) =>
       set((draft) => {
         draft.isPanModeActive = isActive
+      }),
+
+    toggleSolidAllFloorsVisible: () =>
+      set((draft) => {
+        draft.isSolidAllFloorsVisible = !draft.isSolidAllFloorsVisible
+        // Kapsam değişince gövde tümüyle başka bir yer kaplıyor; kamera eski
+        // çerçevede kalsaydı tek kata inildiğinde bina ekrandan çıkardı.
+        draft.pendingSolidCameraReset = true
+      }),
+
+    toggleSolidSlabsVisible: () =>
+      set((draft) => {
+        draft.isSolidSlabsVisible = !draft.isSolidSlabsVisible
+      }),
+
+    toggleSolidInstallationVisible: () =>
+      set((draft) => {
+        draft.isSolidInstallationVisible = !draft.isSolidInstallationVisible
+      }),
+
+    toggleSolidWallsTransparent: () =>
+      set((draft) => {
+        draft.isSolidWallsTransparent = !draft.isSolidWallsTransparent
+      }),
+
+    requestSolidCameraReset: () =>
+      set((draft) => {
+        draft.pendingSolidCameraReset = true
+      }),
+
+    clearSolidCameraReset: () =>
+      set((draft) => {
+        draft.pendingSolidCameraReset = false
       }),
   })),
 )

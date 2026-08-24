@@ -28,8 +28,12 @@ const MAX_STAIR_TREADS = 12
 /** Ok, kolun tamamını kaplamaz: kenardan biraz içeride durur. */
 const STAIR_ARROW_MARGIN_RATIO = 0.12
 const STAIR_ARROW_HEAD_CM = 16
-/** Çember neredeyse iç teğet — köşelere değmesin diye çok az küçültülür (tasarım referansı). */
-const FLUE_SHAFT_CIRCLE_RATIO = 0.92
+/**
+ * Çember neredeyse iç teğet — köşelere değmesin diye çok az küçültülür (tasarım
+ * referansı). Katı model de bunu okur (`core/solidAreaObject.ts`): şaftın
+ * borusu planda ve 3B'de AYNI çapta olmalı.
+ */
+export const FLUE_SHAFT_CIRCLE_RATIO = 0.92
 const CIRCLE_SEGMENT_COUNT = 24
 
 function buildCirclePoints(radiusCm: number): PlanPoint[] {
@@ -42,16 +46,24 @@ function buildCirclePoints(radiusCm: number): PlanPoint[] {
 }
 
 /**
+ * Basamak sayısı. Katı model de bunu çağırıyor (`core/solidAreaObject.ts`):
+ * plandaki basamak çizgisi sayısıyla 3B'deki rıht sayısı ayrışmasın.
+ */
+export function getStairTreadCount(lengthCm: number): number {
+  return Math.min(
+    MAX_STAIR_TREADS,
+    Math.max(MIN_STAIR_TREADS, Math.round(lengthCm / STAIR_TREAD_DEPTH_CM)),
+  )
+}
+
+/**
  * Merdivenin basamak çizgileri — yerel eksende genişliği (x) baştan sona kat
  * eden, uzunluk (y) boyunca eşit aralıklı çizgiler. Salt görsel, ölçü taşımaz.
  */
 function buildStairTreadLines(widthCm: number, lengthCm: number): PlanPoint[][] {
   const halfWidth = widthCm / 2
   const halfLength = lengthCm / 2
-  const treadCount = Math.min(
-    MAX_STAIR_TREADS,
-    Math.max(MIN_STAIR_TREADS, Math.round(lengthCm / STAIR_TREAD_DEPTH_CM)),
-  )
+  const treadCount = getStairTreadCount(lengthCm)
 
   const lines: PlanPoint[][] = []
   for (let index = 1; index < treadCount; index += 1) {

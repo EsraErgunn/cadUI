@@ -9,6 +9,7 @@ import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
+import { isDrawingView } from '../core/views'
 import { CascadeDeleteDialog } from '../plumbing/ui/CascadeDeleteDialog'
 import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
@@ -24,6 +25,7 @@ import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
+import { SolidToolbar } from '../ui/canvas/SolidToolbar'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
@@ -148,27 +150,39 @@ export function EditorPage() {
         <div className="relative flex min-h-0 flex-1 pl-3">
           <main className="relative min-w-0 flex-1 overflow-hidden">
             <SceneRoot />
-            <OpeningToolOptions />
             {/* İki şerit aynı yerde ama asla birlikte görünmez: biri mimari
-                açıklık aracına, öteki tesisat boru aracına (K102) bağlı. */}
-            <PipeElevationInput />
+                açıklık aracına, öteki tesisat boru aracına (K102) bağlı. İkisi
+                de ÇİZİM görünümüne ait — katı modelde araç seçili kalabilir
+                ama şerit orada çizilecek bir şeye işaret etmez. */}
+            {isDrawingView(activeViewId) && (
+              <>
+                <OpeningToolOptions />
+                <PipeElevationInput />
+              </>
+            )}
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
                 görünümünde de var (K57); izometrikte çizilecek bir şey yok,
                 orada tuval etkileşimi de yok. */}
-            {activeViewId !== 'isometric' && (
+            {isDrawingView(activeViewId) && (
               <FloatingToolbar
                 onGoToFloor={goToFloor}
                 onOpenFloorManagement={() => setIsFloorDialogOpen(true)}
                 onOpenFloorCopy={() => setIsFloorCopyOpen(true)}
               />
             )}
+            {/* Katı modelin kendi çubuğu: çizim yardımcıları yerine kapsam ve
+                görünürlük anahtarları (bkz. SolidToolbar). */}
+            {activeViewId === 'solid' && <SolidToolbar />}
           </main>
 
           {/* Çizim alanının ÜSTÜNE biner, genişliğini daraltmaz (K37) — sağdan
               kayarak açılır/kapanır. İki panel ayrı seçim store'una abone
               (mimari/tesisat), bu yüzden görünüme göre İKİSİNDEN BİRİ render
               edilir, tek panelde birleştirilmez. */}
-          {activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />}
+          {/* Katı modelde seçim YOK (salt okuma görünümü): iki panel de mount
+              edilmez, yoksa boş bir "Özellikler" kabuğu çizimin üstünde asılı kalır. */}
+          {isDrawingView(activeViewId) &&
+            (activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />)}
         </div>
       </div>
 

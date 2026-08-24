@@ -8,6 +8,7 @@ import { FloorBelowGhost } from './FloorBelowGhost'
 import { Grid } from './Grid'
 import { ViewportFocus } from './ViewportFocus'
 import { SCENE_COLORS } from './sceneTheme'
+import { SolidModelView } from './solid/SolidModelView'
 import { useCameraZoomTracker } from './useCameraZoom'
 import { useViewportControls } from './useViewportControls'
 import { ArchitectureGhost, InstallationGhost } from '../plumbing/scene/Ghosts'
@@ -30,18 +31,30 @@ function CameraZoomTracker() {
 export function SceneRoot() {
   const activeViewId = useUiStore((state) => state.activeViewId)
   const isGridVisible = useUiStore((state) => state.isGridVisible)
+  const isSolidView = activeViewId === 'solid'
 
   return (
     // TEK <Canvas>: görünümler ikinci renderer/kamera kurmaz, alt ağaç değişir.
     <Canvas orthographic dpr={[1, 2]}>
       <color attach="background" args={[SCENE_COLORS.background]} />
-      {/* Kamera ve girdi aşağıdaki Suspense sınırının DIŞINDA: alt ağaç bir an
-          askıya alınırsa makeDefault geri alınıp zoom/pan sıfırlanırdı. */}
-      <Cameras />
-      <ViewportControls />
-      <CameraZoomTracker />
-      <ViewportFocus />
-      {isGridVisible && <Grid />}
+      {/* Katı model KENDİ kamerasını (perspektif + yörünge) getiriyor. Aşağıdaki
+          ortografik kamerayla birlikte mount edilemez: ikisi de `makeDefault`
+          ve hangisinin kazandığı mount sırasına kalırdı. Plan düzlemine kilitli
+          pan/zoom, ızgara ve odak isteği de 3B'de anlamsız — hepsi bu dalın
+          dışında. */}
+      {isSolidView ? (
+        <SolidModelView />
+      ) : (
+        <>
+          {/* Kamera ve girdi aşağıdaki Suspense sınırının DIŞINDA: alt ağaç bir an
+              askıya alınırsa makeDefault geri alınıp zoom/pan sıfırlanırdı. */}
+          <Cameras />
+          <ViewportControls />
+          <CameraZoomTracker />
+          <ViewportFocus />
+          {isGridVisible && <Grid />}
+        </>
+      )}
       {/* Askıya alan her şey (drei <Text> → troika'nın font indirmesi) BU sınırın
           altında kalmak zorunda. Kaçarsa R3F'in <Canvas> içindeki kendi sınırı
           devreye girip <Canvas>'ın kendisini fırlatır; router'daki tek Suspense

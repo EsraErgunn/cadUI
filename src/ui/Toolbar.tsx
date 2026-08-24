@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import { ShortcutHint } from './ShortcutHint'
 import { ARCHITECTURE_SHORTCUTS } from '../core/shortcuts'
 import { ARCHITECTURE_TOOL_GROUPS } from '../core/tools'
+import { isDrawingView } from '../core/views'
 import { PlumbingToolbar } from '../plumbing/ui/PlumbingToolbar'
 import { useUiStore } from '../store/uiStore'
 import { TOOL_GROUP_DIVIDER, toolButtonVariants } from './controls/buttonVariants'
@@ -60,6 +61,10 @@ export function Toolbar() {
   const activeToolId = useUiStore((state) => state.activeToolId)
   const activeViewId = useUiStore((state) => state.activeViewId)
   const setActiveTool = useUiStore((state) => state.setActiveTool)
+
+  // Salt OKUMA görünümünde (katı model) palet HİÇ çıkmaz: çizilecek bir yüzey
+  // yok, araç seçmek de sessizce hiçbir şey yapmazdı.
+  if (!isDrawingView(activeViewId)) return null
 
   // Palet görünümle birlikte TAMAMEN değişir; tesisat araçları mimarinin altına eklenmez.
   if (activeViewId === 'installation') return <PlumbingToolbar />
