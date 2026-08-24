@@ -7905,3 +7905,99 @@ listede DEĞİL — o uydurulmuyor, sembolün kendi kutusundan geliyor.
 kolu) kat tabanında düz çiziliyor. Modelde o kot YOK ve varsayılmadı — baca
 düşeyde yükselmiş görünmez. Kot alanı eklenirse `core/solidInstallation.ts`
 içindeki `getLineElevationsCm` tek noktadan düzelir.
+
+### K159 — PDF kapağında MOCK ALAN KALMADI: her değer gerçek uçtan
+
+Kapak künyesinin büyük kısmı `ProjectDetail.extras`ten okunuyordu; o nesne
+geliştirmede uydurma, ÜRETİMDE `null` (K50/K51). Yani üretimde basılan
+paftalarda tasarımcı, firma ve onay blokları BOŞTU ve geliştirme çıktısı
+üretimden farklıydı. Kullanıcının paylaştığı gerçek uç gövdeleri incelenince
+alanların çoğunun ZATEN VAR olduğu görüldü.
+
+**Dört kaynak birleşiyor** (`useProjectSummary`):
+
+| Uç | Verdiği |
+|---|---|
+| `GET /api/projects/{id}` | ad, numara, adres, proje/ısınma tipi, mesken/dükkân adedi, alan |
+| `GET /api/projectfirms/{id}` | firma ünvanı, vergi no, adres, telefon, yetkili |
+| `GET /api/gasdistributionfirms/{id}` | onay bloğundaki firma adı |
+| `GET /api/projects/{id}/history` | tasarımcı ve onaylayan |
+
+Firma sorguları PROJEDEN gelen kimliğe bağlı (`projectFirmId`,
+`gasDistributionFirmId`), bu yüzden zincirli.
+
+⚠️ **Tasarımcı adı GEÇMİŞTEN, oturumdaki kullanıcıdan DEĞİL.** Önce "PDF'i
+kim alıyorsa onun adı" düşünüldü; yanlış: projeyi A çizip B bastırdığında
+kapakta B yazardı ve aynı belge her basımda farklı bir isim taşırdı — üstelik
+kapakta İMZA satırı var. Geçmişteki `projeKayit` satırı kim bastırırsa
+bastırsın aynı kalıyor. Sunucuya `createdByUserId` eklemeye de gerek kalmadı.
+
+⚠️ **Sistem yöneticisi oluşturmuşsa adı BASILMAZ**, firma yetkilisi
+(`contactPerson`) yazılır: hesap bir kişi değil ("Sistem Yöneticisi") ve
+projenin tasarımcısı da değil (kullanıcı kararı).
+
+⚠️ Rol ayrımı METİN eşleştirmesiyle yapılıyor ve bu KIRILGAN.
+`OperationHistoryDto` yalnız `roleSnapshot` (serbest metin) taşıyor, `roleCode`
+taşımıyor — oysa `roles.ts` kontrolün kodla yapılmasını söylüyor. Kullanıcı
+kaydından bilinen iki değer de listeleniyor (`"Admin"`, `"Yönetici"`).
+TODO(esra): uca `roleCode` eklenince liste silinip `ROLE_CODES.admin`'e geçilecek.
+
+⚠️ **Onaylayan da geçmişten** (`projeOnay`, en GEÇ satır — proje yeniden
+onaylanmış olabilir). `GET /api/projects/{id}` onay bilgisi hiç döndürmüyor.
+
+⚠️ Satır sırasına GÜVENİLMİYOR: koda göre süzülüp `createdAt` karşılaştırılıyor.
+
+⚠️ Ekranın "Bilinmeyen kullanıcı" yer tutucusu kâğıda GEÇMEZ — kapakta boş
+bırakmak doğru.
+
+**Kapaktan KALKAN satırlar:**
+
+- `MAHALLESİ`, `SOKAK / KAPI NO`, `TESİSAT NO` — sunucuda karşılığı yok; adresin
+  tamamı `ADRESİ` satırında, il/ilçe zaten ayrı (kullanıcı kararı).
+- `MÜH. GDF KAYIT NO` — `gdfRegistrationNumber` var ama projeye değil
+  KULLANICININ yetki kaydına bağlı; tasarımcı projede yazmadığı için ulaşılamaz.
+- `YETER NO` — sunucudan KALDIRILMIŞ (bkz. `projectFirmAuthorizations.ts`).
+- `VERGİ D. / VERGİ NO` → `VERGİ NO`: proje firması gövdesinde `taxOffice` YOK.
+  `joinTax` silindi.
+
+`ADI SOYADI` etiketi `PROJE TASARIMCISI` oldu.
+
+⚠️ `KAT ADEDİ` uçta yok ama BOŞ KALMIYOR: kapak çizimdeki kat sayısına düşüyor
+(`buildCoverInfo`) — o da uydurma değil, kullanıcının çizdiği katlar.
+
+⚠️ **Vaziyet planının sokak/kapı ayrıştırıcısı DÜZELTİLDİ.** Artık tam adresten
+türüyor ve eski desen orada BOZULUYORDU — ölçüldü:
+`"...No 12 Bornova/İzmir"` kapı numarasını `"va/İzmir"` diye okuyordu, çünkü
+"Bornova" içindeki "no" hecesi eşleşiyordu. Üç düzeltme: `` kelime sınırı,
+ardından RAKAM zorunluluğu ("Nolu Sokak" tetiklemesin), ve sona SABİTLEMEYİ
+kaldırmak (numaradan sonra ilçe/il geliyor). "No" hiç yoksa kapı boş kalır.
+
+
+
+⚠️ **CANLI UÇ, OpenAPI ÖRNEĞİNDEN FARKLI ÇIKTI** — ilk sürüm bu yüzden kapakta
+firma satırlarını boş bastı (kullanıcı bildirimi, tarayıcıda ölçüldü):
+
+- `projectFirmId` yanıtta YOK; yerine `projectFirmAuthorizationId` geliyor.
+  Firma künyesi bu yüzden ÜÇ halkalı bir zincirle çözülüyor: proje → yetki
+  kaydı (`GET /api/project-firm-authorizations`) → `GET /api/projectfirms/{id}`.
+- Bina kodu detay yanıtında `code`, LİSTE yanıtında `buildingCode`. İkisi de
+  okunuyor, ikisi de boşsa proje numarası kimliğe düşüyor.
+
+⚠️ **Geçmiş BOŞ olabiliyor.** Ölçüldü: admin'in açtığı projede
+`GET /api/projects/{id}/history` boş dizi dönüyor. "Geçmiş yoksa satır boş
+kalsın" kuralı bu yüzden GERİ ALINDI — kaşe kutusu bomboş çıkıyordu. Kural tek
+cümleye indi: **oluşturan bir proje firması kullanıcısıysa onun adı, değilse
+proje firmasının YETKİLİSİ.** Yetkili uydurma değil, projenin bağlı olduğu
+firmanın kayıtlı sorumlusu.
+**KAŞE kutularının alt satırları** ayrı bir kural izliyor (kullanıcı isteği):
+
+- **Tasarımcı kaşesi**: projeyi oluşturan kişi + firma ünvanı. Admin
+  oluşturmuşsa oluşturanın yerine firma yetkilisi geçtiği için kutu yine dolu.
+- **Gaz dağıtım kaşesi**: şirket adı + imzalayacak kişi. Proje ONAYLANMIŞSA
+  onaylayan, değilse şirketin YETKİLİSİ (`gasdistributionfirms/{id}.contactPerson`).
+
+⚠️ `approverName` ile `gasFirmContactPerson` AYRI alanlar. Kaşe bir imza yeri,
+"ONAYLAYAN" satırı ise gerçekleşmiş bir işlem — yetkiliyi onaylayan diye
+yazmak, onaylanmamış projede olmayan bir onayı ima ederdi. Bu yüzden satır boş
+kalırken kutu dolu olabiliyor.
+`extras` PDF yolundan tümüyle çıktı; detay EKRANI onu kullanmaya devam ediyor.

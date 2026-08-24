@@ -35,11 +35,8 @@ export type CoverPageInfo = {
   building: {
     city: string
     district: string
-    neighborhood: string
-    streetDoorNo: string
     address: string
     blockLotParcel: string
-    installationNo: string
     projectType: string
     heatingType: string
     floorCount: string
@@ -47,37 +44,39 @@ export type CoverPageInfo = {
     shopCount: string
     totalAreaSquareMeters: string
   }
-  /** Projeyi çizen kişi; kaşe kutusunun altına adı ve firmasının ünvanı yazılır. */
+  /**
+   * Projeyi oluşturan kişi; kaşe kutusunun altına adı ve firmasının ünvanı
+   * yazılır. Kayıt/yeterlilik numaraları KALKTI (K159): ikisinin de sunucuda
+   * karşılığı yok — yeter no uçtan kaldırılmış, GDF kayıt no ise projeye değil
+   * kullanıcının yetki kaydına bağlı.
+   */
   designer: {
     name: string
-    /** Mühendisin gaz dağıtım firmasındaki kayıt numarası. */
-    registrationNo: string
-    /** Yeter No — yeterlilik belgesi numarası. */
-    competencyNo: string
   }
   firm: {
     title: string
     address: string
     phone: string
-    taxOffice: string
+    /** Vergi DAİRESİ yok: `GET /api/projectfirms/{id}` yalnız numarayı taşıyor. */
     taxNumber: string
   }
   /** Dağıtım şirketi onayı; onayın KENDİSİ değil, kutuya yazılan künye. */
   approval: {
     gasFirmName: string
+    /** Projeyi ONAYLAYAN kişi; onaylanmamış projede boş. */
     approverName: string
+    /**
+     * Dağıtım şirketinin YETKİLİSİ. Onaylayandan ayrı tutuluyor: kaşe kutusu bir
+     * imza yeri, "ONAYLAYAN" satırı ise gerçekleşmiş bir işlem. Yetkiliyi
+     * onaylayan diye yazmak, onaylanmamış projede olmayan bir onayı ima ederdi.
+     */
+    gasFirmContactPerson: string
   }
 }
 
 /** Boş olanları eleyerek kaşe kutusunun alt satırlarını kurar. */
 function toStampLines(...values: readonly string[]): string[] {
   return values.filter((value) => value !== '')
-}
-
-/** Detay ekranındaki "Vergi D. / Vergi No" satırının aynısı. */
-function joinTax(office: string, number: string): string {
-  if (office === '' && number === '') return ''
-  return `${office === '' ? '—' : office} / ${number === '' ? '—' : number}`
 }
 
 /**
@@ -103,15 +102,15 @@ export function getCoverFields(info: CoverPageInfo) {
       ],
     ],
     buildingFields: [
+      // MAHALLESİ, SOKAK/KAPI NO ve TESİSAT NO satırları KALKTI (K159):
+      // üçünün de sunucuda karşılığı yoktu. Adresin tamamı ADRESİ satırında,
+      // il/ilçe zaten ayrı.
       [
         { label: 'İLİ', value: building.city },
         { label: 'İLÇESİ', value: building.district },
-        { label: 'MAHALLESİ', value: building.neighborhood },
         { label: 'ADA-PAFTA-PARSEL', value: building.blockLotParcel },
       ],
       [
-        { label: 'SOKAK / KAPI NO', value: building.streetDoorNo },
-        { label: 'TESİSAT NO', value: building.installationNo },
         { label: 'PROJE TİPİ', value: building.projectType },
         { label: 'ISINMA TİPİ', value: building.heatingType },
       ],
@@ -125,20 +124,14 @@ export function getCoverFields(info: CoverPageInfo) {
       ],
     ],
     designerFields: [
-      [
-        { label: 'ADI SOYADI', value: designer.name },
-        { label: 'MÜH. GDF KAYIT NO', value: designer.registrationNo },
-      ],
-      [
-        // İmza ELLE atılır: kutu bilerek boş, adı soyadının hemen altında.
-        { label: 'İMZA', value: '' },
-        { label: 'YETER NO', value: designer.competencyNo },
-      ],
+      [{ label: 'PROJE TASARIMCISI', value: designer.name }],
+      // İmza ELLE atılır: kutu bilerek boş, adın hemen altında.
+      [{ label: 'İMZA', value: '' }],
     ],
     firmFields: [
       [
         { label: 'ÜNVANI', value: firm.title },
-        { label: 'VERGİ D. / VERGİ NO', value: joinTax(firm.taxOffice, firm.taxNumber) },
+        { label: 'VERGİ NO', value: firm.taxNumber },
       ],
       [
         { label: 'ADRESİ', value: firm.address },
@@ -147,7 +140,14 @@ export function getCoverFields(info: CoverPageInfo) {
     ],
     /** Kaşe kutusunun sağ altı: projeyi çizen kişi ve firması. */
     designerStampLines: toStampLines(designer.name, firm.title),
-    /** Onay kutusunun sağ altı: dağıtım şirketi ve onaylayan mühendis. */
-    gasFirmStampLines: toStampLines(approval.gasFirmName, approval.approverName),
+    /**
+     * Onay kutusunun sağ altı: dağıtım şirketi ve kaşeyi imzalayacak kişi.
+     * Onaylanmışsa ONAYLAYAN, değilse şirketin YETKİLİSİ — kutu her hâlükârda
+     * kimin imzalayacağını göstersin (kullanıcı isteği, K159).
+     */
+    gasFirmStampLines: toStampLines(
+      approval.gasFirmName,
+      approval.approverName === '' ? approval.gasFirmContactPerson : approval.approverName,
+    ),
   }
 }

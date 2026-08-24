@@ -58,6 +58,24 @@ const projectDetailDtoSchema = z.object({
   districtName: z.string().nullish(),
   addressLine: z.string().nullish(),
   blockLotParcel: z.string().nullish(),
+  /**
+   * ⚠️ Detay yanıtı bina kodunu `code` diye döndürüyor, LİSTE ucu
+   * `buildingCode` diye — ikisi de okunuyor (canlı yanıtta ölçüldü).
+   */
+  code: z.string().nullish(),
+  // Aşağıdakiler K159'de eklendi: kapak bunları ÖNCEDEN mock `extras`tan
+  // okuyordu, uç zaten döndürüyormuş.
+  //
+  // ⚠️ `projectFirmId` YOK: OpenAPI örneğinde görünüyor ama canlı yanıt onu
+  // döndürmüyor, yerine yetki kaydının kimliğini veriyor. Firma künyesi bu
+  // yüzden `project-firm-authorizations` üzerinden çözülüyor (K159).
+  projectFirmAuthorizationId: z.number().int().nullish(),
+  gasDistributionFirmId: z.number().int().nullish(),
+  projectTypeName: z.string().nullish(),
+  heatingTypeName: z.string().nullish(),
+  apartmentCount: z.number().nullish(),
+  workplaceCount: z.number().nullish(),
+  areaSquareMeters: z.number().nullish(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -103,13 +121,21 @@ export async function getProjectDetail(
 
   const server: ProjectServerFields = {
     id: dto.id,
-    pId: toProjectPId(dto),
+    // Bina kodu iki ad altında gelebiliyor; ikisi de denenip id'ye düşülüyor.
+    pId: toProjectPId({ id: dto.id, buildingCode: dto.buildingCode ?? dto.code }),
     name: dto.name,
     description: toNullable(dto.description),
     cityName: toNullable(dto.cityName),
     districtName: toNullable(dto.districtName),
     addressLine: toNullable(dto.addressLine),
     blockLotParcel: toNullable(dto.blockLotParcel),
+    projectFirmAuthorizationId: dto.projectFirmAuthorizationId ?? null,
+    gasDistributionFirmId: dto.gasDistributionFirmId ?? null,
+    projectTypeName: toNullable(dto.projectTypeName),
+    heatingTypeName: toNullable(dto.heatingTypeName),
+    apartmentCount: dto.apartmentCount ?? null,
+    workplaceCount: dto.workplaceCount ?? null,
+    areaSquareMeters: dto.areaSquareMeters ?? null,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   }

@@ -21,11 +21,8 @@ const EMPTY_INFO: CoverPageInfo = {
   building: {
     city: '',
     district: '',
-    neighborhood: '',
-    streetDoorNo: '',
     address: '',
     blockLotParcel: '',
-    installationNo: '',
     projectType: '',
     heatingType: '',
     floorCount: '',
@@ -33,9 +30,9 @@ const EMPTY_INFO: CoverPageInfo = {
     shopCount: '',
     totalAreaSquareMeters: '',
   },
-  designer: { name: '', registrationNo: '', competencyNo: '' },
-  firm: { title: '', address: '', phone: '', taxOffice: '', taxNumber: '' },
-  approval: { gasFirmName: '', approverName: '' },
+  designer: { name: '' },
+  firm: { title: '', address: '', phone: '', taxNumber: '' },
+  approval: { gasFirmName: '', approverName: '', gasFirmContactPerson: '' },
 }
 
 function makeInfo(overrides: Partial<CoverPageInfo> = {}): CoverPageInfo {
@@ -53,11 +50,8 @@ function makeInfo(overrides: Partial<CoverPageInfo> = {}): CoverPageInfo {
       ...EMPTY_INFO.building,
       city: 'İstanbul',
       district: 'Adalar',
-      neighborhood: 'Ortabağlar',
-      streetDoorNo: '1. Yerli Sokak No:66',
       address: 'Adalar Mah. Atatürk Sok. No:1',
       blockLotParcel: '100/1',
-      installationNo: 'TES-4471',
       projectType: 'İLAVE',
       heatingType: 'Bireysel',
       floorCount: '7',
@@ -65,15 +59,18 @@ function makeInfo(overrides: Partial<CoverPageInfo> = {}): CoverPageInfo {
       shopCount: '0',
       totalAreaSquareMeters: '2016',
     },
-    designer: { name: 'Fatma Çelik', registrationNo: '871', competencyNo: '111' },
+    designer: { name: 'Fatma Çelik' },
     firm: {
       title: 'Kütahya Test Firması',
       address: 'Altunizade Mahir İz',
       phone: '2164021000',
-      taxOffice: '30 Ağustos',
       taxNumber: '2222222222',
     },
-    approval: { gasFirmName: 'TOROSGAZ-KÜTAHYA', approverName: 'Kontrol Mühendisi' },
+    approval: {
+      gasFirmName: 'TOROSGAZ-KÜTAHYA',
+      approverName: 'Kontrol Mühendisi',
+      gasFirmContactPerson: 'Dağıtım Yetkilisi',
+    },
     ...overrides,
   }
 }
@@ -90,18 +87,14 @@ describe('layoutCoverPage', () => {
       '2005951489',
       'İstanbul',
       'Adalar',
-      'Ortabağlar',
       '100/1',
-      'TES-4471',
       'İLAVE',
       'Bireysel',
       '2016',
       'Fatma Çelik',
-      '871',
-      '111',
       'Kütahya Test Firması',
       '2164021000',
-      '30 Ağustos / 2222222222',
+      '2222222222',
       // Çizim referansı.
       '2',
       '4',
@@ -127,10 +120,36 @@ describe('layoutCoverPage', () => {
     ])
   })
 
+  it('ONAYLANMAMIŞ projede kaşeye dağıtım şirketinin YETKİLİSİ yazılır', () => {
+    // Kutu bir imza yeri: kimin imzalayacağını her hâlükârda göstermeli
+    // (kullanıcı isteği, K159). "ONAYLAYAN" satırı ise boş kalır — olmayan bir
+    // onayı ima etmemek için.
+    const { texts } = layoutCoverPage(
+      PAGE,
+      makeInfo({
+        approval: {
+          gasFirmName: 'TOROSGAZ-KÜTAHYA',
+          approverName: '',
+          gasFirmContactPerson: 'Dağıtım Yetkilisi',
+        },
+      }),
+    )
+    const stamped = texts.filter((text) => text.align === 'right').map((text) => text.text)
+
+    expect(stamped).toEqual([
+      'Kütahya Test Firması',
+      'Fatma Çelik',
+      'Dağıtım Yetkilisi',
+      'TOROSGAZ-KÜTAHYA',
+    ])
+  })
+
   it('kaşe künyesi eksikse o satırı hiç yazmaz, boşluk bırakmaz', () => {
     const { texts } = layoutCoverPage(
       PAGE,
-      makeInfo({ approval: { gasFirmName: 'TOROSGAZ-KÜTAHYA', approverName: '' } }),
+      makeInfo({
+        approval: { gasFirmName: 'TOROSGAZ-KÜTAHYA', approverName: '', gasFirmContactPerson: '' },
+      }),
     )
     const stamped = texts.filter((text) => text.align === 'right').map((text) => text.text)
 
@@ -172,7 +191,7 @@ describe('layoutCoverPage', () => {
     // Kutu sayısı DEĞİŞMEZ, yalnız değerler düşer.
     expect(empty.rects).toHaveLength(full.rects.length)
     expect(empty.texts.length).toBeLessThan(full.texts.length)
-    expect(empty.texts.map((text) => text.text)).toContain('ADI SOYADI')
+    expect(empty.texts.map((text) => text.text)).toContain('PROJE TASARIMCISI')
     expect(empty.texts.map((text) => text.text)).not.toContain('Fatma Çelik')
   })
 

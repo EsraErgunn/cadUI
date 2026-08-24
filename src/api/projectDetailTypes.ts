@@ -47,6 +47,20 @@ export interface ProjectServerFields {
   districtName: string | null
   addressLine: string | null
   blockLotParcel: string | null
+  /**
+   * Firma künyesine giden YOL (K159). Canlı uç `projectFirmId` DÖNDÜRMÜYOR;
+   * proje firmasının kimliği bu yetki kaydından okunuyor.
+   */
+  projectFirmAuthorizationId: number | null
+  /** Onay bloğundaki firma adı için: `GET /api/gasdistributionfirms/{id}` (K159). */
+  gasDistributionFirmId: number | null
+  projectTypeName: string | null
+  heatingTypeName: string | null
+  /** Mesken adedi. */
+  apartmentCount: number | null
+  /** Dükkân adedi. */
+  workplaceCount: number | null
+  areaSquareMeters: number | null
   createdAt: string
   updatedAt: string
 }
