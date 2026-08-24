@@ -17,8 +17,6 @@ vi.mock('../../api/adminFirms', async (importOriginal) => ({
   ...listApi,
 }))
 
-vi.mock('../../api/permissions', () => ({ getMyPermissions: vi.fn().mockResolvedValue([]) }))
-
 const LIST_PATH = '/admin/gas-distribution-firms'
 
 function renderList(state?: { savedFirmId: number }) {

@@ -13,7 +13,7 @@ import { AdminHomePage } from '../AdminHomePage'
 import { ComingSoonPage } from '../ComingSoonPage'
 
 const dashboardApi = vi.hoisted(() => ({ getDashboardSummary: vi.fn() }))
-const permissionsApi = vi.hoisted(() => ({ getMyPermissions: vi.fn() }))
+const useIsAdmin = vi.hoisted(() => vi.fn())
 /** Kapsam kimliğini ADA çeviren listeler; başlıktaki kapsam adı buradan geliyor.
     Firma listesi de gerekiyor: kapsam tek bir gaz dağıtım firması olabilir. */
 const firmsApi = vi.hoisted(() => ({ getFirmGroups: vi.fn(), fetchAllFirms: vi.fn() }))
@@ -23,7 +23,7 @@ vi.mock('../../api/adminDashboard', async (importOriginal) => ({
   ...dashboardApi,
 }))
 
-vi.mock('../../api/permissions', () => permissionsApi)
+vi.mock('../../ui/admin/useIsAdmin', () => ({ useIsAdmin }))
 
 vi.mock('../../api/adminFirms', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/adminFirms')>()),
@@ -43,11 +43,9 @@ const SUMMARY = {
   ],
 }
 
-const ALL_PERMISSIONS = ['firm.create', 'projectFirm.create', 'user.create']
-
-function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS, summary = SUMMARY } = {}) {
+function renderPage({ route = '/admin', isAdmin = true, summary = SUMMARY } = {}) {
   dashboardApi.getDashboardSummary.mockResolvedValue(summary)
-  permissionsApi.getMyPermissions.mockResolvedValue(permissions)
+  useIsAdmin.mockReturnValue(isAdmin)
   firmsApi.getFirmGroups.mockResolvedValue([
     { id: 1, name: 'AKMERCAN' },
     { id: 2, name: 'AKSA' },
@@ -314,14 +312,15 @@ describe('KK-7 hızlı işlemler', () => {
     expect(screen.getByText('Bu ekran gelecektir.')).toBeInTheDocument()
   })
 
-  it('yetkisi olmayan kısayol listede yer almaz', async () => {
-    renderPage({ permissions: ['firm.create'] })
+  it('Admin olmayan kullanıcıda yönetim kısayolları listede yer almaz', async () => {
+    renderPage({ isAdmin: false })
     const card = await screen.findByRole('region', { name: 'Hızlı İşlemler' })
 
-    await within(card).findByText('Gaz Dağıtım Firması Ekle')
+    // Üçünün de sunucudaki ucu Admin'e kapalı; gizlenmeleri o sınırı yansıtıyor.
+    expect(within(card).queryByText('Gaz Dağıtım Firması Ekle')).not.toBeInTheDocument()
     expect(within(card).queryByText('Proje Firması Ekle')).not.toBeInTheDocument()
     expect(within(card).queryByText('Kullanıcı Oluştur')).not.toBeInTheDocument()
-    // İzin aranmayan kısayol her hâlde durur.
+    // Rol aranmayan kısayol her hâlde durur (K28).
     expect(within(card).getByText('Projeleri Görüntüle')).toBeInTheDocument()
   })
 })
