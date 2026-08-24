@@ -28,6 +28,12 @@ export const END_DATE = '2027-01-01'
  * paylaşılsaydı gövdesi ilk okumada tükenir, yönlendirme sonrası açılan proje
  * detayı boş yanıt görürdü.
  */
+/** `GET /api/projects/{id}/units` yanıtı; "Birim" kutusunun kaynağı. */
+export const PROJECT_UNITS = [
+  { id: 7, unitNumber: 'D20', subscriberName: 'FATMA ÇELİK', devices: [] },
+  { id: 8, unitNumber: 'D21', subscriberName: 'HASAN DEMİR', devices: [] },
+]
+
 /** `GET /api/insurance-companies` yanıtı; sihirbazın şirket kutusu buradan doluyor. */
 export const INSURANCE_COMPANIES = [
   { id: 1, title: 'Anadolu Sigorta' },
@@ -43,7 +49,9 @@ export function stubProjectFetch(): void {
       const url = String(input)
       const body = url.includes('/api/insurance-companies')
         ? INSURANCE_COMPANIES
-        : {
+        : url.includes('/units')
+          ? PROJECT_UNITS
+          : {
             id: PROJECT_ID,
             name: PROJECT_NAME,
             code: '30006185',
@@ -108,6 +116,8 @@ export async function fillFirmStep(user: User): Promise<void> {
 /** Adım 3. Tarih girdisine `fireEvent.change`: native `input[type=date]` tuş
     vuruşuyla doldurulamıyor (yeni proje formu testindeki desen). */
 export async function fillInfoStep(user: User, policyNumber = POLICY_NUMBER): Promise<void> {
+  // Birim ZORUNLU: poliçe sunucuda projeye değil birime bağlanıyor.
+  await user.selectOptions(await screen.findByLabelText('Birim'), String(PROJECT_UNITS[0].id))
   await user.type(await screen.findByLabelText('Poliçe No'), policyNumber)
   await user.type(screen.getByLabelText('Teminat Tutarı'), AMOUNT_INPUT)
   fireEvent.change(screen.getByLabelText('Bitiş Tarihi'), { target: { value: END_DATE } })

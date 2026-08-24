@@ -55,6 +55,8 @@ export const POLICY_METHOD_LABELS: Record<PolicyMethod, string> = {
 
 export interface CreatePolicyPayload {
   projectId: number
+  /** Poliçenin bağlandığı birim; sunucuda kayıt proje değil BİRİM başına. */
+  projectUnitId: number
   method: PolicyMethod
   insuranceCompanyId: number
   agencyId: number

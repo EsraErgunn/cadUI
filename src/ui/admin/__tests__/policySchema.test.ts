@@ -22,6 +22,7 @@ function buildFilledValues(overrides: Partial<PolicyFormValues> = {}): PolicyFor
     ...buildPolicyDefaults(TODAY),
     insuranceCompanyId: 1,
     agencyId: 2,
+    projectUnitId: 7,
     policyNumber: 'POL-2026-0001',
     amountText: '1.500.000,50',
     endDate: '2027-08-13',
@@ -82,10 +83,12 @@ describe('adım bazlı doğrulama', () => {
     expect(validatePolicyStep('done', empty)).toEqual({})
   })
 
+  // Birim de bu adımda: poliçe sunucuda projeye değil BİRİME bağlanıyor.
   it('bilgi adımında dört alan da zorunlu', () => {
     const errors = validatePolicyStep('info', buildPolicyDefaults(TODAY))
 
     expect(errors).toEqual({
+      projectUnitId: POLICY_ERRORS.unit,
       policyNumber: POLICY_ERRORS.policyNumber,
       amountText: POLICY_ERRORS.amount,
       endDate: POLICY_ERRORS.endDate,
@@ -108,6 +111,7 @@ describe('adım bazlı doğrulama', () => {
     addMockPolicy({
       projectId: 1,
       method: 'manual',
+      projectUnitId: 1,
       insuranceCompanyId: 1,
       agencyId: 1,
       policyNumber: 'POL-2026-0001',
@@ -148,6 +152,7 @@ describe('istek gövdesi', () => {
     expect(buildPolicyPayload(buildFilledValues({ policyNumber: '  POL-2026-0002 ' }), 7)).toEqual({
       projectId: 7,
       method: 'manual',
+      projectUnitId: 7,
       insuranceCompanyId: 1,
       agencyId: 2,
       policyNumber: 'POL-2026-0002',

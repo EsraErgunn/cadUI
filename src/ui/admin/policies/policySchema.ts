@@ -14,6 +14,12 @@ export type PolicyStep = (typeof POLICY_STEPS)[number]
 
 export interface PolicyFormValues {
   method: PolicyMethod
+  /**
+   * Poliçenin bağlandığı BİRİM. Sunucuda poliçe proje seviyesinde durmuyor,
+   * her kayıt bir `ProjectUnit`e ait (`PolicyAddDto.ProjectUnitId` zorunlu) —
+   * seçim boş bırakılırsa kaydın gideceği yer yok.
+   */
+  projectUnitId: number | null
   insuranceCompanyId: number | null
   agencyId: number | null
   policyNumber: string
@@ -34,6 +40,7 @@ export type PolicyErrors = Partial<Record<PolicyField, string>>
 export const POLICY_ERRORS = {
   insuranceCompany: 'Sigorta şirketi seçiniz.',
   agency: 'Acente / poliçe firması seçiniz.',
+  unit: 'Poliçenin bağlanacağı birimi seçiniz.',
   policyNumber: 'Poliçe no zorunludur.',
   policyNumberTaken: 'Bu poliçe numarası sistemde kayıtlı.',
   amount: 'Teminat tutarı zorunludur.',
@@ -47,6 +54,7 @@ export const POLICY_ERRORS = {
 const POLICY_FIELD_ORDER: PolicyField[] = [
   'insuranceCompanyId',
   'agencyId',
+  'projectUnitId',
   'policyNumber',
   'amountText',
   'startDate',
@@ -106,6 +114,7 @@ export function buildPolicyDefaults(today: Date): PolicyFormValues {
     method: 'manual',
     insuranceCompanyId: null,
     agencyId: null,
+    projectUnitId: null,
     policyNumber: '',
     amountText: '',
     // Başlangıç bugünle dolu gelir (gereksinim 17); bitiş türetilmez, poliçe
@@ -126,6 +135,8 @@ function validateFirmStep(values: PolicyFormValues): PolicyErrors {
 
 function validateInfoStep(values: PolicyFormValues): PolicyErrors {
   const errors: PolicyErrors = {}
+
+  if (values.projectUnitId === null) errors.projectUnitId = POLICY_ERRORS.unit
 
   if (values.policyNumber.trim() === '') {
     errors.policyNumber = POLICY_ERRORS.policyNumber
@@ -179,6 +190,7 @@ const policyPayloadSchema = z.object({
   method: z.literal('manual'),
   insuranceCompanyId: z.number().int().positive(),
   agencyId: z.number().int().positive(),
+  projectUnitId: z.number().int().positive(),
   policyNumber: z.string().min(1),
   amount: z.number().positive(),
   startDate: z.string().regex(ISO_DATE),
@@ -194,6 +206,7 @@ export function buildPolicyPayload(
     method: values.method,
     insuranceCompanyId: values.insuranceCompanyId,
     agencyId: values.agencyId,
+    projectUnitId: values.projectUnitId,
     policyNumber: values.policyNumber.trim(),
     amount: parsePolicyAmount(values.amountText),
     startDate: values.startDate,
