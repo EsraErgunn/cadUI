@@ -12,8 +12,8 @@ export interface UploadRow {
   key: number
   source: DocumentUploadSource
   fileName: string
-  docTypeCode: string | null
-  unitNames: string[]
+  docTypeCodeId: number | null
+  unitIds: number[]
 }
 
 export interface UploadRowErrors {
@@ -32,8 +32,8 @@ export interface DocumentUploadState {
   /** Aynı evrağın iki kez eklenmesini engellemek için: sekme düğmesi pasifleşir. */
   hasExistingDocument: (documentId: number) => boolean
   removeRow: (key: number) => void
-  setRowType: (key: number, docTypeCode: string | null) => void
-  setRowUnits: (key: number, unitNames: string[]) => void
+  setRowType: (key: number, docTypeCodeId: number | null) => void
+  setRowUnits: (key: number, unitIds: number[]) => void
   dismissRejections: () => void
   /** Doğrulama geçerse yükleme listesini döndürür, geçmezse `null` yazıp
       hataları ekrana basar. */
@@ -42,8 +42,8 @@ export interface DocumentUploadState {
 
 function validateRow(row: UploadRow): UploadRowErrors {
   const errors: UploadRowErrors = {}
-  if (row.docTypeCode === null) errors.docType = MISSING_TYPE_MESSAGE
-  if (row.unitNames.length === 0) errors.units = MISSING_UNIT_MESSAGE
+  if (row.docTypeCodeId === null) errors.docType = MISSING_TYPE_MESSAGE
+  if (row.unitIds.length === 0) errors.units = MISSING_UNIT_MESSAGE
   return errors
 }
 
@@ -71,8 +71,8 @@ export function useDocumentUpload(): DocumentUploadState {
           key: nextKey.current,
           source: { kind: 'file', file },
           fileName: file.name,
-          docTypeCode: null,
-          unitNames: [],
+          docTypeCodeId: null,
+          unitIds: [],
         }
         nextKey.current += 1
         return row
@@ -93,8 +93,8 @@ export function useDocumentUpload(): DocumentUploadState {
         fileName: document.fileName,
         // Tip kaynağından geliyor ama DEĞİŞTİRİLEBİLİR kalıyor: aynı dosya
         // başka bir tiple yeniden ilişkilendirilebilmeli.
-        docTypeCode: document.docTypeCode,
-        unitNames: [],
+        docTypeCodeId: document.docTypeCodeId,
+        unitIds: [],
       }
       nextKey.current += 1
       return [...current, row]
@@ -119,14 +119,14 @@ export function useDocumentUpload(): DocumentUploadState {
     })
   }, [])
 
-  const setRowType = useCallback((key: number, docTypeCode: string | null) => {
+  const setRowType = useCallback((key: number, docTypeCodeId: number | null) => {
     setRows((current) =>
-      current.map((row) => (row.key === key ? { ...row, docTypeCode } : row)),
+      current.map((row) => (row.key === key ? { ...row, docTypeCodeId } : row)),
     )
   }, [])
 
-  const setRowUnits = useCallback((key: number, unitNames: string[]) => {
-    setRows((current) => current.map((row) => (row.key === key ? { ...row, unitNames } : row)))
+  const setRowUnits = useCallback((key: number, unitIds: number[]) => {
+    setRows((current) => current.map((row) => (row.key === key ? { ...row, unitIds } : row)))
   }, [])
 
   const dismissRejections = useCallback(() => setRejected([]), [])
@@ -146,8 +146,8 @@ export function useDocumentUpload(): DocumentUploadState {
       source: row.source,
       // Doğrulama geçtiyse tip seçilmiştir; tip sistemi bunu göremediği için
       // burada daraltılıyor.
-      docTypeCode: row.docTypeCode ?? '',
-      unitNames: row.unitNames,
+      docTypeCodeId: row.docTypeCodeId ?? 0,
+      unitIds: row.unitIds,
     }))
   }, [rows])
 

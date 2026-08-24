@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 
 import type { DocumentType } from '../../../api/documentTypes'
 import { adminFieldVariants, adminIconButtonVariants } from '../adminVariants'
-import { UnitCheckboxList } from './UnitCheckboxList'
+import { UnitCheckboxList, type UnitOption } from './UnitCheckboxList'
 import type { UploadRow, UploadRowErrors } from './useDocumentUpload'
 
 const TYPE_PLACEHOLDER = 'Evrak Tipi Seç'
@@ -10,10 +10,10 @@ const TYPE_PLACEHOLDER = 'Evrak Tipi Seç'
 interface UploadedDocumentRowProps {
   row: UploadRow
   documentTypes: DocumentType[]
-  units: string[]
+  units: UnitOption[]
   errors: UploadRowErrors | undefined
-  onTypeChange: (docTypeCode: string | null) => void
-  onUnitsChange: (unitNames: string[]) => void
+  onTypeChange: (docTypeCodeId: number | null) => void
+  onUnitsChange: (unitIds: number[]) => void
   onRemove: () => void
 }
 
@@ -44,9 +44,11 @@ export function UploadedDocumentRow({
         </label>
         <select
           id={typeFieldId}
-          value={row.docTypeCode ?? ''}
+          value={row.docTypeCodeId === null ? '' : String(row.docTypeCodeId)}
           aria-describedby={typeError === undefined ? undefined : typeErrorId}
-          onChange={(event) => onTypeChange(event.target.value === '' ? null : event.target.value)}
+          onChange={(event) =>
+            onTypeChange(event.target.value === '' ? null : Number(event.target.value))
+          }
           className={adminFieldVariants({
             tone: typeError === undefined ? 'plain' : 'invalid',
             className: 'pr-8',
@@ -54,7 +56,7 @@ export function UploadedDocumentRow({
         >
           <option value="">{TYPE_PLACEHOLDER}</option>
           {documentTypes.map((type) => (
-            <option key={type.code} value={type.code}>
+            <option key={type.id} value={type.id}>
               {type.label}
             </option>
           ))}
@@ -73,7 +75,7 @@ export function UploadedDocumentRow({
       <UnitCheckboxList
         idPrefix={`upload-${row.key}`}
         units={units}
-        selected={row.unitNames}
+        selected={row.unitIds}
         error={errors?.units}
         onChange={onUnitsChange}
       />

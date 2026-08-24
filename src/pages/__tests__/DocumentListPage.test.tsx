@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAuthSession, type AuthSession } from '../../api/authToken'
 import { DOCUMENT_PAGE_SIZE, type DocumentRow } from '../../api/documents'
-import { resetMockDocuments } from '../../api/documentsMock'
 import { ROLE_CODES } from '../../api/roles'
 import { DocumentListPage } from '../DocumentListPage'
 
@@ -24,11 +23,13 @@ vi.mock('../../api/documentTypes', async (importOriginal) => ({
 
 const listDocuments = vi.hoisted(() => vi.fn())
 const deleteDocument = vi.hoisted(() => vi.fn())
+const getDocumentDownloadUrl = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/documents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/documents')>()),
   listDocuments,
   deleteDocument,
+  getDocumentDownloadUrl,
 }))
 
 const TODAY = `${new Date().toISOString().slice(0, 10)}T09:00:00.000Z`
@@ -37,7 +38,8 @@ function buildDocument(overrides: Partial<DocumentRow> = {}): DocumentRow {
   return {
     id: 1,
     fileName: 'musteri-sozlesmesi.pdf',
-    docTypeCode: 'CustomerAgreement',
+    docTypeCodeId: 5015,
+    docTypeName: 'Müşteri Sözleşmesi',
     receivedAt: TODAY,
     unitNames: ['Kolon', 'DMUST'],
     projectId: 4,
@@ -50,7 +52,6 @@ function buildDocument(overrides: Partial<DocumentRow> = {}): DocumentRow {
     sizeBytes: 2048,
     uploadedByName: 'AHMET AKBAYIR',
     contentType: 'application/pdf',
-    url: null,
     ...overrides,
   }
 }
@@ -107,7 +108,6 @@ const ADMIN_SESSION: AuthSession = {
 
 beforeEach(() => {
   setAuthSession(ADMIN_SESSION)
-  resetMockDocuments()
   listDocuments.mockResolvedValue(asMock([buildDocument()]))
   deleteDocument.mockResolvedValue({ ok: true })
 })
@@ -216,28 +216,26 @@ describe('DocumentListPage', () => {
     expect(within(table).getByText('musteri-sozlesmesi.pdf')).toBeInTheDocument()
   })
 
-  it('görüntülenebilir dosya yeni sekmede açılır, diğeri indirilir', async () => {
-    listDocuments.mockResolvedValue(
-      asMock([
-        buildDocument({ id: 1, fileName: 'plan.pdf', url: 'blob:pdf' }),
-        buildDocument({
-          id: 2,
-          fileName: 'cizim.alp',
-          contentType: 'application/octet-stream',
-          url: 'blob:alp',
-        }),
-      ]),
-    )
+  /**
+   * Adres satırda DEĞİL: `GET /api/docs/{id}/download` süreli bir adres
+   * üretiyor ve her satır için önden istemek süresi dolmuş adresler bırakırdı.
+   * Bu yüzden ad bir düğme ve adres tıklanınca alınıyor.
+   */
+  it('görüntülenebilir dosya yeni sekmede açılır', async () => {
+    const user = userEvent.setup()
+    const open = vi.fn()
+    vi.stubGlobal('open', open)
+    getDocumentDownloadUrl.mockResolvedValue('https://depo/plan.pdf')
+    listDocuments.mockResolvedValue(asMock([buildDocument({ id: 1, fileName: 'plan.pdf' })]))
 
     renderPage()
 
-    const viewable = await screen.findByRole('link', { name: 'plan.pdf' })
-    expect(viewable).toHaveAttribute('target', '_blank')
-    expect(viewable).toHaveAttribute('rel', 'noopener noreferrer')
+    await user.click(await screen.findByRole('button', { name: 'plan.pdf' }))
 
-    const downloadable = screen.getByRole('link', { name: 'cizim.alp' })
-    expect(downloadable).not.toHaveAttribute('target')
-    expect(downloadable).toHaveAttribute('download', 'cizim.alp')
+    expect(getDocumentDownloadUrl).toHaveBeenCalledWith(1)
+    expect(open).toHaveBeenCalledWith('https://depo/plan.pdf', '_blank', 'noopener,noreferrer')
+
+    vi.unstubAllGlobals()
   })
 
   it('filtre uygulanınca kriterler URL\'e yazılır ve sayfa 1\'e döner', async () => {
@@ -245,14 +243,14 @@ describe('DocumentListPage', () => {
     renderPage()
     await screen.findByRole('table')
 
-    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
+    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı). Arama kutusu YOK: uç
+    // arama parametresi almıyor ve sayfalı listede istemci araması yalnız
+    // görünen sayfayı süzerdi.
     await user.selectOptions(screen.getByLabelText('Döküman Tipi'), 'License')
-    await user.type(screen.getByLabelText('Evrak adında ara'), 'ruhsat{Enter}')
 
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
       expect(search).toContain('type=License')
-      expect(search).toContain('q=ruhsat')
       expect(search).not.toContain('page=')
     })
   })

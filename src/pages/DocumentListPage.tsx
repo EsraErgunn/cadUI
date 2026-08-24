@@ -1,8 +1,12 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 
-import { getDocumentTypes, type DocumentType } from '../api/documentTypes'
-import { deleteDocument, listDocuments } from '../api/documents'
+import {
+  getDocumentTypes,
+  resolveDocumentTypeId,
+  type DocumentType,
+} from '../api/documentTypes'
+import { deleteDocument, listDocuments, type DocumentListQuery } from '../api/documents'
 import { getProjectFirms } from '../api/projects'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
@@ -73,9 +77,37 @@ export function DocumentListPage() {
   const { query, applyFilters, toggleSort, setPage } = useDocumentListParams()
   const queryClient = useQueryClient()
 
+  // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı. Kod
+  // grubu ucundan geliyor ve nadiren değişiyor: uzun `staleTime` ile ekranlar
+  // arası gezinmede yeniden istenmiyor.
+  const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
+    queryKey: ['documentTypes'],
+    queryFn: ({ signal }) => getDocumentTypes(signal),
+    staleTime: LOOKUP_STALE_MS,
+  })
+
+  // URL evrak tipini KOD olarak taşıyor, uç KİMLİK istiyor: çeviri istek
+  // sınırında ve tipler gelmeden istek atılmıyor — yoksa seçili süzgeç sessizce
+  // yok sayılır ve kullanıcı filtrelenmemiş listeyi filtrelenmiş sanırdı.
+  const listQuery = useMemo<DocumentListQuery>(
+    () => ({
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      docTypeCodeId: resolveDocumentTypeId(query.docTypeCode, documentTypes),
+      projectFirmId: query.projectFirmId,
+      scope: query.scope,
+      page: query.page,
+      pageSize: query.pageSize,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+    }),
+    [query, documentTypes],
+  )
+
   const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
-    queryKey: ['documents', query],
-    queryFn: ({ signal }) => listDocuments(query, signal),
+    queryKey: ['documents', listQuery],
+    queryFn: ({ signal }) => listDocuments(listQuery, signal),
+    enabled: query.docTypeCode === null || documentTypes.length > 0,
     // Sayfa değişince tablo boşalıp zıplamasın; yeni sayfa gelene kadar eskisi durur.
     placeholderData: keepPreviousData,
   })
@@ -93,14 +125,6 @@ export function DocumentListPage() {
     enabled: isManagementView,
   })
 
-  // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı. Kod
-  // grubu ucundan geliyor ve nadiren değişiyor: uzun `staleTime` ile ekranlar
-  // arası gezinmede yeniden istenmiyor.
-  const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
-    queryKey: ['documentTypes'],
-    queryFn: ({ signal }) => getDocumentTypes(signal),
-    staleTime: LOOKUP_STALE_MS,
-  })
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['documents'] })
@@ -109,7 +133,10 @@ export function DocumentListPage() {
   }, [queryClient])
 
   const deletion = useRowDelete({
-    remove: async (documentId) => (await deleteDocument(documentId)).ok,
+    remove: async (documentId) => {
+      await deleteDocument(documentId)
+      return true
+    },
     messages: DELETE_MESSAGES,
     onDeleted: refreshList,
   })
@@ -118,7 +145,6 @@ export function DocumentListPage() {
     () =>
       buildDocumentColumns({
         rowOffset: (query.page - 1) * query.pageSize,
-        documentTypes,
         pendingDocumentId: deletion.pendingId,
         isManagementView,
         canDelete: canWriteContent,
@@ -127,7 +153,6 @@ export function DocumentListPage() {
     [
       query.page,
       query.pageSize,
-      documentTypes,
       deletion.pendingId,
       isManagementView,
       canWriteContent,
@@ -135,8 +160,7 @@ export function DocumentListPage() {
     ],
   )
 
-  const hasActiveFilters =
-    query.search !== '' || query.docTypeCode !== null || query.projectFirmId !== null
+  const hasActiveFilters = query.docTypeCode !== null || query.projectFirmId !== null
 
   // Filtre çubuğu taslak durumunu kendi tutuyor; dışarıdan gelen değişim (geri
   // tuşu, etiket kaldırma) ancak bileşen yeni bir key ile kurulunca yansır.
@@ -145,7 +169,6 @@ export function DocumentListPage() {
     dateTo: query.dateTo ?? '',
     docTypeCode: query.docTypeCode,
     projectFirmId: query.projectFirmId,
-    search: query.search,
   }
   const filterKey = Object.values(appliedFilters).join('|')
 

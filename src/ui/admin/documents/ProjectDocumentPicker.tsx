@@ -1,9 +1,9 @@
 import { Plus } from 'lucide-react'
 
-import { resolveDocumentTypeLabel, type DocumentType } from '../../../api/documentTypes'
 import type { DocumentRow } from '../../../api/documents'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
+import { EmptyValue } from '../EmptyValue'
 import { adminButtonVariants } from '../adminVariants'
 
 const EMPTY_MESSAGE = 'Bu projeye daha önce evrak yüklenmemiş.'
@@ -12,7 +12,6 @@ const ADDED_LABEL = 'Eklendi'
 
 interface ProjectDocumentPickerProps {
   documents: DocumentRow[]
-  documentTypes: DocumentType[]
   isAdded: (documentId: number) => boolean
   onAdd: (document: DocumentRow) => void
 }
@@ -24,7 +23,6 @@ interface ProjectDocumentPickerProps {
  */
 export function ProjectDocumentPicker({
   documents,
-  documentTypes,
   isAdded,
   onAdd,
 }: ProjectDocumentPickerProps) {
@@ -33,7 +31,7 @@ export function ProjectDocumentPicker({
     {
       key: 'docType',
       label: 'Evrak Tipi',
-      cell: (document) => resolveDocumentTypeLabel(document.docTypeCode, documentTypes),
+      cell: (document) => document.docTypeName ?? <EmptyValue />,
     },
     {
       key: 'receivedAt',

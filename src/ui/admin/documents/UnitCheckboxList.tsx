@@ -4,13 +4,19 @@ import { ADMIN_CHECKBOX } from '../adminVariants'
 
 const SELECT_ALL_LABEL = 'Tümünü Seç'
 
+/** Birim seçeneği: uca KİMLİK gidiyor, ekranda etiket görünüyor. */
+export interface UnitOption {
+  id: number
+  label: string
+}
+
 interface UnitCheckboxListProps {
   /** Alanları birbirinden ayıran önek; aynı ekranda birden çok liste var. */
   idPrefix: string
-  units: string[]
-  selected: string[]
+  units: UnitOption[]
+  selected: number[]
   error?: string
-  onChange: (unitNames: string[]) => void
+  onChange: (unitIds: number[]) => void
 }
 
 /**
@@ -36,14 +42,16 @@ export function UnitCheckboxList({
     selectAllRef.current.indeterminate = selected.length > 0 && !isAllSelected
   }, [isAllSelected, selected.length])
 
-  const toggleUnit = (unitName: string) => {
-    const isSelected = selected.includes(unitName)
+  const toggleUnit = (unitId: number) => {
+    const isSelected = selected.includes(unitId)
     // Sıra kaynak listeyle aynı kalsın: seçim sırasına göre eklenseydi aynı iki
     // birim, işaretleme sırasına göre farklı sırayla kaydedilirdi.
     onChange(
       isSelected
-        ? selected.filter((name) => name !== unitName)
-        : units.filter((name) => name === unitName || selected.includes(name)),
+        ? selected.filter((id) => id !== unitId)
+        : units
+            .filter((unit) => unit.id === unitId || selected.includes(unit.id))
+            .map((unit) => unit.id),
     )
   }
 
@@ -60,21 +68,21 @@ export function UnitCheckboxList({
           type="checkbox"
           checked={isAllSelected}
           disabled={units.length === 0}
-          onChange={() => onChange(isAllSelected ? [] : units)}
+          onChange={() => onChange(isAllSelected ? [] : units.map((unit) => unit.id))}
           className={ADMIN_CHECKBOX}
         />
         {SELECT_ALL_LABEL}
       </label>
 
-      {units.map((unitName) => (
-        <label key={unitName} className="flex items-center gap-2 text-sm text-ink">
+      {units.map((unit) => (
+        <label key={unit.id} className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
-            checked={selected.includes(unitName)}
-            onChange={() => toggleUnit(unitName)}
+            checked={selected.includes(unit.id)}
+            onChange={() => toggleUnit(unit.id)}
             className={ADMIN_CHECKBOX}
           />
-          {unitName}
+          {unit.label}
         </label>
       ))}
 
