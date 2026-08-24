@@ -12,6 +12,7 @@ import { PointSymbol, type PointSymbolTone } from './PointSymbol'
 import { PointSymbolNameLabels } from './PointSymbolNameLabels'
 import { Rooms } from './Room'
 import { RoomTool } from './RoomTool'
+import { RoomUsageContextMenu } from './RoomUsageContextMenu'
 import { SelectionMarquee } from './SelectionMarquee'
 import { TextLabelEditor } from './TextLabelEditor'
 import { TextLabels } from './TextLabels'
@@ -33,6 +34,7 @@ import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRightClickReturnsToSelection } from './useRightClickReturnsToSelection'
 import { useRoomDefinitionExit } from './useRoomDefinitionExit'
+import { useRoomUsageContextMenu } from './useRoomUsageContextMenu'
 import { useSelectionTool } from './useSelectionTool'
 import { useTextSelectionTool } from './useTextSelectionTool'
 import { useTextTool } from './useTextTool'
@@ -310,8 +312,11 @@ function Beams() {
 function SelectionTool() {
   useSelectionTool()
   useRightClickReturnsToSelection()
+  // Mahal menüsü de sağ tık dinliyor ama ÇAKIŞMIYOR: o yalnız seçim aracında
+  // açılıyor, "araçtan çık" kuralı ise yalnız seçim DIŞINDA iş yapıyor (K160).
+  useRoomUsageContextMenu()
   useRoomDefinitionExit()
-  return null
+  return <RoomUsageContextMenu />
 }
 
 /** Ölçüm aracı: hook <Canvas> içinde koşmak zorunda (kamera okuyor). */

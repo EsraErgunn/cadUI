@@ -9,8 +9,6 @@ type PropertyPanelShellProps = {
   title: string
   isOpen: boolean
   onDelete: () => void
-  /** Mahal gibi TÜREV nesnelerde "Sil" hiç gösterilmez (K117). Varsayılan: gösterilir. */
-  isDeletable?: boolean
   /** Sil düğmesinin ÜSTÜNE giren ek eylemler (mimaride grup dönüşümü). */
   actions?: ReactNode
   children: ReactNode
@@ -36,7 +34,6 @@ export function PropertyPanelShell({
   title,
   isOpen,
   onDelete,
-  isDeletable = true,
   actions,
   children,
 }: PropertyPanelShellProps) {
@@ -77,7 +74,7 @@ export function PropertyPanelShell({
 
         {!isReadOnly && actions}
 
-        {isDeletable && !isReadOnly && (
+        {!isReadOnly && (
           <div className="shrink-0 border-t border-edge px-3 py-2">
             <button
               type="button"
