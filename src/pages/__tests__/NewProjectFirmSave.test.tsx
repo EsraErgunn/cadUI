@@ -209,7 +209,12 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
     // Gövdede seri no anahtarı HİÇ yok; `null` bile gitmiyor.
     expect(formApi.createProjectFirm.mock.calls[0][0]).not.toHaveProperty('serialNumber')
     expect(formApi.saveProjectFirmAuthorizations).toHaveBeenCalledWith(NEW_FIRM_ID, [
-      { gasDistributionFirmId: 11, certificateNumber: null },
+      {
+        gasDistributionFirmId: 11,
+        certificateNumber: 'ST-1',
+        validFrom: '2026-01-01',
+        validTo: null,
+      },
     ])
     // Liste ekranı başarı mesajını bu durumdan üretiyor (useSavedFirmNotice).
     expect(screen.getByTestId('list-state')).toHaveTextContent(String(NEW_FIRM_ID))

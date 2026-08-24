@@ -6,6 +6,7 @@ import {
   buildDuplicateGasFirmMessage,
   buildProjectFirmAuthorizations,
   findDuplicateGasFirms,
+  validateAuthorizationFields,
   formatAuthorizationGasFirmName,
   type AuthorizationGasFirm,
   type ProjectFirmAuthorization,
@@ -34,6 +35,9 @@ export const GAS_FIRM_SELECTION_CLEARED_NOTICE =
 export interface AuthorizationDraftErrors {
   group?: string
   gasFirms?: string
+  certificateNumber?: string
+  validFrom?: string
+  validTo?: string
 }
 
 export interface ProjectFirmAuthorizationDraft {
@@ -48,6 +52,8 @@ export interface ProjectFirmAuthorizationDraft {
   /** TEK seçim (K-single): en fazla bir gaz dağıtım firması. */
   selectedGasFirmId: number | null
   certificateNumber: string
+  validFrom: string
+  validTo: string
   errors: AuthorizationDraftErrors
   /** Grup değişiminde işaretlerin temizlendiğini duyuran metin; okununca kalır. */
   clearedNotice: string | null
@@ -56,6 +62,8 @@ export interface ProjectFirmAuthorizationDraft {
   selectGasFirm: (gasDistributionFirmId: number) => void
   /** Görünen (süzülmüş) kayıtların tamamını işaretler veya işareti kaldırır. */
   setCertificateNumber: (value: string) => void
+  setValidFrom: (value: string) => void
+  setValidTo: (value: string) => void
   add: () => void
 }
 
@@ -80,6 +88,8 @@ export function useProjectFirmAuthorizationDraft({
   const [gasFirmSearch, setGasFirmSearch] = useState('')
   const [selectedGasFirmId, setSelectedGasFirmId] = useState<number | null>(null)
   const [certificateNumber, setCertificateNumber] = useState('')
+  const [validFrom, setValidFrom] = useState('')
+  const [validTo, setValidTo] = useState('')
   const [errors, setErrors] = useState<AuthorizationDraftErrors>({})
   const [clearedNotice, setClearedNotice] = useState<string | null>(null)
 
@@ -160,6 +170,10 @@ export function useProjectFirmAuthorizationDraft({
     if (group === undefined) nextErrors.group = AUTHORIZATION_ERRORS.group
     if (selectedGasFirms.length === 0) nextErrors.gasFirms = AUTHORIZATION_ERRORS.gasFirms
 
+    // Sertifika ve geçerlilik başlangıcı uçta ZORUNLU; boş gönderilirse kayıt
+    // 400 alır ve firma kaydedilmişken yetkilendirme sessizce düşerdi.
+    Object.assign(nextErrors, validateAuthorizationFields({ certificateNumber, validFrom, validTo }))
+
     const duplicates = findDuplicateGasFirms(authorizations, selectedGasFirms)
     if (duplicates.length > 0) nextErrors.gasFirms = buildDuplicateGasFirmMessage(duplicates)
 
@@ -174,6 +188,8 @@ export function useProjectFirmAuthorizationDraft({
         group,
         gasFirms: selectedGasFirms,
         certificateNumber,
+        validFrom,
+        validTo,
       }),
     )
 
@@ -182,8 +198,19 @@ export function useProjectFirmAuthorizationDraft({
     // grubun başka firmaları için ikinci bir kayıt ekliyor.
     setSelectedGasFirmId(null)
     setCertificateNumber('')
+    setValidFrom('')
+    setValidTo('')
     setClearedNotice(null)
-  }, [authorizations, certificateNumber, selectedGasFirmId, gasFirms, onAdd, selectedGroup])
+  }, [
+    authorizations,
+    certificateNumber,
+    validFrom,
+    validTo,
+    selectedGasFirmId,
+    gasFirms,
+    onAdd,
+    selectedGroup,
+  ])
 
   return {
     groups: groups ?? [],
@@ -194,9 +221,13 @@ export function useProjectFirmAuthorizationDraft({
     gasFirmSearch,
     selectedGasFirmId,
     certificateNumber,
+    validFrom,
+    validTo,
     errors,
     clearedNotice,
     setGroupId,
+    setValidFrom,
+    setValidTo,
     setGasFirmSearch,
     selectGasFirm,
     setCertificateNumber,

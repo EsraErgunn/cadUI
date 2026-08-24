@@ -143,18 +143,28 @@ describe('KK-3 — bölge seçimi', () => {
     expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
   })
 
-  // "Yeterlilik No" kalktı (K102): kayıtta sertifika no dışında numara yok ve
-  // sertifika zorunlu değil, yani bölge seçiliyse "Ekle" çalışır.
-  it('yeterlilik no diye bir alan yoktur ve yokluğu eklemeyi engellemez', async () => {
+  // "Yeterlilik No" kalktı (K102): kayıtta sertifika no dışında numara yok.
+  it('yeterlilik no diye bir alan yoktur', async () => {
+    openForm()
+    await selectGroup('AKSA')
+
+    expect(screen.queryByLabelText(/^Yeterlilik No/)).not.toBeInTheDocument()
+  })
+
+  /**
+   * Sertifika numarası ve geçerlilik başlangıcı uçta ZORUNLU
+   * (`ProjectFirmAuthorizationCreateDto`). Eksik satır gönderilseydi firma
+   * kaydedilmişken yetkilendirme 400 alıp sessizce düşerdi.
+   */
+  it('sertifika no ve geçerlilik başlangıcı boşken kayıt eklenmez', async () => {
     openForm()
     await selectGroup('AKSA')
     await userEvent.click(screen.getByRole('radio', { name: 'AKSA-GEMLİK' }))
-
-    expect(screen.queryByLabelText(/^Yeterlilik No/)).not.toBeInTheDocument()
-
     await userEvent.click(screen.getByRole('button', { name: 'Ekle' }))
 
-    expect(screen.queryByText('Henüz yetkilendirme eklenmedi.')).not.toBeInTheDocument()
+    expect(screen.getByText('Sertifika numarası zorunludur.')).toBeInTheDocument()
+    expect(screen.getByText('Geçerlilik başlangıcı zorunludur.')).toBeInTheDocument()
+    expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
   })
 })
 
@@ -166,7 +176,7 @@ describe('KK-4 — yetkilendirme ekleme', () => {
 
     expect(screen.getByText('1 yetkilendirme eklendi.')).toBeInTheDocument()
     // Sertifika bilgisi yalnız EKLENEN kayıtta yazıyor; "Yeterlilik No" kalktı (K102).
-    expect(screen.getByText(/AKSA · Sertifika No: -/)).toBeInTheDocument()
+    expect(screen.getByText(/AKSA · Sertifika No: ST-1/)).toBeInTheDocument()
 
     await userEvent.click(
       screen.getByRole('button', { name: 'AKSA-GEMLİK yetkilendirmesini kaldır' }),

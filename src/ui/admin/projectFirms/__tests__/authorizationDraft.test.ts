@@ -20,7 +20,9 @@ function buildDraft(gasFirms = [GEMLIK, ADANA]) {
   return {
     group: GROUP,
     gasFirms,
-    certificateNumber: '  ',
+    certificateNumber: 'ST-1',
+    validFrom: '2026-01-01',
+    validTo: '',
   }
 }
 
@@ -68,10 +70,21 @@ describe('buildProjectFirmAuthorizations (KK-4)', () => {
     })
   })
 
-  it('boş sertifika numarasını null yapar', () => {
+  it('sertifika numarasını kırpar', () => {
+    const [first] = buildProjectFirmAuthorizations({
+      ...buildDraft([GEMLIK]),
+      certificateNumber: '  ST-7  ',
+    })
+
+    expect(first.certificateNumber).toBe('ST-7')
+  })
+
+  /** Boş bitiş "süresiz" demek; uca `null` gider, boş dize değil. */
+  it('boş geçerlilik bitişini null yapar', () => {
     const [first] = buildProjectFirmAuthorizations(buildDraft([GEMLIK]))
 
-    expect(first.certificateNumber).toBeNull()
+    expect(first.validTo).toBeNull()
+    expect(first.validFrom).toBe('2026-01-01')
   })
 
   // "Yeterlilik No" kayıttan tümüyle kalktı (K102).
@@ -129,7 +142,9 @@ describe('toAuthorizationPayloads', () => {
     expect(toAuthorizationPayloads(list)).toEqual([
       {
         gasDistributionFirmId: GEMLIK.id,
-        certificateNumber: null,
+        certificateNumber: 'ST-1',
+        validFrom: '2026-01-01',
+        validTo: null,
       },
     ])
   })
