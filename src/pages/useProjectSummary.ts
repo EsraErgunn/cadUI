@@ -1,19 +1,33 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { getProjectDetail } from '../api/projectDetail'
+import {
+  getProjectDesignerName,
+  getProjectApproverName,
+  splitStreetDoorNo,
+} from './projectSummaryFields'
+import { getGasDistributionFirm } from '../api/adminFirmForm'
+import { getProjectDetail, getProjectHistory } from '../api/projectDetail'
+import { getProjectFirmAuthorizations } from '../api/projectFirmAuthorizations'
+import { getProjectFirm } from '../api/projectFirmForm'
 
 /**
  * Editörün ihtiyaç duyduğu proje künyesi — PDF kapağının veri kaynağı.
  *
- * Alanlar proje DETAY EKRANIYLA birebir aynı: kâğıda yazılan her değerin
- * kaynağı o ekranın gösterdiği kayıttır. PDF katmanı hiçbir değer türetmez.
+ * ⚠️ Kapakta artık MOCK ALAN YOK (K159): her değer ya gerçek bir uçtan ya
+ * çizimden geliyor. `ProjectDetail.extras` bu yoldan tümüyle çıktı — detay
+ * ekranı onu kullanmaya devam ediyor, kâğıt kullanmıyor.
  *
- * ⚠️ Alanların bir kısmı bugün `ProjectDetail.extras` altında ve o nesne
- * geliştirmede yer tutucu, üretimde `null` (K50/K51) — proje firması ve gaz
- * dağıtım kullanıcı ekranları sunucuya eklenmedi. Bu bir ara durum: uçlar
- * bağlanınca aynı alanlar gerçek değerleri taşıyacak, burada ya da kapakta
- * değişiklik gerekmeyecek. Bu yüzden bağlantı ŞİMDİDEN kurulu tutuluyor —
- * sökülüp sonra yeniden kurulması gereksiz iş olurdu.
+ * Beş kaynak birleşiyor:
+ * - `GET /api/projects/{id}` — ad, numara, adres, tip, adetler
+ * - `GET /api/project-firm-authorizations` — projenin firma KİMLİĞİ
+ * - `GET /api/projectfirms/{id}` — firma künyesi
+ * - `GET /api/gasdistributionfirms/{id}` — onay bloğundaki firma adı
+ * - `GET /api/projects/{id}/history` — tasarımcı ve onaylayan
+ *
+ * ⚠️ Firma kimliği araya bir istek SOKUYOR: canlı `GET /api/projects/{id}`
+ * yanıtı `projectFirmId` DÖNDÜRMÜYOR (OpenAPI örneğinde var, telde yok —
+ * ölçüldü), yalnız `projectFirmAuthorizationId` veriyor. Zincir bu yüzden üç
+ * halkalı: proje → yetki → firma.
  */
 export type ProjectSummary = {
   name: string
@@ -22,11 +36,8 @@ export type ProjectSummary = {
   building: {
     city: string
     district: string
-    neighborhood: string
-    streetDoorNo: string
     address: string
     blockLotParcel: string
-    installationNo: string
     projectType: string
     heatingType: string
     floorCount: string
@@ -34,23 +45,27 @@ export type ProjectSummary = {
     shopCount: string
     totalAreaSquareMeters: string
   }
-  designer: {
-    name: string
-    registrationNo: string
-    competencyNo: string
-  }
+  /**
+   * Projeyi oluşturan kişi; sistem yöneticisi oluşturmuşsa firma yetkilisi
+   * (bkz. `getProjectDesignerName`). Kayıt/yeterlilik numaraları YOK — ikisinin
+   * de sunucuda karşılığı bulunmadığı için kapaktan kaldırıldılar (K159).
+   */
+  designer: { name: string }
   firm: {
     title: string
     address: string
     phone: string
-    taxOffice: string
+    /** Vergi DAİRESİ yok: `GET /api/projectfirms/{id}` yalnız numarayı taşıyor. */
     taxNumber: string
   }
   approval: {
     gasFirmName: string
+    /** Projeyi ONAYLAYAN kişi (geçmişteki `projeOnay` satırı); yoksa boş. */
     approverName: string
+    /** Dağıtım şirketinin yetkilisi; kaşe kutusu onaylayan yoksa buna düşer. */
+    gasFirmContactPerson: string
   }
-  /** Vaziyet planındaki sokak/kapı bilgisi. */
+  /** Vaziyet planındaki sokak/kapı bilgisi; tam adresten ayrıştırılır. */
   streetName: string
   doorNumber: string
 }
@@ -61,11 +76,8 @@ const EMPTY_SUMMARY: ProjectSummary = {
   building: {
     city: '',
     district: '',
-    neighborhood: '',
-    streetDoorNo: '',
     address: '',
     blockLotParcel: '',
-    installationNo: '',
     projectType: '',
     heatingType: '',
     floorCount: '',
@@ -73,9 +85,9 @@ const EMPTY_SUMMARY: ProjectSummary = {
     shopCount: '',
     totalAreaSquareMeters: '',
   },
-  designer: { name: '', registrationNo: '', competencyNo: '' },
-  firm: { title: '', address: '', phone: '', taxOffice: '', taxNumber: '' },
-  approval: { gasFirmName: '', approverName: '' },
+  designer: { name: '' },
+  firm: { title: '', address: '', phone: '', taxNumber: '' },
+  approval: { gasFirmName: '', approverName: '', gasFirmContactPerson: '' },
   streetName: '',
   doorNumber: '',
 }
@@ -86,28 +98,15 @@ function toText(value: string | number | null | undefined): string {
 }
 
 /**
- * "1.YERLİ SOKAK No:66" gibi tek alanı sokak ve kapı numarasına ayırır.
- *
- * Sunucu ikisini AYRI tutmuyor (`streetDoorNo` tek dizge). Ayrıştırma "no"
- * kelimesine bakar; bulamazsa tamamı sokak adı sayılır — kapı numarasını
- * tahmin etmektense boş bırakmak doğru, vaziyet planında yanlış numara
- * yazmaktan iyidir.
- */
-export function splitStreetDoorNo(value: string): { streetName: string; doorNumber: string } {
-  const match = /^(.*?)[\s,]*no\s*[:.]?\s*(\S+)\s*$/i.exec(value)
-  if (!match) return { streetName: value.trim(), doorNumber: '' }
-
-  return { streetName: match[1].trim(), doorNumber: match[2].trim() }
-}
-
-/**
  * Künye proje DETAY ucundan çözülüyor (K63 deseni): rota
  * `/projects/:projectId/editor` olduğu için id her zaman elde, yani yer imiyle
  * ya da F5 ile girişte de çalışıyor. Çizim store'u proje adını/numarasını
  * taşımıyor — orada yalnız kaydedilecek JSON var (CLAUDE.md kural 4).
  *
  * Uç yanıt vermezse iş DURMAZ: PDF yine üretilir, proje numarası id'ye düşer.
- * Künye yüzünden dışa aktarmayı engellemek orantısız olurdu.
+ * Künye yüzünden dışa aktarmayı engellemek orantısız olurdu. Aynı gerekçe yan
+ * sorgular için de geçerli — firma ya da geçmiş gelmezse o satırlar boş kalır,
+ * kapak yine basılır.
  */
 export function useProjectSummary(projectId: number | undefined): ProjectSummary {
   const { data } = useQuery({
@@ -116,17 +115,41 @@ export function useProjectSummary(projectId: number | undefined): ProjectSummary
     enabled: projectId !== undefined,
   })
 
-  if (!data) {
+  const server = data?.server
+
+  const { data: history } = useQuery({
+    queryKey: ['project-summary-history', projectId],
+    queryFn: ({ signal }) => getProjectHistory(projectId ?? 0, signal),
+    enabled: projectId !== undefined,
+  })
+
+  const authorizationId = server?.projectFirmAuthorizationId ?? undefined
+  const { data: authorizations } = useQuery({
+    queryKey: ['project-summary-authorizations'],
+    queryFn: ({ signal }) => getProjectFirmAuthorizations({}, signal),
+    enabled: authorizationId !== undefined,
+  })
+
+  const projectFirmId = authorizations?.find((row) => row.id === authorizationId)?.projectFirmId
+  const { data: projectFirm } = useQuery({
+    queryKey: ['project-summary-firm', projectFirmId],
+    queryFn: ({ signal }) => getProjectFirm(projectFirmId ?? 0, { signal }),
+    enabled: projectFirmId !== undefined,
+  })
+
+  const gasFirmId = server?.gasDistributionFirmId ?? undefined
+  const { data: gasFirm } = useQuery({
+    queryKey: ['project-summary-gas-firm', gasFirmId],
+    queryFn: ({ signal }) => getGasDistributionFirm(gasFirmId ?? 0, signal),
+    enabled: gasFirmId !== undefined,
+  })
+
+  if (!server) {
     return { ...EMPTY_SUMMARY, number: projectId === undefined ? '' : String(projectId) }
   }
 
-  const { server, extras } = data
-  const streetDoorNo = toText(extras?.general.streetDoorNo)
-  // Sokak alanı boşsa adres satırına düşülüyor: vaziyet planı en azından bir
-  // sokak adı yazabilsin.
-  const { streetName, doorNumber } = splitStreetDoorNo(
-    streetDoorNo === '' ? toText(server.addressLine) : streetDoorNo,
-  )
+  const { streetName, doorNumber } = splitStreetDoorNo(toText(server.addressLine))
+  const historyRows = history?.data ?? []
 
   return {
     name: server.name,
@@ -134,33 +157,30 @@ export function useProjectSummary(projectId: number | undefined): ProjectSummary
     building: {
       city: toText(server.cityName),
       district: toText(server.districtName),
-      neighborhood: toText(extras?.general.neighborhood),
-      streetDoorNo,
       address: toText(server.addressLine),
       blockLotParcel: toText(server.blockLotParcel),
-      installationNo: toText(extras?.general.installationNo),
-      projectType: toText(extras?.general.projectType),
-      heatingType: toText(extras?.general.heatingType),
-      floorCount: toText(extras?.specs.floorCount),
-      residenceCount: toText(extras?.specs.residenceCount),
-      shopCount: toText(extras?.specs.shopCount),
-      totalAreaSquareMeters: toText(extras?.specs.totalAreaSquareMeters),
+      projectType: toText(server.projectTypeName),
+      heatingType: toText(server.heatingTypeName),
+      // Kat adedi uçta YOK; boş bırakılıyor ve kapak çizimdeki kat sayısına
+      // düşüyor (`buildCoverInfo`) — o da uydurma değil, kullanıcının çizdiği.
+      floorCount: '',
+      residenceCount: toText(server.apartmentCount),
+      shopCount: toText(server.workplaceCount),
+      totalAreaSquareMeters: toText(server.areaSquareMeters),
     },
     designer: {
-      name: toText(extras?.firm.engineerName),
-      registrationNo: toText(extras?.firm.engineerRegistrationNo),
-      competencyNo: toText(extras?.firm.competencyNo),
+      name: getProjectDesignerName(historyRows, projectFirm?.contactPerson ?? null),
     },
     firm: {
-      title: toText(extras?.firm.title),
-      address: toText(extras?.firm.address),
-      phone: toText(extras?.firm.phone),
-      taxOffice: toText(extras?.firm.taxOffice),
-      taxNumber: toText(extras?.firm.taxNumber),
+      title: toText(projectFirm?.title),
+      address: toText(projectFirm?.address),
+      phone: toText(projectFirm?.phone),
+      taxNumber: toText(projectFirm?.taxNumber),
     },
     approval: {
-      gasFirmName: toText(extras?.general.gasFirmName),
-      approverName: toText(extras?.approval.approverName),
+      gasFirmName: toText(gasFirm?.name),
+      approverName: getProjectApproverName(historyRows),
+      gasFirmContactPerson: toText(gasFirm?.contactPerson),
     },
     streetName,
     doorNumber,

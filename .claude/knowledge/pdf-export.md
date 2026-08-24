@@ -72,25 +72,73 @@ edilebilir dosya.
 ⚠️ **ANTET KALKTI.** `core/pdf/titleBlock.ts` SİLİNDİ — bu adla yeni kod yazma;
 künyeyi kapak sayfası taşıyor, kat planı sayfası yalnız çizim.
 
-⚠️ **Kapak, proje DETAY EKRANIYLA aynı kaynaktan beslenir** (`getProjectDetail`
-→ `server` + `extras`) ve etiketleri o ekranın adlarının aynısı. PDF katmanı
-hiçbir değer TÜRETMEZ. Tek istisna kat sayısı: uçtaki değer boşsa çizimdeki kat
-sayısına düşülür — o da uydurma değil, kullanıcının çizdiği katlar.
+⚠️ **Kapakta MOCK ALAN YOK** (K159): her değer ya gerçek bir uçtan ya çizimden.
+`ProjectDetail.extras` bu yoldan TÜMÜYLE çıktı — detay EKRANI onu kullanmaya
+devam ediyor, kâğıt kullanmıyor. Eskiden kapağın çoğu `extras`ten okunuyordu ve
+o nesne üretimde `null` olduğu için tasarımcı/firma/onay blokları BOŞ basılıyor,
+geliştirme çıktısı üretimden farklı çıkıyordu.
 
-⚠️ `extras` geliştirmede MOCK, üretimde `null` (K50/K51). Kapak üretimde o
-kutuları BOŞ basar. Detay ekranı aynı değerleri kesikli "mock" işaretiyle
-gösteriyor, KÂĞITTA öyle bir işaret yok — uçlar bağlanana kadar çıktıdaki bu
-alanlara güvenilmemeli.
+`useProjectSummary` DÖRT kaynağı birleştirir:
+
+| Uç | Verdiği |
+|---|---|
+| `GET /api/projects/{id}` | ad, numara, adres, proje/ısınma tipi, mesken/dükkân adedi, alan |
+| `GET /api/projectfirms/{id}` | firma ünvanı, vergi no, adres, telefon, yetkili |
+| `GET /api/gasdistributionfirms/{id}` | onay bloğundaki firma adı |
+| `GET /api/projects/{id}/history` | tasarımcı ve onaylayan |
+
+Firma sorguları projeden gelen kimliğe bağlı (`projectFirmId`,
+`gasDistributionFirmId`), bu yüzden zincirli.
+
+⚠️ **Tasarımcı adı GEÇMİŞTEN, oturumdaki kullanıcıdan DEĞİL.** "PDF'i kim
+alıyorsa onun adı" düşünüldü ve reddedildi: projeyi A çizip B bastırdığında
+kapakta B yazardı, aynı belge her basımda farklı isim taşırdı — üstelik kapakta
+İMZA satırı var. `projeKayit` satırı kim bastırırsa bastırsın aynı kalıyor;
+sunucuya `createdByUserId` eklemeye gerek kalmadı.
+
+⚠️ Sistem yöneticisi oluşturmuşsa adı BASILMAZ, firma yetkilisi yazılır: hesap
+bir kişi değil ("Sistem Yöneticisi") ve projenin tasarımcısı da değil.
+
+⚠️ Rol ayrımı METİN eşleştirmesi ve KIRILGAN — `OperationHistoryDto` yalnız
+`roleSnapshot` (serbest metin) taşıyor, `roleCode` taşımıyor. Bilinen iki değer
+listeli (`Admin`, `Yönetici`); uca `roleCode` eklenince `ROLE_CODES.admin`e
+geçilecek.
+
+⚠️ Onaylayan da geçmişten (`projeOnay`, EN GEÇ satır — yeniden onay olabilir);
+`GET /api/projects/{id}` onay bilgisi HİÇ döndürmüyor. Satır sırasına
+güvenilmez, `createdAt` karşılaştırılır. Ekranın "Bilinmeyen kullanıcı" yer
+tutucusu kâğıda GEÇMEZ.
+
+⚠️ Kapaktan KALKAN satırlar: `MAHALLESİ`, `SOKAK / KAPI NO`, `TESİSAT NO`
+(sunucuda karşılığı yok; adresin tamamı `ADRESİ` satırında), `MÜH. GDF KAYIT NO`
+(alan var ama KULLANICININ yetki kaydında, projeye bağlı değil), `YETER NO`
+(sunucudan kaldırılmış). `VERGİ D. / VERGİ NO` → `VERGİ NO`: proje firması
+gövdesinde `taxOffice` YOK, `joinTax` silindi. `ADI SOYADI` → `PROJE TASARIMCISI`.
+
+⚠️ `KAT ADEDİ` uçta yok ama boş kalmıyor: çizimdeki kat sayısına düşülür — o da
+uydurma değil, kullanıcının çizdiği katlar.
+
+⚠️ **Vaziyet planının sokak/kapı ayrıştırıcısı düzeltildi** (K159): artık TAM
+ADRESTEN türüyor ve eski desen orada bozuluyordu. Ölçüldü:
+`"...No 12 Bornova/İzmir"` kapı numarasını `"va/İzmir"` diye okuyordu, çünkü
+"Bornova" içindeki "no" hecesi eşleşiyordu. Üç düzeltme: `\b` kelime sınırı,
+ardından RAKAM zorunluluğu ("Nolu Sokak" tetiklemesin), sona SABİTLEMEYİ
+kaldırmak (numaradan sonra ilçe/il geliyor). "No" hiç yoksa kapı boş kalır —
+paftaya yanlış numara yazmaktansa boş bırakmak doğru.
 
 ## İzometrik şema sayfası
 
-Ekrandaki izometrikle AYNI çekirdek fonksiyonlardan: `buildIsometricScene`
-geometriyi, `projectIsometric` izdüşümü, `isometricLabels` etiket metnini,
-`layoutIsometricLabels` halka yerleşimini veriyor. Sayfa EN SONDA.
+Ekranla AYNI çekirdek fonksiyonlardan: `buildIsometricScene` geometriyi,
+`isometricLabels` etiket metnini veriyor. Sayfa EN SONDA.
 
-⚠️ Döndürülebilirlik PDF'e GEÇMEZ; sayfa tek açıda donmuş görüntüdür. Açı
-KULLANICININ EKRANDA BAKTIĞI açıdır (`isometricAngles`). Sabit bir açı basmak,
-elle ayrılmış binmeleri (`isometricOffsetCm`) geri getirirdi.
+⚠️ İzdüşüm ve etiket YERLEŞİMİ ekranla AYRI (K155/K156): kâğıt
+`getObliqueProjection` + `layoutLabelsBesideAnchors`, ekran kamera izdüşümü +
+`layoutIsometricLabels` (halka) kullanıyor.
+
+⚠️ Sayfa SABİT ve OBLİK bir izdüşümle basılır (K155): plan x yatay, plan y 30°
+eğik, kot dikey. Ekranın α/β açısını KULLANMAZ — eskiden kullanıyordu ve
+"Üstten" ön ayarında sayfa plan görünümüne çöküyordu. Ayrıntı:
+knowledge/isometric-view.md.
 
 ⚠️ Sayfa ÖLÇEKSİZ: izdüşümde uzunluklar kısalır, cetvelle ölçülemez. Gerçek boy
 etiketten okunur. Vaziyet planıyla aynı yoldan (`drawFittedSvg`) sığdırılıyor.
@@ -103,22 +151,23 @@ yazıdan okunuyor.
 `toSymbolTransform`ından tek farkı bu; çapa kaydırması ölçekten ÖNCE ve 1:1 cm.
 İlk sürümde semboller HİÇ çizilmemişti — sayfada yalnız boru ve yazı vardı.
 
-⚠️ **Etiket halkası kâğıt için daraltılıyor.** `layoutIsometricLabels` halkayı
-sahne boyutunun yarısı kadar dışarı koyuyor (`PAPER_RING_TIGHTNESS` bunu kısar)
-ve `getIsometricLabelDistanceCm` en az 240 cm dayatıyor (`PAPER_LABEL_PULL`
-bunu çeker). İkisi de ekranda doğru: yazı ekran-sabit boyutta, kamera
+⚠️ **Kâğıtta HALKA YERLEŞİMİ YOK** (K156): etiket kendi nesnesinin yanında
+(`layoutLabelsBesideAnchors`), kılavuz çizgisi istisna. `PAPER_RING_TIGHTNESS`,
+`PAPER_LABEL_PULL` ve `LABEL_SEPARATION_FACTOR` SİLİNDİ — bu adlarla kâğıt
+tarafında kod yazma. Ekran halkayı kullanmaya devam ediyor. Kâğıtta ayrıca
+yalnız KÜNYESİ olan elemanlar etiketlenir (sayaç, yakıcı cihaz, servis kutusu)
+ve semboller `PAPER_SYMBOL_SCALE` ile küçültülür (K157). ESKİ GEREKÇE, artık
+geçersiz: halka ekranda doğruydu çünkü yazı ekran-sabit boyutta ve kamera
 uzaklaşınca okunur kalıyor. Kâğıtta her şey BİRLİKTE küçüldüğü için aynı halka
 çizimi ortada minik bir leke yapıyordu (ölçüldü: 1500 cm'lik sahne 3883 cm'lik
 kutuya yayılıyordu).
 
-⚠️ Yalnız yarıçapı kısmak etiketleri ÜST ÜSTE bindirir (aynı açısal aralık daha
-küçük yayda demek) — ayırma payı aynı oranda BÜYÜTÜLÜYOR. Kullanıcının elle
-taşıdığı etiket çekilmez.
+⚠️ Kutu ölçüsü artık etiket BAŞINA hesaplanıyor. Halkadayken tek bir "en geniş
+etiket" payı yetiyordu (hepsi aynı çember üzerindeydi); yan yana dizilen
+kutularda dar bir etikete geniş pay vermek onu boş yere uzağa itiyor.
 
-⚠️ Ayırma payı satır YÜKSEKLİĞİNDEN hesaplanamaz: künyeler geniş
-("12000 kcal/h" tek satırda dört satır yüksekliği kadar yer kaplıyor). Pay EN
-GENİŞ etiketten geliyor; sınır kutusuna da yazı genişliği katılıyor, yoksa
-ortalanmış etiketin yarısı kırpılıyordu.
+⚠️ Kullanıcının elle taşıdığı etiket (`isometricLabelOffsetCm`) OLDUĞU YERDE
+kalır; otomatik yerleşim yalnız taşınmamışlar için çalışır.
 
 ⚠️ Tesisatı olmayan projede sayfa HİÇ basılmaz. (Kat planında durum farklı:
 orada boş sayfa "bu kat boş" bilgisini taşıyor.)
