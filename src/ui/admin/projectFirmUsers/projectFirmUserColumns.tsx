@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom'
 
-import { AuthorityTypeChip } from './AuthorityTypeChip'
 import type { ProjectFirmUserRow } from '../../../api/projectFirmUserDto'
 import { formatPhone, toNormalizedPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
 import {
-  gasFirmUpdatePath,
   projectFirmUpdatePath,
   projectFirmUserUpdatePath,
 } from '../adminNavItems'
@@ -42,16 +40,19 @@ function renderPhone(value: string | null) {
 }
 
 /**
- * Sütun sırası belge madde 6 / KK-8'den birebir. Sıralanabilir başlık YOK:
- * gereksinim sıralamadan söz etmiyor ve satırlar kullanıcıya göre gruplu
- * geliyor (KK-11) — başlığa tıklamak o gruplamayı bozardı.
+ * Sütun sırası belge madde 6 / KK-8'den. "Kullanıcı Tipi", "G.D. Firması" ve
+ * "Gdf Kayıt No" ÇIKARILDI: sunucudaki `User` kullanıcı başına tek proje
+ * firması tutuyor, yetki satırı kavramı (eski KK-11) şemada yok ve o üç alanın
+ * karşılığı hiç bulunmuyor. Satır artık kullanıcı başına tek.
+ *
+ * Sıralanabilir başlık YOK: gereksinim sıralamadan söz etmiyor.
  */
 export const PROJECT_FIRM_USER_COLUMNS: DataTableColumn<ProjectFirmUserRow>[] = [
   {
     key: 'username',
     label: 'Kullanıcı Adı',
     cell: (row) => (
-      <Link to={projectFirmUserUpdatePath(row.userId)} className={ADMIN_CELL_LINK}>
+      <Link to={projectFirmUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
         {row.username}
       </Link>
     ),
@@ -60,7 +61,7 @@ export const PROJECT_FIRM_USER_COLUMNS: DataTableColumn<ProjectFirmUserRow>[] = 
     key: 'fullName',
     label: 'Adı Soyadı',
     cell: (row) => (
-      <Link to={projectFirmUserUpdatePath(row.userId)} className={ADMIN_CELL_LINK}>
+      <Link to={projectFirmUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
         {row.fullName}
       </Link>
     ),
@@ -81,35 +82,16 @@ export const PROJECT_FIRM_USER_COLUMNS: DataTableColumn<ProjectFirmUserRow>[] = 
     cell: (row) => renderPhone(row.phone),
   },
   {
-    key: 'authorityType',
-    label: 'Kullanıcı Tipi',
-    cell: (row) => <AuthorityTypeChip value={row.authorityType} />,
-  },
-  {
-    key: 'gasFirm',
-    label: 'G.D. Firması',
-    cell: (row) => (
-      <Link to={gasFirmUpdatePath(row.gasFirm.id)} className={ADMIN_CELL_LINK}>
-        {row.gasFirm.name}
-      </Link>
-    ),
-  },
-  {
     key: 'projectFirm',
     label: 'Proje Firması',
-    cell: (row) => (
-      <Link to={projectFirmUpdatePath(row.projectFirm.id)} className={ADMIN_CELL_LINK}>
-        {row.projectFirm.name}
-      </Link>
-    ),
-  },
-  {
-    key: 'gdfRegistrationNumber',
-    label: 'Gdf Kayıt No',
-    cellClassName: 'tabular-nums',
+    // Firma bağı opsiyonel: kimliksiz kayıtta bağlantı kurulmaz, boş işareti çizilir.
     cell: (row) =>
-      row.gdfRegistrationNumber === null || row.gdfRegistrationNumber === ''
-        ? renderMissingValue()
-        : row.gdfRegistrationNumber,
+      row.projectFirm === null ? (
+        renderMissingValue()
+      ) : (
+        <Link to={projectFirmUpdatePath(row.projectFirm.id)} className={ADMIN_CELL_LINK}>
+          {row.projectFirm.name}
+        </Link>
+      ),
   },
 ]

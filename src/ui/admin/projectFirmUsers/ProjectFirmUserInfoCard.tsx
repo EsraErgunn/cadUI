@@ -6,6 +6,7 @@ import { PHONE_PLACEHOLDER } from '../../../core/phone'
 import { FormCard } from '../form/FormCard'
 import { PasswordField } from '../form/PasswordField'
 import { PhoneField } from '../form/PhoneField'
+import { SelectField } from '../form/SelectField'
 import { TextField } from '../form/TextField'
 
 const SECTION_TITLE = 'Kullanıcı Bilgileri'
@@ -18,17 +19,35 @@ const PASSWORD_UPDATE_HINT = 'Boş bırakılırsa şifre değişmez.'
 
 interface ProjectFirmUserInfoCardProps {
   form: ProjectFirmUserForm
+  /** Proje firması seçenekleri (`GET /api/projectfirms`). */
+  projectFirms: { id: number; name: string }[]
 }
 
 /**
  * Ekranın birinci bölümü. Alanlar mockup'taki gibi yatay: etiket solda,
  * girdi sağda.
  */
-export function ProjectFirmUserInfoCard({ form }: ProjectFirmUserInfoCardProps) {
+export function ProjectFirmUserInfoCard({
+  form,
+  projectFirms,
+}: ProjectFirmUserInfoCardProps) {
   const { values, errors, isUpdate, setValue } = form
 
   return (
     <FormCard title={SECTION_TITLE} icon={User}>
+      {/* Kullanıcı SUNUCUDA tek bir proje firmasına bağlı (`User.ProjectFirmId`);
+          firmasız kayıt hiçbir projeyi göremez, o yüzden zorunlu. */}
+      <SelectField
+        id={projectFirmUserFieldId('projectFirmId')}
+        label="Proje Firması"
+        value={values.projectFirmId}
+        options={projectFirms.map((firm) => ({ value: String(firm.id), label: firm.name }))}
+        placeholder="Seçiniz"
+        isDisabled={projectFirms.length === 0}
+        error={errors.projectFirmId}
+        onChange={(value) => setValue('projectFirmId', value)}
+      />
+
       <TextField
         id={projectFirmUserFieldId('email')}
         label="Email"

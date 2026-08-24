@@ -1,35 +1,17 @@
-/**
- * Proje firması kullanıcılarının ARAYÜZ tipleri.
- *
- * `gasFirmDto`/`projectFirmDto`'nun aksine burada zod şeması YOK: bu ekranın
- * hiçbir ucu sunucuda yok (bkz. unimplementedEndpoints.ts), yani doğrulanacak
- * bir sunucu gövdesi de yok. Uydurma bir şema yazmak, olmayan bir sözleşmeyi
- * varmış gibi göstermek olurdu. Uç açıldığında DTO şeması ve `to…Item` eşlemesi
- * bu dosyaya eklenecek; ekranın kullandığı tipler aynı kalacak.
- *
- * Beklenen sözleşme taslağı: docs/api-eksikleri-kullanicilar.md
- */
+import { z } from 'zod'
 
 /**
- * Belgedeki "Yetki" değerleri. Bunlar `Role.Code` DEĞİL: rol modeli üç kodla
- * kesinleşti ve kullanıcı başına tek rol var (knowledge/access-control.md),
- * oysa yetki KULLANICI başına değil YETKİ SATIRI başına değişiyor — aynı
- * kullanıcı bir firmada mühendis, diğerinde yetkili olabiliyor (KK-11).
- * Bu yüzden yetki, satırın bir alanıdır; kullanıcının rolü her zaman
- * `ROLE_CODES.projectFirmUser`.
+ * Proje firması kullanıcılarının ARAYÜZ tipleri ve `GET /api/users` şeması.
+ *
+ * **Ayrı bir "proje firması kullanıcısı" ucu YOK.** Ekran genel kullanıcı
+ * uçlarını proje firması bağlamıyla kullanıyor: liste `RoleCode` süzgeciyle,
+ * oluşturma `POST /api/auth/register` ile, güncelleme `PUT /api/users/{id}` ile.
+ *
+ * **"Kullanıcı Tipi" ve "Gdf Kayıt No" KALKTI.** Sunucudaki `User` kullanıcı
+ * başına TEK `ProjectFirmId` tutuyor; "aynı kullanıcı bir firmada mühendis,
+ * diğerinde yetkili" (eski KK-11) şemada ifade edilemiyor ve o iki alanın
+ * karşılığı hiç yok. Liste artık KULLANICI başına tek satır.
  */
-export const AUTHORITY_TYPES = ['firmEngineer', 'firmAuthorizedPerson'] as const
-
-export type AuthorityType = (typeof AUTHORITY_TYPES)[number]
-
-export const AUTHORITY_TYPE_LABELS: Record<AuthorityType, string> = {
-  firmEngineer: 'Firma Mühendisi',
-  firmAuthorizedPerson: 'Firma Yetkilisi',
-}
-
-export function parseAuthorityType(raw: string | null): AuthorityType | null {
-  return AUTHORITY_TYPES.find((type) => type === raw) ?? null
-}
 
 /** Satırdaki tıklanabilir firma bağı (KK-10). */
 export interface FirmReference {
@@ -37,34 +19,16 @@ export interface FirmReference {
   name: string
 }
 
-/**
- * Listenin BİR SATIRI = bir yetki kaydı, bir kullanıcı değil (KK-11).
- * Kullanıcı bilgileri her satırda yinelenir; toplam adet ve sayfalama satır
- * sayısı üzerinden hesaplanır.
- */
+/** Listenin bir satırı = bir KULLANICI. */
 export interface ProjectFirmUserRow {
-  /** Satır kimliği — React key ve sayfalama bunu kullanır (indeks değil). */
-  competencyId: number
-  /** Aynı kullanıcının satırları bu kimliği paylaşır; güncelleme ekranı buna gider. */
-  userId: number
+  id: number
   username: string
   fullName: string
   email: string
   /** Kayıtta bulunan HAM metin; maske gösterimde kurulur (KK-9). */
   phone: string | null
-  authorityType: AuthorityType
-  gasFirm: FirmReference
-  projectFirm: FirmReference
-  gdfRegistrationNumber: string | null
-}
-
-/** Formdaki bir yetki satırı. */
-export interface ProjectFirmUserCompetency {
-  id: number
-  gasFirm: FirmReference
-  projectFirm: FirmReference
-  authorityType: AuthorityType
-  gdfRegistrationNumber: string | null
+  /** Kullanıcının bağlı olduğu proje firması; sunucuda opsiyonel. */
+  projectFirm: FirmReference | null
 }
 
 /** Güncelleme ekranını dolduran kayıt (KK-25). */
@@ -74,24 +38,28 @@ export interface ProjectFirmUserDetail {
   username: string
   email: string
   phone: string | null
-  competencies: ProjectFirmUserCompetency[]
+  projectFirmId: number | null
 }
 
 /**
- * Liste sorgusu. Sayfalama SUNUCU tarafında: mock da bu sözleşmeyi taklit
- * ediyor, böylece uç geldiğinde sayfa ve tablo koduna dokunulmayacak.
+ * Liste sorgusu. Sayfalama ve sıralama SUNUCUDA.
+ *
+ * ARAMA YOK: `UserListQueryDto` bir arama parametresi almıyor ve sayfalı bir
+ * listede istemci tarafı arama yalnız GÖRÜNEN sayfayı süzeceği için yanlış
+ * sonuç verirdi (`totalCount` süzülmemiş kalır). Kutu bu yüzden ekrandan
+ * kaldırıldı.
  */
 export interface ProjectFirmUserQuery {
-  /** Kullanıcı adı, ad soyad ve e-posta üzerinde içerik bazlı arama (KK-5). */
-  nameQuery: string
-  /** `null` = "Tümü" (KK-2). */
-  authorityType: AuthorityType | null
   /**
-   * Üst bardaki KAPSAM, gaz dağıtım firması kimliklerine açılmış hâliyle;
-   * `null` = sistem geneli (daraltma yok). Dizi (küme değil): sorgu react-query
-   * anahtarının parçası ve `Set` kararlı biçimde serileşmiyor.
+   * Üst bardaki kapsam GRUP firmasıysa onun kimliği. Uç bunu proje firmasının
+   * YETKİLERİ üzerinden çözüyor, yani bu ekranda doğru çalışıyor.
+   *
+   * Kapsam TEK bir gaz dağıtım firmasıysa gönderilecek bir parametre YOK:
+   * `GasDistributionFirmId` yalnız `User.GasDistributionFirmId`'ye bakıyor ve
+   * proje firması kullanıcısında o alan boş — göndermek listeyi boşaltırdı.
+   * O durumda liste daraltılmadan gösteriliyor.
    */
-  gasFirmIds: number[] | null
+  gasFirmGroupId: number | null
   page: number
   pageSize: number
 }
@@ -99,15 +67,8 @@ export interface ProjectFirmUserQuery {
 /**
  * Oluşturma/güncelleme gövdesi.
  *
- * `password` güncellemede boş gelebilir: boşsa şifre DEĞİŞMEZ (KK-25). Bu ayrım
- * `null` ile taşınıyor, boş dizeyle değil — boş dize "şifreyi sil" gibi
- * okunabilirdi.
- *
- * KULLANICI düzeyinde `isActive` YOK: alan formdan kalktı.
- *
- * Yetki satırları da gövdede YOK: "Kullanıcı Yetkinlikleri" bölümü formdan
- * kaldırıldı ve sunucuda o satırları yazan bir uç zaten yok — gövdede boş bir
- * alan bırakmak, olmayan bir sözleşmeyi varmış gibi gösterirdi.
+ * `password` güncellemede `null` gelir: `PUT /api/users/{id}` şifre alanı
+ * TAŞIMIYOR, şifre değiştirme ayrı uçta (`POST /api/users/{id}/reset-password`).
  */
 export interface ProjectFirmUserPayload {
   fullName: string
@@ -116,4 +77,41 @@ export interface ProjectFirmUserPayload {
   /** HAM rakamlar ("05551234567") ya da girilmediyse `null`. */
   phone: string | null
   password: string | null
+  /** Kullanıcının bağlanacağı proje firması. */
+  projectFirmId: number | null
+}
+
+/** `GET /api/users` satırı. Alanlar sunucuda boş dize dönebiliyor. */
+export const userListItemSchema = z.object({
+  id: z.number().int().positive(),
+  fullName: z.string(),
+  email: z.string(),
+  username: z.string(),
+  phone: z.string().nullish(),
+  roleCode: z.string(),
+  projectFirmId: z.number().int().nullish(),
+  projectFirmName: z.string().nullish(),
+})
+
+export type UserListItemDto = z.infer<typeof userListItemSchema>
+
+function toNullable(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed === undefined || trimmed === '' ? null : trimmed
+}
+
+export function toProjectFirmUserRow(dto: UserListItemDto): ProjectFirmUserRow {
+  const firmName = toNullable(dto.projectFirmName)
+
+  return {
+    id: dto.id,
+    username: dto.username,
+    fullName: dto.fullName,
+    email: dto.email,
+    phone: toNullable(dto.phone),
+    // Kimlik gelmiyorsa bağ kurulmaz ama ad yine gösterilir; adı atmak
+    // sunucunun GERÇEKTEN döndürdüğü veriyi saklamak olurdu.
+    projectFirm:
+      firmName === null ? null : { id: dto.projectFirmId ?? 0, name: firmName },
+  }
 }
