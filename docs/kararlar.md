@@ -8123,3 +8123,43 @@ karar aracın hook'unda (kural 7).
 ⚠️ Tarayıcıda doğrulanamadı: elimizdeki proje boş, çift tıklanacak duvar yok.
 Mantık 15 store testiyle kapalı (bölme, birleştirme, dört ret kuralı, açıklık
 taşıma, kirlilik sayacı) ama JESTİN kendisi kullanıcı gözüyle denenmeli.
+
+### K162 — Köşe sürüklemede 180° yakalaması
+
+K161'in payını (3°) açtıktan sonra kullanıcı yine bildirdi: "açımız her
+noktada 180'e güzel bir şekilde snaplenmeli... normal taşırken 180 snapi her
+noktada çalışmıyor, özellikle EĞİK duvarlarda baya sorunlu."
+
+Pay birleştirmeyi kurtarıyordu ama SÜRÜKLEME hâlâ yardımsızdı. Sebep yakalama
+zincirindeydi: nokta → duvar noktası → duvar kenarı → **ızgara**. Eğik bir
+duvarda ızgara noktaları duvarın doğrultusuyla HİÇBİR ZAMAN çakışmıyor, yani
+köşeyi geri düzleştirmeye çalışan kullanıcıyı ızgara sürekli doğrunun dışına
+çekiyordu. Eksen hizalı duvarlarda tesadüfen çakıştığı için sorun orada
+görünmüyordu — kullanıcının "özellikle eğik duvarlarda" demesinin sebebi bu.
+
+**Yeni yakalama türü: `collinear`.** Sürüklenen köşe, İKİ komşusundan geçen
+doğruya yapışıyor. Eksen hizalaması DEĞİL, doğru izdüşümü — bu yüzden eğik
+duvarlarda da çalışıyor.
+
+⚠️ Zincirdeki yeri: gerçek köşeden SONRA, ötekilerden ÖNCE. Var olan bir
+köşeye kaynamak düzleştirmekten önemli (aynı yerde ikinci `Point` doğarsa graf
+kopar, K24); ama ızgara ve komşu duvar kenarı 180°'nin önüne geçmemeli.
+
+⚠️ Yalnız komşuların ARASINA düşen izdüşüm kabul edilir (0 < t < 1). Doğru
+üzerinde ama dışarıda kalan noktada açı 180° değil 0°'dir: iki kol aynı yöne
+katlanır. Orada yakalamak, kullanıcıyı düzleştirdiğini sanırken duvarı
+katlamış hâle getirirdi.
+
+⚠️ Kılavuz yalnız TAM İKİ duvarlı köşede üretilir (`getCollinearGuide`). Üç
+duvarlı köşede "doğrusal" diye bir şey yok — hangi ikisinin hizalanacağı
+belirsiz olurdu ve seçilen ikisi hizalanırken üçüncüsü rastgele bir açıya
+düşerdi. Duvarın ucunda da anlamsız: hizalanacak ikinci kol yok.
+
+⚠️ CTRL yakalamayı kapatınca 180° de kapanır: kullanıcı o tuşa "hiçbir şeye
+yapışma, tam istediğim yere koy" demek için basıyor. Kılavuz o durumda hiç
+gönderilmiyor, yani `core/snap.ts` bir tuş bilmiyor.
+
+⚠️ K161'in 3°'lik payı KALDI ve gereksiz değil: yakalama tolerans dışında
+kalan (uzağa sürüklenmiş) bir köşede çalışmıyor, kullanıcı da her zaman
+yakalamaya güvenmek zorunda değil. İkisi birbirinin yerine geçmiyor — biri
+sürüklemeyi kolaylaştırıyor, öteki birleştirmeyi bağışlayıcı yapıyor.
