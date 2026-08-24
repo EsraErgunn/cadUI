@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { listInsuranceCompanies, listPolicyAgencies } from '../api/policies'
-import { getProjectSummary, type ProjectSummary } from '../api/projectDetail'
+import { getProjectSummary, getProjectUnits, type ProjectSummary } from '../api/projectDetail'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
@@ -66,6 +66,27 @@ export function NewPolicyPage() {
 
   // Künye GERÇEK uçtan (K63): mock tohumundan okunsaydı sunucudaki proje ya
   // bulunamaz ya başka bir projenin adıyla açılırdı.
+  // Poliçe sunucuda BİRİME bağlanıyor; seçim kutusunun kaynağı proje detayının
+  // kullandığı uç — anahtar ORTAK, iki ekran arasında ikinci istek çıkmıyor.
+  const unitsQuery = useQuery({
+    queryKey: ['projectUnits', projectId],
+    queryFn: ({ signal }) => getProjectUnits(projectId ?? 0, signal),
+    enabled: projectId !== undefined,
+  })
+
+  const unitOptions = useMemo(() => {
+    if (unitsQuery.data === undefined || unitsQuery.data.source === 'unavailable') return []
+
+    return unitsQuery.data.data.map((unit) => ({
+      id: unit.id,
+      // Birim numarası boş olabiliyor (çizimden senkron); abone adı ayırt
+      // etmeye yardım ediyor, ikisi de yoksa kimlik yazılıyor.
+      label:
+        [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||
+        `#${unit.id}`,
+    }))
+  }, [unitsQuery.data])
+
   const projectQuery = useQuery({
     queryKey: ['projectSummary', projectId],
     queryFn: ({ signal }) => getProjectSummary(projectId ?? 0, signal),
@@ -174,6 +195,8 @@ export function NewPolicyPage() {
           <PolicyInfoStep
             values={values}
             errors={wizard.errors}
+            units={unitOptions}
+            areUnitsPending={unitsQuery.isPending}
             onChange={wizard.setValue}
             onAmountChange={wizard.setAmountText}
             onAmountBlur={wizard.formatAmount}
@@ -181,7 +204,7 @@ export function NewPolicyPage() {
         )}
 
         {wizard.step === 'summary' && (
-          <PolicySummaryStep values={values} companies={companyRows} />
+          <PolicySummaryStep values={values} companies={companyRows} units={unitOptions} />
         )}
 
         {wizard.step === 'done' && <PolicyDoneStep />}

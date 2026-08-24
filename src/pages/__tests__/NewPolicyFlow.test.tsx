@@ -127,6 +127,7 @@ describe('Poliçe bilgileri adımı', () => {
     addMockPolicy({
       projectId: PROJECT_ID,
       method: 'manual',
+      projectUnitId: 1,
       insuranceCompanyId: 1,
       agencyId: 1,
       policyNumber: POLICY_NUMBER,

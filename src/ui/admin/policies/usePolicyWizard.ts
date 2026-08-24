@@ -29,6 +29,7 @@ const FIELD_STEPS: Record<PolicyField, PolicyStep> = {
   method: 'method',
   insuranceCompanyId: 'firm',
   agencyId: 'firm',
+  projectUnitId: 'info',
   policyNumber: 'info',
   amountText: 'info',
   startDate: 'info',
