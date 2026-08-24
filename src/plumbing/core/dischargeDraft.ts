@@ -26,6 +26,18 @@ export function startDischargeDraft(
   return { kind, start, points: [start.position] }
 }
 
+/**
+ * Ağzı yeni bir çözüme taşır — yalnız İLK köşe henüz bırakılmamışken anlamlı:
+ * kanalın başlangıcı ağzın konumudur, sonrası kullanıcının köşeleridir.
+ */
+export function reseatDischargeStart(
+  draft: DischargeDraft,
+  start: DischargeStart,
+): DischargeDraft {
+  if (draft.points.length > 1) return draft
+  return { ...draft, start, points: [start.position] }
+}
+
 export function appendDischargePoint(draft: DischargeDraft, point: PlanPoint): DischargeDraft {
   return { ...draft, points: [...draft.points, point] }
 }

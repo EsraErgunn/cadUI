@@ -35,6 +35,10 @@ function getEndPointId(line: InstallationLine, end: LineEnd): Id | undefined {
  *
  * Kolon devamı (`floorPipeLinks`) uç saymaz: hat üst/alt kata geçiyor, orada
  * sonlanıyor. Deşarj hatları (baca, havalandırma) gaz taşımaz, kapsam dışı.
+ * BRANŞMAN KOLU (`branchStub`) da kapsam dışı (kullanıcı isteği, 2026-08):
+ * kolun yer seviyesindeki ucu bir bağlantı noktası değil, kimse oraya bir şey
+ * takmaz — zaten yerleştirme tarafında da hedef sayılmıyor
+ * (`placementResolution.readFloorLines`).
  *
  * Ucunda KESME VANASI olan hat da serbest değildir (kullanıcı isteği, 2026-08):
  * vana orayı kapatır, gaz çıkışı yoktur. Vanadan yeni bir boru çıkarsa o nokta
@@ -75,6 +79,7 @@ export function validateGasNetwork(source: ValidationSource, floor: Floor): Vali
 
   for (const line of source.installationLines) {
     if (line.floorId !== floor.id || !isGasCarryingKind(line.kind)) continue
+    if (line.kind === 'branchStub') continue
 
     for (const end of LINE_ENDS) {
       const pointId = getEndPointId(line, end)

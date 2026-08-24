@@ -23,6 +23,7 @@ import {
   type NearestLineAttachment,
   type OnLineAttachment,
   type VerticalLineEndAttachment,
+  type DropAttachment,
   type EndNodeAttachment,
 } from '../core/elementAttach'
 import { getTargetElementId } from '../core/installationModel'
@@ -51,12 +52,14 @@ import type {
 } from '../core/lineProperties'
 import { findCollapsiblePassThroughIndex } from '../core/lineSimplify'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
+import { collectWeldConnections } from '../core/lineWeld'
 import { resolveMoveTargets } from '../core/moveTargets'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
 import { DEFAULT_ELEMENT_ANGLE_DEG, DEFAULT_ELEMENT_SCALE } from '../core/placement'
-import { isPortOccupied } from '../core/portSnap'
+import { isLineEndConnected, isPortOccupied, type LineEndDropTarget } from '../core/portSnap'
 import { resolvePipeResizeShift } from '../core/resizeTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
+import { planVerticalRemoval } from '../core/verticalRemoval'
 
 export type AddElementInput = {
   type: InstallationElementType
@@ -122,7 +125,13 @@ export type PlumbingSlice = {
    * elemanlar (sayaç, cihaz) hat seçili olmasa bile GERİDE KALMASIN diye
    * otomatik eklenir (K-W3/K-W).
    */
-  moveElements: (elementIds: readonly Id[], lineIds: readonly Id[], deltaCm: PlanPoint) => void
+  moveElements: (
+    elementIds: readonly Id[],
+    lineIds: readonly Id[],
+    deltaCm: PlanPoint,
+    /** Taşınan uç bir gözün/armatürün üstüne oturduysa bağ da aynı adımda yazılır. */
+    dropTargets?: readonly { lineId: Id; pointId: Id; target: LineEndDropTarget }[],
+  ) => void
   /**
    * Boruya oturan (`onLine`) elemanı KAYDIRIR: düğüm + eleman konumu MUTLAK
    * yazılır (kayma değil) — bkz. `core/elementAttach.ts` → `resolveOnLineSlide`.
@@ -144,7 +153,13 @@ export type PlumbingSlice = {
    * eklenen boru köşe taşınınca eski yerinde asılı kalıp KOPARDI. Köşede
    * oturan bir armatür (`inlineElementId`) varsa o da birlikte gelir.
    */
-  moveLinePoint: (lineId: Id, pointId: Id, position: PlanPoint) => void
+  moveLinePoint: (
+    lineId: Id,
+    pointId: Id,
+    position: PlanPoint,
+    /** Uç bir elemanın gözüne ya da bir armatürün merkezine bırakıldıysa bağ da yazılır. */
+    dropTarget?: LineEndDropTarget | null,
+  ) => void
   /**
    * Özellik panelindeki "Boy (cm)" alanına yazılan hedefe göre boru ucunu
    * TAŞIR ve bitiş kotunu (K102) TEK adımda günceller — `moveLinePoint` +
@@ -163,6 +178,8 @@ export type PlumbingSlice = {
   placeElementAtLineEnd: (attachment: FreeEndAttachment) => Id | null
   /** Bir borunun UÇ düğümüne oturan armatür — boru bölünmez, kot düğümden gelir. */
   placeElementAtEndNode: (attachment: EndNodeAttachment) => Id | null
+  /** Sürüklenip bırakılan MEVCUT elemanı açık bir boru ucuna bağlar (yeni eleman/boru YOK). */
+  attachDroppedElement: (elementId: Id, attachment: DropAttachment) => void
   /** Kolonun uç düğümüne vana + hemen yanına eleman; arada boru YOK. Eleman id'si döner. */
   placeElementAtVerticalLineEnd: (attachment: VerticalLineEndAttachment) => Id | null
   /** Cihaz + en yakın boruya kısa kol + kolun dibindeki vana — hepsi tek adım. */
@@ -361,6 +378,66 @@ export const createPlumbingSlice: StateCreator<
    * birlikte gider: armatür bir düğümdür, düğümü kalmayınca çizimde tutunacak
    * yeri kalmaz ve sahipsiz bir sembol olarak asılı kalırdı.
    */
+  /** Noktanın hattaki ucu; zincir ortasındaki köşe için null. */
+  const getMovedLineEnd = (
+    line: InstallationLine | undefined,
+    pointId: Id,
+  ): 'start' | 'end' | null => {
+    if (!line) return null
+    if (line.points[0]?.id === pointId) return 'start'
+    if (line.points.at(-1)?.id === pointId) return 'end'
+    return null
+  }
+
+  /**
+   * Bırakılan hat ucunun bağını yazar: elemanın gözüne PORT bağlantısı, akış
+   * geçişli armatüre ise DÜĞÜM (armatür ucun üstüne oturur — vananın tek
+   * bağlantı noktası merkezidir).
+   */
+  const applyLineEndDropTarget = (
+    draft: CadState,
+    line: InstallationLine,
+    pointId: Id,
+    target: LineEndDropTarget,
+  ) => {
+    const end = getMovedLineEnd(line, pointId)
+    if (end === null) return
+
+    if (target.kind === 'inline') {
+      const point = line.points.find((candidate) => candidate.id === pointId)
+      // Bir düğüm TEK armatür taşır; armatür de tek düğümde oturur.
+      if (!point || point.inlineElementId !== undefined) return
+      const isSeated = draft.installationLines.some((candidate) =>
+        candidate.points.some((other) => other.inlineElementId === target.elementId),
+      )
+      if (isSeated) return
+      point.inlineElementId = target.elementId
+      return
+    }
+
+    if (isLineEndConnected(draft.installationConnections, line.id, end)) return
+    if (isPortOccupied(draft.installationConnections, target.elementId, target.portId)) return
+
+    draft.installationConnections.push({
+      lineId: line.id,
+      end,
+      target: { kind: 'port', elementId: target.elementId, portId: target.portId },
+    })
+  }
+
+  /** Hattın kotunu (boru iki uçlu, branşman tek değerli) verilen kadar öteler. */
+  const shiftLineElevation = (draft: CadState, lineId: Id, shiftCm: number) => {
+    if (shiftCm === 0) return
+    const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+    if (!line) return
+
+    if (line.pipe) {
+      line.pipe.startHeightCm += shiftCm
+      line.pipe.endHeightCm += shiftCm
+    }
+    if (line.branch) line.branch.elevationCm += shiftCm
+  }
+
   const applyRemoval = (elementIds: readonly Id[], lineIds: readonly Id[]) => {
     let isRemoved = false
 
@@ -410,8 +487,49 @@ export const createPlumbingSlice: StateCreator<
         return
       }
 
-      // Silinen hattın noktalarından biri bir kat bağlantısının ucuysa o
-      // bağlantı da gider — karşı taraf dursa bile artık eşleşecek bir uç kalmaz.
+      // Silinen DİKEY boru ağı ikiye bölmesin (kullanıcı kararı, 2026-08):
+      // aynı kattaki üst taraf silinen yükselti kadar aşağı kayar, ÜST KATTAKİ
+      // ağ olduğu gibi alt kata iner, çakışan uçlar kaynaklanır ve kalan kat
+      // bağlantısı sağ kalan uca taşınır.
+      const verticalPlan = planVerticalRemoval(
+        draft.installationLines,
+        draft.installationConnections,
+        draft.installationElements,
+        draft.floorPipeLinks,
+        allLineIds,
+      )
+      for (const shift of verticalPlan.shifts) {
+        shiftLineElevation(draft, shift.lineId, shift.shiftCm)
+      }
+      for (const move of verticalPlan.floorMoves) {
+        for (const lineId of move.lineIds) {
+          const moved = draft.installationLines.find((line) => line.id === lineId)
+          if (!moved) continue
+          moved.floorId = move.toFloorId
+          shiftLineElevation(draft, lineId, move.shiftCm)
+        }
+        for (const elementId of move.elementIds) {
+          const moved = draft.installationElements.find((element) => element.id === elementId)
+          if (moved) moved.floorId = move.toFloorId
+        }
+        for (const update of move.linkFloorUpdates) {
+          const link = draft.floorPipeLinks.find((candidate) => candidate.id === update.linkId)
+          if (!link) continue
+          if (update.side === 'below') link.belowFloorId = update.floorId
+          else link.aboveFloorId = update.floorId
+        }
+      }
+      for (const repoint of verticalPlan.linkRepoints) {
+        const link = draft.floorPipeLinks.find((candidate) => candidate.id === repoint.linkId)
+        if (!link) continue
+        if (repoint.side === 'below') link.belowPointId = repoint.pointId
+        else link.abovePointId = repoint.pointId
+      }
+      draft.installationConnections.push(...verticalPlan.welds)
+
+      // Silinen hattın noktalarından biri hâlâ bir kat bağlantısının ucuysa
+      // (taşınacak komşu bulunamadı) o bağlantı gider — karşı taraf dursa bile
+      // artık eşleşecek bir uç kalmaz.
       const removedPointIds = new Set(
         removedLines.flatMap((line) => line.points.map((point) => point.id)),
       )
@@ -671,7 +789,7 @@ export const createPlumbingSlice: StateCreator<
 
     removeSelection: (elementIds, lineIds) => applyRemoval(elementIds, lineIds),
 
-    moveElements: (elementIds, lineIds, deltaCm) => {
+    moveElements: (elementIds, lineIds, deltaCm, dropTargets = []) => {
       let isMoved = false
       const shift = (point: PlanPoint): PlanPoint => ({
         x: point.x + deltaCm.x,
@@ -705,6 +823,14 @@ export const createPlumbingSlice: StateCreator<
         }
 
         if (!isMoved) return
+
+        // Taşınan uç sayacın gözüne ya da bir armatürün merkezine oturduysa bağ
+        // da AYNI adımda yazılır — bir sürükleme jesti = bir Ctrl+Z.
+        for (const drop of dropTargets) {
+          const line = draft.installationLines.find((candidate) => candidate.id === drop.lineId)
+          if (line) applyLineEndDropTarget(draft, line, drop.pointId, drop.target)
+        }
+
         markDirty(draft)
       })
 
@@ -748,7 +874,7 @@ export const createPlumbingSlice: StateCreator<
       if (isChanged) record()
     },
 
-    moveLinePoint: (lineId, pointId, position) => {
+    moveLinePoint: (lineId, pointId, position, dropTarget = null) => {
       let isMoved = false
 
       set((draft) => {
@@ -788,7 +914,21 @@ export const createPlumbingSlice: StateCreator<
           }
         }
 
-        if (isMoved) markDirty(draft)
+        // Taşınan uç başka bir borunun ucuna oturduysa KAYIT da yazılır —
+        // yoksa iki nokta aynı yerde durur ama ağ kopuk kalırdı.
+        if (isMoved) {
+          draft.installationConnections.push(
+            ...collectWeldConnections(draft.installationLines, draft.installationConnections, linked),
+          )
+          // Uç bir elemanın gözüne (portuna) bırakıldıysa bağlantı AYNI adımda
+          // yazılır: bir sürükleme jesti = bir Ctrl+Z (kullanıcı isteği,
+          // 2026-08: "sonradan taşınan boru sayacın gözüne yapışabilsin").
+          const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+          if (dropTarget && line) {
+            applyLineEndDropTarget(draft, line, pointId, dropTarget)
+          }
+          markDirty(draft)
+        }
       })
 
       if (isMoved) record()
@@ -1031,6 +1171,38 @@ export const createPlumbingSlice: StateCreator<
       if (createdId === null) return null
       record()
       return createdId
+    },
+
+    attachDroppedElement: (elementId, attachment) => {
+      let isAttached = false
+
+      set((draft) => {
+        const target = draft.installationElements.find((candidate) => candidate.id === elementId)
+        if (!target) return
+
+        if (attachment.kind === 'inline') {
+          const line = draft.installationLines.find(
+            (candidate) => candidate.id === attachment.lineId,
+          )
+          const point = line?.points.find((candidate) => candidate.id === attachment.pointId)
+          // Bir düğüm TEK armatür taşır; bu arada dolduysa bağ kurulmaz.
+          if (!point || point.inlineElementId !== undefined) return
+          point.inlineElementId = elementId
+        } else {
+          draft.installationConnections.push({
+            lineId: attachment.lineId,
+            end: attachment.end,
+            target: { kind: 'port', elementId, portId: attachment.portId },
+          })
+        }
+
+        target.position = attachment.placement.position
+        target.angleDeg = attachment.placement.angleDeg
+        isAttached = true
+        markDirty(draft)
+      })
+
+      if (isAttached) record()
     },
 
     placeElementAtVerticalLineEnd: (attachment) => {

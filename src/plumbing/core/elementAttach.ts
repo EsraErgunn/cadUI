@@ -708,3 +708,91 @@ export function expandMoveSelection(
 }
 
 export type { ElementPlacement } from './attachGeometry'
+
+/**
+ * SÜRÜKLENİP bırakılan (zaten var olan) bir elemanın en yakın AÇIK boru ucuna
+ * bağlanması (kullanıcı isteği, 2026-08: "vana sayaç vs de taşıyınca
+ * bağlanabilsin"). Yerleştirme akışından farkı yeni eleman/vana/boru
+ * YARATMAMASI — eleman ortada, yalnız bağı kurulur ve konumu uca oturtulur.
+ *
+ * İki hâl var, ikisi de elemanın tutunma kipinden gelir:
+ * - `onLine` armatür (vana, filtre…) uç DÜĞÜMÜNE oturur (`inline`): boru
+ *   bölünmez, armatür ucu kapatır.
+ * - `lineEnd` eleman (sayaç) borunun ucuna PORTUNDAN bağlanır: gövde, giriş
+ *   portu tam o uca gelecek şekilde döndürülüp kaydırılır.
+ *
+ * Yakıcı cihaz (`nearestLine`) kapsam DIŞI: onun bağı kısa bir kol borusu
+ * istiyor, yani yeni bir hat yazmak gerekirdi — bırakma jestinin işi değil.
+ */
+export type DropAttachment =
+  | { kind: 'inline'; lineId: Id; pointId: Id; placement: ElementPlacement }
+  | {
+      kind: 'port'
+      lineId: Id
+      end: 'start' | 'end'
+      portId: string
+      placement: ElementPlacement
+    }
+
+export function resolveDropAttachment(
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+  getMetadata: SymbolMetadataLookup,
+  type: InstallationElementType,
+  mode: 'onLine' | 'lineEnd',
+  position: PlanPoint,
+  radiusCm: number,
+): DropAttachment | null {
+  const hit = findNearestFreeLineEnd(lines, connections, position, radiusCm, true)
+  if (!hit) return null
+
+  const metadata = getMetadata(type)
+  const outwardLengthCm = getSegmentLengthCm(hit.neighbor.position, hit.point.position)
+  // Dikey borunun (K102) ucunda yön tanımsız: plan ekseni kullanılır.
+  const outwardAngleDeg =
+    outwardLengthCm > 0
+      ? getDirectionAngleDeg(hit.neighbor.position, hit.point.position)
+      : VERTICAL_PLAN_ANGLE_DEG
+
+  if (mode === 'onLine') {
+    const angleDeg = getOnLineAngleDeg(metadata, outwardAngleDeg)
+    return {
+      kind: 'inline',
+      lineId: hit.line.id,
+      pointId: hit.point.id,
+      placement: {
+        type,
+        angleDeg,
+        position: getPositionForAnchor(
+          getOnLineAnchorOffset(metadata),
+          angleDeg,
+          hit.point.position,
+        ),
+      },
+    }
+  }
+
+  const inputPort = getInputPort(metadata)
+  if (!inputPort) return null
+
+  const portOffset = getPortOffset(metadata, inputPort)
+  const flowAxisAngleDeg = getFlowAxisAngleDeg(metadata)
+  const angleDeg = normalizeZero(
+    flowAxisAngleDeg !== null
+      ? outwardAngleDeg - flowAxisAngleDeg
+      : outwardAngleDeg + STRAIGHT_ANGLE_DEG - getDirectionAngleDeg(ORIGIN, portOffset),
+  )
+
+  return {
+    kind: 'port',
+    lineId: hit.line.id,
+    end: hit.end,
+    portId: inputPort.id,
+    placement: {
+      type,
+      angleDeg,
+      // Giriş portu TAM ucun üstünde: gövde porta göre yerleşir.
+      position: getPositionForAnchor(portOffset, angleDeg, hit.point.position),
+    },
+  }
+}

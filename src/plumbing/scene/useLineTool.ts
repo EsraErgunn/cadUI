@@ -14,6 +14,10 @@ import { isEditorReadOnly } from '../../store/editorReadOnly'
 import { useUiStore } from '../../store/uiStore'
 import { getDraftAxisDirection, getDraftElevationSign } from '../core/draftKeyboard'
 import { resolveFreeEndAttachment } from '../core/elementAttach'
+import {
+  getElementRotateAnchorLocal,
+  resolveSeedOrientation,
+} from '../core/elementRotateHandle'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
 import { startChain } from '../core/lineChain'
@@ -379,6 +383,53 @@ export function useLineTool(): LineToolState {
     }
 
     /**
+     * Zincirin İLK adımında, hattın çıktığı elemanı çizim yönüne çevirir
+     * (kullanıcı isteği, 2026-08: "istediğimiz taraftan çizebilelim"): çıkış
+     * portu elemanın açısına kilitli olduğu için ters yöne çizilen boru
+     * gövdenin içinden geçiyordu. Pivot (bağlı olduğu nokta ya da serbest
+     * elemanda kendi kökeni) yerinde kalır, yani eleman borusundan KOPMAZ.
+     *
+     * Yalnız `port` başlangıcında ve yalnız TAKİPÇİSİZ elemanda: iki ayrı
+     * porttan bağlı bir eleman (ör. branşmandaki sayaç) çevrilseydi öbür
+     * borusunu da sürüklemek gerekirdi, oysa kullanıcı yalnız yeni boruyu
+     * çiziyor.
+     */
+    const orientSeedElement = (draft: LineDraft, point: PlanPoint): LineDraft => {
+      const start = draft.startTarget
+      if (!start || start.kind !== 'port') return draft
+
+      const cad = useCadStore.getState()
+      const element = cad.installationElements.find((candidate) => candidate.id === start.elementId)
+      if (!element) return draft
+
+      const metadata = getSymbolMetadata(element.type)
+      const port = metadata.ports.find((candidate) => candidate.id === start.portId)
+      if (!port) return draft
+
+      const anchors = getElementRotateAnchorLocal(
+        element.id,
+        metadata,
+        cad.installationConnections,
+        cad.installationLines,
+      )
+      if (!anchors || anchors.followers.length > 0) return draft
+
+      const oriented = resolveSeedOrientation(
+        element,
+        metadata,
+        anchors.pivotLocal,
+        port.position,
+        point,
+      )
+      if (!oriented || oriented.angleDeg === element.angleDeg) return draft
+
+      cad.rotateElement(element.id, oriented.angleDeg, oriented.position)
+      const seeded = { ...draft, anchor: oriented.portPosition }
+      writeDraft(seeded)
+      return seeded
+    }
+
+    /**
      * Bir adımı (iki köşe arası boru) yazar. Hedefe bağlanarak biten adım
      * zinciri KAPATIR — bağlantı kurulduysa çizilecek bir şey kalmamıştır ve
      * araç aktif kalır.
@@ -388,6 +439,10 @@ export function useLineTool(): LineToolState {
         commitBranchGroundStep(draft, point)
         return
       }
+
+      // Çıkış elemanı önce çizim yönüne döner; taslak yeni port konumuyla
+      // güncellendiği için adım oradan başlar.
+      orientSeedElement(draft, point)
 
       // Adımın kendisi store köprüsünde (`lineStepActions.ts`): klavyeyle
       // çizilen adım da AYNI yoldan geçsin, iki yazım yolu ayrışmasın.

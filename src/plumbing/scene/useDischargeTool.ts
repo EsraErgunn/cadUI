@@ -15,10 +15,15 @@ import {
   isDischargeDraftWritable,
   popDischargePoint,
   projectOntoOutletAxis,
+  reseatDischargeStart,
   startDischargeDraft,
   type DischargeDraft,
 } from '../core/dischargeDraft'
-import { resolveDischargeStart, type DischargeStart } from '../core/dischargeStart'
+import {
+  resolveDischargeStart,
+  resolveOutletTowards,
+  type DischargeStart,
+} from '../core/dischargeStart'
 import {
   getDischargeLineKind,
   INSTALLATION_SELECTION_TOOL_ID,
@@ -101,6 +106,35 @@ export function useDischargeTool(): DischargeToolState {
       if (isCtrlPressed) return planPoint
       const { zoom } = readCameraViewport(camera)
       return resolvePlacementPosition(planPoint, zoom)
+    }
+
+    /**
+     * İlk köşe bırakılmadan önce ağız imlecin bulunduğu kenara kayar
+     * (kullanıcı isteği, 2026-08: "istediğimiz taraftan çizebilelim") — tıklama
+     * anındaki kenara kilitli kalsaydı ters yöne giden kanal cihazın gövdesini
+     * kesip geçerdi. Uygunluk denetimi başlangıçta yapıldı; burada yalnız
+     * geometri yeniden çözülür.
+     */
+    const reseatStart = (draft: DischargeDraft, planPoint: PlanPoint): DischargeDraft => {
+      if (draft.points.length > 1) return draft
+
+      const cad = useCadStore.getState()
+      const element = cad.installationElements.find(
+        (candidate) => candidate.id === draft.start.outlet.elementId,
+      )
+      if (!element) return draft
+
+      const start = resolveOutletTowards(
+        element,
+        getSymbolMetadata(element.type),
+        draft.kind,
+        planPoint,
+      )
+      if (!start) return draft
+
+      const reseated = reseatDischargeStart(draft, start)
+      writeDraft(reseated)
+      return reseated
     }
 
     /**
@@ -187,7 +221,8 @@ export function useDischargeTool(): DischargeToolState {
           return
         }
         startRef.current = null
-        cursorRef.current = readNextCorner(draft, event.planPoint, event.ctrlKey)
+        const seated = reseatStart(draft, event.planPoint)
+        cursorRef.current = readNextCorner(seated, event.planPoint, event.ctrlKey)
       },
 
       onPointerDown: (event) => {
@@ -206,10 +241,11 @@ export function useDischargeTool(): DischargeToolState {
           return
         }
 
-        const point = readNextCorner(draft, event.planPoint, event.ctrlKey)
+        const seated = reseatStart(draft, event.planPoint)
+        const point = readNextCorner(seated, event.planPoint, event.ctrlKey)
         // Aynı yere ikinci tık sıfır boy segment üretirdi.
-        if (isSamePoint(draft.points.at(-1)!, point)) return
-        writeDraft(appendDischargePoint(draft, point))
+        if (isSamePoint(seated.points.at(-1)!, point)) return
+        writeDraft(appendDischargePoint(seated, point))
       },
 
       // contextmenu'yü DrawSurface yakalayıp preventDefault ediyor.

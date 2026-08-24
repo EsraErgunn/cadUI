@@ -72,3 +72,17 @@ izometrikte cihaz havada, bacası yerde görünürdü.
 
 Modele kot alanı EKLENMEDİ (havalandırma için): tüketicisi olmayan bir alan
 kaydedilen JSON'a girer ve round-trip sözleşmesini büyütürdü.
+
+## Ağız imleci İZLER (ilk köşeye kadar) — 2026-08
+
+Ağız eskiden BAŞLANGIÇ tıklamasının düştüğü kenara kilitleniyordu; kullanıcı
+ters yöne gidince kanal cihazın gövdesini kesip geçiyordu ("istediğimiz taraftan
+çizebilelim"). Artık taslakta yalnız başlangıç noktası varken
+(`points.length === 1`) her fare hareketinde ağız yeniden çözülür
+(`core/dischargeStart.ts` → `resolveOutletTowards`, taslakta
+`reseatDischargeStart`) — kutunun imlece en yakın kenarına kayar, ilk segment de
+o ağzın eksenine kilitli kalır.
+
+Uygunluk denetimleri (cihaz yakıcı mı, bu türden kanal daha kaldırıyor mu)
+BİR KEZ, `resolveDischargeStart` ile çizim başlarken yapılır; yeniden oturtma
+yalnız geometriyi çözer.
