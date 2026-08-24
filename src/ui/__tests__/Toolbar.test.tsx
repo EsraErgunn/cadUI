@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ARCHITECTURE_TOOL_GROUPS,
@@ -9,7 +9,11 @@ import {
   type ToolDefinition,
 } from '../../core/tools'
 import { useUiStore } from '../../store/uiStore'
-import { Toolbar } from '../Toolbar'
+import { Toolbar, ToolButton } from '../Toolbar'
+import { TOOL_ICONS } from '../tools/toolIcons'
+
+/** Herhangi bir ikon; test ikonun kendisini değil PASİFLİĞİ ölçüyor. */
+const ARCHITECTURE_TOOL_ICON = TOOL_ICONS.measure
 
 beforeEach(() => {
   useUiStore.setState({ activeToolId: DEFAULT_TOOL_ID })
@@ -74,13 +78,28 @@ describe('Toolbar', () => {
   })
 
   it('henüz yazılmamış araç PASİF — tıklanınca aktif araç değişmez', async () => {
+    // Doğrudan `ToolButton` üzerinden: palette bugün PLANLI araç KALMADI
+    // (sonuncusu serbest çizimdi, K163'te yazıldı). Mekanizma duruyor ve yeni
+    // bir planlı araç eklendiğinde çalışmalı, bu yüzden test silinmedi —
+    // konusunu listeden değil bileşenden alıyor.
     const user = userEvent.setup()
-    render(<Toolbar />)
+    const onSelect = vi.fn()
+    render(
+      <ToolButton
+        toolId="planlanan"
+        label="Planlanan Araç"
+        icon={ARCHITECTURE_TOOL_ICON}
+        isActive={false}
+        isPlanned
+        onSelect={onSelect}
+      />,
+    )
 
-    const planned = screen.getByRole('button', { name: 'Serbest Çizim Araçları (henüz eklenmedi)' })
+    const planned = screen.getByRole('button', { name: 'Planlanan Araç (henüz eklenmedi)' })
     expect(planned).toBeDisabled()
 
     await user.click(planned)
+    expect(onSelect).not.toHaveBeenCalled()
     expect(useUiStore.getState().activeToolId).toBe(DEFAULT_TOOL_ID)
   })
 

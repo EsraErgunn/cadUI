@@ -11,6 +11,12 @@ export const SCENE_COLORS = {
   gridMajor: '#f2f5f9',
   selection: '#2d7ff9',
   /**
+   * Serbest çizim kalemi (K163). Çizimin hiçbir katmanıyla karışmayan bir ton
+   * seçildi: duvar lacivert, seçim mavi, gaz hattı çaptan renkli. Bu bir NOT —
+   * kalıcı veri değil, o yüzden kendi rengiyle ayrı okunmalı.
+   */
+  sketch: '#e11d48',
+  /**
    * Duvarın TEK rengi — kontur yok, düz dolgu (K23).
    *
    * KOYU LACİVERT-ANTRASİT (K151, kullanıcı referans görseliyle seçti). Eskiden

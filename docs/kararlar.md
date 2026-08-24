@@ -8163,3 +8163,48 @@ gönderilmiyor, yani `core/snap.ts` bir tuş bilmiyor.
 kalan (uzağa sürüklenmiş) bir köşede çalışmıyor, kullanıcı da her zaman
 yakalamaya güvenmek zorunda değil. İkisi birbirinin yerine geçmiyor — biri
 sürüklemeyi kolaylaştırıyor, öteki birleştirmeyi bağışlayıcı yapıyor.
+
+### K163 — Serbest çizim aracı; KAYDEDİLMEZ
+
+Palette `isPlanned` olarak duran "Serbest Çizim" yazıldı (K79 tersine): kalem
+basılı tutulduğu sürece çizgi bırakıyor.
+
+⚠️ **Çizgiler PROJEYE KAYDEDİLMİYOR** (kullanıcı kararı). Bu yüzden `uiStore`da
+duruyorlar, `cadStore`da değil — orada yalnız kaydedilecek JSON var (kural 4).
+`core/model.ts` sözleşmesine dokunulmadı ve WebCAD tur-dönüşü genişletilmedi.
+
+İki sonucu var, ikisi de bilinçli:
+
+- Sayfa yenilenince kaybolurlar (`uiStore` kalıcı değil, K153).
+- **Ctrl+Z onlara DOKUNMAZ**: geri alma çizim geçmişini yönetiyor, bu store'u
+  değil. Silmenin yolu SİLGİ.
+
+⚠️ Silgi zaten vardı ama yalnız AÇIKLIK siliyordu (`useOpeningTool`). Serbest
+çizgi silme oraya YAZILMADI — başkasının dosyası (CLAUDE.md sahiplik). İki hook
+aynı yayına abone; kod tabanında zaten olan bir desen.
+
+⚠️ Kimlik `takeNextId`ten ALINMIYOR. O sayaç projeye kaydediliyor (kural 6) ve
+serbest çizim kaydedilmiyor — oradan id almak, kaydedilmeyen bir nota harcanan
+boşluklar yüzünden proje sayacını sessizce ileri iterdi. Modül düzeyinde ayrı
+bir sayaç var.
+
+⚠️ **Örnek seyreltmesi zorunlu** (`MIN_SAMPLE_DISTANCE_CM`): fare saniyede
+onlarca olay üretiyor ve hepsi yazılsaydı tek darbe binlerce nokta taşır, çizgi
+her karede yeniden tamponlanırdı — K99'daki `bufferData` fırtınasının aynısı.
+Eşik PLAN mesafesi: yakınlaştırınca daha sık örnekleniyor, yani detay zoom'la
+artıyor. Eşiğin altındaki örnek AYNI diziyi döndürüyor ki React referanstan
+değişmediğini anlasın.
+
+⚠️ Tek TIKLAMA iz bırakmaz (`MIN_STROKE_LENGTH_CM`): aracı seçip tuvale bir kez
+basan kullanıcı ekranda nokta bulmamalı.
+
+⚠️ Silginin isabeti NOKTALARA değil SEGMENTLERE bakıyor: seyreltme yüzünden iki
+örnek arası açılabiliyor ve yalnız noktalara bakan bir silgi çizginin
+ortasından geçerken hiçbir şey silmezdi. İzdüşüm segment uçlarına KIRPILIYOR —
+sonsuz doğru, kısa bir segmentin çok uzağını da "değdi" sayardı.
+
+⚠️ **Yakalama YOK**: serbest çizim serbest olmalı. Izgaraya ya da duvara
+yapışan bir kalem "elle not al" işini yapamazdı.
+
+Darbe KATA bağlı: başka katta çizilen not görünmez. En üstte çiziliyor
+(`RENDER_ORDER.label`) — altında kalan bir not notluğunu yitirir.

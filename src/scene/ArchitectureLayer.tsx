@@ -14,6 +14,7 @@ import { Rooms } from './Room'
 import { RoomTool } from './RoomTool'
 import { RoomUsageContextMenu } from './RoomUsageContextMenu'
 import { SelectionMarquee } from './SelectionMarquee'
+import { SketchStrokes } from './SketchStrokes'
 import { TextLabelEditor } from './TextLabelEditor'
 import { TextLabels } from './TextLabels'
 import { Walls } from './Wall'
@@ -387,6 +388,9 @@ export function ArchitectureLayer() {
       <MirrorAxis />
       <CornerAngleLabels />
       <BeamHandles />
+      {/* Serbest çizim EN ÜSTTE (K163): elle alınmış bir not, altında kalırsa
+          notluğunu yitirir. Aracın hook'u da burada koşuyor. */}
+      <SketchStrokes />
       <SelectionMarquee />
     </group>
   )
