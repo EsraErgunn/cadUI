@@ -24,6 +24,8 @@ export type SnapKind =
   | 'wallSnapPoint'
   /** Duvarın gövdesi — eksene dik izdüşüm. */
   | 'wallEdge'
+  /** Sürüklenen köşenin İKİ komşusundan geçen doğru: 180° yakalaması (K162). */
+  | 'collinear'
   | 'grid'
   | 'none'
 
@@ -49,6 +51,42 @@ export type SnapOptions = {
   gridStepCm: number
   /** Kapalıyken hiçbir hedefe yakınlaşmayan imleç olduğu yerde kalır. */
   isGridSnapEnabled: boolean
+  /**
+   * Sürüklenen köşenin iki komşusu; verilirse köşe onların doğrusuna yapışır
+   * (K162). Çağıran veriyor çünkü "hangi noktanın komşuları" bilgisi sürükleme
+   * durumunda, snap'in kendisinde değil.
+   */
+  collinearGuide?: { from: PlanPoint; to: PlanPoint }
+}
+
+/**
+ * Hedefin, iki komşudan geçen DOĞRU üzerindeki izdüşümü — 180° yakalaması.
+ *
+ * Eksen hizalaması DEĞİL: doğru neredeyse oradadır, bu yüzden eğik duvarlarda
+ * da çalışır. Kullanıcı bildirimi tam olarak oradan geldi — ızgara yakalaması
+ * eğik bir duvarın doğrultusuyla hiçbir zaman çakışmıyor ve köşeyi geri
+ * düzleştirmek imkânsıza yakın oluyordu.
+ *
+ * ⚠️ Yalnız komşuların ARASINA düşen izdüşüm kabul edilir (0 < t < 1). Dışarıda
+ * kalan nokta doğru üzerinde olsa bile açı 180° değil 0°'dir: iki kol aynı yöne
+ * katlanır. Orada yakalamak, kullanıcıyı düzleştirdiğini sanırken duvarı
+ * katlamış hâle getirirdi.
+ */
+function findCollinearSnap(
+  target: PlanPoint,
+  guide: { from: PlanPoint; to: PlanPoint },
+  toleranceCm: number,
+): PlanPoint | undefined {
+  const dx = guide.to.x - guide.from.x
+  const dy = guide.to.y - guide.from.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared === 0) return undefined
+
+  const t = ((target.x - guide.from.x) * dx + (target.y - guide.from.y) * dy) / lengthSquared
+  if (t <= 0 || t >= 1) return undefined
+
+  const point = { x: guide.from.x + dx * t, y: guide.from.y + dy * t }
+  return Math.hypot(target.x - point.x, target.y - point.y) <= toleranceCm ? point : undefined
 }
 
 /** zoom = 1 cm başına px olduğundan, px eşiği zoom'a bölünerek cm'ye çevrilir. */
@@ -208,6 +246,15 @@ export function resolveSnap(
   // Kat süzmesi yapılmaz — duvarlar başka kattaki noktalara referans vermiyor,
   // ama süzülmüş havuz uçları çözemeyecek duruma düşürebilirdi.
   const pointIndex = buildPointIndex(context.points)
+
+  // ⚠️ Gerçek köşeden SONRA, ötekilerden ÖNCE: var olan bir köşeye kaynamak
+  // düzleştirmekten önemli (aynı yerde ikinci Point doğarsa graf kopar), ama
+  // ızgara ve komşu duvar kenarı 180°'nin önüne geçmemeli — kullanıcının
+  // şikâyeti tam olarak ızgaranın kazanmasıydı.
+  if (options.collinearGuide) {
+    const collinear = findCollinearSnap(target, options.collinearGuide, options.toleranceCm)
+    if (collinear) return { point: collinear, kind: 'collinear' }
+  }
 
   const nearestWallSnapPoint = findNearestWallSnapPoint(
     target,

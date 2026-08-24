@@ -13,6 +13,8 @@ export type DrawSurfaceListener = {
   onPointerMove?: (event: DrawSurfacePointerEvent) => void
   onPointerUp?: (event: DrawSurfacePointerEvent) => void
   onContextMenu?: (event: DrawSurfacePointerEvent) => void
+  /** Çift tık; duvarda düğüm açar / düğümü kaldırır (K161). */
+  onDoubleClick?: (event: DrawSurfacePointerEvent) => void
   /** Esc — devam eden çizimi iptal etmek isteyen araçlar dinler. */
   onCancel?: () => void
 }
@@ -22,6 +24,7 @@ export type DrawSurfacePointerEventKey =
   | 'onPointerMove'
   | 'onPointerUp'
   | 'onContextMenu'
+  | 'onDoubleClick'
 
 const listeners = new Set<DrawSurfaceListener>()
 

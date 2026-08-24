@@ -10,6 +10,7 @@ import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
 import { findPointSymbolLabelAt } from './usePointSymbolLabelTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
+import { getCollinearGuide } from '../core/collinearGuide'
 import type { PlanPoint } from '../core/coords'
 import { pickGridLevel } from '../core/grid'
 import type { Id } from '../core/model'
@@ -61,6 +62,11 @@ export function usePointDragTool(): void {
           toleranceCm: getSnapToleranceCm(zoom),
           gridStepCm: pickGridLevel(zoom).minorCm,
           isGridSnapEnabled: isGridSnapActive(event),
+          // Ctrl yakalamayı kapatınca 180° de kapanır: kullanıcı o tuşa
+          // "hiçbir şeye yapışma, tam istediğim yere koy" demek için basıyor.
+          collinearGuide: event.ctrlKey
+            ? undefined
+            : getCollinearGuide(excludedId, cad.walls, cad.points, cad.activeFloorId),
         },
       )
     }

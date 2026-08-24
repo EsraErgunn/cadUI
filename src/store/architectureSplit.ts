@@ -106,6 +106,48 @@ function splitWall(
 }
 
 /**
+ * Duvarı böler VE bölmenin iki yan etkisini birlikte uygular: odaların duvar
+ * kümesini genişletmek, açıklıkları doğru parçaya taşımak.
+ *
+ * Üçü AYRILAMAZ: parçalar yazılıp odalar güncellenmezse duvar kümesi yüzünkiyle
+ * tutmaz, eşleşme kaçar ve kullanıcının verdiği ad — kullanıcı odaya hiç
+ * dokunmamışken — kaybolur (K31). Açıklık taşınmazsa silinmiş duvara bağlı
+ * kalır. Bu yüzden tek kapıdan geçiyorlar; kesişim bölmesi de çift tıkla açılan
+ * düğüm de (K161) burayı çağırır.
+ */
+export function applyWallSplit(
+  draft: CadState,
+  wall: Wall,
+  splits: readonly WallSplitPoint[],
+  lengthCm: number,
+  resolvePointId: (split: WallSplitPoint) => Id,
+): WallPiece[] {
+  const wallId = wall.id
+  const pieces = splitWall(draft, wall, splits, lengthCm, resolvePointId)
+
+  draft.rooms = extendRoomsWithSplitPieces(
+    draft.rooms,
+    wallId,
+    pieces.map((piece) => piece.wallId),
+  )
+
+  // Açıklıklar kendilerini İÇEREN parçaya taşınır; offset o parçanın başına göre.
+  for (const opening of draft.openings) {
+    if (opening.wallId !== wallId) continue
+
+    const piece = pieces.find(
+      (candidate) => opening.offsetCm >= candidate.startCm && opening.offsetCm <= candidate.endCm,
+    )
+    if (!piece) continue
+
+    opening.wallId = piece.wallId
+    opening.offsetCm = opening.offsetCm - piece.startCm
+  }
+
+  return pieces
+}
+
+/**
  * Duvar grafını düzlemsel hale getirir: kesişimlerde ve T birleşimlerinde düğüm
  * açar, duvarları oradan böler (K24).
  *
@@ -178,30 +220,8 @@ export function splitWallsAtIntersections(draft: CadState): boolean {
     if (!p1 || !p2) continue
     const lengthCm = Math.hypot(p2.x - p1.x, p2.y - p1.y)
 
-    const pieces = splitWall(draft, wall, accepted, lengthCm, resolvePointId)
+    const pieces = applyWallSplit(draft, wall, accepted, lengthCm, resolvePointId)
     for (const piece of pieces) originByWallId.set(piece.wallId, wallId)
-
-    // Bölünen duvarı sınırında sayan odalar parçaları da kapsamalı: kapsamazsa
-    // duvar kümesi yüzünkiyle tutmaz, eşleşme kaçar ve kullanıcının verdiği ad
-    // kullanıcı odaya hiç dokunmamışken kaybolur (K31).
-    draft.rooms = extendRoomsWithSplitPieces(
-      draft.rooms,
-      wallId,
-      pieces.map((piece) => piece.wallId),
-    )
-
-    // Açıklıklar kendilerini İÇEREN parçaya taşınır; offset o parçanın başına göre.
-    for (const opening of draft.openings) {
-      if (opening.wallId !== wallId) continue
-
-      const piece = pieces.find(
-        (candidate) => opening.offsetCm >= candidate.startCm && opening.offsetCm <= candidate.endCm,
-      )
-      if (!piece) continue
-
-      opening.wallId = piece.wallId
-      opening.offsetCm = opening.offsetCm - piece.startCm
-    }
 
     isChanged = true
   }
