@@ -4,9 +4,9 @@ import { ADMIN_FOCUS_RING } from './adminVariants'
 
 /**
  * `warning`: işlem BAŞARILI ama yarım — hata değil, o yüzden `danger` tonu
- * kullanılmıyor ve `role="alert"` verilmiyor. Ton, duyuru kartındaki bakım
- * şeridiyle aynı amber token'ından geliyor (bkz. knowledge/theming.md: `warning`
- * yalnız ikon/kenarlık, metin rengi olarak sınanmadı).
+ * kullanılmıyor ve `role="alert"` verilmiyor. Ton, durum rozetleriyle aynı amber
+ * token'ından geliyor (bkz. knowledge/theming.md: `warning` yalnız
+ * ikon/kenarlık, metin rengi olarak sınanmadı).
  */
 export type NoticeTone = 'success' | 'error' | 'warning'
 

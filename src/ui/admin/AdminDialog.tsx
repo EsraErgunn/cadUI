@@ -19,8 +19,8 @@ interface AdminDialogProps {
 
 /**
  * Yönetici diyaloglarının ortak kabuğu: zemin, odak tuzağı, Esc ile kapanma ve
- * kapanınca odağın tetikleyen öğeye dönmesi. `ConfirmDialog` ve duyuru formu
- * bunu paylaşır — ikinci bir kopya çıkarmak, odak mantığının iki yerde ayrı ayrı
+ * kapanınca odağın tetikleyen öğeye dönmesi. Diyalog açan her ekran bunu
+ * paylaşır — ikinci bir kopya çıkarmak, odak mantığının iki yerde ayrı ayrı
  * bozulması demekti.
  *
  * Açık olup olmadığını ÇAĞIRAN tutar (koşullu render): kapalıyken hiç DOM

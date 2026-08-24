@@ -17,7 +17,6 @@ import { LoginPage } from '../pages/LoginPage'
 import { PROJECT_LIST_PATH } from '../pages/useCloseEditor'
 import { AdminLayout } from '../ui/admin/AdminLayout'
 import {
-  ANNOUNCEMENTS_PATH,
   DOCUMENTS_PATH,
   DOCUMENT_CREATE_PATH,
   FIRM_HOME_PATH,
@@ -57,9 +56,6 @@ const RegisterPage = lazy(async () => ({
 }))
 const AdminHomePage = lazy(async () => ({
   default: (await import('../pages/AdminHomePage')).AdminHomePage,
-}))
-const AnnouncementsPage = lazy(async () => ({
-  default: (await import('../pages/AnnouncementsPage')).AnnouncementsPage,
 }))
 const DocumentListPage = lazy(async () => ({
   default: (await import('../pages/DocumentListPage')).DocumentListPage,
@@ -291,15 +287,19 @@ const router = createBrowserRouter(
             element={<ProjectFirmUserFormPage />}
           />
 
-          {/* Güncelleme rotası YOK: uç yalnız oluşturmayı destekliyor. Kullanıcı
-              OLUŞTURMA yönetim kapısında kalıyor — `POST /api/auth/register`
-              yalnız Admin'e açık. LİSTE aşağıda, kapının dışında. */}
+          {/* Gaz dağıtım kullanıcıları: LİSTE de OLUŞTURMA da yönetim kapısının
+              içinde. Liste bir süre kapının dışındaydı ve gaz dağıtım kullanıcısı
+              kendi firmasının kullanıcılarını görüyordu; o rolün kendi anasayfası
+              olduğu için ekran yönetime bırakıldı. Güncelleme rotası YOK: uç
+              yalnız oluşturmayı destekliyor (`POST /api/auth/register`).
+
+              Statik parça dinamik olandan ÖNCE eşleşir kuralı burada gerekmiyor:
+              /new'in dinamik kardeşi yok. */}
+          <Route path={GAS_DISTRIBUTION_USERS_PATH} element={<GasDistributionUsersPage />} />
           <Route
             path={GAS_DISTRIBUTION_USER_CREATE_PATH}
             element={<GasDistributionUserFormPage />}
           />
-
-          <Route path={ANNOUNCEMENTS_PATH} element={<AnnouncementsPage />} />
         </Route>
 
         {/* Buradan aşağısı rol kapısının DIŞINDA: üç kullanıcı tipinin de
@@ -310,20 +310,6 @@ const router = createBrowserRouter(
         {/* Kişi Bilgileri: üst bardaki kullanıcı menüsünden açılıyor, sol
             menüde maddesi yok — kişisel ayar, yönetim bölümü değil. */}
         <Route path={PROFILE_PATH} element={<ProfilePage />} />
-
-        {/* Gaz dağıtım kullanıcıları LİSTESİ: yönetici ve gaz dağıtım kullanıcısı.
-            İkincisi kendi firmasının kullanıcılarını görüyor — `GET /api/users`
-            `WhereVisibleTo` ile token'daki firmaya daraltılıyor, istemci ayrıca
-            bir kapsam parametresi göndermiyor. */}
-        <Route
-          element={
-            <RequireRole allowed={[ROLE_CODES.admin, ROLE_CODES.gasDistributionUser]}>
-              <Outlet />
-            </RequireRole>
-          }
-        >
-          <Route path={GAS_DISTRIBUTION_USERS_PATH} element={<GasDistributionUsersPage />} />
-        </Route>
 
         {/* Grup firmaları salt okuma; `GET /api/gasdistributiongroups` her role
             açık. Menüde proje firması ve gaz dağıtım kullanıcısında görünüyor. */}
