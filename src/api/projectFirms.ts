@@ -10,7 +10,7 @@ export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
 
 /**
  * API SÖZLEŞMESİ — Proje firmaları listesi.
- * (Doğrulandı: cadapi @ 539383d — ProjectFirmsController + ProjectFirmManager.)
+ * (Doğrulandı: cadapi @ a6ea695 — ProjectFirmsController + ProjectFirmManager.)
  *
  * GET /api/projectfirms → PagedResultDto<ProjectFirmListItemDto>
  *   `{ items, totalCount, page, pageSize }` — DÜZ DİZİ DEĞİL, sayfalı zarf.
