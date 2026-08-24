@@ -22,8 +22,8 @@ import {
   type FreeEndAttachment,
   type NearestLineAttachment,
   type OnLineAttachment,
-  type VerticalArmAttachment,
-  type VerticalEndAttachment,
+  type VerticalLineEndAttachment,
+  type EndNodeAttachment,
 } from '../core/elementAttach'
 import { getTargetElementId } from '../core/installationModel'
 import type {
@@ -161,13 +161,10 @@ export type PlumbingSlice = {
   placeOnLineElements: (attachment: OnLineAttachment) => void
   /** Boş boru ucuna eleman: araya vana girer, hat elemanın girişine uzar. Eleman id'si döner. */
   placeElementAtLineEnd: (attachment: FreeEndAttachment) => Id | null
-  /** Dikey borunun (K102) ucundaki düğüme oturan armatür — boru bölünmez, kot düğümden gelir. */
-  placeElementAtVerticalEnd: (attachment: VerticalEndAttachment) => Id | null
-  /** Kolonun ucundan kısa yatay kol + ucunda eleman + kolonda vana — tek adım. Eleman id'si döner. */
-  placeElementAtVerticalArm: (
-    attachment: VerticalArmAttachment,
-    pipeTypeName: PipeTypeName,
-  ) => Id | null
+  /** Bir borunun UÇ düğümüne oturan armatür — boru bölünmez, kot düğümden gelir. */
+  placeElementAtEndNode: (attachment: EndNodeAttachment) => Id | null
+  /** Kolonun uç düğümüne vana + hemen yanına eleman; arada boru YOK. Eleman id'si döner. */
+  placeElementAtVerticalLineEnd: (attachment: VerticalLineEndAttachment) => Id | null
   /** Cihaz + en yakın boruya kısa kol + kolun dibindeki vana — hepsi tek adım. */
   placeElementWithStub: (
     attachment: NearestLineAttachment,
@@ -1006,7 +1003,7 @@ export const createPlumbingSlice: StateCreator<
       return createdId
     },
 
-    placeElementAtVerticalEnd: (attachment) => {
+    placeElementAtEndNode: (attachment) => {
       let createdId: Id | null = null
 
       set((draft) => {
@@ -1019,9 +1016,11 @@ export const createPlumbingSlice: StateCreator<
         // Bir düğüm TEK armatür taşır: bu arada dolduysa yerleştirme düşer.
         if (!endPoint || endPoint.inlineElementId !== undefined) return
 
-        // Boru BÖLÜNMEZ: dikey borunun plan boyu sıfır, bölünecek bir gövdesi
-        // yok. Armatür var olan uç düğümünün kendisine oturur; kotu da o
-        // düğümden türer (`getInlineElementElevationCm`), ayrıca yazılmaz.
+        // Boru BÖLÜNMEZ: armatür var olan uç düğümünün kendisine oturur, kotu
+        // da o düğümden türer (`getInlineElementElevationCm`), ayrıca yazılmaz.
+        // Dikey boruda zaten bölünecek gövde yok (plan boyu sıfır); yatay
+        // borunun ucunda ise bölme İSTENMİYOR — vana ucu kapatmalı, ötesinde
+        // serbest bir parça bırakmamalı.
         const elementId = pushElement(draft, attachment.placement)
         endPoint.inlineElementId = elementId
 
@@ -1034,7 +1033,7 @@ export const createPlumbingSlice: StateCreator<
       return createdId
     },
 
-    placeElementAtVerticalArm: (attachment, pipeTypeName) => {
+    placeElementAtVerticalLineEnd: (attachment) => {
       let createdId: Id | null = null
 
       set((draft) => {
@@ -1050,35 +1049,15 @@ export const createPlumbingSlice: StateCreator<
         const [elementPlacement, valvePlacement] = attachment.placements
         endPoint.inlineElementId = pushElement(draft, valvePlacement)
 
+        // Kolonun ucu DOĞRUDAN elemanın girişine bağlanır: arada kol borusu
+        // yok (kullanıcı isteği, 2026-08 — vana tek dikey borunun üstünde
+        // dursun). Eleman kotunu bağlandığı düğümden okur, ayrıca yazılmaz.
         const elementId = pushElement(draft, elementPlacement)
-        // Kol GERÇEK bir gaz borusudur (cihaz kolu değil): kolonun ucundan
-        // çıkar, sayacın girişinde biter ve kot boyunca DÜZ gider — kolonun o
-        // ucundaki kotu alır, sayaç için ayrı bir varsayılan yükseklik
-        // YAZILMAZ (kullanıcı isteği, 2026-08: "eklenenler borunun
-        // yüksekliğini almalı").
-        const { lineId: armId } = pushLine(draft, {
-          kind: 'pipe',
-          pipeTypeName,
-          points: [attachment.armStart, attachment.armEnd],
-          pipe: {
-            startHeightCm: attachment.elevationCm,
-            endHeightCm: attachment.elevationCm,
-            description: '',
-          },
+        draft.installationConnections.push({
+          lineId: line.id,
+          end: attachment.end,
+          target: { kind: 'port', elementId, portId: attachment.inputPortId },
         })
-
-        draft.installationConnections.push(
-          {
-            lineId: armId,
-            end: 'start',
-            target: { kind: 'line', lineId: line.id, pointId: attachment.endPointId },
-          },
-          {
-            lineId: armId,
-            end: 'end',
-            target: { kind: 'port', elementId, portId: attachment.inputPortId },
-          },
-        )
 
         markDirty(draft)
         createdId = elementId

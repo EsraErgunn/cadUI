@@ -89,6 +89,21 @@ export function isBurnerAppliance(type: InstallationElementType): boolean {
   return (BURNER_APPLIANCE_TYPES as readonly string[]).includes(type)
 }
 
+/**
+ * Gazı KESEBİLEN armatür. Bir hattın ucunda böyle bir armatür varsa o uç
+ * kapalıdır: oradan gaz çıkmaz, dolayısıyla "bağlantısız uç" uyarısı da
+ * verilmez (kullanıcı isteği, 2026-08). Sayaç/filtre/regülatör bu listede
+ * DEĞİL — onlar akışı geçirir, hattın devam etmesi gerekir.
+ */
+const SHUTOFF_VALVE_TYPES = [
+  'valve',
+  'solenoidValve',
+] as const satisfies readonly InstallationElementType[]
+
+export function isShutoffValve(type: InstallationElementType): boolean {
+  return (SHUTOFF_VALVE_TYPES as readonly string[]).includes(type)
+}
+
 
 /** Plan Bölüm 10 port tablosu — şema port sayılarını buradan doğrular.
  *  Toolbar-only araçlar sahneye portla yerleşmediği için 0/0'dır. */

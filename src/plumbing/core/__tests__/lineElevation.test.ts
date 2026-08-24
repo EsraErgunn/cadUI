@@ -7,6 +7,7 @@ import type {
 } from '../installationModel'
 import {
   capElevationToFloor,
+  findMergeablePipeLineId,
   capElevationToFloorBase,
   getAttachedLineElevationCm,
   getDischargeSourceElevationCm,
@@ -246,5 +247,44 @@ describe('getDischargeSourceElevationCm', () => {
 
   it('hiçbir cihaza bağlı olmayan kanalda 0 döner', () => {
     expect(getDischargeSourceElevationCm(makeVentilationDuct(), [], [])).toBe(0)
+  })
+})
+
+describe('findMergeablePipeLineId', () => {
+  const ANCHOR = { x: 100, y: 100 }
+  const riser: InstallationLine = {
+    id: 70,
+    floorId: 1,
+    kind: 'pipe',
+    pipeTypeName: 'DN25',
+    points: [
+      { id: 700, position: ANCHOR },
+      { id: 701, position: ANCHOR },
+    ],
+    segments: [{ id: 7000, fromPointId: 700, toPointId: 701 }],
+    pipe: { startHeightCm: 0, endHeightCm: 200, description: '' },
+  }
+  const startTarget = { kind: 'linePoint', lineId: 70, pointId: 701 } as const
+
+  it('aynı konumdaki dikey borunun ucunda birleşir', () => {
+    expect(findMergeablePipeLineId(ANCHOR, startTarget, [riser])).toBe(70)
+  })
+
+  it('uçta ARMATÜR varsa birleşmez — kot vanadan DEVAM etmeli', () => {
+    const withValve: InstallationLine = {
+      ...riser,
+      points: [riser.points[0], { ...riser.points[1], inlineElementId: 900 }],
+    }
+
+    expect(findMergeablePipeLineId(ANCHOR, startTarget, [withValve])).toBeNull()
+  })
+
+  it('yatay boruda birleşme yok', () => {
+    const horizontal: InstallationLine = {
+      ...riser,
+      points: [riser.points[0], { id: 701, position: { x: 300, y: 100 } }],
+    }
+
+    expect(findMergeablePipeLineId(ANCHOR, startTarget, [horizontal])).toBeNull()
   })
 })

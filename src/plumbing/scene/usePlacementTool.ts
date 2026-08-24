@@ -15,7 +15,10 @@ import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { getElementAttachMode, getPlacementPreviewTypes } from '../core/attachModes'
 import type { ElementPlacement } from '../core/elementAttach'
-import { getPlacementElementType } from '../core/installationTools'
+import {
+  getPlacementElementType,
+  INSTALLATION_SELECTION_TOOL_ID,
+} from '../core/installationTools'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
@@ -96,17 +99,12 @@ export function usePlacementTool(): PlacementPreviewState {
         cad.placeOnLineElements(resolved.attachment)
         return
       }
-      if (resolved.mode === 'verticalArm') {
-        startPipeFromElement(
-          cad.placeElementAtVerticalArm(
-            resolved.attachment,
-            usePlumbingUiStore.getState().activePipeTypeName,
-          ),
-        )
+      if (resolved.mode === 'verticalLineEnd') {
+        startPipeFromElement(cad.placeElementAtVerticalLineEnd(resolved.attachment))
         return
       }
-      if (resolved.mode === 'verticalEnd') {
-        cad.placeElementAtVerticalEnd(resolved.attachment)
+      if (resolved.mode === 'endNode') {
+        cad.placeElementAtEndNode(resolved.attachment)
         return
       }
       if (resolved.mode === 'nearestLine') {
@@ -132,7 +130,19 @@ export function usePlacementTool(): PlacementPreviewState {
         write(resolved)
         // Geçerli hedef yoksa hiçbir şey konmaz — "boru üstünde değilken önizleme
         // yok" kuralının veri tarafındaki karşılığı.
-        if (resolved) apply(resolved)
+        if (!resolved) return
+        apply(resolved)
+
+        // Bir eleman konunca araç kendini bırakır ve Seçim aracına dönülür
+        // (kullanıcı isteği, 2026-08): art arda ikinci bir sembol koymak
+        // istisna, konanı hemen seçip taşımak/düzenlemek kural.
+        //
+        // Aracı ZATEN değiştiren yerleştirmeler (servis kutusu ve sayaç boru
+        // çizimini kendiliğinden başlatır) bu satırdan ETKİLENMEZ: koşul o
+        // seçimi ezmemek için.
+        if (getPlacementElementType(useUiStore.getState().activeToolId) !== elementType) return
+        write(null)
+        useUiStore.getState().setActiveTool(INSTALLATION_SELECTION_TOOL_ID)
       },
 
       onCancel: () => {

@@ -399,6 +399,11 @@ export function resolvePipeResizeTarget(
  * Yalnız zincirin `startTarget`'ı o hattın UCUNA bağlıysa eşleşir (`linePoint`
  * kind) — kullanıcı araya yatay bir adım koyduysa artık başka bir noktadayız,
  * eşleşmez.
+ *
+ * O uçta bir ARMATÜR (vana vb.) varsa da eşleşmez (kullanıcı isteği, 2026-08):
+ * birleştirme borunun `endHeightCm`'ini büyütür, armatür o düğümde durduğu için
+ * vana da yükselirdi. Vanadan sonra girilen kot ondan DEVAM etmeli — bu yüzden
+ * yeni bir dikey segment yazılır ve vana ikisinin arasında kalır.
  */
 export function findMergeablePipeLineId(
   anchor: PlanPoint,
@@ -413,6 +418,9 @@ export function findMergeablePipeLineId(
   const [start, end] = line.points
   if (!isSamePoint(start.position, end.position)) return null
   if (!isSamePoint(start.position, anchor)) return null
+
+  const chainEnd = line.points.find((point) => point.id === startTarget.pointId)
+  if (!chainEnd || chainEnd.inlineElementId !== undefined) return null
 
   return line.id
 }

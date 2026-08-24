@@ -7,7 +7,7 @@ import {
   type InstallationLine,
 } from '../plumbing/core/installationModel'
 import { isGasCarryingKind } from '../plumbing/core/lineKinds'
-import { isBurnerAppliance } from '../plumbing/core/symbolMetadata'
+import { isBurnerAppliance, isShutoffValve } from '../plumbing/core/symbolMetadata'
 
 type LineEnd = 'start' | 'end'
 
@@ -35,6 +35,10 @@ function getEndPointId(line: InstallationLine, end: LineEnd): Id | undefined {
  *
  * Kolon devamı (`floorPipeLinks`) uç saymaz: hat üst/alt kata geçiyor, orada
  * sonlanıyor. Deşarj hatları (baca, havalandırma) gaz taşımaz, kapsam dışı.
+ *
+ * Ucunda KESME VANASI olan hat da serbest değildir (kullanıcı isteği, 2026-08):
+ * vana orayı kapatır, gaz çıkışı yoktur. Vanadan yeni bir boru çıkarsa o nokta
+ * zaten kavşak olur ve vana geçiş armatürüne dönüşür — iki hâl de uyarısızdır.
  */
 export function validateGasNetwork(source: ValidationSource, floor: Floor): ValidationIssue[] {
   const elementById = new Map<Id, InstallationElement>(
@@ -78,6 +82,12 @@ export function validateGasNetwork(source: ValidationSource, floor: Floor): Vali
       // Kavşak uç değildir: devamı, oraya tutunan hattın kendi denetiminde.
       if (junctionPointIds.has(pointId)) continue
 
+      const point = end === 'start' ? line.points[0] : line.points[line.points.length - 1]
+      const inlineElement =
+        point.inlineElementId === undefined ? undefined : elementById.get(point.inlineElementId)
+      // Kapalı uç: armatürün kendisi gazı kesiyor.
+      if (inlineElement && isShutoffValve(inlineElement.type)) continue
+
       const connection = connectionByEnd.get(`${line.id}:${end}`)
       // Başka bir hatta bağlanan uç sonlanmıyor, devam ediyor.
       if (connection && connection.target.kind === 'line') continue
@@ -90,7 +100,6 @@ export function validateGasNetwork(source: ValidationSource, floor: Floor): Vali
         if (element && (lineCountByElementId.get(element.id) ?? 0) > 1) continue
       }
 
-      const point = end === 'start' ? line.points[0] : line.points[line.points.length - 1]
       const bounds = getBoundsAround([point.position])
       issues.push({
         key: `lineTermination:${line.id}:${end}`,

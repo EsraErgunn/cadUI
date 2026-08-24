@@ -6,16 +6,17 @@ import { useCadStore } from '../../store/cadStore'
 import { getInlineSpecs, type ElementAttachMode } from '../core/attachModes'
 import {
   resolveFreeEndAttachment,
+  resolveFreeEndNodeAttachment,
   resolveNearestLineAttachment,
   resolveOnLineAttachment,
-  resolveVerticalArmAttachment,
+  resolveVerticalLineEndAttachment,
   resolveVerticalEndAttachment,
   type ElementPlacement,
   type FreeEndAttachment,
   type NearestLineAttachment,
   type OnLineAttachment,
-  type VerticalArmAttachment,
-  type VerticalEndAttachment,
+  type VerticalLineEndAttachment,
+  type EndNodeAttachment,
 } from '../core/elementAttach'
 import type { InstallationLine } from '../core/installationModel'
 import { isGasCarryingKind } from '../core/lineKinds'
@@ -30,14 +31,14 @@ export type ResolvedPlacement =
   | { mode: 'onLine'; placements: readonly ElementPlacement[]; attachment: OnLineAttachment }
   | { mode: 'lineEnd'; placements: readonly ElementPlacement[]; attachment: FreeEndAttachment }
   | {
-      mode: 'verticalArm'
+      mode: 'verticalLineEnd'
       placements: readonly ElementPlacement[]
-      attachment: VerticalArmAttachment
+      attachment: VerticalLineEndAttachment
     }
   | {
-      mode: 'verticalEnd'
+      mode: 'endNode'
       placements: readonly ElementPlacement[]
-      attachment: VerticalEndAttachment
+      attachment: EndNodeAttachment
     }
   | {
       mode: 'nearestLine'
@@ -98,28 +99,54 @@ export function resolvePlacement(
       planPoint,
       getSnapRadiusCm(zoom),
     )
-    // Dikey boru (K102) gövdesiyle yakalanamaz: plan boyu sıfır, bölünecek
-    // parçası yok. Armatür o zaman kolonun UÇ düğümüne oturur ve kotunu oradan
-    // alır. Refakatçili elemanlar (regülatör grubu) hariç: dört sembol tek
-    // düğüme sığmaz, sessizce üst üste binerdi.
-    const vertical =
-      getInlineSpecs(elementType).length > 1
-        ? null
-        : resolveVerticalEndAttachment(
-            lines,
-            getSymbolMetadata,
-            elementType,
-            planPoint,
-            getSnapRadiusCm(zoom),
-          )
+    // Boru gövdesi yerine bir UÇ DÜĞÜMÜ hedeflenebilen iki hâl. Refakatçili
+    // elemanlar (regülatör grubu) ikisinin de dışında: dört sembol tek düğüme
+    // sığmaz, sessizce üst üste binerdi.
+    //
+    // 1) Dikey boru (K102) gövdesiyle yakalanamaz: plan boyu sıfır, bölünecek
+    //    parçası yok — armatür kolonun uç düğümüne oturur.
+    // 2) Yatay borunun AÇIK ucu: oraya oturan vana o ucu KAPATIR. Gövde bölmesi
+    //    ucun dibine düğüm koyamıyor (`MIN_NODE_GAP_CM`), bu yüzden uç ayrı bir
+    //    hedef (kullanıcı isteği, 2026-08: "boş yere vana ekleyince orası
+    //    kapansın, ucuna yapışsın, hata kapansın").
+    const snapRadiusCm = getSnapRadiusCm(zoom)
+    const isSingleSymbol = getInlineSpecs(elementType).length === 1
+
+    // Açık uç gövde bölmesini KOŞULSUZ yener (yarıçap zaten 14 EKRAN pikseli,
+    // yani imleç ucun dibinde): gövde bölmesi ucun 1 cm berisine düğüm koyup
+    // ötesinde küçücük SERBEST bir parça bırakıyordu, uç açık kaldığı için de
+    // Hata6 kapanmıyordu (kullanıcı bildirimi, 2026-08).
+    const freeEnd = isSingleSymbol
+      ? resolveFreeEndNodeAttachment(
+          lines,
+          useCadStore.getState().installationConnections,
+          getSymbolMetadata,
+          elementType,
+          planPoint,
+          snapRadiusCm,
+        )
+      : null
+    if (freeEnd) {
+      return { mode: 'endNode', attachment: freeEnd, placements: [freeEnd.placement] }
+    }
+
+    const endNode = isSingleSymbol
+      ? resolveVerticalEndAttachment(
+          lines,
+          getSymbolMetadata,
+          elementType,
+          planPoint,
+          snapRadiusCm,
+        )
+      : null
 
     // YAKIN olan kazanır. Kolon çoğu zaman bir yatay borunun UCUNDA durur; gövde
     // yakalaması koşulsuz öncelikli olsaydı imleç kolonun üstündeyken bile
     // komşu yatay boru kazanır ve kolona hiçbir armatür eklenemezdi (kullanıcı
-    // bulgusu, 2026-08). Eşitlikte kolon kazanır: kolon TEK bir noktadır, gövde
+    // bulgusu, 2026-08). Eşitlikte düğüm kazanır: düğüm TEK bir noktadır, gövde
     // ise bir doğru — nokta hedef daha kesin bir niyettir.
-    if (vertical && (!attachment || vertical.distanceCm <= attachment.distanceCm)) {
-      return { mode: 'verticalEnd', attachment: vertical, placements: [vertical.placement] }
+    if (endNode && (!attachment || endNode.distanceCm <= attachment.distanceCm)) {
+      return { mode: 'endNode', attachment: endNode, placements: [endNode.placement] }
     }
     if (attachment) {
       return { mode, attachment, placements: attachment.nodes.map((node) => node.placement) }
@@ -138,17 +165,18 @@ export function resolvePlacement(
     )
     if (attachment) return { mode, attachment, placements: attachment.placements }
 
-    // Kolonun ucu: hat UZATILAMAZ (plan yönü yok), bunun yerine aynı kotta
-    // kısa bir yatay kol doğar ve eleman onun ucuna oturur.
-    const arm = resolveVerticalArmAttachment(
+    // Kolonun ucu: hat UZATILAMAZ (plan yönü yok). Eleman kolonun uç düğümüne
+    // DOĞRUDAN bağlanır, arada kol borusu doğmaz (kullanıcı isteği, 2026-08).
+    const vertical = resolveVerticalLineEndAttachment(
       lines,
+      useCadStore.getState().installationConnections,
       getSymbolMetadata,
       elementType,
       planPoint,
       getSnapRadiusCm(zoom),
     )
-    if (!arm) return null
-    return { mode: 'verticalArm', attachment: arm, placements: arm.placements }
+    if (!vertical) return null
+    return { mode: 'verticalLineEnd', attachment: vertical, placements: vertical.placements }
   }
 
   const attachment = resolveNearestLineAttachment(

@@ -18,8 +18,10 @@ import { ATTACHED_VALVE_TYPE, getInlineSpecs } from './attachModes'
 import type { SymbolMetadataLookup } from './elementPicking'
 import { getTargetElementId } from './installationModel'
 import type { InstallationConnection, InstallationLine } from './installationModel'
+import { hasLinkedLinePoint } from './lineCornerLink'
 import { getLinePointElevationCm } from './lineElevation'
 import { getSegmentLengthCm, isSamePoint } from './lineGeometry'
+import { isLineEndConnected } from './portSnap'
 import { rotatePlanOffset } from './ports'
 import type { InstallationElementType } from './symbolMetadata'
 import { normalizeZero, type PlanPoint } from '../../core/coords'
@@ -145,7 +147,7 @@ export function resolveOnLineAttachment(
  */
 const VERTICAL_PLAN_ANGLE_DEG = 0
 
-export type VerticalEndAttachment = {
+export type EndNodeAttachment = {
   lineId: Id
   /** İmlecin kolona (plan) uzaklığı — gövde yakalamasıyla yarışırken kullanılır. */
   distanceCm: number
@@ -187,10 +189,10 @@ export function resolveVerticalEndAttachment(
   type: InstallationElementType,
   cursor: PlanPoint,
   radiusCm: number,
-): VerticalEndAttachment | null {
+): EndNodeAttachment | null {
   if (radiusCm <= 0) return null
 
-  let nearest: VerticalEndAttachment | null = null
+  let nearest: EndNodeAttachment | null = null
   let nearestDistanceCm = Number.POSITIVE_INFINITY
 
   for (const line of lines) {
@@ -231,58 +233,159 @@ export function resolveVerticalEndAttachment(
   return nearest
 }
 
-export type VerticalArmAttachment = {
+/**
+ * Armatürün (vana vb.) bir borunun BOŞ UCUNA yapışması — gövdeyi bölmek yerine
+ * var olan uç düğümüne oturur (kullanıcı isteği, 2026-08: "boş yere vana
+ * ekleyince orası kapansın, ucuna yapışsın, hata kapansın").
+ *
+ * Neden gövde bölmesi yetmiyor: `resolveOnLineAttachment` düğümü köşeye
+ * `MIN_NODE_GAP_CM`'den fazla yaklaştırmıyor (sıfıra yakın boyda parça
+ * doğmasın diye). Ucun dibine bırakılan vana bu yüzden ya reddediliyor ya da
+ * içeride bir yere oturup ötesinde SERBEST bir uç bırakıyordu — uç açık
+ * kaldığı için Hata6 (`lineTermination`) de kapanmıyordu. Uca oturan vana o
+ * ucu KAPATIR (`validateGasNetwork` → `isShutoffValve`).
+ *
+ * Yalnız gerçekten AÇIK uçlar aday: armatürü olan, bir elemana/hatta bağlı
+ * olan ya da başka bir hattın tutunduğu uç bu yoldan yakalanmaz.
+ */
+export function resolveFreeEndNodeAttachment(
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+  getMetadata: SymbolMetadataLookup,
+  type: InstallationElementType,
+  cursor: PlanPoint,
+  radiusCm: number,
+): EndNodeAttachment | null {
+  const hit = findNearestFreeLineEnd(lines, connections, cursor, radiusCm)
+  if (!hit) return null
+
+  const metadata = getMetadata(type)
+  // Açı borunun son parçasından: armatür hattın üstünde yatar.
+  const angleDeg = getOnLineAngleDeg(
+    metadata,
+    getDirectionAngleDeg(hit.neighbor.position, hit.point.position),
+  )
+
+  return {
+    lineId: hit.line.id,
+    distanceCm: getSegmentLengthCm(hit.point.position, cursor),
+    endPointId: hit.point.id,
+    elevationCm: getLinePointElevationCm(hit.line, hit.point.id),
+    placement: {
+      type,
+      angleDeg,
+      position: getPositionForAnchor(
+        getOnLineAnchorOffset(metadata),
+        angleDeg,
+        hit.point.position,
+      ),
+    },
+  }
+}
+
+export type VerticalLineEndAttachment = {
   /** Kolonun kimliği — vana bunun uç düğümüne oturur. */
   lineId: Id
+  /** Bağlantı kaydı bu uca yazılır (kolon → elemanın giriş portu). */
+  end: 'start' | 'end'
   endPointId: Id
-  /** Kolun kotu = kolonun o ucunun kotu; kol yatay gider, kot değişmez. */
+  /** Kolonun o ucundaki kot — eleman yüksekliğini BURADAN alır. */
   elevationCm: number
-  /** Kısa kolun iki ucu: kolonun plan konumu → elemanın giriş portu. */
-  armStart: PlanPoint
-  armEnd: PlanPoint
   inputPortId: string
   /** [0] ana eleman, [1] vana — `getPlacementPreviewTypes` ile aynı sıra. */
   placements: readonly [ElementPlacement, ElementPlacement]
 }
 
+/** Dikey borunun uçları: 'start' ilk nokta, 'end' ikinci (kolon iki noktalıdır). */
+const VERTICAL_LINE_ENDS = ['start', 'end'] as const
+
 /**
  * Sayacın DİKEY bir kolonun ucuna takılması (kullanıcı kararı, 2026-08):
- * kolonun ucundan AYNI kotta kısa bir yatay kol çıkar, sayaç onun ucuna oturur,
- * vana kolonun uç düğümüne girer — sahadaki dizilimin (kolon çıkar, dirsek,
- * sayaç) karşılığı.
+ * vana kolonun uç düğümüne oturur, sayaç onun hemen yanında durur ve kolonun o
+ * ucu doğrudan sayacın giriş portuna bağlanır — ARADA BORU YOKTUR.
  *
- * Neden `resolveFreeEndAttachment` kullanılamıyor: orada hattın kendisi
- * uzatılıyor ve uzama yönü borunun son parçasından okunuyor. Kolonun plan
- * yönü YOKTUR (iki ucu aynı x,y) — kolon uzatılsaydı eğik bir boruya dönerdi.
- * Bu yüzden kol AYRI bir hat olarak doğar; yönünü imlecin kolona göre
- * bulunduğu taraf verir.
+ * Eskiden kolonun ucundan kısa bir yatay kol borusu doğuyordu; kullanıcı
+ * isteğiyle (2026-08) kaldırıldı: vana o kolun üstünde duruyor gibi görünüyordu,
+ * oysa amaç armatürün TEK dikey borunun üstünde olması. Sayacın plandaki yeri
+ * yine imlecin kolona göre bulunduğu tarafa, vana boyu kadar kaydırılır —
+ * semboller üst üste binmesin diye, boru olarak değil yalnız konum olarak.
+ *
+ * Neden `resolveFreeEndAttachment` kullanılamıyor: orada hattın kendisi uzatılıyor
+ * ve uzama yönü borunun son parçasından okunuyor. Kolonun plan yönü YOKTUR (iki
+ * ucu aynı x,y) — kolon uzatılsaydı eğik bir boruya dönerdi.
  */
-export function resolveVerticalArmAttachment(
+export function resolveVerticalLineEndAttachment(
   lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
   getMetadata: SymbolMetadataLookup,
   type: InstallationElementType,
   cursor: PlanPoint,
   radiusCm: number,
-): VerticalArmAttachment | null {
-  const vertical = resolveVerticalEndAttachment(lines, getMetadata, type, cursor, radiusCm)
-  if (!vertical) return null
+): VerticalLineEndAttachment | null {
+  if (radiusCm <= 0) return null
 
   const metadata = getMetadata(type)
   const inputPort = getInputPort(metadata)
   if (!inputPort) return null
 
-  const armStart = vertical.placement.position
-  const reachCm = getSegmentLengthCm(armStart, cursor)
-  // İmleç tam kolonun üstündeyken yön tanımsız; kol varsayılan eksende çıkar.
-  const unit =
-    reachCm > 0 ? getUnitDirection(armStart, cursor, reachCm) : { x: 1, y: 0 }
+  let nearestLine: InstallationLine | null = null
+  let nearestDistanceCm = Number.POSITIVE_INFINITY
+  let chosen: { end: 'start' | 'end'; pointId: Id; elevationCm: number } | null = null
+
+  for (const line of lines) {
+    if (!isVerticalPipe(line)) continue
+
+    const position = line.points[0].position
+    const distanceCm = getSegmentLengthCm(position, cursor)
+    if (distanceCm > radiusCm || distanceCm >= nearestDistanceCm) continue
+
+    // Aday uç: armatürü YOK, başka bir hatta da bağlı DEĞİL — sayaç oraya
+    // bağlanınca ucun tek sahibi o olacak.
+    const free = VERTICAL_LINE_ENDS.map((end) => ({
+      end,
+      point: end === 'start' ? line.points[0] : line.points[1],
+    })).filter(
+      ({ end, point }) =>
+        point.inlineElementId === undefined &&
+        !isLineEndConnected(connections, line.id, end) &&
+        !hasLinkedLinePoint(connections, line.id, point.id),
+    )
+    if (free.length === 0) continue
+
+    // İki uç da boşsa YÜKSEK olan: kolonun tepesi kullanıcının geldiği, çizimde
+    // açıkta duran uçtur (`resolveVerticalEndAttachment` ile aynı kural).
+    const best = free
+      .map(({ end, point }) => ({
+        end,
+        pointId: point.id,
+        elevationCm: getLinePointElevationCm(line, point.id),
+      }))
+      .reduce((winner, candidate) =>
+        candidate.elevationCm > winner.elevationCm ? candidate : winner,
+      )
+
+    nearestLine = line
+    nearestDistanceCm = distanceCm
+    chosen = best
+  }
+
+  if (!nearestLine || !chosen) return null
+
+  const nodePosition = nearestLine.points[0].position
+  const reachCm = getSegmentLengthCm(nodePosition, cursor)
+  // İmleç tam kolonun üstündeyken yön tanımsız; eleman varsayılan eksende durur.
+  const unit = reachCm > 0 ? getUnitDirection(nodePosition, cursor, reachCm) : { x: 1, y: 0 }
   const outwardAngleDeg = getDirectionAngleDeg(ORIGIN, unit)
 
   const valveMetadata = getMetadata(ATTACHED_VALVE_TYPE)
-  const armLengthCm = getHalfLengthCm(valveMetadata) + ATTACH_CLEARANCE_CM
-  const armEnd = {
-    x: normalizeZero(armStart.x + unit.x * armLengthCm),
-    y: normalizeZero(armStart.y + unit.y * armLengthCm),
+  // Sayacın giriş portu vananın ÇIKIŞ KENARINA oturur: arada pay YOK
+  // (kullanıcı isteği, 2026-08 — "vana ve sayaç arasında boşluk olmamalı").
+  // Kolonda ikisinin arasına boru yazılmadığı için pay bırakılsaydı iki sembol
+  // arasında hiçbir şeyin çizilmediği bir aralık kalırdı.
+  const gapCm = getHalfLengthCm(valveMetadata)
+  const portPosition = {
+    x: normalizeZero(nodePosition.x + unit.x * gapCm),
+    y: normalizeZero(nodePosition.y + unit.y * gapCm),
   }
 
   const portOffset = getPortOffset(metadata, inputPort)
@@ -295,18 +398,21 @@ export function resolveVerticalArmAttachment(
   const valveAngleDeg = getOnLineAngleDeg(valveMetadata, outwardAngleDeg)
 
   return {
-    lineId: vertical.lineId,
-    endPointId: vertical.endPointId,
-    elevationCm: vertical.elevationCm,
-    armStart,
-    armEnd,
+    lineId: nearestLine.id,
+    end: chosen.end,
+    endPointId: chosen.pointId,
+    elevationCm: chosen.elevationCm,
     inputPortId: inputPort.id,
     placements: [
-      { type, angleDeg, position: getPositionForAnchor(portOffset, angleDeg, armEnd) },
+      { type, angleDeg, position: getPositionForAnchor(portOffset, angleDeg, portPosition) },
       {
         type: ATTACHED_VALVE_TYPE,
         angleDeg: valveAngleDeg,
-        position: getPositionForAnchor(getOnLineAnchorOffset(valveMetadata), valveAngleDeg, armStart),
+        position: getPositionForAnchor(
+          getOnLineAnchorOffset(valveMetadata),
+          valveAngleDeg,
+          nodePosition,
+        ),
       },
     ],
   }
@@ -392,7 +498,7 @@ export function resolveFreeEndAttachment(
  * kolun yönü borudan DEĞİL imleçten geliyor, yani çakışık uçtaki tanımsız plan
  * yönü kolu hiç ilgilendirmiyor. Sayaçtaki (`resolveFreeEndAttachment`) durum
  * farklı: orada hattın kendisi o yöne uzatılıyor, o yüzden kolon için ayrı bir
- * yol var (`resolveVerticalArmAttachment`). Cihaz kolu kendi kotunu taşımaz,
+ * yol var (`resolveVerticalLineEndAttachment`). Cihaz kolu kendi kotunu taşımaz,
  * bağlandığı düğümden okur (`getAttachedLineElevationCm`) — kolonun ucuna
  * takılan cihaz o kotta durur.
  */
