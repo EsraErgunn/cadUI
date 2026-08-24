@@ -90,22 +90,56 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
+/** İstemcinin sıralama anahtarları ↔ sunucununkiler. */
+const FIRM_SORT_KEY_PARAMS: Record<GasFirmSortKey, string> = {
+  dfirmNo: 'companyNumber',
+  groupName: 'groupName',
+  name: 'title',
+}
+
 /**
- *  gerçek `GET /api/admin/gas-distribution-firms` bağlanınca bu gövde
- * fetch + `gasDistributionFirmPageSchema.parse(await response.json())` olacak;
- * imza ve dönüş tipi aynı kalacağı için çağıran taraf değişmez.
+ * `GET /api/gasdistributionfirms` — süzme, sıralama ve sayfalama SUNUCUDA.
+ *
+ * Liste bir süre TÜM kayıtları sayfa sayfa indirip istemcide süzüyordu (K27'nin
+ * geçici istisnası): 30'ar kayıtlık N istek atılıyor, sonra çoğu atılıyordu.
+ * Uç arama ve tek firma kapsamını da aldığı için o istisna kalktı.
  */
 export async function getGasDistributionFirms(
   query: GasDistributionFirmQuery,
   signal?: AbortSignal,
 ): Promise<GasDistributionFirmPage> {
-  const firms = await fetchAllFirms(signal)
-  const { items, totalCount } = queryFirmList(firms, query)
+  if (!hasApiBaseUrl()) {
+    await delay(MOCK_LATENCY_MS, signal)
+    const { items, totalCount } = queryFirmList(allMockFirms(), query)
+    return gasDistributionFirmPageSchema.parse({
+      items,
+      totalCount,
+      page: query.page,
+      pageSize: query.pageSize,
+    })
+  }
+
+  const search = new URLSearchParams({
+    SortBy: FIRM_SORT_KEY_PARAMS[query.sortKey],
+    SortDir: query.sortDir,
+    Page: String(query.page),
+    PageSize: String(query.pageSize),
+  })
+
+  // Boş süzgeç parametre olarak HİÇ yazılmaz; "tümü" demek için yokluğu kullanılır.
+  if (query.nameQuery !== '') search.set('Search', query.nameQuery)
+  if (query.groupId !== null) search.set('GasDistributionGroupId', String(query.groupId))
+  if (query.scopeFirmId !== null) search.set('Id', String(query.scopeFirmId))
+
+  const page = await requestJson(
+    { method: 'GET', path: `/api/gasdistributionfirms?${search.toString()}`, signal },
+    firmListPageSchema,
+  )
 
   // Şemadan geçiyor: sözleşme kayması bileşenin içinde değil sınırda patlasın.
   return gasDistributionFirmPageSchema.parse({
-    items,
-    totalCount,
+    items: page.items.map(toFirmListItem),
+    totalCount: page.totalCount,
     page: query.page,
     pageSize: query.pageSize,
   })
@@ -143,21 +177,37 @@ export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributi
 /**
  * Bir grup firmasına bağlı gaz dağıtım firmaları ("AKSA-GEMLİK" gibi).
  *
- * Proje firması ekleme ekranındaki "G.D Firması Bölgeleri" listesinin kaynağı:
- * gereksinim bölgeleri "seçilen gruba bağlı gaz dağıtım firmaları" olarak
- * tanımlıyor. Uçta grup süzgeci YOK, bu yüzden liste tümüyle çekilip burada
- * süzülüyor — sayfalı liste ekranıyla aynı geçici çözüm (K27).
+ * Proje firması ekleme ekranındaki "G.D Firması Bölgeleri" listesinin kaynağı.
+ * Süzgeç artık SUNUCUDA (`GasDistributionGroupId`): eskiden bütün firma listesi
+ * sayfa sayfa indirilip istemcide süzülüyordu — tek bir grup için onlarca
+ * kaydın tamamı ağdan geçiyordu.
  *
- * Sıralama İSTEMCİDE ve Türkçe: sunucu 'Ç'yi 'D'den sonra veriyor.
+ * Sıralama İSTEMCİDE kaldı ve Türkçe: sunucu 'Ç'yi 'D'den sonra veriyor.
  */
 export async function getGasDistributionFirmsByGroup(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<GasDistributionFirm[]> {
-  const firms = await fetchAllFirms(signal)
+  if (!hasApiBaseUrl()) {
+    await delay(MOCK_LATENCY_MS, signal)
+    return allMockFirms()
+      .filter((firm) => firm.groupId === groupId)
+      .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
+  }
 
-  return firms
-    .filter((firm) => firm.groupId === groupId)
+  const dtos = await fetchAllPages(({ page, pageSize }) =>
+    requestJson(
+      {
+        method: 'GET',
+        path: `/api/gasdistributionfirms?GasDistributionGroupId=${groupId}&Page=${page}&PageSize=${pageSize}`,
+        signal,
+      },
+      firmListPageSchema,
+    ),
+  )
+
+  return dtos
+    .map(toFirmListItem)
     .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
 }
 

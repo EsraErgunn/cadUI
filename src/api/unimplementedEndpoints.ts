@@ -23,13 +23,6 @@ export const UNIMPLEMENTED_ENDPOINTS = {
   /** TODO(esra): GET /api/projectfirmusers/availability?email&username&excludeUserId */
   firmUserAvailability: 'GET /api/projectfirmusers/availability',
 
-  /**
-   * Proje detayı — `GET /api/projects/{id}` VAR ama yalnız ad/kod/adres/tarih
-   * döndürüyor. Durum, tesisat no, proje/ısınma tipi, müstakil, ruhsat, firma
-   * mühendisi, onay bilgileri ve teknik değerler ayrı bir uç ister.
-   * TODO(esra): GET /api/projects/{id}/detail
-   */
-  projectDetailExtras: 'GET /api/projects/{id}/detail',
   /** TODO(esra): GET /api/projects/{id}/policies — Policy entity'si ProjectUnit'e bağlı. */
   projectPolicies: 'GET /api/projects/{id}/policies',
   /** TODO(esra): GET /api/insurancecompanies/{id}/agencies — şirkete bağlı acenteler. */

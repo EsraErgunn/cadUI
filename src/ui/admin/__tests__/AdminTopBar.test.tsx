@@ -22,6 +22,13 @@ const ADMIN_SESSION: AuthSession = {
   roleCode: ROLE_CODES.admin,
 }
 
+const { listRoles } = vi.hoisted(() => ({ listRoles: vi.fn() }))
+
+vi.mock('../../../api/roles', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../api/roles')>()),
+  listRoles,
+}))
+
 const { getFirmGroups, fetchAllFirms } = vi.hoisted(() => ({
   getFirmGroups: vi.fn(),
   fetchAllFirms: vi.fn(),
@@ -75,6 +82,7 @@ beforeEach(() => {
   getFirmGroups.mockResolvedValue(GROUPS)
   fetchAllFirms.mockClear()
   fetchAllFirms.mockResolvedValue(FIRMS)
+  listRoles.mockResolvedValue([])
 })
 
 afterEach(() => {

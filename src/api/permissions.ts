@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { isMockDataAllowed } from './mockGate'
+
 /**
  * API SÖZLEŞMESİ — oturumdaki yöneticinin izinleri.
  *
@@ -27,7 +29,21 @@ const MOCK_LATENCY_MS = 120
 /** gerçek `GET /api/me/permissions` bağlanınca mock liste silinecek. */
 const MOCK_PERMISSIONS: Permission[] = ['firm.create', 'projectFirm.create', 'user.create']
 
+/**
+ * Sunucuda `GET /api/me/permissions` HÂLÂ YOK.
+ *
+ * Mock liste artık `isMockDataAllowed()` kapısının arkasında: üretim
+ * derlemesinde BOŞ dizi dönüyor. Eskiden üretimde de üç iznin tamamı
+ * dönüyordu, yani izin denetimi yapılıyormuş gibi görünen yüzey aslında herkese
+ * her düğmeyi açıyordu — "kapalı olduğunu sandığın kapı" en kötü hâl.
+ *
+ * Boş dizi FAIL-CLOSED: izne bağlı kısayollar üretimde çizilmez. Bu, gerçek uç
+ * gelene kadar doğru varsayılan — görünürlük kısıtı zaten yalnız arayüz içindir,
+ * asıl denetim sunucuda (knowledge/access-control.md).
+ */
 export async function getMyPermissions(): Promise<string[]> {
+  if (!isMockDataAllowed()) return []
+
   await new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS))
   return permissionListSchema.parse(MOCK_PERMISSIONS)
 }
