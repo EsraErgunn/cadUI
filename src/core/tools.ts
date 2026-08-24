@@ -94,7 +94,7 @@ export const ARCHITECTURE_TOOL_GROUPS = [
     tools: [
       { id: 'measure', label: 'Ölçüm' },
       { id: 'text', label: 'Metin Ekle' },
-      { id: 'freeDraw', label: 'Serbest Çizim Araçları', isPlanned: true },
+      { id: 'freeDraw', label: 'Kalem' },
       { id: 'eraser', label: 'Silgi' },
     ],
   },

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
+import type { Id } from '../core/model'
+import type { SketchOp, SketchStroke } from '../core/sketchStroke'
 import { DEFAULT_TOOL_ID, type ToolId } from '../core/tools'
 import type { PlanBounds } from '../core/viewport'
 import { DEFAULT_VIEW_ID, type ViewId } from '../core/views'
@@ -49,6 +51,24 @@ type UiState = {
    * Mimari tarafın kendi ızgara yakalaması bu bayrağı OKUMAZ, kapsam dışı.
    */
   isGridVisible: boolean
+  /**
+   * Serbest çizim darbeleri (K163). PROJEYE KAYDEDİLMEZ — bu yüzden cadStore'da
+   * değil burada: orada yalnız kaydedilecek JSON durur (CLAUDE.md kural 4).
+   *
+   * ⚠️ Sonucu: sayfa yenilenince kaybolurlar ve Ctrl+Z onlara DOKUNMAZ (geri
+   * alma çizim geçmişini yönetiyor, bu store'u değil). Silmenin yolu SİLGİ.
+   */
+  sketchStrokes: SketchStroke[]
+  /**
+   * Serbest çizimin KENDİ geri alma yığını (K164). Çizgiler cadStore'da
+   * olmadığı için zundo onları görmüyor; Ctrl+Z'nin çalışması ayrı bir yığın
+   * gerektiriyor.
+   *
+   * İşlem tutuluyor, anlık görüntü değil: silgi de geri alınabilmeli ve
+   * "eklendi" ile "silindi" birbirinin tersi.
+   */
+  sketchUndoStack: SketchOp[]
+  sketchRedoStack: SketchOp[]
   /**
    * Izgaraya yakalama açık mı (K54)? Ctrl'ün ANLIK kapatması bunun ÜSTÜNE
    * biner: etkin yakalama = `isGridSnapEnabled && !ctrlKey`.
@@ -148,6 +168,10 @@ type UiState = {
   toggleCornerAnglesVisible: () => void
   toggleElementLabelsVisible: () => void
   toggleGridVisible: () => void
+  addSketchStroke: (stroke: SketchStroke) => void
+  removeSketchStroke: (strokeId: Id) => void
+  undoSketch: () => void
+  redoSketch: () => void
   toggleGridSnapEnabled: () => void
   toggleAreaObjectNamesVisible: () => void
   toggleDeviceNamesVisible: () => void
@@ -196,6 +220,9 @@ export const useUiStore = create<UiState>()(
     /** Tesisatın KENDİ katmanı; mimari açılış kararının kapsamı dışında. */
     isElementLabelsVisible: true,
     isGridVisible: true,
+    sketchStrokes: [],
+    sketchUndoStack: [],
+    sketchRedoStack: [],
     isGridSnapEnabled: true,
     isPanModeActive: false,
     // Varsayılan KAPALI: kipi yalnız editör açıkça kuruyor, yani yönetici ve
@@ -277,6 +304,54 @@ export const useUiStore = create<UiState>()(
     toggleGridVisible: () =>
       set((draft) => {
         draft.isGridVisible = !draft.isGridVisible
+      }),
+
+    addSketchStroke: (stroke) =>
+      set((draft) => {
+        draft.sketchStrokes.push(stroke)
+        draft.sketchUndoStack.push({ kind: 'add', stroke })
+        // Yeni işlem YİNELEME zincirini keser: standart geri alma davranışı.
+        draft.sketchRedoStack = []
+      }),
+
+    removeSketchStroke: (strokeId) =>
+      set((draft) => {
+        const removed = draft.sketchStrokes.find((stroke) => stroke.id === strokeId)
+        if (!removed) return
+
+        draft.sketchStrokes = draft.sketchStrokes.filter((stroke) => stroke.id !== strokeId)
+        draft.sketchUndoStack.push({ kind: 'remove', stroke: removed })
+        draft.sketchRedoStack = []
+      }),
+
+    undoSketch: () =>
+      set((draft) => {
+        const operation = draft.sketchUndoStack.pop()
+        if (!operation) return
+
+        if (operation.kind === 'add') {
+          draft.sketchStrokes = draft.sketchStrokes.filter(
+            (stroke) => stroke.id !== operation.stroke.id,
+          )
+        } else {
+          draft.sketchStrokes.push(operation.stroke)
+        }
+        draft.sketchRedoStack.push(operation)
+      }),
+
+    redoSketch: () =>
+      set((draft) => {
+        const operation = draft.sketchRedoStack.pop()
+        if (!operation) return
+
+        if (operation.kind === 'add') {
+          draft.sketchStrokes.push(operation.stroke)
+        } else {
+          draft.sketchStrokes = draft.sketchStrokes.filter(
+            (stroke) => stroke.id !== operation.stroke.id,
+          )
+        }
+        draft.sketchUndoStack.push(operation)
       }),
 
     toggleGridSnapEnabled: () =>

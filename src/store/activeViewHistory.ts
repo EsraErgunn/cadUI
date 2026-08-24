@@ -1,4 +1,5 @@
 import { redoProject, undoProject, useCadStore, useCanRedo, useCanUndo } from './cadStore'
+import { shouldRedoSketch, shouldUndoSketch } from './sketchHistory'
 import { useUiStore } from './uiStore'
 import { useCanRedoPlumbing, useCanUndoPlumbing } from '../plumbing/store/plumbingHistory'
 
@@ -27,12 +28,22 @@ export function undoActiveView(): void {
     useCadStore.getState().undoPlumbing()
     return
   }
+  // Serbest çizim ÇİZİMDEN ÖNCE sorulur ama yalnız o daha yeniyse (K164):
+  // kroki cadStore'da olmadığı için zundo onu hiç görmüyor.
+  if (shouldUndoSketch()) {
+    useUiStore.getState().undoSketch()
+    return
+  }
   undoProject()
 }
 
 export function redoActiveView(): void {
   if (isPlumbingHistoryView()) {
     useCadStore.getState().redoPlumbing()
+    return
+  }
+  if (shouldRedoSketch()) {
+    useUiStore.getState().redoSketch()
     return
   }
   redoProject()
@@ -48,7 +59,12 @@ export function useCanUndoActiveView(): boolean {
   const canUndoPlumbing = useCanUndoPlumbing()
   const activeViewId = useUiStore((state) => state.activeViewId)
 
-  return PLUMBING_HISTORY_VIEWS.includes(activeViewId) ? canUndoPlumbing : canUndoProject
+  // Kroki yığını da düğmeyi AKTİF tutmalı: yalnız kroki çizilmiş bir projede
+  // proje geçmişi boş olur ve düğme pasif görünürdü.
+  const hasSketchUndo = useUiStore((state) => state.sketchUndoStack.length > 0)
+
+  if (PLUMBING_HISTORY_VIEWS.includes(activeViewId)) return canUndoPlumbing
+  return canUndoProject || hasSketchUndo
 }
 
 export function useCanRedoActiveView(): boolean {
@@ -56,5 +72,8 @@ export function useCanRedoActiveView(): boolean {
   const canRedoPlumbing = useCanRedoPlumbing()
   const activeViewId = useUiStore((state) => state.activeViewId)
 
-  return PLUMBING_HISTORY_VIEWS.includes(activeViewId) ? canRedoPlumbing : canRedoProject
+  const hasSketchRedo = useUiStore((state) => state.sketchRedoStack.length > 0)
+
+  if (PLUMBING_HISTORY_VIEWS.includes(activeViewId)) return canRedoPlumbing
+  return canRedoProject || hasSketchRedo
 }
