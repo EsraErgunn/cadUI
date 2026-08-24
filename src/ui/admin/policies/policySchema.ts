@@ -20,8 +20,11 @@ export interface PolicyFormValues {
    * seçim boş bırakılırsa kaydın gideceği yer yok.
    */
   projectUnitId: number | null
+  /**
+   * Poliçenin firması. Sunucuda TEK alan var (`InsuranceCompanyId`); ayrı bir
+   * acente alanı yok, o yüzden formda da tek kutu.
+   */
   insuranceCompanyId: number | null
-  agencyId: number | null
   policyNumber: string
   /**
    * HAM metin. Kullanıcı yazarken biçimlendirilmiyor: canlı binlik ayraç imleci
@@ -38,8 +41,7 @@ export type PolicyField = keyof PolicyFormValues
 export type PolicyErrors = Partial<Record<PolicyField, string>>
 
 export const POLICY_ERRORS = {
-  insuranceCompany: 'Sigorta şirketi seçiniz.',
-  agency: 'Acente / poliçe firması seçiniz.',
+  insuranceCompany: 'Sigorta şirketi / poliçe firması seçiniz.',
   unit: 'Poliçenin bağlanacağı birimi seçiniz.',
   policyNumber: 'Poliçe no zorunludur.',
   policyNumberTaken: 'Bu poliçe numarası sistemde kayıtlı.',
@@ -53,7 +55,6 @@ export const POLICY_ERRORS = {
 /** Görsel sıra; doğrulama sonrası odak İLK hatalı alana taşınır. */
 const POLICY_FIELD_ORDER: PolicyField[] = [
   'insuranceCompanyId',
-  'agencyId',
   'projectUnitId',
   'policyNumber',
   'amountText',
@@ -113,7 +114,6 @@ export function buildPolicyDefaults(today: Date): PolicyFormValues {
     // Tek yöntem var ve seçili GELİYOR (gereksinim 15).
     method: 'manual',
     insuranceCompanyId: null,
-    agencyId: null,
     projectUnitId: null,
     policyNumber: '',
     amountText: '',
@@ -128,7 +128,6 @@ function validateFirmStep(values: PolicyFormValues): PolicyErrors {
   const errors: PolicyErrors = {}
 
   if (values.insuranceCompanyId === null) errors.insuranceCompanyId = POLICY_ERRORS.insuranceCompany
-  if (values.agencyId === null) errors.agencyId = POLICY_ERRORS.agency
 
   return errors
 }
@@ -141,8 +140,8 @@ function validateInfoStep(values: PolicyFormValues): PolicyErrors {
   if (values.policyNumber.trim() === '') {
     errors.policyNumber = POLICY_ERRORS.policyNumber
   } else if (isPolicyNumberTaken(values.policyNumber)) {
-    // Benzersizlik denetimi TEK kapıdan (api/policies): uç geldiğinde orası
-    // 409'a dönecek ve buradaki çağrı değişmeyecek.
+    // Denetim TEK kapıdan (api/policies). Kural SUNUCUDA YOK — bellekteki mock
+    // deposuna karşı çalışıyor ve kayıt yolu gerçek uca bağlanınca kalkacak.
     errors.policyNumber = POLICY_ERRORS.policyNumberTaken
   }
 
@@ -184,12 +183,13 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
  * İstek gövdesinin SINIR denetimi. Adım doğrulaması kullanıcıya mesaj yazmak
  * için, bu şema gövdenin şeklini garanti etmek için: `null` kimlikler burada
  * artık sayı ve çağıran `as` yazmak zorunda kalmıyor.
+ *
+ * Alanlar `PolicyAddDto` ile BİREBİR. `projectId` YOK (sunucu projeyi birimden
+ * türetiyor), `method` ve `agencyId` de yok — ikisinin de sunucuda karşılığı
+ * bulunmuyor. Gövdeye giren her alanın uçta bir yeri var.
  */
 const policyPayloadSchema = z.object({
-  projectId: z.number().int().positive(),
-  method: z.literal('manual'),
   insuranceCompanyId: z.number().int().positive(),
-  agencyId: z.number().int().positive(),
   projectUnitId: z.number().int().positive(),
   policyNumber: z.string().min(1),
   amount: z.number().positive(),
@@ -197,15 +197,9 @@ const policyPayloadSchema = z.object({
   endDate: z.string().regex(ISO_DATE),
 })
 
-export function buildPolicyPayload(
-  values: PolicyFormValues,
-  projectId: number,
-): CreatePolicyPayload | null {
+export function buildPolicyPayload(values: PolicyFormValues): CreatePolicyPayload | null {
   const parsed = policyPayloadSchema.safeParse({
-    projectId,
-    method: values.method,
     insuranceCompanyId: values.insuranceCompanyId,
-    agencyId: values.agencyId,
     projectUnitId: values.projectUnitId,
     policyNumber: values.policyNumber.trim(),
     amount: parsePolicyAmount(values.amountText),

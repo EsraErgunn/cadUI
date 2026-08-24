@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  AGENCY_NAME,
   AMOUNT_FORMATTED,
   AMOUNT_INPUT,
   COMPANY_NAME,
@@ -42,42 +41,45 @@ afterEach(() => {
 })
 
 describe('Poliçe firması adımı', () => {
-  it('iki kutu "Seçiniz" ile açılır, acente listesi seçilen şirkete bağlıdır (KK-18)', async () => {
+  /**
+   * Adımda TEK kutu var. Bir süre iki kutu vardı ("Sigorta Şirketi" + ona bağlı
+   * "Acente / Poliçe Firması") ama sunucuda acente kavramı YOK: `Policy`'nin tek
+   * firma alanı `InsuranceCompanyId`. İkinci kutunun seçimi hiçbir yere
+   * yazılmadığı için alan tek kutuya indirildi.
+   */
+  it('tek firma kutusu "Seçiniz" ile açılır ve şirketleri listeler', async () => {
     const user = userEvent.setup()
     renderPolicyPage()
     await goToFirmStep(user)
 
-    const company = await screen.findByLabelText('Sigorta Şirketi')
-    const agency = screen.getByLabelText('Acente / Poliçe Firması')
+    const company = await screen.findByLabelText('Sigorta Şirketi / Poliçe Firması')
     expect(company).toHaveValue('')
-    expect(agency).toHaveValue('')
-    // Şirket seçilmeden acente kutusu pasif: boş liste "acente yok" gibi okunurdu.
-    expect(agency).toBeDisabled()
 
-    await fillFirmStep(user)
-
-    expect(within(agency).getAllByRole('option').map((option) => option.textContent)).toEqual([
+    expect(within(company).getAllByRole('option').map((option) => option.textContent)).toEqual([
       'Seçiniz',
-      AGENCY_NAME,
-      `${COMPANY_NAME} — Örnek Acente 2`,
+      COMPANY_NAME,
+      'Aksigorta',
+      'Allianz',
+      'Mapfre',
     ])
   })
 
-  it('şirket değişince seçili acente düşer (KK-18)', async () => {
+  it('ayrı bir acente kutusu ÇİZİLMEZ', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await goToFirmStep(user)
+
+    await screen.findByLabelText('Sigorta Şirketi / Poliçe Firması')
+    expect(screen.queryByLabelText('Acente / Poliçe Firması')).not.toBeInTheDocument()
+  })
+
+  it('seçim korunur ve sonraki adıma geçilir', async () => {
     const user = userEvent.setup()
     renderPolicyPage()
     await goToFirmStep(user)
     await fillFirmStep(user)
 
-    const agency = screen.getByLabelText('Acente / Poliçe Firması')
-    expect(agency).not.toHaveValue('')
-
-    await user.selectOptions(
-      screen.getByLabelText('Sigorta Şirketi'),
-      await screen.findByRole('option', { name: 'Aksigorta' }),
-    )
-
-    expect(agency).toHaveValue('')
+    expect(screen.getByLabelText('Sigorta Şirketi / Poliçe Firması')).not.toHaveValue('')
   })
 })
 
@@ -124,17 +126,17 @@ describe('Poliçe bilgileri adımı', () => {
   })
 
   it('sistemde kayıtlı poliçe numarası kabul edilmez (KK-19)', async () => {
-    addMockPolicy({
-      projectId: PROJECT_ID,
-      method: 'manual',
-      projectUnitId: 1,
-      insuranceCompanyId: 1,
-      agencyId: 1,
-      policyNumber: POLICY_NUMBER,
-      amount: 1000,
-      startDate: TODAY,
-      endDate: END_DATE,
-    })
+    addMockPolicy(
+      {
+        projectUnitId: 1,
+        insuranceCompanyId: 1,
+        policyNumber: POLICY_NUMBER,
+        amount: 1000,
+        startDate: TODAY,
+        endDate: END_DATE,
+      },
+      { id: PROJECT_ID, name: PROJECT_NAME, pId: String(PROJECT_ID) },
+    )
 
     const user = userEvent.setup()
     renderPolicyPage()
