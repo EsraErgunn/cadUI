@@ -20,9 +20,9 @@ afterEach(() => {
 })
 
 /**
- * `POST /api/projects/{id}/submit` sözleşmesi: başarı 200 `{ ok: true }`, eksik
- * evrak **400** `{ ok: false, missingDocuments }`. İki sonuç da GÖVDEDE, ikisi
- * de kullanıcıya farklı şey söylüyor.
+ * `POST /api/projects/{id}/submit`. Uç bugün yalnız `{ message }` döndürüyor:
+ * zorunlu evrak kontrolü SUNUCUDA YOK. Şemadaki `{ ok: false,
+ * missingDocuments }` dalı sözleşmede tanımlı ama uç onu üretmiyor.
  */
 describe('submitProject', () => {
   it('doğru uca gider', async () => {
@@ -40,15 +40,11 @@ describe('submitProject', () => {
   })
 
   /**
-   * Eksik evrak HTTP tarafında hata (400) ama iş tarafında "tamamlanmamış iş":
-   * gövde `ApiError.body` üzerinden geri okunuyor, çağıran listeyi gösteriyor.
-   * İkinci bir istek atılmıyor.
+   * Eksik evrak dalı ŞEMADA duruyor: uç kontrolü eklediğinde çağıran
+   * (`useProjectActions`) değişmeden çalışsın diye. Bugün bu gövde üretilmiyor.
    */
-  it('400 gövdesindeki eksik evrak listesini çözer, hata yükseltmez', async () => {
-    stubResponse(400, {
-      ok: false,
-      missingDocuments: ['Müşteri Sözleşmesi'],
-    })
+  it('eksik evrak gövdesini çözebilir (uç henüz üretmiyor)', async () => {
+    stubResponse(200, { ok: false, missingDocuments: ['Müşteri Sözleşmesi'] })
 
     await expect(submitProject(42)).resolves.toEqual({
       ok: false,
@@ -56,8 +52,8 @@ describe('submitProject', () => {
     })
   })
 
-  /** Eksik evrak DIŞINDAKİ 400 (ör. yanlış durumdan geçiş) olduğu gibi yükselir. */
-  it('şekli tutmayan 400 yutulmaz', async () => {
+  /** 400 olduğu gibi yükselir; çağıran kullanıcıya hata gösterir. */
+  it('400 yutulmaz', async () => {
     stubResponse(400, { message: 'Proje bu durumdan onaya gönderilemez.' })
 
     await expect(submitProject(42)).rejects.toBeInstanceOf(ApiError)
@@ -70,14 +66,12 @@ describe('submitProject', () => {
   })
 
   /**
-   * Eskiden şemaya uymayan 2xx gövdesi BAŞARI sayılıyordu: sözleşme kayınca
-   * ekran "gönderildi" diyor, proje taslakta kalıyordu. Artık patlıyor.
+   * Ucun BUGÜNKÜ yanıtı: `{ message }`. Şemaya uymuyor ama sunucu 2xx dediyse
+   * kayıt değişmiştir — gövde biçimi yüzünden "gönderilemedi" demek yanlış olurdu.
    */
-  it('şemaya uymayan başarılı gövdeyi başarı SAYMAZ', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('şemaya uymayan başarılı gövdeyi başarı sayar', async () => {
     stubResponse(200, { message: 'Proje onaya gönderildi.' })
 
-    await expect(submitProject(42)).rejects.toThrow(/beklenen biçimde değil/)
-    expect(consoleError).toHaveBeenCalled()
+    await expect(submitProject(42)).resolves.toEqual({ ok: true })
   })
 })

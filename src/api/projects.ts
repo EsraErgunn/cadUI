@@ -4,7 +4,7 @@ import { z } from 'zod'
 // listesinin paketine de girerdi.
 import type { AdminScope } from './adminDashboard'
 import { getCurrentUser } from './auth'
-import { ApiError, fetchText, requestJson, type RequestOptions } from './http'
+import { fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import {
   MISSING_USER_FIRMS_MESSAGE,
@@ -12,6 +12,7 @@ import {
   resolveProjectFirmAuthorizationId,
 } from './projectFirmAuthorizations'
 import { queryMockProjectFirms } from './projectsMock'
+import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
 import { serializeProjectDataForBackend } from '../core/projectExportFormat'
 import { parseProjectJson } from '../core/serialize'
@@ -30,7 +31,7 @@ import { parseProjectJson } from '../core/serialize'
  * - SortBy: updatedAt | createdAt | name  (varsayılan: updatedAt)
  * - SortDir: asc | desc                   (varsayılan: desc)
  * - Page: 1 tabanlı, PageSize: 30
- * - ARAMA `Search` olarak sunucuya gider (proje adı + bina kodu)
+ * - ARAMA parametresi YOK — gelen sayfa istemcide süzülüyor (`filterBySearch`)
  * 200 → { items, totalCount, page, pageSize }
  *
  * GET /api/projects/status-counts
@@ -218,7 +219,7 @@ export interface ProjectListQuery {
    */
   scope: AdminScope
   /**
-   * Uca `Search` olarak gider; proje adında ve bina kodunda aranır.
+   * Uçta karşılığı YOK; gelen sayfa istemcide süzülüyor (bkz. `filterBySearch`).
    * Alan sorguda duruyor çünkü URL durumu ve arama kutusu ona bağlı.
    */
   search: string
@@ -284,7 +285,7 @@ export interface RawProjectListItem {
  *                     heatingTypeName, createdAt, updatedAt }],
  *           totalCount, page, pageSize }
  *   SÜZME VE SAYFALAMA ARTIK SUNUCUDA — istemci dizi dilimlemiyor.
- *   ARAMA `Search` parametresiyle sunucuda yapılır.
+ *   ARAMA parametresi YOK: sözleşmede `q`/`Search` bulunmuyor.
  *
  * GET /api/projects/status-counts
  *   Query: DateFrom, DateTo, CityId, DistrictId, ProjectFirmId (Status YOK —
@@ -308,8 +309,6 @@ const apiProjectListItemSchema = z.object({
    */
   gasDistributionFirmName: z.string().nullish(),
   gasDistributionFirmId: z.number().int().nullish(),
-  /** Projede en az bir evrak var mı; satırdaki rozet buna bakıyor. */
-  hasDocuments: z.boolean().nullish(),
   /** Durum KODU ve adı. `status` satır aksiyonlarını süren GERÇEK durum
       (`toProjectStatus`); `statusName` arayüze taşınmıyor — etiketler
       `PROJECT_STATUS_LABELS`'tan geliyor ve iki kaynak ayrışırdı. */
@@ -355,7 +354,7 @@ const SERVER_STATUS_CODES: Record<ProjectStatus, string> = {
  * bilinmeyen bir kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip
  * "Onaya Gönder" düğmesini yanlış satıra koyardı.
  */
-export function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
+function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
   const code = raw?.trim().toLowerCase()
   if (code === undefined || code === '') return null
 
@@ -394,8 +393,7 @@ function toNullableText(value: string | null | undefined): string | null {
 /**
  * Firma adı, bina kodu ve gaz dağıtım firması artık GERÇEK (`FirmName`,
  * `BuildingCode`, `GasDistributionFirmName`).
- * Evrak durumu (`hasDocuments`) artık uçtan geliyor; eskiden her satıra sabit
- * `false` yazılıyordu ve rozet hiçbir projede görünmüyordu.
+ * TODO(esra): evrak durumu (`hasDocuments`) uçtan hâlâ gelmiyor.
  */
 function mapApiProject(raw: z.infer<typeof apiProjectListItemSchema>): ProjectListItem {
   const gasFirmName = toNullableText(raw.gasDistributionFirmName)
@@ -417,7 +415,7 @@ function mapApiProject(raw: z.infer<typeof apiProjectListItemSchema>): ProjectLi
         ? null
         : { id: raw.gasDistributionFirmId ?? null, name: gasFirmName },
     status: toProjectStatus(raw.status),
-    hasDocuments: raw.hasDocuments ?? false,
+    hasDocuments: false,
   }
 }
 
@@ -472,11 +470,27 @@ function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
   appendParam(search, 'CityId', query.cityId)
   appendParam(search, 'DistrictId', query.districtId)
   appendParam(search, 'ProjectFirmId', query.projectFirmId)
-  // Boş arama parametre olarak HİÇ yazılmaz; `appendParam` boş değeri atlıyor.
-  appendParam(search, 'Search', query.search === '' ? null : query.search)
   appendScopeParams(search, query.scope)
 
   return search
+}
+
+/**
+ * Sözleşmede ARAMA parametresi YOK. Kutu kaldırılmadığı için gelen sayfa
+ * istemcide süzülüyor — yani arama YALNIZ görüntülenen sayfayı kapsıyor,
+ * `totalCount` süzülmemiş adedi göstermeye devam ediyor.
+ *
+ * TODO(esra): uca `Search` parametresi eklenmeli; eklenince bu fonksiyon ve
+ * çağrısı silinip parametre `buildFilterParams`'a taşınacak.
+ */
+function filterBySearch(items: ProjectListItem[], search: string): ProjectListItem[] {
+  if (search === '') return items
+
+  // `includesTr` şart: 'İ'.toLowerCase() birleşen nokta üretip eşleşmeyi
+  // sessizce kaçırıyor (knowledge/turkish-collation).
+  return items.filter(
+    (project) => includesTr(project.name, search) || includesTr(project.pId, search),
+  )
 }
 
 /**
@@ -484,10 +498,8 @@ function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
  * 2026-08-14). Yanıtın `totalCount`'u sayfalamayı, `items` sırası tabloyu
  * yönetiyor; istemci diziyi dilimlemiyor.
  *
- * Arama da SUNUCUDA (`Search`): proje adı ve bina kodunda geçiyor. İstemcide
- * süzülürken yalnız GÖRÜNEN sayfayı kapsıyordu ve `totalCount` süzülmemiş
- * adedi göstermeye devam ediyordu — kullanıcı "3 sonuç" yazan bir listede 30
- * satır görüyordu.
+ * Tek istisna arama: uçta karşılığı yok, gelen sayfa `filterBySearch` ile
+ * süzülüyor (bkz. oradaki not).
  */
 export async function listProjects(
   query: ProjectListQuery,
@@ -506,7 +518,7 @@ export async function listProjects(
   )
 
   return projectPageSchema.parse({
-    items: page.items.map(mapApiProject),
+    items: filterBySearch(page.items.map(mapApiProject), query.search),
     totalCount: page.totalCount,
     page: page.page,
     pageSize: page.pageSize,
@@ -517,8 +529,8 @@ export async function listProjects(
  * Sekme rozetleri — `GET /api/projects/status-counts`. Listeyle AYNI süzgeçleri
  * alır, `Status` almaz: rozetler durumdan bağımsız sayılır.
  *
- * Arama rozetlere de YANSIR: `Search` diğer süzgeçlerle birlikte gidiyor,
- * yani rozetteki adet ile listedeki satır sayısı aynı kümeyi anlatıyor.
+ * Arama rozetlere YANSIMAZ (uçta parametresi yok): kutuya yazılan metin
+ * listedeki satırları süzer ama rozetteki adet süzülmemiş kalır.
  */
 export async function getProjectStatusCounts(
   query: ProjectStatusCountsQuery,
@@ -547,47 +559,18 @@ export async function deleteProject(id: number): Promise<void> {
 /**
  * "Onaya Gönder" — GERÇEK uç: `POST /api/projects/{id}/submit`.
  *
- * İki sonuç da GÖVDEDE: gönderim başarılıysa 200 `{ ok: true }`, zorunlu evrak
- * eksikse **400** `{ ok: false, missingDocuments }`. Eksik evrak bir hata
- * durumu olduğu için `http.ts` fırlatıyor; gövdeyi `ApiError.body` üzerinden
- * geri okuyoruz — ikinci bir istek atmadan.
+ * Uç bugün yalnız `{ message }` döndürüyor: zorunlu evrak kontrolü SUNUCUDA
+ * YOK. `{ ok: false, missingDocuments }` dalı sözleşmede tanımlı ama uç onu
+ * üretmiyor — şema yine de duruyor ki kontrol eklendiğinde çağıran değişmesin.
  *
- * Şemaya uymayan gövde artık BAŞARI SAYILMIYOR. Eskiden sayılıyordu ve
- * sözleşme kayması "gönderildi" diye görünüyordu: proje taslakta kalırken
- * kullanıcı işini bitmiş sanıyordu. Artık sebebi konsola yazılıp hata
- * yükseltiliyor, çağıran kullanıcıya "gönderilemedi" diyor.
+ * Gövde şemaya uymazsa (bugün her başarılı çağrıda böyle) işlem BAŞARILI
+ * sayılır: sunucu 2xx dediyse kayıt değişmiştir, gövde biçimi yüzünden
+ * kullanıcıya "gönderilemedi" demek yanlış olurdu.
  */
 export async function submitProject(id: number): Promise<SubmitProjectResult> {
-  try {
-    const body = await requestJson(
-      { method: 'POST', path: `/api/projects/${id}/submit` },
-      z.unknown(),
-    )
-
-    return parseSubmitResult(body, 'başarılı yanıt')
-  } catch (error) {
-    if (error instanceof ApiError && error.status === BAD_REQUEST) {
-      const parsed = submitProjectResultSchema.safeParse(error.body)
-      // 400 yalnız eksik evrakta bu şekli taşıyor; başka bir doğrulama hatasıysa
-      // (ör. yanlış durumdan geçiş) olduğu gibi yükselir.
-      if (parsed.success) return parsed.data
-    }
-
-    throw error
-  }
-}
-
-const BAD_REQUEST = 400
-
-function parseSubmitResult(body: unknown, source: string): SubmitProjectResult {
+  const body = await requestJson({ method: 'POST', path: `/api/projects/${id}/submit` }, z.unknown())
   const parsed = submitProjectResultSchema.safeParse(body)
-  if (parsed.success) return parsed.data
-
-  // BİLİNÇLİ teşhis çıktısı: sözleşme kayması sessizce yutulursa "gönderildi"
-  // yazan ama gönderilmemiş bir ekran kalır.
-  // eslint-disable-next-line no-console -- yukarıdaki gerekçe
-  console.error(`submitProject: ${source} sözleşmeye uymuyor`, parsed.error.issues)
-  throw new Error('Onaya gönderme yanıtı beklenen biçimde değil.')
+  return parsed.success ? parsed.data : { ok: true }
 }
 
 /**

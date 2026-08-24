@@ -95,7 +95,6 @@ export function DocumentListPage() {
       dateTo: query.dateTo,
       docTypeCodeId: resolveDocumentTypeId(query.docTypeCode, documentTypes),
       projectFirmId: query.projectFirmId,
-      scope: query.scope,
       page: query.page,
       pageSize: query.pageSize,
       sortBy: query.sortBy,
