@@ -214,7 +214,7 @@ describe('createProject', () => {
       districtId: 64,
       addressLine: VALID_PAYLOAD.address,
       blockLotParcel: VALID_PAYLOAD.parcelInfo,
-      connectionObject: null,
+      buildingCode: null,
       projectTypeCodeId: 3,
       heatingTypeCodeId: 8,
       buildingUsageTypeCodeId: 12,
@@ -224,8 +224,29 @@ describe('createProject', () => {
       areaSquareMeters: 120,
       capacity: 12,
       serviceBoxPressureMbar: 21,
-      coverNote: null,
+      description: null,
     })
+  })
+
+  /**
+   * Sunucuda `connectionObject`/`coverNote` diye alan YOK (backend 91baf4c):
+   * "Bağlantı Nesnesi" bina kodunun kendisi, kapak açıklaması da
+   * `description`. Eski adlarla gönderilirse gövde sessizce düşerdi.
+   */
+  it('bağlantı nesnesini buildingCode, kapak açıklamasını description olarak gönderir', async () => {
+    const fetchMock = stubFetch(apiCreatedResponse(7, VALID_PAYLOAD.name))
+
+    await createProject({
+      ...VALID_PAYLOAD,
+      connectionObject: 'BN-4471',
+      coverNote: 'Kapak açıklaması',
+    })
+
+    const body = sentBody(fetchMock)
+    expect(body.buildingCode).toBe('BN-4471')
+    expect(body.description).toBe('Kapak açıklaması')
+    expect(body).not.toHaveProperty('connectionObject')
+    expect(body).not.toHaveProperty('coverNote')
   })
 
   /** Üç tip alanı kod METNİYLE değil KİMLİKLE gidiyor (bkz. api/codes.ts). */
@@ -259,10 +280,10 @@ describe('createProject', () => {
 
     await createProject(VALID_PAYLOAD)
 
-    // `description` ve `code` uçta null kabul ediyor; form alanlarını
-    // description'a JSON olarak gömmek şemasız bir alan yaratırdı.
+    // `code`, iş başlama tarihi ve yetkili mühendis formdan KALKTI (K74);
+    // uydurma değerle doldurulmuyorlar.
     const body = sentBody(fetchMock)
-    for (const field of ['description', 'code', 'startDate', 'engineerUserId']) {
+    for (const field of ['code', 'startDate', 'engineerUserId']) {
       expect(body).not.toHaveProperty(field)
     }
   })

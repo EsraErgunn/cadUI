@@ -4,7 +4,7 @@ import { z } from 'zod'
 // listesinin paketine de girerdi.
 import type { AdminScope } from './adminDashboard'
 import { getCurrentUser } from './auth'
-import { fetchText, requestJson, type RequestOptions } from './http'
+import { ApiError, fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import {
   MISSING_USER_FIRMS_MESSAGE,
@@ -567,15 +567,47 @@ export async function deleteProject(id: number): Promise<void> {
 /**
  * "Onaya Gönder" — GERÇEK uç: `POST /api/projects/{id}/submit`.
  *
- * Uç gövdesiz 200 dönebiliyor; eksik evrak durumu ise `{ ok: false,
- * missingDocuments }` olarak geliyor. Gövde şemaya uymazsa (boş/farklı) işlem
- * BAŞARILI sayılır — sunucu 2xx dediyse kayıt değişmiştir, gövde biçimi yüzünden
- * kullanıcıya "gönderilemedi" demek yanlış olurdu.
+ * İki sonuç da GÖVDEDE: gönderim başarılıysa 200 `{ ok: true }`, zorunlu evrak
+ * eksikse **400** `{ ok: false, missingDocuments }`. Eksik evrak bir hata
+ * durumu olduğu için `http.ts` fırlatıyor; gövdeyi `ApiError.body` üzerinden
+ * geri okuyoruz — ikinci bir istek atmadan.
+ *
+ * Şemaya uymayan gövde artık BAŞARI SAYILMIYOR. Eskiden sayılıyordu ve
+ * sözleşme kayması "gönderildi" diye görünüyordu: proje taslakta kalırken
+ * kullanıcı işini bitmiş sanıyordu. Artık sebebi konsola yazılıp hata
+ * yükseltiliyor, çağıran kullanıcıya "gönderilemedi" diyor.
  */
 export async function submitProject(id: number): Promise<SubmitProjectResult> {
-  const body = await requestJson({ method: 'POST', path: `/api/projects/${id}/submit` }, z.unknown())
+  try {
+    const body = await requestJson(
+      { method: 'POST', path: `/api/projects/${id}/submit` },
+      z.unknown(),
+    )
+
+    return parseSubmitResult(body, 'başarılı yanıt')
+  } catch (error) {
+    if (error instanceof ApiError && error.status === BAD_REQUEST) {
+      const parsed = submitProjectResultSchema.safeParse(error.body)
+      // 400 yalnız eksik evrakta bu şekli taşıyor; başka bir doğrulama hatasıysa
+      // (ör. yanlış durumdan geçiş) olduğu gibi yükselir.
+      if (parsed.success) return parsed.data
+    }
+
+    throw error
+  }
+}
+
+const BAD_REQUEST = 400
+
+function parseSubmitResult(body: unknown, source: string): SubmitProjectResult {
   const parsed = submitProjectResultSchema.safeParse(body)
-  return parsed.success ? parsed.data : { ok: true }
+  if (parsed.success) return parsed.data
+
+  // BİLİNÇLİ teşhis çıktısı: sözleşme kayması sessizce yutulursa "gönderildi"
+  // yazan ama gönderilmemiş bir ekran kalır.
+  // eslint-disable-next-line no-console -- yukarıdaki gerekçe
+  console.error(`submitProject: ${source} sözleşmeye uymuyor`, parsed.error.issues)
+  throw new Error('Onaya gönderme yanıtı beklenen biçimde değil.')
 }
 
 /**
@@ -756,9 +788,16 @@ async function resolveAuthorizationId(payload: CreateProjectPayload): Promise<nu
  * int32 — ondalık gövde 400 döner, doğrulama `newProjectSchema`'da tam sayıyı
  * zorunlu tutuyor.
  *
- * `description` ve `code` GÖNDERİLMİYOR: formda karşılıkları yok, uçta ikisi de
- * `null` kabul ediyor. Form alanlarını `description` içine JSON olarak gömmek
- * sunucunun sorgulayamadığı şemasız bir alan yaratırdı.
+ * İKİ ALAN AD DEĞİŞTİREREK gidiyor ve bu bilinçli (backend 91baf4c): sunucuda
+ * `connectionObject` ve `coverNote` diye alan YOK — ekip "Bağlantı Nesnesi"nin
+ * bina koduyla aynı işi gördüğüne karar verip `Building.Code`'u tuttu, kapak
+ * açıklamasını da `description` içinde birleştirdi. Payload adları formun
+ * etiketlerini yansıttığı için DEĞİŞMİYOR; çeviri yalnız burada, `capacity`
+ * dönüşümüyle aynı desen.
+ *
+ * `buildingCode` sunucuda BENZERSİZ: aynı bağlantı nesnesi ikinci bir projede
+ * kullanılırsa uç 409 döner ve form onu alan hatasına çevirir
+ * (`useNewProjectForm`).
  */
 export async function createProject(payload: CreateProjectPayload): Promise<CreatedProject> {
   // Yetki kimliği kayıttan ÖNCE çözülüyor: çözülemezse proje hiç açılmasın.
@@ -776,7 +815,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
         districtId: payload.districtId,
         addressLine: payload.address,
         blockLotParcel: payload.parcelInfo,
-        connectionObject: payload.connectionObject,
+        buildingCode: payload.connectionObject,
         projectTypeCodeId: payload.projectTypeCodeId,
         heatingTypeCodeId: payload.heatingTypeCodeId,
         buildingUsageTypeCodeId: payload.buildingUsageTypeCodeId,
@@ -788,7 +827,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
         // `capacityCubicMeterPerHour` kalıyor, çeviri yalnız burada.
         capacity: payload.capacityCubicMeterPerHour,
         serviceBoxPressureMbar: payload.serviceBoxPressureMbar,
-        coverNote: payload.coverNote,
+        description: payload.coverNote,
       }),
     },
     apiCreatedProjectSchema,
