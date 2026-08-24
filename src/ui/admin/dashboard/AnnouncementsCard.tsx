@@ -1,8 +1,8 @@
 import { Megaphone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { DashboardCard } from './DashboardCard'
 import type { Announcement } from '../../../api/adminDashboard'
+import { DashboardCard } from '../DashboardCard'
 import { ANNOUNCEMENTS_PATH } from '../adminNavItems'
 import { ADMIN_CELL_LINK } from '../adminVariants'
 import { AnnouncementItem } from '../announcements/AnnouncementItem'

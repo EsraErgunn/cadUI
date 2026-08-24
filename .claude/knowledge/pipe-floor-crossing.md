@@ -34,8 +34,8 @@ hedef kotu aktif katın tavanıyla (`Floor.heightCm`) karşılaştırıyor
 
 **Bilinçli kapsam sınırları:**
 
-- Yalnız **YUKARI** yön otomatik — kot 0'ın altına inip alt kata otomatik
-  geçme YOK (istek metni yalnız "yeni kata çıksın" diyor).
+- ~~Yalnız **YUKARI** yön otomatik~~ — bu sınır K135'te KALKTI, aşağı yön de
+  otomatik (bkz. aşağıdaki bölüm).
 - Yalnız **ÇİZİM SIRASINDA** (`commitDraftElevation`) — zaten yerleşmiş bir
   boruyu `PipePropertiesPanel`'in "Boy" alanından (`resizePipeEnd`) büyütmek
   bu otomasyonu TETİKLEMEZ, o yol hâlâ salt geometrik ölçekleme yapıyor
@@ -122,3 +122,29 @@ KOMŞU bir köşeyi (`getLinkedLinePoints` yayılımı) sürüklemeye çalışma
 `plumbing/core/moveTargets.ts` · `plumbing/store/pipeElevationActions.ts`
 (`crossFloorsWithOverflow`) · `plumbing/store/plumbingSlice.ts` ·
 `plumbing/scene/useSelectionTool.ts`
+
+## Aşağı yön de otomatik (K135)
+
+K104'ün "yalnız yukarı" sınırı kullanıcı bulgusuyla kalktı (2026-08: "boruya
+`-` yükseklik girince oda uzunluğundan fazlaysa alt kata inmeli ama inmiyor").
+
+Yukarıdaki çiftin aynası:
+
+| yukarı | aşağı |
+|---|---|
+| `capElevationToFloor(target, floorHeightCm)` → `overflowCm` | `capElevationToFloorBase(target)` → `underflowCm` |
+| `crossFloorsWithOverflow` | `crossFloorsDownWithUnderflow` |
+| sınırda `addFloor({})` | sınırda `addFloor({ isBasement: true })` (K106) |
+| yeni kata TABANINDAN (0) girilir | yeni kata TAVANINDAN (`Floor.heightCm`) girilir |
+
+Son satır aynanın TEK asimetrisi ve kolay atlanır: üst katın tabanı alttakinin
+tavanıdır, bu yüzden aşağı inen borunun `startHeightCm`i sıfır DEĞİL alt katın
+yüksekliğidir ve kot aşağı doğru tüketilir.
+
+Tabanın eşiği neden parametre değil: tavan kata göre değişir (`Floor.heightCm`),
+taban değişmez — her katın tabanı kendi yerel koordinatında sıfırdır (kot
+saklanmaz, `core/floorElevation.ts` türetir).
+
+Tek bir hedef kot ya tavanı aşar ya tabanı deler; `commitDraftElevation` bu
+yüzden iki taşmayı `else if` ile ayırır. Diğer kapsam sınırları (yalnız çizim
+sırasında, yalnız `pipe` türü) DURUYOR.

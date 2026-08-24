@@ -26,8 +26,20 @@ interface DocumentColumnsOptions {
   documentTypes: DocumentType[]
   /** İsteği süren satır; o satırın düğmesi kilitlenir. */
   pendingDocumentId: number | null
+  /** Yönetim görünümü mü (`useIsManagementUser`); firma sütunlarını açar. */
+  isManagementView: boolean
+  /**
+   * Evrak silinebilir mi (`useCanWriteProjectContent`). Sunucu da
+   * `DELETE /api/docs/{id}` ucunu `Admin, ProjectFirmUser`'a açıyor; gaz dağıtım
+   * kullanıcısı evrağı GÖRÜR, silemez. Yetkisizde sütun HİÇ üretilmez —
+   * içi boş bir "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+   */
+  canDelete: boolean
   onDelete: (documentId: number) => void
 }
+
+/** Firma sütunlarının yeri: "Tesisat No"dan hemen sonra. */
+const FIRM_COLUMN_INDEX = 8
 
 /**
  * "Firma Adı" ve "G.D Firması" DÜZ METİN: ikisinin de gidebileceği bir salt
@@ -40,9 +52,11 @@ export function buildDocumentColumns({
   rowOffset,
   documentTypes,
   pendingDocumentId,
+  isManagementView,
+  canDelete,
   onDelete,
 }: DocumentColumnsOptions): DataTableColumn<DocumentRow, DocumentSortKey>[] {
-  return [
+  const columns: DataTableColumn<DocumentRow, DocumentSortKey>[] = [
     {
       key: 'no',
       label: 'No',
@@ -104,18 +118,27 @@ export function buildDocumentColumns({
       cell: (document) =>
         document.installationNo === null ? <EmptyValue /> : document.installationNo,
     },
-    {
+  ]
+
+  // Firma sütunları YÖNETİM görünümüne özel. Proje firması kullanıcısının
+  // listesindeki her evrak zaten kendi firmasının: "Firma Adı" her satırda aynı
+  // değeri tekrar eder, "G.D Firması" ise onun yönetmediği bir firmayı anlatır.
+  // Gelen VERİ değişmiyor (`DocumentRow` aynı), yalnız iki sütun çizilmiyor.
+  if (isManagementView) {
+    columns.splice(FIRM_COLUMN_INDEX, 0, {
       key: 'firmName',
       label: 'Firma Adı',
       cell: (document) => (document.firmName === null ? <EmptyValue /> : document.firmName),
-    },
-    {
+    }, {
       key: 'gasFirmName',
       label: 'G.D Firması',
       cell: (document) =>
         document.gasFirmName === null ? <EmptyValue /> : document.gasFirmName,
-    },
-    {
+    })
+  }
+
+  if (canDelete) {
+    columns.push({
       key: 'actions',
       label: 'Aksiyonlar',
       cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
@@ -131,6 +154,8 @@ export function buildDocumentColumns({
           Sil
         </button>
       ),
-    },
-  ]
+    })
+  }
+
+  return columns
 }

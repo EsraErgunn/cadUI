@@ -8,6 +8,7 @@ import { LengthLabels } from './LengthLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
 import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
+import { ServiceBoxElevationLabels } from './ServiceBoxElevationLabel'
 import { SplitLengthLabels } from './SplitLengthLabels'
 import { SymbolInstance } from './SymbolInstance'
 import { useDischargeTool } from './useDischargeTool'
@@ -42,7 +43,7 @@ function InstallationElements({ draggedElementIds, dragDeltaRef }: SelectionTool
             // Ref YALNIZ sürüklenen elemanlara gider: geri kalanı her frame konum yazmaz.
             dragDeltaRef={draggedElementIds.includes(element.id) ? dragDeltaRef : undefined}
             // Elemanın kotu tutunduğu boru/porttan izler (K102) — türetilmiş, store'a yazılmaz.
-            elevationCm={getElementElevationCm(element.id, lines, connections)}
+            elevationCm={getElementElevationCm(element.id, lines, connections, elements)}
           />
         ))}
     </>
@@ -76,6 +77,10 @@ export function PlumbingLayer() {
         dragDeltaRef={selection.dragDeltaRef}
       />
       <ElementNameLabels
+        draggedElementIds={selection.draggedElementIds}
+        dragDeltaRef={selection.dragDeltaRef}
+      />
+      <ServiceBoxElevationLabels
         draggedElementIds={selection.draggedElementIds}
         dragDeltaRef={selection.dragDeltaRef}
       />

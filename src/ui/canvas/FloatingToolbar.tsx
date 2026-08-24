@@ -1,4 +1,13 @@
-import { ChevronDown, ChevronUp, Hand, Magnet, MousePointer2, Redo2, Undo2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  Grid3x3,
+  Hand,
+  Magnet,
+  MousePointer2,
+  Redo2,
+  Undo2,
+} from 'lucide-react'
 
 import { FloorSelect } from './FloorSelect'
 import { ViewOptionsMenu } from './ViewOptionsMenu'
@@ -42,9 +51,12 @@ export function FloatingToolbar({
   const setActiveTool = useUiStore((state) => state.setActiveTool)
   const isPanModeActive = useUiStore((state) => state.isPanModeActive)
   const setPanModeActive = useUiStore((state) => state.setPanModeActive)
+  const isGridVisible = useUiStore((state) => state.isGridVisible)
+  const toggleGridVisible = useUiStore((state) => state.toggleGridVisible)
   const isGridSnapEnabled = useUiStore((state) => state.isGridSnapEnabled)
   const toggleGridSnapEnabled = useUiStore((state) => state.toggleGridSnapEnabled)
   const activeViewId = useUiStore((state) => state.activeViewId)
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
 
   const canUndo = useCanUndoActiveView()
   const canRedo = useCanRedoActiveView()
@@ -99,28 +111,34 @@ export function FloatingToolbar({
           <Hand size={16} strokeWidth={1.8} aria-hidden />
         </button>
 
-        <span className={CANVAS_BAR_DIVIDER} aria-hidden />
+        {/* Geri al/yinele salt görüntülemede HİÇ çizilmez: geri alınacak bir
+            düzenleme zaten yapılamıyor, düğme yalnız hep pasif dururdu. */}
+        {!isReadOnly && (
+          <>
+            <span className={CANVAS_BAR_DIVIDER} aria-hidden />
 
-        <button
-          type="button"
-          onClick={undoActiveView}
-          disabled={!canUndo}
-          title="Geri al (Ctrl+Z)"
-          aria-label="Geri al"
-          className={canvasBarButtonVariants()}
-        >
-          <Undo2 size={16} strokeWidth={1.8} aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={redoActiveView}
-          disabled={!canRedo}
-          title="Yinele (Ctrl+Y)"
-          aria-label="Yinele"
-          className={canvasBarButtonVariants()}
-        >
-          <Redo2 size={16} strokeWidth={1.8} aria-hidden />
-        </button>
+            <button
+              type="button"
+              onClick={undoActiveView}
+              disabled={!canUndo}
+              title="Geri al (Ctrl+Z)"
+              aria-label="Geri al"
+              className={canvasBarButtonVariants()}
+            >
+              <Undo2 size={16} strokeWidth={1.8} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={redoActiveView}
+              disabled={!canRedo}
+              title="Yinele (Ctrl+Y)"
+              aria-label="Yinele"
+              className={canvasBarButtonVariants()}
+            >
+              <Redo2 size={16} strokeWidth={1.8} aria-hidden />
+            </button>
+          </>
+        )}
 
         <span className={CANVAS_BAR_DIVIDER} aria-hidden />
 
@@ -131,12 +149,15 @@ export function FloatingToolbar({
           type="button"
           onClick={() => onGoToFloor('down')}
           disabled={!hasFloorBelow}
-          title="Alt kata geç (Page Down)"
+          title="Alt kata geç"
           aria-label="Alt kata geç"
           className={canvasBarButtonVariants()}
         >
           <ChevronDown size={16} strokeWidth={1.8} aria-hidden />
         </button>
+        {/* Kat OKLARI ve seçici kalıyor: kat değiştirmek bir görüntüleme
+            işlemi. Seçicinin İÇİNDEKİ "Katları Yönet" / "Kat Kopyala"
+            maddeleri yazar, onları `FloorSelect` kendi içinde gizliyor. */}
         <FloorSelect
           onOpenFloorManagement={onOpenFloorManagement}
           onOpenFloorCopy={onOpenFloorCopy}
@@ -145,11 +166,29 @@ export function FloatingToolbar({
           type="button"
           onClick={() => onGoToFloor('up')}
           disabled={!hasFloorAbove}
-          title="Üst kata geç (Page Up)"
+          title="Üst kata geç"
           aria-label="Üst kata geç"
           className={canvasBarButtonVariants()}
         >
           <ChevronUp size={16} strokeWidth={1.8} aria-hidden />
+        </button>
+
+        <span className={CANVAS_BAR_DIVIDER} aria-hidden />
+
+        {/* Izgara görünürlüğü Görünüm menüsünden ÇUBUĞA taşındı (K153, kullanıcı
+            isteği): sık açılıp kapanan bir anahtar, iki tık ötede menüde
+            duruyordu. Snap'in YANINDA çünkü ikisi de ızgarayla ilgili — biri
+            onu gösteriyor, öteki ona yapıştırıyor. Menüde artık YOK: aynı
+            anahtarı iki yerde sunmak hangisinin ne yaptığını belirsizleştirir. */}
+        <button
+          type="button"
+          onClick={toggleGridVisible}
+          aria-pressed={isGridVisible}
+          title="Izgarayı göster"
+          aria-label="Izgarayı göster"
+          className={canvasBarButtonVariants({ tone: isGridVisible ? 'active' : 'plain' })}
+        >
+          <Grid3x3 size={16} strokeWidth={1.8} aria-hidden />
         </button>
 
         {/* Snap YALNIZ mimaride (K57). Tesisatın yakalaması bugün ızgara
@@ -159,7 +198,6 @@ export function FloatingToolbar({
             Görünmeyen düğme, yanlış çalışan düğmeden iyidir. */}
         {isArchitecture && (
           <>
-            <span className={CANVAS_BAR_DIVIDER} aria-hidden />
             <button
               type="button"
               onClick={toggleGridSnapEnabled}

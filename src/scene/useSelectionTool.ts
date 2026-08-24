@@ -7,6 +7,7 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findPointSymbolLabelAt } from './usePointSymbolLabelTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
@@ -22,12 +23,10 @@ import { getSymbolsOnFloor } from '../core/symbolPlacement'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
+import { isEditorReadOnly } from '../store/editorReadOnly'
 import { useUiStore } from '../store/uiStore'
 
 const PRIMARY_BUTTON = 0
-
-/** Çoğaltma kopyayı kaynağın üstüne koymaz: kullanıcı ikisini ayırt edebilmeli. */
-const DUPLICATE_OFFSET_CM = 50
 
 /**
  * Çerçeve seçimi, Shift ile ekleme/çıkarma ve seçimin tamamını silme (KK-10).
@@ -101,6 +100,8 @@ export function useSelectionTool(): void {
       if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
       // Ad etiketi gövdenin DIŞINDA ve serbestçe taşınabiliyor: o basış etiketin.
       if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Cihaz ad etiketi de gövdesinin DIŞINDA ve serbestçe taşınabiliyor (K138).
+      if (findPointSymbolLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
       // Metin `resolveArchitectureTarget` zincirinde YOK (K81): oraya girseydi
       // bir notun üstüne düşen duvar seçilemez olurdu. Sonuç olarak hedef
       // çözümlemesi metnin üstünü "boşluk" sayıyor ve çerçeve seçimi başlıyordu
@@ -184,6 +185,9 @@ export function useSelectionTool(): void {
      */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
+      // Silme çizimi DEĞİŞTİRİR; salt görüntülemede tuş yutulmaz,
+      // yalnız işlem yapılmaz (tarayıcının kendi davranışı serbest kalsın).
+      if (isEditorReadOnly()) return
 
       const ui = useArchitectureUiStore.getState()
       if (ui.selection.length === 0) return
@@ -194,17 +198,14 @@ export function useSelectionTool(): void {
         return
       }
 
-      // Ctrl+D: çoğalt (KK-11). preventDefault şart — tarayıcının "yer imi ekle"si
-      // aynı tuşta.
-      if (event.key.toLowerCase() === 'd' && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault()
-        const created = useCadStore.getState().duplicateSelection(ui.selection, {
-          dxCm: DUPLICATE_OFFSET_CM,
-          dyCm: DUPLICATE_OFFSET_CM,
-        })
-        // Seçim KOPYAYA geçer: kullanıcı çoğalttığı şeyi hemen sürükleyebilsin.
-        if (created.length > 0) ui.setSelection(created)
-      }
+      /*
+       * ÇOĞALTMA KALKTI (K142) — Ctrl+D de, panel düğmesi de. Kopya kaynağın 50
+       * cm yanına düşüyordu ve duvarlar kesişince kesişim bölme (K24) ikisini
+       * birbirine yapıştırıyordu; kullanıcı "gerek yok" dedi.
+       *
+       * Ctrl+D artık YAKALANMIYOR: tuş tarayıcıya bırakıldı, biz üstlenmediğimiz
+       * bir kısayolu `preventDefault` ile yutmayalım.
+       */
     }
 
     const unsubscribe = subscribeDrawSurface({

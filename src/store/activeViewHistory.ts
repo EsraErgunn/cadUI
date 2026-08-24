@@ -3,20 +3,27 @@ import { useUiStore } from './uiStore'
 import { useCanRedoPlumbing, useCanUndoPlumbing } from '../plumbing/store/plumbingHistory'
 
 /**
- * Geri al/yinele AKTİF GÖRÜNÜMÜN geçmişine gider: tesisat görünümünde tesisat
- * aynası (plumbingHistory), mimaride proje geçmişi. İzometrikte düzenleme yok,
- * proje geçmişi varsayılan olarak kalır.
+ * Geri al/yinele AKTİF GÖRÜNÜMÜN geçmişine gider: mimaride proje geçmişi,
+ * tesisat VE İZOMETRİKTE tesisat aynası (plumbingHistory).
+ *
+ * İzometrik neden tesisat dalında: oradaki her düzenleme (dal ayırma, etiket
+ * taşıma, izometrik konumları sıfırlama) `installationLines`/`Elements`
+ * üstünde çalışıyor ve `plumbingSlice` üzerinden kaydediliyor. Proje geçmişine
+ * bağlansaydı izometrikte Ctrl+Z kullanıcının EN SON ÇİZDİĞİ DUVARI geri
+ * alırdı — "izometrikte düzenleme yok" varsayımı Adım 7'de geçersizleşti.
  *
  * Çağıran her yerin (klavye kısayolu, menü, yüzen çubuk) bu dallanmayı kendi
  * içinde yazması bugünkü hatanın kaynağıydı: kısayol dallanıyor, düğmeler
  * dallanmıyordu — tesisat görünümünde düğme mimariyi geri alıyordu. Tek kapı.
  */
-function isInstallationView(): boolean {
-  return useUiStore.getState().activeViewId === 'installation'
+const PLUMBING_HISTORY_VIEWS = ['installation', 'isometric']
+
+function isPlumbingHistoryView(): boolean {
+  return PLUMBING_HISTORY_VIEWS.includes(useUiStore.getState().activeViewId)
 }
 
 export function undoActiveView(): void {
-  if (isInstallationView()) {
+  if (isPlumbingHistoryView()) {
     useCadStore.getState().undoPlumbing()
     return
   }
@@ -24,7 +31,7 @@ export function undoActiveView(): void {
 }
 
 export function redoActiveView(): void {
-  if (isInstallationView()) {
+  if (isPlumbingHistoryView()) {
     useCadStore.getState().redoPlumbing()
     return
   }
@@ -41,7 +48,7 @@ export function useCanUndoActiveView(): boolean {
   const canUndoPlumbing = useCanUndoPlumbing()
   const activeViewId = useUiStore((state) => state.activeViewId)
 
-  return activeViewId === 'installation' ? canUndoPlumbing : canUndoProject
+  return PLUMBING_HISTORY_VIEWS.includes(activeViewId) ? canUndoPlumbing : canUndoProject
 }
 
 export function useCanRedoActiveView(): boolean {
@@ -49,5 +56,5 @@ export function useCanRedoActiveView(): boolean {
   const canRedoPlumbing = useCanRedoPlumbing()
   const activeViewId = useUiStore((state) => state.activeViewId)
 
-  return activeViewId === 'installation' ? canRedoPlumbing : canRedoProject
+  return PLUMBING_HISTORY_VIEWS.includes(activeViewId) ? canRedoPlumbing : canRedoProject
 }

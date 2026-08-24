@@ -9,8 +9,6 @@ import { useGasFirmInitialValues } from '../ui/admin/firms/useGasFirmInitialValu
 const LIST_TITLE = 'Gaz Dağıtım Firmaları'
 const CREATE_TITLE = 'Gaz Dağıtım Firma Ekle'
 const UPDATE_TITLE = 'Gaz Dağıtım Firma Güncelle'
-const DESCRIPTION =
-  'Yeni bir gaz dağıtım firması tanımlayın (güncelleme ekranı da aynı alanları kullanır)'
 
 const FIRM_ID_PATTERN = /^\d+$/
 
@@ -52,7 +50,6 @@ function GasFirmFormScreen({ firmId }: { firmId: number | null }) {
           { label: firmId === null ? 'Firma Ekle' : 'Firma Güncelle' },
         ]}
         title={title}
-        description={DESCRIPTION}
       />
 
       {initial.isPending && <QueryLoading message="Form hazırlanıyor…" />}

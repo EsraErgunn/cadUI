@@ -23,6 +23,7 @@ import {
   getDischargeLineKind,
   INSTALLATION_SELECTION_TOOL_ID,
 } from '../core/installationTools'
+import { getElementElevationCm } from '../core/lineElevation'
 import { isSamePoint } from '../core/lineGeometry'
 import type { DischargeLineKind } from '../core/lineKinds'
 import { resolveRightClick, type RightClickInput } from '../core/pointerGestures'
@@ -117,13 +118,33 @@ export function useDischargeTool(): DischargeToolState {
       return projectOntoOutletAxis(draft.start.position, draft.start.direction, corner)
     }
 
-    /** Güzergâhı kalıcı hâle getirir; iki köşeden azı YAZILMAZ. */
+    /**
+     * Güzergâhı kalıcı hâle getirir; iki köşeden azı YAZILMAZ.
+     *
+     * Kot çıktığı CİHAZDAN gelir (kullanıcı isteği, 2026-08: "eklenen
+     * havalandırma ve baca da konulduğu cihazın yüksekliğini alsın") — kanal
+     * cihazın deşarj ağzından çıkar, sıfırdan başlasaydı izometrikte cihaz
+     * havada, bacası yerde görünürdü. Cihazın kotu tek adresten okunur
+     * (`getElementElevationCm`): gaz kolunun tutunduğu borunun kotu.
+     *
+     * DÜZ yazılır (iki uç aynı): baca yükselse de o yükseliş kullanıcının
+     * kararı, panelden ya da kot kutusundan verilir — burada varsayım yapılmaz.
+     */
     const commitDraft = (draft: DischargeDraft) => {
       if (!isDischargeDraftWritable(draft)) return
-      useCadStore.getState().addLine({
+      const cad = useCadStore.getState()
+      const elevationCm = getElementElevationCm(
+        draft.start.outlet.elementId,
+        cad.installationLines,
+        cad.installationConnections,
+        cad.installationElements,
+      )
+
+      cad.addLine({
         kind: draft.kind,
         points: draft.points,
         startTarget: { kind: 'outlet', ...draft.start.outlet },
+        chimney: { type: '', startHeightCm: elevationCm, endHeightCm: elevationCm },
       })
     }
 

@@ -1,14 +1,13 @@
-import { Copy, FlipHorizontal, FlipVertical, RotateCw } from 'lucide-react'
+import { FlipHorizontal, FlipHorizontal2, FlipVertical, RotateCw } from 'lucide-react'
 
+import { MIRROR_AXIS_TOOL_ID } from '../../core/tools'
 import type { MirrorAxis } from '../../core/transform'
 import { QUARTER_TURN_DEG } from '../../core/transform'
 import { useArchitectureUiStore } from '../../store/architectureUiStore'
 import { useCadStore } from '../../store/cadStore'
 import { getSelectionPivot } from '../../store/transformOps'
+import { useUiStore } from '../../store/uiStore'
 import { chromeButtonVariants } from '../controls/buttonVariants'
-
-/** Çoğaltma kopyayı kaynağın üstüne koymaz: kullanıcı ikisini ayırt edebilmeli. */
-const DUPLICATE_OFFSET_CM = 50
 
 /**
  * Seçim üzerinde toplu işlemler (KK-11). Panelde duruyor çünkü panel zaten
@@ -19,9 +18,9 @@ const DUPLICATE_OFFSET_CM = 50
  */
 export function SelectionActions() {
   const selection = useArchitectureUiStore((state) => state.selection)
-  const setSelection = useArchitectureUiStore((state) => state.setSelection)
   const transformSelection = useCadStore((state) => state.transformSelection)
-  const duplicateSelection = useCadStore((state) => state.duplicateSelection)
+  const setActiveTool = useUiStore((state) => state.setActiveTool)
+  const isMirrorAxisActive = useUiStore((state) => state.activeToolId === MIRROR_AXIS_TOOL_ID)
 
   // Açıklık kendi koordinatını taşımıyor (duvarına offset'le bağlı): YALNIZ
   // açıklık seçiliyken dönüşümün uygulanacağı bir koordinat yok, düğmeler pasif.
@@ -41,15 +40,6 @@ export function SelectionActions() {
 
   const mirror = (axis: MirrorAxis) =>
     runTransform((pivot) => transformSelection(selection, { kind: 'mirror', pivot, axis }))
-
-  const duplicate = () => {
-    const created = duplicateSelection(selection, {
-      dxCm: DUPLICATE_OFFSET_CM,
-      dyCm: DUPLICATE_OFFSET_CM,
-    })
-    // Seçim KOPYAYA geçer: kullanıcı çoğalttığı şeyi hemen sürükleyebilsin.
-    if (created.length > 0) setSelection(created)
-  }
 
   return (
     <div className="flex flex-wrap gap-1 border-t border-edge px-3 py-2">
@@ -83,15 +73,19 @@ export function SelectionActions() {
       >
         <FlipVertical size={16} strokeWidth={1.8} aria-hidden />
       </button>
+      {/* Eksene göre aynalama TUVALDE tamamlanıyor: düğme yalnız aracı açıyor,
+          kullanıcı ekseni çiziyor (`useMirrorAxisTool`). Panelde bitirilebilecek
+          bir iş değil — ayna doğrusunun yeri çizimin üstünde seçiliyor. */}
       <button
         type="button"
-        onClick={duplicate}
+        onClick={() => setActiveTool(MIRROR_AXIS_TOOL_ID)}
         disabled={!isTransformable}
-        title="Çoğalt (Ctrl+D)"
-        aria-label="Çoğalt"
-        className={chromeButtonVariants({ shape: 'icon' })}
+        title="Çizilen eksende aynala"
+        aria-label="Çizilen eksende aynala"
+        aria-pressed={isMirrorAxisActive}
+        className={chromeButtonVariants({ shape: 'icon', tone: isMirrorAxisActive ? 'active' : 'plain' })}
       >
-        <Copy size={16} strokeWidth={1.8} aria-hidden />
+        <FlipHorizontal2 size={16} strokeWidth={1.8} aria-hidden />
       </button>
     </div>
   )

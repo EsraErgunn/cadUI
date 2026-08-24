@@ -8,6 +8,15 @@ import type { EditorShortcut } from '../../core/shortcuts'
  * (bkz. pages/useEditorShortcuts.ts).
  */
 export const PLUMBING_SHORTCUTS = [
+  {
+    id: 'axis-draw',
+    keys: ['← ↑ → ↓'],
+    // Ok tuşları eskiden kat değiştiriyordu; klavyeden kat değiştirme kalktı
+    // (2026-08), oklar artık çizimin. Metin bunu söylemezse kullanıcı eski
+    // davranışı arar.
+    label: 'Boru çizerken ekseni seç, uzunluğu yaz',
+  },
+  { id: 'elevation-draw', keys: ['+', '-'], label: 'Boru çizerken kot ver (dikey boru)' },
   { id: 'undo', keys: ['Ctrl+Z'], label: 'Tesisatta geri al' },
   { id: 'redo', keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], label: 'Tesisatta yinele' },
   { id: 'save', keys: ['Ctrl+S'], label: 'Projeyi kaydet' },

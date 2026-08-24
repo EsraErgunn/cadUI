@@ -1,7 +1,7 @@
 import { CalendarDays } from 'lucide-react'
 
-import { DashboardCard } from './DashboardCard'
 import type { DashboardSummary } from '../../../api/adminDashboard'
+import { DashboardCard } from '../DashboardCard'
 import { formatCount, formatLongDate } from '../adminFormat'
 
 interface TodayCardProps {

@@ -76,14 +76,13 @@ export function ProjectFirmAuthorizationCard({
         label="G.D Firması Bölgeleri"
         labelNote={REQUIRED_MARK}
         gasFirms={draft.visibleGasFirms}
-        checkedGasFirmIds={draft.checkedGasFirmIds}
+        selectedGasFirmId={draft.selectedGasFirmId}
         search={draft.gasFirmSearch}
         isPending={draft.areGasFirmsPending}
         hasSelectedGroup={draft.groupId !== ''}
         error={draft.errors.gasFirms}
         onSearchChange={draft.setGasFirmSearch}
-        onToggleGasFirm={draft.toggleGasFirm}
-        onToggleAll={draft.toggleAllVisibleGasFirms}
+        onSelectGasFirm={draft.selectGasFirm}
       />
 
       {/* "Yeterlilik No" KALKTI (K102): kayıtta tek numara kaldı. */}

@@ -65,23 +65,11 @@ describe('SelectionActions', () => {
     expect(findPoint(7)).toMatchObject({ x: 900, y: 0 })
   })
 
-  it('çoğaltır ve seçimi KOPYAYA taşır', async () => {
-    render(<SelectionActions />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Çoğalt' }))
-
-    expect(useCadStore.getState().walls).toHaveLength(FIXTURE_WALLS.length + 1)
-
-    const selection = useArchitectureUiStore.getState().selection
-    expect(selection).toHaveLength(1)
-    expect(selection[0].id).not.toBe(DIAGONAL_WALL_ID)
-  })
-
   it('yalnız açıklık seçiliyken düğmeler pasif — açıklık kendi koordinatını taşımıyor', () => {
     useArchitectureUiStore.setState({ selection: [{ kind: 'opening', id: WINDOW_ID }] })
     render(<SelectionActions />)
 
-    expect(screen.getByRole('button', { name: 'Çoğalt' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Çizilen eksende aynala' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '90 derece döndür' })).toBeDisabled()
   })
 

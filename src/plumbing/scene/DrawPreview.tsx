@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ComponentRef } from 'react'
 import { InterleavedBufferAttribute, type Group } from 'three'
 
+import { ElevationNodeRing } from './ElevationNodeRing'
 import { PipeLine } from './InstallationLineMesh'
 import { DraftLengthLabel, LengthText } from './LengthLabels'
 import { getLineColor, getLineWidthPx } from './lineStyle'
@@ -204,6 +205,11 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
 
   const anchor = draft?.anchor
   const elevationCm = draft?.kind === 'pipe' ? draft.elevationCm : 0
+  // `+`/`-` ile kot kutusu açıkken zincirin ucu "az sonra dikey hareket edecek
+  // düğüm"dür; halka onu şimdiden işaretler (kullanıcı isteği, 2026-08).
+  const isElevationArmed = usePlumbingUiStore(
+    (state) => state.draftKeyboardInput?.mode === 'elevation',
+  )
 
   useFrame(() => {
     const rubberBand = rubberBandRef.current
@@ -241,6 +247,7 @@ export function LineDraftPreview({ kind, cursorRef }: LineToolState) {
       />
       {/* Anlık uzunluk bandın ortasında; ölçü etiketleri kapalıyken de çıkar. */}
       <DraftLengthLabel anchor={anchor} cursorRef={cursorRef} zoom={zoom} />
+      {isElevationArmed && <ElevationNodeRing position={anchor} zoom={zoom} />}
       {/* Zincirin o anki kotu (K102) — `+`/`- ile değiştirildikçe anchor'ın
           yanında okunur; sıfırsa gösterilmez (çoğu boru zaten döşeme kotunda). */}
       {elevationCm !== 0 && (

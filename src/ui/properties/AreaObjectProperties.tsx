@@ -6,6 +6,7 @@ import {
   hasAreaObjectRectangleSize,
   isAreaObjectLabelTaken,
   isAreaObjectLabelValid,
+  isAreaObjectRotatable,
 } from '../../core/areaObject'
 import type { Id } from '../../core/model'
 import { getCommonNumber } from '../../core/propertyFields'
@@ -41,6 +42,8 @@ export function AreaObjectProperties({ areaObjectIds }: AreaObjectPropertiesProp
   const isDiameterOnly = selected.every(
     (areaObject) => !hasAreaObjectRectangleSize(areaObject.type),
   )
+  // Seçimde döndürülebilir TEK bir tip bile varsa alan durur; yoksa gizlenir.
+  const isRotatable = selected.some((areaObject) => isAreaObjectRotatable(areaObject.type))
 
   const labelText = labelDraft ?? (isSingle ? sole.label : '')
   const labelError = (() => {
@@ -138,16 +141,20 @@ export function AreaObjectProperties({ areaObjectIds }: AreaObjectPropertiesProp
         </>
       )}
 
-      {/* Açı KK-3'ün 15° adımına store'da yakalanıyor; panel ham değeri gönderir. */}
-      <PropertyNumberField
-        label="Açı (°)"
-        valueCm={getCommonNumber(selected.map((areaObject) => areaObject.angleDeg))}
-        targetKey={targetKey}
-        stepCm={ROTATION_STEP_DEG}
-        isReadOnly={!isSingle}
-        onCommit={isSingle ? (angleDeg) => rotateAreaObject(sole.id, angleDeg) : undefined}
-        rejectionMessage="Açı bir açıklığın üstüne düşüyor."
-      />
+      {/* Açı KK-3'ün 15° adımına store'da yakalanıyor; panel ham değeri gönderir.
+          Çember çizen tipte alan HİÇ gösterilmez: tutamacı da kaldırıldı, panelde
+          kalsaydı hiçbir şeyi değiştirmeyen bir sayı düzenlenebilir olurdu. */}
+      {isRotatable && (
+        <PropertyNumberField
+          label="Açı (°)"
+          valueCm={getCommonNumber(selected.map((areaObject) => areaObject.angleDeg))}
+          targetKey={targetKey}
+          stepCm={ROTATION_STEP_DEG}
+          isReadOnly={!isSingle}
+          onCommit={isSingle ? (angleDeg) => rotateAreaObject(sole.id, angleDeg) : undefined}
+          rejectionMessage="Açı bir açıklığın üstüne düşüyor."
+        />
+      )}
     </div>
   )
 }

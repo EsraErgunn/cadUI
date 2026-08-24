@@ -1,21 +1,26 @@
 import { useEffect, useRef } from 'react'
 
 import { isTypingTarget } from '../core/domEvents'
-import type { FloorDirection } from '../core/floors'
-import { usePlumbingUiStore } from '../plumbing/store/plumbingUiStore'
 import { redoActiveView, undoActiveView } from '../store/activeViewHistory'
 
 export type EditorShortcutHandlers = {
+  /**
+   * Salt görüntüleme kipi. Açıkken YAZAN kısayolların hiçbiri çalışmaz:
+   * Ctrl+Z/Y (geri al/yinele), Ctrl+S / Ctrl+Shift+S (kaydet) ve Ctrl+K /
+   * Ctrl+Shift+K (kat yönetimi/kopyalama pencereleri). Tuş YUTULMAZ —
+   * `preventDefault` de çağrılmaz, tarayıcının kendi davranışı serbest kalır.
+   */
+  isReadOnly: boolean
   onSave: () => void
   onSaveAs: () => void
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
-  onGoToFloor: (direction: FloorDirection) => void
 }
 
 /**
  * Çizim ekranının klavye kısayolları TEK yerde: Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
- * (geri al / yinele), Ctrl+S (kaydet) ve Ctrl+Shift+S (farklı kaydet). Her
+ * (geri al / yinele), Ctrl+S (kaydet), Ctrl+Shift+S (farklı kaydet) ve
+ * Ctrl+K / Ctrl+Shift+K (kat pencereleri). Her
  * kısayol kendi dinleyicisini kursaydı ikisi de preventDefault çağırır ve
  * sıraları belirsiz olurdu.
  *
@@ -33,27 +38,15 @@ export function useEditorShortcuts(handlers: EditorShortcutHandlers): void {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Metin kutusunda Ctrl+Z yazıyı geri almalı, çizimi değil.
       if (isTypingTarget(event.target)) return
+      // Bu dinleyicideki kısayolların TAMAMI yazan işlemler; salt görüntülemede
+      // hiçbiri bağlanmaz. Zoom/pan burada değil (`useViewportControls`).
+      if (handlersRef.current.isReadOnly) return
 
-      // Kat geçişi değiştirici tuş İSTEMEZ; bu yüzden Ctrl kontrolünden önce.
-      if (event.key === 'PageUp' || event.key === 'PageDown') {
-        event.preventDefault()
-        handlersRef.current.onGoToFloor(event.key === 'PageUp' ? 'up' : 'down')
-        return
-      }
-
-      // Ok yukarı/aşağı da komşu kata geçirir (kullanıcı isteği, 2026-08) —
-      // PageUp/PageDown ile AYNI yönü taşır, yalnız ikinci bir tuş. Tesisatta
-      // aktif bir taslak hat varken ok tuşları ZATEN BAŞKA bir işe bağlı (kat
-      // BAĞLANTISI kurmak, `useLineTool.ts` → `commitDraftFloorLink`) — o
-      // pencerede burası devre dışı kalır, yoksa aynı tuş basışı hem bağlantı
-      // kurar hem kat değiştirir (kullanıcının "karıştırma" uyarısı tam bu).
-      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        if (usePlumbingUiStore.getState().draftLine) return
-        event.preventDefault()
-        handlersRef.current.onGoToFloor(event.key === 'ArrowUp' ? 'up' : 'down')
-        return
-      }
-
+      // KLAVYEDEN KAT DEĞİŞTİRME YOK (kullanıcı kararı, 2026-08): PageUp/PageDown
+      // ve ok tuşları eskiden komşu kata geçiriyordu; ok tuşları artık boru
+      // çiziminin (`plumbing/scene/useLineTool.ts`), kat ise yalnız kat
+      // sekmelerinden / yüzen çubuktan değişir. Tuşun iki işe binmesi tam da
+      // kaldırılan karışıklıktı.
       if (!event.ctrlKey && !event.metaKey) return
 
       const key = event.key.toLowerCase()

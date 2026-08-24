@@ -31,6 +31,16 @@ export const SAVE_AS_ITEM_ID = 'saveAs'
 export const IMPORT_ITEM_ID = 'import'
 export const EXPORT_ITEM_ID = 'export'
 export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
+/** "Proje Dosyasını İndir" — pafta + gömülü proje verisi taşıyan PDF. */
+export const DOWNLOAD_PROJECT_FILE_ITEM_ID = 'downloadProjectFile'
+/** "Proje Dosyasını Aç" — aynı PDF'ten çizimi geri yükler. */
+export const OPEN_PROJECT_FILE_ITEM_ID = 'openProjectFile'
+/** "Mahalleri Tanımla" — tanımsız mahalleri tek tek gezdiren kip (K145). */
+export const DEFINE_ROOMS_ITEM_ID = 'defineRooms'
+/** "Kolon Hattını Sil" — gövde (kolon + branşman), daima tüm katlar (K147). */
+export const DELETE_RISER_ITEM_ID = 'deleteRiserLine'
+/** "Daire İçi Tesisatları Sil" — sayaç sonrası, aktif kat (K147). */
+export const DELETE_UNIT_INSTALLATIONS_ITEM_ID = 'deleteUnitInstallations'
 
 /**
  * Menü YALNIZ dosya biçimi işlerini taşır. Üst barda kendi düğmesi olan hiçbir
@@ -41,9 +51,11 @@ export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
  * - "Proje Bilgileri" → sahne değiştiricinin yanındaki bilgi ikonu
  * - "Gönder" → sağdaki "Gönder" düğmesi
  *
- * "Proje Dosyasını Aç/İndir" JSON'dan BAŞKA bir biçim için ayrılmış; biçim
- * kararlaşmadığı için pasif duruyorlar ve İçe/Dışa Aktar'ın kopyası DEĞİLLER.
- * Etiketlerdeki "(JSON)" bu ayrımı görünür kılıyor.
+ * "Proje Dosyasını İndir/Aç" artık ÇALIŞIYOR ve biçimi PDF: indirilen dosya hem
+ * basılabilir pafta hem de çizimin kendisi — proje verisi belgeye GÖMÜLÜ
+ * (core/pdf/projectPayload.ts), "Aç" onu geri okuyor. İçe/Dışa Aktar (JSON) ile
+ * kopya değiller: o ikisi ham veri alışverişi, bunlar teslim edilebilir dosya.
+ * Etiketlerdeki "(JSON)" ayrımı bu yüzden duruyor.
  */
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -77,14 +89,18 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
       },
       {
         items: [
-          { id: 'exportPdf', label: "PDF'e Aktar", ...DISABLED },
-          { id: 'exportPdfFloors', label: "PDF'e Aktar (Katlar)", ...DISABLED },
-        ],
-      },
-      {
-        items: [
-          { id: 'openProjectFile', label: 'Proje Dosyasını Aç', ...DISABLED },
-          { id: 'downloadProjectFile', label: 'Proje Dosyasını İndir', ...DISABLED },
+          {
+            id: DOWNLOAD_PROJECT_FILE_ITEM_ID,
+            label: 'Proje Dosyasını İndir',
+            kind: 'command',
+            isEnabled: true,
+          },
+          {
+            id: OPEN_PROJECT_FILE_ITEM_ID,
+            label: 'Proje Dosyasını Aç',
+            kind: 'command',
+            isEnabled: true,
+          },
         ],
       },
       {
@@ -100,27 +116,48 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
     id: 'tools',
     label: 'Araçlar',
     groups: [
+      /*
+       * Menü DÖRT maddeye indi (kullanıcı seçti). Çıkanlar: Birim
+       * Numaralandırmayı Başlat, Tüketim Vanası Branşmanlarını DN25 Yap,
+       * Tüketim Vanalarını Ekle, Tesisat Detayları ve Hata Kontrollerini
+       * Çalıştır.
+       *
+       * Hata kontrolü menüden çıktı ama KAYBOLMADI: üst barda kendi düğmesi var
+       * ve o ÇALIŞIYOR (K115) — menüdeki pasif kopyası ikinci bir giriş yolu
+       * vaat edip hiçbir şey yapmıyordu.
+       *
+       * "Mahalleri Tanımla" K145'te, iki silme maddesi K147'de ÇALIŞIR hâle
+       * geldi. Yalnız "Malzeme Listesi" PASİF kaldı (`isPlanned` deseni, K79):
+       * "tıklanabilir görünüp hiçbir şey yapmayan madde" yerine "henüz yok"
+       * demek.
+       */
       {
         title: 'Toplu İşlemler',
         items: [
-          { id: 'defineRooms', label: 'Mahalleri Tanımla', ...DISABLED },
-          { id: 'startUnitNumbering', label: 'Birim Numaralandırmayı Başlat', ...DISABLED },
           {
-            id: 'setConsumptionValveBranchesDn25',
-            label: 'Tüketim Vanası Branşmanlarını DN25 Yap',
-            ...DISABLED,
+            id: DEFINE_ROOMS_ITEM_ID,
+            label: 'Mahalleri Tanımla',
+            kind: 'command',
+            isEnabled: true,
           },
-          { id: 'deleteRiserLine', label: 'Kolon Hattını Sil', ...DISABLED },
-          { id: 'addConsumptionValves', label: 'Tüketim Vanalarını Ekle', ...DISABLED },
-          { id: 'deleteUnitInstallations', label: 'Daire İçi Tesisatları Sil', ...DISABLED },
+          {
+            id: DELETE_RISER_ITEM_ID,
+            label: 'Kolon Hattını Sil',
+            kind: 'command',
+            isEnabled: true,
+          },
+          {
+            // Eski etiket "Tesisat Sil"di ve TÜM tesisatı silecek sanılıyordu;
+            // işlem yalnız sayaçtan sonrasını siler (K147).
+            id: DELETE_UNIT_INSTALLATIONS_ITEM_ID,
+            label: 'Daire İçi Tesisatları Sil',
+            kind: 'command',
+            isEnabled: true,
+          },
         ],
       },
       {
-        items: [
-          { id: 'runValidation', label: 'Hata Kontrollerini Çalıştır', ...DISABLED },
-          { id: 'installationDetails', label: 'Tesisat Detayları', ...DISABLED },
-          { id: 'billOfMaterials', label: 'Malzeme Listesi', ...DISABLED },
-        ],
+        items: [{ id: 'billOfMaterials', label: 'Malzeme Listesi', ...DISABLED }],
       },
     ],
   },

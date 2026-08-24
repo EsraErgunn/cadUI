@@ -2,36 +2,20 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
-import { resolvePlacementPosition } from './placementSnap'
-import { getSnapRadiusCm } from './snapRadius'
-import { getSymbolMetadata } from './symbolLoader'
+import {
+  resolvePlacement,
+  type ResolvedPlacement,
+  type StubPreview,
+} from './placementResolution'
+import { startPipeFromElement } from './startPipeAfterPlacement'
 import type { PlanPoint } from '../../core/coords'
-import type { Id } from '../../core/model'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-import { getInputPort } from '../core/attachGeometry'
 import { getElementAttachMode, getPlacementPreviewTypes } from '../core/attachModes'
-import {
-  resolveFreeEndAttachment,
-  resolveNearestLineAttachment,
-  resolveOnLineAttachment,
-  type ElementPlacement,
-  type FreeEndAttachment,
-  type NearestLineAttachment,
-  type OnLineAttachment,
-} from '../core/elementAttach'
-import {
-  getPlacementElementType,
-  INSTALLATION_PIPE_TOOL_ID,
-} from '../core/installationTools'
-import { startChain } from '../core/lineChain'
-import { getElementInputElevationCm } from '../core/lineElevation'
-import { isGasCarryingKind } from '../core/lineKinds'
-import { getSeedPort } from '../core/lineSeed'
-import { DEFAULT_ELEMENT_ANGLE_DEG } from '../core/placement'
-import { getPortWorldPosition } from '../core/ports'
+import type { ElementPlacement } from '../core/elementAttach'
+import { getPlacementElementType } from '../core/installationTools'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import { usePlumbingUiStore } from '../store/plumbingUiStore'
 
@@ -39,9 +23,6 @@ const LEFT_BUTTON = 0
 
 /** Araç kapalıyken paylaşılan boş dizi: her render'da yeni referans üretilmesin. */
 const NO_PREVIEW_TYPES: readonly InstallationElementType[] = []
-
-/** Cihaz kolunun iki ucu. */
-export type StubPreview = readonly [PlanPoint, PlanPoint]
 
 export type PlacementPreviewState = {
   /** Yerleştirme aracı kapalıysa null — önizleme de çizilmez. */
@@ -57,17 +38,6 @@ export type PlacementPreviewState = {
   /** Cihazı boruya bağlayan kolun önizlemesi; kol yoksa null. */
   stubRef: RefObject<StubPreview | null>
 }
-
-type ResolvedPlacement =
-  | { mode: 'free'; placements: readonly ElementPlacement[] }
-  | { mode: 'onLine'; placements: readonly ElementPlacement[]; attachment: OnLineAttachment }
-  | { mode: 'lineEnd'; placements: readonly ElementPlacement[]; attachment: FreeEndAttachment }
-  | {
-      mode: 'nearestLine'
-      placements: readonly ElementPlacement[]
-      attachment: NearestLineAttachment
-      stub: StubPreview
-    }
 
 /**
  * Eleman yerleştirme aracı. DrawSurface yalnız ham pointer olayı yayınlar; araç
@@ -98,132 +68,12 @@ export function usePlacementTool(): PlacementPreviewState {
 
     const mode = getElementAttachMode(elementType)
 
-    /**
-     * Yalnız GAZ hatları hedef: armatür bacaya oturmamalı, sayaç kanalın ucuna
-     * takılmamalı, cihaz koluyla kanala bağlanmamalı. Özellikle `nearestLine`
-     * yarıçapsız çalışıyor ("en yakın açık uca yapışır") — süzülmeseydi yeni
-     * konan bir cihaz planın öbür ucundaki bacaya kol atardı.
-     *
-     * `branchStub` de hedef DEĞİL (kullanıcı isteği, 2026-08: "branşmanın mavi
-     * ucuna bir şey eklenmesin"): o kol zaten kendi sayacını/vanasını taşıyor,
-     * boş kalan yer seviyesi ucu başka bir armatür/cihaz için bir bağlantı
-     * noktası değil. Branşmanın kendi sayacını yerleştirmesi bu filtreden
-     * ETKİLENMEZ — `useLineTool`'daki `commitBranchGroundStep` yeni yazılan tek
-     * kolu doğrudan, bu listeden bağımsız verir.
-     */
-    const readFloorLines = () => {
-      const cad = useCadStore.getState()
-      return cad.installationLines.filter(
-        (line) =>
-          line.floorId === cad.activeFloorId &&
-          isGasCarryingKind(line.kind) &&
-          line.kind !== 'branchStub',
-      )
-    }
-
-    /**
-     * Boruya yapışan modlarda HAM imleç kullanılır, ızgaraya oturtulmuş olan
-     * değil: hedef boru zaten yakalamayı belirliyor, araya giren ızgara adımı
-     * yakalamayı kaçırtırdı (hat aracındaki "port > ızgara" önceliğiyle aynı).
-     */
-    const resolve = (planPoint: PlanPoint): ResolvedPlacement | null => {
-      const { zoom } = readCameraViewport(camera)
-
-      if (mode === 'free') {
-        const position = resolvePlacementPosition(planPoint, zoom)
-        return {
-          mode,
-          placements: [{ type: elementType, position, angleDeg: DEFAULT_ELEMENT_ANGLE_DEG }],
-        }
-      }
-
-      const lines = readFloorLines()
-
-      if (mode === 'onLine') {
-        const attachment = resolveOnLineAttachment(
-          lines,
-          getSymbolMetadata,
-          elementType,
-          planPoint,
-          getSnapRadiusCm(zoom),
-        )
-        if (!attachment) return null
-        return { mode, attachment, placements: attachment.nodes.map((node) => node.placement) }
-      }
-
-      if (mode === 'lineEnd') {
-        const attachment = resolveFreeEndAttachment(
-          lines,
-          useCadStore.getState().installationConnections,
-          getSymbolMetadata,
-          elementType,
-          planPoint,
-          getSnapRadiusCm(zoom),
-        )
-        if (!attachment) return null
-        return { mode, attachment, placements: attachment.placements }
-      }
-
-      const attachment = resolveNearestLineAttachment(
-        lines,
-        useCadStore.getState().installationConnections,
-        getSymbolMetadata,
-        elementType,
-        resolvePlacementPosition(planPoint, zoom),
-      )
-      if (!attachment) return null
-      return {
-        mode,
-        attachment,
-        placements: attachment.placements,
-        stub: [attachment.nodePosition, attachment.inputPortPosition],
-      }
-    }
+    const resolve = (planPoint: PlanPoint): ResolvedPlacement | null =>
+      resolvePlacement(elementType, mode, planPoint, readCameraViewport(camera).zoom)
 
     const write = (resolved: ResolvedPlacement | null) => {
       placementsRef.current = resolved?.placements ?? null
       stubRef.current = resolved?.mode === 'nearestLine' ? resolved.stub : null
-    }
-
-    /**
-     * Sayaç ya da servis kutusu konunca boru çizimi KENDİLİĞİNDEN başlar: araç
-     * boruya geçer ve taslak elemanın çıkış portundan açılır (gaz yönü eleman →
-     * tüketim). Kullanıcı elemanı koyup paletten boruyu ayrıca seçmek zorunda
-     * kalmaz.
-     */
-    const startPipeFrom = (elementId: Id | null) => {
-      const cad = useCadStore.getState()
-      const element = cad.installationElements.find((candidate) => candidate.id === elementId)
-      if (!element) return
-
-      const metadata = getSymbolMetadata(element.type)
-      const outputPort = getSeedPort(metadata)
-      if (outputPort) {
-        // Elemanın GİRİŞİNDE zaten bir boru varsa (sayaç gibi `lineEnd` ile
-        // takılan elemanlar, K102) devam eden boru AYNI kottan başlar — yoksa
-        // çizim sayaçta aniden zemine düşermüş gibi görünürdü (kullanıcı
-        // isteği, 2026-08: "200'de devam etmeli çizim"). Servis kutusunun
-        // giriş portu yok (`getInputPort` null döner), o hep 0'da kalır.
-        const inputPort = getInputPort(metadata)
-        const elevationCm = inputPort
-          ? getElementInputElevationCm(
-              element.id,
-              inputPort.id,
-              cad.installationLines,
-              cad.installationConnections,
-            )
-          : 0
-
-        usePlumbingUiStore.getState().setDraftLine({
-          kind: 'pipe',
-          ...startChain(
-            getPortWorldPosition(element, outputPort, metadata),
-            { kind: 'port', elementId: element.id, portId: outputPort.id },
-            elevationCm,
-          ),
-        })
-      }
-      useUiStore.getState().setActiveTool(INSTALLATION_PIPE_TOOL_ID)
     }
 
     const apply = (resolved: ResolvedPlacement) => {
@@ -239,11 +89,24 @@ export function usePlacementTool(): PlacementPreviewState {
         // kullanıcı burada elle koyduğunda da aynı akışı bulmalı. Baca/
         // havalandırma bu davranışın DIŞINDA — onlar cihazın deşarj portundan
         // ayrı bir güzergah aracıyla çizilir, bu akıştan geçmez.
-        if (elementType === 'serviceBox') startPipeFrom(elementId)
+        if (elementType === 'serviceBox') startPipeFromElement(elementId)
         return
       }
       if (resolved.mode === 'onLine') {
         cad.placeOnLineElements(resolved.attachment)
+        return
+      }
+      if (resolved.mode === 'verticalArm') {
+        startPipeFromElement(
+          cad.placeElementAtVerticalArm(
+            resolved.attachment,
+            usePlumbingUiStore.getState().activePipeTypeName,
+          ),
+        )
+        return
+      }
+      if (resolved.mode === 'verticalEnd') {
+        cad.placeElementAtVerticalEnd(resolved.attachment)
         return
       }
       if (resolved.mode === 'nearestLine') {
@@ -253,7 +116,7 @@ export function usePlacementTool(): PlacementPreviewState {
         )
         return
       }
-      startPipeFrom(cad.placeElementAtLineEnd(resolved.attachment))
+      startPipeFromElement(cad.placeElementAtLineEnd(resolved.attachment))
     }
 
     const unsubscribe = subscribeDrawSurface({

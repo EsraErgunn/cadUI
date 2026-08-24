@@ -10,11 +10,13 @@ import { isTypingTarget } from '../../core/domEvents'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
+import { isEditorReadOnly } from '../../store/editorReadOnly'
 import { useUiStore } from '../../store/uiStore'
+import { getDraftAxisDirection, getDraftElevationSign } from '../core/draftKeyboard'
 import { resolveFreeEndAttachment } from '../core/elementAttach'
 import type { InstallationLineKind, LineEndAttachment } from '../core/installationModel'
 import { getGasLineKind, INSTALLATION_SELECTION_TOOL_ID } from '../core/installationTools'
-import { advanceChain, startChain } from '../core/lineChain'
+import { startChain } from '../core/lineChain'
 import {
   BRANCH_SEED_HEIGHT_CM,
   resolveSeedElevationCm,
@@ -23,11 +25,15 @@ import {
 import { isSamePoint } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
 import { getLineSeedElementType, getSeedPort, hasServiceBox } from '../core/lineSeed'
-import { findNearestPointOnLines, type LineSnapCandidate } from '../core/lineSnap'
+import {
+  collectOpenEndPointIds,
+  findNearestPointOnLines,
+  type LineSnapCandidate,
+} from '../core/lineSnap'
 import { findNearestFreePort, type PortCandidate } from '../core/portSnap'
 import { getPortWorldPosition } from '../core/ports'
 import { findNearestWallCorner, findNearestWallFace, findNearestWallParallel } from '../core/wallSnap'
-import { commitDraftFloorLink } from '../store/floorLinkActions'
+import { commitDraftStep } from '../store/lineStepActions'
 import { usePlumbingUiStore, type LineDraft } from '../store/plumbingUiStore'
 
 const LEFT_BUTTON = 0
@@ -177,8 +183,22 @@ export function useLineTool(): LineToolState {
             isGasCarryingKind(line.kind) &&
             line.kind !== 'branchStub',
         )
-        const line = findNearestPointOnLines(floorLines, event.planPoint, radiusCm)
-        if (line) {
+        // Açık uç bilgisi: çakışan iki uç arasında (kot adımı sonrası kolonun
+        // tepesi ile geldiği yatay borunun ucu aynı x,y'dedir) çizimin
+        // bırakıldığı ucu seçer.
+        const line = findNearestPointOnLines(
+          floorLines,
+          event.planPoint,
+          radiusCm,
+          collectOpenEndPointIds(floorLines, cad.installationConnections),
+        )
+        // Zincirin KENDİ ucuna geri yapışmak yakalama değil kilitlenmedir:
+        // sonuç anchor'ın kendisi çıkar, tık `isSamePoint` denetimine takılıp
+        // sessizce düşer ve çizim ilerlemez. Kot adımından sonra (K102) bu hâl
+        // kaçınılmaz: `+`/`-` plan konumunu değiştirmediği için anchor'da artık
+        // BİRDEN ÇOK hat ucu buluşuyor, `anchorLineId` yalnız birini eliyor
+        // (kullanıcı isteği, 2026-08: "yeni yükseklikten ilerle hep").
+        if (line && !(draftLine && isSamePoint(line.position, draftLine.anchor))) {
           return { point: line.position, snap: { kind: 'line', position: line.position, line } }
         }
       }
@@ -369,40 +389,9 @@ export function useLineTool(): LineToolState {
         return
       }
 
-      const written = useCadStore.getState().addLine({
-        kind: draft.kind,
-        points: [draft.anchor, point],
-        pipeTypeName: usePlumbingUiStore.getState().activePipeTypeName,
-        startTarget: draft.startTarget ?? undefined,
-        endTarget: snap ? toAttachment(snap) : undefined,
-        // Kot (K102) `pipe` türünde İKİ uçlu (K102); branşmanda TEK alan
-        // (`BranchPropertiesPanel`) — sayacın çıkış kotuyla başlar (kullanıcı
-        // isteği, 2026-08), yatay adımda değişmez.
-        pipe:
-          draft.kind === 'pipe'
-            ? { startHeightCm: draft.elevationCm, endHeightCm: draft.elevationCm, description: '' }
-            : undefined,
-        branch: draft.kind === 'branch' ? { elevationCm: draft.elevationCm } : undefined,
-      })
-      if (!written) return
-
-      // Kat bağlantısı yarım kalmış olabilir (`floorLinkActions.ts` →
-      // `commitDraftFloorLink`): hedef katta ilk adım tam bu ANDA yazıldı,
-      // eksik uç artık biliniyor. Yalnız bu katın (aktif kat) beklediği tarafta
-      // tamamlanır — başka bir kattan gelen eski bir bekleme burada tüketilmez.
-      const pending = usePlumbingUiStore.getState().pendingFloorLink
-      if (pending) {
-        const activeFloorId = useCadStore.getState().activeFloorId
-        if ('belowPointId' in pending && pending.aboveFloorId === activeFloorId) {
-          useCadStore.getState().addFloorPipeLink({ ...pending, abovePointId: written.startPointId })
-          usePlumbingUiStore.getState().setPendingFloorLink(null)
-        } else if ('abovePointId' in pending && pending.belowFloorId === activeFloorId) {
-          useCadStore.getState().addFloorPipeLink({ ...pending, belowPointId: written.startPointId })
-          usePlumbingUiStore.getState().setPendingFloorLink(null)
-        }
-      }
-
-      writeDraft(snap ? null : { kind: draft.kind, ...advanceChain(draft, point, written) })
+      // Adımın kendisi store köprüsünde (`lineStepActions.ts`): klavyeyle
+      // çizilen adım da AYNI yoldan geçsin, iki yazım yolu ayrışmasın.
+      commitDraftStep(point, snap ? toAttachment(snap) : null)
     }
 
     /** Taslak boşken sağ tık: araçtan çıkar, Seçim aracına döner. */
@@ -479,24 +468,41 @@ export function useLineTool(): LineToolState {
       onCancel: () => exitTool(),
     })
 
+    /**
+     * Klavyeyle çizim (kullanıcı isteği, 2026-08). Tuş doğrudan boru YAZMAZ,
+     * yalnız sayısal kutuyu kurar: ok tuşu ekseni, `+`/`-` kot yönünü kilitler;
+     * uzunluğu/miktarı kullanıcı yazıp Enter'a basar (`DraftKeyboardInput`).
+     *
+     * Ok tuşları eskiden kat BAĞLAMA (`commitDraftFloorLink`), `useEditorShortcuts`
+     * içinde de kat GEÇİŞİ taşıyordu; ikisi de kaldırıldı (kullanıcı kararı,
+     * 2026-08) — klavyeden kat değiştirme yok, kat yalnız kat sekmelerinden ve
+     * yüzen çubuktan değişir. Ok tuşları artık çizimin.
+     *
+     * `+`/`-` yalnız `pipe` taslağında anlamlı: kot iki uçlu olarak yalnız
+     * orada tutuluyor (`commitDraftElevationBy` de aynı kontrolü yapıyor, bu
+     * kutuyu boşuna açmamak için burada da bakılır).
+     */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
-      if (!readDraft()) return
+      // Ok tuşları ve +/- klavyeyle boru ÇİZİYOR (K-klavye çizimi); salt
+      // görüntülemede taslak zaten hiç başlamaz (jestler kapalı) ama dinleyici
+      // de susturuluyor — tek kapıya güvenmiyoruz.
+      if (isEditorReadOnly()) return
 
-      // Kat bağlantısı (kullanıcı isteği, 2026-08): tıklanabilir bir sahne
-      // ögesi güvenilir olmazdı (bu araç `subscribeDrawSurface` ile HAM
-      // pointerdown'ı dinliyor, R3F'in kendi onClick sentetik olayıyla
-      // YARIŞIYOR). PageUp/PageDown zaten "kattan kata geç"i taşıyor
-      // (`useEditorShortcuts.ts`) ve BAĞLANTI KURMADAN geçiyor; bu yüzden ok
-      // tuşları kullanılıyor, aynı tuş iki farklı işe binmesin diye.
-      if (event.key === 'ArrowUp') {
+      const draft = readDraft()
+      if (!draft) return
+
+      const direction = getDraftAxisDirection(event.key)
+      if (direction) {
         event.preventDefault()
-        commitDraftFloorLink('up')
+        usePlumbingUiStore.getState().setDraftKeyboardInput({ mode: 'length', direction })
         return
       }
-      if (event.key === 'ArrowDown') {
+
+      const sign = getDraftElevationSign(event.key)
+      if (sign && draft.kind === 'pipe') {
         event.preventDefault()
-        commitDraftFloorLink('down')
+        usePlumbingUiStore.getState().setDraftKeyboardInput({ mode: 'elevation', sign })
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -506,9 +512,8 @@ export function useLineTool(): LineToolState {
       window.removeEventListener('keydown', handleKeyDown)
       // Araç değişince yarım hat asılı kalmasın.
       writeDraft(null)
-      // Tamamlanmamış kat bağlantısı da düşer: hedef katta hiç adım
-      // yazılmadan araçtan çıkılırsa bekleyen taraf sonsuza dek asılı kalmasın.
-      usePlumbingUiStore.getState().setPendingFloorLink(null)
+      // Kutunun hedefi taslaktı; taslak düşünce kutu da kapanır.
+      usePlumbingUiStore.getState().setDraftKeyboardInput(null)
       cursorRef.current = null
       snapRef.current = null
     }

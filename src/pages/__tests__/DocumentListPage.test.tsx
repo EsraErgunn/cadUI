@@ -4,8 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { setAuthSession, type AuthSession } from '../../api/authToken'
 import { DOCUMENT_PAGE_SIZE, type DocumentRow } from '../../api/documents'
 import { resetMockDocuments } from '../../api/documentsMock'
+import { ROLE_CODES } from '../../api/roles'
 import { DocumentListPage } from '../DocumentListPage'
 
 const listDocuments = vi.hoisted(() => vi.fn())
@@ -46,7 +48,8 @@ function LocationProbe() {
   return <output data-testid="search">{location.search}</output>
 }
 
-function renderPage() {
+function renderPage(roleCode: string = ROLE_CODES.admin) {
+  setAuthSession({ ...ADMIN_SESSION, roleCode })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -77,13 +80,29 @@ function asMock(items: DocumentRow[]) {
   }
 }
 
+
+/**
+ * Bu testler YÖNETİCİ görünümünü sınıyor: firma sütunları ve "Proje Firması"
+ * süzgeci yalnız yönetim rollerinde çiziliyor (`useIsManagementUser`), oturumsuz
+ * render'da hiç görünmezdi.
+ */
+const ADMIN_SESSION: AuthSession = {
+  token: 'jwt-token',
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  fullName: 'Yönetici',
+  roleCode: ROLE_CODES.admin,
+}
+
 beforeEach(() => {
+  setAuthSession(ADMIN_SESSION)
   resetMockDocuments()
   listDocuments.mockResolvedValue(asMock([buildDocument()]))
   deleteDocument.mockResolvedValue({ ok: true })
 })
 
 afterEach(() => {
+  setAuthSession(undefined)
+  localStorage.clear()
   vi.clearAllMocks()
 })
 
@@ -95,7 +114,6 @@ describe('DocumentListPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Evraklar/ })).toHaveTextContent('(1)'),
     )
-    expect(screen.getByText('Tüm projelere ait yüklenmiş evraklar')).toBeInTheDocument()
     expect(screen.getByText('Proje Evrakları')).toBeInTheDocument()
   })
 
@@ -215,9 +233,9 @@ describe('DocumentListPage', () => {
     renderPage()
     await screen.findByRole('table')
 
+    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
     await user.selectOptions(screen.getByLabelText('Döküman Tipi'), 'ruhsat')
-    await user.type(screen.getByLabelText('Evrak adında ara'), 'ruhsat')
-    await user.click(screen.getByRole('button', { name: /Filtrele/ }))
+    await user.type(screen.getByLabelText('Evrak adında ara'), 'ruhsat{Enter}')
 
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
@@ -252,5 +270,62 @@ describe('DocumentListPage', () => {
     const query = listDocuments.mock.calls[0][0] as { dateFrom: string; pageSize: number }
     expect(query.dateFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(query.pageSize).toBe(30)
+  })
+})
+
+/**
+ * Evrak ekranının VERİSİ hâlâ mock (sunucuda `GET /api/docs` ucuna bağlı bir
+ * istemci yok); burada sınanan rol ayrımı, yani yönetim ALANLARININ
+ * çizilmemesi. Kapsam yine sunucunun işi.
+ */
+describe('DocumentListPage (proje firması kullanıcısı)', () => {
+  it('firma sütunlarını ve firma süzgecini göstermez', async () => {
+    renderPage(ROLE_CODES.projectFirmUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('columnheader', { name: 'Firma Adı' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'G.D Firması' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Proje Firması')).not.toBeInTheDocument()
+
+    // Evrakın kendi alanları duruyor.
+    expect(screen.getByRole('columnheader', { name: 'Evrak Adı' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Evrak Tipi' })).toBeInTheDocument()
+  })
+
+  it('yönetici aynı ekranda firma sütunlarını görmeye devam eder', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.getByRole('columnheader', { name: 'Firma Adı' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'G.D Firması' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Proje Firması')).toBeInTheDocument()
+  })
+
+  /**
+   * Evrak SİLME sunucuda `Admin, ProjectFirmUser`'a açık
+   * (`DELETE /api/docs/{id}`); okuma uçları rol kısıtı taşımıyor. Gaz dağıtım
+   * kullanıcısı evrağı görür, silemez.
+   */
+  it('evrakları görüntüleyebilir', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Evrak Adı' })).toBeInTheDocument()
+  })
+
+  it('Sil aksiyonunu göstermez', async () => {
+    renderPage(ROLE_CODES.gasDistributionUser)
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Aksiyonlar' })).not.toBeInTheDocument()
+  })
+
+  it('yönetici aynı ekranda Sil aksiyonunu görmeye devam eder', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Aksiyonlar' })).toBeInTheDocument()
   })
 })

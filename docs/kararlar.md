@@ -5969,14 +5969,1892 @@ Test `placeElementWithStub`'ın ürettiği durumu birebir kurup `removeElements`
 çağırıyor — varsayılan bir şekil değil, gerçek yerleştirmenin çıktısı
 (`plumbing/store/__tests__/applianceRemoval.test.ts`). Geri alma tesisatın
 KENDİ aynasından (`undoPlumbing`), cadStore'un zundo'sundan değil.
+---
 
-### K120 — Katı Model: dördüncü görünüm, çizimin 3B TÜREVİ (izometrik DEĞİL)
+### K120 — İzometrik görünüm: WebCAD'in izdüşümü AYNALANARAK alındı, kamera yönü olarak yazıldı
+
+**Karar.** İzometrik görünüm, referans uygulamanın (WebCAD) izdüşüm matrisiyle
+birebir aynı açı ailesini kullanır — `M(α, β) = Rx(α) · Ry(β)` — ama sonuç ayrı
+bir 2B izdüşüm olarak DEĞİL, ortografik kameranın yönü olarak uygulanır.
+
+**Varsayılan açı WebCAD'inkinden farklı** (kullanıcı kararı): onunki 40°/60°
+(dimetrik), bizimki gerçek izometri atan(1/√2) = 35,264° / 45° — üç eksen eşit
+kısalır, eksenler yatayla 30° yapar. Hazır açılar yalnız **Varsayılan** ve
+**Üstten**; yan görünümler (önden/sağdan/soldan) kaldırıldı çünkü α = 0'da
+zemin düzlemi kenardan görünüp tüm kat yerleşimi tek çizgiye çöküyor ve o iş
+zaten plan görünümünün.
+
+**Neden matris değil kamera.** Ortografik kamerada "noktaları elle izdüşürmek"
+ile "kamerayı o yöne çevirmek" aynı görüntüyü verir. Kamera yolu seçildi çünkü
+sahne o zaman gerçek derinlik testiyle çizilir: üst kat alt katı ÖRTER. Elle
+izdüşümde derinlik yok, sıralamayı biz uydurmak zorunda kalırdık.
+
+**Neden aynalı.** WebCAD'in tuval çerçevesi SOL ELLİ: x doğuya, y AŞAĞI (hem
+kotta hem plan y'sinde — EaselJS tuval düzeni), z güneye. Bizim three uzayımız
+sağ elli. Matris satırları olduğu gibi kamera bazı olarak alınınca kamera yerin
+ALTINDA kalıyor: kot ekranda yukarı gidiyor ama derinlik ters dönüyor ve alt kat
+üst katı örtüyor. Doğrusu `right = −satır1`, `up = −satır2`, `forward = −satır3`;
+sonuç WebCAD çıktısının yatay aynası. Fiziksel olarak doğru olan bu, çünkü bizim
+plan +y'miz onların y'sinin tersi. İki aday sayısal olarak karşılaştırılıp
+seçildi ve testle sabitlendi (`kamera her zaman YUKARIDA durur`).
+
+**Yan sonuç.** `Rx(α)·Ry(β)`'nın 1. satırı yapı gereği `(cosβ, 0, −sinβ)`, yani
+y bileşeni her zaman sıfır: kot ekseni HER açıda ekranda tam dikey kalır.
+İzometrik çizimin temel şartı, ücretsiz geldi.
+
+Nerede: `src/isometric/core/isometricProjection.ts`, `scene/IsometricCamera.tsx`.
+
+---
+
+### K121 — İzometriğe özel elle yerleştirmeler AYRI alanlarda; plan çizimi hiç değişmez
+
+**Karar.** İzometrikte üst üste binen dalları ayırmak ve etiketleri açmak için
+model üç OPSİYONEL alan aldı: `InstallationLinePoint.isometricOffsetCm` +
+`inheritedIsometricOffsetCm`, `InstallationElement`/`InstallationLine`
+üstünde `isometricLabelOffsetCm`. WebCAD karşılıkları `isometricPositionRel` /
+`formerIsometricPositionRel` / `labelPositionIsometry`.
+
+**Neden iki ayrı kaydırma alanı.** Kullanıcı bir noktayı sürüklediğinde dalın
+TAMAMI kaymalı, ama sonradan o dalın içindeki tek bir nokta daha
+sürüklenebilmeli. Tek alanda toplansaydı ikisi ayırt edilemezdi. Yayılım kuralı:
+sürüklenen nokta kendi kaymasını, ondan SONRAKİLER mirası alır, öncekiler
+dokunulmaz. `izometrik_ornek.wcp`'de 54 noktanın 24'ü birebir aynı miras
+değerini taşıyor — tek bir sürüklemenin izi, kuralın imzası.
+
+**Neden plandan ayrı.** Aynı etiket iki görünümde farklı yerde durmalı:
+izometride kalabalığı açmak plandaki yerleşimi bozmamalı. Bu yüzden
+`labelOffsetCm` ile `isometricLabelOffsetCm` AYRI action'lara sahip.
+
+**Neden hepsi opsiyonel.** `docs/sample-project.json` bit-bit round-trip kabul
+testi. `undefined` alan serileştirmeye yazılmaz, zod `.default()` VERMEZ ve
+sıfıra dönen kayma alanı SİLİNİR — "yokluk, sıfır DEĞİLDİR". `axisId` /
+`labelOffsetCm` / `meterOrder` ile aynı gerekçe.
+
+Nerede: `src/plumbing/core/installationModel.ts`, `plumbingSerialize.ts`,
+`src/isometric/core/isometricOffset.ts`.
+
+---
+
+### K122 — α/β projeye yazılır ama projeyi KİRLETMEZ
+
+**Karar.** İzometrik bakış açısı `cadStore`'da yaşar ve proje JSON'una girer
+(WebCAD de `isometric: {alpha, beta}` olarak saklıyor), ama `PersistedContent`'e
+GİRMEZ: açıyı oynatmak "kaydedilmemiş değişiklik" uyarısı üretmez ve geri alma
+geçmişine düşmez.
+
+**Neden.** K3'ün "zoom/pan/araç/görünüm projeyi kirletmez" garantisi ile
+kullanıcının "açımı kaydet" beklentisi çatışıyordu. `activeFloorId` zaten tam
+olarak böyle davranıyor — JSON'a giriyor, kirli işaretine girmiyor — ve
+`store/persistedContent.ts` açık bir İZİN LİSTESİ olduğu için muafiyet
+kendiliğinden geldi. Ayrıca alan varsayılana (40/60) EŞİTKEN hiç yazılmaz:
+yazılsaydı açıya hiç dokunulmamış eski bir kayıt açılıp kaydedilince yeni bir
+anahtar kazanır ve bit-bit testi kırılırdı.
+
+Nerede: `src/isometric/store/isometricSlice.ts`, `src/store/cadStore.ts`,
+`src/core/serialize.ts`.
+
+---
+
+### K123 — İzometrikte geri al TESİSAT geçmişine gider
+
+**Karar.** `activeViewHistory.ts`'in "izometrikte düzenleme yok, proje geçmişi
+varsayılan olarak kalır" varsayımı KALKTI. İzometrik artık tesisat aynasını
+(`plumbingHistory`) kullanır, tesisat görünümüyle aynı dalda.
+
+**Neden.** İzometrikteki her düzenleme — dal ayırma, etiket taşıma, izometrik
+konumları sıfırlama — `installationLines`/`installationElements` üstünde
+çalışıyor ve `plumbingSlice` üzerinden kaydediliyor. Proje geçmişine bağlı
+kalsaydı izometrikte Ctrl+Z kullanıcının en son çizdiği DUVARI geri alırdı.
+
+Nerede: `src/store/activeViewHistory.ts`.
+
+---
+
+### K124 — İzometrik yalnız tesisatı çizer; `layers.ts` orada geçersiz
+
+**Karar.** İzometrik görünüm mimariyi (duvar/oda/açıklık) HİÇ çizmez, yalnız
+tesisatı çizer — ama TÜM katları aynı anda, tek parça olarak. Aktif kat kavramı
+yoktur. `src/scene/layers.ts` ve `RENDER_ORDER` bu görünümde kullanılmaz.
+
+**Neden mimari yok.** Gerçek doğalgaz izometriğinde duvar çizilmez; kullanıcı
+kararı da bu yönde. Kapsül duvar shader'ı zaten yalnız plan görünümü için
+(K23 sonuçları: "3B/izometrik ayrı extrude geometri yolundan gidecek").
+
+**Neden `layers.ts` geçersiz.** O tablo tepeden bakan ortografik kameranın
+z-fighting çözümü ve mikro yükseklik farklarına dayanıyor (`WALL_ELEVATION_CM`
+0, `HANDLE_ELEVATION_CM` 0.3). İzometrikte o mikro farklar GÖRÜNÜR hâle gelir.
+Derinlik gerçek geometriyle (silindir/küre gövde + `depthTest`) çözülür.
+
+**Kamera tekliği.** İzometrikte plan kamerası, `ViewportControls` ve `Grid` hiç
+mount EDİLMEZ: iki kamera da `makeDefault` yazıyor, birlikte mount edilseler
+hangisinin kazandığı mount sırasına kalırdı. `CAMERA_HEIGHT_CM` de kullanılmaz —
+o sabit drei `<Line worldUnits>` shader'ına bağlı ve yalnız plan kamerasının
+sözleşmesi.
+
+Nerede: `src/scene/SceneRoot.tsx`, `src/isometric/scene/`.
+
+---
+
+### K125 — Klavyeyle boru çizimi: tuş ekseni kilitler, sayı yazar
+
+**Karar.** Aktif bir boru taslağı varken ok tuşları X/Y eksenini, `+`/`-` ise
+kot yönünü **kilitler** ve ekrana tek bir sayısal kutu getirir
+(`DraftKeyboardInput`). Tuşun kendisi boru YAZMAZ — kullanıcı uzunluğu (ya da
+kot farkını) yazıp Enter'a basar. Esc yalnız kutuyu kapatır, çizim sürer.
+
+**Neden kutu, neden tek tuşla adım değil.** Boru bir uzunluk ister; tekrarlı
+tuş basışıyla ızgara adımı ötelemek hem yavaş hem de "250 cm" gibi kesin bir
+değeri veremez. Kot akışıyla (`+`/`-`) simetrik tek desen kaldı.
+
+**Ekranda yukarı = plan +Y.** Kamera X'te −90° dönük ortografik tepe kamera, yani
+three −Z ↔ plan +Y. Tuş ↔ eksen tablosu SADECE `core/draftKeyboard.ts`'te.
+
+**`+` iki `key` üretir.** Klavye düzenine göre `'+'` (Shift'li) ya da `'='`;
+`-`/`_` de öyle. Üçü de kabul edilmezse tuş kullanıcının klavyesinde sessizce
+"çalışmıyor" görünür.
+
+Nerede: `src/plumbing/core/draftKeyboard.ts`,
+`src/plumbing/ui/DraftKeyboardInput.tsx`, `src/plumbing/scene/useLineTool.ts`.
+
+---
+
+### K126 — Klavyeden kat değiştirme TÜMÜYLE kalktı
+
+**Karar.** PageUp/PageDown ve ok tuşlarıyla komşu kata geçiş, ok tuşuyla MANUEL
+kat bağlama (`floorLinkActions.commitDraftFloorLink`) ve onun yarım bağlantı
+durumu (`plumbingUiStore.pendingFloorLink`) kaldırıldı. Kat yalnız yüzen
+çubuğun ▲/▼ düğmelerinden ve kat seçicisinden değişir.
+
+**Neden.** Ok tuşları çizime geçti (K125); aynı tuşun iki işe binmesi zaten
+K105/K106'da guard'larla yamanan karışıklığın kaynağıydı. Tek tuş = tek anlam.
+
+**`FloorPipeLink` DURUYOR.** Tek üreticisi kaldı: kot aktif katın tavanını
+aşınca `pipeElevationActions.crossFloorsWithOverflow`'un otomatik geçişi (K104).
+`FloorLinkGlyph`, `getFloorLinkAnchoredPointIds` ve çapa kuralları aynen geçerli.
+
+**Kot kutusu artık FARK istiyor.** `commitDraftElevationTo(mutlak)` yerine
+`commitDraftElevationBy(fark)`: yön basılan tuşta olduğu için mutlak hedef
+istenseydi tuşun işareti anlamsız kalırdı.
+
+Nerede: `src/pages/useEditorShortcuts.ts`,
+`src/plumbing/scene/useLineTool.ts`, `src/plumbing/store/pipeElevationActions.ts`.
+
+---
+
+### K127 — Adımın tek yazım yolu + Z düğümü halkası
+
+**Karar (yazım).** Bir boru adımını yazan tek fonksiyon
+`store/lineStepActions.ts` → `commitDraftStep(point, endTarget)`. Fare
+(`useLineTool.commitStep`) ve klavye (`commitDraftAxisLength`) oradan geçer;
+iki çağıran ayrı yazsaydı kot/çap/bağlantı alanlarından biri er geç birinde
+unutulurdu. Klavye adımı BİLEREK snap ARAMAZ: yazılan sayı kesindir, en yakın
+porta çekilseydi girilen uzunluk tutmazdı.
+
+**Karar (işaret).** Dikey hareketin yapıldığı ya da yapılacağı düğüm, ekran
+boyunda sabit mor bir halkayla İÇİNE ALINIR (`scene/ElevationNodeRing.tsx`).
+İki yerde çizilir: yerleşmiş saf dikey segment (`PipeElevationGlyph`) ve `+`/`-`
+ile kutusu açılmış taslağın ucu. Planda dikey boru tek nokta gibi göründüğü
+için kullanıcı o düğümü gözle bulamıyordu. Renk kat bağlantı rozetiyle AYNI mor
+(`ELEVATION_INK`) — ikisi de "burada düşey bir şey oluyor" diyor.
+
+**`setDraftLine(null)` kutuyu da kapatır.** Tek invariant store'da: kapanış
+yollarının hepsi (Esc, sağ tık, hedefe bağlanarak bitme, araç değişimi) ayrı
+ayrı hatırlamak zorunda kalmasın.
+
+Nerede: `src/plumbing/store/lineStepActions.ts`,
+`src/plumbing/scene/ElevationNodeRing.tsx`, `src/plumbing/store/plumbingUiStore.ts`.
+
+---
+
+### K128 — "Boy" düzenlemesi ucundaki ağı rijit öteler
+
+**Karar.** Özellik panelindeki **Boy (cm)** alanı borunun bitiş ucunu kaydırınca,
+o ucun ötesindeki her şey aynı kaymayla ötelenir: dirsek, üstündeki vana, devam
+boruları ve onlara bağlı elemanlar. Hiçbiri gerilmez. Bütünüyle ötelenen
+boruların kotu da delta kadar kayar.
+
+**Neden.** Eskiden yalnız o köşedeki kaynaklı uçlar taşınıyordu; devam borusu
+karşı ucundan tutulu kaldığı için esniyordu. Üstelik yayılım bir port çapasına
+değerse işlem TÜMÜYLE reddediliyor, uzunluk hiç değişmiyordu.
+
+**`moveTargets.ts` ile birleştirilmez.** Köşe sürüklemesinde seçim rijit gider,
+aradaki borular ESNER ve port çapası yayılımı DURDURUR. Boy düzenlemesinde
+boyu değişen boru dışında hiçbir şey esnemez, bu yüzden port çapası yayılımı
+DURDURMAZ — durdursaydı elemanın yerinde kalması ağı koparırdı. Kural farklı,
+dosya ayrı (`core/resizeTargets.ts`).
+
+**İki durak var.** Boyu değişen hattın öteki noktaları sabittir (çevrimde
+borunun kendi başı kaymasın); `FloorPipeLink` ucu taşıyan hat rijit ötelenmez
+(K104 — linkin `position`'ı ve karşı kattaki eşi burada kayamaz), o boru esner
+ve öteleme orada biter.
+
+Nerede: `src/plumbing/core/resizeTargets.ts`,
+`src/plumbing/store/plumbingSlice.ts` → `resizePipeEnd`.
+
+---
+
+### K129 — Kot göstergesi kaybolmaz, köşe köşeye yapışır
+
+**Karar (gösterge).** `PipeElevationGlyph`'in "plan boyu SIFIR, iki noktalı
+boru" koşulu kalktı. Tek koşul kaldı: `firstElevationCm !== lastElevationCm`.
+İşaret hattın SON noktasında durur — yükselinen kot orada, ve saf dikeyde iki
+nokta zaten çakışık olduğu için o durum değişmez.
+
+**Neden.** Kolonun ucu komşu yatay boruya kaynaklı; o boru oynatılınca uç
+onunla gidiyor, kolonun iki noktası ayrışıyor ve gösterge kayboluyordu. Oysa
+yükseklik farkı hâlâ oradaydı — kullanıcı "yükseklik göstergesi hiç gitmesin"
+dedi.
+
+**Karar (yakalama).** Köşe sürüklemesinde `resolveCornerPosition` artık
+duvardan ÖNCE `findNearestLineCorner` ile başka bir hat KÖŞESİNE tam oturur.
+Segment gövdesi aday değildir; sürüklemeyle birlikte giden noktalar
+(`getLinkedLinePoints`, sürükleme başında bir kez hesaplanıp
+`CornerDragTracker.linkedPointIds`'te tutulur) elenir — yoksa köşe kendi
+kendine yapışırdı. Ctrl yine tüm yakalamayı kapatır.
+
+**Neden duvarın önünde.** Yakın bir duvar yüzü kazansaydı birkaç santimlik bir
+kayma kalır ve kolon bir daha tam düşey olmazdı; yükseklik hiçbir zaman
+kesinleşmezdi. `useLineTool.resolveSnap`'teki "bağlantı kurmak
+konumlandırmadan güçlü bir niyettir" sırasının aynısı.
+
+**Değişmeyen.** `tryStartCornerDrag`'in "saf dikey borunun KENDİ ucu
+sürüklenmez" kuralı duruyor: kolon yalnız komşusu üzerinden eğilebiliyor, o da
+artık geri oturtulabiliyor.
+
+Nerede: `src/plumbing/core/lineSnap.ts`,
+`src/plumbing/scene/useSelectionTool.ts`,
+`src/plumbing/scene/InstallationLineMesh.tsx`.
+
+### K130 — Proje firması kullanıcılarında "Aktif" filtresi KALKTI
+
+**Karar.** Liste ekranındaki "Aktif" onay kutusu, `active` adres parametresi,
+"Yalnız aktif" çipi ve bunları besleyen `onlyActive` sorgu alanı silindi.
+Kayıt üzerindeki `isActive` alanları (`ProjectFirmUserDetail`,
+`ProjectFirmUserCompetency`) de kalktı — süzgeç gidince onları okuyan kimse
+kalmadı, mock'ta üretilen pasiflik ölü veriydi.
+
+**Neden.** Sunucuda karşılığı YOK ve yakında da olmayacak: `SoftDeleteEntity.IsActive`
+global query filter'a bağlı, pasif kayıt sorgudan hiç dönmüyor — KK-4'ün istediği
+"pasif kayıtlar da listelensin" davranışı ayrı bir `IsEnabled` kolonu istiyordu
+(bkz. docs/api-eksikleri-kullanicilar.md, backend 2026-08-11 yanıtı). Uç
+açıldığında çalışmayacak bir kutuyu ekranda tutmak, kullanıcıya var olmayan bir
+süzgeç vaat etmekti.
+
+**Gereksinim.** Belgedeki madde 3 ve KK-4 bu kararla GEÇERSİZ. Formdaki "Aktif"
+anahtarı (madde 14 / KK-18) zaten daha önce kalkmıştı.
+
+Nerede: `src/ui/admin/projectFirmUsers/`, `src/api/projectFirmUserDto.ts`,
+`src/api/projectFirmUsersMock.ts`, `src/ui/admin/adminUrlParams.ts`.
+
+### K131 — Proje firması kullanıcıları listesi `Sourced` zarfına geçti
+
+**Karar.** `getProjectFirmUserList` artık `Sourced<PagedResult<…>>` dönüyor.
+Geliştirmede ekranın üstünde KAPATILAMAZ `MockDataNotice` şeridi duruyor;
+üretim derlemesinde satırlar hiç kurulmuyor ve tablo yerine
+`MissingSourceNotice` (`GET /api/projectfirmusers`) çıkıyor. Poliçe listesiyle
+(K51) birebir aynı desen.
+
+**Neden.** Ekran uydurma bir kullanıcı kadrosunu tablo hâlinde, hiçbir uyarı
+olmadan gösteriyordu — kayıt/güncelleme formu "sunucuya yazılmadı" diyordu ama
+LİSTE susuyordu. `MockDataNotice`'in sözleşmesi zaten mock kapısına bağlı
+(K50): şeridi kapısız kullanmak bileşenin kendi notunu yalanlardı.
+
+**Şeritte ne yazıyor.** "Kullanıcı satırları" — satırların FİRMA sütunları
+gerçek uçlardan geliyor (`GET /api/gasdistributionfirms`, `GET /api/projectfirms`),
+uydurma olan yalnız kullanıcının kendisi. Genel bir "veriler eksik" cümlesi bu
+ayrımı söylemezdi.
+
+**Sonradan genişledi (K132).** Detay/güncelleme ve yazma yolu da aynı kapıya
+alındı; bölümün tamamı tek kural altında.
+
+Nerede: `src/api/projectFirmUsers.ts`, `src/pages/ProjectFirmUsersPage.tsx`.
+
+### K132 — Kullanıcı bölümünün TAMAMI mock kapısının arkasında
+
+**Karar.** K131'in zarfı bölümün kalanına da uygulandı:
+
+- `getProjectFirmUser` → `Sourced<ProjectFirmUserDetail>`. Geliştirmede form
+  `MockDataNotice` şeridiyle açılıyor; üretimde kayıt hiç kurulmuyor ve form
+  YERİNE `MissingSourceNotice` (`GET /api/projectfirmusers/{id}`) çıkıyor.
+- `saveProjectFirmUser` yazmayı `mockedData`'dan geçiriyor ve
+  `{ ok: false, reason: 'unavailable' }` kolu kazandı. Üretimde bellekteki
+  depoya kayıt DÜŞMÜYOR; kullanıcı formda kalıyor ve sebebini okuyor.
+
+**Neden.** Doldurulmuş bir form, tablodaki uydurma satırdan daha inandırıcı:
+listede "örnek veri" diye bakılan bir kayıt, güncelleme ekranında adı soyadı
+telefonu yerli yerinde gerçek bir kişiye benziyordu. Yazma tarafı da aynı
+sebeple kapandı — hiçbir yerde gösterilmeyecek bir depoya kayıt eklemek,
+kullanıcıya yapılmamış bir işi yapılmış göstermek.
+
+**Neden oluşturma ekranı açık kaldı.** Boş bir form sahte veri GÖSTERMİYOR;
+K50'nin yasakladığı şey uydurma değerin gerçek sanılması. Kullanıcı doldurup
+"Kaydet"e bastığında üretimde net bir hata alıyor, sessizce başarı değil.
+
+**Bugün ulaşılamayan kollar.** `findTakenProjectFirmUserFields` üretimde boş
+depoya bakıp "kullanılmıyor" diyor; sonuç zaten kaydın `unavailable` ile
+reddedilmesini değiştirmiyor, bu yüzden ayrı bir kol açılmadı.
+
+Nerede: `src/api/projectFirmUsers.ts`, `src/api/projectFirmUserForm.ts`,
+`src/pages/ProjectFirmUserFormPage.tsx`,
+`src/ui/admin/projectFirmUsers/useProjectFirmUserForm.ts`.
+
+### K130 — Tesisatta alt kat izi TÜMÜYLE kalktı
+
+**Karar.** `plumbing/scene/InstallationBelowGhost.tsx` silindi. Yanındaki
+`INSTALLATION_BELOW_GHOST_ELEVATION_CM` ve `RENDER_ORDER.installationBelowGhost`
+de kalktı — bu adlarla yeni kod yazılmaz. Mimarideki `FloorBelowGhost` DURUYOR,
+karar yalnız tesisat görünümünü bağlar.
+
+**Neden.** Mimaride alt katın duvar izi hizalamaya yarıyor (üst kat duvarı
+alttakinin üstüne oturmalı). Boruda böyle bir kısıt yok: alt kattaki boru üst
+katın borusuyla aynı yerden geçmek zorunda değil, dolayısıyla iz referans değil
+GÜRÜLTÜ oluyordu — kullanıcı çizim sırasında hangi çizginin aktif kata ait
+olduğunu ayırt edemiyordu.
+
+**Neden anahtar değil.** Varsayılanı kapalı bir "Görünüm ▸ Alt kat borusu"
+maddesi de düşünüldü; kimsenin açmayacağı bir anahtar için hem menüde bir
+satır hem sahnede bir katman taşımak gerekiyordu.
+
+Nerede: `src/scene/SceneRoot.tsx`, `src/scene/layers.ts`,
+`src/plumbing/scene/plumbingLayers.ts`.
+
+### K131 — Ölçüler varsayılan AÇIK
+
+**Karar.** `uiStore.isDimensionsVisible` varsayılanı `false` → `true`.
+
+**Neden.** Ölçü, çizimin okunmasının parçası: kullanıcı her oturumda önce
+Görünüm ▸ Ölçüler'i açıyordu. `isElementLabelsVisible`'ın (eleman adları) zaten
+açık olan varsayılanıyla aynı gerekçe; ikisi arasındaki "ölçü isteğe bağlı bir
+kotalama katmanıdır" ayrımı pratikte karşılık bulmadı.
+
+**Değişmeyen.** Bayrak hâlâ TEK (K76 öncesi kural): mimaride duvar parçalarını,
+tesisatta boru boylarını açar. Kaydedilmez, geçmişe girmez.
+
+Nerede: `src/store/uiStore.ts`.
+
+### K132 — Boru ölçüleri mimari görünümde de yazılır
+
+**Karar.** `InstallationGhost` (mimari görünümdeki tesisat izi) artık
+`LengthLabels`'ı da mount ediyor. Etiket hayaletin aksine SOLUKLAŞTIRILMAZ ve
+"Ölçüler" anahtarını aynı yerden okur.
+
+**Neden okunur tonda.** Hattın kendisi bağlam, ölçü ise kullanıcının mimari
+planda okumak İSTEDİĞİ bilgi — soluk yazı bu isteği karşılamazdı.
+
+**Neden yalnız uzunluk.** "Uzunluk + çap" (`DN25 · 1,20 m`) değerlendirildi;
+çap zaten çizgi renginden (K27) ve özellik panelinden okunuyor, etiketi iki
+katına çıkarmak sık köşeli planlarda yazıları üst üste bindiriyordu. Bir boru
+iki görünümde de AYNI etiketi taşır.
+
+Nerede: `src/plumbing/scene/Ghosts.tsx`.
+
+### K133 — Kot etiketi: fark + VARILAN kot
+
+**Karar.** `PipeElevationGlyph` `▲0,75 m` yerine `▲0,75 m (+2,00)` yazar.
+Ayrıca servis kutusunun çıkış kotu kendi sembolünün ALTINA basılır (`+0,15 m`,
+`ServiceBoxElevationLabels`). Kot yazımının tek yolu
+`core/lengthFormat.ts` → `formatSignedMeters` / `formatElevationMeters`:
+uzunluğun aksine İŞARET taşır, çünkü kot mesafe değil zemine göre yönlü konum.
+
+**Neden iki sayı.** Yalnız fark yazılınca kolonun hangi kota çıktığı ancak
+baştaki kot bilinerek hesaplanabiliyordu; yalnız mutlak kot yazılınca K129'un
+koruduğu "ne kadar yükseldi" bilgisi kayboluyordu.
+
+**Neden servis kutusu.** Tesisat kotunun BAŞLADIĞI yer orası; kutunun kotu
+bilinmeden borudaki farklar neye göre okunacağı belirsiz kalıyordu. Sayaç ve
+cihazların kotu bağlı oldukları borudan türüyor (K102) ve her elemana kot
+yazmak planı sayıya boğardı — etiket yalnız `serviceBox` türünde.
+
+**"Ölçüler"e bağlı DEĞİL.** K129'un kuralı: kot göstergesi kaybolmaz. Kot
+store'da da durmaz, `getElementElevationCm` ile türetilir.
+
+Nerede: `src/core/lengthFormat.ts`, `src/plumbing/core/elementLabel.ts`,
+`src/plumbing/scene/PipeElevationGlyph.tsx`,
+`src/plumbing/scene/ServiceBoxElevationLabel.tsx`,
+`src/plumbing/scene/PlumbingLayer.tsx`.
+
+### K134 — Sayaç etiketinde birim + abone bilgisi
+
+**Karar.** Plan görünümündeki sayaç etiketi artık tür adının altına birim,
+abone adı ve abone numarasını yazıyor:
+
+```
+Sayaç
+Birim: 3
+FATMA ÇELİK
+Abone No: 10045
+```
+
+Alanlar zaten modelde vardı (`GasMeterProperties.unitNumber` /
+`.subscriberName` / `.subscriberNo`, özellik panelinde "Birim" / "Abone Adı" /
+"Abone No"); etiket onları görmezden geliyordu — `getElementLabelDetails`
+`gasMeter` için `{}` dönüyordu.
+
+**Neden iki alan ETİKETLİ.** Alt alta duran `3` ile `10045`'in hangisinin birim
+hangisinin abone numarası olduğu okunmuyordu. Abone ADI etiketsiz: bir isim
+kendini zaten söylüyor, ön ek satırı boşuna uzatırdı.
+
+**Yapı.** Detay satırları artık sabit şekilli bir nesne
+(`{ brand, model, description }`) değil SIRALI bir dizi
+(`getElementLabelDetailLines`): türler farklı alan kümesi taşıyabilsin diye.
+Diğer türlerin davranışı değişmedi. Boş/boşluk alan satır olarak hâlâ hiç
+yazılmıyor.
+
+**Kapsam.** Yalnız PLAN etiketi. İzometriğin sayaç etiketi ayrı ve WebCAD
+düzenini izliyor (`isometric/core/isometricLabels.ts` → `Sayaç Daire 3` + sınıf
++ alan + debi), dokunulmadı. Etiketin tutma kutusu (`getElementLabelRectCm`)
+aynı metinden ölçtüğü için genişleyen etiket kendiliğinden tutulabilir kalıyor.
+
+Nerede: `src/plumbing/core/elementLabel.ts`.
+
+### K135 — Kot tabanı delince AŞAĞI kata otomatik geçiş
+
+**Karar.** K104'ün "yalnız YUKARI yön otomatik" kapsam sınırı kalktı. Çizim
+sırasında `-` ile verilen kot aktif katın TABANININ (0) altına inerse: bu katta
+yazılan kot tabanla sınırlanır ve kalan miktar alttaki kata `FloorPipeLink` ile
+otomatik taşınır — `capElevationToFloor`/`crossFloorsWithOverflow` çiftinin
+aynası olarak `capElevationToFloorBase` (saf+testli) ve
+`crossFloorsDownWithUnderflow`.
+
+**Neden.** Kullanıcı bulgusu (2026-08): "boruya `-` yükseklik girince oda
+uzunluğundan fazlaysa alt kata inmeli ama inmiyor". K104 yalnız yukarıyı
+yazmıştı çünkü o turdaki istek metni yalnız "yeni kata çıksın" diyordu.
+
+**Aynanın TEK asimetrisi.** Yukarı çıkarken yeni kata TABANINDAN (0) girilir;
+aşağı inerken TAVANINDAN (`Floor.heightCm`) — üst katın tabanı alttakinin
+tavanıdır. Yeni borunun `startHeightCm`i bu yüzden sıfır değil alt katın
+yüksekliğidir ve kot aşağı doğru tüketilir.
+
+**Eşik neden parametre değil.** Tavan kata göre değişiyor (`Floor.heightCm`),
+taban değişmiyor: her katın tabanı kendi yerel koordinatında sıfırdır (kot
+saklanmaz, `core/floorElevation.ts` türetir).
+
+**Sınırda kat açma.** `addFloor({ isBasement: true })` — `addFloor({})` katı HER
+ZAMAN dizinin en ÜSTÜNE koyar, bodrum bloğu ise BAŞINDA durur (K106'nın
+tuzağının aynısı). Bodrum sınırına (5) ulaşılırsa `addFloor` `undefined` döner
+ve döngü sessizce durur; yukarı yöndeki 40 kat sınırıyla aynı stil.
+
+**Değişmeyen.** Tek bir hedef kot ya tavanı aşar ya tabanı deler, ikisi birden
+olamaz. Yalnız ÇİZİM SIRASINDA (`commitDraftElevation`) — "Boy" alanından
+yeniden boyutlandırma (K128) bu otomasyonu hâlâ tetiklemez. Yalnız `pipe` türü.
+
+Nerede: `src/plumbing/core/lineElevation.ts`,
+`src/plumbing/store/pipeElevationActions.ts`.
+
+### K130 — Proje firması kullanıcılarında "Aktif" filtresi KALKTI
+
+**Karar.** Liste ekranındaki "Aktif" onay kutusu, `active` adres parametresi,
+"Yalnız aktif" çipi ve bunları besleyen `onlyActive` sorgu alanı silindi.
+Kayıt üzerindeki `isActive` alanları (`ProjectFirmUserDetail`,
+`ProjectFirmUserCompetency`) de kalktı — süzgeç gidince onları okuyan kimse
+kalmadı, mock'ta üretilen pasiflik ölü veriydi.
+
+**Neden.** Sunucuda karşılığı YOK ve yakında da olmayacak: `SoftDeleteEntity.IsActive`
+global query filter'a bağlı, pasif kayıt sorgudan hiç dönmüyor — KK-4'ün istediği
+"pasif kayıtlar da listelensin" davranışı ayrı bir `IsEnabled` kolonu istiyordu
+(bkz. docs/api-eksikleri-kullanicilar.md, backend 2026-08-11 yanıtı). Uç
+açıldığında çalışmayacak bir kutuyu ekranda tutmak, kullanıcıya var olmayan bir
+süzgeç vaat etmekti.
+
+**Gereksinim.** Belgedeki madde 3 ve KK-4 bu kararla GEÇERSİZ. Formdaki "Aktif"
+anahtarı (madde 14 / KK-18) zaten daha önce kalkmıştı.
+
+Nerede: `src/ui/admin/projectFirmUsers/`, `src/api/projectFirmUserDto.ts`,
+`src/api/projectFirmUsersMock.ts`, `src/ui/admin/adminUrlParams.ts`.
+
+### K131 — Proje firması kullanıcıları listesi `Sourced` zarfına geçti
+
+**Karar.** `getProjectFirmUserList` artık `Sourced<PagedResult<…>>` dönüyor.
+Geliştirmede ekranın üstünde KAPATILAMAZ `MockDataNotice` şeridi duruyor;
+üretim derlemesinde satırlar hiç kurulmuyor ve tablo yerine
+`MissingSourceNotice` (`GET /api/projectfirmusers`) çıkıyor. Poliçe listesiyle
+(K51) birebir aynı desen.
+
+**Neden.** Ekran uydurma bir kullanıcı kadrosunu tablo hâlinde, hiçbir uyarı
+olmadan gösteriyordu — kayıt/güncelleme formu "sunucuya yazılmadı" diyordu ama
+LİSTE susuyordu. `MockDataNotice`'in sözleşmesi zaten mock kapısına bağlı
+(K50): şeridi kapısız kullanmak bileşenin kendi notunu yalanlardı.
+
+**Şeritte ne yazıyor.** "Kullanıcı satırları" — satırların FİRMA sütunları
+gerçek uçlardan geliyor (`GET /api/gasdistributionfirms`, `GET /api/projectfirms`),
+uydurma olan yalnız kullanıcının kendisi. Genel bir "veriler eksik" cümlesi bu
+ayrımı söylemezdi.
+
+**Sonradan genişledi (K132).** Detay/güncelleme ve yazma yolu da aynı kapıya
+alındı; bölümün tamamı tek kural altında.
+
+Nerede: `src/api/projectFirmUsers.ts`, `src/pages/ProjectFirmUsersPage.tsx`.
+
+### K132 — Kullanıcı bölümünün TAMAMI mock kapısının arkasında
+
+**Karar.** K131'in zarfı bölümün kalanına da uygulandı:
+
+- `getProjectFirmUser` → `Sourced<ProjectFirmUserDetail>`. Geliştirmede form
+  `MockDataNotice` şeridiyle açılıyor; üretimde kayıt hiç kurulmuyor ve form
+  YERİNE `MissingSourceNotice` (`GET /api/projectfirmusers/{id}`) çıkıyor.
+- `saveProjectFirmUser` yazmayı `mockedData`'dan geçiriyor ve
+  `{ ok: false, reason: 'unavailable' }` kolu kazandı. Üretimde bellekteki
+  depoya kayıt DÜŞMÜYOR; kullanıcı formda kalıyor ve sebebini okuyor.
+
+**Neden.** Doldurulmuş bir form, tablodaki uydurma satırdan daha inandırıcı:
+listede "örnek veri" diye bakılan bir kayıt, güncelleme ekranında adı soyadı
+telefonu yerli yerinde gerçek bir kişiye benziyordu. Yazma tarafı da aynı
+sebeple kapandı — hiçbir yerde gösterilmeyecek bir depoya kayıt eklemek,
+kullanıcıya yapılmamış bir işi yapılmış göstermek.
+
+**Neden oluşturma ekranı açık kaldı.** Boş bir form sahte veri GÖSTERMİYOR;
+K50'nin yasakladığı şey uydurma değerin gerçek sanılması. Kullanıcı doldurup
+"Kaydet"e bastığında üretimde net bir hata alıyor, sessizce başarı değil.
+
+**Bugün ulaşılamayan kollar.** `findTakenProjectFirmUserFields` üretimde boş
+depoya bakıp "kullanılmıyor" diyor; sonuç zaten kaydın `unavailable` ile
+reddedilmesini değiştirmiyor, bu yüzden ayrı bir kol açılmadı.
+
+Nerede: `src/api/projectFirmUsers.ts`, `src/api/projectFirmUserForm.ts`,
+`src/pages/ProjectFirmUserFormPage.tsx`,
+`src/ui/admin/projectFirmUsers/useProjectFirmUserForm.ts`.
+=======
+### K136 — PDF vektör; çizim önce SVG olur, sayfaya ölçek TAŞINIR
+
+Çıktı tek bir PROJE DOSYASI: kapak → vaziyet planı → kat planları → izometrik
+şema. Menüde "Proje Dosyasını İndir" tek madde, kapsam (hangi sayfalar, hangi
+katlar) pencerede seçilir. İki menü maddesi ("PDF'e Aktar" + "PDF'e Aktar
+(Katlar)") KALKTI: kullanıcıyı pencereyi görmeden kapsama karar vermeye
+zorluyordu, oysa kapsam da bir dışa aktarma ayarı.
+
+**İZOMETRİK ŞEMA sayfası EN SONDA.** Ekrandaki izometrikle AYNI çekirdek
+fonksiyonlardan üretiliyor (`buildIsometricScene` + `projectIsometric` +
+`isometricLabels` + `layoutIsometricLabels`); kâğıt kendi çizim dilini
+uydurmuyor.
+
+⚠️ **Döndürülebilirlik PDF'e geçmez**; sayfa tek açıda donmuş görüntüdür. Açı
+KULLANICININ EKRANDA BAKTIĞI açıdır. Sabit bir açı basmak, kullanıcının elle
+ayırdığı binmeleri (`isometricOffsetCm`) geri getirirdi — o düzenleme baktığı
+açıya göre yapılmış.
+
+⚠️ Sayfa ÖLÇEKSİZ: izdüşümde uzunluklar kısalır (foreshortening), cetvelle
+ölçülemez. Gerçek boy etiketten okunur; referans paftada da öyle. Bu yüzden
+vaziyet planıyla aynı yoldan (`drawFittedSvg`) sığdırılıyor, üstünde ölçek
+yazmıyor.
+
+⚠️ Borular TEK ÇİZGİ, ekrandaki gibi kalınlıklarıyla değil (kullanıcı kararı):
+şemanın işi güzergâhı göstermek, çap yazıdan (DN25) okunuyor. Kalınlıkla
+çizilince yoğun projede etiketlere yer kalmıyordu.
+
+⚠️ **Etiket halkası kâğıt için DARALTILIYOR** (`PAPER_RING_TIGHTNESS`).
+`layoutIsometricLabels` halkayı sahne boyutunun YARISI kadar dışarı koyuyor;
+ekranda doğru, çünkü yazı ekran-sabit boyutta ve kamera uzaklaşınca da okunur
+kalıyor. Kâğıtta her şey BİRLİKTE küçüldüğü için aynı halka, çizimi sayfanın
+ortasında minik bir leke yapıyor, kalanını kılavuz çizgileri dolduruyordu
+(ölçüldü: 1500 cm'lik sahne 3883 cm'lik kutuya yayılıyordu).
+
+⚠️ Etiket ayırma payı satır YÜKSEKLİĞİNDEN hesaplanamaz: künyeler geniş
+("12000 kcal/h" tek satırda dört satır yüksekliği kadar yer kaplıyor) ve
+yükseklikle ayrılan iki etiket yan yana çakışıyordu. Pay EN GENİŞ etiketten
+geliyor. Aynı sebeple sınır kutusuna yazı GENİŞLİĞİ de katılıyor — yalnız çapa
+sayılsaydı ortalanmış etiketin yarısı kırpılırdı.
+
+⚠️ Eleman sembolleri BILLBOARD çizilir: plan açısı UYGULANMAZ, çünkü ekrandaki
+`IsometricElement` de sembolü kameraya dönük gösteriyor. Plan sayfasının
+`toSymbolTransform`ından tek farkı bu; çapa kaydırması ölçekten ÖNCE ve 1:1 cm
+uygulanıyor (ekranla aynı sıra), yoksa sembol boruya değdiği noktadan kayardı.
+İlk sürümde semboller HİÇ çizilmemişti — sayfada yalnız borular ve yazılar vardı
+(kullanıcı bulgusu).
+
+⚠️ Etiketler halka yarıçapının `PAPER_LABEL_PULL` katında duruyor.
+`getIsometricLabelDistanceCm` en az 240 cm dayatıyor; ekranda doğru ama küçük
+bir tesisatta kâğıtta boruların birkaç katı uzunlukta kılavuz çizgileri
+üretiyordu. ⚠️ Yalnız yarıçapı kısmak etiketleri ÜST ÜSTE bindirir (aynı açısal
+aralık daha küçük yayda demek), bu yüzden yerleşime verilen ayırma payı aynı
+oranda BÜYÜTÜLÜYOR. Kullanıcının elle taşıdığı etiket çekilmez.
+
+⚠️ Tesisatı olmayan projede izometrik sayfa HİÇ basılmaz: boş bir izometrik
+okuyucuya bir şey söylemez. Kat planında durum farklı, orada boş sayfa "bu kat
+boş" bilgisini taşıyor.
+
+⚠️ Referans paftadaki bazı yazıların modelde karşılığı YOK (`Tük.Nok`,
+`Abonelik`, `Belge Tarihi`, `Bağ.Nes`, topraklama özellikleri, "mevcut" /
+"es verilmiştir"); kâğıda çıkmıyorlar. Ayrıca referansta segment etiketleri
+KAT PLANLARINDA da var — bizde o etiketler yalnız izometrikte üretiliyor, plan
+sayfasına taşınması ayrı bir iş olarak bırakıldı.
+
+**Dosya hem PAFTA hem PROJE DOSYASI: veri belgeye gömülü.** "Proje Dosyasını
+Aç" bunun tersini yapıyor ve çizimi geri yüklüyor.
+
+⚠️ Sayfa OKUNMUYOR, okunamaz da: PDF'te duvar diye bir şey yok, vektör yolları
+var. Vektörden model üretmek (yolları tanıyıp duvara/boruya çevirmek) ayrı ve
+kayıplı bir iş. Bunun yerine dışa aktarırken proje JSON'u belgenin XMP
+metadata'sına gömülüyor, açarken oradan geri alınıyor
+(`core/pdf/projectPayload.ts`). Gömülen şey `serializeProjectDataForBackend`in
+ürettiği JSON — "Dışa Aktar (JSON)" ve sunucuya kaydetmeyle AYNI kaynak, yani
+"indirip geri açınca ne kaydettiysem onu alırım" garantisi tek yerden geliyor.
+
+⚠️ Bedeli: yalnız STARCAD'in ürettiği dosya açılabilir. Başka programın
+PDF'inde bu veri yoktur; anlaşılır bir hata verilir, sessizce boş proje
+YÜKLENMEZ.
+
+**Dosya adı `<proje numarası>.starcad.pdf`.** UZANTI `.pdf` KALIR.
+
+⚠️ Bir ara uzantı `.starcad` yapıldı ve GERİ ALINDI: dosya gerçekten bir PDF,
+uzantıyı değiştirmek onu işletim sistemi için başka bir TÜR yapıyordu — çift
+tıklayınca görüntüleyici açılmıyor, basmak için elle yeniden adlandırmak
+gerekiyordu. `.starcad` bu yüzden uzantı değil ADIN PARÇASI: dosyanın içinde
+çizim verisi de olduğunu söylüyor ama PDF davranışını bozmuyor.
+
+Ada kat adı gibi bir EK konmuyor: seçilen sayfa/kat kapsamı çıktının GÖRÜNEN
+kısmını belirliyor, gömülü veri her zaman projenin tamamı.
+
+**"Proje Dosyasını Aç" yalnız ÇİZİMİ ve KAT YAPISINI yükler; künyeye dokunmaz.**
+Proje adı, numarası, taraflar ve tarihler zaten store'da durmuyor (CLAUDE.md
+kural 4), uçtan geliyor. Store'a bir kimlik alanı EKLENMEMELİ: eklenirse
+başkasının dosyasını açmak açık projenin künyesini ezer —
+`store/__tests__/loadProjectDrawing.test.ts` bunu kilitliyor.
+
+**Açma GERİ ALINABİLİR.** Bu yüzden `loadProject` DEĞİL ayrı bir
+`loadProjectDrawing` var: `loadProject` geçmişi siliyor çünkü o "başka projeye
+geçiş", oysa dosya açmak bir DÜZENLEME — tek Ctrl+Z önceki çizimi geri
+getirmeli. Aynı gerekçeyle kirli işaret de duruyor (`clearProjectDrawing` ile
+birebir aynı üç kural).
+
+⚠️ Yükleme id sayacını GERİYE ÇEKMEZ (`Math.max`): geri alma açılan çizimi
+kaldırıp eski nesneleri geri getiriyor, küçülen bir sayaç var olan bir id'yi
+ikinci kez üretirdi (knowledge/id-scheme.md yasağı).
+
+⚠️ JSON base64'e çevrilip gömülüyor. XMP bir XML paketi: ham JSON'daki `<`, `&`
+ve tırnaklar paketi bozardı; ayrıca proje verisi Türkçe karakter taşıyor ve
+base64 kodlama belirsizliğini tümüyle kaldırıyor. Bedeli ~%33 boyut.
+
+⚠️ jsPDF 4.2'de dosya EKLEME (attachment) API'si YOK; `addMetadata` var. Bu
+yüzden veri ek dosya olarak değil metadata akışında duruyor. Okuma tarafı PDF'i
+düz metin olarak tarıyor — belge `compress` seçeneği olmadan kurulduğu için
+akış sıkıştırılmamış. **İkisi birbirine bağlı:** sıkıştırma açılırsa arama
+sessizce hiçbir şey bulamaz.
+
+⚠️ Okurken baytlar `latin1` ile çözülüyor: her bayt birebir bir karaktere
+eşleniyor, ikili içerik bozulmadan aranabiliyor. `utf-8` ile çözmek PDF'in ikili
+kısımlarını bozardı.
+
+⚠️ Gelen JSON yine `core/serialize.ts` şemasından geçiyor — "İçe Aktar (JSON)"
+ile AYNI doğrulama yolu, ikinci bir okuma mantığı yazılmadı. Bozuk/eksik dosya
+store'a hiç dokunmadan reddediliyor.
+
+"İçe/Dışa Aktar (JSON)" maddeleri DURUYOR ve kopya değiller: onlar ham veri
+alışverişi, bunlar teslim edilebilir dosya.
+
+**Katlar ZEMİNDEN YUKARI basılır** — `floors` dizisinin kendi sırası. Belge
+binayı aşağıdan yukarı gezer; tesisat da servis kutusundan yukarı doğru okunur.
+İlk sürüm en üst kattan başlıyordu, ters çevrildi.
+
+**ANTET YOK.** Sayfa başına künye bloğu basma kararı geri alındı
+(`core/pdf/titleBlock.ts` SİLİNDİ — bu adla yeni kod yazma): künyeyi kapak
+sayfası taşıyor, kat planı sayfası yalnız çizim. Antet her sayfada aynı bilgiyi
+tekrarlıyor ve çizim alanının içinden yer alıp planın üstüne binebiliyordu.
+
+**Kapak ve vaziyet planı SEÇİLEBİLİR**, ikisi de varsayılan açık. Yalnız çizim
+isteyen kapatabilir.
+
+**Kapaktaki kutular DEĞERİ OLMASA DA çizilir.** Kapak resmi bir belge; boş
+hücre elle doldurulur. Değeri olmayan satırı gizlemek sayfayı her projede
+farklı yükseklikte gösterirdi.
+
+**Kapaktaki her değerin bir REFERANSI var: ya proje detayı ya çizim.** Kural
+"mock veri kullanma" değil, **PDF katmanı kendi kafasından bir şey uydurmasın**.
+Künye alanları proje DETAY EKRANIYLA aynı uçtan (`getProjectDetail`), aynı
+adlarla geliyor; tesisat özeti ise ÇİZİMDEN hesaplanıyor. Kapak hiçbir değer
+türetmiyor, varsaymıyor, sabit yazmıyor.
+
+⚠️ Künye alanlarının çoğu bugün `extras` altında: geliştirmede yer tutucu,
+üretimde `null` (K50/K51). Bu bir ARA DURUM, kusur değil — proje firması ve gaz
+dağıtım kullanıcı ekranları sunucuya eklenince aynı tesisat gerçek değerleri
+taşıyacak (PDF proje firması kullanıcısının ekranından da alınacak ve o
+kullanıcının adı kâğıda çıkacak). Bağlantı bu yüzden ŞİMDİDEN kurulu tutuluyor.
+Bir ara "gerçek değil" diye söküldü ve kapak neredeyse boşaldı; sökmek yanlıştı,
+geri alındı. Kâğıtta ekrandaki kesikli "mock" işareti YOK — uçlar bağlanana
+kadar çıktıdaki bu alanlara güvenilmemeli.
+
+⚠️ Tesisat satırı ÇİZİMDEN: sayaç adedi, cihaz adedi, toplam debi ve kullanım
+basıncı `installationSummary.ts` ile hesaplanıyor ve kaynağı `buildMeterReport`
+— sayaç/cihaz ilişkisini borular üzerinden izleyen TEK yer orası. İkinci bir
+sayım yazılsaydı (elemanları türe göre saymak gibi) sayaca bağlı olmayan bir
+cihaz da toplama girer, kapak birim/cihaz raporundan farklı bir sayı gösterirdi.
+Sayaçların basıncı farklıysa alan BOŞ bırakılıyor: tek sayı seçmek kâğıda
+"tesisatın basıncı budur" yazmak olurdu. Girilmemiş değer SIFIR yazılmıyor —
+"hiç sayaç yok" ile "debisi girilmemiş sayaç var" aynı şey değil.
+
+⚠️ Sayfa ÜÇ DİKDÖRTGEN, aralarında ince beyaz şerit: (1) logo + kaşe/onay,
+(2) tesisat özeti + BİNANIN, (3) PROJE TASARIMCISININ | FİRMANIN + pafta
+künyesi. DIŞ ÇERÇEVE YOK — olsaydı boşluklar çerçevenin içinde kalan şeritlere
+dönerdi ve üç blok tek tablo gibi görünürdü. Sütunlar EŞİT (yarı yarıya), böylece
+ortadaki dikey çizgi kaşe kutularından tasarımcı/firma bloğuna kadar hizalı
+kalıyor. Tesisat satırının kendi başlığı yok: tek satır, bölüm açacak kadar dolu
+değil. Tasarımcı ve firma AYRI başlıklar altında — tek başlıkta birleştirilince
+hangi alanın kişiye, hangisinin firmaya ait olduğu okunmuyordu. Adı soyadının
+hemen altında boş bir İMZA kutusu var.
+
+⚠️ Bant yükseklikleri birbirine göre SABİT punto; sabit bantlar bir katsayıyla
+ölçekleniyor, KALAN kaşe bandına gidiyor ve sayfa tam doluyor. Katsayı iki
+yönden sınırlı: `MAX_BAND_SCALE` (büyük kâğıtta hücreleri de büyütmek 11
+puntoluk yazıyı boşlukta yüzdürüyordu) ve kaşe bandının en azı. Denenip düşen
+iki yaklaşım: oranların toplamı 1 (satır eklenince alt bant taşıyordu) ve tek
+katsayıyla her şeyi ölçeklemek (kaşe bandı A4 dikeyde sayfanın yarısını kaplayıp
+çıktıyı upuzun gösteriyordu).
+
+⚠️ Kapakta satır KAYDIRMA yok — hücre yükseklikleri sabit ve iki satır sığmıyor.
+Taşan ünvan/adres `fitTextToWidth` ile küçültülüyor; küçültme YETMEZSE en küçük
+puntoda "…" ile kısaltılıyor. İki adım birlikte uygulanıyordu ve tam sınırdaki
+metin hem küçültülüp hem kırpılıyordu (ölçüldü: sığan bir vergi numarası
+kesiliyordu). Genişlik tahmini kaba: `core/` fontu göremez (DOM yok, jsPDF yok),
+bu yüzden karakter genişliği sabitten geliyor ve bilerek CÖMERT — gereksiz
+küçültmek, komşu hücreye taşmaktan iyi.
+
+⚠️ **Vaziyet planı ölçekli DEĞİL, iki farklı güven düzeyi taşır.** Kat yığını
+kesiti GERÇEK veriden (`Floor.heightCm`, `isBasement`); parsel SINIRI BOŞ,
+çünkü projede parsel/ada geometrisi yok ve uydurulmuş bir sınır yanlış bilgi
+olurdu. Sayfaya `fitPlanToPage` ile değil SIĞDIRILARAK yerleşir — "ölçek
+kutsaldır" kuralı kat planı içindir, şematik kesit cetvelle ölçülmez.
+
+⚠️ Çerçevenin İÇİ ise gerçek: zemin katın KUŞBAKIŞI KONTURU ve SERVİS
+KUTUSUNUN o kontura göre yeri. Sayfanın asıl işi bu — gazın binaya hangi
+kenardan girdiğini göstermek. Kontur duvarı tek çizgi çizer, kalınlık yok
+sayılır: bu ölçekte bir piksel etmez ve kapsül geometrisini (K23) buraya
+taşımak boşuna karmaşa olurdu. Servis kutusu SINIRLARA katılır (bina dışında,
+bahçe duvarında olabilir) ve kat FİLTRESİZ aranır (bodrumda olabilir).
+Paletteki tek sıcak renk odur (`SVG_COLORS.serviceBox`): sayfadaki her şey
+griyken göz doğrudan oraya gitsin diye.
+
+⚠️ Kot sıfırı ZEMİN: ilk bodrum olmayan katın tabanı. Bodrumlu binada da zemin
+kat 0'dan başlar. Bodrumun kot etiketi TABANINDAN yazılır; tavandan yazılsaydı
+en üstteki bodrumun tavanı 0 çıkıp zemin çizgisinin etiketiyle çakışırdı.
+
+⚠️ Kapaktaki logo RASTER (`assets/brand/starcad.image.png`) — belgenin geri
+kalanı vektör ama marka varlığı bir görsel. Kaynak 1536×1024 / ~2 MB, kapaktaki
+kutuysa yüz punto civarı: doğrudan gömülseydi HER PDF 2 MB ağırlaşırdı, bu
+yüzden önce bir tuvale çizilip küçültülüyor (`ui/pdf/planPdfLogo.ts`).
+Yüklenemezse kapak yine basılır, kutuya "STARCAD" yazılır. Görselin ALTINA
+uygulama adı yazılmaz: logo zaten "StarCAD" diyor.
+
+⚠️ Onay kutularının başlıkları künye etiketlerinden BÜYÜK punto
+(`CoverField.labelSizePt`) ve ALTI ÇİZİLİ. Künye hücresinde asıl bilgi etiketin
+altındaki değerdir, etiket küçük olmalı; onay kutusunda ise yazılacak değer
+yok, etiketin KENDİSİ başlıktır. Kutunun ortası kaşe için BOŞ bırakılıyor,
+künye sağ alt köşeye iniyor: solda projeyi çizen kişi ve firması, sağda dağıtım
+şirketi ve onaylayan mühendis.
+
+⚠️ Bölüm başlıkları DOLGUSUZ. Açık gri zeminle denendi, kâğıtta ağır durdu;
+başlık olduğunu punto farkı söylüyor (künye etiketlerinin neredeyse iki katı) —
+gömülü fontta kalın yüz olmadığı için vurgu zaten boyuttan geliyor.
+
+**Vektör, tuval fotoğrafı DEĞİL.** Bu bir CAD çıktısı: müşteri basacak ve
+üstünde ölçü okuyacak. Raster PDF ilk gün "çalışıyor" der, baskıda geri gelir.
+
+**Yığın `jspdf + svg2pdf.js`** — `.claude/CLAUDE.md`de zaten yazılıydı ve
+ölçüm de onu gösterdi: `pdf-lib` 2022-05'ten beri yayın almamış, jspdf 2026-03,
+svg2pdf 2026-01. Ara SVG katmanının bedava gelen faydası TEST: "duvar şu
+koordinatta, şu kalınlıkta" SVG metninde doğrulanabiliyor, PDF baytlarında
+doğrulanamazdı — `core/`ye test zorunluluğu ancak böyle karşılanıyor.
+
+**SVG birimi PLAN SANTİMİ, punto değil.** Duvar kalınlığı, boru çapı ve yazı
+boyu zaten cm; cm uzayında kurunca `stroke-width` doğrudan gerçek kalınlık
+oluyor ve ölçek değişince hiçbir sayı yeniden hesaplanmıyor — ölçeği
+`width`/`height` öznitelikleri taşıyor. Duvar ekrandaki gibi yuvarlak uçlu
+kalın çizgi (`stroke-linecap="round"`, kapsül — K23), kavşak hesabı yok.
+
+**Ölçek sığdırma için OYNATILMAZ.** 1:100 dendiyse çıktı 1:100'dür; çizim
+sayfaya sığmıyorsa taşar ve kullanıcı uyarılır (`PageFit.isOverflowing`).
+Sığdırmak için ölçeği bozmak, cetvelle ölçen kullanıcıya yanlış sonuç verirdi.
+
+⚠️ **Türkçe için gömülü font ŞART.** jsPDF'in yerleşik fontları WinAnsi
+kodlaması kullanıyor ve `ı ğ ş İ` orada YOK. Üstelik jsPDF hata da vermiyor —
+ölçüldü: Türkçe metne 186,60 genişlik döndürdü ama yanlış glif basacaktı
+(pdf-lib aynı metinde açıkça patlıyor: `WinAnsi cannot encode "ı"`). Sessiz
+bozulma olduğu için gömme adımı atlanamaz.
+
+⚠️ Font YENİ VARLIK DEĞİL: sahnenin kullandığı `roboto-regular.woff`
+`scripts/woffToTtf.mjs` ile TTF'e çevrildi (WOFF zaten zlib'li sfnt; dönüşüm
+kayıpsız). Doğrulama: jsPDF bu TTF ile Türkçe metni 169,21 punto ölçtü,
+pdf-lib aynı fonttan 169,2 — iki bağımsız kütüphane aynı sayıyı verdi.
+Font `fetch` ile TEMBEL yükleniyor, ana pakete girmiyor.
+
+⚠️ jsPDF'in y ekseni sayfanın ÜSTÜNDEN aşağı büyür; `core/pdf/paper.ts` ise
+PDF biçiminin doğal sol-ALT başlangıcını kullanır (plan +y yukarı, kâğıt +y
+yukarı — çevirme yok). Köprü TEK yerde: `ui/pdf/renderPlanPdf.ts` → `toJsPdfY`.
+SVG tarafında da y çevirme tek yerde (`svgPrimitives.ts` → `sy`).
+
+⚠️ Tesisat rengi `resolveLineColor` GERİ ÇAĞRIMIYLA dışarıdan gelir: renk
+kuralı `plumbing/scene/lineStyle.ts`te ve `core/` sahne katmanından import
+edemez (kural 1/2). Geometri core'da, palet ui'da.
+
+⚠️ Boş kat da SAYFASIYLA basılır (`viewBox="0 0 1 1"`): yoksa çıktıda
+hangi katın boş olduğu anlaşılmaz.
+
+⚠️ Proje adı ve numarası çizim store'unda YOK (kural 4: store = kaydedilecek
+JSON). Künye gerçek uçtan çözülüyor (`useProjectSummary` → `getProjectDetail`,
+K63 deseni); uç yanıt vermezse iş durmaz, numara id'ye düşer.
+
+Uçtan uca ölçüm (iki odalı plan, A3 yatay 1:100): çizimli PDF 23 074 bayt,
+aynı ayarlarla boş kat 16 045 bayt — aradaki 7 029 bayt gerçekten sayfaya
+basılan çizim. (Ölçüm gömülü proje verisinden ÖNCE alındı; bugün dosyaya bir de
+çizim JSON'u giriyor.)
+
+⚠️ Kat sırası: dizide `index 0` EN ALT kat ve çıktı da ZEMİNDEN YUKARI, yani
+dizinin kendi sırası. İlk sürüm listeyi ters çevirip en üst kattan başlıyordu,
+düzeltildi.
+
+
+**Pafta bir TESİSAT çıktısıdır, mimari plan değil.** İlk hâlde duvarlar
+neredeyse siyahtı (#1f2933) ve üstünden geçen boru kayboluyordu; ayrıca
+boruya bağlanan elemanlar hiç basılmıyordu (kullanıcı bildirimi). İkisi de
+düzeltildi:
+
+- Mimari, tesisat görünümündeki hayaletle AYNI soluk tonda basılıyor
+  (`#94a3b8`, `plumbing/scene/plumbingTheme.ts` → architectureGhost). Oda
+  dolgusu neredeyse beyaz, ölçü/açı yazıları duvardan bir tık koyu.
+- Tesisat elemanları (vana, sayaç, kazan…) sembolleriyle çiziliyor ve kendi
+  renklerini koruyor — konu onlar.
+
+⚠️ Eleman sembolleri YENİDEN ÇİZİLMEZ: `plumbing/assets/symbols/*.svg` ham
+metin olarak (`?raw`) gömülüp bir `<g transform>` içine konuyor. Sahne aynı
+dosyaları three.js geometrisine çeviriyor; PDF metnin kendisini istiyor.
+`symbolLoader.ts` fay C'nin dosyası olduğu için ona dokunulmadı, okuma
+`ui/pdf/symbolMarkup.ts`'te ayrı duruyor.
+
+⚠️ Sembol dönüşümünde İKİ işaret çevrilmesi var, ikisi de kasıtlı:
+`translate` y'si `-position.y` (çıktı svg'sinde y aşağı), `rotate` açısı
+`-angleDeg` (plan açısı saat yönünün tersine, svg `rotate()` saat yönünde).
+Sembolün İÇ koordinatı çevrilmez — kaynak svg de çıktı svg'si de y-aşağı,
+arada yalnız origin ötelemesi kalıyor.
+
+⚠️ Sembolün 1 svg birimi 1 SANTİMDİR (`elementPicking.ts` `bounds`'u plan cm
+olarak kullanıyor); `element.scale` bunun üstüne çarpan.
+
+
+**Referans paftayla karşılaştırma (kullanıcı örneği).** Eski üründen bir çıktı
+örnek alındı ve şunlar uyarlandı:
+
+- **Palet dengelendi.** İki tur gerekti: duvar önce neredeyse siyahtı
+  (boruyu yutuyordu), sonra tesisat hayaletinin tonuna çekilince fazla soluk
+  kaldı VE duvara oturan mimari semboller duvarla aynı renge düşüp GÖRÜNMEZ
+  oldu (menfez, kullanıcı bildirimi). Şimdi duvar `#6b7280`, sembol `#334155`
+  — sembolün duvardan koyu olması ZORUNLU, testle kilitli.
+- **Kolon DOLU çizilir** (`structuralColumn`): taşıyıcı kütle planda boşluk
+  gibi okunmamalı. Merdiven/baca şaftı kontur kalır — içlerinden tesisat
+  geçebiliyor ve dolgu onu örterdi.
+- **Eleman etiketi**: ad + varsa kapasite. MİNİMUM tutuldu; referansta cihaz
+  başına marka/model/verim/brülör bloğu var ama bizde o alanlar serbest metin
+  ve çoğu projede boş — hepsini basmak boş satır üretirdi. Birim UYDURULMAZ,
+  kullanıcının girdiği metin yazılır.
+
+⚠️ **Sayfa sınırı duvar UÇLARINDAN hesaplanmaz.** Kapsül her yöne yarım
+kalınlık taşar, duvara oturan sembol daha da taşar, tesisat binanın dışından
+dolaşabilir. Yalnız uçlara bakıldığında bu içerik sayfa kenarında KIRPILIYORDU.
+Sınır artık duvar kalınlığını, hat noktalarını, eleman konumlarını ve etiket
+çapalarını kapsıyor.
+
+⚠️ **İçten/dıştan ölçü PAFTAYA EKLENMEDİ.** Referansta duvarların iç ve dış
+boyu ayrı çizgilerle yazılı ve güzel duruyor — ama bu tam olarak K95'te
+KALDIRILAN gösterimdir ve sebebi estetik değil DOĞRULUKTU: sayıların bir kısmı
+yanlış çıkıyordu ve kullanıcı hangisinin gerçek boy olduğunu ayırt edemiyordu.
+PDF'e eklemek iki şeyi birden bozardı: (1) aynı hatalı sayılar kâğıda basılırdı,
+(2) ekran ile kâğıt farklı ölçü sistemi gösterirdi. K95 kapıyı açık bırakmıştı
+("iç/dış ayrımı gerekirse ayrıca ve kendi başına ele alınacak") — doğru sıra
+önce ANA ÇİZİMDE doğru geometriyle çözmek, PDF onu kendiliğinden devralır.
+
+
+**Kâğıt EKRANIN aynısını basar.** Pafta kendi çizim dilini uydurmuyor; her
+nesne sahnedeki geometrisiyle çıkıyor:
+
+- **Alan nesneleri** `getAreaObjectPlanGeometry` ile: merdivenin basamakları ve
+  yön oku, baca şaftının karesi + çemberi, kolon havalandırmasının yalnız
+  çemberi. Önce hepsi kaba bir sınır dikdörtgeniydi ve birbirinden ayırt
+  edilemiyordu (kullanıcı bildirimi).
+- **Kiriş** KESİKLİ konturla (`Beam.tsx` ile aynı): üstten geçen taşıyıcı,
+  duvardan böyle ayrılıyor.
+- **Kapı/pencere** `getOpeningSymbol` ile: söve/yüz çizgileri ve kapı kanadı.
+  Düz beyaz dikdörtgen kapıyla pencereyi ayırt ettirmiyordu.
+- **Baca ve havalandırma** BORU DEĞİL: `getDischargeRunGeometry` ile sabit
+  genişlikte, içi boş, ÇİFT ÇİZGİLİ kanal + türe özgü desen (baca eğik tarama,
+  havalandırma dik panjur) + uç kapağı. Cihaza giren uç kapatılmaz.
+
+⚠️ Baca/havalandırma ÇAPTAN renk ALMAZ — gaz taşımıyorlar. Renkleri
+`DISCHARGE_STROKE_COLORS`ten gelir (baca gri, havalandırma yeşil); ilk turda
+boru rengini alıp kırmızı çıkıyorlardı.
+
+**Ad etiketleri KESİKLİ kılavuzla nesnesine bağlanır** (`planSvgLabels.ts`).
+Ekranda tesisat elemanı da (`ElementNameLabels`) alan nesnesi de
+(`AreaObjectNameLabels`) böyle çiziliyor; etiketin hangi nesneye ait olduğu
+başka türlü okunmuyor. Kılavuz yazının KUTUSUNDA durur, merkezinde değil
+(`clipLeaderEndToRectCm`) — yoksa çizgi yazının içinden geçer.
+
+⚠️ Etiket+kılavuz yolu TEK: `buildLabelSvg`. Bugün tesisat elemanı ve alan
+nesnesi besliyor; kirişe ya da başka bir nesneye ileride ad eklenirse tek
+yapılacak şey buraya bir madde daha vermek. İkinci bir etiket çizim yolu
+açılmamalı — ekranda da tek desen var.
+
+⚠️ Hangi nesnenin adlanacağı EKRANDAKİ kuralla aynı (`hasAreaObjectNameLabel`,
+`hasElementNameLabel`): merdiven ve vana etiketsiz. Yazılan şey TÜRÜN adı
+("Kolon"), nesnenin kodu ("K-01") değil.
+
+
+### K137 — Mimari kontur `worldUnits`ten piksele geçti; kiriş çizgisi inceldi
+
+Kullanıcı: "mimari nesneler ekranın kenar kısımlarına yaklaştıkça ve zoom out
+yaptıkça silik gözükmeye başlıyor bunu istemiyoruz" + "kiriş çizgileri bir tık
+inceltilmeli".
+
+İKİ ayrı soluklaşma vardı, ikisinin de sebebi `worldUnits`:
+
+1. **Ekran kenarlarına doğru incelme.** `worldUnits` shader'ı göz ışınlarının
+   tek noktadan çıktığını varsayıyor (perspektif). Kameramız ortografik,
+   ışınlar paralel ve kamera 100.000 cm yukarıda; fragment hesabı bu büyüklükte
+   float32 hassasiyetini yiyor. **Bu tuzak duvarda ZATEN teşhis edilmiş ve
+   çözülmüştü** (`wallStyle.ts`, piksel yoluna geçiş) — alan nesnesi, kiriş ve
+   ikisinin tesisat görünümündeki hayaletleri o düzeltmenin dışında kalmıştı.
+2. **Uzaklaşınca kaybolma.** K43'ün kendi "bilinen sınır" notu: cm sabitken
+   çizgi zoom ile küçülüyor, en uzak zoom'da (0,1) gövde 0,5 px eder.
+
+**Çözüm:** kalınlık `cm × zoom` ile piksel cinsinden veriliyor ve
+`MIN_ARCHITECTURE_STROKE_PX = 1,5` tabanına dayanıyor. Görünen boyut
+`worldUnits`in çizmesi gerekenle AYNI; fark, hesabın shader yerine bizde olması
+ve alt sınır koyabilmemiz. Duvarın tabanı (3 px) kullanılmadı: o değer kapsül
+uçlarının kavşakta binmesinden geliyor, konturda öyle bir sorun yok ve 3 px en
+uzak zoom'da 2,5 cm'lik ayrıntı çizgisini 20 cm'lik duvarla eşitlerdi.
+
+K43 aynı sorunu kalınlık ARTIRARAK çözmeye çalışmış ve "kaybolmasın" ile
+"kalın durmasın" arasında sıkışmıştı; taban piksel ikilemi ortadan kaldırıyor.
+Aynı notta önerilen `alphaToCoverage` yolu da GEREKMEDİ — üstelik duvarda o
+yol kavşakta hale bırakıp geri alınmıştı.
+
+**Kiriş konturu `DEFAULT_WALL_THICKNESS_CM / 6`** (5 cm → 3,3 cm). Eskiden alan
+nesnesinin gövdesiyle aynıydı; kesitin dışında kalan bir eleman olarak üstünden
+geçtiği duvarı bastırmamalı.
+
+**Sabitler tek yerde:** `scene/architectureStrokeStyle.ts`. Kalınlıklar gerçek
+nesne ve hayaleti tarafından ORTAK okunuyor — iki dosyada kopyaydılar ve
+"gerçeğiyle aynı oran" yorumuna rağmen elle senkron tutuluyorlardı.
+
+⚠️ Kesik ölçüleri (`dashSize`/`gapSize`) cm KALIR: çizgi boyunca ölçülüyorlar,
+genişlik biriminden bağımsızlar. Tarayıcıda doğrulandı (zoom değişince kirişteki
+kesik sayısı sabit).
+
+⚠️ Zoom kapsayıcıda BİR kez okunup prop olarak dağıtılıyor (`Walls` deseni);
+nesne başına `useCameraZoom` çağrısı kare başına N geri çağrım demekti.
+
+Nerede: `scene/architectureStrokeStyle.ts` (+ testi), `scene/AreaObject.tsx`,
+`scene/Beam.tsx`, `scene/ArchitectureLayer.tsx`,
+`plumbing/scene/ArchitectureGhostFixtures.tsx`, `plumbing/scene/Ghosts.tsx`.
+
+### K138 — Mimari cihaza AD etiketi; seçim alanı çizimin üstüne daraldı
+
+İki kullanıcı isteği, aynı dosya ailesi: "mimari cihazlara isim eklenecek alarm
+cihazı deprem sensörü yangın söndürücü vs hepsine" ve "mimari cihazların seçim
+alanı çok geniş, onu sadece çizimin kendisinin üstüne geldiğinde aktive olacak
+şekilde değiştir".
+
+**Seçim alanı.** Eskiden ÇAPA NOKTASI etrafında, kenarı
+`çekme çizgisi boyu + derinlik` olan bir KARE kullanılıyordu: çekme çizgili
+cihazda 114 cm'lik bir alan ve işaretin bulunmadığı üç yöne de yayılıyor.
+Artık sınav sembolün KENDİ ekseninde: hedef, duvarın açısı ve montaj yüzü geri
+alınarak yerel eksene taşınıyor (`isPointInAreaObject` ile aynı yöntem) ve
+ÇİZİLEN geometrinin kutusuyla karşılaştırılıyor. Kutu `SYMBOL_DISPLAY`
+ölçülerinden hesaplanmıyor, geometrinin kendisinden okunuyor — yeni bir şekil
+eklendiğinde tutma alanı kendiliğinden doğru olur. Çekme çizgisi de çizimin
+parçası olduğu için kutuya dahil; `toleranceCm` payı duruyor (ince çizgiye tam
+nişan almak gerekmesin).
+
+`isPointInSymbol` artık `position` değil `pose` alıyor: açı ve montaj yüzü
+olmadan yerel eksene geçilemiyor.
+
+**Ad etiketi.** Alan nesnesinin etiketiyle AYNI desen (kesikli kılavuz + ekran-
+sabit yazı, `AreaObjectNameLabels`) ve AYNI görünürlük anahtarı
+(`isAreaObjectNamesVisible`, menüde "Nesne adları") — kullanıcı için ikisi de
+nesnenin adı, ayrı iki madde gereksiz bir ayrım olurdu. Yazan şey TÜRÜN adı
+("Deprem Sensörü"), cihazın kodu ("DS-01") değil. TÜM tipler etiketleniyor
+(kullanıcı: "hepsine"); alan nesnesinde merdivenin dışarıda bırakılma gerekçesi
+burada yok, cihaz işaretlerinin hiçbiri kendi başına okunmuyor.
+
+⚠️ **Etiket cihazın BAKTIĞI yöne konur, dünya +y'sine değil.** İlk sürüm sabit
+"yukarı" kullanıyordu; tarayıcıda görüldü ki aşağı bakan bir cihazda işaret
+duvarın altında, yazısı üstünde kalıyor, kılavuz duvarı kesip komşu odaya
+düşüyor. Yön cihazın yerel +y'sinden geliyor (`outwardSign` uygulanmış), yazının
+KENDİSİ dönmüyor — dik duruyor, yalnız nereye konacağı dönüyor.
+
+**Etiket sürüklenebilir** (kullanıcı istedi; ilk turda kapsam dışı bırakılmıştı).
+Kayma `PointSymbol.labelOffsetCm`'te ve alan nesnesindekiyle birebir aynı desen:
+canlı kayma `architectureUiStore`'da durur, bırakılınca TEK
+`setPointSymbolLabelOffset` yazımı olur (tek markDirty, tek Ctrl+Z); kayma
+ızgaraya YAKALANMAZ — etiket bir açıklama notu, çizim geometrisi değil.
+
+⚠️ Şema alanı OPSİYONEL ve varsayılana eşitken dosyaya YAZILMAZ: eski
+kayıtlarda alan yok, zorunlu tutulsaydı depodaki her proje AÇILMAZDI
+(knowledge/point-symbols.md'deki göç kuralı).
+
+⚠️ Alan nesnesinin etiketi ÖNCELİKLİ: ikisi üst üste geldiğinde iki hook da
+kendi jestini başlatır ve iki etiket birden taşınırdı. Beş araç hook'u
+(`useSelectionTool`, `useWallSelectionTool`, `usePointDragTool`,
+`useAreaObjectSelectionTool`, `usePointSymbolSelectionTool`) artık cihaz
+etiketini de soruyor ve doluysa jesti hiç başlatmıyor (K44 dersi).
+
+Etiket kutusu hesabı `core/labelLeader.ts` → `getLabelRectCm`'e taşındı; alan
+nesnesininki oraya bağlandı. Tesisatın kopyası (`getElementLabelRectCm`)
+dokunulmadan bırakıldı.
+
+Nerede: `core/architectureSymbol.ts` (`isPointInSymbol`), `core/architectureHover.ts`,
+`core/pointSymbolLabel.ts` (+ testi), `core/labelLeader.ts`, `core/areaObjectLabel.ts`,
+`scene/PointSymbolNameLabels.tsx`, `scene/ArchitectureLayer.tsx`, `store/uiStore.ts`.
+
+### K139 — Kolon ve baca şaftı duvarın YÜZÜNE yaslanıyor
+
+Kullanıcı: "kolonlar ve baca şaftı duvarlara da snaplenmeli sadece ızgaraya
+değil". Yerleşim önceliği artık **duvar → ızgara**: imleç bir duvarın yüzüne
+yakınsa nesne oraya yaslanır, değilse eski ızgara yakalaması çalışır.
+
+**İKİ hiza var, imlece yakın olan kazanır** (`AreaObjectWallSnapKind`):
+
+- `onWall` — nesne duvarın **ÜSTÜNDE** durur, dış kenarı duvarın KARŞI yüzüyle
+  hizalanır; kolon duvarı kaplar ve mahale taşar. Kullanıcının asıl istediği bu
+  ("duvarın üstünde olacak şekilde duvarın kenarına snaplenmeli", ekran
+  görüntüsüyle geldi).
+- `besideWall` — nesne duvarın DIŞINDA, yüzüne değerek durur. İlk turda tek
+  davranış buydu; kullanıcı "hem şimdiki yaptığına snaplenme olsun" dediği için
+  KALDI, ama önceliği yok: eşitlikte `onWall` kazanır.
+
+Merkez, duvar ekseni üzerindeki izdüşüm + normal × (aday hizanın uzaklığı).
+Nesne duvar boyunca serbest kayar (izdüşüm imleci izler), yalnız duvarın ucunu
+geçmez — `projectOntoSegment` uçlara kelepçeliyor.
+
+⚠️ **Yakalama YARIÇAPI nesnenin BOYUNU içerir.** Yalnız merkez–eksen uzaklığına
+bakılsaydı 50 cm'lik bir kolon, duvarın tam üstünde dururken bile toleransın
+dışında kalırdı: yaslanmış hâlde merkez zaten yüzden yarım kolon uzakta.
+
+⚠️ **Duvara oturan kolon artık açıklıkla ÇAKIŞABİLİR** ve `addAreaObject`
+K35/K36 gerekçesiyle reddeder (id bile harcanmaz, araç sessizce kabul eder).
+Bu bir gerileme değil, kuralın doğal sonucu — kapının üstüne kolon oturmaz;
+tarayıcıda ilk denemede karşılaşıldı.
+
+⚠️ **Pay, nesnenin AÇISINDAN türetiliyor** (`lengthCm / 2` sabiti DEĞİL): köşeler
+duvar normaline izdüşürülüp en büyüğü alınıyor, böylece 37° dönmüş bir kolon da
+tam yaslanır, köşesi duvara girmez.
+
+**Yerleştirmede nesne duvarın AÇISINI alır, taşımada ALMAZ.** Yeni nesnenin
+açısı yok, eğik duvarda ızgara hizasında durursa duvarın içine girerdi; taşınan
+nesnenin ise kullanıcının verdiği bir açısı VAR ve taşıma jesti onu sessizce
+silmemeli (döndürmenin kendi tutamacı var). Bu yüzden çekirdek fonksiyon
+`isAlignedToWall` alıyor — açık olduğunda pay, nesnenin duvara döndürülmüş
+hâlinden hesaplanıyor.
+
+⚠️ Hangi TÜRLER yapışır: kolon ve baca şaftı (kullanıcı seçti). Merdiven
+dışarıda — mahalin ortasında da durabiliyor ve mıknatıs onu istemediği yere
+çekerdi; kolon havalandırması da dışarıda, şaftın yanında duruyor duvarın
+değil. `Record<AreaObjectType, boolean>` olduğu için yeni bir tip eklenip burası
+unutulursa DERLEME kırılır.
+
+⚠️ Bu bir BAĞLANMA değil: nesne serbest kalmaya devam ediyor (`PointSymbol`in
+duvara bağlanma modeli GİRMEDİ). Duvar sonradan taşınırsa kolon peşinden
+gitmez — yakalama yalnız yerleşim anında çalışan bir mıknatıstır.
+
+⚠️ Ctrl İKİSİNİ birden kapatır (ızgara + duvar): serbest yerleştirme için tek
+tuş yetmeli, kullanıcı "hangisi hangi tuşta" diye düşünmesin.
+
+**BOYUTLANDIRMADA da çalışır** (kullanıcı istedi): sürüklenen KÖŞE en yakın
+duvar yüzüne oturuyor (`snapPointToWallFace`), böylece nesnenin KENARI duvarla
+hizalanıyor. Ayrı bir "kenarı hizala" matematiği yazılmadı — köşe yüze
+oturunca `resizeAreaObjectFromCorner` kenarı zaten oraya taşıyor. Duvarın İKİ
+yüzü de aday.
+
+`AddAreaObjectInput.angleDeg` opsiyonel eklendi (varsayılan 0) — eski
+çağıranların davranışı değişmedi.
+
+Nerede: `core/areaObjectWallSnap.ts` (+ testi), `scene/useAreaObjectTool.ts`,
+`scene/useAreaObjectSelectionTool.ts`, `scene/useAreaObjectHandleTool.ts`,
+`scene/ArchitectureLayer.tsx` (önizleme açısı), `store/areaObjectOps.ts`.
+
+### K140 — Çizilen eksene göre aynalama
+
+Kullanıcı: "çizilecek yatay veya dikey bir eksene göre de aynalama işlemi ekle;
+ona tıkladığımızda ekranda bir çizgi çekelim ve seçili olan tüm şeyler o çizgiye
+göre aynalansın."
+
+**Yeni dönüşüm türü `mirrorLine`** (`origin` + `angleDeg`), paneldeki `mirror`ı
+GENELLER: 0° yatay aynanın, 90° dikey aynanın ta kendisi. İkisi yine de ayrı
+duruyor — panel düğmeleri seçimin KENDİ merkezine göre çalışıyor (dayanak sınır
+kutusu), buradaki eksen ise kullanıcının koyduğu bağımsız bir doğru.
+
+Nokta yansıması: fark vektörü doğrunun İKİ KATI açısıyla döndürülüp dik bileşeni
+çevriliyor. Nesnenin kendi açısı da yansıyor: `2θ − açı` (θ=0 → `−açı`, θ=90 →
+`180 − açı`, yani var olan iki özel durumla birebir aynı).
+
+⚠️ **Çeyrek dönüş katlarında TAM trigonometri** (`cosDeg`/`sinDeg`): `Math.sin(Math.PI)`
+1.22e-16 verdiği için dikey eksende aynalanan nokta 240 yerine 240.00000000000003
+çıkıyordu (test yakaladı). Artık iki yol aynı eksende birebir aynı sayıyı
+üretiyor ve "iki kez aynala = başa dön" tam sağlanıyor. `rotate` bilerek
+DOKUNULMADI — o kod uzun süredir kullanımda, ayrı iş.
+
+**Jest bir ARAÇ olarak kuruldu** (`mirrorAxis`), palette görünmüyor —
+`SELECTION_TOOL`un deseni. Sebep: tuvale yapılan tıklamanın seçimi değiştirmemesi
+gerekiyor ve bütün mimari hook'lar zaten `activeToolId`ye bakıp çekiliyor.
+Alternatifi her birine tek tek "aynalama bekliyor mu" kontrolü eklemekti (K44
+dersinin pahalı hâli). Araç değişimi seçimi TEMİZLEMEDİĞİ için seçim jest
+boyunca duruyor.
+
+**İşlem TAŞIMA değil ÇOĞALTMA** (kullanıcı isteği: "bu işlem kopyalama işlemi
+olmalı, ilk hali silinmemeli"): kaynak yerinde kalıyor, aynalanmış kopya
+ekleniyor ve seçim kopyaya geçiyor — çoğaltma düğmesiyle aynı sözleşme.
+
+`duplicateSelectionWithTransform` iki adımı TEK `set` içinde yapıyor: kopya önce
+YERİNDE çıkıyor (sıfır öteleme), sonra kopyaya dönüşüm uygulanıyor. Böylece iki
+iyi test edilmiş yol yeniden kullanılıyor ve kullanıcı için tek Ctrl+Z oluyor.
+Duvar bölme/oda hesabı SONDA bir kez koşuyor — kopya üst üsteyken bölünseydi
+üst üste binen duvarlar birbirini bölerdi (K24 tuzağı).
+
+⚠️ Kopyalanan duvara bağlı sembol artık KOPYA duvara yapışıyor. Eskiden her
+hâlükârda kaynak duvarda kalıyordu: aynalanan duvarın panosu kaynakta kalıp tek
+duvarda iki pano görünürdü. Çoğaltma düğmesi için de düzelme.
+
+İki tık: birincisi ekseni başlatır, ikincisi uygular ve seçim aracına döner.
+Sağ tık/Esc yarım ekseni bırakır. Açı 15°'ye YAKALANIR (Ctrl serbest) —
+kullanıcının istediği yatay/dikey eksen elle tam tutturulamaz, 0/90 adımın
+içinde.
+
+⚠️ Eksen bir NESNE DEĞİL: uygulandıktan sonra saklanmıyor, ikinci bir aynalama
+için yeniden çiziliyor. Saklamak "çizimin parçası mı" sorusunu açardı (ölçümün
+K80'deki kararıyla aynı çizgi). Önizleme çizgisi tıklanan iki noktanın ÖTESİNE
+uzatılıyor: ayna bir DOĞRU, çizilen parça onu yalnız tarif ediyor.
+
+⚠️ Kısmi seçimde ortak köşeler yüzünden çizim ESNER: seçili duvarların köşesi
+seçilmeyen duvarla paylaşılıyorsa o köşe yansırken komşusu yerinde kalıyor. Bu
+yeni değil — paneldeki döndürme/aynalama da aynı `transformSelectionInDraft`
+üzerinden aynı şeyi yapıyor (K49 modeli).
+
+Nerede: `core/transform.ts`, `core/tools.ts`, `scene/useMirrorAxisTool.ts`,
+`scene/MirrorAxisOverlay.tsx`, `scene/ArchitectureLayer.tsx`,
+`store/architectureUiStore.ts`, `ui/properties/SelectionActions.tsx`,
+`ui/tools/toolIcons.ts`.
+
+### K141 — Duvar ve kiriş uzunluğu panelden düzenlenebilir
+
+Kullanıcı: "özellik panelinde duvar uzunluğu ve kiriş uzunluğu düzenlenebilir
+olmalı". İkisi de SALT OKUNURDU ve iki panelde de aynı gerekçe yazılıydı: "bir
+sayı hangi ucun oynayacağını söylemiyor". İtiraz bir KURALLA çözüldü.
+
+**Kural: p1 ucu SABİT kalır, p2 mevcut doğrultu üzerinde kaydırılır.** Yani
+köşeyi/uç tutamacını fareyle sürüklemenin klavye karşılığı; duvarda `movePoint`,
+kirişte `moveBeamEnd` — ikisi de zaten var olan eylemler, yeni bir yazma yolu
+açılmadı. Hesap `core/wall.ts` → `getSegmentEndAtLength`te ve iki panel de aynı
+fonksiyonu okuyor.
+
+⚠️ Duvarda p2 komşularla PAYLAŞILIYOR olabilir; o zaman komşular esneyerek bağlı
+kalır ve oda alanları yeniden hesaplanır. Bu, duvarın kendi koordinatını
+taşımamasının doğrudan sonucu ve köşeyi sürüklerken de aynısı oluyor —
+panelde gizlemek kullanıcıyı iki farklı davranışla karşılaştırırdı. Tarayıcıda
+görüldü: 400 → 300 yazınca komşu duvar eğik hâle geldi, iki mahalin m²'si
+değişti.
+
+⚠️ Yalnız TEK nesne seçiliyken yazılabilir. İki duvar köşe paylaşıyorsa toplu
+yazım aynı köşeyi iki kez oynatır ve sonuç yazım SIRASINA bağlı olurdu; kirişte
+de kalınlık/etiket zaten aynı kuralda.
+
+⚠️ Sıfır boylu parçada `getSegmentEndAtLength` `undefined` döner: yön tanımsız,
+uydurulmaz. Panel bunu reddedilmiş yazım olarak gösterir.
+
+Nerede: `core/wall.ts` (+ testi), `ui/properties/WallProperties.tsx`,
+`ui/properties/BeamProperties.tsx`.
+
+### K142 — Çoğaltma, "Test Et" ve Araçlar menüsünün yarısı kaldırıldı
+
+Üçü de aynı gerekçeyle: kullanıcıya bir şey vaat edip vermeyen ya da işe
+yaramayan arayüz.
+
+**Çoğaltma (panel düğmesi + Ctrl+D) KALKTI.** Kullanıcı: "kopyalamayı kaldır
+çünkü direkt yapıştırıyor ve bütün duvarlar kesişip yapışıyor gerek yok."
+Kopya kaynağın 50 cm yanına düşüyordu ve kesişim bölme (K24) iki duvarı
+birbirine yapıştırıyordu. Ctrl+D artık YAKALANMIYOR — üstlenmediğimiz bir
+kısayolu `preventDefault` ile yutmuyoruz.
+
+⚠️ `duplicateSelectionInDraft` DURUYOR: çizilen eksene göre aynalama (K140) onun
+üstünde çalışıyor. `duplicateSelection` action'ı da duruyor — kopyalama
+mantığının testleri (id remap, etiket üretimi, düşey eksen kimliği, oda doğması)
+o imzadan geçiyor ve helper hâlâ üretimde koşuyor. Yani kaldırılan şey ARAYÜZ,
+kod yolu değil.
+
+**"Test Et" üst bardan KALKTI.** Hiç bağlanmamıştı ve kullanıcı "zaten hata
+kontrolleri tuşu o işi yapıyor" dedi. Dokümanda (hata-kontrol.docx) da yalnız
+hata kontrolleri ekranı tarif ediliyor. "Gönder" pasif olarak KALIYOR: onun
+pasifliğinin yazılı bir sebebi var (hatalar giderilmeden proje onaya gidemez).
+
+**Araçlar menüsü DÖRT maddeye indi** (kullanıcı seçti): Mahalleri Tanımla,
+Kolon Hattını Sil, Tesisat Sil, Malzeme Listesi. Çıkanlar: Birim
+Numaralandırmayı Başlat, Tüketim Vanası Branşmanlarını DN25 Yap, Tüketim
+Vanalarını Ekle, Tesisat Detayları, Hata Kontrollerini Çalıştır.
+
+⚠️ "Hata Kontrollerini Çalıştır" menüden çıktı ama İŞLEV kaybolmadı: üst barda
+kendi düğmesi var ve o çalışıyor (K115). Menüdeki pasif kopyası ikinci bir
+giriş yolu vaat edip hiçbir şey yapmıyordu.
+
+Kalan dört madde hâlâ PASİF (K79 deseni): "tıklanabilir görünüp hiçbir şey
+yapmayan madde" yerine "henüz yok" demek.
+
+Nerede: `ui/properties/SelectionActions.tsx`, `scene/useSelectionTool.ts`,
+`ui/menu/EditorActions.tsx`, `ui/menu/menuDefinitions.ts`.
+
+### K143 — Mimari kısayol ipucu dolduruldu
+
+Kullanıcı: "mimari kısayollar tuşu sol bardaki tuş mouseu götürdüğümüzde mimari
+ekrandaki tüm klavye-Mouse kısayollarını oraya yaz." Bileşen (`ui/ShortcutHint`)
+ve boş liste zaten duruyordu; iş listeyi doldurmaktı.
+
+`core/shortcuts.ts` → `ARCHITECTURE_SHORTCUTS` on altı kayıt: Ctrl+Z / Ctrl+Y /
+Ctrl+Shift+Z, Ctrl+S, Ctrl+Shift+S, Ctrl+K, Ctrl+Shift+K, Delete/Backspace,
+çerçeve seçimi, Shift+tık, Ctrl+sürükle, Ctrl+tutamaç, Esc, sağ tık, tekerlek,
+Space/orta tuşla kaydırma.
+
+⚠️ Liste ÜRETİLMİYOR, elle derlendi: tuşlar beş ayrı hook'ta yakalanıyor ve
+hiçbiri kullanıcıya gösterilecek metin taşımıyor. Kısayol değişirse liste
+kendiliğinden düzelmez.
+
+⚠️ Ctrl metni "Izgarayı kapat (köşe/duvar yakalaması kalır)" — `gridSnapMode.ts`
+YALNIZ ızgarayı kapatıyor, `resolveSnap` köşe/duvar yakalamasını sürdürüyor.
+"Yakalamayı kapat" yazılsaydı kullanıcı olmayan bir davranış arardı; tesisat
+listesindeki aynı satır da bu yüzden böyle.
+
+⚠️ Ctrl+D LİSTEDE YOK: K142'de kaldırıldı, yakalanmıyor bile.
+
+Nerede: `core/shortcuts.ts`.
+
+### K144 — Mahal kullanım tipi listesi on tip büyüdü
+
+Kullanıcının referans ekranındaki mahaller listede yoktu. Eklenenler: Oturma
+Odası, Koridor, Dubleks Koridor, Salon (Açık Mutfak), Balkon (Kapalı), Yangın
+Merdiveni, Asansör Boşluğu, Daire, Dükkân, Ofis. Liste 15 → 25.
+
+⚠️ Var olan tiplerin HİÇBİRİ silinmedi (Kazan Dairesi, Çamaşırlık, Kiler, Garaj,
+Depo, Şaft, İş Yeri referans ekranda yok ama duruyor): silinen bir değer eski
+projelerde `z.enum`'dan geçemez ve mahal sessizce "Tanımsız"a düşerdi.
+
+⚠️ `balcony` ETİKETİ değişti ("Balkon" → "Balkon (Açık)"), DEĞERİ değil. Günlük
+dilde "balkon" açık balkondur, eski kayıtların kastı bu; kapalı balkon ayrı tip
+(`balconyClosed`) çünkü tesisat açısından iki hacim aynı şey değil. Değeri de
+değiştirseydik göç gerekirdi.
+
+Liste hâlâ ONAY BEKLİYOR (K116'daki not geçerli) ve değişecek TEK yer
+`core/roomUsage.ts`.
+
+Nerede: `core/roomUsage.ts`.
+
+### K145 — "Mahalleri Tanımla" kipi: alt kart + kamera odağı
+
+Araçlar menüsündeki pasif madde ÇALIŞIR hâle geldi. Kip, aktif kattaki tanımsız
+mahalleri tek tek geziyor; her durakta mahal ekranda vurgulanıyor, kamera ona
+gidiyor ve altta yüzen bir kart tipleri rozet olarak sunuyor.
+
+**Referans ekranın ORTADAKİ penceresi tekrarlanmadı** (kullanıcı seçti). Orada
+kullanıcı hangi mahali adlandırdığını göremiyor, yalnız başlıktaki kat adına
+güveniyordu. Burada kart alta alındı ki çizim açık kalsın; "hangi oda?" sorusunu
+metin değil ÇİZİMİN KENDİSİ yanıtlıyor.
+
+**Kapsam yalnız AKTİF KAT** (kullanıcı seçti): kip kullanıcı istemeden kat
+değiştirmiyor.
+
+⚠️ Kuyruk BAŞLARKEN donuyor (`architectureUiStore.roomDefinitionQueue`, yalnız
+id'ler). Her karede yeniden türetilseydi tip verilen mahal kuyruktan düşer,
+"3 / 7" göstergesi kullanıcının gözü önünde değişir ve geri gitmek imkânsız
+olurdu. GEOMETRİ ise canlı okunuyor (`getRoomDefinitionQueue`) — kip açıkken
+duvar oynatılabilir.
+
+⚠️ Sıra id'den değil KONUMDAN geliyor (`sortByReadingOrder`: üstten alta, sonra
+soldan sağa, 100 cm'lik satır toleransıyla). id sırası çizim sırasıdır; kamera
+çizimin bir ucundan öbürüne savrulurdu.
+
+⚠️ Tip yazıldıktan sonra bir SONRAKİ durağa değil, ilk TANIMSIZ durağa geçilir;
+kalan yoksa kip kendini kapatır. `advanceAfter` içinde `stopsByRoomId` bilerek
+bayat okunur (yazım henüz render'a yansımadı), o yüzden az önce tanımlanan mahal
+ayrıca eleniyor.
+
+⚠️ Kart yüzen çubuğun ÜSTÜNDE (`bottom-16`), üstünü örtmüyor: kip açıkken de
+kat oku, geri al ve ızgara anahtarı elin altında kalmalı.
+
+⚠️ Kartın geometri kaynağı `getFloorRoomStops` — kuyruğun kendisi değil. Kattaki
+TÜM mahalleri verir (`isDefined` bayrağıyla): geri gidilen durak artık tanımlıysa
+da kamera oraya gitmeli, yoksa kart "bu mahal tanımlandı" derken ekranda başka
+bir yer durur (tarayıcıda yakalandı).
+
+⚠️ Kip açılırken SEÇİM temizleniyor: açık seçim hem ikinci bir mavi vurgu hem de
+sağda ikinci bir tanımlama arayüzü (özellik paneli) demekti.
+
+Menü maddesi salt görüntülemede ve mimari DIŞI görünümlerde pasif: kip yazıyor
+ve mahal mimarinin nesnesi.
+
+Klavye: 1–9 ilk dokuz rozet, ← → duraklar arası, Esc çıkış.
+
+Nerede: `core/roomDefinition.ts`, `store/architectureUiStore.ts`,
+`ui/canvas/RoomDefinitionCard.tsx`, `ui/canvas/canvasBarVariants.ts`,
+`ui/MenuBar.tsx`, `ui/menu/menuDefinitions.ts`, `scene/Room.tsx`,
+`scene/sceneTheme.ts`, `pages/EditorPage.tsx`.
+
+### K146 — Mahal tanımlama kipi: gözden geçirme turu, arama, daha geniş odak
+
+Kullanıcının kip üstünde üç bulgusu.
+
+**1. Hepsi tanımlıyken menü maddesi ne yapmalı?** Kullanıcı "ya pasif olsun ya
+yanında yeniden tanımla tuşu olsun" dedi ve uyarı gerekip gerekmediğinden emin
+değildi. Seçilen yol: madde AKTİF kalır, tanımsız mahal yoksa kip TÜM mahalleri
+gezer — gözden geçirme turu. Böylece ölü tıklama da olmaz, ikinci bir düğme de
+gerekmez.
+
+⚠️ Tur SIFIRLAMA DEĞİL: hiçbir tip silinmiyor, kullanıcı gezip isterse üstüne
+yazıyor. **Bu yüzden onay penceresi de YOK** — yıkıcı olmayan bir işlemin
+uyarısı, kullanıcının her seferinde geçtiği gereksiz bir kapıdır (yanlış yazılan
+tip zaten Ctrl+Z ile döner). "Hepsini sil, baştan tanımla" seçeneği bilerek
+yazılmadı: kimse tipleri kaybetmek istemiyor, istediği şey yeniden GEZMEK.
+
+⚠️ Madde yalnız katta HİÇ mahal yokken pasif (`floorRoomCount === 0`).
+"Hepsi tanımlı" pasiflik sebebi değil.
+
+⚠️ İlerleme mantığı bu yüzden değişti: `advanceAfter` önce ileride TANIMSIZ
+durak arar, bulamazsa SIRADAKİ durağa geçer ve yalnız SON durakta kipi kapatır.
+Eski hâli gözden geçirme turunda ilk düzeltmeden sonra kipi kapatıyordu
+(tarayıcıda yakalandı).
+
+**2. Rozetlerde arama — ve rakam kısayollarının KALDIRILMASI.** Yirmi beş tip arasında gözle aramak zorlaşıyordu.
+Kutu Türkçe duyarsız (`includesTr`): "saft" → Şaft, "camasir" → Çamaşırlık.
+⚠️ Rozetlerdeki 1–9 rakam kısayolları KALDIRILDI (kullanıcı kararı: "hepsine
+yetmiyor"). Tek basışlık tuş dokuz taneydi, liste yirmi beş — kısayol tiplerin
+ancak üçte birine yetiyordu ve "hangilerinde var?" diye bakılan ikinci bir kural
+üretiyordu. Hızlı yol artık yalnız arama kutusu. ⚠️ Kutu yine de ODAK ALMIYOR
+(autoFocus yok): kip açılır açılmaz odak kutuya gitseydi ok tuşlarıyla duraklar
+arasında gezinmek çalışmazdı. ⚠️ Kutuda Esc önce ARAMAYI temizler, boşken kipi
+kapatır — ve bunu kutunun kendisi yapar, çünkü pencere dinleyicisi yazı
+alanlarını atlıyor (`isTypingTarget`). Enter görünen ilk rozeti yazar.
+
+**3. Kamera fazla yakındı.** `FOCUS_MARGIN_RATIO` 0,35 → 0,85 ve asgari pay
+60 → 150 cm. Mahal ekranı doldurunca komşu duvarlar kadraj dışında kalıyor ve
+kullanıcı planda nerede olduğunu kaybediyordu; sorulan mahalin BAĞLAMI da
+görünmeli.
+
+**4. Kipten çıkış yolları.** Kart X'i ve Esc yetmiyordu; kullanıcı "sahneye
+tıklayınca da çıksın" dedi — tuvale dönmek, işi bıraktığının en doğal işareti
+(`scene/useRoomDefinitionExit.ts`). ⚠️ Yalnız SOL tuş: orta tuş kaydırma, sağ tık
+araçtan çıkma jesti (K84); kaydırmak için tuvale basınca kipten düşmek kipi
+kullanılamaz kılardı. Hook <Canvas> içinde mount ediliyor, köprü store — kart
+DOM tarafında ve ui/ ↔ scene/ importu yasak.
+
+Kart 200 satırı aştığı için arama + rozetler `ui/canvas/RoomUsagePicker.tsx`'e
+ayrıldı: kart durakları ve gezinmeyi, picker tip seçmeyi biliyor.
+
+Nerede: `core/roomDefinition.ts`, `ui/canvas/RoomDefinitionCard.tsx`,
+`ui/canvas/RoomUsagePicker.tsx`, `ui/MenuBar.tsx`.
+
+### K147 — Kolon Hattını Sil ve Daire İçi Tesisatları Sil
+
+Araçlar menüsündeki iki pasif madde çalışır hâle geldi. İkisi aynı ağın
+birbirini tümleyen iki kesiti; bölümleme TEK yerde
+(`plumbing/core/networkPartition.ts`).
+
+⚠️ **SINIR SAYAÇ, "tüketim vanası" DEĞİL.** Şartname bağımsız bölümü tüketim
+vanasıyla tanımlıyor ama modelde öyle bir tür YOK: vana tek tür (`valve`) ve
+`ValveProperties.type` serbest metin, "bu bir tüketim vanasıdır" diyen bir
+işaret hiç üretilmiyor (K142'de "Tüketim Vanalarını Ekle" / "DN25 Yap"
+maddelerinin kaldırılma gerekçesi de buydu). Sayaç tiplendirilmiş, "1 daire =
+1 sayaç" kuralı yazılı ve `unitNumber`/`subscriberName` taşıyor — şartnamenin
+"bağımsız bölüm bazında" istediği döküm oradan çıkıyor. Kullanıcı bu
+uyarlamayı onayladı ve "tüketim vanası eklemeyeceğiz" dedi.
+
+Sınır kararı `isUnitBoundaryElement` fonksiyonunda TEK satır: tüketim vanası
+kavramı bir gün eklenirse değişecek tek yer orasıdır, çağıranlar (iki silme,
+sayımlar, onay penceresi) olduğu gibi kalır.
+
+**Kolon Hattını Sil** — servis kutusundan sayaçlara kadar olan gövde (kolon +
+branşman + üstlerindeki armatürler). Kapsam DAİMA TÜM KATLAR, kat seçimi
+sorulmaz (şartname şartı: hat düşeydir, tek katta kesmek onu ortasından
+koparırdı). ⚠️ Servis kutusu gövdeye GİRMEZ — kaynak gidince kullanıcı
+yeniden çizmeye başlayamazdı. Sayaçlar ve daire içi kalır, uçları serbest.
+
+**Daire İçi Tesisatları Sil** — sayaçların çıkışından sonrası. Kapsam AKTİF KAT
+(kullanıcı kararı); kat SAYACIN katıdır, dairenin tesisatı kat bağlantısıyla
+üst kata taşıyorsa o parça da gider. Etiket "Tesisat Sil"den değiştirildi: eski
+ad TÜM tesisatı silecek sanılıyordu.
+
+⚠️ **İki madde YALNIZ TESİSAT görünümünde açık.** Kozmetik değil: geri alma
+AKTİF GÖRÜNÜMÜN geçmişine gidiyor (K123) ve tesisat aynası yalnız
+tesisat/izometrikte gezilir — mimaride çalıştırılsaydı Ctrl+Z tesisatı değil
+DUVARI geri alır, onay penceresindeki "geri alınabilir" sözü yalan olurdu.
+Tarayıcıda yakalandı. İzometrik de dışarıda: orada aktif kat kavramı yok (K124).
+
+Onay penceresi AYRI YAZILMADI: var olan `CascadeDeleteDialog` iki yeni `kind`
+ile genişletildi (kolonda hat uzunluğu, daire içinde bağımsız bölüm bazlı
+döküm). İkinci bir pencere, "geri alınabilir" notunu ve kat yayılma uyarısını
+iki yerde tutmak demekti.
+
+Menü mantığı `ui/menu/useToolsMenuActions.ts`'e taşındı (MenuBar 200 satırı
+aşmıştı); pasiflik hesabı da orada tek yerde.
+
+Nerede: `plumbing/core/networkPartition.ts`, `plumbing/store/deletionActions.ts`,
+`plumbing/store/plumbingUiStore.ts`, `plumbing/ui/CascadeDeleteDialog.tsx`,
+`ui/menu/useToolsMenuActions.ts`, `ui/MenuBar.tsx`, `ui/menu/menuDefinitions.ts`.
+### K148 — Tesisat geri alma, projedeki İLK düzenlemede her şeyi siliyordu
+
+Kullanıcı bulgusu: "kolon hattını sil dedim, geri almaya tıkladığımda her şey
+gidiyor."
+
+**Sebep — tesisat geçmişi aynası tohumlanmıyordu.** `plumbingHistory` cadStore'un
+DIŞINDA ayrı bir ayna store; zundo yalnız onu izliyor ve aynayı SADECE
+`plumbingSlice`'ın tesisat action'ları (`record()`) güncelliyor. Proje yükleme
+oradan geçmediği için ayna projenin başında BOŞ kalıyordu. Kullanıcı ilk tesisat
+düzenlemesini yapınca zundo "önceki durum" diye o boş aynayı geçmişe itiyor,
+Ctrl+Z de bütün tesisatı siliyordu.
+
+⚠️ `resetPlumbingHistory` yazılmıştı ama üretimde HİÇ ÇAĞRILMIYORDU — yalnız
+testlerde. Test kendi aynasını kurduğu için hata testlerde hiç görünmedi.
+
+Düzeltme: cadStore'un tesisata dokunan üç yolu aynayı da eşitliyor
+(`mirrorPlumbingHistory`) — `loadProject` sıfırlayarak (yeni başlangıç,
+`temporal.clear()` ile aynı yerde), `loadProjectDrawing` ve
+`clearProjectDrawing` kaydederek (ikisi de geri alınabilir DÜZENLEME).
+
+⚠️ Aynı sınıftan bir yol daha var: `floorOps` kat silerken o katın tesisatını
+da temizliyor ve aynayı güncellemiyor. Bu adımda DOKUNULMADI — kat silme kendi
+onayı ve kendi testleriyle gelen ayrı bir yol; düzeltilecekse ölçülerek
+düzeltilmeli.
+
+Hata K147'nin toplu silmesiyle görünür oldu ama ondan ÖNCE de vardı: proje
+açıp tek bir boru silen kullanıcı da aynısını yaşıyordu.
+
+Nerede: `store/cadStore.ts`.
+
+### K149 — Araçlar maddeleri görünüme göre kapanmaz, kullanıcıyı sahnesine ATAR
+
+Kullanıcı fikri: "mimari tasarımda kolon hattını sil / daire içi tesisatı sil
+tuşuna da tıklayabilelim ama tıkladığımızda bizi tesisat sahnesine atsın; aynı
+şekilde tesisat ekranındayken de mahalleri tanımlaya tıklayabilelim ama bizi
+mimari ekrana atsın."
+
+K147'de bu üç madde YANLIŞ görünümde PASİFTİ. Gerekçe sağlamdı (geri alma aktif
+görünümün geçmişine gider, K123/K148) ama çözüm yanlış yerdeydi: kullanıcıya
+"burada yapılamaz" deyip nerede yapılacağını söylemiyordu.
+
+Artık madde her görünümden tıklanabilir; `run` işlemden ÖNCE
+`setActiveView` ile doğru sahneye geçiyor (`goToView`). Geri alma güvenliği
+BOZULMUYOR: işlem çalıştığı anda aktif görünüm zaten doğru.
+
+⚠️ Zaten doğru sahnedeysek `setActiveView` ÇAĞRILMAZ — gereksiz geçiş seçimi
+temizler (K53) ve kullanıcının seçimini sebepsiz düşürürdü.
+
+⚠️ Pasiflik yalnız ÇİZİMDEN gelir artık: katta mahal yoksa "Mahalleri Tanımla",
+silinecek gövde/daire içi yoksa silme maddeleri kapalı. Salt görüntülemede üçü
+de kapalı (hepsi yazıyor).
+
+Nerede: `ui/menu/useToolsMenuActions.ts`.
+
+### K151 — Duvar rengi koyu lacivert-antrasit
+
+Kullanıcı bir referans görsel paylaştı ve duvar rengi olarak onu istedi.
+`SCENE_COLORS.wallFill` `#6b7280` (orta gri) → `#2e3446`.
+
+**Neden yalnız koyulaştırma değil, hiyerarşi düzeltmesi.** Eski değerde planın
+EN ÖNEMLİ elemanı EN SOLUK çizilendi: kiriş (`#3e4a5a`), açıklık konturu
+(`#5a6675`), alan nesnesi (`#4e5661`) ve cihaz sembolü (`#2f3a49`) duvardan
+KOYUYDU. Artık duvar en koyu, kalan katmanlar ondan açılarak sıralanıyor.
+
+Vurgu tonları duvara göre yeniden dengelendi (bir tık açık kuralı korunarak):
+`wallHover` `#8c93a0` → `#4a5468`, `cornerHover` `#a6adb8` → `#63708a`. Eski
+değerler yeni duvarın yanında "vurgu" değil "başka bir nesne" gibi okunuyordu.
+
+⚠️ AÇIK KALAN İKİ İŞ (kullanıcı henüz seçmedi): mimari NESNE ile mimari CİHAZ
+renginin ayrışması ve ölçü yazısı rengi. `pointSymbol` (`#2f3a49`) artık yeni
+duvar rengine ÇOK YAKIN — duvara oturan cihazlar (menfez) okunurluk kaybediyor.
+Palet seçilince ikisi birlikte çözülecek.
+
+Nerede: `scene/sceneTheme.ts`.
+
+### K152 — Mimari renk sistemi: aileler, kendi ölçü katmanı, ton yönleri
+
+Kullanıcı: "her şey çok gri geliyor bana". Sebep tek tek renklerde değil
+YAPIDAydı: mimari katmanın altı tonu da aynı dar gri aralığındaydı ve üç ayrı
+şey aynı token'ı paylaşıyordu.
+
+⚠️ İki gizli ödünç alma bulundu ve kesildi:
+
+- **Duvar ölçüsünün kendi rengi YOKTU**, `ARCHITECTURE_COLORS.wall`'ı ödünç
+  alıyordu; ölçü katmanı duvarla aynı ağırlıkta okunuyordu.
+- **Cihaz ad etiketi `areaObjectStroke` ödünç alıyordu**: cihaz bir renkte, ADI
+  başka renkte çiziliyordu.
+
+**Cihaz rengi artık TÜRE GÖRE.** Eskiden tek renkti ve gerekçesi "cihazı ayırt
+eden RENK değil ŞEKİL"di; kullanıcı planda güvenlik ekipmanını bir bakışta
+görmek istediği için bu kural DEĞİŞTİ (`POINT_SYMBOL_COLORS`).
+
+| Katman | Renk |
+|---|---|
+| Duvar + kiriş | `#2e3446` — kiriş duvarla AYNI: ikisi de taşıyıcı yapı |
+| Alan nesnesi (kolon/şaft/havalandırma/merdiven) | `#5a6472`, yazı `#3f4854`, hover `#8b95a5` |
+| Güvenlik (söndürücü/şalter/alarm/sensör) | `#c62828`, yazı `#8f1d1d`, hover `#e05252` |
+| Menfez + pano | `#9ec3d4`, yazı `#4a7d92`, hover `#c3dde8` |
+| Aydınlatma | `#e08a1e`, yazı `#a35c07`, hover `#f0a94b` |
+| Duvar ölçüsü | `#4e2f8f` (koyu, soğuk mor) |
+| Açıklık ölçüsü | `#8b5cf6` (aynı ailenin açık tonu) |
+| Oda dolgusu | `#94a3b8` · 0,16 · etiket `#46505f` |
+
+**Ton yönleri tüm ailelerde AYNI** (kullanıcı kuralı, teste bağlandı):
+
+- **hover AÇILIR** — nesne imleç altında aydınlanır. Önce koyulaştırma
+  denenmişti; buz mavisi gibi AÇIK bir aile koyulaşınca "seçildi" gibi
+  okunuyordu, aydınlanma ise her ailede aynı anlama geliyor.
+- **ad etiketi KOYULAŞIR** — beyaz zeminde okunsun.
+- **önizleme AYNI renk, yarı saydam** (`PREVIEW_OPACITY`): "yerleştirince böyle
+  görünecek" bilgisi renkten okunmalı; ayrı bir gri önizleme rengi bunu
+  gizliyordu. Alan nesnesindeki desen cihazlara da taşındı.
+- **SEÇİM bu kuralın DIŞINDA**: sistem geneli tek renk (mavi).
+
+⚠️ Alan nesnesi duvardan AÇIK olmak ZORUNDA: kolon/şaft çoğu kez duvarın
+ÜSTÜNE oturuyor ve orada ayırt edilebilmeli — koyulaştırmanın tabanı bu.
+Konturları da inceltildi (gövde 1/6, ayrıntı 1/11 duvar kalınlığı).
+
+⚠️ Marka sarısı (#FFC107) tuvale GİRMEZ; aydınlatma kehribarı ondan uzak
+seçildi. Güvenlik kırmızısı reddedilen yerleştirmenin kırmızısından
+(`previewInvalid`, #d64545) ayrı — ikisi karışırsa her söndürücü hata sanılır.
+
+`ARCHITECTURE_COLORS.wall` → `beam` olarak yeniden adlandırıldı (duvarı zaten
+`SCENE_COLORS.wallFill` çiziyordu); ölü kalan `pointSymbol` ve
+`pointSymbolLabel` token'ları silindi.
+
+Nerede: `scene/architectureTheme.ts`, `scene/sceneTheme.ts`,
+`scene/architectureStrokeStyle.ts`, `scene/PointSymbol.tsx`,
+`scene/AreaObject.tsx`, `scene/Beam.tsx`, `scene/WallDimensionLabels.tsx`,
+`scene/AreaObjectNameLabels.tsx`, `scene/PointSymbolNameLabels.tsx`.
+
+### K153 — Boru ölçüsü kendi anahtarına ayrıldı, ızgara çubuğa taşındı
+
+Kullanıcı: "tesisat boru uzunlukları için floating barda görünüme ekleyelim,
+ölçüler düzenli olmuş olur" + "görünümdeki ızgara tuşunu floating bara icon
+olarak taşı, snap işaretinin yanına".
+
+**1. Ölçüler ikiye ayrıldı.** `isDimensionsVisible` artık YALNIZ mimarinin
+(duvar parçası ölçüsü); boru boyu kendi bayrağında (`isPipeLengthsVisible`).
+Menüdeki etiket de netleşti: "Ölçüler" → mimaride **"Duvar ölçüleri"**,
+tesisatta **"Boru ölçüleri"**.
+
+⚠️ **"Boru ölçüleri" MİMARİ menüde DE var** (kullanıcı kararı) ve bu bilinçli
+bir istisnadır: mimariden tesisatı yöneten TEK anahtar. Gerekçe — mimarideki
+tesisat izi boru boylarını da yazıyor, kullanıcı duvar ölçüsü okurken onları
+kapatabilmeli ve bunun için tesisat görünümüne geçmek zorunda kalmamalı.
+Bayrak TEK: iki menü, aynı anahtarın iki giriş noktası — birinde kapatılan
+ötekinde de kapalı. Mimari listede EN SONDA duruyor ki mimarinin kendi
+katmanları yukarıda kalsın, istisna sonda okunsun.
+
+⚠️ Bu K131'in "tek bayrak iki görünümü de yönetir" kararını GERİ ALIYOR. O
+kararın gerekçesi menü çubuğundaki tek "Ölçüleri Göster" maddesinin hangisini
+kastettiğini söyleyememesiydi; o menü K90'da kalktı ve K150'den sonra iki ölçü
+gerçekten iki ayrı görünümde yaşıyor. Tek anahtar, tesisatta boru boyunu
+kapatmak isteyeni mimaride duvar ölçülerinden de ediyordu.
+
+**2. Izgara görünürlüğü Görünüm menüsünden ÇUBUĞA taşındı**, snap düğmesinin
+YANINA: ikisi de ızgarayla ilgili — biri onu gösteriyor, öteki ona yapıştırıyor.
+
+⚠️ Izgara menüde artık YOK. Aynı anahtarı iki yerde sunmak hangisinin ne
+yaptığını belirsizleştirir (K111'in kuralı). ⚠️ Izgara düğmesi İKİ görünümde de
+var; snap ise yalnız mimaride (K57 gerekçesi geçerli: tesisatın yakalaması
+ızgara GÖRÜNÜRLÜĞÜNE bağlı, aynı düğme orada başka şey ifade ederdi).
+
+**3. Menü ÖBEKLENDİ ve cihaz adları ayrıldı** (kullanıcı isteği). Düz liste
+yerine ince çizgilerle üç öbek:
+
+1. Ölçüler: Duvar ölçüleri · Kapı/pencere ölçüleri · Boru ölçüleri
+2. Açılar
+3. Adlar: Yapı elemanı adları · Cihaz adları · Oda adları
+
+⚠️ "Nesne adları" → **"Yapı elemanı adları"** ve CİHAZ adları AYRI bir
+anahtara çıktı (`isDeviceNamesVisible`). Eskiden ikisi tek bayraktaydı,
+gerekçesi "kullanıcı için ikisi de nesnenin adı"ydı — K152'de renkler
+ayrılınca yapı elemanı ile cihaz iki ayrı aile oldu, adlandırma da onu izledi.
+
+
+**4. Mimari açılış kadrajı ve ızgaranın kalıcılığı** (kullanıcı kararı).
+
+Açılışta YALNIZ **duvar ölçüleri** ve **oda adları** açık; kapı/pencere ölçüsü,
+açılar, yapı elemanı adları, cihaz adları ve boru ölçüsü KAPALI. Gerekçe: plan
+ilk açıldığında okunabilir olmalı — hepsi açıkken küçük dairelerde yazılar üst
+üste biniyor ve kullanıcı çizimi göremeden katman kapatmakla başlıyordu.
+
+⚠️ Bu, K74/K76'daki "açıklık ölçüsü varsayılan AÇIK" kararını GERİ ALIR. O
+kararın gerekçesi geriye uyumluluktu ("yeni anahtar davranışı değiştirmemeli");
+kullanıcı artık açılış kadrajını bilerek seçti.
+
+⚠️ Boru ölçüsü bayrağı tesisatla PAYLAŞILIYOR, dolayısıyla kapalı varsayılan
+tesisat görünümünü de etkiliyor: orası da boru boyları kapalı açılıyor. Ayrı
+varsayılan istenirse bayrağı ikiye bölmek gerekir ve o zaman "tek anahtar, iki
+giriş noktası" kuralı düşer.
+
+⚠️ **Izgara görünüm geçişinde SIFIRLANMAZ.** Eskiden `setActiveView` tesisatta
+kapatıp mimaride açıyordu; gerekçesi ızgaranın boru hayaletiyle karışmasıydı.
+Anahtar menüden çubuğa çıkınca bu otomatik ezme hataya dönüştü: kullanıcının
+bilerek kapattığı ve önünde duran bir düğme kendiliğinden geri açılıyordu.
+
+⚠️ HİÇBİRİ KALICI DEĞİL: `uiStore` kaydedilmiyor (ne `localStorage` ne sunucu),
+sayfa yenilenince hepsi bu varsayılanlara döner. Bilinçli — bunlar projeye
+değil kullanıcıya ait tercihler ve projeye yazılsaydı bir kullanıcının kapattığı
+katman başka kullanıcıda da kapalı açılırdı. Cihaz başına hatırlama istenirse
+ayrı bir karar (`persist` sarmalayıcı + hangi alanların kaydedileceği).
+
+Nerede: `store/uiStore.ts`, `ui/canvas/ViewOptionsMenu.tsx`,
+`ui/canvas/FloatingToolbar.tsx`, `plumbing/scene/LengthLabels.tsx`,
+`scene/PointSymbolNameLabels.tsx`, `scene/usePointSymbolLabelTool.ts`.
+
+### K154 — Kat planı paftası TESİSAT ODAKLI: mimari içi boş çizilir
+
+Kullanıcı: "PDF'te tesisat odaklı bir görünüm istiyorum, mimari olan her şey
+renksiz gözükebilir; duvarlar içi boş, yalnızca dışında ince bir stroke."
+
+Aynı oturumda başlangıç şikâyeti "K152 renk değişikliklerim PDF'te
+gözükmüyor"du. **Hata değildi ve düzeltilmedi**: PDF'in kendi paleti var,
+ekrandaki mimari renkler oraya hiç ulaşmıyor. Mimari zaten renksizleşeceği için
+ekran paletini kâğıda taşımanın anlamı kalmadı — istek, bu kopukluğu bir karara
+dönüştürdü.
+
+**Tek mod, kip yok.** Pafta her zaman tesisat odaklıdır; "mimari pafta / tesisat
+paftası" seçimi eklenmedi. Kip, `buildPlanSvg` imzasını ve tüm test
+beklentilerini parametreleştirmeyi gerektirirdi ve kimse mimari pafta istemedi.
+
+**Kapsam YALNIZ kat planı.** Görünüş, izometri, vaziyet ve oturum paftaları
+`SVG_COLORS`ü kullanmaya devam ediyor; kat planı yeni `PLAN_COLORS`a taşındı.
+⚠️ Ortak sabitleri değiştirmek dört paftayı birden silikleştirirdi — ikisinin
+ayrı durmasının tek sebebi bu.
+
+⚠️ **Duvar İKİ GEÇİŞTE çiziliyor.** Her duvarı tek tek konturlamak yanlış sonuç
+verir: kapsüller (K23) kavşakta üst üste biner ve her birinin konturu ötekinin
+İÇİNDEN geçer — spagetti. Bunun yerine önce TÜM duvarlar `kalınlık + 2×kontur`
+genişliğinde kontur renginde, sonra TÜM duvarlar tam kalınlıkta beyaz basılıyor.
+Geriye birleşimin dış çeperi kalıyor — polygon union yazmadan, var olan
+`svgLine` ile.
+
+⚠️ İkinci geçiş OPAK. Duvarın altındaki hiçbir şey görünmüyor; bu yüzden
+duvarlar en alta indi ve **oda dolgusu tümden kalktı**.
+
+⚠️ **Açıklığın beyazı şişirilerek basılıyor.** Poligon tam duvar kalınlığında;
+olduğu gibi bırakılsaydı duvarın iki yüz çizgisi açıklığın önünden kesintisiz
+geçer, delik "delik" gibi okunmazdı. Aynı renkte kontur poligonu her yöne yarım
+genişletiyor, bu yüzden pay kontur kalınlığının İKİ katı (`WALL_OUTLINE_CM`
+`svgPrimitives`te duruyor: iki dosya aynı sayıya bağlı).
+
+**İKİ kademe, tek ton değil** (kullanıcı kararı): duvar `#5b6674` belirgin, geri
+kalan mimari `#a8b0bb` silik. Tek tonda merdiven basamağı ile duvar aynı
+ağırlıkta çıkıyor ve plan yine kalabalık okunuyordu.
+
+| Ne | Nasıl |
+|---|---|
+| Duvar + kiriş | `#5b6674` kontur, içi beyaz |
+| Kapı/pencere, kapı KANADI, kolon, merdiven, şaft, cihaz sembolü | `#a8b0bb` kontur, hepsi İÇİ BOŞ |
+| Oda adı + m², serbest metin, yapı elemanı adı | `#8a94a1` |
+| Duvar ölçüsü | `#a8b0bb` |
+| Tesisat eleman etiketi + kılavuzu | `#334155` |
+| Tesisat hatları ve sembolleri | DEĞİŞMEDİ — ekrandaki renginde |
+
+⚠️ **Tesisat kalınlaştırılmadı** (kullanıcı: "tesisat ne ise öyle kalsın").
+Boru genişliği gerçek ÇAPTAN geliyor ve ölçekli paftada ölçülebilir bir bilgi;
+öne çıkarmak için kalınlaştırmak onu bozardı. Öne çıkma arka planın
+silikleşmesinden geliyor.
+
+⚠️ **Etiket rengi artık `buildLabelSvg`e parametre.** Yapı elemanı adı ile cihaz
+adı AYNI çizim yolundan geçiyor; sabit tek renk kalsaydı cihaz adı plan yazısı
+gibi okunurdu.
+
+⚠️ `SVG_COLORS.roomFill`, `openingFill`, `symbol` ve `objectFill` SİLİNDİ —
+sahipsiz kaldılar, bu adlarla yeni kod yazma.
+
+⚠️ **Köşe açıları paftadan KALKTI.** Dik köşede "90°" mimari bir ayrıntı;
+tesisatçıya bir şey söylemiyor ve plandaki yazı kalabalığını artırıyordu.
+Ekranda duruyorlar — kalkan yalnız kâğıt. `getCornerAngleAnnotations` yerinde,
+kat planı artık çağırmıyor.
+
+**Kolonun dolgusu da kalktı.** Eski gerekçe "taşıyıcı kütle planda boşluk gibi
+okunmamalı"ydı; altından geçen boru mimari yüzeyin arkasında kalmasın diye kural
+düştü.
+
+
+### K155 — İzometrik pafta SABİT ve OBLİK; ekranın kamera izometrisinden ayrıldı
+
+Kullanıcı: "PDF'teki Three.js screenshot / canvas görüntüsü yaklaşımını kaldır,
+gerçek izometrik tesisat şeması üret."
+
+⚠️ **Ortada screenshot YOKTU.** İzometrik sayfa K136'dan beri saf vektör:
+`isometricSvg.ts` boruların gerçek 3B koordinatlarını projekte ediyor,
+bounding box'tan `viewBox` kuruyor, `svg2pdf` ile basıyor. Three.js, kamera,
+renderer, canvas ya da PNG yolun hiçbir yerinde yok; PDF'teki tek raster şey
+kapaktaki firma logosu. İstenen akışın tamamı (3B nokta → toIso → 2B → SVG →
+bbox+autofit → jsPDF) zaten mevcuttu, `xPipe`/`yPipe` gibi bir eksen
+sınıflandırması da hiç olmamıştı. Kaldırılacak bir şey bulunamadı.
+
+**İki gerçek kusur vardı:**
+
+1. **Açı ekrandan geliyordu** (K122). "Üstten" ön ayarındayken (α = 89°) sayfa
+   neredeyse plan görünümüne çöküyordu — teknik olarak screenshot değil ama
+   DAVRANIŞ olarak kamera görüntüsü.
+2. **İzdüşüm yanlış AİLEDENDİ.** Kâğıt ortografik izometri çiziyordu; teslim
+   edilen gerçek gaz paftaları OBLİK çiziliyor.
+
+**Karar: kâğıdın kendi izdüşümü var** (`getObliqueProjection`), ekrandan
+tümüyle bağımsız ve sabit.
+
+| Model ekseni | Kâğıttaki yön |
+|---|---|
+| plan x | TAM YATAY (0°) |
+| plan y | 30° EĞİK (sol-aşağı, −150°) |
+| kot | TAM DİKEY (90°) |
+
+⚠️ **Bu bir İZOMETRİ DEĞİL, oblik (cavalier) izdüşüm — ve bilinçli.** Gerçek
+izometride üç eksen EŞİT kısalır; kot dikey sabitlenince bu, kalan iki ekseni
+ZORUNLU olarak yataydan ±30°'ye oturtur, yani hiçbir eksen yatay OLAMAZ.
+Kullanıcının referans paftasında ve ona ait iki kat planında yatay segmentler
+ölçüldü (uzun bağlantı 30,1°, `h:` etiketli her şey tam dikey, `L: 1 m`
+segmentleri tam yatay) — o çizim izometri değil. Kâğıt referansa uyar.
+
+⚠️ Önce gerçek izometri (β = 135°) yazıldı ve kullanıcıya "X yatay olursa
+izometri olmaz" denildi; kullanıcı referans belgesini gösterince karar DÖNDÜ.
+Genel doğru burada belirleyici değil, teslim edilen belgenin biçimi belirleyici.
+
+⚠️ **Oblik hiçbir KAMERA açısıyla elde edilemez.** `Rx(α)·Ry(β)` ailesinde plan
+x'i yatay yapan tek durum β = 0/180 ve orada plan y ekseni düşeyle ÇAKIŞIYOR
+(ölçüldü: +Y ve +Z ikisi de 90°), plan derinliği tümüyle kayboluyor. Oblik
+ortografik bir bakış değil, bir KESME (shear) dönüşümü.
+
+**Sonuç: ekran ile kâğıt bilerek AYRIŞTI.** Ekrandaki 3B görünüm gerçek bir
+ortografik kamerayla çiziliyor ve kesme yapamaz; orada döndürülebilir izometri
+kalıyor (K122 geçerli, α/β hâlâ projeye yazılıyor ve EKRANI yönetiyor). Kalkan
+tek şey o açının KÂĞIDA gitmesi.
+
+⚠️ Bu yüzden `IsometricAngles` (bir kamera) yerine `IsometricProjection`
+soyutlaması geçti: `project` + `offsetToWorld`. `buildIsometricScene`,
+`layoutIsometricLabels` ve `buildIsometricSvg` artık açı değil izdüşüm alıyor;
+ekran `getCameraProjection(angles)`, kâğıt `getObliqueProjection()` veriyor.
+
+⚠️ **`project(offsetToWorld(o)) === o` sözleşmesi ZORUNLU** ve teste bağlı.
+Kullanıcının elle ayırdığı etiket/dal kaymaları (`isometricOffsetCm`, K121) 2B
+saklanıp sahnede 3B uygulanıyor; bu eşitlik bozulursa kaymalar yerinden oynar.
+Oblik'te yatay kayma three x'e, düşey kayma kota gidiyor — ikisinin de z
+bileşeni sıfır olduğu için eğik eksen hiç karışmıyor.
+
+⚠️ Eğik eksenin YÖNÜ (sol-aşağı) okunabilirlik için: plan x yatay olduğundan
+eğik ekseni sağ-yukarı almak ikisini yalnız 30° ayırır ve dikdörtgen bir kat
+ince bir dilime çöker; sol-aşağıda ayrım 150° olur. Referans paftada koşu
+sağ-yukarı gidiyor ama bu aynı eksenin öteki işareti — projenin plan yönüne
+bağlı, tek işaret değişikliğiyle çevrilir.
+
+12 yön vakası teste bağlandı (`isometricPaperAxes.test.ts`): altı eksen yönü,
+dört yatay bileşim, X/Y ilerlerken ±Z, artı oran korunumu, üç bileşenli borunun
+tek doğru çıkması, yatay eksenin KISALMAMASI (oblik'in tanımı) ve kaydırma
+gidiş-dönüşü.
+
+### K156 — İzometrik paftada etiket kalabalığı: künyesizler susar, halka kalkar
+
+Kullanıcı: "bu izometri şemasında bu kadar isim kalabalığı olması beni aşırı
+rahatsız ediyor."
+
+Ölçüm: iki katlı küçük bir tesisatta (6 armatür + 2 sayaç + 2 kombi) sayfa **23
+yazı satırı ve 10 kılavuz çizgisi** basıyordu. Kalabalık tek sebepten değil,
+**üçünden** geliyordu ve ikisi düzeltildi.
+
+**1) Her eleman KOŞULSUZ etiketleniyordu.** 15 eleman türünden 8'i yalnız kendi
+ADINI yazıyordu: Vana, Solenoid Vana, Filtre, Manometre, Regülatör, Süzme
+Sayaç, Servis Kutusu, İzolasyon. Hiçbiri sembolün söylemediği bir şey
+söylemiyor, üstelik her biri bir de kılavuz çizgisi getiriyordu. Referans
+paftada bu etiketlerin HİÇBİRİ yok.
+
+⚠️ Kural `hasIsometricElementLabel`de ve YALNIZ sayaç + yakıcı cihaz geçiyor.
+Künyesi olmayan yakıcı cihaz yine etiketlenir (yalnız "Ocak" gibi türünün
+adıyla) — hangi cihaz olduğu paftanın KONUSU, armatürün adı değil.
+
+⚠️ Görünürlük kuralı metin üretiminden AYRI dosyada değil ama ayrı
+FONKSİYONDA: `getIsometricElementLabelLines` metni üretmeye devam ediyor, çünkü
+ekran ile kâğıt aynı metni kullanıp farklı süzüyor.
+
+**2) Yerleşim bir HALKAYDI.** `layoutIsometricLabels` tüm etiketleri çizimin
+etrafında bir çembere diziyor ve her birinden çizimin üstünden geçen kesikli
+bir kılavuz çekiyordu. Etiket sayısı arttıkça çember büyüyor, çizim ortada
+küçülüyordu. Kâğıt artık `layoutLabelsBesideAnchors` kullanıyor: etiket KENDİ
+nesnesinin yanında, çakışanlar itilerek ayrılıyor, kılavuz İSTİSNA.
+
+⚠️ **Ekran DEĞİŞMEDİ.** Halka orada mantıklı: yazı ekran-sabit boyutta,
+kullanıcı etiketi sürükleyebiliyor ve çizimden uzak durması gezinmeyi
+kolaylaştırıyor. İki yerleşim yan yana duruyor, biri ötekinin yerine geçmedi.
+
+⚠️ Yeni yerleşimde kayma sahne BOYUTUNDAN bağımsız (etiketin kendi boyu kadar);
+halka sahne boyutuyla ölçekleniyordu ve `PAPER_RING_TIGHTNESS` /
+`PAPER_LABEL_PULL` bunu kâğıt için sürekli geri kısmaya çalışıyordu. İkisi de
+`LABEL_SEPARATION_FACTOR` ve `distanceFactor` alanıyla birlikte SİLİNDİ — bu
+adlarla kâğıt tarafında yeni kod yazma.
+
+⚠️ Geri çekme AYIRMADAN ÖNCE yapılıyor. Tersi denendi: turun son işlemi çekme
+olunca sıkışık bir öbekte (40 cm içinde beş künye) ayrılan kutular geri
+biniyordu — testte yakalandı.
+
+⚠️ Ayırma yönü eşitlikte ANAHTARA bağlı; yoksa aynı proje her basımda biraz
+farklı çıkardı (teste bağlandı).
+
+**3) Künyeler 4 satıra kadar çıkıyor** — DOKUNULMADI. Referansta da 4 satır var;
+sorun satır uzunluğu değil ADET ve YERLEŞİMDİ.
+
+Sonuç aynı fixture'da: **23 → 16 yazı satırı, 10 → 0 kılavuz çizgisi.**
+
+⚠️ Servis kutusunun künyesi de SUSTU. Referans paftada o künye VAR ("Servis
+Kutusu S200 / 21 mbar / Yandan Çıkış"); kullanıcıya istisna tutulması seçenek
+olarak sunuldu ve BİLEREK seçilmedi. Geri istenirse `hasIsometricElementLabel`
+tek satırla açılır.
+
+
+### K157 — İzometrik paftada servis kutusu ve sembol boyu
+
+K156'nın seyreltmesinin ardından kullanıcının istekleri.
+
+**1) Servis kutusu künyesi GERİ GELDİ.** K156'da künyesizlerle birlikte
+susturulmuştu; gazın binaya girdiği tek nokta ve referans paftada künyesi var,
+armatürlerle aynı kefeye konamaz.
+
+⚠️ Etiketi TEK SATIR ("Servis Kutusu") kalıyor. Referanstaki "S200 / 21 mbar /
+Yandan Çıkış" satırlarının modelde KARŞILIĞI YOK — servis kutusunun hiç özellik
+alanı yok (`elementLabel.ts` onun için boş nesne döner). Alanlar eklenene kadar
+bu satırlar UYDURULMAZ.
+
+**2) Semboller kâğıtta KÜÇÜLTÜLDÜ** (`PAPER_SYMBOL_SCALE = 0.55`). Ekrandaki
+boyutlarıyla basılınca şemanın büyük bölümünü kaplıyor, boruların arasında
+yazıya yer bırakmıyorlardı. Ekranda o boyut doğru: sembol tıklanabilir bir hedef
+ve zoom'la büyüyor; kâğıtta tıklanmıyor, yalnız okunuyor.
+
+⚠️ Ayrı bir "incelme" ayarı GEREKMEDİ: ölçek `stroke-width`e de uygulanıyor,
+sembol küçülürken çizgisi de inceliyor.
+
+⚠️ **Çarpan çapa kaydırmasına da uygulanmak ZORUNDA.** Kaydırma zaten
+`element.scale` ile çarpılmış geliyor (`getElementIsometricAnchor`); yalnız
+ölçek küçültülseydi sembol küçülür ama kaydırma eski boyuna göre kalır ve
+bağlantı noktası borudan KOPARDI. İkisi aynı çarpanı alınca port yine tam
+yerine oturuyor. Teste bağlandı: ölçek 1 → 2 → 3 giderken öteleme EŞİT
+aralıklarla kaymalı; iki çarpan ayrışırsa bu doğrusallık bozulur.
+
+**3) SEGMENT BOYLARI yazıldı ve GERİ ALINDI.** Referans paftadaki `L: 1 m` /
+`h: 0,3 m` etiketleri istendiği için her segmentin kendi uzunluğu kendi yanına
+basıldı (düşeyler `h:`, kalanı `L:`). Kullanıcı gerçek çıktıda gördü:
+"inanılmaz kalabalık göstermiş".
+
+⚠️ Sebep ÖLÇEK: referans paftada bir avuç segment var, gerçek bir binada gövde
+borusu onlarca parçaya bölünüyor ve her parçaya bir yazı düşünce K156'nın
+seyreltmesi boşa gidiyor. Aynı gerekçe `isConsumptionLine`i doğuran karardaki
+gerekçenin aynısı — orada da her hat parçasına boy/çap yazmak "rakam bulutu"
+yapıyordu.
+
+⚠️ `getIsometricSegmentLengthLabel`, `VERTICAL_SEGMENT_TOLERANCE_CM`,
+`MIN_LABELLED_SEGMENT_CM` ve `LabelBox.direction` SİLİNDİ — bu adlarla yeni kod
+yazma. Segment boyu yeniden istenirse eşik/seyreltme kuralıyla birlikte
+tasarlanmalı, koşulsuz basılmamalı.
+
+Boru uzunluğu paftada YİNE VAR: tüketim künyesindeki `(3) / 4,74 m / DN25`
+hattın toplam boyunu veriyor.
+
+
+### K158 — Katı Model: dördüncü görünüm, çizimin 3B TÜREVİ (izometrikten AYRI)
 
 Kullanıcı isteği (2026-08): "odalar, borular vs. hepsi kat sayısına ve diğer
 verilere göre 3B render olabilmelidir." Sahne seçicisine dördüncü düğme eklendi:
-**Katı Model** (`ViewId = 'solid'`). İzometrik düğmesi hâlâ PASİF ve kapsam
-dışında — ikisi ayrı iş: izometrik gaz hattının tek parça şematiği, katı model
-binanın kütlesi.
+**Katı Model** (`ViewId = 'solid'`). İzometrik görünümle (K120–K124) İLGİSİZ,
+ikisi ayrı iş: izometrik gaz hattının tek parça şematiği, katı model binanın
+kütlesi. İkisi de salt okuma ve ikisi de kendi kamerasını kurar, ama ne
+geometriyi ne de kamerayı paylaşırlar.
 
 **Model DEĞİŞMEDİ.** Katı model store'a hiçbir alan eklemez; çizimin türevidir
 ve `core/solidModel.ts`te her değişimde yeniden kurulur (oda poligonlarıyla aynı

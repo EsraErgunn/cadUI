@@ -3,15 +3,21 @@ import { useBlocker } from 'react-router-dom'
 
 import { useCloseEditor } from './useCloseEditor'
 import { useEditorExit } from './useEditorExit'
+import { useEditorReadOnlyMode } from './useEditorReadOnlyMode'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useProjectExport } from './useProjectExport'
+import { PROJECT_FILE_ACCEPT, useProjectFileOpen } from './useProjectFileOpen'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
+import { useProjectSummary } from './useProjectSummary'
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
 import { isDrawingView } from '../core/views'
+import { IsometricHud } from '../isometric/ui/IsometricHud'
+import { IsometricLegend } from '../isometric/ui/IsometricLegend'
+import { IsometricModeSwitch } from '../isometric/ui/IsometricModeSwitch'
 import { CascadeDeleteDialog } from '../plumbing/ui/CascadeDeleteDialog'
-import { PipeElevationInput } from '../plumbing/ui/PipeElevationInput'
+import { DraftKeyboardInput } from '../plumbing/ui/DraftKeyboardInput'
 import { PlumbingPropertyPanel } from '../plumbing/ui/PlumbingPropertyPanel'
 import { SceneRoot } from '../scene/SceneRoot'
 import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
@@ -25,23 +31,41 @@ import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
+import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
+import { RoomDefinitionCard } from '../ui/canvas/RoomDefinitionCard'
 import { SolidToolbar } from '../ui/canvas/SolidToolbar'
+import { ExportPdfDialog } from '../ui/pdf/ExportPdfDialog'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
   const activeViewId = useUiStore((state) => state.activeViewId)
+  const isReadOnly = useEditorReadOnlyMode()
   const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
     useProjectPersistence()
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
+  const {
+    inputRef: projectFileInputRef,
+    error: projectFileError,
+    triggerOpen: triggerProjectFileOpen,
+    handleFileSelected: handleProjectFileSelected,
+  } = useProjectFileOpen()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
   const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
+  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
-  const handleSave = () => void save()
+  const projectSummary = useProjectSummary(projectId)
+  // Salt görüntülemede kaydetme yolu HİÇ çağrılmaz: düğme ve kısayol zaten
+  // yok, bu son kapı elle tetiklenen bir çağrıyı da durdurur. Sunucu da aynı
+  // şeyi söylüyor (`newversion` → Admin, ProjectFirmUser).
+  const handleSave = () => {
+    if (isReadOnly) return
+    void save()
+  }
 
   // Sekme kapatma / yenileme tarayıcının kendi sorusuyla; uygulama İÇİ her
   // çıkış (düğme, menü, geri tuşu) aşağıdaki engelle.
@@ -71,8 +95,9 @@ export function EditorPage() {
   }
 
   /**
-   * Klavyeden yapılan geçiş ANINDA uygulanır (madde 20); yalnız "Katlar"
-   * penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
+   * Yüzen çubuktaki kat oklarının geçişi ANINDA uygulanır (madde 20); yalnız
+   * "Katlar" penceresi içindeki aktif kat değişikliği "Uygula"yı bekler.
+   * Klavyeden kat değiştirme YOK (2026-08, bkz. useEditorShortcuts.ts).
    */
   const goToFloor = (direction: FloorDirection) => {
     const { floors, activeFloorId, setActiveFloor } = useCadStore.getState()
@@ -82,11 +107,13 @@ export function EditorPage() {
   }
 
   useEditorShortcuts({
+    // Salt görüntülemede yazan kısayolların HİÇBİRİ bağlanmıyor (kaydet,
+    // farklı kaydet, kat pencereleri, geri al/yinele) — hook'un kendi içinde.
+    isReadOnly,
     onSave: handleSave,
     onSaveAs: () => setIsSaveAsOpen(true),
     onOpenFloorManagement: () => setIsFloorDialogOpen(true),
     onOpenFloorCopy: () => setIsFloorCopyOpen(true),
-    onGoToFloor: goToFloor,
   })
 
   return (
@@ -105,6 +132,8 @@ export function EditorPage() {
         <MenuBar
           onCloseEditor={closeEditor}
           onClearProject={() => setIsClearProjectOpen(true)}
+          onDownloadProjectFile={() => setIsPdfDialogOpen(true)}
+          onOpenProjectFile={triggerProjectFileOpen}
           onSave={handleSave}
           onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
@@ -121,6 +150,16 @@ export function EditorPage() {
           accept="application/json"
           className="hidden"
           onChange={handleFileSelected}
+        />
+
+        {/* Dosya > Proje Dosyasını Aç. Ayrı input: kabul edilen tür farklı
+            (PDF); tek input paylaşılsaydı seçicide yanlış filtre görünürdü. */}
+        <input
+          ref={projectFileInputRef}
+          type="file"
+          accept={PROJECT_FILE_ACCEPT}
+          className="hidden"
+          onChange={handleProjectFileSelected}
         />
 
         {error && (
@@ -141,6 +180,15 @@ export function EditorPage() {
           </p>
         )}
 
+        {projectFileError && (
+          <p
+            role="alert"
+            className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
+          >
+            {projectFileError}
+          </p>
+        )}
+
         {/* min-h-0 / min-w-0 şart: flex çocukları varsayılan olarak içeriğinden
             küçülmeyi reddeder; olmazsa canvas taşar. relative: PropertyPanel'in
             absolute konumlanması buna göre. */}
@@ -150,19 +198,38 @@ export function EditorPage() {
         <div className="relative flex min-h-0 flex-1 pl-3">
           <main className="relative min-w-0 flex-1 overflow-hidden">
             <SceneRoot />
+            {/* Şerit tuvalin üstünde ve her görünümde: izometrikte de aynı
+                kısıt geçerli. */}
+            {isReadOnly && <ReadOnlyNotice />}
             {/* İki şerit aynı yerde ama asla birlikte görünmez: biri mimari
-                açıklık aracına, öteki tesisat boru aracına (K102) bağlı. İkisi
-                de ÇİZİM görünümüne ait — katı modelde araç seçili kalabilir
-                ama şerit orada çizilecek bir şeye işaret etmez. */}
+                açıklık aracına, öteki tesisatta klavyeyle çizime (ok tuşu /
+                `+`-`-`) bağlı. İkisi de ÇİZİM görünümüne ait — katı modelde
+                araç seçili kalabilir ama şerit orada çizilecek bir şeye işaret
+                etmez. */}
             {isDrawingView(activeViewId) && (
               <>
                 <OpeningToolOptions />
-                <PipeElevationInput />
+                <DraftKeyboardInput />
               </>
             )}
+            {/* İzometriğin kendi kumanda takımı: bakış açısı, kat aralığı,
+                kamera kipi ve çap renkleri. Yüzen çubuk (K54) burada YOK —
+                orada çizim aracı ve kat seçimi var, izometrikte ikisi de
+                anlamsız. */}
+            {activeViewId === 'isometric' && (
+              <>
+                <IsometricHud />
+                <IsometricModeSwitch />
+                <IsometricLegend />
+              </>
+            )}
+            {/* Mahal tanımlama kipi YALNIZ mimaride: kart açıkken yüzen çubuğun
+                üstünde durur (z-20 ↔ z-10), ikisi de alt-ortada. Kip kapalıyken
+                bileşen hiçbir şey çizmez. */}
+            {activeViewId === 'architecture' && <RoomDefinitionCard />}
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
-                görünümünde de var (K57); izometrikte çizilecek bir şey yok,
-                orada tuval etkileşimi de yok. */}
+                görünümünde de var (K57); izometrikte ve katı modelde çizilecek
+                bir şey yok, orada tuval etkileşimi de yok. */}
             {isDrawingView(activeViewId) && (
               <FloatingToolbar
                 onGoToFloor={goToFloor}
@@ -179,16 +246,20 @@ export function EditorPage() {
               kayarak açılır/kapanır. İki panel ayrı seçim store'una abone
               (mimari/tesisat), bu yüzden görünüme göre İKİSİNDEN BİRİ render
               edilir, tek panelde birleştirilmez. */}
-          {/* Katı modelde seçim YOK (salt okuma görünümü): iki panel de mount
-              edilmez, yoksa boş bir "Özellikler" kabuğu çizimin üstünde asılı kalır. */}
-          {isDrawingView(activeViewId) &&
-            (activeViewId === 'installation' ? <PlumbingPropertyPanel /> : <PropertyPanel />)}
+          {/* Katı modelde ve izometrikte seçim YOK (salt okuma): iki panel de
+              mount edilmez, yoksa boş bir "Özellikler" kabuğu asılı kalır. */}
+          {activeViewId === 'installation' && <PlumbingPropertyPanel />}
+          {activeViewId === 'architecture' && <PropertyPanel />}
         </div>
       </div>
 
       {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
 
       {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
+
+      {isPdfDialogOpen && (
+        <ExportPdfDialog project={projectSummary} onClose={() => setIsPdfDialogOpen(false)} />
+      )}
 
       {isClearProjectOpen && (
         <ClearProjectDialog

@@ -5,9 +5,11 @@ import { Beam, type BeamTone } from './Beam'
 import { BeamHandles } from './BeamHandles'
 import { CornerAngleLabels } from './CornerAngleLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
+import { MirrorAxisOverlay } from './MirrorAxisOverlay'
 import { Opening, type OpeningTone } from './Opening'
 import { PointHandles } from './PointHandle'
 import { PointSymbol, type PointSymbolTone } from './PointSymbol'
+import { PointSymbolNameLabels } from './PointSymbolNameLabels'
 import { Rooms } from './Room'
 import { RoomTool } from './RoomTool'
 import { SelectionMarquee } from './SelectionMarquee'
@@ -22,11 +24,15 @@ import { useAreaObjectSelectionTool } from './useAreaObjectSelectionTool'
 import { useAreaObjectTool } from './useAreaObjectTool'
 import { useBeamSelectionTool } from './useBeamSelectionTool'
 import { useBeamTool } from './useBeamTool'
+import { useCameraZoom } from './useCameraZoom'
 import { useMeasurementTool } from './useMeasurementTool'
+import { useMirrorAxisTool } from './useMirrorAxisTool'
 import { useOpeningTool } from './useOpeningTool'
+import { usePointSymbolLabelTool } from './usePointSymbolLabelTool'
 import { usePointSymbolSelectionTool } from './usePointSymbolSelectionTool'
 import { usePointSymbolTool } from './usePointSymbolTool'
 import { useRightClickReturnsToSelection } from './useRightClickReturnsToSelection'
+import { useRoomDefinitionExit } from './useRoomDefinitionExit'
 import { useSelectionTool } from './useSelectionTool'
 import { useTextSelectionTool } from './useTextSelectionTool'
 import { useTextTool } from './useTextTool'
@@ -93,6 +99,8 @@ function Openings() {
 function PointSymbols() {
   const preview = usePointSymbolTool()
   usePointSymbolSelectionTool()
+  // Ad etiketi sürüklemesi; jest sahipliği `findPointSymbolLabelAt` ile veriliyor.
+  usePointSymbolLabelTool()
   const symbols = useCadStore((state) => state.symbols)
   // Açıklıkla aynı gerekçe (K108): duvara oturan sembol de kopmayı görmeli.
   const { points: symbolPoints, walls: symbolWalls } = useArchitectureDraft()
@@ -152,6 +160,8 @@ function PointSymbols() {
  */
 function AreaObjects() {
   const preview = useAreaObjectTool()
+  // Zoom BİR kez okunur ve nesnelere dağıtılır (Walls ile aynı gerekçe).
+  const zoom = useCameraZoom()
   useAreaObjectSelectionTool()
   // Ad etiketi sürüklemesi; jest sahipliği `findAreaObjectLabelAt` ile veriliyor.
   useAreaObjectLabelTool()
@@ -198,6 +208,7 @@ function AreaObjects() {
               type={areaObject.type}
               areaObject={drawn}
               tone={tone}
+              zoom={zoom}
             />
           )
         })}
@@ -210,8 +221,9 @@ function AreaObjects() {
             y: preview.position.y,
             widthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].widthCm,
             lengthCm: DEFAULT_AREA_OBJECT_SIZE_CM[preview.type].lengthCm,
-            angleDeg: 0,
+            angleDeg: preview.angleDeg,
           }}
+          zoom={zoom}
           tone="preview"
         />
       )}
@@ -225,6 +237,8 @@ function AreaObjects() {
  */
 function Beams() {
   const preview = useBeamTool()
+  // Zoom BİR kez okunur ve kirişlere dağıtılır (Walls ile aynı gerekçe).
+  const zoom = useCameraZoom()
   useBeamSelectionTool()
   const beams = useCadStore((state) => state.beams)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -266,7 +280,7 @@ function Beams() {
                 : beam
 
           // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.
-          return <Beam key={beam.id} beamId={beam.id} beam={drawn} tone={tone} />
+          return <Beam key={beam.id} beamId={beam.id} beam={drawn} tone={tone} zoom={zoom} />
         })}
 
       {/* Önizleme yalnız birinci uç konduktan SONRA çizilir: tek nokta bir
@@ -281,6 +295,7 @@ function Beams() {
             thicknessCm: DEFAULT_BEAM_THICKNESS_CM,
           }}
           tone="preview"
+          zoom={zoom}
         />
       )}
     </>
@@ -295,12 +310,18 @@ function Beams() {
 function SelectionTool() {
   useSelectionTool()
   useRightClickReturnsToSelection()
+  useRoomDefinitionExit()
   return null
 }
 
 /** Ölçüm aracı: hook <Canvas> içinde koşmak zorunda (kamera okuyor). */
 function Measurement() {
   return <MeasurementOverlay {...useMeasurementTool()} />
+}
+
+/** Aynalama ekseni: araç + önizleme, Measurement ile aynı desen. */
+function MirrorAxis() {
+  return <MirrorAxisOverlay {...useMirrorAxisTool()} />
 }
 
 /**
@@ -348,11 +369,13 @@ export function ArchitectureLayer() {
       <Texts />
       {/* Ad etiketleri tutamaçlarla aynı katmanda: her şeyin üstünde okunmalı. */}
       <AreaObjectNameLabels />
+      <PointSymbolNameLabels />
       {/* Ölçüler tutamaçların ALTINDA (RENDER_ORDER.measurement < handle): sayı
           köşe tutamacını örterse köşe tutulamaz hâle gelirdi. */}
       <WallDimensionLabels />
       {/* Ölçüm en üstte: kullanıcının o an aldığı okuma hiçbir şeyin altında kalmasın. */}
       <Measurement />
+      <MirrorAxis />
       <CornerAngleLabels />
       <BeamHandles />
       <SelectionMarquee />

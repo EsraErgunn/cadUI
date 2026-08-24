@@ -32,3 +32,24 @@ export const canvasBarMenuItemVariants = cva(
   'flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-left text-sm ' +
     'text-ink-muted hover:bg-surface-sunken',
 )
+
+/**
+ * Mahal tanımlama kartındaki rozetler ve gezinme düğmeleri. Yüzen çubuğun
+ * düğmelerinden ayrı: bunlar metin taşıyor ve sarılıyor (25 tip tek satıra
+ * sığmaz), ama aynı yüzeyin üstünde durdukları için vurgu yine seçim rengi.
+ */
+export const roomDefinitionChipVariants = cva(
+  'inline-flex items-center justify-center gap-1.5 rounded-lg border border-edge text-sm ' +
+    'text-ink transition-colors hover:border-selection hover:bg-selection/10 ' +
+    'disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:border-edge ' +
+    'disabled:hover:bg-transparent',
+  {
+    variants: {
+      shape: {
+        chip: 'px-2.5 py-1',
+        icon: 'size-7 border-transparent hover:border-transparent',
+      },
+    },
+    defaultVariants: { shape: 'chip' },
+  },
+)

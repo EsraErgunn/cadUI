@@ -65,7 +65,7 @@ export function ProfileFormCard({ form, username, onSuccess, onCancel }: Profile
             görünüp kaydedilmemesi kullanıcıyı yanıltırdı. */}
         <TextField
           id="profile-username"
-          label="StarCAD Mobile Kullanıcı Adı"
+          label="Kullanıcı Adı"
           layout="horizontal"
           leftIcon={User}
           value={username}

@@ -65,7 +65,6 @@ export interface ProjectFirmUserCompetency {
   projectFirm: FirmReference
   authorityType: AuthorityType
   gdfRegistrationNumber: string | null
-  isActive: boolean
 }
 
 /** Güncelleme ekranını dolduran kayıt (KK-25). */
@@ -75,7 +74,6 @@ export interface ProjectFirmUserDetail {
   username: string
   email: string
   phone: string | null
-  isActive: boolean
   competencies: ProjectFirmUserCompetency[]
 }
 
@@ -88,8 +86,6 @@ export interface ProjectFirmUserQuery {
   nameQuery: string
   /** `null` = "Tümü" (KK-2). */
   authorityType: AuthorityType | null
-  /** İşaretliyken kullanıcı AKTİF ve yetki satırı AKTİF olanlar (KK-4). */
-  onlyActive: boolean
   /**
    * Üst bardaki KAPSAM, gaz dağıtım firması kimliklerine açılmış hâliyle;
    * `null` = sistem geneli (daraltma yok). Dizi (küme değil): sorgu react-query

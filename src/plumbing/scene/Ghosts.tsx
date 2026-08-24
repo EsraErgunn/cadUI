@@ -4,6 +4,7 @@ import { GhostAreaObject, GhostBeam, GhostRoomFill, GhostRoomLabel } from './Arc
 import { GhostPointSymbol } from './ArchitectureGhostPointSymbol'
 import { GhostOpening, GhostWall } from './ArchitectureGhostWalls'
 import { InstallationLines } from './InstallationLineMesh'
+import { LengthLabels } from './LengthLabels'
 import { SymbolInstance } from './SymbolInstance'
 import { useCameraZoom } from './useCameraZoom'
 import type { Room, Wall as WallData } from '../../core/model'
@@ -142,7 +143,7 @@ export function ArchitectureGhost() {
       ))}
 
       {floorBeams.map((beam) => (
-        <GhostBeam key={beam.id} beam={beam} />
+        <GhostBeam key={beam.id} beam={beam} zoom={zoom} />
       ))}
 
       {floorSymbolPoses.map((symbol) => (
@@ -150,13 +151,26 @@ export function ArchitectureGhost() {
       ))}
 
       {floorAreaObjects.map((areaObject) => (
-        <GhostAreaObject key={areaObject.id} type={areaObject.type} areaObject={areaObject} />
+        <GhostAreaObject
+          key={areaObject.id}
+          type={areaObject.type}
+          areaObject={areaObject}
+          zoom={zoom}
+        />
       ))}
     </group>
   )
 }
 
-/** Mimari görünümdeki tesisat. Renkler korunur, yalnız saydamlaşır (symbolLoader). */
+/**
+ * Mimari görünümdeki tesisat. Renkler korunur, yalnız saydamlaşır (symbolLoader).
+ *
+ * Boru ÖLÇÜLERİ burada da yazılır (K132) ve hayalet gibi soluklaştırılMAZ:
+ * hattın kendisi bağlam, ölçü ise kullanıcının mimari planda okumak istediği
+ * BİLGİ — soluk yazı okunmazdı. Etiket `LengthLabels`'ın kendisidir, ikinci bir
+ * uzunluk yazımı yok (tek çizim yolu, bkz. o dosyanın başı) ve "Ölçüler"
+ * anahtarını iki görünümde de aynı yerden okur.
+ */
 export function InstallationGhost() {
   const elements = useCadStore((state) => state.installationElements)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
@@ -166,6 +180,7 @@ export function InstallationGhost() {
       {/* Hatlar da ize dahil: yalnız semboller gösterilseydi mimari görünümde
           borular kaybolur, cihazlar havada duruyormuş gibi okunurdu. */}
       <InstallationLines tone="ghost" />
+      <LengthLabels />
 
       {elements
         .filter((element) => element.floorId === activeFloorId)

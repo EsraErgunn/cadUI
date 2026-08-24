@@ -128,28 +128,38 @@ dejenere çizgi çizilmez.
 önizlemede aynı şeklin bir tık saydamı gözüksün" dedi — `opacity: 0.45`,
 aynı `areaObjectStroke` rengiyle.
 
-**Çizgi kalınlığı `worldUnits` — Wall.tsx ile aynı gerekçe.** İlk hâlde drei
-`<Line>` piksel-bazlı (worldUnits YOK) kalınlık kullanıyordu: ekranda SABİT
-piksel genişlik, yani uzaklaşınca (zoom out) nesneye göre ORANTISIZ
-kalınlaşıyordu — kullanıcı "garip gözüküyor" dedi. `Wall.tsx`'teki desen
-kopyalandı: `worldUnits` + cm cinsinden `lineWidth` — artık fiziksel kalınlık
-zoom'dan BAĞIMSIZ sabit.
+⚠️ **Çizgi kalınlığı EKRAN PİKSELİ; `worldUnits` KALKTI (K137).** Kalınlık
+`cm × zoom` ile veriliyor ve bir tabana (`MIN_ARCHITECTURE_STROKE_PX`)
+dayanıyor — hesap tek yerde: `scene/architectureStrokeStyle.ts`. Görünen boyut
+aynı, iki soluklaşma birden gitti:
 
-⚠️ **Ama ilk değerler (2.5 / 1.2 cm) ÇOK İNCEYDİ ve uzakta kayboluyordu (K43).**
-Zoom 1'de 1 cm = 1 px; en uzak zoom'da (`ZOOM_MIN = 0.1`) 2.5 cm yalnız
-0.25 px eder → nesne ekrandan silinir. Duvar aynı yolu 20 cm ile kullandığı
-için bu sorunu yaşamıyordu. Değerler duvardan TÜRETİLDİ (sabit sayı yazılmadı
-ki ilişki kodda görünsün): gövde `DEFAULT_WALL_THICKNESS_CM / 4` (5 cm),
-ayrıntı `/ 8` (2.5 cm). **`worldUnits` kullanan her yeni çizgide bu hesabı
-yap:** en uzak zoom'da kaç piksel eder? 1 px'in altına düşen çizgi görünmez.
+- **Ekran kenarlarına doğru incelme.** `worldUnits` shader'ı ışının gözden
+  çıktığını varsayıyor (perspektif); kameramız ortografik ve 100.000 cm
+  yukarıda, fragment hesabı bu büyüklükte float32 hassasiyetini yiyor. Duvar
+  aynı tuzağa düşüp piksel yoluna geçmişti (`wallStyle.ts`) — alan nesnesiyle
+  kiriş o düzeltmenin DIŞINDA kalmıştı.
+- **Uzaklaşınca kaybolma (K43'ün "bilinen sınır"ı).** cm sabitken çizgi zoom
+  ile küçülüyordu: en uzak zoom'da (0,1) gövde 0,5 px, ayrıntı 0,25 px.
 
-⚠️ **Doğru değeri bulmak İKİ TUR sürdü — kalınlık tek başına çözüm değil.**
-Önce duvarın yarısı (10 cm) denendi, kullanıcı "aşırı kalın" dedi; yarıya
-indirildi. Yani "kaybolmasın" ile "kalın durmasın" arasında dar bir bant var
-ve 5 cm en uzak zoom'da yine 0.5 px eder. Bir daha aynı şikâyet gelirse
-kalınlığı ARTIRMA — `Wall.tsx`'teki `alphaToCoverage` ekle (sert `discard`
-yerine kısmi örtme); önizlemenin `transparent` malzemesiyle etkileşimi
-doğrulanmadığı için bugün eklenmedi.
+K43 bunu kalınlık ARTIRARAK çözmeye çalışmış ve "kaybolmasın" ile "kalın
+durmasın" arasında sıkışmıştı; taban piksel bu ikilemi ortadan kaldırıyor —
+yakında gerçek ölçü, uzakta okunur bir çizgi.
+
+⚠️ Kalınlıklar yine duvardan TÜRETİLİYOR (ilişki kodda görünsün): gövde
+`DEFAULT_WALL_THICKNESS_CM / 4` (5 cm), ayrıntı `/ 8` (2,5 cm), kiriş konturu
+`/ 6` (3,3 cm — kullanıcı "bir tık inceltilmeli" dedi, artık gövdeden ince).
+
+⚠️ Sabitler gerçek nesne ve tesisat görünümündeki HAYALETİ (`GhostAreaObject`,
+`GhostBeam`) için ORTAK. Eskiden iki dosyada kopyaydılar ve "gerçeğiyle aynı
+oran" notuna rağmen elle senkron tutuluyorlardı.
+
+⚠️ Kesik ölçüleri (`dashSize`/`gapSize`) cm KALIR: onlar çizgi boyunca
+ölçülüyor, genişlik biriminden bağımsız. Tarayıcıda doğrulandı — zoom değişince
+kirişteki kesik SAYISI sabit.
+
+⚠️ Zoom, nesne başına DEĞİL kapsayıcıda (`AreaObjects`/`Beams`/`Ghosts`) bir
+kez okunup prop olarak dağıtılır — `useCameraZoom` bu yüzden tek kaynak
+(nesne başına abone olmak kare başına N geri çağrım demekti).
 
 **Ctrl ile ızgara kapatma İLK yerleştirmede de çalışıyor.** Taşırken zaten
 vardı (`useAreaObjectSelectionTool.ts`); `useAreaObjectTool.ts`'te YOKTU —
@@ -377,3 +387,33 @@ pozitif ölçü varsayıyor.
 Sabit köşe sürükleme boyunca kaymaz çünkü `useAreaObjectHandleTool` her karede
 basış anındaki şekilden (`grab.origin`) hesaplıyor; canlı şekilden hesaplansaydı
 çevirme anında çapa kayardı.
+
+## Duvara yaslanma (K139)
+
+⚠️ Kolon ve baca şaftı, yerleşirken duvarın YÜZÜNE yaslanır (`core/areaObjectWallSnap.ts`);
+öncelik duvar → ızgara, Ctrl ikisini birden kapatır. Merdiven ve kolon
+havalandırması yapışmaz.
+
+⚠️ İKİ hiza var, imlece yakın olan kazanır: `onWall` (nesne duvarın ÜSTÜNDE,
+dış kenarı KARŞI yüzle hizalı — kullanıcının asıl istediği) ve `besideWall`
+(nesne duvarın dışında, yüzüne değiyor). Eşitlikte `onWall` kazanır.
+
+⚠️ Yakalama yarıçapı nesnenin BOYUNU içerir; yalnız merkez–eksen uzaklığına
+bakılsaydı duvarın tam üstündeki 50 cm'lik kolon bile toleransın dışında
+kalırdı.
+
+⚠️ BOYUTLANDIRMADA da çalışıyor: sürüklenen köşe duvar yüzüne oturuyor
+(`snapPointToWallFace`), böylece nesnenin kenarı duvarla hizalanıyor.
+
+⚠️ Duvara oturan kolon açıklıkla ÇAKIŞABİLİR; `addAreaObject` K35/K36
+gerekçesiyle sessizce reddeder — kapının üstüne kolon oturmaz.
+
+⚠️ Pay nesnenin AÇISINDAN türetilir (köşelerin duvar normaline izdüşümü),
+`lengthCm / 2` sabiti değil — döndürülmüş nesne de tam yaslanır.
+
+⚠️ YERLEŞTİRME nesneyi duvarın açısına döndürür, TAŞIMA döndürmez: taşınan
+nesnenin kullanıcının verdiği bir açısı var ve taşıma jesti onu silmemeli.
+Çekirdek fonksiyon bunu `isAlignedToWall` ile ayırıyor.
+
+⚠️ Bu BAĞLANMA değil (sembolün duvara bağlanma modeli girmedi): duvar sonradan
+taşınırsa nesne peşinden gitmez.

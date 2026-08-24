@@ -11,6 +11,7 @@ import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
 import { documentCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
+import { useCanWriteProjectContent } from '../useRole'
 
 const EMPTY_MESSAGE = 'Projeye ait döküman bulunamamıştır.'
 
@@ -44,17 +45,24 @@ export function ProjectDocumentsTab({
   projectId: number
   documents: Sourced<ProjectDocumentRow[]> | undefined
 }) {
+  // Evrak YÜKLEME sunucuda `Admin, ProjectFirmUser`'a açık (`POST /api/docs`);
+  // gaz dağıtım kullanıcısı listeyi görür, ekleyemez. Düğme pasif değil HİÇ
+  // çizilmiyor — pasif düğme neden yapamadığını söylemez.
+  const canWriteContent = useCanWriteProjectContent()
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Link
-          to={documentCreatePath(projectId)}
-          className={adminButtonVariants({ tone: 'primary' })}
-        >
-          <Plus aria-hidden className="size-4" />
-          Evrak Ekle
-        </Link>
-      </div>
+      {canWriteContent && (
+        <div>
+          <Link
+            to={documentCreatePath(projectId)}
+            className={adminButtonVariants({ tone: 'primary' })}
+          >
+            <Plus aria-hidden className="size-4" />
+            Evrak Ekle
+          </Link>
+        </div>
+      )}
 
       {documents === undefined || documents.source === 'unavailable' ? (
         <MissingSourceNotice endpointHint="GET /api/projects/{id}/docs" />

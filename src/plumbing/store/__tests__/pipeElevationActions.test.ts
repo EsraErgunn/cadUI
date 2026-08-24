@@ -4,12 +4,13 @@ import { DEFAULT_FLOOR_HEIGHT_CM, DEFAULT_FLOOR_ID, DEFAULT_FLOOR_NAME } from '.
 import type { Floor } from '../../../core/model'
 import { useCadStore } from '../../../store/cadStore'
 import { DEFAULT_PIPE_TYPE_NAME } from '../../core/pipeTypes'
-import { commitDraftElevationTo } from '../pipeElevationActions'
+import { commitDraftElevationBy } from '../pipeElevationActions'
 import { usePlumbingUiStore } from '../plumbingUiStore'
 
 /** Kat tavanı testte kolayca aşılabilsin diye küçük (ama geçerli, 200-600 cm) bir yükseklik. */
 const FLOOR_HEIGHT_CM = 200
 const UPPER_FLOOR_ID = 100
+const BASEMENT_FLOOR_ID = 200
 
 function resetCadState(overrides: { floors?: Floor[] } = {}) {
   useCadStore.setState({
@@ -36,7 +37,7 @@ function startDraft(elevationCm = 0) {
   usePlumbingUiStore.setState({
     draftLine: { kind: 'pipe', anchor: { x: 0, y: 0 }, startTarget: null, elevationCm, steps: [] },
     activePipeTypeName: DEFAULT_PIPE_TYPE_NAME,
-    pendingFloorLink: null,
+    draftKeyboardInput: null,
   })
 }
 
@@ -44,11 +45,11 @@ beforeEach(() => {
   resetCadState({})
 })
 
-describe('commitDraftElevationTo — kat tavanı içinde kalan normal kot', () => {
+describe('commitDraftElevationBy — kat tavanı içinde kalan normal kot', () => {
   it('tavanın altındaki kot yalnızca aktif katta bir boru yazar, kat geçişi olmaz', () => {
     startDraft()
 
-    expect(commitDraftElevationTo(150)).toBe(true)
+    expect(commitDraftElevationBy(150)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.installationLines).toHaveLength(1)
@@ -60,7 +61,7 @@ describe('commitDraftElevationTo — kat tavanı içinde kalan normal kot', () =
   it('tam tavanda biten kot da kat geçişi TETİKLEMEZ', () => {
     startDraft()
 
-    expect(commitDraftElevationTo(FLOOR_HEIGHT_CM)).toBe(true)
+    expect(commitDraftElevationBy(FLOOR_HEIGHT_CM)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.installationLines[0].pipe?.endHeightCm).toBe(FLOOR_HEIGHT_CM)
@@ -69,12 +70,12 @@ describe('commitDraftElevationTo — kat tavanı içinde kalan normal kot', () =
   })
 })
 
-describe('commitDraftElevationTo — kat tavanını aşan kot', () => {
+describe('commitDraftElevationBy — kat tavanını aşan kot', () => {
   it('tavanı aşan kot bu katta tavana kadar yazar, kalanı YENİ bir üst katta devam ettirir', () => {
     startDraft()
 
     const overflowCm = 150
-    expect(commitDraftElevationTo(FLOOR_HEIGHT_CM + overflowCm)).toBe(true)
+    expect(commitDraftElevationBy(FLOOR_HEIGHT_CM + overflowCm)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.floors).toHaveLength(2)
@@ -110,7 +111,7 @@ describe('commitDraftElevationTo — kat tavanını aşan kot', () => {
     // Zemin (200) + 1. Kat (200) tavanlarını aşıp üçüncü (yeni, varsayılan
     // DEFAULT_FLOOR_HEIGHT_CM) katta 50cm ile biten bir hedef.
     const targetCm = FLOOR_HEIGHT_CM + FLOOR_HEIGHT_CM + 50
-    expect(commitDraftElevationTo(targetCm)).toBe(true)
+    expect(commitDraftElevationBy(targetCm)).toBe(true)
 
     const cad = useCadStore.getState()
     expect(cad.floors).toHaveLength(3)
@@ -128,5 +129,69 @@ describe('commitDraftElevationTo — kat tavanını aşan kot', () => {
       [DEFAULT_FLOOR_ID, UPPER_FLOOR_ID],
       [UPPER_FLOOR_ID, topFloorId],
     ])
+  })
+})
+
+describe('commitDraftElevationBy — kat tabanını delen kot (K135)', () => {
+  it('tabanı delen kot bu katta tabana kadar iner, kalanı YENİ bir bodrum katta sürdürür', () => {
+    startDraft(FLOOR_HEIGHT_CM)
+
+    // Tavandan tabana (200) + 50 cm daha aşağı.
+    const underflowCm = 50
+    expect(commitDraftElevationBy(-(FLOOR_HEIGHT_CM + underflowCm))).toBe(true)
+
+    const cad = useCadStore.getState()
+    expect(cad.floors).toHaveLength(2)
+    // Bodrum dizinin BAŞINA eklenir (K106) — üste değil.
+    expect(cad.floors[0].isBasement).toBe(true)
+    expect(cad.installationLines).toHaveLength(2)
+
+    const upperLine = cad.installationLines.find((line) => line.floorId === DEFAULT_FLOOR_ID)
+    const basementFloorId = cad.floors[0].id
+    const basementLine = cad.installationLines.find((line) => line.floorId === basementFloorId)
+
+    expect(upperLine?.pipe?.endHeightCm).toBe(0)
+    // Alt kata TAVANINDAN girilir: üst katın tabanı alttakinin tavanıdır.
+    expect(basementLine?.pipe?.startHeightCm).toBe(DEFAULT_FLOOR_HEIGHT_CM)
+    expect(basementLine?.pipe?.endHeightCm).toBe(DEFAULT_FLOOR_HEIGHT_CM - underflowCm)
+
+    expect(cad.floorPipeLinks).toHaveLength(1)
+    expect(cad.floorPipeLinks[0].aboveFloorId).toBe(DEFAULT_FLOOR_ID)
+    expect(cad.floorPipeLinks[0].belowFloorId).toBe(basementFloorId)
+    expect(cad.floorPipeLinks[0].abovePointId).toBe(upperLine?.points[1].id)
+    expect(cad.floorPipeLinks[0].belowPointId).toBe(basementLine?.points[0].id)
+
+    expect(cad.activeFloorId).toBe(basementFloorId)
+  })
+
+  it('tam tabanda biten kot kat geçişi TETİKLEMEZ', () => {
+    startDraft(FLOOR_HEIGHT_CM)
+
+    expect(commitDraftElevationBy(-FLOOR_HEIGHT_CM)).toBe(true)
+
+    const cad = useCadStore.getState()
+    expect(cad.installationLines[0].pipe?.endHeightCm).toBe(0)
+    expect(cad.floorPipeLinks).toHaveLength(0)
+    expect(cad.activeFloorId).toBe(DEFAULT_FLOOR_ID)
+  })
+
+  it('var olan alt kata iner, yeni kat AÇMAZ', () => {
+    resetCadState({
+      floors: [
+        { id: BASEMENT_FLOOR_ID, name: 'Bodrum Kat', heightCm: FLOOR_HEIGHT_CM, isBasement: true },
+        { id: DEFAULT_FLOOR_ID, name: DEFAULT_FLOOR_NAME, heightCm: FLOOR_HEIGHT_CM, isBasement: false },
+      ],
+    })
+    startDraft(0)
+
+    expect(commitDraftElevationBy(-50)).toBe(true)
+
+    const cad = useCadStore.getState()
+    expect(cad.floors).toHaveLength(2)
+    expect(cad.activeFloorId).toBe(BASEMENT_FLOOR_ID)
+
+    const basementLine = cad.installationLines.find((line) => line.floorId === BASEMENT_FLOOR_ID)
+    expect(basementLine?.pipe?.startHeightCm).toBe(FLOOR_HEIGHT_CM)
+    expect(basementLine?.pipe?.endHeightCm).toBe(FLOOR_HEIGHT_CM - 50)
   })
 })

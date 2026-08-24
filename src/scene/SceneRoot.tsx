@@ -11,8 +11,9 @@ import { SCENE_COLORS } from './sceneTheme'
 import { SolidModelView } from './solid/SolidModelView'
 import { useCameraZoomTracker } from './useCameraZoom'
 import { useViewportControls } from './useViewportControls'
+import { IsometricLayer } from '../isometric/scene/IsometricLayer'
+import { ISOMETRIC_COLORS } from '../isometric/scene/isometricTheme'
 import { ArchitectureGhost, InstallationGhost } from '../plumbing/scene/Ghosts'
-import { InstallationBelowGhost } from '../plumbing/scene/InstallationBelowGhost'
 import { PlumbingLayer } from '../plumbing/scene/PlumbingLayer'
 import { useUiStore } from '../store/uiStore'
 
@@ -32,25 +33,38 @@ export function SceneRoot() {
   const activeViewId = useUiStore((state) => state.activeViewId)
   const isGridVisible = useUiStore((state) => state.isGridVisible)
   const isSolidView = activeViewId === 'solid'
+  const isIsometric = activeViewId === 'isometric'
 
   return (
     // TEK <Canvas>: görünümler ikinci renderer/kamera kurmaz, alt ağaç değişir.
     <Canvas orthographic dpr={[1, 2]}>
-      <color attach="background" args={[SCENE_COLORS.background]} />
-      {/* Katı model KENDİ kamerasını (perspektif + yörünge) getiriyor. Aşağıdaki
-          ortografik kamerayla birlikte mount edilemez: ikisi de `makeDefault`
-          ve hangisinin kazandığı mount sırasına kalırdı. Plan düzlemine kilitli
-          pan/zoom, ızgara ve odak isteği de 3B'de anlamsız — hepsi bu dalın
-          dışında. */}
-      {isSolidView ? (
-        <SolidModelView />
-      ) : (
+      <color
+        attach="background"
+        args={[isIsometric ? ISOMETRIC_COLORS.background : SCENE_COLORS.background]}
+      />
+      {/* Kamera ve girdi aşağıdaki Suspense sınırının DIŞINDA: alt ağaç bir an
+          askıya alınırsa makeDefault geri alınıp zoom/pan sıfırlanırdı.
+          İzometrik ve katı model KENDİ kameralarını kurar (biri α/β'dan
+          türetilen yön, öteki perspektif + yörünge) ve o da aynı sebeple bu
+          sınırın dışında. Üç kamera asla birlikte mount edilmez — hepsi
+          `makeDefault` yazar, hangisinin kazandığı mount sırasına kalırdı.
+          Plan düzlemine kilitli pan/zoom, ızgara ve odak isteği de o iki
+          görünümde anlamsız, hepsi plan dalının içinde. */}
+      {/* Zoom izleyicisi HER görünümde: ekran boyu sabit kalan her şey (ölçü
+          yazısı, izometrik etiketler) `useCameraZoom`'u okuyor ve o değer bu
+          tek yoklayıcıdan geliyor. Yalnız plan dalında kalsaydı izometrik
+          etiketler bayat zoom'la ölçeklenirdi. Kamera türü kontrolü
+          izleyicinin kendi içinde. */}
+      <CameraZoomTracker />
+      {isIsometric && <IsometricLayer />}
+      {isSolidView && <SolidModelView />}
+      {!isIsometric && !isSolidView && (
         <>
-          {/* Kamera ve girdi aşağıdaki Suspense sınırının DIŞINDA: alt ağaç bir an
-              askıya alınırsa makeDefault geri alınıp zoom/pan sıfırlanırdı. */}
           <Cameras />
           <ViewportControls />
-          <CameraZoomTracker />
+          {/* Hata listesindeki "göster" de plan kamerasının sözleşmesine bağlı
+              (`writeCameraViewport`): izometrikte mount edilseydi kamerayı bir
+              anda plan konumuna atardı. */}
           <ViewportFocus />
           {isGridVisible && <Grid />}
         </>
@@ -77,9 +91,9 @@ export function SceneRoot() {
         {activeViewId === 'installation' && (
           <>
             <DrawSurface />
-            {/* Alt kat en geride: hizalama referansı, aktif katın çizimini örtmez
-                (FloorBelowGhost ile aynı sıra kuralı). */}
-            <InstallationBelowGhost />
+            {/* Alt katın boru izi YOK (K130): mimarideki FloorBelowGhost'un
+                aksine burada hizalamaya yaramıyordu, aktif kattaki boruyla
+                karışıyordu. */}
             <ArchitectureGhost />
             <PlumbingLayer />
           </>

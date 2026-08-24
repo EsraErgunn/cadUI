@@ -2,6 +2,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { OrthographicCamera } from 'three'
 
+import { ELEVATION_NODE_RING_RADIUS_PX } from './ElevationNodeRing'
 import { resolvePlacementPosition } from './placementSnap'
 import { getSnapRadiusCm, getWallEdgeGapCm } from './snapRadius'
 import { getLoadedSymbol } from './symbolLoader'
@@ -15,6 +16,7 @@ import { getSnapToleranceCm } from '../../core/snap'
 import { readCameraViewport } from '../../scene/cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from '../../scene/drawSurfaceEvents'
 import { useCadStore } from '../../store/cadStore'
+import { isEditorReadOnly } from '../../store/editorReadOnly'
 import { useUiStore } from '../../store/uiStore'
 import {
   isFixedCompanionValve,
@@ -32,8 +34,8 @@ import {
   getPortAnchoredPointIds,
 } from '../core/lineCornerLink'
 import { isSamePoint } from '../core/lineGeometry'
-import { getLinesInRect, pickLineAt } from '../core/linePicking'
-import { findNearestPointOnLines } from '../core/lineSnap'
+import { getLinesInRect, isPlanZeroLengthLine, pickLineAt } from '../core/linePicking'
+import { findNearestLineCorner, findNearestPointOnLines } from '../core/lineSnap'
 import { resolveMoveTargets } from '../core/moveTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
 import { findNearestWallCorner, findNearestWallFace } from '../core/wallSnap'
@@ -90,6 +92,13 @@ type CornerDragTracker = {
   startPosition: PlanPoint
   /** Sürüklemeden bırakılırsa jest bir TIKLAMADIR; seçim gövdeye basışla aynı kuralla değişir. */
   isAdditive: boolean
+  /**
+   * Bu köşeyle BİRLİKTE giden noktalar (`getLinkedLinePoints`). Köşe-köşe
+   * yakalamasında elenir — yoksa köşe kendi kendine yapışırdı. Sürükleme
+   * başında bir kez hesaplanır: jest boyunca bağlar değişmiyor ve her
+   * pointermove'da yeniden taramak boşuna iş olurdu.
+   */
+  linkedPointIds: ReadonlySet<Id>
 }
 
 /**
@@ -277,6 +286,7 @@ export function useSelectionTool(): SelectionToolState {
         pointId: hit.pointId,
         startPosition: hit.position,
         isAdditive: event.shiftKey,
+        linkedPointIds: new Set(linked.map((link) => link.pointId)),
       }
       usePlumbingUiStore
         .getState()
@@ -305,7 +315,13 @@ export function useSelectionTool(): SelectionToolState {
      */
     const handleEmptyPointerDown = (event: DrawSurfacePointerEvent, zoom: number) => {
       const ui = usePlumbingUiStore.getState()
-      const lineId = pickLineAt(event.planPoint, readFloorLines(), getSnapToleranceCm(zoom))
+      const lines = readFloorLines()
+      const lineId = pickLineAt(
+        event.planPoint,
+        lines,
+        getSnapToleranceCm(zoom),
+        ELEVATION_NODE_RING_RADIUS_PX / zoom,
+      )
       const isGroupSelection = ui.selectedElementIds.length + ui.selectedLineIds.length > 1
 
       if (lineId !== null && isGroupSelection && ui.selectedLineIds.includes(lineId)) {
@@ -313,6 +329,15 @@ export function useSelectionTool(): SelectionToolState {
         // düzenini korur ve kayma ızgara katı olur (eleman sürüklemesiyle aynı).
         const anchor = resolvePlacementPosition(event.planPoint, zoom)
         startElementDrag(ui.selectedElementIds, ui.selectedLineIds, anchor, event.planPoint)
+        return
+      }
+
+      // Saf dikey boru (K102) köşe sürüklemesinin ÖNÜNE geçer: planda tek nokta
+      // olduğu için aynı yerde komşu yatay hattın köşesi de duruyor ve jesti o
+      // kapıyordu — kullanıcı halkaya bassa da dikey boru hiç seçilemiyordu.
+      const hitLine = lines.find((line) => line.id === lineId)
+      if (hitLine && isPlanZeroLengthLine(hitLine)) {
+        selectLine(hitLine.id, event.shiftKey)
         return
       }
 
@@ -452,7 +477,10 @@ export function useSelectionTool(): SelectionToolState {
      * serbest hareket edebilsin"). Ctrl duvar yakalamasını da kapatır — tıpkı
      * eleman sürüklemesindeki ızgara kapatma jestiyle aynı.
      */
-    const resolveCornerPosition = (event: DrawSurfacePointerEvent): PlanPoint => {
+    const resolveCornerPosition = (
+      event: DrawSurfacePointerEvent,
+      drag: CornerDragTracker,
+    ): PlanPoint => {
       if (event.ctrlKey) return event.planPoint
 
       const { zoom } = readCameraViewport(camera)
@@ -460,6 +488,20 @@ export function useSelectionTool(): SelectionToolState {
       const gapCm = getWallEdgeGapCm(zoom)
       const cad = useCadStore.getState()
       const floorWalls = cad.walls.filter((wall) => wall.floorId === cad.activeFloorId)
+
+      // Başka bir hat köşesi duvardan ÖNCE gelir (`useLineTool.resolveSnap` ile
+      // aynı öncelik: bağlantı kurmak konumlandırmadan güçlü bir niyettir).
+      // Kotun net kalması buna bağlı: dikey borunun (K102) geride kalan ucuna
+      // geri getirilen köşe TAM ÜSTÜNE oturur, kolon yeniden düşeyleşir —
+      // yakın duvar yüzü kazansaydı birkaç cm'lik bir kayma kalır ve yükseklik
+      // bir daha asla kesinleşmezdi (kullanıcı isteği, 2026-08).
+      const lineCorner = findNearestLineCorner(
+        readFloorLines(),
+        event.planPoint,
+        radiusCm,
+        drag.linkedPointIds,
+      )
+      if (lineCorner) return lineCorner.position
 
       const corner = findNearestWallCorner(floorWalls, cad.points, event.planPoint, radiusCm, gapCm)
       if (corner) return corner
@@ -492,8 +534,10 @@ export function useSelectionTool(): SelectionToolState {
       }
 
       if (cornerDrag) {
-        const position = resolveCornerPosition(event)
-        usePlumbingUiStore.getState().setDraggingLineCorner({ ...cornerDrag, position })
+        const position = resolveCornerPosition(event, cornerDrag)
+        usePlumbingUiStore
+          .getState()
+          .setDraggingLineCorner({ lineId: cornerDrag.lineId, pointId: cornerDrag.pointId, position })
         return
       }
 
@@ -659,6 +703,10 @@ export function useSelectionTool(): SelectionToolState {
      */
     const handleKeyDown = (keyEvent: KeyboardEvent) => {
       if (isTypingTarget(keyEvent.target)) return
+      // Yapıştırma, silme ve çoğaltma çizimi DEĞİŞTİRİR. Kopyalama okuma
+      // sayılırdı ama panoya alınan şeyin yapıştırılacak yeri yok; tüm
+      // dinleyici susturuluyor.
+      if (isEditorReadOnly()) return
 
       const ui = usePlumbingUiStore.getState()
       const { selectedElementIds, selectedLineIds } = ui

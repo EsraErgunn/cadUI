@@ -7,13 +7,19 @@ import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfac
 import { findSelectedAreaObjectHandle } from './useAreaObjectHandleTool'
 import { findAreaObjectLabelAt } from './useAreaObjectLabelTool'
 import { findSelectedBeamHandle } from './useBeamHandleTool'
+import { findPointSymbolLabelAt } from './usePointSymbolLabelTool'
 import { findTextLabelAtPointer } from './useTextSelectionTool'
 import {
   resolveArchitectureTarget,
   type ArchitectureTargetContext,
 } from '../core/architectureHover'
+import type { AreaObjectShape } from '../core/areaObject'
+import {
+  findAreaObjectWallSnap,
+  hasAreaObjectWallSnap,
+} from '../core/areaObjectWallSnap'
 import type { PlanPoint } from '../core/coords'
-import type { Id } from '../core/model'
+import type { AreaObjectType, Id } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { isItemSelected } from '../core/selection'
 import { getSnapToleranceCm } from '../core/snap'
@@ -30,6 +36,35 @@ type AreaObjectGrab = {
   grabPoint: PlanPoint
   /** Tutulan nesnenin basış anındaki konumu — ızgara yapışması bunun üzerinden. */
   origin: PlanPoint
+  /** Duvara yaslanma payı nesnenin BOYUNA ve AÇISINA bağlı; basışta okunur. */
+  shape: AreaObjectShape
+  type: AreaObjectType
+}
+
+/**
+ * Sürüklenen nesnenin yerleşeceği konum: önce DUVAR, olmazsa ızgara —
+ * yerleştirme aracıyla aynı öncelik (K139).
+ *
+ * ⚠️ Nesne DÖNDÜRÜLMEZ: taşıma jesti yalnız yer değiştirir. Yerleştirmede yeni
+ * nesne duvarın açısını alıyor ama orada nesnenin bir açısı yok; burada
+ * kullanıcının verdiği açı var ve taşımak onu silmemeli (döndürmenin kendi
+ * tutamacı var). Yaslanma payı bu yüzden nesnenin MEVCUT açısından hesaplanıyor.
+ */
+function snapDraggedPosition(grab: AreaObjectGrab, raw: PlanPoint, zoom: number): PlanPoint {
+  if (hasAreaObjectWallSnap(grab.type)) {
+    const cad = useCadStore.getState()
+    const snap = findAreaObjectWallSnap(
+      { ...grab.shape, x: raw.x, y: raw.y },
+      raw,
+      cad.walls.filter((wall) => wall.floorId === cad.activeFloorId),
+      cad.points,
+      getSnapToleranceCm(zoom),
+      false,
+    )
+    if (snap) return snap.position
+  }
+
+  return getPlacementPosition(raw, zoom)
 }
 
 /**
@@ -81,6 +116,8 @@ export function useAreaObjectSelectionTool(): void {
       if (findSelectedBeamHandle(event.planPoint, readCameraViewport(camera).zoom)) return
       // Ad etiketi gövdenin DIŞINDA ve serbestçe taşınabiliyor: o basış etiketin.
       if (findAreaObjectLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
+      // Cihaz ad etiketi de gövdesinin DIŞINDA ve serbestçe taşınabiliyor (K138).
+      if (findPointSymbolLabelAt(event.planPoint, readCameraViewport(camera).zoom)) return
       // Metin de gövdesiz ve serbest: üstüne basıldıysa jest metnin (K81).
       if (findTextLabelAtPointer(event.planPoint)) return
 
@@ -111,6 +148,14 @@ export function useAreaObjectSelectionTool(): void {
         areaObjectId: areaObject.id,
         grabPoint: event.planPoint,
         origin: { x: areaObject.x, y: areaObject.y },
+        shape: {
+          x: areaObject.x,
+          y: areaObject.y,
+          widthCm: areaObject.widthCm,
+          lengthCm: areaObject.lengthCm,
+          angleDeg: areaObject.angleDeg,
+        },
+        type: areaObject.type,
       }
     }
 
@@ -122,8 +167,9 @@ export function useAreaObjectSelectionTool(): void {
         y: grab.origin.y + (event.planPoint.y - grab.grabPoint.y),
       }
       const { zoom } = readCameraViewport(camera)
-      // Ctrl ızgarayı kapatır — köşe ve sembol sürüklemesiyle aynı jest.
-      const next = event.ctrlKey ? raw : getPlacementPosition(raw, zoom)
+      // Ctrl ızgarayı VE duvar yakalamasını kapatır — köşe ve sembol
+      // sürüklemesiyle aynı jest.
+      const next = event.ctrlKey ? raw : snapDraggedPosition(grab, raw, zoom)
 
       useArchitectureUiStore.getState().setDraggingAreaObjects({
         areaObjectIds: [grab.areaObjectId],

@@ -1,6 +1,8 @@
 import { Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { useUiStore } from '../../store/uiStore'
+
 type PropertyPanelShellProps = {
   /** Erişilebilir ad: mimaride "Nesne özellikleri", tesisatta "Tesisat özellikleri". */
   label: string
@@ -22,6 +24,12 @@ type PropertyPanelShellProps = {
  * Tuvalin ÜSTÜNDE yüzen kart: yüzen çubukla (K54) aynı aile — kavis, kenarlık,
  * gölge. Eskiden ekranın sağ kenarına yapışan tam boy bir şeritti; üst bar
  * kalkınca o şerit kabuğun neresine ait olduğu okunmayan bir blok hâline geldi.
+ *
+ * SALT GÖRÜNTÜLEME burada TEK yerden uygulanıyor: panel açık kalır (seçilen
+ * nesnenin özellikleri okunabilmeli) ama içerik `<fieldset disabled>` ile
+ * sarılır ve "Sil" hiç çizilmez. Kabuk ortak olduğu için mimari ve tesisat
+ * panellerinin tamamı — ve içlerindeki her alt panel — tek değişiklikle
+ * kapanıyor; yirmi dosyaya `isReadOnly` prop'u dağıtmak gerekmedi.
  */
 export function PropertyPanelShell({
   label,
@@ -32,6 +40,8 @@ export function PropertyPanelShell({
   actions,
   children,
 }: PropertyPanelShellProps) {
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
+
   return (
     // Kaydıran sarmalayıcı, panelin KENDİSİ değil: kenar boşluğu burada olduğu
     // için `translate-x-full` paneli boşlukla birlikte götürüyor. Boşluk panelin
@@ -54,11 +64,20 @@ export function PropertyPanelShell({
           {title}
         </h2>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">{children}</div>
+        {/* `fieldset disabled` içindeki HER form denetimini (input, select,
+            button, textarea) tarayıcı düzeyinde etkisiz kılar — görsel bir
+            kilit değil. `min-w-0`: fieldset'in tarayıcı varsayılanı
+            `min-inline-size: min-content`, panelin dar sütununu taşırıyor. */}
+        <fieldset
+          disabled={isReadOnly}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto border-0 px-3 py-2"
+        >
+          {children}
+        </fieldset>
 
-        {actions}
+        {!isReadOnly && actions}
 
-        {isDeletable && (
+        {isDeletable && !isReadOnly && (
           <div className="shrink-0 border-t border-edge px-3 py-2">
             <button
               type="button"

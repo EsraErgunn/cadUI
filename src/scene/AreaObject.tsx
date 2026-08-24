@@ -1,42 +1,29 @@
 import { Line } from '@react-three/drei'
 
 import { AREA_OBJECT_ELEVATION_CM, AREA_OBJECT_PREVIEW_ELEVATION_CM } from './architectureLayers'
+import {
+  AREA_OBJECT_STROKE_WIDTHS_CM,
+  getArchitectureStrokeWidthPx,
+} from './architectureStrokeStyle'
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
-import {
-  getAreaObjectPlanGeometry,
-  type AreaObjectStrokeRole,
-} from '../core/areaObjectGeometry'
+import { getAreaObjectPlanGeometry } from '../core/areaObjectGeometry'
 import { planToThree, type PlanPoint } from '../core/coords'
 import type { AreaObject as AreaObjectData } from '../core/model'
 import { triangulatePolygon } from '../core/roomFill'
-import { DEFAULT_WALL_THICKNESS_CM } from '../core/wall'
 
 export type AreaObjectTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
 /**
- * Gövde (dış hat) KALIN, ayrıntı (basamak/ok/çember) İNCE. Birim CM —
- * `worldUnits` (aşağıda) sayesinde `Wall.tsx`'teki gibi zoom'dan bağımsız
- * SABİT fiziksel kalınlık: piksel-bazlı olsaydı (worldUnits YOK) uzaklaşınca
- * nesneye göre orantısız kalınlaşırdı.
- *
- * Kalınlıklar duvardan TÜRETİLİR ki varsayılan duvar değişince oran korunsun.
- * İlk değerler (2.5 / 1.2 cm) uzaklaşınca piksel altına düşüp GÖRÜNMEZ
- * oluyordu — zoom 1'de 1 cm = 1 px, en uzak zoom'da (ZOOM_MIN = 0.1) 2.5 cm
- * yalnız 0.25 px eder. Önce duvarın yarısına (10 cm) çıkarıldı ama o da
- * AŞIRI KALIN göründü; şimdiki değer ikisinin ortası (5 cm) — en uzak zoom'da
- * 0.5 px eder, yani orada hâlâ solabilir. Tümüyle kaybolursa çözüm kalınlığı
- * artırmak değil, `Wall.tsx`'teki `alphaToCoverage` (bkz. docs/kararlar.md K43).
+ * ⚠️ Hover artık NESNENİN kendi ailesinin koyu tonu (kullanıcı isteği).
+ * Eskiden duvarın hover grisiydi (SCENE_COLORS.wallHover) ve nesne rengi
+ * grileşince ikisi birbirine yaklaştı — imleç üstündeyken hiçbir şey değişmiyor
+ * gibi okunuyordu.
  */
-const STROKE_WIDTHS: Record<AreaObjectStrokeRole, number> = {
-  body: DEFAULT_WALL_THICKNESS_CM / 4,
-  detail: DEFAULT_WALL_THICKNESS_CM / 8,
-}
-
 const STROKE_COLORS: Record<AreaObjectTone, string> = {
   normal: ARCHITECTURE_COLORS.areaObjectStroke,
-  hovered: SCENE_COLORS.wallHover,
+  hovered: ARCHITECTURE_COLORS.areaObjectHover,
   selected: SCENE_COLORS.selection,
   // Önizleme AYNI renk — yalnız SAYDAM: kullanıcı yerleştirmeden önce
   // "gerçek hâlinin bir tık soluğu"nu görsün, farklı bir renk değil.
@@ -48,7 +35,7 @@ const PREVIEW_OPACITY = 0.45
 
 const FILL_COLORS: Record<AreaObjectTone, string> = {
   normal: ARCHITECTURE_COLORS.areaObjectFill,
-  hovered: SCENE_COLORS.wallHover,
+  hovered: ARCHITECTURE_COLORS.areaObjectHover,
   selected: SCENE_COLORS.selection,
   preview: ARCHITECTURE_COLORS.areaObjectFill,
 }
@@ -71,6 +58,8 @@ type AreaObjectProps = {
   tone: AreaObjectTone
   /** Mesh'te yalnız id taşınır (CLAUDE.md kural 4); önizlemede id yok. */
   areaObjectId?: number
+  /** Kontur kalınlığı piksel cinsinden verildiği için zoom'a bağlı; kapsayıcı bir kez okur. */
+  zoom: number
 }
 
 /**
@@ -82,7 +71,7 @@ type AreaObjectProps = {
  * köşesinin üstüne oturunca altındaki köşe "boşluktan" görünüyordu. Dolgu salt
  * görsel — tıklama kararını `isPointInAreaObject` veriyor, raycast değil.
  */
-export function AreaObject({ type, areaObject, tone, areaObjectId }: AreaObjectProps) {
+export function AreaObject({ type, areaObject, tone, areaObjectId, zoom }: AreaObjectProps) {
   const isPreview = tone === 'preview'
   const elevationCm = isPreview ? AREA_OBJECT_PREVIEW_ELEVATION_CM : AREA_OBJECT_ELEVATION_CM
   const renderOrder = isPreview ? RENDER_ORDER.linePreview : RENDER_ORDER.areaObject
@@ -119,11 +108,13 @@ export function AreaObject({ type, areaObject, tone, areaObjectId }: AreaObjectP
           key={stroke.name}
           points={stroke.points.map((point) => planToThree(point, elevationCm))}
           color={strokeColor}
-          // worldUnits: kalınlık cm cinsinden, zoom'la BİRLİKTE ölçeklenir —
-          // aksi hâlde ekran-pikseli sabit kalır ve uzaklaşınca nesneye göre
-          // orantısız kalınlaşır (Wall.tsx ile aynı gerekçe).
-          worldUnits
-          lineWidth={STROKE_WIDTHS[stroke.role]}
+          // Kalınlık EKRAN PİKSELİ (`worldUnits` YOK): o yol hem ekran
+          // kenarlarına doğru inceltiyor hem de uzaklaşınca piksel altına
+          // düşürüyordu — bkz. architectureStrokeStyle.ts.
+          lineWidth={getArchitectureStrokeWidthPx(
+            AREA_OBJECT_STROKE_WIDTHS_CM[stroke.role],
+            zoom,
+          )}
           transparent={isPreview}
           opacity={isPreview ? PREVIEW_OPACITY : 1}
           frustumCulled={false}

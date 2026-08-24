@@ -21,6 +21,14 @@ import { toPhoneDigits } from '../../../core/phone'
 const SUBMIT_ERROR_MESSAGE =
   'Kullanıcı kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
 
+/**
+ * Üretim derlemesi: yazacak uç yok ve sahte kayıt üretilmiyor (K50). Kullanıcı
+ * formda KALIR — listeye "kaydedildi" diye göndermek, hiçbir yere gitmemiş bir
+ * kaydı gitmiş göstermek olurdu.
+ */
+const UNAVAILABLE_MESSAGE =
+  'Kullanıcı kaydedilemiyor: bu ekranın sunucu ucu henüz açılmadı.'
+
 export interface ProjectFirmUserSaveOutcome {
   userId: number
   isPersisted: boolean
@@ -122,6 +130,11 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
         },
         user?.id ?? null,
       )
+
+      if (!saved.ok) {
+        setSubmitError(UNAVAILABLE_MESSAGE)
+        return null
+      }
 
       return { userId: saved.userId, isPersisted: saved.isPersisted }
     } catch (error) {

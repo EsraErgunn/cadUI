@@ -1,10 +1,9 @@
-import { Funnel } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState } from 'react'
 
 import type { DocumentType } from '../../../api/documentTypes'
 import type { Lookup } from '../../../api/projects'
 import { FilterSelect, type FilterSelectOption } from '../FilterSelect'
-import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
+import { adminFieldVariants } from '../adminVariants'
 import type { DocumentFilters } from './useDocumentListParams'
 
 const SEARCH_FIELD = 'documentSearch'
@@ -30,12 +29,17 @@ interface DocumentFilterBarProps {
   filters: DocumentFilters
   documentTypes: DocumentType[]
   projectFirms: Lookup[]
+  /**
+   * Yönetim görünümü mü. "Proje Firması" süzgeci YALNIZ orada anlamlı: proje
+   * firması kullanıcısının listesi zaten tek firmaya ait.
+   */
+  isManagementView: boolean
   onApply: (filters: DocumentFilters) => void
 }
 
 /**
- * Filtre çubuğu kendi TASLAK durumunu tutar; istek yalnız "Filtrele" ile veya
- * arama alanında Enter ile atılır (proje listesindeki desenin aynısı, K47).
+ * Seçim yapılır yapılmaz uygulanır ("Filtrele" düğmesi KALKTI); arama Enter'da.
+ * Proje listesindeki desenin aynısı — iki liste ayrışmasın.
  *
  * Taslak durum prop değişince kendiliğinden tazelenmez — dışarıdan gelen değişimi
  * (geri tuşu, filtre etiketi kaldırma) yansıtmak için sayfa bu bileşeni uygulanmış
@@ -45,30 +49,32 @@ export function DocumentFilterBar({
   filters,
   documentTypes,
   projectFirms,
+  isManagementView,
   onApply,
 }: DocumentFilterBarProps) {
   const [dateFrom, setDateFrom] = useState(filters.dateFrom)
   const [dateTo, setDateTo] = useState(filters.dateTo)
   const [docTypeCode, setDocTypeCode] = useState(filters.docTypeCode)
   const [projectFirmId, setProjectFirmId] = useState(filters.projectFirmId)
+  // Kontrolsüz arama kutusu; değeri uygulama anında ref'ten okunuyor ki seçim
+  // değişince yazılmış metin kaybolmasın.
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const rawSearch = new FormData(event.currentTarget).get(SEARCH_FIELD)
-
+  const applyNow = (changed: Partial<DocumentFilters>) => {
     onApply({
       dateFrom,
       dateTo,
       docTypeCode,
       projectFirmId,
-      search: typeof rawSearch === 'string' ? rawSearch.trim() : '',
+      search: searchRef.current?.value.trim() ?? filters.search,
+      ...changed,
     })
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
+    <div
       aria-label="Evrak filtreleri"
+      role="group"
       className="flex flex-col gap-4 rounded-xl border border-edge bg-surface p-4
                  md:flex-row md:flex-wrap md:items-end"
     >
@@ -83,7 +89,10 @@ export function DocumentFilterBar({
             // Başlangıç bitişi geçemesin: geçersiz aralık isteğe hiç çıkmasın.
             max={dateTo}
             aria-label="Başlangıç tarihi"
-            onChange={(event) => setDateFrom(event.target.value)}
+            onChange={(event) => {
+              setDateFrom(event.target.value)
+              applyNow({ dateFrom: event.target.value })
+            }}
             className={adminFieldVariants({ className: 'min-w-0 flex-1' })}
           />
           <span aria-hidden className="shrink-0 text-ink-muted">
@@ -94,7 +103,10 @@ export function DocumentFilterBar({
             value={dateTo}
             min={dateFrom}
             aria-label="Bitiş tarihi"
-            onChange={(event) => setDateTo(event.target.value)}
+            onChange={(event) => {
+              setDateTo(event.target.value)
+              applyNow({ dateTo: event.target.value })
+            }}
             className={adminFieldVariants({ className: 'min-w-0 flex-1' })}
           />
         </div>
@@ -106,40 +118,47 @@ export function DocumentFilterBar({
         emptyLabel={ANY_OPTION_LABEL}
         value={docTypeCode}
         options={toTypeOptions(documentTypes)}
-        onChange={setDocTypeCode}
+        onChange={(value) => {
+          setDocTypeCode(value)
+          applyNow({ docTypeCode: value })
+        }}
       />
 
-      <FilterSelect
-        id="document-filter-firm"
-        label="Proje Firması"
-        emptyLabel={ANY_OPTION_LABEL}
-        value={projectFirmId === null ? null : String(projectFirmId)}
-        options={toFirmOptions(projectFirms)}
-        onChange={(value) => setProjectFirmId(toLookupId(value))}
-      />
+      {isManagementView && (
+        <FilterSelect
+          id="document-filter-firm"
+          label="Proje Firması"
+          emptyLabel={ANY_OPTION_LABEL}
+          value={projectFirmId === null ? null : String(projectFirmId)}
+          options={toFirmOptions(projectFirms)}
+          onChange={(value) => {
+            const nextFirmId = toLookupId(value)
+            setProjectFirmId(nextFirmId)
+            applyNow({ projectFirmId: nextFirmId })
+          }}
+        />
+      )}
 
       <div className="flex min-w-56 flex-1 flex-col gap-1">
         <label htmlFor="document-filter-search" className="text-xs font-medium text-ink-muted">
           Evrak Ara
         </label>
         <input
+          ref={searchRef}
           id="document-filter-search"
           type="search"
           name={SEARCH_FIELD}
           defaultValue={filters.search}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            applyNow({ search: event.currentTarget.value.trim() })
+          }}
           aria-label={SEARCH_LABEL}
           placeholder={SEARCH_PLACEHOLDER}
           className={adminFieldVariants()}
         />
       </div>
-
-      <button
-        type="submit"
-        className={adminButtonVariants({ tone: 'secondary', className: 'w-full md:w-auto' })}
-      >
-        <Funnel aria-hidden className="size-4" />
-        Filtrele
-      </button>
-    </form>
+    </div>
   )
 }

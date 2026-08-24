@@ -16,7 +16,9 @@ centralVentilation, topSideOpenable }`. Kullanım tipi diye bir alan yok.
 ⚠️ Ekran görüntülerindeki **"Tanımsız" bir tip DEĞİL** — boş `label`'ın
 arayüzdeki karşılığı. Liste tipi diye okunursa yanlış bir enum üretilir.
 
-`ROOM_USAGE_TYPES` on beş tip taşıyor ve **analist onayı bekliyor**. Üstüne
+`ROOM_USAGE_TYPES` YİRMİ BEŞ tip taşıyor (K144'te on tip eklendi;
+⚠️ `balcony` etiketi "Balkon (Açık)" oldu, DEĞERİ korundu — kapalı balkon ayrı
+tip) ve **analist onayı bekliyor**. Üstüne
 kural yazma: "hangi cihaz hangi mahale konabilir" AYRI bir tablo ve o tablo hâlâ
 yok (`docs/api-eksikleri-hata-kontrol.md`, Hata3). Liste değişince değişecek TEK
 yer bu dosya.
@@ -81,3 +83,59 @@ ve `findRoomLabelAt` korumaları K117'de kaldırıldı — tanımın tek yeri pa
   KAPIDA duruyor. Bunlar K115'in açık bıraktığı "dışarıdan erişim" sorusunu da
   çözebilir — giriş kapısı işaretli olsaydı graf tohumu tahmine dayanmazdı
   (bkz. validation-rules.md).
+
+## Toplu tanımlama kipi (K145)
+
+Araçlar > "Mahalleri Tanımla" AKTİF KATTAKİ tanımsız mahalleri tek tek gezer:
+mahal sahnede seçim mavisiyle ve daha dolu (`roomDefinitionFillOpacity`)
+çizilir, kamera ona gider (`uiStore.requestFocus` → `ViewportFocus`), altta
+yüzen kart (`ui/canvas/RoomDefinitionCard.tsx`) tipleri rozet olarak sunar.
+Klavye: 1–9 ilk dokuz rozet, ← → duraklar arası, Esc çıkış.
+
+⚠️ Kuyruk BAŞLARKEN donar — `architectureUiStore.roomDefinitionQueue` yalnız
+id tutar. Canlı türetilseydi tip verilen mahal kuyruktan düşer, ilerleme
+göstergesi gözün önünde değişir ve geri gitmek imkânsız olurdu. Geometri ise
+her render'da `core/roomDefinition.ts` → `getRoomDefinitionQueue` ile taze
+okunur (kip açıkken duvar oynatılabilir).
+
+⚠️ Sıra id'den değil KONUMDAN: üstten alta, sonra soldan sağa, 100 cm'lik satır
+toleransıyla. id sırası çizim sırasıdır ve kamerayı çizimin bir ucundan
+öbürüne savurur.
+
+⚠️ Tip yazılınca bir sonraki değil, ilk TANIMSIZ durağa geçilir; kalan yoksa kip
+kendini kapatır. `advanceAfter` içindeki harita o anda BAYATTIR (yazım henüz
+render'a yansımadı), az önce tanımlanan mahal ayrıca elenir.
+
+⚠️ Kartın geometri kaynağı `getFloorRoomStops`: kattaki TÜM mahalleri verir
+(`isDefined` bayrağıyla), yalnız tanımsızları değil — geri gidilen durak artık
+tanımlıysa da kamera oraya gitmeli.
+
+⚠️ Kip açılırken seçim temizlenir: açık seçim hem ikinci bir mavi vurgu hem de
+sağda ikinci bir tanımlama arayüzü demekti.
+
+Menü maddesi salt görüntülemede ve mimari dışı görünümlerde pasiftir.
+
+### Gözden geçirme turu, arama, odak payı (K146)
+
+Tanımsız mahal kalmadıysa menü maddesi PASİF OLMAZ; kip TÜM mahalleri gezer
+(gözden geçirme turu). ⚠️ Tur sıfırlama değil, hiçbir tip silinmez — bu yüzden
+onay penceresi de yok. Madde yalnız katta hiç mahal yokken pasif.
+
+⚠️ `advanceAfter` önce ileride TANIMSIZ durak arar, bulamazsa SIRADAKİ durağa
+geçer; kip yalnız SON durakta kapanır. "Yalnız tanımsız ara" hâli gözden geçirme
+turunda ilk düzeltmeden sonra kipi kapatıyordu.
+
+Rozetlerde arama var (`RoomUsagePicker`, `includesTr` ile Türkçe duyarsız).
+⚠️ Rozetlerde RAKAM KISAYOLU YOK: 1–9 vardı, kullanıcı kaldırttı — dokuz tuş
+yirmi beş tipe yetmiyordu. Bu adlarla yeni kod yazma (`QUICK_KEY_COUNT` silindi).
+⚠️ Kutu autoFocus ALMAZ: odak kutuya gitseydi ok tuşlarıyla durak gezinmesi
+çalışmazdı. ⚠️ Kutuda Escʼi kutunun kendisi işler: pencere dinleyicisi yazı
+alanlarını atlıyor.
+
+Kipten çıkış ÜÇ yolla: kartın X'i, Esc ve TUVALE SOL TIK
+(`scene/useRoomDefinitionExit.ts`). ⚠️ Orta ve sağ tuş çıkarmaz — biri kaydırma,
+öteki araçtan çıkma jesti.
+
+Odak payı bilerek cömert (`FOCUS_MARGIN_RATIO` 0,85 / asgari 150 cm): kullanıcı
+bulgusu "fazla yakın, nerede olduğumuzu anlamıyoruz" — mahalin bağlamı da
+görünmeli.

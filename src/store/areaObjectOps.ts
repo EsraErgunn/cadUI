@@ -19,6 +19,11 @@ export type AddAreaObjectInput = {
   type: AreaObjectType
   x: number
   y: number
+  /**
+   * Yerleşim açısı. Duvara yaslanan nesne duvarın açısını alır (K139); boşluğa
+   * yerleştirmede 0 gelir. Verilmezse 0 — eski çağıranların davranışı değişmez.
+   */
+  angleDeg?: number
 }
 
 /**
@@ -35,7 +40,7 @@ export function addAreaObjectToDraft(draft: CadState, input: AddAreaObjectInput)
     y: input.y,
     widthCm: size.widthCm,
     lengthCm: size.lengthCm,
-    angleDeg: 0,
+    angleDeg: input.angleDeg ?? 0,
   }
 
   if (findBlockingOpeningForAreaObject(candidate, draft.walls, draft.points, draft.openings)) {

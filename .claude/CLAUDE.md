@@ -63,7 +63,32 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   `endHeightCm` render'a bağlandı (K102). Saf dikey bağlantı (aynı plan konumunda iki
   nokta, farklı kot) hâlâ mümkün — riski yalnız iki dosyada, genel "sıfır uzunluklu
   segment" koruması olarak ele alınır, `riser` adlı ayrı bir tür YOK.
-  (bkz. knowledge/pipe-elevation.md)
+  Kot EKRANA da basılır (K133): yükseliş noktasında fark + varılan kot
+  (`▲0,75 m (+2,00)`), servis kutusunun altında çıkış kotu (`+0,15 m`). Kot
+  yazımının TEK yeri `core/lengthFormat.ts` (`formatSignedMeters` /
+  `formatElevationMeters`) — uzunluğun aksine işaret taşır. İkisi de "Ölçüler"
+  anahtarına bağlı DEĞİL (K129).
+  (bkz. knowledge/pipe-elevation.md, knowledge/label-visibility.md)
+- Boru ÇİZİMİ klavyeden de sürülür (K125–K127): ok tuşu X/Y eksenini, `+`/`-` kot
+  yönünü KİLİTLER ve tek sayısal kutuyu açar — tuş boru yazmaz, Enter yazar. Kot
+  kutusu MUTLAK hedef değil FARK ister (`commitDraftElevationBy`). Adımın TEK yazım
+  yolu `plumbing/store/lineStepActions.ts`; tuş ↔ eksen eşlemesi SADECE
+  `plumbing/core/draftKeyboard.ts`'te (ekranda yukarı = plan +Y).
+  Kot katın TAVANINI aşarsa üst kata, TABANINI delerse alt kata OTOMATİK geçilir
+  (K104 + K135, `capElevationToFloor`/`capElevationToFloorBase`) — aşağı inerken
+  yeni kata tavanından girilir, aynanın tek asimetrisi budur.
+  KLAVYEDEN KAT DEĞİŞTİRME YOK (K126): PageUp/PageDown, ok tuşları, `floorLinkActions.ts`
+  ve `pendingFloorLink` SİLİNDİ — bu adlarla yeni kod yazma; kat yalnız yüzen çubuk +
+  kat seçici. `FloorPipeLink` duruyor, tek üreticisi otomatik tavan aşımı (K104).
+  Dikey hareket düğümü mor halkayla işaretli (`ElevationNodeRing`). Kot
+  göstergesi KAYBOLMAZ (K129): tek koşul `firstElevationCm !== lastElevationCm`,
+  ve köşe sürüklemesi duvardan ÖNCE başka bir hat KÖŞESİNE tam oturur
+  (`findNearestLineCorner`) — kolon geri getirilince yeniden düşeyleşsin diye.
+  (bkz. knowledge/keyboard-drafting.md)
+- Panelde "Boy (cm)" değişince ucun ötesindeki ağ RİJİT ÖTELENİR, esnemez (K128) —
+  hesap `plumbing/core/resizeTargets.ts`'te ve `moveTargets.ts`'ten BİLEREK ayrı
+  (orada port çapası yayılımı durdurur, burada durdurmaz).
+  (bkz. knowledge/pipe-resize.md)
 - Cihaz (`Equipment`) bir `portNodeId` taşır — her cihazın bağlantı noktası olmalı.
 - Servis kutusu (`ServiceBox`) kökte TEK nesne (dizi değil) → "tek servis kutusu" kuralı yapı gereği.
 - Kolon (`Riser`) kat dışında, kökte. Kat kopyalanınca KLONLANMAZ; `toFloorId` uzatılır.
@@ -77,14 +102,26 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
 - `src/store/` — cadStore+history+projectMeta(A), architecture/floorSlice + architectureUiStore + architectureMock(B), installationSlice(C), uiStore(D).
   Slice'lar cadStore'dan yalnız `import type` yapar; `takeNextId`/`markDirty` projectMeta.ts'te (import döngüsü, K17).
 - `src/scene/` — çekirdek: SceneRoot/Cameras/cameraViewport/useViewportControls/DrawSurface/Grid/gridGeometry/layers/sceneTheme(D); Wall/PointHandle/Room(B); Pipe/Fitting/Equipment/Warning(C).
-  `scene/solid/` KATI MODEL görünümüdür (K120): çizimin 3B türevi, geometrisi
+  `scene/solid/` KATI MODEL görünümüdür (K158): çizimin 3B türevi, geometrisi
   `core/solidModel.ts`ten gelir — sahne kendi geometri hesabını YAPMAZ. Alan
   nesnesi kutu DEĞİL (merdiven basamaklı, baca şaftı içi boş boru) ve zemin
   MAHALE göre renkli — ikisi de plandaki biçimle/kimlikle aynı kaynaktan. Kamera
   orada TAKAS edilir: ortografik kamera, pan/zoom ve ızgara hiç mount edilmez,
-  yerine perspektif + yörünge gelir (ikisi de `makeDefault` olurdu).
-  (bkz. knowledge/solid-model.md)
-- `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/ExportDialog(D), PropertyPanel/properties(B), WarningList+validation(C).
+  yerine perspektif + yörünge gelir (izometriğinkiyle birlikte üçü de
+  `makeDefault` olurdu). (bkz. knowledge/solid-model.md)
+  Ölçüler varsayılan AÇIK (K131), tek bayrak iki görünümü de yönetir. Boru
+  ölçüleri MİMARİ görünümde de yazılır (K132, `InstallationGhost` →
+  `LengthLabels`) ve soluklaştırılmaz; çap etikete girmez, renkten okunur.
+  Tesisatta ALT KAT izi YOK (K130): `InstallationBelowGhost`,
+  `INSTALLATION_BELOW_GHOST_ELEVATION_CM` ve `RENDER_ORDER.installationBelowGhost`
+  SİLİNDİ — bu adlarla yeni kod yazma; mimarideki `FloorBelowGhost` duruyor.
+  (bkz. knowledge/label-visibility.md)
+- `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/pdf(D), PropertyPanel/properties(B), WarningList+validation(C).
+  PDF dışa aktarma `ui/pdf/` altında (K136); boş yer tutucu `ui/ExportDialog.tsx`
+  SİLİNDİ — bu adla yeni kod yazma. **"Proje Dosyasını İndir/Aç" ARTIK
+  ÇALIŞIYOR** ve biçimi PDF: çizim verisi belgeye gömülü
+  (`core/pdf/projectPayload.ts`), açma onu geri okuyor — sayfadaki VEKTÖRLER
+  OKUNMUYOR, okunamaz da. Yalnız StarCAD'in ürettiği PDF açılır.
   Kabuk yeniden kuruldu (K90–K93): üst barda yalnız Dosya + Araçlar, kip
   ayarları tuvalin yüzen çubuğunda; `StatusBar`, `AxisIndicator` ve
   `menu/ShortcutButtons` SİLİNDİ — bu adlarla yeni kod yazma. **Hata
@@ -99,10 +136,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   kullanır (`ui/properties/PropertyPanelShell`). `ui/versions/` kayıt geçmişi
   listesini ve "Farklı Kaydet" penceresini taşır (K109); liste üst bardaki
   düğmenin ALTINDAN açılır, açık/kapalı durumu bileşenin içindedir.
-  Sahne seçicide DÖRDÜNCÜ düğme var: **Katı Model** (K120). Salt okuma
+  Sahne seçicide DÖRDÜNCÜ düğme var: **Katı Model** (K158). Salt okuma
   görünümü — araç paleti, özellik paneli ve çizim çubuğu orada mount EDİLMEZ;
   yerine `ui/canvas/SolidToolbar.tsx` (kapsam + görünürlük anahtarları) gelir.
-  İzometrik düğmesi bununla İLGİSİZ ve hâlâ pasif.
+  İzometrik görünümle İLGİSİZ: o da salt okuma ama kendi kumanda takımını
+  (`isometric/ui/`) getirir.
   (bkz. knowledge/editor-shell.md, knowledge/canvas-toolbar.md,
   knowledge/property-panel.md, knowledge/version-history.md,
   knowledge/validation-rules.md, knowledge/solid-model.md)
@@ -137,6 +175,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   (bkz. knowledge/access-control.md, knowledge/admin-list-state.md,
   knowledge/project-detail.md, knowledge/documents-screens.md,
   knowledge/policy-wizard.md, knowledge/admin-scope.md)
+- `src/isometric/` — izometrik görünüm; `plumbing/` deseninin aynası
+  (`core/` + `scene/` + `store/` + `ui/`). Sahne verisi TÜRETİLMİŞ, store'a
+  konmaz. Kot çözümü `plumbing/core/lineElevation.ts`'ten okunur, burada
+  TEKRARLANMAZ. Cam HUD token'ları (`--color-glass*`) koyu temada EZİLMEZ.
+  (bkz. knowledge/isometric-view.md, izometrik-adimlari.md)
 - `src/pages/`, `src/api/` (A)
 
 Bir dosyanın işini o dosyada yap. Başka birinin slice'ına/dosyasına yazma.
@@ -163,12 +206,21 @@ AYNI id-remap yardımcısını istiyor; ayrı kişilerde olsa iki kez, iki farkl
 - Bir kat mimarisi başka katlara kopyalanabilir (kat çıkma). Kopya tümüyle yeni id'ler alır.
   Hedefte içerik varsa kullanıcı seçer: üzerine yaz (aynı TÜRDEN çizim silinir) ya da o katı
   atla — "hedef boş olmalı" kuralı kalktı, bkz. knowledge/floor-clone.md.
-- İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir.
-- **Katı Model** çizimin 3B türevidir (K120): kat sayısı/yüksekliği, duvar
+- **Katı Model** çizimin 3B türevidir (K158): kat sayısı/yüksekliği, duvar
   kalınlığı, açıklıklar, oda döşemeleri, boru kotları ve çapları üst üste
   binmiş gerçek kütle olarak çizilir. Store'a alan EKLEMEZ. Kapı/pencere
-  yüksekliği, kiriş derinliği ve eleman derinliği modelde YOK — yalnız gösterim
-  sabiti, JSON'a girmez (bkz. knowledge/solid-model.md).
+  yüksekliği, kiriş derinliği, eleman derinliği ve baca şaftının et kalınlığı
+  modelde YOK — yalnız gösterim sabiti, JSON'a girmez. Zemin MAHALİN kullanım
+  tipine göre renklenir (bkz. knowledge/solid-model.md).
+- İzometrik çizimden otomatik üretilir, tüm binayı tek parça gösterir: YALNIZ
+  tesisat çizilir (mimari yok), aktif kat kavramı yoktur. İzdüşüm WebCAD'in
+  `Rx(α)·Ry(β)` matrisidir ama AYNALANARAK ve kamera YÖNÜ olarak uygulanır
+  (K120) — işaretler tahmin değil türetimdir, değiştirmeden önce
+  knowledge/isometric-view.md oku. İzometriğe özel elle yerleştirmeler
+  (dal ayırma, etiket taşıma) AYRI opsiyonel alanlarda durur ve plan çizimini
+  BOZMAZ (K121). α/β projeye yazılır ama projeyi KİRLETMEZ (K122); geri al
+  TESİSAT geçmişine gider (K123); `scene/layers.ts` ve `CAMERA_HEIGHT_CM` orada
+  GEÇERSİZDİR (K124).
 - Kaydedilmemiş değişiklik varsa kullanıcı uyarılır. Yeni sürüm SADECE "Farklı Kaydet" ile.
 - Renk: marka sarısı #FFC107 çizim alanına GİRMEZ. Seçim rengi mavi. Gaz hattının rengi
   ÇAPINDAN gelir (DN25 kırmızı, DN32/40/50 kendi renkleri — WebCAD ile aynı sınıflandırma,

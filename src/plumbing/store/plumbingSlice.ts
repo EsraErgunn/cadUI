@@ -10,6 +10,7 @@ import type { PlanPoint } from '../../core/coords'
 import type { FloorPipeLink, Id } from '../../core/model'
 // cadStore ↔ plumbingSlice karşılıklı import eder; bu taraf tip-only olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
+import { applyIsometricDrag, clearIsometricOffsets } from '../../isometric/core/isometricOffset'
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
 import {
@@ -21,6 +22,8 @@ import {
   type FreeEndAttachment,
   type NearestLineAttachment,
   type OnLineAttachment,
+  type VerticalArmAttachment,
+  type VerticalEndAttachment,
 } from '../core/elementAttach'
 import { getTargetElementId } from '../core/installationModel'
 import type {
@@ -38,16 +41,21 @@ import {
   getLinkedLinePoints,
   getPortAnchoredPointIds,
 } from '../core/lineCornerLink'
-import { GAS_METER_DEFAULT_HEIGHT_CM } from '../core/lineElevation'
+import { GAS_METER_DEFAULT_HEIGHT_CM, hasPipeElevation } from '../core/lineElevation'
 import { hasEnoughPoints } from '../core/lineGeometry'
 import { isGasCarryingKind } from '../core/lineKinds'
-import type { BranchLineProperties, PipeLineProperties } from '../core/lineProperties'
+import type {
+  BranchLineProperties,
+  ChimneyLineProperties,
+  PipeLineProperties,
+} from '../core/lineProperties'
 import { findCollapsiblePassThroughIndex } from '../core/lineSimplify'
 import { extendLineEnd, splitLineAtSegment } from '../core/lineSplit'
 import { resolveMoveTargets } from '../core/moveTargets'
 import { DEFAULT_PIPE_TYPE_NAME, type PipeTypeName } from '../core/pipeTypes'
 import { DEFAULT_ELEMENT_ANGLE_DEG, DEFAULT_ELEMENT_SCALE } from '../core/placement'
 import { isPortOccupied } from '../core/portSnap'
+import { resolvePipeResizeShift } from '../core/resizeTargets'
 import type { InstallationElementType } from '../core/symbolMetadata'
 
 export type AddElementInput = {
@@ -69,6 +77,8 @@ export type AddLineInput = {
   pipe?: PipeLineProperties
   /** Branşman kotu — hat ile AYNI geçmiş adımında yazılır. */
   branch?: BranchLineProperties
+  /** Baca/havalandırma kotu — hat ile AYNI geçmiş adımında yazılır. */
+  chimney?: ChimneyLineProperties
 }
 
 /**
@@ -151,6 +161,13 @@ export type PlumbingSlice = {
   placeOnLineElements: (attachment: OnLineAttachment) => void
   /** Boş boru ucuna eleman: araya vana girer, hat elemanın girişine uzar. Eleman id'si döner. */
   placeElementAtLineEnd: (attachment: FreeEndAttachment) => Id | null
+  /** Dikey borunun (K102) ucundaki düğüme oturan armatür — boru bölünmez, kot düğümden gelir. */
+  placeElementAtVerticalEnd: (attachment: VerticalEndAttachment) => Id | null
+  /** Kolonun ucundan kısa yatay kol + ucunda eleman + kolonda vana — tek adım. Eleman id'si döner. */
+  placeElementAtVerticalArm: (
+    attachment: VerticalArmAttachment,
+    pipeTypeName: PipeTypeName,
+  ) => Id | null
   /** Cihaz + en yakın boruya kısa kol + kolun dibindeki vana — hepsi tek adım. */
   placeElementWithStub: (
     attachment: NearestLineAttachment,
@@ -160,6 +177,31 @@ export type PlumbingSlice = {
   setLinesPipeType: (lineIds: readonly Id[], pipeTypeName: PipeTypeName) => void
   /** Ad etiketinin kaymasını yazar — bir etiket sürüklemesi = bir Ctrl+Z. */
   setElementLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
+  /**
+   * Etiketin İZOMETRİKTEKİ kayması. `setElementLabelOffset`'ten AYRI action:
+   * iki görünümün etiket yerleşimi bağımsız (bkz. installationModel.ts) —
+   * izometride kalabalığı açmak plandaki yerleşimi bozmamalı.
+   */
+  setElementIsometricLabelOffset: (elementId: Id, offsetCm: PlanPoint) => void
+  /** Hat etiketinin izometrikteki kayması; planda hat etiketi taşınmıyor. */
+  setLineIsometricLabelOffset: (lineId: Id, offsetCm: PlanPoint) => void
+  /**
+   * İzometrikte bir hat köşesini sürüklemenin sonucunu yazar: sürüklenen nokta
+   * kendi kaymasını, ONDAN SONRAKİLER mirası alır (dal bütün olarak kayar,
+   * bkz. isometric/core/isometricOffset.ts). PLAN konumlarına DOKUNMAZ —
+   * izometrikte çizimi ayıklamak plan çizimini bozmamalı.
+   *
+   * Bir sürükleme = bir Ctrl+Z: canlı önizleme UI store'da tutulur, buraya
+   * yalnız bırakılan son kayma gelir.
+   */
+  applyIsometricLineDrag: (lineId: Id, pointId: Id, deltaCm: PlanPoint) => void
+  /**
+   * "İzometrik konumları sıfırla": izometriğe ÖZEL tüm elle yerleştirmeleri
+   * (dal kaydırmaları + etiket konumları) siler. PLAN çizimine dokunmaz —
+   * zaten hiçbiri plan verisi değil. Tek adım, tek Ctrl+Z: kullanıcı onlarca
+   * etiketi tek tek geri almak zorunda kalmasın.
+   */
+  resetIsometricPositions: () => void
   /**
    * Seçili elemanların alanlarını kısmi yazar — özellik paneli formlarının
    * GENEL kapısı (K-tesisat-panel). Her eleman türü kendi opsiyonel alt-alanını
@@ -467,6 +509,7 @@ export const createPlumbingSlice: StateCreator<
       points: readonly PlanPoint[]
       pipe?: PipeLineProperties
       branch?: BranchLineProperties
+      chimney?: ChimneyLineProperties
     },
   ): { lineId: Id; pointIds: Id[] } => {
     const points: InstallationLinePoint[] = input.points.map((position) => ({
@@ -489,6 +532,7 @@ export const createPlumbingSlice: StateCreator<
       segments,
       ...(input.pipe ? { pipe: input.pipe } : {}),
       ...(input.branch ? { branch: input.branch } : {}),
+      ...(input.chimney ? { chimney: input.chimney } : {}),
     })
     return { lineId: id, pointIds: points.map((point) => point.id) }
   }
@@ -753,40 +797,60 @@ export const createPlumbingSlice: StateCreator<
       if (isMoved) record()
     },
 
+    /**
+     * "Boy" alanı: borunun BİTİŞ ucu hedefe kayar ve ucuna bağlı ne varsa
+     * (dirsek, vana, sayaç, devam boruları ve onların üstündeki elemanlar)
+     * AYNI KAYMAYLA ötelenir — hiçbiri gerilmez (kullanıcı isteği, 2026-08).
+     * Kimin öteleneceği saf hesapta: `core/resizeTargets.ts`. Eskiden yalnız
+     * o köşedeki kaynaklı uçlar hedefe taşınıyordu (devam borusu ESNİYORDU) ve
+     * yayılım bir port çapasına değerse işlem TÜMÜYLE reddediliyordu.
+     *
+     * Kot farkı da aynı mantıkla taşınır: bütünüyle ötelenen borular
+     * `startHeightCm`/`endHeightCm`'lerini delta kadar kaydırır, yoksa eğik
+     * bir boru kısaldığında ağın geri kalanı 3B'de kopardı.
+     */
     resizePipeEnd: (lineId, endPointId, position, endHeightCm) => {
       let isChanged = false
 
       set((draft) => {
         const line = draft.installationLines.find((candidate) => candidate.id === lineId)
-        if (!line) return
+        const endPoint = line?.points.find((candidate) => candidate.id === endPointId)
+        if (!line || !endPoint) return
 
-        const linked = getLinkedLinePoints(
+        const deltaX = position.x - endPoint.position.x
+        const deltaY = position.y - endPoint.position.y
+        const deltaHeightCm = endHeightCm - (line.pipe?.endHeightCm ?? 0)
+
+        // Kayma UYGULANMADAN önce hesaplanır: küme mevcut bağ durumuna bakar.
+        const shift = resolvePipeResizeShift(
           draft.installationLines,
           draft.installationConnections,
+          draft.floorPipeLinks,
           lineId,
           endPointId,
         )
-        const anchored = getPortAnchoredPointIds(
-          draft.installationLines,
-          draft.installationConnections,
-        )
-        const floorLinkAnchored = getFloorLinkAnchoredPointIds(draft.floorPipeLinks)
-        if (linked.some((link) => anchored.has(link.pointId) || floorLinkAnchored.has(link.pointId))) return
 
-        for (const link of linked) {
-          const linkedLine = draft.installationLines.find((candidate) => candidate.id === link.lineId)
-          const point = linkedLine?.points.find((candidate) => candidate.id === link.pointId)
-          if (!point) continue
-          if (point.position.x === position.x && point.position.y === position.y) continue
-
-          point.position = position
+        if (deltaX !== 0 || deltaY !== 0) {
+          endPoint.position = position
           isChanged = true
 
-          if (point.inlineElementId !== undefined) {
-            const element = draft.installationElements.find(
-              (candidate) => candidate.id === point.inlineElementId,
-            )
-            if (element) element.position = position
+          for (const candidate of draft.installationLines) {
+            for (const point of candidate.points) {
+              if (!shift.pointIds.has(point.id)) continue
+              point.position = { x: point.position.x + deltaX, y: point.position.y + deltaY }
+            }
+          }
+          for (const element of draft.installationElements) {
+            if (!shift.elementIds.has(element.id)) continue
+            element.position = { x: element.position.x + deltaX, y: element.position.y + deltaY }
+          }
+        }
+
+        if (deltaHeightCm !== 0) {
+          for (const candidate of draft.installationLines) {
+            if (!shift.lineIds.has(candidate.id) || !candidate.pipe) continue
+            candidate.pipe.startHeightCm += deltaHeightCm
+            candidate.pipe.endHeightCm += deltaHeightCm
           }
         }
 
@@ -814,6 +878,7 @@ export const createPlumbingSlice: StateCreator<
           points: input.points,
           pipe: input.pipe,
           branch: input.branch,
+          chimney: input.chimney,
         })
 
         const attachments = [
@@ -900,10 +965,16 @@ export const createPlumbingSlice: StateCreator<
         // yalnız gasMeter'da) — saha uygulamasında sayaç duvara ~2 m'de monte
         // edilir, borunun varsayılan zemin kotunda (0) kalması gerçekçi
         // olmazdı (kullanıcı isteği, 2026-08). Düz kot: eğim yok, K102'nin
-        // `+`/`- ile kullanıcı sonradan değiştirebilir. `branchStub` de dahil
+        // `+`/`-` ile kullanıcı sonradan değiştirebilir. `branchStub` de dahil
         // (kullanıcı isteği, 2026-08): branşman aracında sayaç HEP bu koldan
         // takılır, oradan geldiyse de kot atlanmamalı.
-        if (line.kind === 'pipe' || line.kind === 'branchStub') {
+        //
+        // Ama borunun KENDİ kotu varsa (`hasPipeElevation`) ona DOKUNULMAZ:
+        // sayaç o kota takılır. Koşulsuz yazım, kullanıcının +/- ya da panelle
+        // yükselttiği bir borunun ucuna sayaç eklendiğinde boruyu 200'e geri
+        // düşürüyordu (kullanıcı isteği, 2026-08: "boruya yükseklik
+        // verildiğinde ucuyla işlem yapılınca hep yeni yükseklikle devam et").
+        if ((line.kind === 'pipe' || line.kind === 'branchStub') && !hasPipeElevation(line)) {
           line.pipe = {
             description: '',
             ...line.pipe,
@@ -925,6 +996,89 @@ export const createPlumbingSlice: StateCreator<
           end: attachment.end,
           target: { kind: 'port', elementId, portId: attachment.inputPortId },
         })
+
+        markDirty(draft)
+        createdId = elementId
+      })
+
+      if (createdId === null) return null
+      record()
+      return createdId
+    },
+
+    placeElementAtVerticalEnd: (attachment) => {
+      let createdId: Id | null = null
+
+      set((draft) => {
+        const line = draft.installationLines.find(
+          (candidate) => candidate.id === attachment.lineId,
+        )
+        if (!line) return
+
+        const endPoint = line.points.find((candidate) => candidate.id === attachment.endPointId)
+        // Bir düğüm TEK armatür taşır: bu arada dolduysa yerleştirme düşer.
+        if (!endPoint || endPoint.inlineElementId !== undefined) return
+
+        // Boru BÖLÜNMEZ: dikey borunun plan boyu sıfır, bölünecek bir gövdesi
+        // yok. Armatür var olan uç düğümünün kendisine oturur; kotu da o
+        // düğümden türer (`getInlineElementElevationCm`), ayrıca yazılmaz.
+        const elementId = pushElement(draft, attachment.placement)
+        endPoint.inlineElementId = elementId
+
+        markDirty(draft)
+        createdId = elementId
+      })
+
+      if (createdId === null) return null
+      record()
+      return createdId
+    },
+
+    placeElementAtVerticalArm: (attachment, pipeTypeName) => {
+      let createdId: Id | null = null
+
+      set((draft) => {
+        const line = draft.installationLines.find(
+          (candidate) => candidate.id === attachment.lineId,
+        )
+        if (!line) return
+
+        const endPoint = line.points.find((candidate) => candidate.id === attachment.endPointId)
+        // Bir düğüm TEK armatür taşır; kolonun ucu bu arada dolduysa vazgeçilir.
+        if (!endPoint || endPoint.inlineElementId !== undefined) return
+
+        const [elementPlacement, valvePlacement] = attachment.placements
+        endPoint.inlineElementId = pushElement(draft, valvePlacement)
+
+        const elementId = pushElement(draft, elementPlacement)
+        // Kol GERÇEK bir gaz borusudur (cihaz kolu değil): kolonun ucundan
+        // çıkar, sayacın girişinde biter ve kot boyunca DÜZ gider — kolonun o
+        // ucundaki kotu alır, sayaç için ayrı bir varsayılan yükseklik
+        // YAZILMAZ (kullanıcı isteği, 2026-08: "eklenenler borunun
+        // yüksekliğini almalı").
+        const { lineId: armId } = pushLine(draft, {
+          kind: 'pipe',
+          pipeTypeName,
+          points: [attachment.armStart, attachment.armEnd],
+          pipe: {
+            startHeightCm: attachment.elevationCm,
+            endHeightCm: attachment.elevationCm,
+            description: '',
+          },
+        })
+
+        draft.installationConnections.push(
+          {
+            lineId: armId,
+            end: 'start',
+            target: { kind: 'line', lineId: line.id, pointId: attachment.endPointId },
+          },
+          {
+            lineId: armId,
+            end: 'end',
+            target: { kind: 'port', elementId, portId: attachment.inputPortId },
+          },
+        )
 
         markDirty(draft)
         createdId = elementId
@@ -1018,6 +1172,102 @@ export const createPlumbingSlice: StateCreator<
         element.labelOffsetCm = offsetCm
         isChanged = true
         markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setElementIsometricLabelOffset: (elementId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const element = draft.installationElements.find(
+          (candidate) => candidate.id === elementId,
+        )
+        if (!element) return
+        if (
+          element.isometricLabelOffsetCm?.x === offsetCm.x &&
+          element.isometricLabelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        element.isometricLabelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    setLineIsometricLabelOffset: (lineId, offsetCm) => {
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+        if (
+          line.isometricLabelOffsetCm?.x === offsetCm.x &&
+          line.isometricLabelOffsetCm?.y === offsetCm.y
+        ) {
+          return
+        }
+
+        line.isometricLabelOffsetCm = offsetCm
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    applyIsometricLineDrag: (lineId, pointId, deltaCm) => {
+      if (deltaCm.x === 0 && deltaCm.y === 0) return
+
+      let isChanged = false
+
+      set((draft) => {
+        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
+        if (!line) return
+
+        const next = applyIsometricDrag(line.points, pointId, deltaCm)
+        // Referans karşılaştırması yetiyor: dokunulmayan nokta AYNI nesneyle
+        // geri geliyor (bkz. isometricOffset.ts).
+        if (next.every((point, index) => point === line.points[index])) return
+
+        line.points = next
+        isChanged = true
+        markDirty(draft)
+      })
+
+      if (isChanged) record()
+    },
+
+    resetIsometricPositions: () => {
+      let isChanged = false
+
+      set((draft) => {
+        for (const line of draft.installationLines) {
+          const cleared = clearIsometricOffsets(line.points)
+          // Referans karşılaştırması yetiyor: `clearIsometricOffsets` temiz
+          // noktayı AYNI nesneyle geri veriyor (bkz. isometricOffset.ts).
+          if (cleared.some((point, index) => point !== line.points[index])) {
+            line.points = cleared
+            isChanged = true
+          }
+          if (line.isometricLabelOffsetCm) {
+            delete line.isometricLabelOffsetCm
+            isChanged = true
+          }
+        }
+
+        for (const element of draft.installationElements) {
+          if (!element.isometricLabelOffsetCm) continue
+          delete element.isometricLabelOffsetCm
+          isChanged = true
+        }
+
+        if (isChanged) markDirty(draft)
       })
 
       if (isChanged) record()

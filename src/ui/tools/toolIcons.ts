@@ -10,6 +10,7 @@ import {
   DoorOpen,
   Eraser,
   FireExtinguisher,
+  FlipHorizontal2,
   Lightbulb,
   MousePointer2,
   PanelTop,
@@ -32,6 +33,8 @@ import type { ToolId } from '../../core/tools'
  */
 export const TOOL_ICONS: Record<ToolId, LucideIcon> = {
   selection: MousePointer2,
+  // Palette çizilmiyor (özellik panelinden açılıyor); Record yine de zorunlu.
+  mirrorAxis: FlipHorizontal2,
   mainCutoffSwitch: ZapOff,
   drawWall: BrickWall,
   panel: PanelTop,

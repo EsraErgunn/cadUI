@@ -3,9 +3,11 @@ import { Menu, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { UserMenu } from './UserMenu'
+import { MANAGEMENT_SCREEN_ROLES } from './adminNavItems'
 import { buildScopeOptionGroups, parseScopeValue, toScopeValue } from './adminScopeOptions'
 import { adminFieldVariants, adminIconButtonVariants } from './adminVariants'
 import { useAdminScopeParam } from './useAdminScopeParam'
+import { hasAnyRole, useRoleCode } from './useRole'
 import { fetchAllFirms, getFirmGroups } from '../../api/adminFirms'
 
 const SCOPE_SELECT_ID = 'admin-scope'
@@ -26,9 +28,13 @@ const GLOBAL_SCOPE_VALUE = ''
  * `adminScopeOptions.ts`'te, bileşen yalnız çiziyor. Firma listesi liste
  * ekranıyla ORTAK anahtardan geliyor, ikinci bir indirme olmuyor.
  *
- * Seçici HER ekranda etkin (docs/kararlar.md K44). Satırında kapsam bilgisi
- * olmayan kayıt elenmez, o ekranda kapsam bugün sonucu değiştirmez — böylece
- * seçim hiçbir listeyi sessizce boşaltmıyor.
+ * Seçici, kapsamı olan HER YÖNETİCİ ekranında etkin (docs/kararlar.md K44).
+ * Satırında kapsam bilgisi olmayan kayıt elenmez, o ekranda kapsam bugün sonucu
+ * değiştirmez — böylece seçim hiçbir listeyi sessizce boşaltmıyor.
+ *
+ * Proje firması kullanıcısında seçici HİÇ ÇİZİLMEZ: kapsamı zaten kendi
+ * firması, seçenekler ise gaz dağıtım grupları/firmaları — ona "sistem geneline
+ * bakıyorum" yanılgısından başka bir şey vermezdi.
  */
 interface AdminTopBarProps {
   /** Dar ekrandaki menü çekmecesini açar; `lg` ve üstünde düğme görünmez. */
@@ -38,6 +44,11 @@ interface AdminTopBarProps {
 export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   const [globalQuery, setGlobalQuery] = useState('')
   const { scope, setScope } = useAdminScopeParam()
+  // FİRMA seçenekleri yalnız yöneticide: `GET /api/gasdistributionfirms`
+  // sunucuda `Authorize(Roles = Admin)` ile korunuyor, öteki rollerde istek
+  // 403 döner. GRUP ucu (`/api/gasdistributiongroups`) her role açık, o yüzden
+  // seçici herkeste çiziliyor ve grup satırlarını gösteriyor.
+  const canListGasFirms = hasAnyRole(useRoleCode(), MANAGEMENT_SCREEN_ROLES)
 
   const { data: groups } = useQuery({
     queryKey: ['firmGroups'],
@@ -49,6 +60,7 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   const { data: firms } = useQuery({
     queryKey: ['gasDistributionFirms', 'all'],
     queryFn: ({ signal }) => fetchAllFirms(signal),
+    enabled: canListGasFirms,
   })
 
   const optionGroups = useMemo(

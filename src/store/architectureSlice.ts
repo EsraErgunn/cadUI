@@ -92,6 +92,14 @@ export type ArchitectureSlice = ArchitectureData &
   transformSelection: (selection: Selection, transform: PlanTransform) => boolean
   /** Seçimi çoğaltır ve KOPYALARIN seçimini döndürür (KK-11). */
   duplicateSelection: (selection: Selection, offset: { dxCm: number; dyCm: number }) => Selection
+  /**
+   * Seçimin DÖNÜŞTÜRÜLMÜŞ kopyası; kaynak yerinde kalır (K140). Çizilen eksene
+   * göre aynalama bunu kullanıyor — orada işlem bir taşıma değil çoğaltma.
+   */
+  duplicateSelectionWithTransform: (
+    selection: Selection,
+    transform: PlanTransform,
+  ) => Selection
   /** Mahalin kullanım tipi (madde 104). `undefined` = tip belirtilmemiş. */
   setRoomUsageType: (roomId: Id, usageType: RoomUsageType | undefined) => void
 }

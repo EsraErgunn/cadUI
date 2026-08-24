@@ -62,6 +62,28 @@ export function capElevationToFloor(targetHeightCm: number, floorHeightCm: numbe
   return { endHeightCm: floorHeightCm, overflowCm: targetHeightCm - floorHeightCm }
 }
 
+export type ElevationFloorBaseCap = {
+  /** Bu katta yazılacak kot — tabanın (0) ALTINA inmez. */
+  endHeightCm: number
+  /** Tabanın altında kalan kısım — alttaki kata taşınacak miktar. İnilmediyse 0. */
+  underflowCm: number
+}
+
+/**
+ * `capElevationToFloor`ın AYNADAKİ eşi (K135): hedef kot katın TABANININ
+ * altına inerse bu katta biten kot (0) + alttaki kata taşınacak kalan.
+ * Tavanın aksine eşik parametre DEĞİL — her katın tabanı kendi yerel
+ * koordinatında sıfırdır (kot saklanmaz, `core/floorElevation.ts` türetir).
+ *
+ * K104'ün "yalnız YUKARI yön otomatik" sınırını bilinçli olarak geride
+ * bırakır: kullanıcı `-` ile kat yüksekliğinden fazla kot verdiğinde borunun
+ * alt kata inmesini istedi (2026-08).
+ */
+export function capElevationToFloorBase(targetHeightCm: number): ElevationFloorBaseCap {
+  if (targetHeightCm >= 0) return { endHeightCm: targetHeightCm, underflowCm: 0 }
+  return { endHeightCm: 0, underflowCm: -targetHeightCm }
+}
+
 /**
  * Hattın her noktasındaki kot: kümülatif PLAN uzunluğuna göre başlangıç→bitiş
  * arasında doğrusal enterpolasyon. Plan boyu SIFIR ise (saf dikey bağlantı,
@@ -157,6 +179,67 @@ export function getInlineElementElevationCm(elementId: Id, lines: readonly Insta
 }
 
 /**
+ * Hat kendi kotunu TAŞIYOR mu: iki uçlu kot alanı dolu VE uçlardan biri
+ * sıfırdan farklı. Kotu bir kez belirlenmişse (`+`/`-`, sayısal kutu, panel ya
+ * da bağlandığı hedeften devralınan tohum) o hattın UCUYLA yapılan hiçbir
+ * işlem varsayılan bir yüksekliğe geri dönmemeli (kullanıcı isteği, 2026-08:
+ * "boruya yükseklik verildiğinde ucuyla işlem yapılınca yeni yükseklikle devam
+ * et") — çağıran varsayılanı yalnız bu `false` iken yazar.
+ *
+ * Sıfır "kot verilmedi" sayılır: zemin kotundaki boru ile hiç dokunulmamış
+ * boru veride ayırt EDİLEMEZ, ayrı bir "dokunuldu" bayrağı ise kaydedilen
+ * JSON'a model alanı ekler (core/model.ts SÖZLEŞMESİ).
+ */
+export function hasPipeElevation(line: InstallationLine): boolean {
+  return (
+    hasTwoEndedPipeElevation(line) &&
+    (line.pipe.startHeightCm !== 0 || line.pipe.endHeightCm !== 0)
+  )
+}
+
+/** Hattın BELİRLİ bir köşesindeki kot. Kendi kotunu taşımayan hatta `0`. */
+export function getLinePointElevationCm(line: InstallationLine, pointId: Id): number {
+  if (!hasTwoEndedPipeElevation(line)) return 0
+
+  const index = line.points.findIndex((point) => point.id === pointId)
+  if (index === -1) return 0
+
+  const positions = line.points.map((point) => point.position)
+  return getLinePointElevationsCm(positions, line.pipe.startHeightCm, line.pipe.endHeightCm)[index]
+}
+
+/**
+ * Kendi kotunu TAŞIMAYAN bir hattın (yakıcı cihaz kolu `applianceStub`)
+ * oturduğu kot: tutunduğu borunun O NOKTASINDAKİ kotu. Kol iki ucu arasında
+ * kot değiştirmez — cihaz, bağlandığı borunun hizasında durur.
+ *
+ * Neden gerekti: `applianceStub` `hasTwoEndedPipeElevation`'a girmiyor, bu
+ * yüzden kombi/ocak/soba `0` kotunda kalıyordu. Planda görünmüyordu (tepeden
+ * bakış kotu göstermez) ama izometrikte cihazlar yerde yatıyordu. WebCAD'de
+ * cihaz `pointId`'nin `elevation`'ını alır; bizdeki karşılığı bu.
+ *
+ * TEK SIÇRAMA yapar (`kind: 'line'` hedefi): kol → boru. Zincir izlenseydi
+ * birbirine bağlı iki kol sonsuz döngüye girebilirdi.
+ */
+export function getAttachedLineElevationCm(
+  line: InstallationLine,
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): number {
+  for (const connection of connections) {
+    if (connection.lineId !== line.id) continue
+    // Daraltma yerel sabite alınıyor: `lines.find(...)` bir kapanış ve TS
+    // `connection.target` daraltmasını kapanışın içine taşımıyor.
+    const { target } = connection
+    if (target.kind !== 'line') continue
+
+    const host = lines.find((candidate) => candidate.id === target.lineId)
+    if (host) return getLinePointElevationCm(host, target.pointId)
+  }
+  return 0
+}
+
+/**
  * Bir elemanın SAHNEDEKİ (3B) kotu — tutunma biçiminden bağımsız TEK adres
  * (kullanıcı isteği, 2026-08: "Z ekseninde kullandığımız her şey için
  * geçerli"). Önceden yalnız `onLine` armatürler (`getInlineElementElevationCm`)
@@ -173,6 +256,7 @@ export function getElementElevationCm(
   elementId: Id,
   lines: readonly InstallationLine[],
   connections: readonly InstallationConnection[],
+  elements: readonly InstallationElement[] = [],
 ): number {
   const isInline = lines.some((line) => line.points.some((point) => point.inlineElementId === elementId))
   if (isInline) return getInlineElementElevationCm(elementId, lines)
@@ -180,12 +264,49 @@ export function getElementElevationCm(
   const connection = connections.find(
     (candidate) => candidate.target.kind === 'port' && candidate.target.elementId === elementId,
   )
-  if (!connection || connection.target.kind !== 'port') return 0
+  if (!connection || connection.target.kind !== 'port') {
+    // Henüz borusu çizilmemiş servis kutusu yine de kendi çıkış kotunda durur:
+    // özellik panelinde 15 yazarken sahnede zeminde görünmesi çelişki olurdu
+    // (kullanıcı isteği, 2026-08). Diğer türlerde bağsız eleman kotsuzdur.
+    const element = elements.find((candidate) => candidate.id === elementId)
+    return element?.type === 'serviceBox' ? SERVICE_BOX_SEED_HEIGHT_CM : 0
+  }
 
   const line = lines.find((candidate) => candidate.id === connection.lineId)
-  if (!line || !hasTwoEndedPipeElevation(line)) return 0
+  if (!line) return 0
+  if (hasTwoEndedPipeElevation(line)) {
+    return connection.end === 'start' ? line.pipe.startHeightCm : line.pipe.endHeightCm
+  }
 
-  return connection.end === 'start' ? line.pipe.startHeightCm : line.pipe.endHeightCm
+  // Yakıcı cihaz kolu kendi kotunu taşımaz; tutunduğu borudan okunur.
+  return getAttachedLineElevationCm(line, lines, connections)
+}
+
+/**
+ * Deşarj hattının (baca / havalandırma kanalı) kotu: ÇIKTIĞI CİHAZIN kotu
+ * (kullanıcı isteği, 2026-08: "eklenen havalandırma ve baca da konulduğu
+ * cihazın yüksekliğini alsın"). Kanal cihazın deşarj ağzından çıkar; sıfır
+ * kalsaydı izometrikte cihaz havada, bacası yerde görünürdü.
+ *
+ * Kanal kendi kot alanını TAŞIMADIĞI durumda kullanılır — havalandırma
+ * kanalında (`VentilationDuctLineProperties`) böyle bir alan hiç yok, bacada
+ * ise yalnız K102 öncesi çizimlerde boş. Türetme `applianceStub` ile aynı
+ * desen (`getAttachedLineElevationCm`): kot borularda durur, ona tutunan
+ * okur.
+ */
+export function getDischargeSourceElevationCm(
+  line: InstallationLine,
+  lines: readonly InstallationLine[],
+  connections: readonly InstallationConnection[],
+): number {
+  for (const connection of connections) {
+    if (connection.lineId !== line.id) continue
+
+    const { target } = connection
+    if (target.kind !== 'outlet') continue
+    return getElementElevationCm(target.elementId, lines, connections)
+  }
+  return 0
 }
 
 /**

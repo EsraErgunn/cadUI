@@ -11,10 +11,12 @@ import {
   resizeAreaObjectFromCorner,
   type AreaObjectHandleKind,
 } from '../core/areaObjectHandles'
+import { hasAreaObjectWallSnap, snapPointToWallFace } from '../core/areaObjectWallSnap'
 import type { PlanPoint } from '../core/coords'
 import type { AreaObject, Id } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
 import { getSoleSelectedId } from '../core/selection'
+import { getSnapToleranceCm } from '../core/snap'
 import { SELECTION_TOOL_ID } from '../core/tools'
 import { normalizeAngleDeg, snapAngleDeg } from '../core/transform'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
@@ -24,13 +26,36 @@ import { useUiStore } from '../store/uiStore'
 const PRIMARY_BUTTON = 0
 
 /**
+ * Boyutlandırmada sürüklenen köşenin gideceği nokta: önce DUVAR YÜZÜ, olmazsa
+ * ızgara (K139, yerleştirme/taşımayla aynı öncelik).
+ *
+ * Köşe yüze oturunca nesnenin KENARI da oraya oturuyor — kullanıcı kolonu
+ * duvarın üstünde büyütürken kenarı duvarla hizalı kalsın diye istedi.
+ */
+function snapResizeTarget(type: AreaObject['type'], target: PlanPoint, zoom: number): PlanPoint {
+  if (hasAreaObjectWallSnap(type)) {
+    const cad = useCadStore.getState()
+    const snapped = snapPointToWallFace(
+      target,
+      cad.walls.filter((wall) => wall.floorId === cad.activeFloorId),
+      cad.points,
+      getSnapToleranceCm(zoom),
+    )
+    if (snapped) return snapped
+  }
+
+  return getPlacementPosition(target, zoom)
+}
+
+/**
  * Tutamaç başına imleç biçimi. Döndürme için standart bir imleç yok; `grab`
- * "tut ve çevir"i en yakın anlatan yerleşik biçim. Boyutlandırma sağ-alt
- * köşede olduğu için çapraz `nwse-resize`.
+ * "tut ve çevir"i en yakın anlatan yerleşik biçim. İki boyutlandırma tutamacı
+ * da AYNI köşegen üzerinde (sol-üst ↔ sağ-alt), bu yüzden ikisi de `nwse`.
  */
 const HANDLE_CURSORS: Record<AreaObjectHandleKind, string> = {
   rotate: 'grab',
-  resize: 'nwse-resize',
+  resizeBottomRight: 'nwse-resize',
+  resizeTopLeft: 'nwse-resize',
 }
 
 /**
@@ -106,34 +131,41 @@ export function useAreaObjectHandleTool(): void {
 
     /** Sürüklemenin o anki önizleme şekli — hem çizim hem bırakma bunu kullanır. */
     const readShape = (event: DrawSurfacePointerEvent): AreaObjectShape | undefined => {
-      if (!grab) return undefined
+      // Yerel `const`: `grab` kapanış değişkeni olduğu için tür daraltması araya
+      // giren çağrılarda kayboluyor, kind'ı boyutlandırmaya geçiremiyorduk.
+      const current = grab
+      if (!current) return undefined
 
-      if (grab.kind === 'rotate') {
+      if (current.kind === 'rotate') {
         const raw = getAreaObjectAngleFromPointer(event.planPoint, {
-          x: grab.origin.x,
-          y: grab.origin.y,
+          x: current.origin.x,
+          y: current.origin.y,
         })
         // Açı KK-3'ün 15° adımına yakalanır; Ctrl bunu KAPATIR — boyutlandırmada
         // Ctrl ızgarayı kapatıyor, döndürmede hiçbir şey yapmıyordu, yani aynı
         // tuş aynı jestte iki farklı anlama geliyordu (K51).
         return {
-          ...grab.origin,
+          ...current.origin,
           angleDeg: event.ctrlKey ? normalizeAngleDeg(raw) : snapAngleDeg(raw),
         }
       }
 
-      // Ctrl ızgarayı kapatır — taşıma/yerleştirmeyle aynı jest.
+      // Ctrl ızgarayı ve duvar yakalamasını kapatır — taşıma/yerleştirmeyle
+      // aynı jest.
       const zoom = readZoom()
-      const target = event.ctrlKey ? event.planPoint : getPlacementPosition(event.planPoint, zoom)
+      const target = event.ctrlKey
+        ? event.planPoint
+        : snapResizeTarget(current.type, event.planPoint, zoom)
 
       return {
-        ...grab.origin,
+        ...current.origin,
         ...resizeAreaObjectFromCorner(
-          grab.type,
-          grab.origin,
+          current.type,
+          current.origin,
           target,
           MIN_AREA_OBJECT_SIZE_CM,
           zoom,
+          current.kind,
         ),
       }
     }

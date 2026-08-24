@@ -1,36 +1,27 @@
 import { Line } from '@react-three/drei'
 
 import { BEAM_ELEVATION_CM, BEAM_PREVIEW_ELEVATION_CM } from './architectureLayers'
+import {
+  BEAM_DASH_SIZE_CM,
+  BEAM_GAP_SIZE_CM,
+  BEAM_STROKE_WIDTH_CM,
+  getArchitectureStrokeWidthPx,
+} from './architectureStrokeStyle'
 import { ARCHITECTURE_COLORS } from './architectureTheme'
 import { RENDER_ORDER } from './layers'
 import { SCENE_COLORS } from './sceneTheme'
 import { getBeamCorners, type BeamShape } from '../core/beam'
 import { planToThree, type PlanPoint } from '../core/coords'
 import { triangulatePolygon } from '../core/roomFill'
-import { DEFAULT_WALL_THICKNESS_CM } from '../core/wall'
 
 export type BeamTone = 'normal' | 'hovered' | 'selected' | 'preview'
 
-/**
- * Kontur kalınlığı duvardan TÜRETİLİR (alan nesnesinin gövde çizgisiyle aynı
- * oran, K43): varsayılan duvar değişince kirişin çizgisi de onunla ölçeklenir.
- * Birim cm — `worldUnits` sayesinde zoom'dan bağımsız fiziksel kalınlık.
- */
-const STROKE_WIDTH_CM = DEFAULT_WALL_THICKNESS_CM / 4
-
-/**
- * Kesik çizginin boy/boşluk ölçüleri (cm). Duvar kalınlığına oranlanıyor: sabit
- * yazılsaydı 20 cm'lik bir kirişte kesikler gövdeden uzun görünürdü.
- */
-const DASH_SIZE_CM = DEFAULT_WALL_THICKNESS_CM
-const GAP_SIZE_CM = DEFAULT_WALL_THICKNESS_CM * 0.6
-
 const STROKE_COLORS: Record<BeamTone, string> = {
-  normal: ARCHITECTURE_COLORS.wall,
+  normal: ARCHITECTURE_COLORS.beam,
   hovered: SCENE_COLORS.wallHover,
   selected: SCENE_COLORS.selection,
   // Önizleme AYNI renk, yalnız saydam — alan nesnesiyle aynı kural.
-  preview: ARCHITECTURE_COLORS.wall,
+  preview: ARCHITECTURE_COLORS.beam,
 }
 
 const FILL_COLORS: Record<BeamTone, string> = {
@@ -59,6 +50,8 @@ type BeamProps = {
   tone: BeamTone
   /** Mesh'te yalnız id taşınır (CLAUDE.md kural 4); önizlemede id yok. */
   beamId?: number
+  /** Kontur kalınlığı piksel cinsinden verildiği için zoom'a bağlı; kapsayıcı bir kez okur. */
+  zoom: number
 }
 
 /**
@@ -71,7 +64,7 @@ type BeamProps = {
  * renkte, fark yalnız konturun sürekli değil kesik olması (plan çizimi geleneği:
  * kiriş üstte, kesitin dışında kalan eleman).
  */
-export function Beam({ beam, tone, beamId }: BeamProps) {
+export function Beam({ beam, tone, beamId, zoom }: BeamProps) {
   const isPreview = tone === 'preview'
   const corners = getBeamCorners(beam)
   // Sıfır boy kirişte yön belirsiz; çizilmez (duvardaki MIN_WALL_LENGTH_CM ile aynı kural).
@@ -105,13 +98,13 @@ export function Beam({ beam, tone, beamId }: BeamProps) {
         // Son nokta ilkine döner: çevrim kapansın, dördüncü kenar da çizilsin.
         points={[...corners, corners[0]].map((corner) => planToThree(corner, elevationCm))}
         color={STROKE_COLORS[tone]}
-        // worldUnits: kalınlık cm cinsinden, zoom'la BİRLİKTE ölçeklenir (Wall.tsx
-        // ile aynı gerekçe). Kesik ölçüleri de bu yüzden cm.
-        worldUnits
-        lineWidth={STROKE_WIDTH_CM}
+        // Kalınlık EKRAN PİKSELİ (`worldUnits` YOK) — bkz.
+        // architectureStrokeStyle.ts. Kesik ölçüleri cm KALIYOR: onlar çizgi
+        // boyunca ölçülüyor ve genişlik biriminden bağımsız.
+        lineWidth={getArchitectureStrokeWidthPx(BEAM_STROKE_WIDTH_CM, zoom)}
         dashed
-        dashSize={DASH_SIZE_CM}
-        gapSize={GAP_SIZE_CM}
+        dashSize={BEAM_DASH_SIZE_CM}
+        gapSize={BEAM_GAP_SIZE_CM}
         transparent={isPreview}
         opacity={isPreview ? PREVIEW_OPACITY : 1}
         frustumCulled={false}

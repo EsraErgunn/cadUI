@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createIdRemap, remapId } from '../idRemap'
 import {
   applyTransform,
+  applyTransformToAngleDeg,
   getBoundsCenter,
   getPointsBounds,
   getPointsCenter,
@@ -148,5 +149,95 @@ describe('createIdRemap / remapId', () => {
     const remap = createIdRemap([2], () => 100)
 
     expect(() => remapId(remap, 999)).toThrow(/id remap eksik/)
+  })
+})
+
+/**
+ * Kullanıcının çizdiği eksene göre aynalama (yeni). Var olan `mirror`ı
+ * GENELLEDİĞİ için testlerin çoğu ikisini karşılaştırıyor: 0°/90° eksende iki
+ * yol AYNI sonucu vermeli, yoksa panelin iki düğmesiyle tuvalde çizilen eksen
+ * sessizce ayrışırdı.
+ */
+describe('applyTransform — mirrorLine', () => {
+  const origin = { x: 100, y: 50 }
+
+  it('YATAY eksen (0°) noktayı doğrunun karşısına alır', () => {
+    const point = { x: 130, y: 80 }
+
+    expect(applyTransform(point, { kind: 'mirrorLine', origin, angleDeg: 0 })).toEqual({
+      x: 130,
+      y: 20,
+    })
+  })
+
+  it('DİKEY eksen (90°) x ekseninde çevirir', () => {
+    const point = { x: 130, y: 80 }
+
+    expect(applyTransform(point, { kind: 'mirrorLine', origin, angleDeg: 90 })).toEqual({
+      x: 70,
+      y: 80,
+    })
+  })
+
+  it('0°/90° eksende paneldeki `mirror` ile BİREBİR aynı sonucu verir', () => {
+    const point = { x: -40, y: 220 }
+
+    expect(applyTransform(point, { kind: 'mirrorLine', origin, angleDeg: 0 })).toEqual(
+      applyTransform(point, { kind: 'mirror', pivot: origin, axis: 'horizontal' }),
+    )
+    expect(applyTransform(point, { kind: 'mirrorLine', origin, angleDeg: 90 })).toEqual(
+      applyTransform(point, { kind: 'mirror', pivot: origin, axis: 'vertical' }),
+    )
+  })
+
+  it('EĞİK eksende de doğru çalışır: 45°lik ayna x ile y yi takas eder', () => {
+    const result = applyTransform(
+      { x: 30, y: 10 },
+      { kind: 'mirrorLine', origin: { x: 0, y: 0 }, angleDeg: 45 },
+    )
+
+    expect(result.x).toBeCloseTo(10, 6)
+    expect(result.y).toBeCloseTo(30, 6)
+  })
+
+  it('eksenin ÜSTÜNDEKİ nokta yerinde kalır', () => {
+    const onAxis = { x: 160, y: 50 }
+
+    expect(applyTransform(onAxis, { kind: 'mirrorLine', origin, angleDeg: 0 })).toEqual(onAxis)
+  })
+
+  it('iki kez uygulanınca başa döner (yansıma kendi tersidir)', () => {
+    const point = { x: 12, y: -34 }
+    const mirror = { kind: 'mirrorLine', origin, angleDeg: 37 } as const
+    const back = applyTransform(applyTransform(point, mirror), mirror)
+
+    expect(back.x).toBeCloseTo(point.x, 6)
+    expect(back.y).toBeCloseTo(point.y, 6)
+  })
+})
+
+describe('applyTransformToAngleDeg — mirrorLine', () => {
+  const origin = { x: 0, y: 0 }
+
+  it('nesnenin açısını da yansıtır: kural 2θ − açı', () => {
+    expect(applyTransformToAngleDeg(30, { kind: 'mirrorLine', origin, angleDeg: 45 })).toBe(60)
+  })
+
+  it('0°/90° eksende paneldeki `mirror` ile aynı açıyı verir', () => {
+    for (const angleDeg of [0, 30, 90, 200, 355]) {
+      expect(applyTransformToAngleDeg(angleDeg, { kind: 'mirrorLine', origin, angleDeg: 0 })).toBe(
+        applyTransformToAngleDeg(angleDeg, { kind: 'mirror', pivot: origin, axis: 'horizontal' }),
+      )
+      expect(applyTransformToAngleDeg(angleDeg, { kind: 'mirrorLine', origin, angleDeg: 90 })).toBe(
+        applyTransformToAngleDeg(angleDeg, { kind: 'mirror', pivot: origin, axis: 'vertical' }),
+      )
+    }
+  })
+
+  it('sonuç 0-359 aralığında kalır', () => {
+    const result = applyTransformToAngleDeg(350, { kind: 'mirrorLine', origin, angleDeg: 170 })
+
+    expect(result).toBeGreaterThanOrEqual(0)
+    expect(result).toBeLessThan(360)
   })
 })

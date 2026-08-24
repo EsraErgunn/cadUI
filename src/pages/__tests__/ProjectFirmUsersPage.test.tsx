@@ -29,6 +29,32 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+// K51: kullanıcı satırları uydurma; ekran bunu kalıcı bir şeritle SÖYLEMEK
+// zorunda, üretimde ise tablo yerine "kaynağı yok" kutusu çıkar.
+describe('veri kaynağı uyarısı (K51)', () => {
+  it('mock satırlarda kalıcı uyarı şeridi gösterir', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    const notice = screen.getByRole('status')
+    expect(notice).toHaveTextContent('Bu ekrandaki bazı veriler sunucudan gelmiyor.')
+    expect(notice).toHaveTextContent('Kullanıcı satırları')
+    // Şerit KAPATILAMAZ: uyarıyı bir kez kapatıp sahte kaydı gerçek sanmak
+    // bu ekranın en bilinen başarısızlığı olurdu.
+    expect(within(notice).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('kaynak yokken tablo yerine "kaynağı yok" kutusu çıkar', async () => {
+    listApi.getProjectFirmUserList.mockResolvedValue({ source: 'unavailable', data: null })
+    useIsAdmin.mockReturnValue(true)
+    renderWithProviders({ children: <ProjectFirmUsersPage /> })
+
+    expect(await screen.findByText('Bu bölümün veri kaynağı henüz yok.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByText('Bu ekrandaki bazı veriler sunucudan gelmiyor.')).not.toBeInTheDocument()
+  })
+})
+
 // KK-1: kırılım, başlık + parantez içinde adet, altında açıklama.
 describe('ekran açılışı (KK-1)', () => {
   it('başlık, kırılım, adet ve açıklamayı gösterir', async () => {
@@ -40,17 +66,16 @@ describe('ekran açılışı (KK-1)', () => {
     await waitFor(() => expect(heading).toHaveTextContent('(25.566)'))
     expect(screen.getByLabelText('Konum')).toHaveTextContent('Anasayfa')
     expect(screen.getByLabelText('Konum')).toHaveTextContent('Firmalar')
-    expect(screen.getByText('Firma mühendisleri ve yetkilileri')).toBeInTheDocument()
   })
 
-  // KK-2: yetki "Tümü", "Aktif" işaretsiz, sağ üstteki sıra korunuyor.
+  // KK-2: yetki "Tümü", sağ üstteki sıra korunuyor.
   it('filtre alanları varsayılan hâlleriyle açılır', async () => {
     renderPage()
 
     expect(await screen.findByLabelText('Yetki')).toHaveValue('')
-    expect(screen.getByLabelText('Aktif')).not.toBeChecked()
     expect(screen.getByLabelText(/Kullanıcı adı, ad soyad veya e-postada ara/)).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Filtrele' })).toBeInTheDocument()
+    // "Filtrele" düğmesi KALKTI: kriter seçilir seçilmez uygulanıyor.
+    expect(screen.queryByRole('button', { name: 'Filtrele' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Yeni Kullanıcı/ })).toHaveAttribute(
       'href',
       '/admin/project-firm-users/new',

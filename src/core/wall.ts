@@ -68,6 +68,29 @@ export function getSegmentMidpoint(a: PlanPoint, b: PlanPoint): PlanPoint {
   return { x: normalizeZero((a.x + b.x) / 2), y: normalizeZero((a.y + b.y) / 2) }
 }
 
+/**
+ * `a` ucu SABİT kalarak parçayı `lengthCm` boyuna getiren yeni `b` konumu —
+ * panelden uzunluk yazmanın karşılığı (duvarda da kirişte de).
+ *
+ * Yön mevcut parçadan okunuyor: sayı yalnız BOYU söylüyor, açıyı değil.
+ * Sıfır boylu parçada yön tanımsızdır ve `undefined` döner — orada "uzat"
+ * komutunun anlamı yok, sessizce bir yön uydurmak çizimi bozardı.
+ */
+export function getSegmentEndAtLength(
+  a: PlanPoint,
+  b: PlanPoint,
+  lengthCm: number,
+): PlanPoint | undefined {
+  const currentCm = getSegmentLength(a, b)
+  if (currentCm === 0) return undefined
+
+  const ratio = lengthCm / currentCm
+  return {
+    x: normalizeZero(a.x + (b.x - a.x) * ratio),
+    y: normalizeZero(a.y + (b.y - a.y) * ratio),
+  }
+}
+
 export function getSegmentAngleDeg(a: PlanPoint, b: PlanPoint): number {
   return normalizeZero(Math.atan2(b.y - a.y, b.x - a.x) * DEG_PER_RAD)
 }

@@ -45,10 +45,6 @@ const MOCK_PHONE_FORMATS = [
 
 const MOCK_REGISTRATION_NUMBERS = ['1', '3333', '512', '1280', '118', null, null, '77']
 
-/** Her 6. kullanıcı pasif, her 5. yetki satırı pasif → KK-4 iki koşulu da denenebilsin. */
-const INACTIVE_USER_EVERY = 6
-const INACTIVE_COMPETENCY_EVERY = 5
-
 /** Kullanıcı başına yetki sayısı 1..3 arasında dönüyor (KK-11 çoklu satır). */
 const COMPETENCY_COUNT_CYCLE = [1, 2, 1, 3, 1, 2]
 
@@ -81,7 +77,6 @@ function buildMockUsers(gasFirms: FirmReference[], projectFirms: FirmReference[]
         authorityType: AUTHORITY_TYPES[(index + slot) % AUTHORITY_TYPES.length],
         gdfRegistrationNumber:
           MOCK_REGISTRATION_NUMBERS[(index + slot) % MOCK_REGISTRATION_NUMBERS.length],
-        isActive: id % INACTIVE_COMPETENCY_EVERY !== 0,
       }
     })
 
@@ -91,7 +86,6 @@ function buildMockUsers(gasFirms: FirmReference[], projectFirms: FirmReference[]
       username,
       email: `${username}@${index % 2 === 0 ? 'tekhnelogos.com' : 'firma.com.tr'}`,
       phone: MOCK_PHONE_FORMATS[index % MOCK_PHONE_FORMATS.length],
-      isActive: index % INACTIVE_USER_EVERY !== 0,
       competencies,
     }
   })
@@ -131,7 +125,6 @@ function toRows(user: MockUser): ProjectFirmUserRow[] {
 }
 
 function matchesUser(user: MockUser, query: ProjectFirmUserQuery): boolean {
-  if (query.onlyActive && !user.isActive) return false
   if (query.nameQuery === '') return true
 
   // Arama üç alan üzerinde, içerik bazlı (KK-5).
@@ -146,7 +139,6 @@ function matchesCompetency(
   competency: ProjectFirmUserCompetency,
   query: ProjectFirmUserQuery,
 ): boolean {
-  if (query.onlyActive && !competency.isActive) return false
   // Kapsam yetki satırının G.D. firmasına bakıyor: kullanıcı birden çok
   // firmada yetkiliyse yalnız kapsamdaki satırları görünsün.
   if (query.gasFirmIds !== null && !query.gasFirmIds.includes(competency.gasFirm.id)) {
@@ -214,8 +206,6 @@ export function createMockProjectFirmUser(payload: ProjectFirmUserPayload): numb
     username: payload.username,
     email: payload.email,
     phone: payload.phone,
-    // Gövde artık kullanıcı düzeyinde aktiflik taşımıyor; yeni kayıt aktif açılır.
-    isActive: true,
     // Yetki satırı formdan kalktı: yeni kayıt yetkisiz açılır. Liste bir SATIRI
     // yetki kaydı olarak gösterdiği için bu kullanıcı listede görünmez —
     // uydurma bir yetki satırı üretmek yerine eksiklik olduğu gibi duruyor.
@@ -232,6 +222,5 @@ export function updateMockProjectFirmUser(userId: number, payload: ProjectFirmUs
   user.fullName = payload.fullName
   user.email = payload.email
   user.phone = payload.phone
-  // `isActive` ve yetki satırları gövdeden kalktı: güncelleme ikisine de
-  // DOKUNMAZ.
+  // Yetki satırları gövdede yok: güncelleme onlara DOKUNMAZ.
 }

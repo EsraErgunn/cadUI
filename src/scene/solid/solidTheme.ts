@@ -56,20 +56,30 @@ export const SOLID_AREA_COLORS: Record<AreaObject['type'], string> = {
 export const SOLID_ROOM_COLORS: Record<RoomUsageType, string> = {
   kitchen: '#d9a074',
   livingRoom: '#c9b79c',
+  livingRoomOpenKitchen: '#d3ab86',
+  sittingRoom: '#cfc0a6',
   bedroom: '#a9b8d4',
   bathroom: '#8fc7c1',
   toilet: '#7fb3ad',
   hall: '#c2c8d0',
+  corridor: '#bcc3cc',
+  duplexCorridor: '#aeb6c1',
   boilerRoom: '#c98b7a',
   laundry: '#a8c4a0',
   pantry: '#c4b48a',
   balcony: '#b8d3b0',
+  balconyClosed: '#9fc39c',
   /** Merdiven boşluğu, içindeki merdiven kütlesiyle AYNI ton. */
   stairwell: '#b9a48c',
+  fireEscape: '#c79a86',
+  elevatorShaft: '#98a1af',
   garage: '#9aa3ad',
   storage: '#b0a99e',
   shaft: '#8f97a3',
   workplace: '#b6a7c4',
+  apartment: '#bfb2cd',
+  shop: '#c8a6b5',
+  office: '#adb0c9',
 }
 
 export function getSolidSlabColor(slab: SolidSlab): string {

@@ -4,18 +4,44 @@ import { OrthographicCamera } from 'three'
 
 import { readCameraViewport } from './cameraViewport'
 import { subscribeDrawSurface, type DrawSurfacePointerEvent } from './drawSurfaceEvents'
-import { getAreaObjectTypeForTool } from '../core/areaObject'
+import { DEFAULT_AREA_OBJECT_SIZE_CM, getAreaObjectTypeForTool } from '../core/areaObject'
+import {
+  findAreaObjectWallSnap,
+  hasAreaObjectWallSnap,
+} from '../core/areaObjectWallSnap'
 import type { PlanPoint } from '../core/coords'
 import type { AreaObjectType } from '../core/model'
 import { getPlacementPosition } from '../core/placement'
+import { getSnapToleranceCm } from '../core/snap'
 import { useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 
 const LEFT_BUTTON = 0
 
+/**
+ * Yeni nesnenin duvara yaslanmış hâli. Şekil VARSAYILAN boyuttan kuruluyor —
+ * nesne henüz yok, `addAreaObject` da aynı boyutu yazacak; yaslanma payı
+ * gerçek boyla hesaplansın diye burada da o okunuyor.
+ */
+function findWallSnapForNewObject(type: AreaObjectType, cursor: PlanPoint, zoom: number) {
+  const cad = useCadStore.getState()
+  const size = DEFAULT_AREA_OBJECT_SIZE_CM[type]
+
+  return findAreaObjectWallSnap(
+    { x: cursor.x, y: cursor.y, ...size, angleDeg: 0 },
+    cursor,
+    cad.walls.filter((wall) => wall.floorId === cad.activeFloorId),
+    cad.points,
+    getSnapToleranceCm(zoom),
+    true,
+  )
+}
+
 export type AreaObjectPreview = {
   type: AreaObjectType
   position: PlanPoint
+  /** Duvara yaslanınca duvarın açısı; boşluğa yerleştirmede 0. */
+  angleDeg: number
 }
 
 /**
@@ -29,8 +55,10 @@ export type AreaObjectPreview = {
  * tesisat tarafındaki `useEscapeToSelectionTool` ile aynı gerekçe, kullanıcı
  * "bu iş bitti" demek için palete geri gitmek zorunda kalmasın.
  *
- * PointSymbol'den farklı olarak duvara bağlanma YOK — her zaman serbest,
- * yalnız ızgaraya oturur. Kapı/pencere üstüne düşen yerleştirme K35/K36
+ * Kolon ve baca şaftı duvara YASLANIR (K139): duvarın yüzüne değer ve açısını
+ * alır. PointSymbol'deki gibi duvara BAĞLANMA (referans modeli) değil — nesne
+ * serbest kalır, yalnız yerleşim anında oraya çekilir; sonradan duvar taşınırsa
+ * peşinden gitmez. Kapı/pencere üstüne düşen yerleştirme K35/K36
  * gerekçesiyle `addAreaObject` içinde REDDEDİLİR (id bile harcanmaz); bu araç
  * o reddi sessizce kabul eder — önizleme yine de gösterilir, kullanıcı
  * tıklayınca hiçbir şey olmadığını görür (K13 deseni: kaydırılmaz, reddedilir).
@@ -46,31 +74,60 @@ export function useAreaObjectTool(): AreaObjectPreview | undefined {
     // render tetikler (usePointSymbolTool ile aynı gerekçe).
     if (!areaObjectType || !(camera instanceof OrthographicCamera)) return undefined
 
-    // Ctrl ızgarayı kapatır — köşe/duvar/sembol sürüklemesiyle aynı jest
-    // (useAreaObjectSelectionTool.ts, usePointDragTool.ts). İlk yerleştirmede
-    // de aynı davranmalı: kullanıcı Ctrl'i yalnız taşırken değil, ilk basışta
-    // da tutabilir.
-    const readPosition = (event: DrawSurfacePointerEvent): PlanPoint => {
-      if (event.ctrlKey) return event.planPoint
+    /**
+     * Yerleşim: önce DUVAR, olmazsa ızgara.
+     *
+     * Duvar yakalaması ızgaradan ÖNCE geliyor — kullanıcının istediği bu:
+     * kolon/baca şaftı duvara yaslanmalı, ızgaraya değil. Duvara yaslanan nesne
+     * duvarın AÇISINI da alır: eğik bir duvarda ızgara hizasında duran bir kolon
+     * duvarın içine girerdi.
+     *
+     * Ctrl İKİSİNİ birden kapatır (taşıma/köşe sürüklemesiyle aynı jest):
+     * kullanıcı serbest yerleştirmek istediğinde tek tuş yetmeli.
+     */
+    const readPlacement = (event: DrawSurfacePointerEvent): AreaObjectPreview => {
+      if (event.ctrlKey) {
+        return { type: areaObjectType, position: event.planPoint, angleDeg: 0 }
+      }
+
       const { zoom } = readCameraViewport(camera)
-      return getPlacementPosition(event.planPoint, zoom)
+      const snap = hasAreaObjectWallSnap(areaObjectType)
+        ? findWallSnapForNewObject(areaObjectType, event.planPoint, zoom)
+        : undefined
+      if (snap) {
+        return { type: areaObjectType, position: snap.position, angleDeg: snap.wallAngleDeg }
+      }
+
+      return {
+        type: areaObjectType,
+        position: getPlacementPosition(event.planPoint, zoom),
+        angleDeg: 0,
+      }
     }
 
     const unsubscribe = subscribeDrawSurface({
       onPointerMove: (event: DrawSurfacePointerEvent) => {
-        const position = readPosition(event)
+        const next = readPlacement(event)
         // Aynı yerde yeni nesne yazılmaz: her fare hareketi render etmesin.
         setPreview((current) =>
-          current && current.position.x === position.x && current.position.y === position.y
+          current &&
+          current.position.x === next.position.x &&
+          current.position.y === next.position.y &&
+          current.angleDeg === next.angleDeg
             ? current
-            : { type: areaObjectType, position },
+            : next,
         )
       },
 
       onPointerUp: (event: DrawSurfacePointerEvent) => {
         if (event.button !== LEFT_BUTTON) return
-        const position = readPosition(event)
-        useCadStore.getState().addAreaObject({ type: areaObjectType, x: position.x, y: position.y })
+        const next = readPlacement(event)
+        useCadStore.getState().addAreaObject({
+          type: areaObjectType,
+          x: next.position.x,
+          y: next.position.y,
+          angleDeg: next.angleDeg,
+        })
       },
 
       // Sağ tık önizlemeyi siler; ARAÇTAN ÇIKMA kısmı artık ortak hook'ta

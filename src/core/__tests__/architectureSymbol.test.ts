@@ -8,6 +8,7 @@ import {
   toPlanPoints,
 } from '../architectureSymbol'
 import type { PointSymbolType } from '../model'
+import type { SymbolPose } from '../symbolPlacement'
 
 const ALL_TYPES: PointSymbolType[] = [
   'mainCutoffSwitch',
@@ -223,20 +224,61 @@ describe('getPointSymbolPlanGeometry', () => {
 
 describe('isPointInSymbol', () => {
   const position = { x: 200, y: 100 }
+  /** Duvara yatay bağlı, işareti +y yönünde duran sembol. */
+  const pose: SymbolPose = {
+    position,
+    rotationDeg: 0,
+    outwardSign: 1,
+    wallThicknessCm: 20,
+  }
 
   it('gömülü cihazda erişim ölçüsüne göre değişir', () => {
     // Pano 50 geniş (yarısı 25), alarm işareti daha uzakta.
-    expect(isPointInSymbol({ x: 222, y: 100 }, position, 0, 'panel')).toBe(true)
-    expect(isPointInSymbol({ x: 260, y: 100 }, position, 0, 'panel')).toBe(false)
+    expect(isPointInSymbol({ x: 222, y: 100 }, pose, 0, 'panel')).toBe(true)
+    expect(isPointInSymbol({ x: 260, y: 100 }, pose, 0, 'panel')).toBe(false)
   })
 
   it('çekme çizgili cihazda İŞARET de tutulabilir', () => {
     // İşaret duvardan ~45 cm uzakta; kullanıcı gördüğü kutuya basar.
-    expect(isPointInSymbol({ x: 200, y: 150 }, position, 0, 'alarmDevice')).toBe(true)
-    expect(isPointInSymbol({ x: 200, y: 150 }, position, 0, 'panel')).toBe(false)
+    expect(isPointInSymbol({ x: 200, y: 150 }, pose, 0, 'alarmDevice')).toBe(true)
+    expect(isPointInSymbol({ x: 200, y: 150 }, pose, 0, 'panel')).toBe(false)
   })
 
   it('uzaktaki imleç hiçbirinin üstünde değil', () => {
-    expect(isPointInSymbol({ x: 500, y: 100 }, position, 5, 'alarmDevice')).toBe(false)
+    expect(isPointInSymbol({ x: 500, y: 100 }, pose, 5, 'alarmDevice')).toBe(false)
+  })
+
+  it('işaretin YANINDAKİ boşluk sembole ait DEĞİL (kullanıcı bulgusu)', () => {
+    // Alarm işareti 24 cm geniş, duvardan 45 cm uzakta. İşaretle aynı hizada
+    // ama 60 cm yanda duran nokta eski kare sınavda tutuluyordu — orada hiçbir
+    // şey ÇİZİLİ değil, o tıklama duvara/odaya gitmeli.
+    expect(isPointInSymbol({ x: 260, y: 150 }, pose, 0, 'alarmDevice')).toBe(false)
+    // Aynı uzaklık işaretin ÜSTÜNDE kalırsa hâlâ tutuluyor.
+    expect(isPointInSymbol({ x: 205, y: 150 }, pose, 0, 'alarmDevice')).toBe(true)
+  })
+
+  it('duvarın ARKASI sembole ait değil: alan çizimin bulunduğu yöndedir', () => {
+    // İşaret +y'de; -y'de yalnız gömülü gövde var, çekme çizgili cihazda o da yok.
+    expect(isPointInSymbol({ x: 200, y: 40 }, pose, 0, 'alarmDevice')).toBe(false)
+  })
+
+  it('çekme ÇİZGİSİNİN üstü de tutulabilir — o da çizimin parçası', () => {
+    // Duvar yüzü ile işaret arasındaki çizgi; işaret 45 cm'de, çizgi 0–33 arası.
+    expect(isPointInSymbol({ x: 200, y: 120 }, pose, 0, 'alarmDevice')).toBe(true)
+  })
+
+  it('sembol DÖNDÜĞÜNDE alan da döner: sınav kendi ekseninde', () => {
+    // Duvar 90° dönünce işaret ekranda -x yönüne uzar.
+    const rotated: SymbolPose = { ...pose, rotationDeg: 90 }
+
+    expect(isPointInSymbol({ x: 150, y: 100 }, rotated, 0, 'alarmDevice')).toBe(true)
+    expect(isPointInSymbol({ x: 200, y: 150 }, rotated, 0, 'alarmDevice')).toBe(false)
+  })
+
+  it('montaj YÜZÜ alanı yansıtır (outwardSign)', () => {
+    const flipped: SymbolPose = { ...pose, outwardSign: -1 }
+
+    expect(isPointInSymbol({ x: 200, y: 50 }, flipped, 0, 'alarmDevice')).toBe(true)
+    expect(isPointInSymbol({ x: 200, y: 150 }, flipped, 0, 'alarmDevice')).toBe(false)
   })
 })

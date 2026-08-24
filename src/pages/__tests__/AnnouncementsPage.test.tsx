@@ -84,7 +84,6 @@ describe('duyuru listesi', () => {
 
     // Adet veri gelince başlığa düşer; yükleme sırasında "…" yazıyor.
     await waitFor(() => expect(heading).toHaveTextContent('Duyurular (2)'))
-    expect(screen.getByText(/görünen tüm duyurular/)).toBeInTheDocument()
   })
 
   it('duyurular TAM metniyle listelenir — kartın kısaltması burada uygulanmaz', async () => {

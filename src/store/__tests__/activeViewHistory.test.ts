@@ -6,6 +6,9 @@ import { redoActiveView, undoActiveView } from '../activeViewHistory'
 import { useCadStore } from '../cadStore'
 import { useUiStore } from '../uiStore'
 
+/** Yüklenen projede zaten duran tesisat elemanı (K148 gerilemesi). */
+const LOADED_ELEMENT_ID = 900
+
 const EMPTY_PLUMBING = {
   installationElements: [],
   installationLines: [],
@@ -63,14 +66,77 @@ describe('aktif görünümün geçmişi', () => {
     expect(useCadStore.getState().openings).toHaveLength(openingCount)
   })
 
-  // İzometrikte düzenleme yok; kısayol yine de bir yere gitmeli — proje geçmişi.
-  it('izometrik görünümde proje geçmişine düşer', () => {
-    const openingCount = useCadStore.getState().openings.length
+  /**
+   * İzometrikteki her düzenleme (dal ayırma, etiket taşıma, sıfırlama)
+   * `installationLines`/`Elements` üstünde çalışıyor ve tesisat aynasına
+   * yazılıyor. Proje geçmişine bağlansaydı izometrikte Ctrl+Z kullanıcının en
+   * son çizdiği DUVARI geri alırdı.
+   */
+  it('izometrik görünümde TESİSAT geçmişine gider, mimariye DOKUNMAZ', () => {
     addWallOpening()
+    const openingCount = useCadStore.getState().openings.length
+    addPlumbingElement()
+    const elementCount = useCadStore.getState().installationElements.length
 
     useUiStore.getState().setActiveView('isometric')
     undoActiveView()
 
+    expect(useCadStore.getState().installationElements).toHaveLength(elementCount - 1)
     expect(useCadStore.getState().openings).toHaveLength(openingCount)
+  })
+})
+
+/**
+ * Tesisat geçmişi aynası cadStore'un yükleme/temizleme yollarından geçmiyordu:
+ * proje açıldıktan sonraki İLK tesisat düzenlemesinde zundo "önceki durum" diye
+ * BOŞ aynayı geçmişe itiyor ve Ctrl+Z tüm tesisatı siliyordu (kullanıcı bulgusu).
+ */
+describe('tesisat geçmişi aynası yüklemede tohumlanır', () => {
+
+  function projectWithInstallation() {
+    return {
+      ...useCadStore.getState(),
+      nextUniqueId: 1000,
+      installationElements: [
+        {
+          id: LOADED_ELEMENT_ID,
+          floorId: useCadStore.getState().activeFloorId,
+          type: 'valve' as const,
+          position: { x: 10, y: 10 },
+          angleDeg: 0,
+          scale: 1,
+        },
+      ],
+      installationLines: [],
+      installationConnections: [],
+      floorPipeLinks: [],
+    }
+  }
+
+  it('yüklenen tesisat, ilk düzenlemeden sonra geri alınınca KAYBOLMAZ', () => {
+    useCadStore.getState().loadProject(projectWithInstallation())
+    useUiStore.getState().setActiveView('installation')
+
+    // Projedeki İLK tesisat düzenlemesi.
+    addPlumbingElement()
+    expect(useCadStore.getState().installationElements).toHaveLength(2)
+
+    undoActiveView()
+
+    // Yüklenen eleman geri gelmeli; eskiden burası 0 oluyordu.
+    expect(useCadStore.getState().installationElements).toHaveLength(1)
+    expect(useCadStore.getState().installationElements[0].id).toBe(LOADED_ELEMENT_ID)
+  })
+
+  it('çizimi temizlemek tek adımda geri alınır', () => {
+    useCadStore.getState().loadProject(projectWithInstallation())
+    useUiStore.getState().setActiveView('installation')
+
+    useCadStore.getState().clearProjectDrawing()
+    expect(useCadStore.getState().installationElements).toHaveLength(0)
+
+    undoActiveView()
+
+    expect(useCadStore.getState().installationElements).toHaveLength(1)
   })
 })

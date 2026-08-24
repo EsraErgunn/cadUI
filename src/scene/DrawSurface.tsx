@@ -11,6 +11,7 @@ import {
 import type { PlanPoint } from '../core/coords'
 import { isTypingTarget } from '../core/domEvents'
 import { screenToWorld } from '../core/viewport'
+import { isEditorReadOnly } from '../store/editorReadOnly'
 import { useUiStore } from '../store/uiStore'
 
 const MIDDLE_BUTTON = 1
@@ -36,6 +37,12 @@ export function DrawSurface() {
     const publish = (key: DrawSurfacePointerEventKey, event: MouseEvent) => {
       // El modu Space'in YAPIŞKAN hâli: aynı bastırma yolundan geçiyor, ayrı
       // bir "araçları sustur" mekanizması yazılmadı (K54).
+      //
+      // SALT GÖRÜNTÜLEME de aynı yoldan susturuluyor: bütün araçlar — mimari,
+      // tesisat, izometrik — bu tek otobüse abone, dolayısıyla buradaki tek
+      // koşul çizme/seçme/taşıma/tutamaç jestlerinin HEPSİNİ kapatıyor.
+      // Zoom/pan etkilenmez: onlar `useViewportControls`ta, bu otobüsün dışında.
+      if (isEditorReadOnly()) return
       if (isSpaceHeld || isMiddlePanActive || useUiStore.getState().isPanModeActive) return
       publishDrawSurfaceEvent(key, {
         planPoint: toPlanPoint(event),

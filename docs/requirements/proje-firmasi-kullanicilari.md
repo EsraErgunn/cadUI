@@ -25,11 +25,10 @@ Belge ile taslağın çeliştiği yerde **belge kazanır**; çözülen çelişki
 - Seçenekler kullanıcı tiplerinden oluşacaktır: "Firma Mühendisi", "Firma Yetkilisi".
 - Seçim yapıldığında yalnızca ilgili yetkideki kullanıcılar listelenecektir.
 
-### 3. Aktif (Onay Kutusu)
+### 3. Aktif (Onay Kutusu) — KALDIRILDI (K130)
 
-- Checkbox olarak sunulacaktır.
-- İşaretlendiğinde yalnızca aktif durumdaki kullanıcılar listelenecektir.
-- Varsayılan olarak işaretsiz gelecek ve tüm kullanıcılar listelenecektir.
+- Bu madde artık geçerli değil: onay kutusu ekrandan kaldırıldı. Gerekçe
+  `docs/kararlar.md` K130 (sunucuda karşılığı yok, `IsEnabled` kolonu gerekiyor).
 
 ### 4. Kullanıcı Adı (Arama Alanı)
 
@@ -149,15 +148,15 @@ Belge ile taslağın çeliştiği yerde **belge kazanır**; çözülen çelişki
 
 ### KK-2 — Filtre alanlarının açılış durumu
 
-- Başlığın sağında sırasıyla "Yetki" seçim kutusu, "Aktif" onay kutusu, "Kullanıcı Adı" arama alanı, "Filtrele" ve "Yeni Kullanıcı" düğmeleri görünür. Ekran açıldığında "Yetki" seçim kutusu "Tümü" değerindedir, "Aktif" onay kutusu işaretsizdir ve liste tüm kullanıcıları gösterir.
+- Başlığın sağında sırasıyla "Yetki" seçim kutusu, "Kullanıcı Adı" arama alanı ve "Yeni Kullanıcı" düğmesi görünür. Ekran açıldığında "Yetki" seçim kutusu "Tümü" değerindedir ve liste tüm kullanıcıları gösterir. ("Aktif" onay kutusu K130 ile kalktı; "Filtrele" düğmesi K47 ile.)
 
 ### KK-3 — Yetki filtresi
 
 - Kullanıcı "Yetki" seçim kutusundan "Firma Mühendisi" veya "Firma Yetkilisi" seçip "Filtrele" tıkladığında listede yalnızca o yetkideki kayıtlar görünür. Seçim "Tümü" değerine alındığında filtre kalkar.
 
-### KK-4 — Aktif filtresi
+### KK-4 — Aktif filtresi — KALDIRILDI (K130)
 
-- Kullanıcı "Aktif" onay kutusunu işaretleyip "Filtrele" tıkladığında listede yalnızca kullanıcısı aktif ve yetki satırı aktif olan kayıtlar görünür. İşaret kaldırıldığında pasif kayıtlar da listelenir.
+- Bu kabul kriteri artık geçerli değil: "Aktif" süzgeci ekrandan kaldırıldı.
 
 ### KK-5 — Arama
 

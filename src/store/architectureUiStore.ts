@@ -119,6 +119,12 @@ type AreaObjectLabelDrag = {
   offsetCm: PlanPoint
 }
 
+/** Cihaz ad etiketinin canlı kayması; AreaObjectLabelDrag ile aynı gerekçe. */
+type PointSymbolLabelDrag = {
+  symbolId: Id
+  offsetCm: PlanPoint
+}
+
 type ArchitectureUiState = {
   /**
    * Seçili nesneler (KK-10). Duvar ve açıklık için AYRI iki alan yerine tek
@@ -149,6 +155,13 @@ type ArchitectureUiState = {
   draggingSymbols: SymbolDrag | null
   draggingAreaObjects: AreaObjectDrag | null
   draggingAreaObjectLabel: AreaObjectLabelDrag | null
+  /**
+   * Çizilmekte olan aynalama ekseninin İLK ucu; null = eksen henüz
+   * başlamadı. Eksen çizimin parçası DEĞİL (ölçüm gibi geçici), bu yüzden
+   * cadStore'da değil burada duruyor.
+   */
+  mirrorAxisStart: PlanPoint | null
+  draggingPointSymbolLabel: PointSymbolLabelDrag | null
   draggingBeams: BeamDrag | null
   beamHandleDrag: BeamHandleDrag | null
   /** İmleç kirişin bir ucunun üstünde mi? Tutamacın vurgusu bunu okur. */
@@ -167,12 +180,24 @@ type ArchitectureUiState = {
    * Record ama yasak olan tür değil — anahtar string-literal union, kaydedilmiyor.
    */
   openingWidthCm: Record<OpeningType, number>
+  /**
+   * "Mahalleri Tanımla" kipi: gezilecek mahallerin id'leri, kip kapalıyken null.
+   *
+   * Kuyruk BAŞLARKEN dondurulur, her karede yeniden türetilmez: tip seçilen
+   * mahal kuyruktan düşseydi kalan sayısı ve "3 / 7" göstergesi kullanıcının
+   * gözü önünde değişir, geri gitmek de imkânsız olurdu. Geometri yine de
+   * canlı okunuyor — burada yalnız KİMLİK duruyor.
+   */
+  roomDefinitionQueue: Id[] | null
+  /** Kuyrukta kaçıncı duraktayız. Kip kapalıyken anlamsız. */
+  roomDefinitionIndex: number
   /** Seçimi tümüyle değiştirir (tek tıklama, çerçeve sonucu). */
   setSelection: (selection: Selection) => void
   /** Seçiliyse çıkarır, değilse ekler — Shift+tıklama (KK-10). */
   toggleSelected: (item: SelectionItem) => void
   clearSelection: () => void
   setMarquee: (marquee: PlanRect | null) => void
+  setDraggingPointSymbolLabel: (drag: PointSymbolLabelDrag | null) => void
   startMeasurement: (start: PlanPoint) => void
   finishMeasurement: (end: PlanPoint) => void
   clearMeasurement: () => void
@@ -182,6 +207,7 @@ type ArchitectureUiState = {
   setDraggingSymbols: (drag: SymbolDrag | null) => void
   setDraggingAreaObjects: (drag: AreaObjectDrag | null) => void
   setDraggingAreaObjectLabel: (drag: AreaObjectLabelDrag | null) => void
+  setMirrorAxisStart: (point: PlanPoint | null) => void
   setDraggingBeams: (drag: BeamDrag | null) => void
   setBeamHandleDrag: (drag: BeamHandleDrag | null) => void
   setBeamHandleHover: (isHovered: boolean) => void
@@ -190,6 +216,11 @@ type ArchitectureUiState = {
   setHover: (hover: ArchitectureTarget | null) => void
   setEditingText: (textId: Id | null) => void
   setDraggingTexts: (drag: TextDrag | null) => void
+  /** Kipi başlatır. Boş kuyrukla çağrılırsa kip AÇILMAZ. */
+  startRoomDefinition: (roomIds: readonly Id[]) => void
+  stopRoomDefinition: () => void
+  /** Kuyruk sınırlarının dışına taşmaz; son duraktan ileri gidilmez. */
+  goToRoomDefinitionIndex: (index: number) => void
 }
 
 /**
@@ -211,6 +242,8 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     draggingSymbols: null,
     draggingAreaObjects: null,
     draggingAreaObjectLabel: null,
+    mirrorAxisStart: null,
+    draggingPointSymbolLabel: null,
     draggingBeams: null,
     beamHandleDrag: null,
     isBeamHandleHovered: false,
@@ -220,6 +253,8 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
     openingWidthCm: { ...DEFAULT_OPENING_WIDTH_CM },
     editingTextId: null,
     draggingTexts: null,
+    roomDefinitionQueue: null,
+    roomDefinitionIndex: 0,
 
     setSelection: (selection) =>
       set((draft) => {
@@ -288,6 +323,16 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
         draft.draggingAreaObjectLabel = drag
       }),
 
+    setMirrorAxisStart: (point) =>
+      set((draft) => {
+        draft.mirrorAxisStart = point
+      }),
+
+    setDraggingPointSymbolLabel: (drag) =>
+      set((draft) => {
+        draft.draggingPointSymbolLabel = drag
+      }),
+
     setDraggingBeams: (drag) =>
       set((draft) => {
         draft.draggingBeams = drag
@@ -332,8 +377,43 @@ export const useArchitectureUiStore = create<ArchitectureUiState>()(
       set((draft) => {
         draft.draggingTexts = drag
       }),
+
+    startRoomDefinition: (roomIds) =>
+      set((draft) => {
+        // Tanımsız mahal yoksa kip açılmaz: boş bir kart göstermek, kullanıcıya
+        // yapacak iş varmış gibi görünüp hiçbir şey sunmamaktır.
+        if (roomIds.length === 0) return
+        draft.roomDefinitionQueue = [...roomIds]
+        draft.roomDefinitionIndex = 0
+        // Kip kendi vurgusunu çiziyor; açık seçim ikinci bir vurgu ve sağda
+        // ikinci bir tanımlama arayüzü (özellik paneli) demekti.
+        draft.selection = []
+      }),
+
+    stopRoomDefinition: () =>
+      set((draft) => {
+        draft.roomDefinitionQueue = null
+        draft.roomDefinitionIndex = 0
+      }),
+
+    goToRoomDefinitionIndex: (index) =>
+      set((draft) => {
+        if (!draft.roomDefinitionQueue) return
+        draft.roomDefinitionIndex = Math.max(
+          0,
+          Math.min(draft.roomDefinitionQueue.length - 1, index),
+        )
+      }),
   })),
 )
+
+/**
+ * Kipin o an durduğu mahal — yoksa undefined. Kararlı değer (id ya da
+ * undefined) döndürür, yeni nesne değil: doğrudan abone olunabilir.
+ */
+export function selectRoomDefinitionRoomId(state: ArchitectureUiState): Id | undefined {
+  return state.roomDefinitionQueue?.[state.roomDefinitionIndex]
+}
 
 /**
  * Tek açıklık seçiliyken o açıklığın id'si. Açıklığa özel arayüzler (genişlik

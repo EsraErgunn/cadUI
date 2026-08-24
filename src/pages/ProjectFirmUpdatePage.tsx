@@ -9,7 +9,6 @@ import { ProjectFirmUpdateForm } from '../ui/admin/projectFirms/ProjectFirmUpdat
 
 const PAGE_TITLE = 'Proje Firması Güncelle'
 
-const DESCRIPTION = 'Firma künyesini ve iletişim bilgilerini güncelleyin'
 
 const BREADCRUMB = [
   { label: 'Anasayfa', to: ADMIN_HOME_PATH },
@@ -41,7 +40,7 @@ export function ProjectFirmUpdatePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} description={DESCRIPTION} />
+      <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} />
 
       {!isValidId && <QueryError message="Geçersiz firma adresi." />}
 

@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronDown, Info } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { EditorActions } from './menu/EditorActions'
 import { MenuDropdown } from './menu/MenuDropdown'
@@ -7,19 +7,27 @@ import { ViewSwitcher } from './menu/ViewSwitcher'
 import { editorBarButtonVariants } from './menu/editorBarVariants'
 import {
   CLEAR_PROJECT_ITEM_ID,
+  DOWNLOAD_PROJECT_FILE_ITEM_ID,
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   IMPORT_ITEM_ID,
+  OPEN_PROJECT_FILE_ITEM_ID,
   SAVE_AS_ITEM_ID,
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
 import { MENU_ICONS } from './menu/menuIcons'
+import { useToolsMenuActions } from './menu/useToolsMenuActions'
+import { useUiStore } from '../store/uiStore'
 import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
 type MenuBarProps = {
   onCloseEditor: () => void
   /** Onay penceresini AÇAR; temizleme kararını çağıran verir, bar yalnız haber eder. */
   onClearProject: () => void
+  /** Proje dosyası (PDF) penceresini açar; kat seçimi ve sayfa ayarları orada. */
+  onDownloadProjectFile: () => void
+  /** Proje dosyası (PDF) seçicisini açar; çizim o dosyadan geri yüklenir. */
+  onOpenProjectFile: () => void
   onSave: () => void
   onSaveAs: () => void
   onImport: () => void
@@ -43,6 +51,8 @@ type MenuBarProps = {
 export function MenuBar({
   onCloseEditor,
   onClearProject,
+  onDownloadProjectFile,
+  onOpenProjectFile,
   onSave,
   onSaveAs,
   onImport,
@@ -50,7 +60,10 @@ export function MenuBar({
   isSaving,
   versionHistory,
 }: MenuBarProps) {
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+
+  const toolsActions = useToolsMenuActions(isReadOnly)
   const barRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -74,14 +87,40 @@ export function MenuBar({
     }
   }, [openMenuId])
 
+  /**
+   * Salt görüntülemede kapatılan DOSYA maddeleri. `MenuDropdown`'ın hâzır
+   * `unavailableItemIds` prop'u kullanılıyor — menü için ikinci bir pasiflik
+   * mekanizması yazılmadı.
+   *
+   * "Dışa Aktar" ve "Proje Dosyasını İndir" LİSTEDE YOK: ikisi de dosyayı
+   * dışarı yazıyor, çizime dokunmuyor — okuma işlemi. Kapatılanların hepsi
+   * çizime yazar (Kaydet ve Farklı Kaydet sunucuya; İçe Aktar, Proje Dosyasını
+   * Aç ve Projeyi Temizle doğrudan store'a).
+   */
+  const unavailableItemIds = useMemo(() => {
+    const unavailable = new Set<string>(toolsActions.unavailableItemIds)
+    if (isReadOnly) {
+      unavailable.add(SAVE_ITEM_ID)
+      unavailable.add(SAVE_AS_ITEM_ID)
+      unavailable.add(IMPORT_ITEM_ID)
+      unavailable.add(OPEN_PROJECT_FILE_ITEM_ID)
+      unavailable.add(CLEAR_PROJECT_ITEM_ID)
+    }
+    return unavailable.size === 0 ? undefined : unavailable
+    // Araçlar maddelerinin görünüm/çizim koşulları hook'ta (useToolsMenuActions).
+  }, [isReadOnly, toolsActions.unavailableItemIds])
+
   const handleSelectItem = (itemId: string) => {
     setOpenMenuId(null)
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLEAR_PROJECT_ITEM_ID) onClearProject()
+    if (itemId === DOWNLOAD_PROJECT_FILE_ITEM_ID) onDownloadProjectFile()
+    if (itemId === OPEN_PROJECT_FILE_ITEM_ID) onOpenProjectFile()
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()
     if (itemId === EXPORT_ITEM_ID) onExport()
+    toolsActions.run(itemId)
   }
 
   return (
@@ -121,7 +160,11 @@ export function MenuBar({
                 />
               </button>
               {openMenuId === menu.id && (
-                <MenuDropdown menu={menu} onSelectItem={handleSelectItem} />
+                <MenuDropdown
+                  menu={menu}
+                  onSelectItem={handleSelectItem}
+                  unavailableItemIds={unavailableItemIds}
+                />
               )}
             </div>
           )
@@ -148,7 +191,12 @@ export function MenuBar({
       </button>
       <div className="flex-1" />
 
-      <EditorActions onSave={onSave} isSaving={isSaving} versionHistory={versionHistory} />
+      <EditorActions
+        onSave={onSave}
+        isSaving={isSaving}
+        isReadOnly={isReadOnly}
+        versionHistory={versionHistory}
+      />
     </header>
   )
 }

@@ -113,11 +113,31 @@ açılıp garip görünüyordu. CSS'le kontrol edilebilen bir şey değil.
 - Liste **HER ZAMAN aşağı** açılır; yer yetmezse kısalır ve içi kayar. "Yer
   yoksa yukarı aç" bilerek YOK — şikâyetin kendisi öngörülemez yöndü.
 - **Portal ile `body`'ye** çiziliyor: panelin içerik alanı `overflow-y-auto`,
-  mutlak konumlanan kutu orada kırpılırdı. `position: fixed`, kaydırma/boyut
-  değişiminde KAPANIR.
+  mutlak konumlanan kutu orada kırpılırdı. `position: fixed`, DIŞARIDAKİ
+  kaydırma ve boyut değişiminde KAPANIR.
+- ⚠️ Kaydırma dinleyicisi **capture** kipinde (portal `body`'de, panelin
+  kaydırması ona bubble etmez). Bu yüzden listenin KENDİ kaydırması da aynı
+  dinleyiciye düşüyor ve liste açılır açılmaz kapanıyordu — uzun listede aşağı
+  inmek imkânsızdı. Olayın kaynağı listenin içindeyse artık atlanıyor;
+  "kaydırınca kapansın" kuralı yalnız listenin DIŞI için geçerli. Liste ayrıca
+  `overscroll-contain` taşıyor: ucuna gelince kaydırma arkadaki panele ATLAMAZ,
+  yoksa o atlayan kaydırma listeyi yine kapatırdı.
 - ⚠️ Konum **emir kipiyle** yazılıyor (`useLayoutEffect` + `.style.top`), JSX
   inline stiliyle değil — çalışma zamanı pikseli Tailwind'le ifade edilemez ve
   inline stil yasak (sahnedeki `domElement.style.cursor` ile aynı kaçış).
 - ⚠️ Seçenek **`pointerdown`** ile commit ediliyor: dışarı-tık dinleyicisi de
   pointerdown'da ve click'ten önce çalışıp listeyi kapatıyordu.
 - Testlerde `user.selectOptions` ÇALIŞMAZ; `click` + `getByRole('option')`.
+
+## Uzunluk alanları (K141)
+
+⚠️ Duvar ve kiriş UZUNLUĞU yazılabilir. Kural: **p1 sabit, p2 doğrultu üzerinde
+kayar** — köşeyi/uç tutamacını sürüklemenin klavye karşılığı. Panel trigonometri
+yapmıyor: hesap `core/wall.ts` → `getSegmentEndAtLength`, yazma yolu var olan
+`movePoint`/`moveBeamEnd`.
+
+⚠️ Duvarda p2 komşularla paylaşılıyorsa komşular ESNER ve oda m²'si yeniden
+hesaplanır (sürüklemedekiyle aynı davranış, gizlenmedi).
+
+⚠️ Yalnız TEK nesne seçiliyken yazılabilir: paylaşılan köşe toplu yazımda iki
+kez oynar, sonuç yazım sırasına bağlı olurdu.

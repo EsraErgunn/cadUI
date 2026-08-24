@@ -7,12 +7,6 @@ export const ARCHITECTURE_GHOST_ELEVATION_CM = -0.5
 export const ARCHITECTURE_GHOST_SYMBOL_LIFT_CM = 0.02
 /** Tesisatın mimari görünümdeki izi; sıra renderOrder ile belirlenir (bkz. layers.ts). */
 export const INSTALLATION_GHOST_ELEVATION_CM = 0.15
-/**
- * Tesisat görünümündeki ALT KATIN izi (`InstallationBelowGhost.tsx`) — mimarinin
- * `FLOOR_BELOW_GHOST_ELEVATION_CM`'iyle AYNI değer: ikisi de "en geride, salt
- * hizalama referansı" aynı sözleşmeyi paylaşıyor.
- */
-export const INSTALLATION_BELOW_GHOST_ELEVATION_CM = -0.6
 /** Baca/havalandırma borunun bir tık ALTINDA: konu gaz hattı, kanalın üstünden geçmeli. */
 export const DISCHARGE_ELEVATION_CM = -0.05
 export const LINE_ELEVATION_CM = 0

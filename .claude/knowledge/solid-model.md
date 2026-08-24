@@ -1,13 +1,14 @@
 # Katı model (3B görünüm)
 
-**Tür:** decision · **Tarih:** 2026-08 · **Karar:** docs/kararlar.md K120
+**Tür:** decision · **Tarih:** 2026-08 · **Karar:** docs/kararlar.md K158
 
 Sahne seçicideki dördüncü düğme: **Katı Model** (`ViewId = 'solid'`,
 `core/views.ts`). Çizimin 3B türevi — bina kütlesi, döşemeler, borular ve
 tesisat elemanları kat kotlarına oturtulmuş hâlde.
 
-İzometrik düğmesi bununla İLGİSİZ ve hâlâ pasif: o gaz hattının tek parça
-şematiği, bu binanın kütlesi. İkisini birbirine karıştırma.
+İzometrik görünüm bununla İLGİSİZ (K120–K124): o gaz hattının tek parça
+şematiği, bu binanın kütlesi. İkisi de salt okuma ve ikisi de kendi kamerasını
+kurar ama ne geometriyi ne kamerayı paylaşırlar — birbirine karıştırma.
 
 ## Değişmezler
 
