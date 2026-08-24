@@ -1,7 +1,7 @@
 import type { DraftSetter } from './architecturePropertyOps'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
-import { cloneFloorContentInDraft } from './floorCloneOps'
+import { applyFloorCopiesInDraft, type CopyFloorInput } from './floorCloneOps'
 import { removeFloorContentInDraft } from './floorOps'
 import { markDirty, takeNextId } from './projectMeta'
 import { isDraftFloorId, type DraftFloor } from '../core/floorPlan'
@@ -78,23 +78,26 @@ function applyFloorPlanInDraft(draft: CadState, input: ApplyFloorPlanInput): boo
 
   // Kopyalama kat listesi YAZILDIKTAN sonra: klonlama hedef katın var olduğunu
   // varsayıyor ve kaynağı da bu listeden okuyor.
+  const copies: CopyFloorInput[] = []
   for (const floor of planned) {
-    if (floor.copyFromFloorId === null) continue
+    if (floor.pendingCopy === null) continue
 
-    const sourceId = realIdOf.get(floor.copyFromFloorId) ?? floor.copyFromFloorId
+    const { sourceFloorId, isArchitectureIncluded, isInstallationIncluded } = floor.pendingCopy
+    const sourceId = realIdOf.get(sourceFloorId) ?? sourceFloorId
     // Kaynak aynı pencerede silinmiş olabilir; o zaman kat boş açılır.
     if (!draft.floors.some((candidate) => candidate.id === sourceId)) continue
 
     const targetId = realIdOf.get(floor.id)
     if (targetId === undefined) continue
 
-    cloneFloorContentInDraft(draft, {
+    copies.push({
       sourceFloorId: sourceId,
       targetFloorId: targetId,
-      isArchitectureIncluded: true,
-      isInstallationIncluded: true,
+      isArchitectureIncluded,
+      isInstallationIncluded,
     })
   }
+  applyFloorCopiesInDraft(draft, copies)
 
   const activeFloorId = realIdOf.get(input.activeFloorId)
   draft.activeFloorId =

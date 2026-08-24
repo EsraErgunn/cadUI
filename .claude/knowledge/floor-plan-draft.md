@@ -88,3 +88,65 @@ kapanmamış bir çizimi "boş" gösterirdi.
 
 **Dosya:** core/floorPlan.ts + core/floorContent.ts (saf) · store/floorPlanOps.ts
 (action) · ui/FloorManagementDialog.tsx · ui/floors/
+
+## K166: kopyalama da taslakta bekler, silme onay sormaz
+
+Pencere ikiye bölünmüştü ve kopyalama AYRI bir modaldı; açılırken bekleyen
+taslağı sessizce store'a uyguluyordu (`openCopyDialog`), yani "İptal" o noktadan
+sonra hiçbir şeyi iptal etmiyordu. Kopyalama artık aynı pencerenin bir KİPİ.
+
+`DraftFloor.copyFromFloorId` → **`DraftFloor.pendingCopy`**:
+
+```ts
+type DraftFloorCopy = {
+  sourceFloorId: Id
+  isArchitectureIncluded: boolean
+  isInstallationIncluded: boolean
+}
+```
+
+Alan hem YENİ kat "X'tan kopyalayarak" eklendiğinde hem MEVCUT bir kat hedef
+seçildiğinde kullanılıyor — iki yol tek kavrama indi. Mekanizma yeni değil,
+ertelenmiş kopyalama zaten vardı; yalnız kapsamı genişledi.
+
+⚠️ **Kip (`overwrite`/`skip`) taslakta SAKLANMAZ.** Kip hedef listesini süzen bir
+karar; taslakta duran şey kipin SONUCU, yani gerçekten kopyalanacak katlar.
+
+⚠️ **`copyFloorToTargets` action'ı SİLİNDİ** — bu adla kod yazma. Ayrı bir action
+iki `set` çağrısı, dolayısıyla iki Ctrl+Z demekti; tek yazım `applyFloorPlan`.
+
+⚠️ **Kopyalama fazı ÜÇ ADIM** (`applyFloorCopiesInDraft`): önce bütün kaynaklar
+OKUNUR, sonra hedefler SİLİNİR, sonra YAZILIR. Aynı Uygula içinde bir kat hem
+kaynak hem hedef olabiliyor; hedef başına "sil sonra klonla" döngüsü kurulsaydı
+sonuç katların LİSTE SIRASINA bağlı çıkardı. Klonlama saf okuma olduğu için
+fazlara ayrılabiliyor.
+
+⚠️ **`planFloorCopy` ham store dizisi değil FONKSİYON alır** (`FloorContentLookup`):
+pencere taslak üzerinde çalışıyor ve bir katın içeriği "store'da ne var"dan
+ibaret değil — aynı oturumda eklenmiş ya da kopyalama hedefi yapılmış olabilir.
+Store tarafı için köprü `toFloorContentLookup`.
+
+### Silme ONAY SORMAZ, geri alınır
+
+Onay penceresi kalktı: dokunulan şey store değil taslak, Uygula'ya kadar hiçbir
+şey yazılmıyor ve "İptal" zaten hepsini atıyor. Yerine pencerenin **kendi geri
+al/yinele yığını** geldi (`useFloorPlanDraft`).
+
+- Zundo KULLANILMAZ: o store'un geçmişi, pencere store'a hiç yazmıyor. Taslak
+  zaten değişmez bir nesne, `{past, present, future}` yeterli.
+- ⚠️ **Seçim geçmişe yazılmaz** (`setDraftQuietly`): bir düzenleme değil, neye
+  bakıldığı. Yığına girseydi Ctrl+Z önce seçim adımlarını geri sarardı.
+- ⚠️ Ctrl+Z/Ctrl+Y dinleyicisi **yakalama fazında**: editörün kısayolu da
+  window'da ve baloncuk fazında, durdurulmasaydı aynı tuş iki geçmişi birden
+  oynatırdı.
+- `core/floorDeletion.ts`, `FloorDeleteDialog`, `floorCountText` SİLİNDİ.
+
+### Toplu ekleme kısmi UYGULANMAZ
+
+`addDraftFloors(draft, input, count)` istenen sayı tavana sığmıyorsa taslağı
+AYNEN döndürür. Sessizce 10 yerine 4 kat eklemek kullanıcının saymadığı bir
+sonuç doğururdu; kalan kapasiteyi `getAddableFloorCount` söylüyor ve arayüz
+alanın yanında yazıyor.
+
+Yeni kat yüksekliği ALTINDAKİ kattan devralınır; ayrı "yeni kat yüksekliği"
+alanı ve onun feragat cümlesi kalktı.

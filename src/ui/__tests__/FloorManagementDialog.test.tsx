@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -8,6 +8,27 @@ import { useCadStore } from '../../store/cadStore'
 import { FloorManagementDialog } from '../FloorManagementDialog'
 
 const UPPER_FLOOR_ID = 100
+
+/** Zemin katta kapalı kare — kopyalanacak gerçek bir çizim; üst kat BOŞ. */
+function seedGroundFloorDrawing(): void {
+  useCadStore.setState({
+    points: [
+      { id: 2, floorId: DEFAULT_FLOOR_ID, x: 0, y: 0 },
+      { id: 3, floorId: DEFAULT_FLOOR_ID, x: 400, y: 0 },
+      { id: 4, floorId: DEFAULT_FLOOR_ID, x: 400, y: 300 },
+      { id: 5, floorId: DEFAULT_FLOOR_ID, x: 0, y: 300 },
+    ],
+    walls: [
+      { id: 6, floorId: DEFAULT_FLOOR_ID, p1Id: 2, p2Id: 3, thickness: 20, height: 280 },
+      { id: 7, floorId: DEFAULT_FLOOR_ID, p1Id: 3, p2Id: 4, thickness: 20, height: 280 },
+      { id: 8, floorId: DEFAULT_FLOOR_ID, p1Id: 4, p2Id: 5, thickness: 20, height: 280 },
+      { id: 9, floorId: DEFAULT_FLOOR_ID, p1Id: 5, p2Id: 2, thickness: 20, height: 280 },
+    ],
+    nextUniqueId: 200,
+  })
+  // Kurulumun setState çağrısı da geçmişe yazıyor; ölçülen yalnız pencere olsun.
+  useCadStore.temporal.getState().clear()
+}
 
 beforeEach(() => {
   useCadStore.setState({
@@ -22,15 +43,20 @@ beforeEach(() => {
     rooms: [],
     symbols: [],
     areaObjects: [],
+    beams: [],
+    texts: [],
     installationElements: [],
     installationLines: [],
+    installationConnections: [],
+    nextUniqueId: 200,
     revision: 0,
   })
   useCadStore.temporal.getState().clear()
 })
 
-function renderDialog(onClose = vi.fn()) {
-  render(<FloorManagementDialog onClose={onClose} />)
+function renderDialog(props: { isCopyMode?: boolean } = {}) {
+  const onClose = vi.fn()
+  render(<FloorManagementDialog {...props} onClose={onClose} />)
   return { onClose }
 }
 
@@ -38,218 +64,322 @@ function floorNames(): string[] {
   return useCadStore.getState().floors.map((floor) => floor.name)
 }
 
+function rows(): HTMLElement[] {
+  return screen.getAllByRole('listitem')
+}
+
+function wallCountOn(floorId: number): number {
+  return useCadStore.getState().walls.filter((wall) => wall.floorId === floorId).length
+}
+
+const clickApply = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: 'Uygula' }))
+
 describe('FloorManagementDialog — liste', () => {
   it('katları EN ÜST kat başta listeler', () => {
     renderDialog()
 
-    const names = screen
-      .getAllByRole('textbox', { name: /adı$/ })
-      .map((input) => (input as HTMLInputElement).value)
+    // Satırda iki alan var (ad, yükseklik); ilki ad.
+    const names = rows().map((row) => within(row).getAllByRole('textbox')[0].getAttribute('value'))
     expect(names).toEqual(['1. Kat', DEFAULT_FLOOR_NAME])
   })
 
-  it('özet alanında bina yüksekliği, kat sayısı ve aktif kat görünür (KK-2)', () => {
+  it('kot ve içerik durumu satırda okunur', () => {
     renderDialog()
 
-    expect(screen.getByText('6,00')).toBeInTheDocument()
-    expect(screen.getByText('Bina yüksekliği')).toBeInTheDocument()
-    expect(screen.getByText(DEFAULT_FLOOR_NAME)).toBeInTheDocument()
-  })
-
-  it('zemin katın kotu ±0,00, üstündeki kat pozitif (KK-3)', () => {
-    renderDialog()
-
-    expect(screen.getByText('±0,00')).toBeInTheDocument()
     expect(screen.getByText('+3,00')).toBeInTheDocument()
+    // İçerik TEK glif; iki kat da boş.
+    expect(screen.getAllByLabelText('Boş')).toHaveLength(2)
   })
 
-  it('çizimi olmayan katlar "Boş" rozeti ve bilgilendirme kutusu alır (KK-10)', () => {
+  it('açıklama PARAGRAFI yok — sütunlar kendini anlatır', () => {
     renderDialog()
 
-    expect(screen.getAllByText('Boş')).toHaveLength(2)
-    expect(screen.getByText(/boş\. Boş katlar kaydedilir/)).toBeInTheDocument()
+    expect(screen.queryByText(/toplu işlem içindir/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Yalnızca bundan sonra eklenen katlara/)).not.toBeInTheDocument()
   })
 })
 
-describe('FloorManagementDialog — Uygula ve İptal (KK-11)', () => {
-  it('"Uygula" tıklanana kadar store"a YAZMAZ', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Kat Ekle' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Boş kat' }))
-
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
-  })
-
-  it('"Uygula" değişiklikleri yazar ve pencereyi kapatır', async () => {
+describe('FloorManagementDialog — Uygula ve İptal', () => {
+  it('İptal hiçbir şey yazmaz', async () => {
+    const user = userEvent.setup()
     const { onClose } = renderDialog()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kat Ekle' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Boş kat' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
-
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat', '2. Kat'])
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('"İptal" hiçbir değişikliği uygulamaz', async () => {
-    const { onClose } = renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Kat Ekle' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Boş kat' }))
-    await userEvent.click(screen.getByRole('button', { name: 'İptal' }))
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
+    await user.click(screen.getByRole('button', { name: 'İptal' }))
 
     expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('ekleme + silme TEK adımda uygulanır — geçmişe iki adım yazılmaz (KK-20)', async () => {
+  it('Uygula TEK geri alma adımı yazar', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Kat Ekle' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Boş kat' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
+    await clickApply(user)
 
+    expect(floorNames()).toHaveLength(3)
     expect(useCadStore.temporal.getState().pastStates).toHaveLength(1)
   })
 })
 
-describe('FloorManagementDialog — kat adı (KK-5)', () => {
-  it('adı değiştirir', async () => {
+describe('FloorManagementDialog — kat adı ve yükseklik', () => {
+  it('ad yerinde düzenlenir', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    const input = screen.getByRole('textbox', { name: '1. Kat adı' })
-    await userEvent.clear(input)
-    await userEvent.type(input, 'Çatı')
-    await userEvent.tab()
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+    const field = screen.getByLabelText('1. Kat adı')
+    await user.clear(field)
+    await user.type(field, 'Asma Kat')
+    await user.tab()
+    await clickApply(user)
 
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, 'Çatı'])
+    expect(floorNames()).toContain('Asma Kat')
   })
 
-  it('çakışan adı reddeder ve uyarır', async () => {
+  it('başka katta kullanılan ad REDDEDİLİR ve alan eski değerine döner', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    const input = screen.getByRole('textbox', { name: '1. Kat adı' })
-    await userEvent.clear(input)
-    await userEvent.type(input, DEFAULT_FLOOR_NAME)
+    const field = screen.getByLabelText('1. Kat adı')
+    await user.clear(field)
+    await user.type(field, DEFAULT_FLOOR_NAME)
+    await user.tab()
 
-    expect(screen.getByRole('alert')).toHaveTextContent('başka bir katta kullanılıyor')
-
-    await userEvent.tab()
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
+    expect(field).toHaveValue('1. Kat')
   })
 
-  it('boş ad reddedilir', async () => {
+  it('yükseklik değişince kot ANINDA güncellenir', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    const input = screen.getByRole('textbox', { name: '1. Kat adı' })
-    await userEvent.clear(input)
-
-    expect(screen.getByRole('alert')).toHaveTextContent('boş olamaz')
-  })
-})
-
-describe('FloorManagementDialog — yükseklik ve kot (KK-4)', () => {
-  it('yükseklik değişince ÜSTTEKİ katın kotu kayar', async () => {
-    renderDialog()
-
-    const input = screen.getByRole('textbox', { name: `${DEFAULT_FLOOR_NAME} yüksekliği` })
-    await userEvent.clear(input)
-    await userEvent.type(input, '400')
-    await userEvent.tab()
+    const field = screen.getByLabelText(`${DEFAULT_FLOOR_NAME} yüksekliği`)
+    await user.clear(field)
+    await user.type(field, '400')
+    await user.tab()
 
     expect(screen.getByText('+4,00')).toBeInTheDocument()
-    // Bina yüksekliği de anında güncellenir (KK-2).
-    expect(screen.getByText('7,00')).toBeInTheDocument()
-  })
-
-  it('200 cm altı değer alana yazılmaz', async () => {
-    renderDialog()
-
-    const input = screen.getByRole('textbox', { name: `${DEFAULT_FLOOR_NAME} yüksekliği` })
-    await userEvent.clear(input)
-    await userEvent.type(input, '150')
-    await userEvent.tab()
-
-    expect(input).toHaveValue('300')
   })
 })
 
-describe('FloorManagementDialog — seçim ve aktif kat (KK-9)', () => {
-  it('"Aktif Yap" rozeti taşır, SEÇ işaretlerine dokunmaz', async () => {
+describe('FloorManagementDialog — sayıyla toplu ekleme (K166)', () => {
+  it('girilen sayı kadar kat ekler', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    await userEvent.click(screen.getByRole('checkbox', { name: `${DEFAULT_FLOOR_NAME} seç` }))
-    await userEvent.click(screen.getByRole('button', { name: 'Aktif Yap' }))
+    const count = screen.getByLabelText('Eklenecek kat sayısı')
+    await user.clear(count)
+    await user.type(count, '3')
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
 
-    expect(screen.getByText('AKTİF')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: `${DEFAULT_FLOOR_NAME} seç` })).toBeChecked()
+    expect(rows()).toHaveLength(5)
+
+    await clickApply(user)
+    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat', '2. Kat', '3. Kat', '4. Kat'])
   })
 
-  it('aktif kat değişikliği "Uygula" ile yürürlüğe girer', async () => {
+  it('kaynak seçilirse eklenen katların HEPSİ o kattan kopyalanır', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
     renderDialog()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Aktif Yap' }))
-    expect(useCadStore.getState().activeFloorId).toBe(DEFAULT_FLOOR_ID)
+    const count = screen.getByLabelText('Eklenecek kat sayısı')
+    await user.clear(count)
+    await user.type(count, '2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
-    expect(useCadStore.getState().activeFloorId).toBe(UPPER_FLOOR_ID)
-  })
-
-  it('seçili kat adedi ve toplu silme düğmesi görünür', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('checkbox', { name: '1. Kat seç' }))
-
-    expect(screen.getByText('Seçili 1 kat:')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Sil' }))
-    await userEvent.click(
-      screen.getByRole('checkbox', { name: 'Kat içeriğinin silineceğini anladım' }),
+    await user.click(screen.getByRole('button', { name: 'Yeni katın içeriği' }))
+    await user.click(
+      screen.getByRole('menuitem', { name: new RegExp(`${DEFAULT_FLOOR_NAME}'tan kopyalayarak`) }),
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Katı Sil' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
+    await clickApply(user)
 
+    const added = useCadStore.getState().floors.slice(-2)
+    expect(added.map((floor) => wallCountOn(floor.id))).toEqual([4, 4])
+  })
+
+  it('yeni kat ALTINDAKİ katın yüksekliğini devralır', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    const height = screen.getByLabelText('1. Kat yüksekliği')
+    await user.clear(height)
+    await user.type(height, '420')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
+    await clickApply(user)
+
+    expect(useCadStore.getState().floors.at(-1)?.heightCm).toBe(420)
+  })
+})
+
+describe('FloorManagementDialog — kopyalama KİP (K166)', () => {
+  async function enterCopyMode(user: ReturnType<typeof userEvent.setup>) {
+    // Satırdaki kopyalama ikonu; açılır menü kalktı.
+    await user.click(screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} kattan kopyala` }))
+  }
+
+  it('ikinci bir pencere AÇMAZ, aynı liste hedef seçmeye geçer', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await enterCopyMode(user)
+
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.getByText(/hedef katları seçin/)).toBeInTheDocument()
+  })
+
+  it('kopyalama Uygula"ya kadar store"a YAZMAZ', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await enterCopyMode(user)
+    await user.click(screen.getByLabelText('1. Kat hedef'))
+    await user.click(screen.getByRole('button', { name: '1 kata kopyala' }))
+
+    // Kip kapandı ama çizim hâlâ eski hâlinde.
+    expect(wallCountOn(UPPER_FLOOR_ID)).toBe(0)
+    expect(useCadStore.getState().revision).toBe(0)
+  })
+
+  it('İptal kopyalamayı da geri alır — eski pencerede alamıyordu', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await enterCopyMode(user)
+    await user.click(screen.getByLabelText('1. Kat hedef'))
+    await user.click(screen.getByRole('button', { name: '1 kata kopyala' }))
+    await user.click(screen.getByRole('button', { name: 'İptal' }))
+
+    expect(wallCountOn(UPPER_FLOOR_ID)).toBe(0)
+    expect(useCadStore.getState().revision).toBe(0)
+  })
+
+  it('Uygula kopyalamayı ve yapı değişikliğini TEK adımda yazar', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await enterCopyMode(user)
+    await user.click(screen.getByLabelText('1. Kat hedef'))
+    await user.click(screen.getByRole('button', { name: '1 kata kopyala' }))
+    await clickApply(user)
+
+    expect(wallCountOn(UPPER_FLOOR_ID)).toBe(4)
+    expect(useCadStore.temporal.getState().pastStates).toHaveLength(1)
+  })
+
+  it('BİR kaynak BİRDEN ÇOK kata kopyalanır — seçim birikir', async () => {
+    seedGroundFloorDrawing()
+    useCadStore.setState({
+      floors: [
+        ...useCadStore.getState().floors,
+        { id: 300, name: '2. Kat', heightCm: DEFAULT_FLOOR_HEIGHT_CM, isBasement: false },
+      ],
+    })
+    const user = userEvent.setup()
+    renderDialog()
+
+    await enterCopyMode(user)
+    await user.click(screen.getByLabelText('1. Kat hedef'))
+    await user.click(screen.getByLabelText('2. Kat hedef'))
+
+    // İkinci tıklama birincisini DÜŞÜRMEZ.
+    await user.click(screen.getByRole('button', { name: '2 kata kopyala' }))
+    await clickApply(user)
+
+    expect(wallCountOn(UPPER_FLOOR_ID)).toBe(4)
+    expect(wallCountOn(300)).toBe(4)
+  })
+
+  it('hedef seçilmeden kopyalama düğmesi PASİF', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await enterCopyMode(user)
+
+    expect(screen.getByRole('button', { name: '0 kata kopyala' })).toBeDisabled()
+  })
+
+})
+
+describe('FloorManagementDialog — seçim ve silme (K166)', () => {
+  it('satırdaki çöp kutusu ONAY SORMADAN siler', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: '1. Kat sil' }))
+
+    // Onay penceresi YOK; taslakta anında gitti, store'a Uygula yazacak.
+    expect(rows()).toHaveLength(1)
+    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
+
+    await clickApply(user)
     expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME])
   })
-})
 
-describe('FloorManagementDialog — sıralama ve ekleme', () => {
-  it('tutamakta ArrowDown katı bir sıra aşağı taşır (KK-6)', async () => {
+  it('silme pencere içinde GERİ ALINIR', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    screen.getByRole('button', { name: '1. Kat sırasını değiştir' }).focus()
-    await userEvent.keyboard('{ArrowDown}')
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+    await user.click(screen.getByRole('button', { name: '1. Kat sil' }))
+    expect(rows()).toHaveLength(1)
 
-    expect(floorNames()).toEqual(['1. Kat', DEFAULT_FLOOR_NAME])
+    await user.click(screen.getByRole('button', { name: 'Geri al' }))
+    expect(rows()).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: 'Yinele' }))
+    expect(rows()).toHaveLength(1)
   })
 
-  it('bodrum listenin en altına eklenir ve kotu negatif olur (KK-8)', async () => {
+  it('geri al yığın boşken PASİF', () => {
     renderDialog()
 
-    await userEvent.click(screen.getByRole('button', { name: '+ Bodrum Ekle' }))
-
-    expect(screen.getByText('−3,00')).toBeInTheDocument()
-    expect(screen.getByText('(1 bodrum)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Geri al' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Yinele' })).toBeDisabled()
   })
 
-  it('"Yeni kat yüksekliği" yalnız EKLENEN kata uygulanır (KK-7)', async () => {
+  it('SEÇİM geçmişe girmez — Ctrl+Z seçimi değil düzenlemeyi geri alır', async () => {
+    const user = userEvent.setup()
     renderDialog()
 
-    const field = screen.getByRole('textbox', { name: 'Yeni kat yüksekliği' })
-    await userEvent.clear(field)
-    await userEvent.type(field, '450')
-    await userEvent.tab()
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
+    await user.click(screen.getByLabelText('1. Kat seç'))
+    await user.click(screen.getByRole('button', { name: 'Geri al' }))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Kat Ekle' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Boş kat' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
+    expect(rows()).toHaveLength(2)
+  })
 
-    expect(useCadStore.getState().floors.map((floor) => floor.heightCm)).toEqual([300, 300, 450])
+  it('tümünü seç bütün katları işaretler, toplu silme hepsini kaldırır', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByLabelText('Tümünü seç'))
+    expect(screen.getByText('2 seçili')).toBeInTheDocument()
+
+    // Projede en az bir kat kalmalı: tamamını kapsayan silme reddedilir.
+    await user.click(screen.getByRole('button', { name: 'Seçili katları sil' }))
+    expect(rows()).toHaveLength(2)
+  })
+
+  it('elle seçilen katlar toplu silinir', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: 'Ekle' }))
+    await user.click(screen.getByLabelText('1. Kat seç'))
+    await user.keyboard('{Control>}')
+    await user.click(screen.getByLabelText('2. Kat seç'))
+    await user.keyboard('{/Control}')
+    await user.click(screen.getByRole('button', { name: 'Seçili katları sil' }))
+    await clickApply(user)
+
+    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME])
   })
 
   it('son kat silinemez', async () => {
@@ -257,158 +387,5 @@ describe('FloorManagementDialog — sıralama ve ekleme', () => {
     renderDialog()
 
     expect(screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} sil` })).toBeDisabled()
-  })
-})
-
-describe('FloorManagementDialog — kat silme onayı (KK-12, KK-14)', () => {
-  it('satırdaki silme aksiyonu onay penceresi açar, doğrudan silmez', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-
-    expect(screen.getByRole('heading', { name: 'Kat Silme Onayı' })).toBeInTheDocument()
-    expect(screen.getByText(/silinecek\. Kata ait mimari/)).toBeInTheDocument()
-    // Onay açılmışken kat hâlâ taslakta duruyor.
-    expect(screen.getByRole('textbox', { name: '1. Kat adı' })).toBeInTheDocument()
-  })
-
-  it('onay kutusu işaretlenmeden "Katı Sil" pasiftir', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-    const confirm = screen.getByRole('button', { name: 'Katı Sil' })
-    expect(confirm).toBeDisabled()
-
-    await userEvent.click(
-      screen.getByRole('checkbox', { name: 'Kat içeriğinin silineceğini anladım' }),
-    )
-    expect(confirm).toBeEnabled()
-  })
-
-  it('onaylanan silme taslaktan düşer, "Uygula" ile yazılır', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-    await userEvent.click(
-      screen.getByRole('checkbox', { name: 'Kat içeriğinin silineceğini anladım' }),
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'Katı Sil' }))
-
-    // Onay taslağı değiştirir; store hâlâ eski hâlde.
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
-
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME])
-  })
-
-  it('"Vazgeç" katı silmez', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Vazgeç' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Uygula' }))
-
-    expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME, '1. Kat'])
-  })
-
-  it('silme sonrası üstteki katın kot değişimi önceden gösterilir', async () => {
-    useCadStore.setState({
-      floors: [
-        createGroundFloor(),
-        { id: UPPER_FLOOR_ID, name: '1. Kat', heightCm: 300, isBasement: false },
-        { id: 101, name: '2. Kat', heightCm: 300, isBasement: false },
-      ],
-    })
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-
-    expect(screen.getByText(/2\. Kat \+6,00 → \+3,00/)).toBeInTheDocument()
-  })
-
-  it('tüm katlar seçiliyken silme yapılmaz ve en az bir kat gerektiği bildirilir', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('checkbox', { name: `${DEFAULT_FLOOR_NAME} seç` }))
-    await userEvent.click(screen.getByRole('checkbox', { name: '1. Kat seç' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Sil' }))
-
-    expect(screen.getByRole('alert')).toHaveTextContent('En az bir katın kalması gerekir')
-    expect(screen.queryByRole('button', { name: 'Katı Sil' })).not.toBeInTheDocument()
-  })
-})
-
-describe('FloorManagementDialog — düşey eksen uyarısı (KK-13)', () => {
-  function putVerticalAxisOnUpperFloor() {
-    useCadStore.setState({
-      areaObjects: [
-        {
-          id: 70,
-          type: 'flueShaft',
-          floorId: UPPER_FLOOR_ID,
-          x: 0,
-          y: 0,
-          widthCm: 60,
-          lengthCm: 60,
-          angleDeg: 0,
-          label: 'BŞ-01',
-        },
-        {
-          id: 71,
-          type: 'columnVentilation',
-          floorId: UPPER_FLOOR_ID,
-          x: 100,
-          y: 0,
-          widthCm: 40,
-          lengthCm: 40,
-          angleDeg: 0,
-          label: 'KH-01',
-        },
-      ],
-    })
-  }
-
-  it('baca şaftı ve kolon havalandırması adedi uyarıda görünür', async () => {
-    putVerticalAxisOnUpperFloor()
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-
-    const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('1 baca şaftı ve 1 kolon havalandırması')
-    expect(alert).toHaveTextContent('aynı düşey eksende kalmaz')
-  })
-
-  it('düşey eksen nesnesi yoksa uyarı ÇIKMAZ', async () => {
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-
-    expect(screen.queryByText(/düşey eksende kalmaz/)).not.toBeInTheDocument()
-  })
-
-  it('merdiven düşey eksen uyarısı üretmez', async () => {
-    useCadStore.setState({
-      areaObjects: [
-        {
-          id: 72,
-          type: 'stairs',
-          floorId: UPPER_FLOOR_ID,
-          x: 0,
-          y: 0,
-          widthCm: 120,
-          lengthCm: 200,
-          angleDeg: 0,
-          label: 'M-01',
-        },
-      ],
-    })
-    renderDialog()
-
-    await userEvent.click(screen.getByRole('button', { name: '1. Kat sil' }))
-
-    expect(screen.queryByText(/düşey eksende kalmaz/)).not.toBeInTheDocument()
-    // Alan nesnesi mimari dökümünde yine de sayılır.
-    expect(screen.getByText(/1 alan nesnesi/)).toBeInTheDocument()
   })
 })

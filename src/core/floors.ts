@@ -209,3 +209,30 @@ export function moveFloorInList<T extends Floor>(
 
   return reorderFloorInList(floors, floorId, direction === 'up' ? index + 1 : index - 1)
 }
+
+/**
+ * Sol kenardaki kat şeridinin kısa etiketleri (K166): bodrum `B`, zemin `Z`,
+ * üstündekiler `1`, `2`, `3`… Şerit dar ve yuvarlak; kat ADI oraya sığmıyor,
+ * ayrıca kullanıcı adı serbestçe değiştirebiliyor ve "Asma Kat" gibi bir ad
+ * sıradaki yerini söylemiyor. Etiket bu yüzden addan değil SIRADAN türer.
+ *
+ * Birden çok bodrumda numara EKLENİR ve aşağı doğru artar (`B1` zeminin hemen
+ * altı): dizinin başı en alt kat olduğu için sayım tersten yapılıyor. Tek
+ * bodrumda numara yok — okunacak bir ayrım da yok.
+ *
+ * Dönen dizi girdiyle AYNI sırada (en alt kat başta); şeridin ters çevirmesi
+ * görüntüleme kararı, veri burada çevrilmez.
+ */
+export function getFloorShortLabels(floors: readonly Floor[]): string[] {
+  const basementCount = getBasementCount(floors)
+
+  let aboveGroundIndex = 0
+  return floors.map((floor, index) => {
+    if (floor.isBasement) {
+      return basementCount === 1 ? 'B' : `B${basementCount - index}`
+    }
+    const label = aboveGroundIndex === 0 ? 'Z' : String(aboveGroundIndex)
+    aboveGroundIndex += 1
+    return label
+  })
+}

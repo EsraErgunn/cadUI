@@ -1,6 +1,9 @@
 import {
+  MAX_BASEMENT_COUNT,
+  MAX_FLOOR_COUNT,
   canAddBasement,
   canAddFloor,
+  getBasementCount,
   getFloorInsertIndex,
   getNextBasementName,
   getNextFloorName,
@@ -19,18 +22,30 @@ import { DEFAULT_FLOOR_HEIGHT_CM, type Floor, type Id } from './model'
  * kullanıcı iptal edene kadar çizim ekranı yarım bir kat yapısını gösterirdi.
  * Taslak ayrıca KK-20'yi bedava veriyor: Uygula tek yazım, dolayısıyla tek Ctrl+Z.
  */
+/**
+ * Bu kata Uygula'da yazılacak kopyalama (K166). Hem YENİ kat "X'tan
+ * kopyalayarak" eklendiğinde hem de MEVCUT bir kat kopyalama hedefi
+ * seçildiğinde aynı alan kullanılır — iki ayrı yol tek kavrama indi.
+ *
+ * "Üzerine yaz / atla" kipi BURADA saklanmaz: kip, hedef listesini süzen bir
+ * karardır ve süzme kullanıcı onay verirken yapılır. Taslakta duran şey kipin
+ * SONUCU, yani gerçekten kopyalanacak katlar.
+ */
+export type DraftFloorCopy = {
+  sourceFloorId: Id
+  isArchitectureIncluded: boolean
+  isInstallationIncluded: boolean
+}
+
 export type DraftFloor = Floor & {
-  /**
-   * Yalnız YENİ katlarda anlamlı: içeriği bu kattan kopyalanacak (madde 10,
-   * "<Kat adı>'tan kopyalayarak"). `null` = boş kat. Kopyalama Uygula'da yapılır.
-   */
-  copyFromFloorId: Id | null
+  /** `null` = bu kata kopyalama yok. Kopyalama Uygula'da yapılır. */
+  pendingCopy: DraftFloorCopy | null
 }
 
 export type FloorPlanDraft = {
   floors: DraftFloor[]
   activeFloorId: Id
-  /** "SEÇ" sütunu — toplu kopyalama/silme için; aktif kattan BAĞIMSIZ (madde 8). */
+  /** Toplu işlem seçimi (kopyalama/silme); aktif kattan BAĞIMSIZ. */
   selectedFloorIds: Id[]
 }
 
@@ -53,7 +68,7 @@ function takeDraftFloorId(floors: readonly DraftFloor[]): Id {
 
 export function createFloorPlanDraft(floors: readonly Floor[], activeFloorId: Id): FloorPlanDraft {
   return {
-    floors: floors.map((floor) => ({ ...floor, copyFromFloorId: null })),
+    floors: floors.map((floor) => ({ ...floor, pendingCopy: null })),
     activeFloorId,
     selectedFloorIds: [],
   }
@@ -61,9 +76,21 @@ export function createFloorPlanDraft(floors: readonly Floor[], activeFloorId: Id
 
 export type AddDraftFloorInput = {
   isBasement?: boolean
+  /**
+   * Verilmezse yeni kat ALTINDAKİ katın yüksekliğini devralır (K166). Eskiden
+   * pencerenin üstünde ayrı bir "yeni kat yüksekliği" alanı vardı; alanın
+   * kendisi kadar "mevcut katları değiştirmez" feragatnamesi de gerekiyordu.
+   * Devralma, üç kat üst üste eklendiğinde de istenen sonucu veriyor.
+   */
   heightCm?: number
-  /** Verilirse yeni kat, o katın çiziminin kopyasıyla gelir. */
+  /** Verilirse yeni kat, o katın çiziminin TAM kopyasıyla gelir. */
   copyFromFloorId?: Id
+}
+
+/** Yeni katın yüksekliği: altındaki kat, o da yoksa proje varsayılanı. */
+function getInheritedHeightCm(floors: readonly DraftFloor[], insertIndex: number): number {
+  const below = floors[insertIndex - 1] ?? floors[insertIndex] ?? floors[floors.length - 1]
+  return below?.heightCm ?? DEFAULT_FLOOR_HEIGHT_CM
 }
 
 /**
@@ -75,7 +102,8 @@ export function addDraftFloor(draft: FloorPlanDraft, input: AddDraftFloorInput =
   const isBasement = input.isBasement ?? false
   if (isBasement ? !canAddBasement(draft.floors) : !canAddFloor(draft.floors)) return draft
 
-  const heightCm = input.heightCm ?? DEFAULT_FLOOR_HEIGHT_CM
+  const insertIndex = getFloorInsertIndex(draft.floors, isBasement)
+  const heightCm = input.heightCm ?? getInheritedHeightCm(draft.floors, insertIndex)
   if (!isFloorHeightValid(heightCm)) return draft
 
   const name = isBasement ? getNextBasementName(draft.floors) : getNextFloorName(draft.floors)
@@ -86,12 +114,53 @@ export function addDraftFloor(draft: FloorPlanDraft, input: AddDraftFloorInput =
     name,
     heightCm,
     isBasement,
-    copyFromFloorId: input.copyFromFloorId ?? null,
+    pendingCopy:
+      input.copyFromFloorId === undefined
+        ? null
+        : {
+            sourceFloorId: input.copyFromFloorId,
+            isArchitectureIncluded: true,
+            isInstallationIncluded: true,
+          },
   }
 
   const floors = [...draft.floors]
-  floors.splice(getFloorInsertIndex(draft.floors, isBasement), 0, added)
+  floors.splice(insertIndex, 0, added)
   return { ...draft, floors }
+}
+
+/**
+ * Tek işlemde birden çok kat (K166: "3 kat ekle"). Her kat bir öncekinin
+ * üstüne biniyor, yani adlar sırayla üretiliyor ve devralınan yükseklik en son
+ * eklenen kattan geliyor — üç eşit kat, tipik bir apartmanda istenen sonuç.
+ *
+ * KISMİ ekleme YOK: istenen sayı tavana sığmıyorsa hiçbiri eklenmez. Onu
+ * söylemek arayüzün işi (`getAddableFloorCount`); burada sessizce 10 yerine 4
+ * kat eklemek kullanıcının saymadığı bir sonuç doğururdu.
+ */
+export function addDraftFloors(
+  draft: FloorPlanDraft,
+  input: AddDraftFloorInput = {},
+  count = 1,
+): FloorPlanDraft {
+  if (!Number.isInteger(count) || count < 1) return draft
+  if (getAddableFloorCount(draft.floors, input.isBasement ?? false) < count) return draft
+
+  let next = draft
+  for (let index = 0; index < count; index += 1) {
+    const added = addDraftFloor(next, input)
+    // Bir tanesi bile reddedilirse tamamı geri alınır: yarım yığın bırakmaz.
+    if (added === next) return draft
+    next = added
+  }
+  return next
+}
+
+/** Tavana kaç kat daha sığdığı — sayı alanının üst sınırı. */
+export function getAddableFloorCount(floors: readonly Floor[], isBasement: boolean): number {
+  return isBasement
+    ? Math.max(0, MAX_BASEMENT_COUNT - getBasementCount(floors))
+    : Math.max(0, MAX_FLOOR_COUNT - floors.length)
 }
 
 /**
@@ -184,7 +253,64 @@ export function setDraftActiveFloor(draft: FloorPlanDraft, floorId: Id): FloorPl
   return { ...draft, activeFloorId: floorId }
 }
 
-/** "SEÇ" işaretleri aktif kat değişiminden ETKİLENMEZ — iki sütun bağımsız. */
+/**
+ * Kopyalamayı TASLAĞA yazar (K166) — store'a değil. Uygula'ya kadar hiçbir şey
+ * değişmez, dolayısıyla "İptal" kopyalamayı da geri alır ve Uygula tek Ctrl+Z
+ * kalır. Eskiden kopyalama ayrı bir pencereden doğrudan store'a yazıyor, üstelik
+ * açılırken bekleyen taslağı da sessizce uyguluyordu.
+ *
+ * Kaynak kat kendine hedef OLAMAZ; süzülür, hata verilmez.
+ */
+export function setDraftFloorCopies(
+  draft: FloorPlanDraft,
+  targetFloorIds: readonly Id[],
+  copy: DraftFloorCopy,
+): FloorPlanDraft {
+  const targets = new Set(targetFloorIds)
+  targets.delete(copy.sourceFloorId)
+  if (targets.size === 0) return draft
+  if (!draft.floors.some((floor) => floor.id === copy.sourceFloorId)) return draft
+
+  return {
+    ...draft,
+    floors: draft.floors.map((floor) =>
+      targets.has(floor.id) ? { ...floor, pendingCopy: { ...copy } } : floor,
+    ),
+  }
+}
+
+/** Bekleyen kopyalamayı geri alır (satır menüsündeki "Kopyalamayı kaldır"). */
+export function clearDraftFloorCopy(draft: FloorPlanDraft, floorId: Id): FloorPlanDraft {
+  const floor = draft.floors.find((candidate) => candidate.id === floorId)
+  if (!floor || floor.pendingCopy === null) return draft
+
+  return {
+    ...draft,
+    floors: draft.floors.map((candidate) =>
+      candidate.id === floorId ? { ...candidate, pendingCopy: null } : candidate,
+    ),
+  }
+}
+
+export function hasPendingCopies(draft: FloorPlanDraft): boolean {
+  return draft.floors.some((floor) => floor.pendingCopy !== null)
+}
+
+/** Seçimi topluca yazar — satıra Shift ile tıklamada aralık buradan geçer. */
+export function setDraftFloorSelection(
+  draft: FloorPlanDraft,
+  floorIds: readonly Id[],
+): FloorPlanDraft {
+  const existing = new Set(draft.floors.map((floor) => floor.id))
+  const selectedFloorIds = [...new Set(floorIds)].filter((id) => existing.has(id))
+  const isSame =
+    selectedFloorIds.length === draft.selectedFloorIds.length &&
+    selectedFloorIds.every((id) => draft.selectedFloorIds.includes(id))
+
+  return isSame ? draft : { ...draft, selectedFloorIds }
+}
+
+/** Seçim işaretleri aktif kat değişiminden ETKİLENMEZ — ikisi bağımsız. */
 export function toggleDraftFloorSelection(draft: FloorPlanDraft, floorId: Id): FloorPlanDraft {
   if (!draft.floors.some((floor) => floor.id === floorId)) return draft
 
