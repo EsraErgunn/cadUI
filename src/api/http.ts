@@ -13,22 +13,10 @@ const UNAUTHORIZED = 401
 export class ApiError extends Error {
   readonly status: number
 
-  /**
-   * Hata yanıtının AYRIŞTIRILMIŞ gövdesi (JSON değilse `undefined`).
-   *
-   * Çoğu uçta hata gövdesi `{ message }` ve `message` alanı zaten yeterli. Ama
-   * bazı uçlarda hatanın KENDİSİ istemcinin işleyeceği veriyi taşıyor — örneğin
-   * `POST /api/projects/{id}/submit` eksik evrak listesini 400 ile döndürüyor.
-   * Gövde burada tutulmasaydı çağıranın onu okumak için isteği ikinci kez
-   * atmaktan başka yolu olmazdı.
-   */
-  readonly body: unknown
-
-  constructor(status: number, message: string, body?: unknown) {
+  constructor(status: number, message: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
-    this.body = body
   }
 }
 
@@ -111,30 +99,22 @@ function readValidationMessage(body: Record<string, unknown>): string | null {
  * alan bazlı mesajın arkasına düşüyor. 500 veya vekil hatalarında HTML de
  * gelebilir; hiçbiri tutmazsa genel Türkçe mesaja inilir.
  */
-/**
- * Hata yanıtından hem KULLANICIYA gösterilecek metni hem de ham gövdeyi çıkarır.
- * Gövde tek seferde okunuyor: `Response` gövdesi bir kez tüketilebiliyor, mesaj
- * ve gövde için ayrı ayrı okunamazdı.
- */
-async function readErrorPayload(response: Response): Promise<{ message: string; body: unknown }> {
-  const fallback = `Sunucu ${response.status} döndü.`
-
+async function readErrorMessage(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json()
-    if (!body || typeof body !== 'object') return { message: fallback, body }
+    if (!body || typeof body !== 'object') return `Sunucu ${response.status} döndü.`
 
     const record = body as Record<string, unknown>
-    const message =
+    return (
       readText(record, 'message') ??
       readText(record, 'detail') ??
       readValidationMessage(record) ??
       readText(record, 'title') ??
-      fallback
-
-    return { message, body }
+      `Sunucu ${response.status} döndü.`
+    )
   } catch {
     // gövde JSON değil
-    return { message: fallback, body: undefined }
+    return `Sunucu ${response.status} döndü.`
   }
 }
 
@@ -175,10 +155,7 @@ async function send(request: JsonRequest): Promise<Response> {
     setAuthSession(undefined)
   }
 
-  if (!response.ok) {
-    const { message, body } = await readErrorPayload(response)
-    throw new ApiError(response.status, message, body)
-  }
+  if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response))
   return response
 }
 
@@ -249,10 +226,7 @@ export async function uploadForm<TSchema extends z.ZodType>(
 
   if (response.status === UNAUTHORIZED) setAuthSession(undefined)
 
-  if (!response.ok) {
-    const { message, body } = await readErrorPayload(response)
-    throw new ApiError(response.status, message, body)
-  }
+  if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response))
 
   return schema.parse(await response.json())
 }

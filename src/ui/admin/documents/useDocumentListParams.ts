@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import type { AdminScope } from '../../../api/adminDashboard'
 import {
   DEFAULT_DOCUMENT_SORT_DIR,
   DEFAULT_DOCUMENT_SORT_KEY,
@@ -12,7 +11,6 @@ import {
 import type { SortDirection } from '../../../api/listQuery'
 import { lastMonthRange } from '../adminDateRange'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
-import { useAdminScopeParam } from '../useAdminScopeParam'
 
 function parseSortKey(raw: string | null): DocumentSortKey {
   return DOCUMENT_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_DOCUMENT_SORT_KEY
@@ -44,7 +42,6 @@ export interface DocumentUrlQuery {
   dateTo: string
   docTypeCode: string | null
   projectFirmId: number | null
-  scope: AdminScope
   page: number
   pageSize: number
   sortBy: DocumentSortKey
@@ -65,9 +62,6 @@ export interface DocumentListControls {
 export function useDocumentListParams(): DocumentListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
-  // Kapsam SUNUCUYA gidiyor (`GdGroupId`/`GdFirmId`); istemcide firma adına
-  // göre süzme kalktı — sayfalı bir listede yalnız görünen sayfayı süzerdi.
-  const { scope } = useAdminScopeParam()
 
   const query = useMemo<DocumentUrlQuery>(() => {
     const defaultRange = lastMonthRange(new Date())
@@ -77,13 +71,12 @@ export function useDocumentListParams(): DocumentListControls {
       dateTo: searchParams.get(ADMIN_PARAM_KEYS.dateTo) ?? defaultRange.to,
       docTypeCode: searchParams.get(ADMIN_PARAM_KEYS.documentType),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
-      scope,
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: DOCUMENT_PAGE_SIZE,
       sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
     }
-  }, [searchParams, scope])
+  }, [searchParams])
 
   const applyFilters = useCallback(
     (filters: DocumentFilters) => {

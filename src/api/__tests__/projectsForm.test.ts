@@ -465,11 +465,10 @@ describe('listProjects — sunucu taraflı süzme ve sayfalama', () => {
   })
 
   /**
-   * Arama artık SUNUCUDA (`Search`). İstemcide süzülürken yalnız görünen
-   * sayfayı kapsıyordu ve `totalCount` süzülmemiş adedi gösteriyordu; gelen
-   * sayfa artık olduğu gibi çiziliyor.
+   * Uçta ARAMA parametresi yok; kutu gelen sayfayı süzüyor. Kapsamın sayfa
+   * ile sınırlı olduğu bilinen sınır (uca `Search` eklenince kalkacak).
    */
-  it('aramayı uca `Search` olarak gönderir, gelen sayfayı süzmez', async () => {
+  it('aramayı gelen sayfa üzerinde Türkçe duyarsız uygular', async () => {
     const fetchMock = stubFetch(
       apiPage([
         apiListItem(1, 'Gülbahar Apartmanı', '2026-08-03T18:20:47'),
@@ -479,17 +478,9 @@ describe('listProjects — sunucu taraflı süzme ve sayfalama', () => {
 
     const page = await listProjects({ ...TASLAK_QUERY, search: 'gulbahar' })
 
-    expect(sentUrl(fetchMock).searchParams.get('Search')).toBe('gulbahar')
-    expect(page.items.map((project) => project.id)).toEqual([1, 2])
-  })
-
-  /** Boş arama parametre olarak HİÇ yazılmaz; adres temiz kalır. */
-  it('boş aramada Search parametresi yazılmaz', async () => {
-    const fetchMock = stubFetch(apiPage([]))
-
-    await listProjects({ ...TASLAK_QUERY, search: '' })
-
-    expect(sentUrl(fetchMock).searchParams.has('Search')).toBe(false)
+    expect(page.items.map((project) => project.id)).toEqual([1])
+    // Arama uca GİTMEZ: sözleşmede karşılığı yok.
+    expect(sentUrl(fetchMock).search).not.toContain('gulbahar')
   })
 
   it('proje ve ısınma tipini uçtan gelen ADLA doldurur', async () => {

@@ -5,7 +5,6 @@ import { ApiError, requestJson } from './http'
 import { mockedData, serverData, type Sourced } from './mockGate'
 import { buildMockProjectPolicies } from './projectDetailMock'
 import {
-  DRAFT_STATUS,
   type ProjectDetail,
   type ProjectDetailExtras,
   type ProjectDetailStatus,
@@ -16,7 +15,7 @@ import {
   type ProjectSummary,
   type ProjectUnitRow,
 } from './projectDetailTypes'
-import { toProjectStatus } from './projects'
+import { PROJECT_STATUSES } from './projects'
 import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
@@ -51,7 +50,6 @@ const projectDetailDtoSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   description: z.string().nullish(),
-  status: z.string().nullish(),
   projectFirmId: z.number().int().nullish(),
   gasDistributionFirmId: z.number().int().nullish(),
   buildingCode: z.string().nullish(),
@@ -101,7 +99,7 @@ export async function getProjectDetail(
     pId: toProjectPId(dto),
     name: dto.name,
     description: toNullable(dto.description),
-    status: toProjectDetailStatus(dto.status),
+    status: mockStatusOf(dto.id),
     cityName: toNullable(dto.cityName),
     districtName: toNullable(dto.districtName),
     addressLine: toNullable(dto.addressLine),
@@ -185,12 +183,21 @@ function buildExtras(server: ProjectServerFields): ProjectDetailExtras {
 }
 
 /**
- * Bilinmeyen/eksik durum TASLAK sayılır. Çeviri liste ekranıyla ORTAK
- * (`toProjectStatus`): iki eşleme tutulsaydı aynı proje iki ekranda farklı
- * durumda görünebilirdi — zaten bu ekranın eski hatası tam olarak buydu.
+ * Mock durum kimliğe göre dönüyor: hepsi "Taslak" olsaydı onay aksiyonlarının
+ * etkin hâli ve onay kartının dolu hâli hiç görülemezdi (KK-2, KK-11).
+ *
+ * BİLİNEN TUTARSIZLIK: durumun GERÇEK kaynağı liste ucu — `GET /api/projects`
+ * satır başına `status` döndürüyor ve `projects.ts` onu `ProjectListItem.status`
+ * olarak taşıyor. `GET /api/projects/{id}` ise durumu HİÇ döndürmüyor, bu yüzden
+ * detay ekranı aynı proje için listeden farklı (ve geliştirmede uydurma) bir
+ * durum gösterebilir. Karar düğmeleri bu değere GÜVENMİYOR: sayfa yalnız durumu
+ * gerçekten taslak olan kaydı kilitler (ProjectDetailPage → isDraft).
+ *
+ * TODO(esra): uç `Status` döndürmeye başlayınca burası `toProjectStatus`'a
+ * bağlanacak ve iki ekran ayrışamayacak.
  */
-function toProjectDetailStatus(raw: string | null | undefined): ProjectDetailStatus {
-  return toProjectStatus(raw) ?? DRAFT_STATUS
+function mockStatusOf(projectId: number): ProjectDetailStatus {
+  return PROJECT_STATUSES[projectId % PROJECT_STATUSES.length]
 }
 
 const NOT_FOUND = 404

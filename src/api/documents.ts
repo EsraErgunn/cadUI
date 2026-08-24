@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import type { AdminScope } from './adminDashboard'
 import { requestJson, requestVoid, uploadForm } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import { serverData, type Sourced } from './mockGate'
@@ -23,6 +22,8 @@ import { serverData, type Sourced } from './mockGate'
  * listede istemci tarafı arama yalnız GÖRÜNEN sayfayı süzeceği için yanlış
  * sonuç verirdi. Bu yüzden Evraklar ekranındaki arama kutusu kaldırıldı —
  * yarım çalışan bir süzgeç, olmayandan daha yanıltıcı.
+ *
+ * **Kapsam da UYGULANMIYOR** (bkz. `DocumentRow.gasFirmName`).
  */
 
 export const DOCUMENT_PAGE_SIZE = 30
@@ -47,7 +48,11 @@ export interface DocumentRow {
   unitNames: string[]
   projectId: number | null
   projectName: string | null
-  /** Serbest biçimli proje numarası (bina kodu); sayı olarak yorumlanmaz. */
+  /**
+   * Serbest biçimli proje numarası. `DocListItemDto` bina kodunu TAŞIMIYOR, bu
+   * yüzden `null` — hücre boş işaretini çiziyor. Uydurma bir değer yazmaktansa
+   * boş bırakılıyor.
+   */
   projectPId: string | null
   /** "Proje Firması" filtresi kimliğe göre süzüyor; ad tek başına yetmez. */
   projectFirmId: number | null
@@ -58,6 +63,15 @@ export interface DocumentRow {
    */
   installationNo: string | null
   firmName: string | null
+  /**
+   * Gaz dağıtım firmasının adı. `DocListItemDto` bunu da TAŞIMIYOR → `null`.
+   *
+   * **Üst bardaki kapsam bu ekranda UYGULANMIYOR:** ne uçta kapsam parametresi
+   * var ne de satır firma bilgisi taşıyor. İstemcide süzmek her satırı eler ve
+   * tabloyu boşaltırdı — kapsam seçili olsa bile liste daraltılmadan gösteriliyor.
+   * TODO(esra): uç `GdGroupId`/`GdFirmId` alınca ya da satır firma adı taşıyınca
+   * süzgeç geri gelecek.
+   */
   gasFirmName: string | null
   /** Proje detayındaki evrak tablosu boyutu da gösteriyor; genel listede sütunu yok. */
   sizeBytes: number | null
@@ -80,12 +94,6 @@ export interface DocumentListQuery {
   /** Kod KİMLİĞİ; ekran URL'deki `codeValue`'yu buna çeviriyor. */
   docTypeCodeId: number | null
   projectFirmId: number | null
-  /**
-   * Üst bardaki KAPSAM. Sorguya `gdGroupId` VEYA `gdFirmId` olarak gider, ikisi
-   * birden asla — ayrık birleşim bunu tipte garanti ediyor (proje listesiyle
-   * aynı desen).
-   */
-  scope: AdminScope
   page: number
   pageSize: number
   sortBy: DocumentSortKey
@@ -125,8 +133,6 @@ const docListItemSchema = z.object({
   docTypeName: z.string().nullish(),
   projectId: z.number().nullish(),
   projectName: z.string().nullish(),
-  buildingCode: z.string().nullish(),
-  gasDistributionFirmName: z.string().nullish(),
   projectUnits: z.array(docUnitSchema),
   projectFirmId: z.number().nullish(),
   projectFirmName: z.string().nullish(),
@@ -156,11 +162,11 @@ function toDocumentRow(dto: z.infer<typeof docListItemSchema>): DocumentRow {
       .filter((name): name is string => name !== null),
     projectId: dto.projectId ?? null,
     projectName: toNullable(dto.projectName),
-    projectPId: toNullable(dto.buildingCode),
+    projectPId: null,
     projectFirmId: dto.projectFirmId ?? null,
     installationNo: null,
     firmName: toNullable(dto.projectFirmName),
-    gasFirmName: toNullable(dto.gasDistributionFirmName),
+    gasFirmName: null,
     sizeBytes: dto.sizeBytes ?? null,
     uploadedByName: null,
     contentType: toNullable(dto.contentType),
@@ -192,8 +198,6 @@ function buildListQuery(query: DocumentListQuery): string {
   if (query.dateTo !== null) search.set('ReceivedTo', query.dateTo)
   if (query.docTypeCodeId !== null) search.set('DocTypeCodeId', String(query.docTypeCodeId))
   if (query.projectFirmId !== null) search.set('ProjectFirmId', String(query.projectFirmId))
-  if (query.scope.type === 'group') search.set('GdGroupId', String(query.scope.groupId))
-  if (query.scope.type === 'firm') search.set('GdFirmId', String(query.scope.firmId))
 
   return search.toString()
 }

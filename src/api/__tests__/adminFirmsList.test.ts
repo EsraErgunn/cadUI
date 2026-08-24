@@ -87,58 +87,36 @@ describe('getGasDistributionFirms', () => {
   })
 
   /**
-   * Sayfalama artık SUNUCUDA: ekranın istediği sayfa ve boyut olduğu gibi uca
-   * gidiyor. Eskiden bütün kayıtlar sayfa sayfa indirilip istemcide
-   * dilimleniyordu (K27'nin geçici istisnası).
+   * Sayfalama hâlâ İSTEMCİDE (K27): uç ünvan araması ve tek firma daraltması
+   * almadığı için liste tümüyle çekilip burada dilimleniyor. İstenen
+   * `pageSize: 1` sorguya YANSIMAZ.
    */
-  it('ekranın sayfasını ve boyutunu uca yansıtır', async () => {
-    const fetchMock = stubFetch(listPage(LIST_DTO, { page: 2, pageSize: 1, totalCount: 2 }))
+  it('ekranın sayfa boyutunu uca YANSITMAZ, dilimlemeyi istemcide yapar', async () => {
+    const fetchMock = stubFetch(listPage(LIST_DTO))
 
-    const page = await getGasDistributionFirms({ ...LIST_QUERY, page: 2, pageSize: 1 })
+    const page = await getGasDistributionFirms({ ...LIST_QUERY, page: 1, pageSize: 1 })
 
-    const url = requestOf(fetchMock).url
-    expect(url).toContain('Page=2')
-    expect(url).toContain('PageSize=1')
-    // Gelen sayfa olduğu gibi çiziliyor; toplam sunucudan.
-    expect(page.items).toHaveLength(2)
+    expect(requestOf(fetchMock).url).not.toContain('PageSize=1&')
+    expect(requestOf(fetchMock).url).toContain('PageSize=100')
+    expect(page.items).toHaveLength(1)
     expect(page.totalCount).toBe(2)
   })
 
-  /** Arama uca `Search` olarak gider; gelen sayfa istemcide bir daha süzülmez. */
-  it('aramayı uca Search olarak gönderir', async () => {
+  /** Arama istemcide ve Türkçe duyarsız; uca `Search` GİTMEZ (uçta yok). */
+  it('ad araması gerçek veriden süzer', async () => {
     const fetchMock = stubFetch(listPage(LIST_DTO))
 
-    await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
+    const page = await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
 
-    expect(requestOf(fetchMock).url).toContain('Search=%C3%A7orum')
-  })
-
-  /** Boş süzgeç parametre olarak HİÇ yazılmaz. */
-  it('boş süzgeçleri sorguya yazmaz', async () => {
-    const fetchMock = stubFetch(listPage(LIST_DTO))
-
-    await getGasDistributionFirms(LIST_QUERY)
-
-    const url = requestOf(fetchMock).url
-    expect(url).not.toContain('Search=')
-    expect(url).not.toContain('GasDistributionGroupId=')
-    expect(url).not.toContain('Id=')
-  })
-
-  /** Üst bardaki kapsam tek firmaysa liste o satıra iner. */
-  it('kapsam firmasını Id olarak gönderir', async () => {
-    const fetchMock = stubFetch(listPage(LIST_DTO))
-
-    await getGasDistributionFirms({ ...LIST_QUERY, scopeFirmId: 7 })
-
-    expect(requestOf(fetchMock).url).toContain('Id=7')
+    expect(page.items.map((firm) => firm.name)).toEqual(['ÇORUMGAZ'])
+    expect(requestOf(fetchMock).url).not.toContain('Search=')
   })
 })
 
 describe('getGasDistributionFirmsByGroup', () => {
   /**
-   * Süzgeç SUNUCUDA: eskiden bütün firma listesi indirilip istemcide
-   * süzülüyordu, tek bir grup için onlarca kayıt ağdan geçiyordu.
+   * Grup süzgeci SUNUCUDA: `GasDistributionGroupId` uçta ZATEN vardı, eskiden
+   * bütün firma listesi indirilip istemcide süzülüyordu.
    */
   it('grup süzgecini uca gönderir', async () => {
     const fetchMock = stubFetch(listPage([LIST_DTO[0]]))

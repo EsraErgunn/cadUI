@@ -90,56 +90,27 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
-/** İstemcinin sıralama anahtarları ↔ sunucununkiler. */
-const FIRM_SORT_KEY_PARAMS: Record<GasFirmSortKey, string> = {
-  dfirmNo: 'companyNumber',
-  groupName: 'groupName',
-  name: 'title',
-}
-
 /**
- * `GET /api/gasdistributionfirms` — süzme, sıralama ve sayfalama SUNUCUDA.
+ * Arama, sıralama ve sayfalama İSTEMCİDE: uç ünvan araması (`Search`) ve tek
+ * firma daraltması (`Id`) almıyor, yalnız `GasDistributionGroupId` ve sayfalama
+ * parametreleri var. İkisi olmadan sunucuya taşımak arama kutusunu ve üst
+ * bardaki firma kapsamını sessizce işlevsiz bırakırdı.
  *
- * Liste bir süre TÜM kayıtları sayfa sayfa indirip istemcide süzüyordu (K27'nin
- * geçici istisnası): 30'ar kayıtlık N istek atılıyor, sonra çoğu atılıyordu.
- * Uç arama ve tek firma kapsamını da aldığı için o istisna kalktı.
+ * CLAUDE.md "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası
+ * (K27). TODO(esra): uca `Search` + tek firma süzgeci eklenince gövde tek
+ * isteğe iner ve `queryFirmList` silinir.
  */
 export async function getGasDistributionFirms(
   query: GasDistributionFirmQuery,
   signal?: AbortSignal,
 ): Promise<GasDistributionFirmPage> {
-  if (!hasApiBaseUrl()) {
-    await delay(MOCK_LATENCY_MS, signal)
-    const { items, totalCount } = queryFirmList(allMockFirms(), query)
-    return gasDistributionFirmPageSchema.parse({
-      items,
-      totalCount,
-      page: query.page,
-      pageSize: query.pageSize,
-    })
-  }
-
-  const search = new URLSearchParams({
-    SortBy: FIRM_SORT_KEY_PARAMS[query.sortKey],
-    SortDir: query.sortDir,
-    Page: String(query.page),
-    PageSize: String(query.pageSize),
-  })
-
-  // Boş süzgeç parametre olarak HİÇ yazılmaz; "tümü" demek için yokluğu kullanılır.
-  if (query.nameQuery !== '') search.set('Search', query.nameQuery)
-  if (query.groupId !== null) search.set('GasDistributionGroupId', String(query.groupId))
-  if (query.scopeFirmId !== null) search.set('Id', String(query.scopeFirmId))
-
-  const page = await requestJson(
-    { method: 'GET', path: `/api/gasdistributionfirms?${search.toString()}`, signal },
-    firmListPageSchema,
-  )
+  const firms = await fetchAllFirms(signal)
+  const { items, totalCount } = queryFirmList(firms, query)
 
   // Şemadan geçiyor: sözleşme kayması bileşenin içinde değil sınırda patlasın.
   return gasDistributionFirmPageSchema.parse({
-    items: page.items.map(toFirmListItem),
-    totalCount: page.totalCount,
+    items,
+    totalCount,
     page: query.page,
     pageSize: query.pageSize,
   })

@@ -49,7 +49,7 @@ export interface ProjectServerFields {
   pId: string
   name: string
   description: string | null
-  /** GERÇEK durum; liste satırıyla aynı kaynak (eskiden detayda hiç gelmiyordu). */
+  /** Uçta KARŞILIĞI YOK; kimlikten türetilen mock değer (bkz. `mockStatusOf`). */
   status: ProjectDetailStatus
   cityName: string | null
   districtName: string | null
