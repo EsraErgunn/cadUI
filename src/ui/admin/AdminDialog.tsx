@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 import { adminDialogPanelVariants } from './adminVariants'
 
@@ -25,6 +26,16 @@ interface AdminDialogProps {
  *
  * Açık olup olmadığını ÇAĞIRAN tutar (koşullu render): kapalıyken hiç DOM
  * üretmemek, açılış/kapanış odak mantığını mount ömrüne bağlıyor.
+ *
+ * **`document.body`'ye PORTAL ile basılıyor.** Diyaloglar bir formun içinden
+ * açılabiliyor (gaz dağıtım firması formundaki "yeni grup" gibi) ve yerinde
+ * render edilince `<form>` içinde `<form>` oluşuyordu: React bunu uyarıyor
+ * ("In HTML, <form> cannot be a descendant of <form>") ve diyalogun Kaydet'i
+ * DIŞTAKİ formu da gönderiyordu — kullanıcı grubu kaydetmeye çalışırken firma
+ * formu doğrulama hatalarıyla doluyor, iş yapılmamış görünüyordu.
+ *
+ * Portal ayrıca `overflow`/`z-index` kırpılmasını da çözüyor: kabuk bir
+ * kaydırma kabının içinde olsa bile diyalog tam ekran kalıyor.
  */
 export function AdminDialog({
   title,
@@ -73,9 +84,18 @@ export function AdminDialog({
     }
   }
 
-  return (
+  return createPortal(
     <div
       onKeyDown={handleKeyDown}
+      /*
+       * Diyalogun KENDİ formu dışarıya taşmasın. Portal DOM'da ayırıyor ama
+       * React olayları BİLEŞEN ağacında baloncuklandırıyor: diyalog bir formun
+       * içinden açıldığında (gaz dağıtım firması formundaki "yeni grup" gibi)
+       * diyalogun Kaydet'i dıştaki formun `onSubmit`'ini de tetikliyordu —
+       * kullanıcı grubu kaydederken firma formu doğrulama hatalarıyla doluyor,
+       * hiçbir şey olmamış gibi görünüyordu.
+       */
+      onSubmit={(event) => event.stopPropagation()}
       // Zemine tıklamak vazgeçmek sayılır; klavye karşılığı Esc.
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
@@ -95,6 +115,7 @@ export function AdminDialog({
         </h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
