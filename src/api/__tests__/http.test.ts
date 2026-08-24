@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { getAuthSession, setAuthSession } from '../authToken'
-import { ApiError, NetworkError, requestJson } from '../http'
+import { ApiError, NetworkError, requestJson, uploadForm } from '../http'
 
 const okSchema = z.object({ ok: z.boolean() })
 
@@ -157,5 +157,51 @@ describe('requestJson', () => {
     await expect(requestJson({ method: 'GET', path: '/api/health' }, okSchema)).rejects.toThrow(
       'beklenmeyen bir yanıt gövdesi',
     )
+  })
+})
+
+describe('uploadForm', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    localStorage.clear()
+    setAuthSession(undefined)
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('başarılı yüklemede gövdeyi şemadan geçirip döndürür', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }))
+
+    await expect(
+      uploadForm({ path: '/api/docs', form: new FormData() }, okSchema),
+    ).resolves.toEqual({ ok: true })
+  })
+
+  /**
+   * Eskiden `schema.parse` çağrılıyordu: sözleşme kayınca dışarı ham bir
+   * `ZodError` sızıyordu. O `ApiError` olmadığı için hem kullanıcıya Türkçe
+   * mesaj yerine kütüphanenin teknik metni düşüyor hem de 4xx sayılamadığı için
+   * sorgu gereksiz yere tekrar deneniyordu.
+   */
+  it('şemaya uymayan gövdeyi ZodError değil ApiError olarak reddeder', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ unexpected: 1 }))
+
+    const failure = uploadForm({ path: '/api/docs', form: new FormData() }, okSchema)
+
+    await expect(failure).rejects.toBeInstanceOf(ApiError)
+    await expect(failure).rejects.toThrow('beklenmeyen bir yanıt gövdesi')
+  })
+
+  it('sunucunun hata mesajını taşır', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: 'Dosya çok büyük.' }, 400))
+
+    await expect(
+      uploadForm({ path: '/api/docs', form: new FormData() }, okSchema),
+    ).rejects.toThrow('Dosya çok büyük.')
   })
 })

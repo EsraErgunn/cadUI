@@ -160,6 +160,25 @@ async function send(request: JsonRequest): Promise<Response> {
 }
 
 /**
+ * Şema denetiminin TEK yeri. `safeParse` kullanılıyor çünkü `parse`'ın
+ * fırlattığı `ZodError` bir `ApiError` değil: çağıranların hata dalı ona
+ * hazırlıklı değil ve kullanıcıya kütüphanenin teknik metni yansırdı.
+ */
+function parseOrThrow<Schema extends z.ZodType>(
+  schema: Schema,
+  body: unknown,
+  status: number,
+): z.infer<Schema> {
+  const parsed = schema.safeParse(body)
+
+  if (!parsed.success) {
+    throw new ApiError(status, 'Sunucu beklenmeyen bir yanıt gövdesi döndürdü.')
+  }
+
+  return parsed.data
+}
+
+/**
  * Yanıt gövdesi şemadan GEÇMEDEN dönmez (CLAUDE.md güvenlik). Şema tutmazsa
  * sınırda patlar; sözleşme kayması bileşenin içinde "undefined is not an
  * object" olarak görünmesin.
@@ -169,13 +188,8 @@ export async function requestJson<Schema extends z.ZodType>(
   schema: Schema,
 ): Promise<z.infer<Schema>> {
   const response = await send(request)
-  const parsed = schema.safeParse(await response.json())
 
-  if (!parsed.success) {
-    throw new ApiError(response.status, 'Sunucu beklenmeyen bir yanıt gövdesi döndürdü.')
-  }
-
-  return parsed.data
+  return parseOrThrow(schema, await response.json(), response.status)
 }
 
 /**
@@ -228,7 +242,10 @@ export async function uploadForm<TSchema extends z.ZodType>(
 
   if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response))
 
-  return schema.parse(await response.json())
+  // `requestJson` ile AYNI kapı: `parse` bir `ZodError` fırlatırdı ve o
+  // `ApiError` olmadığı için çağıranın hata dalına Türkçe mesaj yerine
+  // kütüphanenin teknik metni düşerdi.
+  return parseOrThrow(schema, await response.json(), response.status)
 }
 
 /** Presigned URL gibi API DIŞI bir adresten ham metin çeker. */
