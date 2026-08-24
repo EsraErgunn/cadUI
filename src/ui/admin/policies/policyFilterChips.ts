@@ -23,7 +23,7 @@ export function buildPolicyFilterChips({
   if (companyId !== null) {
     applied.push({
       key: 'company',
-      label: 'Sigorta Şirketi',
+      label: 'Sigorta Şirketi / Poliçe Firması',
       value: companies.find((company) => company.id === companyId)?.name ?? PENDING_LOOKUP_LABEL,
       onRemove: () => onApply({ ...filters, insuranceCompanyId: null }),
     })

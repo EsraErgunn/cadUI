@@ -1,24 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import type { SortDirection } from '../../../api/listQuery'
-import {
-  DEFAULT_POLICY_SORT_DIR,
-  DEFAULT_POLICY_SORT_KEY,
-  POLICY_PAGE_SIZE,
-  POLICY_SORT_KEYS,
-  type PolicyListQuery,
-  type PolicySortKey,
-} from '../../../api/policies'
+import { POLICY_PAGE_SIZE, type PolicyListQuery } from '../../../api/policies'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
-
-function parseSortKey(raw: string | null): PolicySortKey {
-  return POLICY_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_POLICY_SORT_KEY
-}
-
-function parseSortDir(raw: string | null): SortDirection {
-  return raw === 'asc' ? 'asc' : DEFAULT_POLICY_SORT_DIR
-}
 
 function parseLookupId(raw: string | null): number | null {
   const parsed = Number(raw)
@@ -33,7 +17,6 @@ export interface PolicyFilters {
 export interface PolicyListControls {
   query: PolicyListQuery
   applyFilters: (filters: PolicyFilters) => void
-  toggleSort: (key: PolicySortKey) => void
   setPage: (page: number) => void
 }
 
@@ -41,6 +24,10 @@ export interface PolicyListControls {
  * Poliçe listesi durumunun TEK sahibi: URL — `useDocumentListParams` deseni.
  * Varsayılan değerler adrese YAZILMAZ, bağlantı temiz kalır. (Poliçe
  * SİHİRBAZININ durumu bunun dışında: o form adreste taşınmıyor, K65.)
+ *
+ * SIRALAMA anahtarı YOK: uç `SortBy`/`SortDir` almıyor ve sıra sunucuda sabit.
+ * Adreste sıralama taşımak, geri gelindiğinde uygulanmayan bir tercih vaat
+ * ederdi.
  */
 export function usePolicyListParams(): PolicyListControls {
   const [searchParams] = useSearchParams()
@@ -50,10 +37,11 @@ export function usePolicyListParams(): PolicyListControls {
     () => ({
       search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       insuranceCompanyId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.insuranceCompany)),
+      // Bu ekran proje BAĞIMSIZ: uca `ProjectId` gitmiyor, kullanıcının
+      // görünürlük kapsamındaki tüm poliçeler listeleniyor.
+      projectId: null,
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: POLICY_PAGE_SIZE,
-      sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
-      sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
     }),
     [searchParams],
   )
@@ -72,26 +60,10 @@ export function usePolicyListParams(): PolicyListControls {
     [updateParams],
   )
 
-  const toggleSort = useCallback(
-    (key: PolicySortKey) => {
-      const isSameColumn = key === query.sortBy
-      const nextDir: SortDirection = isSameColumn && query.sortDir === 'desc' ? 'asc' : 'desc'
-      // Sıra değişince sayfa 2'nin içeriği tamamen başkalaşır → ilk sayfaya dön.
-      updateParams(
-        {
-          sortKey: key === DEFAULT_POLICY_SORT_KEY ? null : key,
-          sortDir: nextDir === DEFAULT_POLICY_SORT_DIR ? null : nextDir,
-        },
-        true,
-      )
-    },
-    [query.sortBy, query.sortDir, updateParams],
-  )
-
   const setPage = useCallback(
     (page: number) => updateParams({ page: page === FIRST_PAGE ? null : String(page) }, false),
     [updateParams],
   )
 
-  return { query, applyFilters, toggleSort, setPage }
+  return { query, applyFilters, setPage }
 }
