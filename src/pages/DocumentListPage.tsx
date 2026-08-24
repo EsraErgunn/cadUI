@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 
-import { getDocumentTypes } from '../api/documentTypes'
+import { getDocumentTypes, type DocumentType } from '../api/documentTypes'
 import { deleteDocument, listDocuments } from '../api/documents'
 import { getProjectFirms } from '../api/projects'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
@@ -35,6 +35,10 @@ const BREADCRUMB_TAIL = [{ label: 'Evraklar' }, { label: 'Proje Evrakları' }]
     sekmelik bir şerit kullanıcıya seçenek varmış izlenimi verirdi. */
 
 const LOOKUP_STALE_MS = 5 * 60 * 1000
+
+/** Sabit boş dizi: her render'da yeni dizi üretmek alt bileşenleri boşuna
+    yeniden çizerdi. */
+const EMPTY_DOCUMENT_TYPES: DocumentType[] = []
 
 const EMPTY_WITH_FILTERS =
   'Kriterlere uyan evrak bulunamadı. Tarih aralığını genişletin veya tip/firma seçimini kaldırın.'
@@ -89,9 +93,14 @@ export function DocumentListPage() {
     enabled: isManagementView,
   })
 
-  // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı; sabit
-  // liste olduğu için istek yok, yalnız sıralama maliyeti var.
-  const documentTypes = useMemo(() => getDocumentTypes(), [])
+  // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı. Kod
+  // grubu ucundan geliyor ve nadiren değişiyor: uzun `staleTime` ile ekranlar
+  // arası gezinmede yeniden istenmiyor.
+  const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
+    queryKey: ['documentTypes'],
+    queryFn: ({ signal }) => getDocumentTypes(signal),
+    staleTime: LOOKUP_STALE_MS,
+  })
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['documents'] })

@@ -1,10 +1,12 @@
+import { z } from 'zod'
+
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
+import { requestJson } from './http'
 import type { PagedResult, SortDirection } from './listQuery'
-import { mockedData, type Sourced } from './mockGate'
+import { mockedData, serverData, type Sourced } from './mockGate'
 import {
   addMockPolicy,
   getMockAgencies,
-  getMockInsuranceCompanies,
   getMockPolicies,
   getMockPolicyRows,
   removeMockPolicy,
@@ -150,19 +152,31 @@ export async function deletePolicy(
 }
 
 /**
- * Sigorta şirketleri. `Sourced` zarfı ŞART (K51): sahte liste yalnız geliştirme
- * derlemesinde üretilir — üretimde uydurma şirket adları seçilseydi kullanıcı
- * var olmayan bir şirketle poliçe açardı.
+ * `GET /api/insurance-companies` — GERÇEK uç.
+ *
+ * Yol tireli. Bir süre `/api/insurancecompanies` varsayılıyordu ve o adres 404
+ * dönüyordu; uç açıldığında bile liste boş kalırdı.
+ *
+ * `Sourced` zarfı DURUYOR: çağıranlar (poliçe sihirbazı) kaynağa göre farklı
+ * yüzey çiziyor ve zarfı kaldırmak onları da değiştirmek olurdu. Artık her
+ * zaman `server`.
  */
+const insuranceCompanyDtoSchema = z.array(
+  z.object({
+    id: z.number().int().positive(),
+    title: z.string(),
+  }),
+)
+
 export async function listInsuranceCompanies(
   signal?: AbortSignal,
 ): Promise<Sourced<InsuranceCompany[]>> {
-  if (isEndpointImplemented('insuranceCompanies')) {
-    throw new Error('listInsuranceCompanies: uç bağlandı ama gövdesi yazılmadı.')
-  }
+  const dto = await requestJson(
+    { method: 'GET', path: '/api/insurance-companies', signal },
+    insuranceCompanyDtoSchema,
+  )
 
-  await delay(MOCK_LATENCY_MS, signal)
-  return mockedData(getMockInsuranceCompanies)
+  return serverData(dto.map((company) => ({ id: company.id, name: company.title })))
 }
 
 /** Seçilen sigorta şirketinin acenteleri (gereksinim 16). */

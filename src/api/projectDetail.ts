@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
+import { getDocumentTypes } from './documentTypes'
 import { ApiError, requestJson } from './http'
-import { mockedData, serverData, type Sourced } from './mockGate'
+import { isMockDataAllowed, mockedData, serverData, type Sourced } from './mockGate'
 import {
   buildMockProjectDocuments,
   buildMockProjectExtras,
   buildMockProjectPolicies,
-  buildMockProjectUnits,
 } from './projectDetailMock'
 import {
   type ProjectDetail,
@@ -149,12 +149,70 @@ export async function getProjectSummary(
   }
 }
 
-export function getProjectUnits(projectId: number): Promise<Sourced<ProjectUnitRow[]>> {
-  if (isEndpointImplemented('projectUnits')) {
-    throw new Error('getProjectUnits: uç bağlandı ama gövdesi yazılmadı.')
-  }
+/**
+ * `GET /api/projects/{id}/units` — GERÇEK uç.
+ *
+ * Satırlar çizimden senkronlanıyor (`unitReport`), bu yüzden neredeyse her alan
+ * opsiyonel: kullanıcı sayacı çizmiş ama abone adını yazmamış olabilir. Şema
+ * bunu `nullish` ile karşılıyor — zorunlu tutulsaydı eksik doldurulmuş tek bir
+ * birim yüzünden tablo hiç açılmazdı.
+ */
+const projectUnitDtoSchema = z.array(
+  z.object({
+    id: z.number().int().positive(),
+    unitNumber: z.string().nullish(),
+    subscriberName: z.string().nullish(),
+    subscriberNo: z.string().nullish(),
+    meterClassLabel: z.string().nullish(),
+    area: z.number().nullish(),
+    flowCubicMeterPerHour: z.number().nullish(),
+    pressureMbar: z.number().nullish(),
+    pipeTypeName: z.string().nullish(),
+    devices: z.array(
+      z.object({
+        id: z.number().int().positive(),
+        deviceType: z.string().nullish(),
+        brand: z.string().nullish(),
+        model: z.string().nullish(),
+        capacity: z.string().nullish(),
+        flowCubicMeterPerHour: z.number().nullish(),
+        flueLabel: z.string().nullish(),
+      }),
+    ),
+  }),
+)
 
-  return Promise.resolve(mockedData(() => buildMockProjectUnits(projectId)))
+export async function getProjectUnits(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<Sourced<ProjectUnitRow[]>> {
+  const dto = await requestJson(
+    { method: 'GET', path: `/api/projects/${projectId}/units`, signal },
+    projectUnitDtoSchema,
+  )
+
+  return serverData(
+    dto.map((unit) => ({
+      id: unit.id,
+      unitNumber: toNullable(unit.unitNumber),
+      subscriberName: toNullable(unit.subscriberName),
+      subscriberNo: toNullable(unit.subscriberNo),
+      meterLabel: toNullable(unit.meterClassLabel),
+      flowCubicMeterPerHour: unit.flowCubicMeterPerHour ?? null,
+      pressureMbar: unit.pressureMbar ?? null,
+      areaSquareMeters: unit.area ?? null,
+      pipeType: toNullable(unit.pipeTypeName),
+      devices: unit.devices.map((device) => ({
+        id: device.id,
+        name: toNullable(device.deviceType),
+        capacity: toNullable(device.capacity),
+        flowCubicMeterPerHour: device.flowCubicMeterPerHour ?? null,
+        brand: toNullable(device.brand),
+        model: toNullable(device.model),
+        flueType: toNullable(device.flueLabel),
+      })),
+    })),
+  )
 }
 
 /**
@@ -209,12 +267,19 @@ export async function getProjectHistory(
  * Evraklar ekranına yansır" (gereksinim 12) ancak tek depo varsa doğru olur.
  * İki ayrı mock tutulsaydı aynı evrak bir ekranda görünüp öbüründe kaybolurdu.
  */
-export function getProjectDocuments(projectId: number): Promise<Sourced<ProjectDocumentRow[]>> {
+export async function getProjectDocuments(
+  projectId: number,
+): Promise<Sourced<ProjectDocumentRow[]>> {
   if (isEndpointImplemented('projectDocuments')) {
     throw new Error('getProjectDocuments: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  return Promise.resolve(mockedData(() => buildMockProjectDocuments(projectId)))
+  // Tip etiketleri GERÇEK uçtan; yalnız mock satırların çizileceği derlemede
+  // isteniyor, üretimde bölüm zaten veri göstermiyor.
+  if (!isMockDataAllowed()) return { source: 'unavailable', data: null }
+
+  const documentTypes = await getDocumentTypes()
+  return mockedData(() => buildMockProjectDocuments(projectId, documentTypes))
 }
 
 export function getProjectPolicies(projectId: number): Promise<Sourced<ProjectPolicyRow[]>> {

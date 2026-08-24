@@ -1,4 +1,4 @@
-import { getDocumentTypes, resolveDocumentTypeLabel } from './documentTypes'
+import { resolveDocumentTypeLabel, type DocumentType } from './documentTypes'
 import { getMockDocuments } from './documentsMock'
 import { getMockPolicies } from './policiesMock'
 import type {
@@ -9,7 +9,6 @@ import type {
   ProjectFirmInfo,
   ProjectPolicyRow,
   ProjectSpecs,
-  ProjectUnitRow,
 } from './projectDetail'
 
 /**
@@ -119,82 +118,21 @@ export function buildMockProjectExtras(
 }
 
 /**
- * İlk birimde İKİ cihaz var: "çok cihazlı birimde birim bilgisi yalnız ilk
- * satırda" kuralı (KK-6) ancak böyle bir kayıtla görülebilir.
- */
-export function buildMockProjectUnits(projectId: number): ProjectUnitRow[] {
-  const seed = seedOf(projectId)
-
-  return [
-    {
-      id: 1,
-      unitNumber: 'D20',
-      subscriberName: 'FATMA ÇELİK',
-      subscriberNo: String(10_208_728 + seed),
-      meterSerial: 'G4',
-      flowCubicMeterPerHour: 3.5,
-      pressureMbar: 21,
-      areaSquareMeters: 64,
-      pipeType: 'Fleks Boru (GFS)',
-      devices: [
-        {
-          id: 11,
-          name: 'Ocak',
-          capacityKcalPerHour: 13_200,
-          flowCubicMeterPerHour: 1.6,
-          brand: null,
-          model: null,
-          flueType: 'AÇIK',
-        },
-        {
-          id: 12,
-          name: 'Kombi',
-          capacityKcalPerHour: 20_640,
-          flowCubicMeterPerHour: 2.5,
-          brand: 'BOSCH',
-          model: 'Condens 1200 W GC1200W 24 C 23.24 kW',
-          flueType: 'HERMETİK',
-        },
-      ],
-    },
-    {
-      id: 2,
-      unitNumber: 'D21',
-      subscriberName: 'HASAN DEMİR',
-      subscriberNo: String(10_208_800 + seed),
-      meterSerial: 'G4',
-      flowCubicMeterPerHour: 2.5,
-      pressureMbar: 21,
-      areaSquareMeters: 58,
-      pipeType: 'Fleks Boru (GFS)',
-      devices: [
-        {
-          id: 21,
-          name: 'Kombi',
-          capacityKcalPerHour: 20_640,
-          flowCubicMeterPerHour: 2.5,
-          brand: 'VAILLANT',
-          model: 'ecoTEC plus',
-          flueType: 'HERMETİK',
-        },
-      ],
-    },
-  ]
-}
-
-/**
  * Projenin evrakları Evraklar ekranının deposundan geliyor; burada yalnız
  * SÜTUN eşlemesi var. Bu liste eskiden boş dönüyordu — Evraklar ekranı
  * yazılınca ortak bir depo doğdu ve yüklenen evrağın iki ekranda birden
  * görünmesi (gereksinim 12) ancak öyle mümkün.
  */
-export function buildMockProjectDocuments(projectId: number): ProjectDocumentRow[] {
+export function buildMockProjectDocuments(
+  projectId: number,
+  documentTypes: DocumentType[],
+): ProjectDocumentRow[] {
   return getMockDocuments()
     .filter((document) => document.projectId === projectId)
     .map((document) => ({
       id: document.id,
       fileName: document.fileName,
-      docType: resolveDocumentTypeLabel(document.docTypeCode, getDocumentTypes()),
+      docType: resolveDocumentTypeLabel(document.docTypeCode, documentTypes),
       sizeBytes: document.sizeBytes,
       uploadedByName: document.uploadedByName,
       receivedAt: document.receivedAt,

@@ -20,18 +20,18 @@ const RECEIVED_DAY_OFFSETS = [0, 1, 2, 3, 5, 8, 11, 14, 17, 20, 23, 26]
 const DOCUMENT_COUNTS = [3, 1, 2, 0, 4, 2, 1, 3]
 
 const SEEDED_FILES = [
-  { name: 'musteri-sozlesmesi', extension: 'pdf', typeCode: 'musteriSozlesmesi' },
-  { name: 'dogalgaz-uygunluk-belgesi', extension: 'pdf', typeCode: 'dogalgazUygunlukBelgesi' },
-  { name: 'baca-atis-belgesi', extension: 'jpg', typeCode: 'cihazBacaAtisBelgesi' },
-  { name: 'kolon-semasi', extension: 'dwg', typeCode: 'genelEvrak' },
-  { name: 'gaz-yeterlilik', extension: 'pdf', typeCode: 'gazYeterlilikBelgesi' },
-  { name: 'dask-policesi', extension: 'pdf', typeCode: 'daskPolicesi' },
-  { name: 'mahal-uygunluk', extension: 'png', typeCode: 'mahalUygunlukBelgesi' },
-  { name: 'ruhsat', extension: 'pdf', typeCode: 'ruhsat' },
-  { name: 'cihaz-standart-belgesi', extension: 'pdf', typeCode: 'cihazStandartBelgesi' },
-  { name: 'numurataj', extension: 'jpg', typeCode: 'numurataj' },
-  { name: 'tesisat-projesi', extension: 'dwg', typeCode: 'genelEvrak' },
-  { name: 'baca-raporu', extension: 'pdf', typeCode: 'bacaRaporu' },
+  { name: 'musteri-sozlesmesi', extension: 'pdf', typeCode: 'CustomerAgreement' },
+  { name: 'dogalgaz-uygunluk-belgesi', extension: 'pdf', typeCode: 'NaturalGasCompliance' },
+  { name: 'baca-atis-belgesi', extension: 'jpg', typeCode: 'DeviceFlueExhaustCertificate' },
+  { name: 'kolon-semasi', extension: 'dwg', typeCode: 'GeneralDocument' },
+  { name: 'gaz-yeterlilik', extension: 'pdf', typeCode: 'GasCompetencyCertificate' },
+  { name: 'dask-policesi', extension: 'pdf', typeCode: 'DaskPolicy' },
+  { name: 'mahal-uygunluk', extension: 'png', typeCode: 'LocationComplianceCertificate' },
+  { name: 'ruhsat', extension: 'pdf', typeCode: 'License' },
+  { name: 'cihaz-standart-belgesi', extension: 'pdf', typeCode: 'DeviceStandardCertificate' },
+  { name: 'numurataj', extension: 'jpg', typeCode: 'AddressNumbering' },
+  { name: 'tesisat-projesi', extension: 'dwg', typeCode: 'GeneralDocument' },
+  { name: 'baca-raporu', extension: 'pdf', typeCode: 'BacaReport' },
 ]
 
 /** Proje detayındaki birim/cihaz mock'uyla aynı adlandırma (D20, D21…) artı

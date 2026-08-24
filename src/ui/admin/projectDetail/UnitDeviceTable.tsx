@@ -41,7 +41,7 @@ const COLUMNS: ColumnSpec[] = [
   { key: 'area', label: 'm²', isNumeric: true },
   { key: 'pipeType', label: 'Boru Tipi' },
   { key: 'device', label: 'Cihaz' },
-  { key: 'capacity', label: 'Kapasite', isNumeric: true },
+  { key: 'capacity', label: 'Kapasite' },
   { key: 'deviceFlow', label: 'Debi', isNumeric: true },
   { key: 'brand', label: 'Marka' },
   { key: 'model', label: 'Model' },
@@ -99,7 +99,7 @@ export function UnitDeviceTable({ units }: { units: ProjectUnitRow[] }) {
                       <Cell value={unit.unitNumber} />
                       <Cell value={unit.subscriberName} />
                       <Cell value={unit.subscriberNo} />
-                      <Cell value={unit.meterSerial} />
+                      <Cell value={unit.meterLabel} />
                       <Cell value={formatDecimal(unit.flowCubicMeterPerHour)} isNumeric />
                       <Cell value={formatInteger(unit.pressureMbar)} isNumeric />
                       <Cell value={formatInteger(unit.areaSquareMeters)} isNumeric />
@@ -119,7 +119,7 @@ export function UnitDeviceTable({ units }: { units: ProjectUnitRow[] }) {
                   )}
 
                   <Cell value={device?.name ?? null} />
-                  <Cell value={formatInteger(device?.capacityKcalPerHour ?? null)} isNumeric />
+                  <Cell value={device?.capacity ?? null} />
                   <Cell value={formatDecimal(device?.flowCubicMeterPerHour ?? null)} isNumeric />
                   <Cell value={device?.brand ?? null} />
                   <Cell value={device?.model ?? null} />

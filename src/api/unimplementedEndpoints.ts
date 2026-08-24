@@ -30,14 +30,10 @@ export const UNIMPLEMENTED_ENDPOINTS = {
    * TODO(esra): GET /api/projects/{id}/detail
    */
   projectDetailExtras: 'GET /api/projects/{id}/detail',
-  /** TODO(esra): GET /api/projects/{id}/units — ProjectUnit + Device entity'leri VAR, controller yok. */
-  projectUnits: 'GET /api/projects/{id}/units',
   /** TODO(esra): GET /api/projects/{id}/docs — Doc + ProjectDoc entity'leri VAR. */
   projectDocuments: 'GET /api/projects/{id}/docs',
   /** TODO(esra): GET /api/projects/{id}/policies — Policy entity'si ProjectUnit'e bağlı. */
   projectPolicies: 'GET /api/projects/{id}/policies',
-  /** TODO(esra): GET /api/insurancecompanies — sigorta şirketi listesi; tablo bile yok. */
-  insuranceCompanies: 'GET /api/insurancecompanies',
   /** TODO(esra): GET /api/insurancecompanies/{id}/agencies — şirkete bağlı acenteler. */
   policyAgencies: 'GET /api/insurancecompanies/{id}/agencies',
   /** TODO(esra): POST /api/projects/{id}/policies — `Policy` entity'si VAR, controller yok;

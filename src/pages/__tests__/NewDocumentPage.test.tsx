@@ -8,9 +8,27 @@ import { getMockDocuments, resetMockDocuments } from '../../api/documentsMock'
 import { NewDocumentPage } from '../NewDocumentPage'
 import { ProjectDetailPage } from '../ProjectDetailPage'
 
+/** Kod grubu ucunun yanıtı; etiket çözümü buna bakıyor. */
+const documentTypes = vi.hoisted(() => [
+  { id: 5015, code: 'CustomerAgreement', label: 'Müşteri Sözleşmesi' },
+  { id: 5013, code: 'GeneralDocument', label: 'Genel Evrak' },
+  { id: 5019, code: 'License', label: 'Ruhsat' },
+])
+
+vi.mock('../../api/documentTypes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/documentTypes')>()),
+  getDocumentTypes: () => Promise.resolve(documentTypes),
+}))
+
 /** Ekranın bağlandığı proje; künyesi gerçek uçtan (`GET /api/projects/{id}`) gelir. */
 const PROJECT_ID = 1
 const PROJECT_NAME = 'Demo Doğalgaz Projesi'
+
+/** `GET /api/projects/{id}/units` yanıtı; birim onay kutuları buradan geliyor. */
+const PROJECT_UNITS = [
+  { id: 1, unitNumber: 'D20', devices: [] },
+  { id: 2, unitNumber: 'D21', devices: [] },
+]
 
 function buildFile(name: string, sizeBytes = 1024): File {
   const file = new File(['x'], name)
@@ -44,23 +62,29 @@ async function addFiles(user: ReturnType<typeof userEvent.setup>, files: File[])
 
 beforeEach(() => {
   resetMockDocuments()
-  // Uç iki kez çağrılıyor: ekranın kendi proje künyesi ve yönlendirme sonrası
-  // proje detayı. Yanıt HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
+  // Ekran İKİ uca gidiyor: proje künyesi ve birim listesi. Yanıt yola göre
+  // seçiliyor ve HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
   // paylaşılsaydı gövdesi ilk okumada tükenir, ikinci ekran boş yanıt görürdü.
   vi.stubGlobal(
     'fetch',
-    vi.fn(
-      () =>
-        new Response(
-          JSON.stringify({
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      const body = url.includes('/units')
+        ? PROJECT_UNITS
+        : {
             id: PROJECT_ID,
             name: PROJECT_NAME,
             createdAt: '2026-07-01T09:00:00.000Z',
             updatedAt: '2026-07-01T09:00:00.000Z',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-    ),
+          }
+
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }),
   )
 })
 
@@ -157,7 +181,7 @@ describe('NewDocumentPage', () => {
     renderPage()
 
     await addFiles(user, [buildFile('ruhsat.pdf')])
-    await user.selectOptions(await screen.findByLabelText('Evrak Tipi'), 'ruhsat')
+    await user.selectOptions(await screen.findByLabelText('Evrak Tipi'), 'License')
 
     const unitGroup = screen.getByRole('group', { name: 'Birimler' })
     await user.click(within(unitGroup).getAllByRole('checkbox')[0])
@@ -172,7 +196,7 @@ describe('NewDocumentPage', () => {
     const saved = getMockDocuments().filter((document) => document.fileName === 'ruhsat.pdf')
     expect(saved).toHaveLength(1)
     expect(saved[0].projectId).toBe(PROJECT_ID)
-    expect(saved[0].docTypeCode).toBe('ruhsat')
+    expect(saved[0].docTypeCode).toBe('License')
     expect(saved[0].unitNames.length).toBeGreaterThan(0)
   })
 

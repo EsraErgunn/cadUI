@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
-import { getDocumentTypes } from '../api/documentTypes'
+import { getDocumentTypes, type DocumentType } from '../api/documentTypes'
 import { listProjectDocuments, saveProjectDocuments } from '../api/documents'
 import { getProjectSummary, getProjectUnits } from '../api/projectDetail'
 import { useAuthSession } from '../api/useAuthSession'
@@ -24,6 +24,13 @@ import { UploadedDocumentRow } from '../ui/admin/documents/UploadedDocumentRow'
 import type { DocumentSource } from '../ui/admin/documents/documentSources'
 import { useDocumentUpload } from '../ui/admin/documents/useDocumentUpload'
 import { useHomePath } from '../ui/admin/useHomePath'
+
+/** Kod grubu nadiren değişiyor; ekranlar arası gezinmede yeniden istenmesin. */
+const DOCUMENT_TYPE_STALE_MS = 5 * 60 * 1000
+
+/** Sabit boş dizi: her render'da yeni dizi üretmek alt bileşenleri boşuna
+    yeniden çizerdi. */
+const EMPTY_DOCUMENT_TYPES: DocumentType[] = []
 
 const PAGE_TITLE = 'Evrak Ekle'
 const PANEL_ID = 'document-source-panel'
@@ -88,7 +95,11 @@ export function NewDocumentPage() {
       ? []
       : projectDocuments.data
 
-  const documentTypes = useMemo(() => getDocumentTypes(), [])
+  const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
+    queryKey: ['documentTypes'],
+    queryFn: ({ signal }) => getDocumentTypes(signal),
+    staleTime: DOCUMENT_TYPE_STALE_MS,
+  })
 
   const unitNames = useMemo(() => {
     if (units === undefined || units.source === 'unavailable') return []
