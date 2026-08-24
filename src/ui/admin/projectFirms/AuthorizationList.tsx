@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 
 import type { ProjectFirmAuthorization } from './authorizationDraft'
+import { formatShortDate } from '../adminFormat'
 import { adminIconButtonVariants } from '../adminVariants'
 
 interface AuthorizationListProps {
@@ -9,7 +10,6 @@ interface AuthorizationListProps {
 }
 
 /** Sertifika opsiyonel; girilmediğinde tablo hücrelerindeki desenle "-" durur. */
-const EMPTY_VALUE = '-'
 
 /**
  * Eklenen yetkilendirme kayıtları (belge madde 20). Liste `role="list"` ile
@@ -39,7 +39,16 @@ export function AuthorizationList({ authorizations, onRemove }: AuthorizationLis
                 </span>
                 <span className="text-xs text-ink-muted">
                   {authorization.groupName} · Sertifika No:{' '}
-                  {authorization.certificateNumber ?? EMPTY_VALUE}
+                  {authorization.certificateNumber}
+                </span>
+                {/* Geçerlilik aralığı kayıtla birlikte gönderiliyor; satırda
+                    görünmezse kullanıcı yanlış tarihi ancak kaydettikten sonra
+                    fark ederdi. Bitiş boşsa "süresiz". */}
+                <span className="text-xs text-ink-muted">
+                  {formatShortDate(authorization.validFrom)} –{' '}
+                  {authorization.validTo === null
+                    ? 'süresiz'
+                    : formatShortDate(authorization.validTo)}
                 </span>
               </div>
 

@@ -1,5 +1,4 @@
-import { MOCK_LATENCY_MS, delay } from './adminFirms'
-import { hasApiBaseUrl, requestJson, requestVoid, type RequestOptions } from './http'
+import { requestJson, requestVoid, type RequestOptions } from './http'
 import {
   PROJECT_FIRM_COMPANY_TYPES,
   projectFirmDetailDtoSchema,
@@ -10,7 +9,6 @@ import {
   type ProjectFirmFullDto,
   type ProjectFirmPayload,
 } from './projectFirmDto'
-import { recordMockProjectFirmAuthorizations } from './projectFirmsMock'
 
 export type { ProjectFirmPayload } from './projectFirmDto'
 export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
@@ -56,14 +54,17 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
 
 const PROJECT_FIRMS_PATH = '/api/projectfirms'
 
-/** Yetkilendirme kaydının istek gövdesindeki karşılığı (uç açılınca kullanılacak). */
+/** Yetkilendirme kaydının istek gövdesindeki karşılığı. */
 export interface ProjectFirmAuthorizationPayload {
   /** Gaz dağıtım firmasının kimliği. Sunucu modeli bir tur `GasDistributionFirmRegionId`
-      diyordu; bölge kavramı kalkınca alan `GasDistributionFirmId` oldu ve arayüzdeki
-      adla örtüştü — uç açılınca eşlemenin doğrulanması yine de gerekecek. */
+      diyordu; bölge kavramı kalkınca alan `GasDistributionFirmId` oldu. */
   gasDistributionFirmId: number
-  /** Kayıttaki TEK numara; "Yeterlilik No" kalktı (K102). */
-  certificateNumber: string | null
+  /** Kayıttaki TEK numara; "Yeterlilik No" kalktı (K102). Uçta ZORUNLU. */
+  certificateNumber: string
+  /** yyyy-aa-gg; uçta zorunlu. */
+  validFrom: string
+  /** yyyy-aa-gg ya da null (süresiz). */
+  validTo: string | null
 }
 
 /** Ekleme yanıtı tam detay nesnesi döndürüyor; çağıranın ihtiyacı olan kimlik. */
@@ -103,34 +104,46 @@ export async function updateProjectFirm(
 
 export interface AuthorizationSaveResult {
   /**
-   * Kayıt gerçekten kalıcı oldu mu. Bugün YALNIZ mock modda `true`: orada
-   * firma da yetkilendirme de aynı bellekteki gövdeye yazılıyor, yani ekran
-   * kendi içinde tutarlı. Gerçek uçta firma sunucuya gidiyor ama yetkilendirme
-   * mock'ta kalıyor — arayüz bunu kullanıcıya SÖYLEMEK zorunda.
+   * Kayıt gerçekten kalıcı oldu mu. Artık HER ZAMAN `true`: satırlar
+   * `POST /api/project-firm-authorizations` ile sunucuya yazılıyor. Alan
+   * duruyor çünkü arayüz kullanıcıya "kalıcı değil" uyarısını buna bakarak
+   * gösteriyor ve bir gün kısmi başarı doğarsa yeri hazır.
    */
   arePersisted: boolean
 }
 
+const PROJECT_FIRM_AUTHORIZATIONS_PATH = '/api/project-firm-authorizations'
+
 /**
- * Yetkilendirme kayıtları. HER ZAMAN mock: sunucuda bunları yazan bir uç yok
- * (yukarıdaki sözleşme notu). Firma kaydı başarılı olduktan SONRA çağrılır,
- * bu yüzden burada bir hata firma kaydını geri almaz.
+ * Yetkilendirme kayıtları — GERÇEK uç, satır başına BİR istek
+ * (`POST /api/project-firm-authorizations`). Uç toplu gövde kabul etmiyor.
  *
- * "Kalıcı oldu mu" kararı BURADA veriliyor, arayüzde değil: uç açıldığında
- * `arePersisted` koşulsuz `true` olacak ve ekranda hiçbir şey değişmeyecek.
- * Arayüz `hasApiBaseUrl()`e kendisi baksaydı, bu bilgi iki yerde dururdu.
+ * Firma kaydı başarılı olduktan SONRA çağrılıyor, bu yüzden buradaki bir hata
+ * firma kaydını geri ALMAZ — çağıran hatayı gösterir, kullanıcı yetkilendirmeyi
+ * firma güncelleme ekranından tamamlar.
  *
- * TODO(esra): `POST /api/projectfirms/{id}/authorizations` açılınca gövde
- * `requestJson`'a dönecek, imza aynı kalacak.
+ * Sıralı gönderiliyor, paralel değil: uç aynı firma için çakışan kayıtları
+ * reddedebiliyor ve paralel istekte hangisinin geçtiği belirsiz olurdu.
  */
 export async function saveProjectFirmAuthorizations(
   firmId: number,
   authorizations: ProjectFirmAuthorizationPayload[],
 ): Promise<AuthorizationSaveResult> {
-  await delay(MOCK_LATENCY_MS)
-  recordMockProjectFirmAuthorizations(firmId, authorizations)
+  for (const authorization of authorizations) {
+    await requestVoid({
+      method: 'POST',
+      path: PROJECT_FIRM_AUTHORIZATIONS_PATH,
+      rawJsonBody: JSON.stringify({
+        projectFirmId: firmId,
+        gasDistributionFirmId: authorization.gasDistributionFirmId,
+        certificateNumber: authorization.certificateNumber,
+        validFrom: authorization.validFrom,
+        validTo: authorization.validTo,
+      }),
+    })
+  }
 
-  return { arePersisted: !hasApiBaseUrl() }
+  return { arePersisted: true }
 }
 
 /**
