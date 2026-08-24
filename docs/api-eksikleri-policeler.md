@@ -9,9 +9,9 @@ GEÇERSİZ.
 Doğrulama tabanı: cadapi @ `a6ea695` — `PoliciesController`, `PolicyManager`,
 `PolicyDtos.cs`, `InsuranceCompaniesController`.
 
-> **Poliçe LİSTESİ gerçek uca bağlandı.** `policyList` ve `policyAgencies`
-> bayrakları kalktı; `policyCreate` DURUYOR — uç var ama sihirbazın kayıt yolu
-> henüz bağlanmadı.
+> **Poliçe modülünün TAMAMI gerçek uçlara bağlandı.** `policyList`,
+> `policyAgencies` ve `policyCreate` bayraklarının üçü de kalktı;
+> `unimplementedEndpoints.ts` artık poliçeye dair satır taşımıyor.
 
 ## Bağlanmış uçlar (gerçek)
 
@@ -22,7 +22,8 @@ Doğrulama tabanı: cadapi @ `a6ea695` — `PoliciesController`, `PolicyManager`
 | `GET /api/policies/{id}` | `getPolicy` |
 | `PUT /api/policies/{id}` | `updatePolicy` — ekranı henüz yok, sözleşme bağlı |
 | `DELETE /api/policies/{id}` | `deletePolicy` |
-| `GET /api/insurance-companies` | `listInsuranceCompanies` — adım 2 "Sigorta Şirketi" |
+| `POST /api/policies` | `createPolicy` — sihirbazın "Bitir" adımı |
+| `GET /api/insurance-companies` | `listInsuranceCompanies` — adım 2 firma kutusu |
 
 Yol **tireli**: `/api/insurance-companies`. Bir süre `/api/insurancecompanies`
 varsayılıyordu ve o adres 404 dönüyordu.
@@ -71,14 +72,36 @@ alan gövdeye girmiyor:
 | `method` | Gövdede (`'manual'`) | KALDIRILDI — sunucuda alan yok |
 | `agencyId` | Gövdede, zorunlu | KALDIRILDI — acente kavramı yok |
 
-Kalan tek uyumsuzluk **benzersizlik kuralı**: istemci hâlâ `policyNumber`
-benzersizliğini denetliyor (mock deposuna karşı), sunucunun kuralı ise "bir
-birimde tek aktif poliçe" → **400**. `policyCreate` bağlanınca istemci denetimi
-kalkmalı (yukarıdaki 7 numaralı eksik).
+Uyumsuzluk KALMADI. İstemcideki uydurma benzersizlik denetimi kaldırıldı;
+"bir birimde tek aktif poliçe" kuralını sunucu söylüyor ve mesajı olduğu gibi
+gösteriliyor.
+
+**Yöntem adımı** arayüzde duruyor (gereksinim 15, tek seçenek) ama değeri
+gövdeye GİRMİYOR ve API tipinde yeri yok — UI-only bilgi.
 
 Yetki: `POST`/`PUT`/`DELETE` yalnız `Admin` + `ProjectFirmUser`.
-Mevcut poliçeyi yenilemek için önce `DELETE` (elle iptal) gerekiyor —
-otomatik kapatma yok.
+
+### Kayıt davranışı (koddan doğrulandı)
+
+- **Başarı:** `200` + oluşturulan `PolicyDto`, SARMALAYICISIZ (`201` değil;
+  `BaseApiController.FromResult` → `Ok(result.Data)`).
+- **Birimde zaten aktif poliçe varsa:** `400` + `{ message }`. **`409` DEĞİL.**
+  Eski poliçe **OTOMATİK KAPATILMAZ** — kullanıcı önce `DELETE /api/policies/{id}`
+  ile iptal etmeli. "Aktif" = global `IsActive` süzgeci (`Policy : SoftDeleteEntity`).
+- **Doğrulama** (`PolicyAddValidator`, FluentValidation): `ProjectUnitId > 0`,
+  `PolicyNumber` ≤ 50 karakter, `Amount >= 0`, `EndDate >= StartDate`.
+- **Bulunamayanlar:** birim / sigorta şirketi / görünür proje yoksa `404`.
+
+### Hata gövdesi İKİ biçimde geliyor
+
+| Kaynak | Gövde |
+|---|---|
+| İş kuralı (`ErrorDataResult`) | `{ "message": "..." }` |
+| FluentValidation (`FluentValidationActionFilter`) | `{ "errors": { "Alan": ["..."] } }` |
+
+İkincisi alan bazlı bir SÖZLÜK — tek `message` alanına indirgenmiyor.
+`src/api/http.ts` → `readErrorMessage` ikisini de karşılıyor (`message` önce,
+sonra `errors` içindeki ilk mesaj), bu yüzden arayüz tarafında ek iş gerekmedi.
 
 ## Kalan eksikler
 
@@ -90,7 +113,7 @@ otomatik kapatma yok.
 | 4 | **`ProjectUnitId` süzgeci YOK** | Birim bazlı poliçe listesi için uç mevcut değil. İstemcide sahte bir `ProjectUnitId` parametresi ÜRETİLMEDİ; ihtiyaç doğarsa `ProjectId` ile çekip istemcide süzmek ya da uca parametre eklenmesi gerekir. |
 | 5 | Satır **bina kodu taşımıyor** | Liste ekranındaki "ProjeId" sütunu KALDIRILDI (`PolicyDto`'da karşılığı yok). |
 | 6 | **Ödeme durumu alanı yok** — `Policy` entity'sinde karşılığı yok | Proje detayındaki "Ödeme: Bekliyor" rozeti bir İSTEMCİ VARSAYIMIDIR; sunucudan gelen bir değer değil. Uç geldiğinde bu sabit KALDIRILMALI. |
-| 7 | **Poliçe numarası benzersizliği YOK** — `CreateAsync` numaraya hiç bakmıyor | `isPolicyNumberTaken` bir İSTEMCİ VARSAYIMIDIR ve yalnız mock deposuna karşı çalışıyor. `policyCreate` bağlanınca kaldırılmalı; sunucunun kuralı başka: bir birimde tek aktif poliçe (400). |
+| 7 | **Poliçe numarası benzersizliği YOK** — ne benzersiz indeks ne denetim | ÇÖZÜLDÜ: `isPolicyNumberTaken` KALDIRILDI. Yerine sunucudaki gerçek sınır kondu (50 karakter). |
 
 "Birim" sütunu artık eksik DEĞİL: `PolicyDto.UnitNumber` sunucudan geliyor
 (liste ekranına sütun olarak henüz eklenmedi).
