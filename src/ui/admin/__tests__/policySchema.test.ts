@@ -21,7 +21,6 @@ function buildFilledValues(overrides: Partial<PolicyFormValues> = {}): PolicyFor
   return {
     ...buildPolicyDefaults(TODAY),
     insuranceCompanyId: 1,
-    agencyId: 2,
     projectUnitId: 7,
     policyNumber: 'POL-2026-0001',
     amountText: '1.500.000,50',
@@ -68,10 +67,10 @@ describe('varsayılan değerler', () => {
 })
 
 describe('adım bazlı doğrulama', () => {
-  it('firma adımı iki seçimi de zorunlu tutar', () => {
+  // Adımda TEK seçim var: sunucuda acente kavramı yok, iki kutu tek kutuya indi.
+  it('firma adımı sigorta şirketi seçimini zorunlu tutar', () => {
     expect(validatePolicyStep('firm', buildPolicyDefaults(TODAY))).toEqual({
       insuranceCompanyId: POLICY_ERRORS.insuranceCompany,
-      agencyId: POLICY_ERRORS.agency,
     })
   })
 
@@ -108,17 +107,17 @@ describe('adım bazlı doğrulama', () => {
   })
 
   it('sistemde kayıtlı poliçe numarası kabul edilmez (büyük/küçük harf ayırmadan)', () => {
-    addMockPolicy({
-      projectId: 1,
-      method: 'manual',
-      projectUnitId: 1,
-      insuranceCompanyId: 1,
-      agencyId: 1,
-      policyNumber: 'POL-2026-0001',
-      amount: 1000,
-      startDate: '2026-08-13',
-      endDate: '2027-08-13',
-    })
+    addMockPolicy(
+      {
+        projectUnitId: 1,
+        insuranceCompanyId: 1,
+        policyNumber: 'POL-2026-0001',
+        amount: 1000,
+        startDate: '2026-08-13',
+        endDate: '2027-08-13',
+      },
+      { id: 1, name: 'Örnek Proje', pId: '1' },
+    )
 
     const errors = validatePolicyStep('info', buildFilledValues({ policyNumber: 'pol-2026-0001' }))
 
@@ -133,28 +132,29 @@ describe('adım bazlı doğrulama', () => {
 describe('odak taşınacak alan', () => {
   it('görsel sıradaki İLK hatalı alan seçilir', () => {
     expect(
-      firstPolicyErrorField({ endDate: POLICY_ERRORS.endDate, agencyId: POLICY_ERRORS.agency }),
-    ).toBe('agencyId')
+      firstPolicyErrorField({
+        endDate: POLICY_ERRORS.endDate,
+        insuranceCompanyId: POLICY_ERRORS.insuranceCompany,
+      }),
+    ).toBe('insuranceCompanyId')
     expect(firstPolicyErrorField({})).toBeNull()
   })
 })
 
 describe('istek gövdesi', () => {
   it('eksik seçim gövde üretmez', () => {
-    expect(buildPolicyPayload(buildPolicyDefaults(TODAY), 7)).toBeNull()
+    expect(buildPolicyPayload(buildPolicyDefaults(TODAY))).toBeNull()
   })
 
-  it('geçersiz proje kimliği gövde üretmez', () => {
-    expect(buildPolicyPayload(buildFilledValues(), 0)).toBeNull()
+  it('birim seçilmeden gövde üretmez', () => {
+    expect(buildPolicyPayload(buildFilledValues({ projectUnitId: null }))).toBeNull()
   })
 
+  /** Gövde `PolicyAddDto` ile birebir: `projectId`, `method` ve `agencyId` YOK. */
   it('poliçe numarasının boşlukları kırpılır, tutar sayıya çevrilir', () => {
-    expect(buildPolicyPayload(buildFilledValues({ policyNumber: '  POL-2026-0002 ' }), 7)).toEqual({
-      projectId: 7,
-      method: 'manual',
+    expect(buildPolicyPayload(buildFilledValues({ policyNumber: '  POL-2026-0002 ' }))).toEqual({
       projectUnitId: 7,
       insuranceCompanyId: 1,
-      agencyId: 2,
       policyNumber: 'POL-2026-0002',
       amount: 1500000.5,
       startDate: toIsoDate(TODAY),

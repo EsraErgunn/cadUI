@@ -1,10 +1,4 @@
-import type {
-  CreatePolicyPayload,
-  InsuranceCompany,
-  PolicyAgency,
-  PolicyMethod,
-  PolicyRow,
-} from './policies'
+import type { CreatePolicyPayload, InsuranceCompany, PolicyMethod } from './policies'
 import type { ProjectSummary } from './projectDetailTypes'
 import { getMockProjectSeeds, type MockProjectSeed } from './projectsMock'
 
@@ -20,49 +14,20 @@ import { getMockProjectSeeds, type MockProjectSeed } from './projectsMock'
  * Adı" bağlantısı proje listesinde bulunmayan bir kimliğe gitmesin.
  */
 
-/**
- * Sigorta şirketleri gereksinim belgesindeki dört isim. Acente adları ise
- * UYDURULMADI: gerçek acente listesi analistten alınacak, o yüzden adların
- * örnek olduğu adın kendisinden anlaşılıyor.
- */
+/** Sigorta şirketleri gereksinim belgesindeki dört isim. */
 const INSURANCE_COMPANY_NAMES = ['Anadolu Sigorta', 'Aksigorta', 'Allianz', 'Mapfre']
-
-/** Her şirkete kaç örnek acente: liste kutusunun dolu hâli görünsün yeter. */
-const AGENCIES_PER_COMPANY = 2
 
 const MOCK_INSURANCE_COMPANIES: InsuranceCompany[] = INSURANCE_COMPANY_NAMES.map(
   (name, index) => ({ id: index + 1, name }),
 )
 
-function buildAgencies(): PolicyAgency[] {
-  const agencies: PolicyAgency[] = []
-
-  for (const company of MOCK_INSURANCE_COMPANIES) {
-    for (let slot = 1; slot <= AGENCIES_PER_COMPANY; slot += 1) {
-      agencies.push({
-        id: agencies.length + 1,
-        insuranceCompanyId: company.id,
-        name: `${company.name} — Örnek Acente ${slot}`,
-      })
-    }
-  }
-
-  return agencies
-}
-
-const MOCK_AGENCIES = buildAgencies()
-
 export function getMockInsuranceCompanies(): InsuranceCompany[] {
   return MOCK_INSURANCE_COMPANIES
 }
 
-export function getMockAgencies(): PolicyAgency[] {
-  return MOCK_AGENCIES
-}
-
 /**
- * Kaydedilen poliçe. Şirket/acente ADI da saklanıyor: listeleyen ekranın
- * seçenek listesini yeniden çekmesi gerekmesin (evrak satırındaki desen).
+ * Kaydedilen poliçe. Şirket ADI da saklanıyor: listeleyen ekranın seçenek
+ * listesini yeniden çekmesi gerekmesin (evrak satırındaki desen).
  *
  * Proje künyesi de burada: poliçe listesi "Proje Adı" sütununu gösteriyor ve
  * kimlikten ada inen tek yol mock tohumlarıydı — sunucudaki bir projenin
@@ -76,8 +41,6 @@ export interface StoredPolicy {
   method: PolicyMethod
   insuranceCompanyId: number
   insuranceCompanyName: string
-  agencyId: number
-  agencyName: string
   policyNumber: string
   amount: number
   startDate: string
@@ -110,9 +73,6 @@ function toPlainDate(timestamp: number): string {
 
 function buildSeedPolicy(project: MockProjectSeed, index: number, id: number): StoredPolicy {
   const company = MOCK_INSURANCE_COMPANIES[index % MOCK_INSURANCE_COMPANIES.length]
-  const agency = MOCK_AGENCIES.filter((item) => item.insuranceCompanyId === company.id)[
-    index % AGENCIES_PER_COMPANY
-  ]
   const startedAt = MOCK_BUILT_AT - START_DAY_OFFSETS[index % START_DAY_OFFSETS.length] * DAY_MS
 
   return {
@@ -123,8 +83,6 @@ function buildSeedPolicy(project: MockProjectSeed, index: number, id: number): S
     method: 'manual',
     insuranceCompanyId: company.id,
     insuranceCompanyName: company.name,
-    agencyId: agency.id,
-    agencyName: agency.name,
     policyNumber: `${SEED_NUMBER_PREFIX}-${String(id).padStart(4, '0')}`,
     amount: SEED_AMOUNTS[index % SEED_AMOUNTS.length],
     startDate: toPlainDate(startedAt),
@@ -176,21 +134,20 @@ function nameOf<TItem extends { id: number; name: string }>(items: TItem[], id: 
  * tohumdan doldurulsaydı sunucudaki bir projenin poliçesi uydurma bir projenin
  * adıyla listelenirdi — evrak tarafında düzeltilen tuzağın aynısı (K63).
  */
-export function addMockPolicy(
-  payload: CreatePolicyPayload,
-  project?: ProjectSummary,
-): StoredPolicy {
+export function addMockPolicy(payload: CreatePolicyPayload, project: ProjectSummary): StoredPolicy {
   const policies = getMockPolicies()
   const policy: StoredPolicy = {
     id: nextPolicyId(policies),
-    projectId: payload.projectId,
-    projectName: project?.name ?? null,
-    projectPId: project?.pId ?? null,
-    method: payload.method,
+    // Kimlik künyeden: gövde proje kimliği TAŞIMIYOR (sunucu onu birimden
+    // türetiyor), bu yüzden depo da çağıranın verdiği künyeden okuyor.
+    projectId: project.id,
+    projectName: project.name,
+    projectPId: project.pId,
+    // Sunucuya gitmiyor; depo satırı listede "Yöntem" göstermediği için yalnız
+    // geriye dönük uyum adına sabit.
+    method: 'manual',
     insuranceCompanyId: payload.insuranceCompanyId,
     insuranceCompanyName: nameOf(MOCK_INSURANCE_COMPANIES, payload.insuranceCompanyId),
-    agencyId: payload.agencyId,
-    agencyName: nameOf(MOCK_AGENCIES, payload.agencyId),
     policyNumber: payload.policyNumber,
     amount: payload.amount,
     startDate: payload.startDate,
@@ -209,23 +166,4 @@ export function removeMockPolicy(policyId: number): void {
   const policies = getMockPolicies()
   const index = policies.findIndex((policy) => policy.id === policyId)
   if (index !== -1) policies.splice(index, 1)
-}
-
-/** Listenin satır şekli. Depo alanlarının hepsi ekranda görünmüyor (şirket ve
-    acente KİMLİĞİ satırda işe yaramıyor), o yüzden dönüşüm burada. */
-export function getMockPolicyRows(): PolicyRow[] {
-  return getMockPolicies().map((policy) => ({
-    id: policy.id,
-    policyNumber: policy.policyNumber,
-    insuranceCompanyId: policy.insuranceCompanyId,
-    insuranceCompanyName: policy.insuranceCompanyName,
-    agencyName: policy.agencyName,
-    method: policy.method,
-    amount: policy.amount,
-    startDate: policy.startDate,
-    endDate: policy.endDate,
-    projectId: policy.projectId,
-    projectName: policy.projectName,
-    projectPId: policy.projectPId,
-  }))
 }

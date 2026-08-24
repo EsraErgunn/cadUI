@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
-import { listInsuranceCompanies, listPolicyAgencies } from '../api/policies'
+import { listInsuranceCompanies } from '../api/policies'
 import { getProjectSummary, getProjectUnits, type ProjectSummary } from '../api/projectDetail'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
@@ -101,12 +101,6 @@ export function NewPolicyPage() {
     queryFn: ({ signal }) => listInsuranceCompanies(signal),
   })
 
-  const { data: agencies } = useQuery({
-    queryKey: ['policyAgencies', values.insuranceCompanyId],
-    queryFn: ({ signal }) => listPolicyAgencies(values.insuranceCompanyId ?? 0, signal),
-    enabled: values.insuranceCompanyId !== null,
-  })
-
   useEffect(() => {
     if (focusField === null) return
 
@@ -134,7 +128,6 @@ export function NewPolicyPage() {
   }
 
   const companyRows = companies === undefined || companies.source === 'unavailable' ? [] : companies.data
-  const agencyRows = agencies === undefined || agencies.source === 'unavailable' ? [] : agencies.data
 
   const goToDetail = (state?: { savedPolicyNumber: string }) => {
     void navigate(`${projectDetailPath(project.id)}?${ADMIN_PARAM_KEYS.tab}=${POLICY_TAB}`, {
@@ -184,10 +177,8 @@ export function NewPolicyPage() {
             values={values}
             errors={wizard.errors}
             companies={companyRows}
-            agencies={agencyRows}
             hasCompanySource={companies === undefined || companies.source !== 'unavailable'}
             onCompanyChange={(id) => wizard.setValue('insuranceCompanyId', id)}
-            onAgencyChange={(id) => wizard.setValue('agencyId', id)}
           />
         )}
 

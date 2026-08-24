@@ -129,10 +129,10 @@ describe('NewPolicyPage — yöntem adımı ve gezinme', () => {
 
     await user.click(nextButton())
 
-    expect(await screen.findByText('Sigorta şirketi seçiniz.')).toBeInTheDocument()
-    expect(screen.getByText('Acente / poliçe firması seçiniz.')).toBeInTheDocument()
-    // Adım değişmedi: alanlar hâlâ ekranda.
-    expect(screen.getByLabelText('Sigorta Şirketi')).toBeInTheDocument()
+    // Adımda TEK zorunlu alan var: acente kutusu kalktı (sunucuda karşılığı yok).
+    expect(await screen.findByText('Sigorta şirketi / poliçe firması seçiniz.')).toBeInTheDocument()
+    // Adım değişmedi: alan hâlâ ekranda.
+    expect(screen.getByLabelText('Sigorta Şirketi / Poliçe Firması')).toBeInTheDocument()
     expect(stepCircle(stepItems()[1])).toHaveAttribute('aria-current', 'step')
   })
 
@@ -164,7 +164,7 @@ describe('NewPolicyPage — yöntem adımı ve gezinme', () => {
 
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Devam et' }))
-    expect(screen.getByLabelText('Sigorta Şirketi')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sigorta Şirketi / Poliçe Firması')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Vazgeç' }))
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Vazgeç' }))

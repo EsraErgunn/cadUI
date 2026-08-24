@@ -19,7 +19,7 @@ import type { ProjectSummary } from '../../../api/projectDetail'
 
 const SUBMIT_ERROR_MESSAGES = {
   unavailable:
-    'Poliçe kaydı ucu sunucuda henüz yok; kayıt yapılamadı (POST /api/projects/{id}/policies).',
+    'Poliçe kaydı ekranı sunucuya henüz bağlanmadı; kayıt yapılamadı (POST /api/policies).',
   unexpected: 'Poliçe kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
 } as const
 
@@ -28,7 +28,6 @@ const SUBMIT_ERROR_MESSAGES = {
 const FIELD_STEPS: Record<PolicyField, PolicyStep> = {
   method: 'method',
   insuranceCompanyId: 'firm',
-  agencyId: 'firm',
   projectUnitId: 'info',
   policyNumber: 'info',
   amountText: 'info',
@@ -101,15 +100,7 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
   const setValue = useCallback(
     <TField extends PolicyField>(field: TField, value: PolicyFormValues[TField]) => {
       setIsDirty(true)
-      setValues((current) => {
-        const next = { ...current, [field]: value }
-        // Sigorta şirketi değişince acente ARTIK O ŞİRKETE AİT DEĞİL; seçili
-        // kalsaydı kullanıcı listede görünmeyen bir acenteyle poliçe açardı.
-        if (field === 'insuranceCompanyId' && value !== current.insuranceCompanyId) {
-          next.agencyId = null
-        }
-        return next
-      })
+      setValues((current) => ({ ...current, [field]: value }))
       clearFieldError(field)
     },
     [clearFieldError],
@@ -155,7 +146,9 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
       return
     }
 
-    const payload = project === undefined ? null : buildPolicyPayload(values, project.id)
+    // Gövde proje kimliği TAŞIMIYOR (sunucu onu birimden türetiyor); künye
+    // yalnız çağrının ikinci parametresinde, bellekteki depo için.
+    const payload = buildPolicyPayload(values)
     if (payload === null || project === undefined) {
       setSubmitError(SUBMIT_ERROR_MESSAGES.unexpected)
       return

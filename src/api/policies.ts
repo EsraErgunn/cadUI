@@ -2,31 +2,42 @@ import { z } from 'zod'
 
 import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import { requestJson, requestVoid } from './http'
-import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
+import { pagedResultSchema, type PagedResult } from './listQuery'
 import { mockedData, serverData, type Sourced } from './mockGate'
-import {
-  addMockPolicy,
-  getMockAgencies,
-  getMockPolicies,
-  getMockPolicyRows,
-  removeMockPolicy,
-} from './policiesMock'
-import { queryPolicyList } from './policyListQuery'
+import { addMockPolicy, getMockPolicies, removeMockPolicy } from './policiesMock'
 import type { ProjectSummary } from './projectDetailTypes'
 import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
- * API SÖZLEŞMESİ — Poliçe oluşturma.
+ * API SÖZLEŞMESİ — Poliçeler. (Doğrulandı: cadapi @ a6ea695.)
  *
- * SUNUCUDA HİÇBİR UCU YOK: ne sigorta şirketi, ne acente, ne poliçe kaydı.
- * `Policy` entity'si veritabanında VAR (ProjectUnit'e bağlı) ama controller'ı
- * yok. Uçları yazmak backend'in işi; bu modül ekranın bağlandığı yüzeyi
- * tanımlar, gövdeyi `policiesMock.ts` besler. Uçlar açılınca çağıranlar
- * değişmez, yalnız bu dosyanın gövdesi gerçek isteğe döner —
- * `unimplementedEndpoints.ts`'ten satır silinince buradaki
- * `isEndpointImplemented` çağrısı derleme hatası verir.
+ * - `GET /api/policies` — sayfalı liste. `ProjectId` OPSİYONEL: verilmezse
+ *   kullanıcının görünürlük kapsamındaki TÜM poliçeler döner, verilirse tek
+ *   projeye daralır. Ek süzgeçler: `InsuranceCompanyId`, `Search`.
+ * - `GET /api/policies/{id}` — tekil
+ * - `PUT /api/policies/{id}` — güncelleme
+ * - `DELETE /api/policies/{id}` — elle iptal (soft-delete)
+ * - `GET /api/insurance-companies` — sigorta şirketleri
  *
- * Beklenen sözleşme taslağı: docs/api-eksikleri-policeler.md
+ * **ACENTE KAVRAMI YOK.** Poliçenin sunucudaki tek firma alanı
+ * `InsuranceCompanyId`; ayrı bir acente tablosu, ucu veya modeli yok. Sihirbazda
+ * bir süre iki ayrı kutu vardı ("Sigorta Şirketi" + "Acente / Poliçe Firması")
+ * ve ikincisinin yazacağı yer yoktu — tek kutuya indirildi. Bu adla yeni tip,
+ * sorgu veya uç ekleme.
+ *
+ * **SIRALAMA PARAMETRESİ YOK.** Uç `SortBy`/`SortDir` almıyor; sıra sunucuda
+ * sabit (`StartDate` azalan, `Id` tiebreaker). Ekranda sıralanabilir başlık
+ * bırakılmadı — çalışmayan bir sütun başlığı, olmayandan yanıltıcıdır.
+ *
+ * **ARAMA KAPSAMI SUNUCUNUN:** poliçe numarası, birim numarası ve abone
+ * numarası (contains). **Proje adı DAHİL DEĞİL** — ekran bir süre proje adında
+ * da arıyormuş gibi duruyordu.
+ *
+ * `ProjectUnitId` süzgeci YOK: birim bazlı poliçe listesi için uç mevcut değil
+ * (bkz. docs/api-eksikleri-policeler.md).
+ *
+ * Kayıt (`POST /api/policies`) ucu VAR ama ekran henüz bağlanmadı;
+ * `policyCreate` bayrağı duruyor ve gövdeyi `policiesMock.ts` besliyor.
  */
 
 /**
@@ -39,6 +50,7 @@ import { isEndpointImplemented } from './unimplementedEndpoints'
 const policyDtoSchema = z.object({
   id: z.number().int().positive(),
   projectId: z.number().int(),
+  projectName: z.string().nullish(),
   projectUnitId: z.number().int().nullish(),
   unitNumber: z.string().nullish(),
   insuranceCompanyId: z.number().int().nullish(),
@@ -125,17 +137,10 @@ export interface InsuranceCompany {
   name: string
 }
 
-export interface PolicyAgency {
-  id: number
-  /** Acente listesi seçilen şirkete bağlı (gereksinim 16); süzme bu alanla. */
-  insuranceCompanyId: number
-  name: string
-}
-
 /**
- * Poliçe yöntemi. Bugün tek değer var ama dar birleşim olarak duruyor: sigorta
- * şirketi servisleri üzerinden otomatik poliçe ileride eklenecek ve o gün
- * eklenecek kod, seçeneği listeleyen her yeri derleme hatasıyla gösterecek.
+ * Poliçe yöntemi. Sunucuya GİTMEZ — `PolicyAddDto`'da karşılığı yok. Sihirbazın
+ * ilk adımı (gereksinim 15) tek seçenekli bir bilgilendirme olarak duruyor;
+ * değeri kaydın gövdesine girmiyor.
  */
 export const POLICY_METHODS = ['manual'] as const
 export type PolicyMethod = (typeof POLICY_METHODS)[number]
@@ -144,13 +149,16 @@ export const POLICY_METHOD_LABELS: Record<PolicyMethod, string> = {
   manual: 'Manuel Poliçe',
 }
 
+/**
+ * `POST /api/policies` gövdesi — `PolicyAddDto` ile BİREBİR.
+ *
+ * `projectId` YOK: sunucu projeyi birimden türetiyor. `agencyId` ve `method` de
+ * yok; ikisinin de sunucuda alanı bulunmuyor.
+ */
 export interface CreatePolicyPayload {
-  projectId: number
   /** Poliçenin bağlandığı birim; sunucuda kayıt proje değil BİRİM başına. */
   projectUnitId: number
-  method: PolicyMethod
   insuranceCompanyId: number
-  agencyId: number
   policyNumber: string
   /** Kuruş DAHİL tutar (2 ondalık); biçimlendirme gösterim katmanında. */
   amount: number
@@ -165,69 +173,100 @@ export type PolicyCreateResult =
 
 export const POLICY_PAGE_SIZE = 30
 
-export const POLICY_SORT_KEYS = ['startDate', 'policyNumber'] as const
-export type PolicySortKey = (typeof POLICY_SORT_KEYS)[number]
-
-/** En yeni poliçe üstte: listenin en sık beklenen açılış sırası. */
-export const DEFAULT_POLICY_SORT_KEY: PolicySortKey = 'startDate'
-export const DEFAULT_POLICY_SORT_DIR: SortDirection = 'desc'
-
-/** Poliçeler listesinin satırı. Şirket KİMLİĞİ de var: filtre kimliğe göre
-    süzüyor, ad tek başına yetmez (evrak satırındaki `projectFirmId` deseni). */
+/**
+ * Poliçeler listesinin satırı — `PolicyDto`'dan türetiliyor.
+ *
+ * Alanların çoğu `null` olabilir çünkü sunucuda `ProjectUnitId` dışında hiçbiri
+ * zorunlu değil; yarım doldurulmuş tek bir kayıt listeyi sınırda öldürmesin.
+ *
+ * "Acente", "Yöntem" ve "ProjeId" alanları YOK: üçünün de sunucuda karşılığı
+ * bulunmuyor (`PolicyDto` bina kodu taşımıyor). Boş kalacak sütunlar yerine
+ * alanın kendisi kaldırıldı.
+ */
 export interface PolicyRow {
   id: number
-  policyNumber: string
-  insuranceCompanyId: number
-  insuranceCompanyName: string
-  agencyName: string
-  method: PolicyMethod
+  policyNumber: string | null
+  insuranceCompanyId: number | null
+  insuranceCompanyName: string | null
   /** Kuruş DAHİL teminat tutarı; biçimlendirme gösterim katmanında. */
-  amount: number
-  startDate: string
-  endDate: string
+  amount: number | null
+  startDate: string | null
+  endDate: string | null
   projectId: number
-  /** Künyesi çözülemeyen kayıtta `null` — uydurma proje adı yazılmaz (K63). */
+  /** Sunucudan geliyor (`PolicyDto.ProjectName`); çözülemezse `null`. */
   projectName: string | null
-  projectPId: string | null
 }
 
 export interface PolicyListQuery {
-  /** Arama poliçe numarası VE proje adı üzerinde: iki ayrı kutu, tek listede
-      kullanıcıya iki arama alanı gösterirdi. */
+  /**
+   * Sunucunun aradığı alanlar: poliçe numarası, birim numarası, abone numarası.
+   * PROJE ADI DAHİL DEĞİL — uç o alanda aramıyor.
+   */
   search: string
   insuranceCompanyId: number | null
+  /** `null` = proje bağımsız "tüm poliçeler"; uç `ProjectId` olmadan da çalışır. */
+  projectId: number | null
   page: number
   pageSize: number
-  sortBy: PolicySortKey
-  sortDir: SortDirection
+}
+
+function toPolicyRow(dto: PolicyDto): PolicyRow {
+  return {
+    id: dto.id,
+    policyNumber: dto.policyNumber ?? null,
+    insuranceCompanyId: dto.insuranceCompanyId ?? null,
+    insuranceCompanyName: dto.insuranceCompanyTitle ?? null,
+    amount: dto.amount ?? null,
+    startDate: dto.startDate ?? null,
+    endDate: dto.endDate ?? null,
+    projectId: dto.projectId,
+    projectName: dto.projectName ?? null,
+  }
 }
 
 /**
- * Poliçeler listesi — bütün projelerin poliçeleri. Sayfalama, filtre ve
- * sıralama sunucu tarafı sözleşmesine göre çalışır; bugün bu işi mock yapıyor.
+ * Poliçeler listesi — GERÇEK uç (`GET /api/policies`).
  *
- * `Sourced` zarfı ŞART (K51): üretim derlemesinde uydurma poliçe listesi
- * gösterilseydi bir demoda gerçek sanılırdı — orada ekran "kaynağı yok" der.
+ * `ProjectId` yalnız DOLUYSA yazılıyor: uç onsuz çağrıldığında kullanıcının
+ * görünürlük kapsamındaki tüm poliçeleri döndürüyor (backend a6ea695). Boş
+ * süzgeci parametre olarak göndermek, "tümü" demek için yokluğu kullanan
+ * sözleşmeyi bozardı.
+ *
+ * Sıralama GÖNDERİLMİYOR — uç `SortBy`/`SortDir` almıyor, sıra sunucuda sabit.
  */
 export async function listPolicies(
   query: PolicyListQuery,
   signal?: AbortSignal,
-): Promise<Sourced<PagedResult<PolicyRow>>> {
-  if (isEndpointImplemented('policyList')) {
-    throw new Error('listPolicies: uç bağlandı ama gövdesi yazılmadı.')
-  }
+): Promise<PagedResult<PolicyRow>> {
+  const search = new URLSearchParams({
+    Page: String(query.page),
+    PageSize: String(query.pageSize),
+  })
 
-  await delay(MOCK_LATENCY_MS, signal)
-  return mockedData(() => queryPolicyList(getMockPolicyRows(), query))
+  if (query.projectId !== null) search.set('ProjectId', String(query.projectId))
+  if (query.insuranceCompanyId !== null) {
+    search.set('InsuranceCompanyId', String(query.insuranceCompanyId))
+  }
+  if (query.search !== '') search.set('Search', query.search)
+
+  const page = await requestJson(
+    { method: 'GET', path: `/api/policies?${search.toString()}`, signal },
+    policyPageSchema,
+  )
+
+  return { ...page, items: page.items.map(toPolicyRow) }
 }
 
-/** Poliçe silme — GERÇEK uç (`DELETE /api/policies/{id}`). */
+/**
+ * Poliçe silme — GERÇEK uç (`DELETE /api/policies/{id}`).
+ *
+ * Bellekteki depo da temizleniyor: KAYIT yolu hâlâ mock (`policyCreate`) ve o
+ * turda oluşturulmuş bir poliçe silindikten sonra depoda kalsaydı, proje
+ * detayının poliçe sekmesinde durmaya devam ederdi.
+ */
 export async function deletePolicy(policyId: number, signal?: AbortSignal): Promise<void> {
   await requestVoid({ method: 'DELETE', path: `/api/policies/${policyId}`, signal })
 
-  // Bellekteki depo da temizleniyor: poliçe LİSTESİ ekranı hâlâ mock'tan
-  // besleniyor (uç tüm projeleri listeleyemiyor) ve silinen kayıt orada
-  // durmaya devam ederse kullanıcı silmenin işe yaramadığını sanır.
   removeMockPolicy(policyId)
 }
 
@@ -259,28 +298,18 @@ export async function listInsuranceCompanies(
   return serverData(dto.map((company) => ({ id: company.id, name: company.title })))
 }
 
-/** Seçilen sigorta şirketinin acenteleri (gereksinim 16). */
-export async function listPolicyAgencies(
-  insuranceCompanyId: number,
-  signal?: AbortSignal,
-): Promise<Sourced<PolicyAgency[]>> {
-  if (isEndpointImplemented('policyAgencies')) {
-    throw new Error('listPolicyAgencies: uç bağlandı ama gövdesi yazılmadı.')
-  }
-
-  await delay(MOCK_LATENCY_MS, signal)
-  return mockedData(() =>
-    getMockAgencies().filter((agency) => agency.insuranceCompanyId === insuranceCompanyId),
-  )
-}
-
 /**
- * Poliçe numarası benzersizliği (KK-19). Sunucuda kontrol ucu YOK; denetim
- * bugün istemcide, bellekteki depoya karşı yapılıyor (K30'un deseni).
+ * Poliçe numarası benzersizliği (KK-19) — İSTEMCİ VARSAYIMI, sunucuda karşılığı
+ * YOK.
  *
- * TEK fonksiyon olması bilinçli: hem "İleri" doğrulaması hem kayıt bu kapıdan
- * geçiyor. Uç açıldığında gövdesi 409'a çevrilecek ve iki çağıran da değişmeden
- * doğru davranacak — kontrol iki yere kopyalansaydı biri güncellenmeden kalırdı.
+ * `PolicyManager.CreateAsync` poliçe numarasına hiç bakmıyor; denetlediği kural
+ * başka: bir birimde aynı anda tek aktif poliçe (ihlalde 400). Buradaki kontrol
+ * yalnız BELLEKTEKİ mock depoya karşı çalışıyor ve kayıt yolu gerçek uca
+ * bağlanınca kaldırılmalı — sunucunun uygulamadığı bir kuralı kullanıcıya hata
+ * olarak göstermek, olmayan bir kısıtı varmış gibi öğretir.
+ *
+ * TODO(esra): `policyCreate` bağlanınca bu fonksiyon ve
+ * `POLICY_ERRORS.policyNumberTaken` silinecek.
  */
 export function isPolicyNumberTaken(policyNumber: string): boolean {
   const normalized = policyNumber.trim().toLocaleUpperCase('tr-TR')
@@ -301,9 +330,9 @@ export function isPolicyNumberTaken(policyNumber: string): boolean {
 export async function createProjectPolicy(
   payload: CreatePolicyPayload,
   /**
-   * Proje künyesi. Uca GİTMEZ (sunucu kimliği zaten gövdede görüyor); bellekteki
-   * depo poliçe listesinde proje adını gösterebilsin diye alınıyor — evrak
-   * kaydındaki `ProjectSummary` deseni. Uç açılınca bu parametre düşer.
+   * Proje künyesi. Uca GİTMEZ — `PolicyAddDto` proje kimliği almıyor, sunucu
+   * projeyi birimden türetiyor. Bellekteki depo proje adını gösterebilsin diye
+   * alınıyor; uç bağlanınca bu parametre düşer.
    */
   project: ProjectSummary,
   signal?: AbortSignal,
@@ -312,8 +341,8 @@ export async function createProjectPolicy(
     throw new Error('createProjectPolicy: uç bağlandı ama gövdesi yazılmadı.')
   }
 
-  // Numara kontrolü gecikmeden ÖNCE: uç geldiğinde bu dal 409 yanıtına
-  // dönüşecek, yani sunucuya gidip dönmüş olacak.
+  // Yalnız mock deposuna karşı; sunucuda böyle bir kural YOK (bkz.
+  // `isPolicyNumberTaken`).
   if (isPolicyNumberTaken(payload.policyNumber)) {
     return { ok: false, reason: 'duplicateNumber' }
   }

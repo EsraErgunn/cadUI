@@ -14,7 +14,6 @@ export const PROJECT_ID = 7
 export const PROJECT_NAME = 'Demo Doğalgaz Projesi'
 
 export const COMPANY_NAME = 'Anadolu Sigorta'
-export const AGENCY_NAME = `${COMPANY_NAME} — Örnek Acente 1`
 
 export const POLICY_NUMBER = 'POL-2026-0001'
 /** Ham giriş; ayraç odaktan çıkınca uygulanıyor, beklenen çıktı 1.500.000,00. */
@@ -122,16 +121,13 @@ export async function goToFirmStep(user: User): Promise<void> {
   await user.click(await screen.findByRole('button', { name: 'İleri' }))
 }
 
-/** Adım 2. Seçenekler ayrı isteklerden geliyor: seçim yapmadan önce ilgili
-    `option` beklenmezse liste henüz "Seçiniz"den ibaret olur. */
+/** Adım 2. TEK seçim: sunucuda acente kavramı yok, alan `insuranceCompanyId`.
+    Seçenek listesi ayrı bir istekten geliyor, `option` beklenmezse kutu henüz
+    "Seçiniz"den ibaret olur. */
 export async function fillFirmStep(user: User): Promise<void> {
   await user.selectOptions(
-    await screen.findByLabelText('Sigorta Şirketi'),
+    await screen.findByLabelText('Sigorta Şirketi / Poliçe Firması'),
     await screen.findByRole('option', { name: COMPANY_NAME }),
-  )
-  await user.selectOptions(
-    screen.getByLabelText('Acente / Poliçe Firması'),
-    await screen.findByRole('option', { name: AGENCY_NAME }),
   )
 }
 
