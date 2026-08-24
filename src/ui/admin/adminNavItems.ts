@@ -156,9 +156,6 @@ export function parseProjectParam(raw: string | null): number | undefined {
   return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
 
-/** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
-export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
-
 /** Kişi Bilgileri ekranı; sol menüde madde YOK, üst bardaki kullanıcı
     menüsünden açılıyor (kişisel ayar, yönetim bölümü değil). */
 export const PROFILE_PATH = `${ADMIN_HOME_PATH}/profile`
@@ -321,11 +318,12 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Gaz Dağıtım Kullanıcıları',
     icon: UsersRound,
     path: GAS_DISTRIBUTION_USERS_PATH,
-    // Gaz dağıtım kullanıcısı KENDİ firmasının kullanıcılarını görüyor: liste
-    // ucu `WhereVisibleTo` ile token'daki firmaya daraltılıyor
-    // (`UserManager.GetListAsync`). "Yeni Kullanıcı" düğmesi `useIsAdmin`
-    // arkasında kaldığı için o rolde çizilmiyor.
-    roles: [ROLE_CODES.admin, ROLE_CODES.gasDistributionUser],
+    // Ekran YÖNETİME özel. Gaz dağıtım kullanıcısı bir süre bu listeyi kendi
+    // firmasıyla sınırlı görüyordu; çıkarıldı çünkü o rolün kendi ekranı var
+    // (`GAS_DISTRIBUTION_HOME_PATH`) ve işi kullanıcı yönetmek değil proje
+    // ONAYLAMAK. Liste ucu sunucuda yine `WhereVisibleTo` ile daraltılıyor —
+    // buradaki değişiklik yalnız GÖRÜNÜRLÜK, yetki sınırı değil.
+    roles: MANAGEMENT_SCREEN_ROLES,
   },
   { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH, roles: ALL_ROLES },
   {

@@ -190,18 +190,12 @@ describe('AdminSidebar rol bazlı menü', () => {
       expect.stringContaining('StarCAD'),
       expect.stringContaining('Anasayfa'),
       expect.stringContaining('Projeler'),
-      expect.stringContaining('Gaz Dağıtım Kullanıcıları'),
       expect.stringContaining('Evraklar'),
       expect.stringContaining('Poliçeler'),
     ])
   })
 
-  /** Gaz dağıtım kullanıcısının GÖRDÜĞÜ "Gaz Dağıtım Kullanıcıları" hariç. */
-  const gasUserHiddenLabels = MANAGEMENT_LABELS.filter(
-    (label) => label !== 'Gaz Dağıtım Kullanıcıları',
-  )
-
-  it.each(gasUserHiddenLabels)('gaz dağıtım kullanıcısı "%s" maddesini görmez', (label) => {
+  it.each(MANAGEMENT_LABELS)('gaz dağıtım kullanıcısı "%s" maddesini görmez', (label) => {
     renderSidebar(GAS_DISTRIBUTION_HOME_PATH, ROLE_CODES.gasDistributionUser)
 
     expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()

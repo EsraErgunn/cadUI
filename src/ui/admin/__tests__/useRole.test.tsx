@@ -94,15 +94,8 @@ describe('getNavItemsForRole', () => {
   it('gaz dağıtım kullanıcısına yönetim maddesi vermez', () => {
     const keys = getNavItemsForRole(ROLE_CODES.gasDistributionUser).map((item) => item.key)
 
-    // "Gaz Dağıtım Kullanıcıları" bu rolde VAR: liste ucu `WhereVisibleTo` ile
-    // token'daki firmaya daraltılıyor, yani kendi firmasının kullanıcıları.
-    expect(keys).toEqual([
-      'gasDistributionHome',
-      'projects',
-      'gasDistributionUsers',
-      'documents',
-      'policies',
-    ])
+    // "Gaz Dağıtım Kullanıcıları" da bu rolde ARTIK YOK: ekran yönetime ait.
+    expect(keys).toEqual(['gasDistributionHome', 'projects', 'documents', 'policies'])
   })
 
   it('tanınmayan role boş menü verir', () => {

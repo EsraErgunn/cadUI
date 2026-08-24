@@ -41,8 +41,9 @@
      metin eşiğini (3:1) geçer ama küçük metin eşiğini (4.5:1) geçmez. Etiket,
      ikon veya normal metinde KULLANILMAZ; onlar `ink`/`ink-muted` kalır. */
   --color-success-soft: #3f8f63;
-  /* Uyarı vurgusu: sistem kaynaklı bakım/kesinti duyurusunun sol kenarlığı.
-     Yalnız kenarlık — metin rengi olarak kullanılmaz, kontrastı sınanmadı. */
+  /* Uyarı vurgusu: bekleyen/revizyon durum rozeti ve yarım kalan işlem şeridi.
+     Yalnız kenarlık, zemin ve ikon — normal metin rengi olarak kullanılmaz,
+     kontrastı o eşikte sınanmadı. */
   --color-warning: #b26a00;
    --color-brand-yellow: #FFC107;
   --color-brand-navy: #1B2A4A;

@@ -32,8 +32,8 @@ const FIRST_PAGE = 1
  *
  * Yönetici anasayfasının (`AdminHomePage`) küçültülmüş kopyası DEĞİL ve onunla
  * hiçbir uç paylaşmıyor: `/api/admin/dashboard` yönetim kapsamı (`gdGroupId` /
- * `gdFirmId`) üzerine kurulu, firma yoğunluğu ve duyuru kartları da bu rolün
- * işi değil. Burada YALNIZ projeler var, çünkü bugün gerçek uçtan gelen veri o.
+ * `gdFirmId`) üzerine kurulu, firma yoğunluğu kartı da bu rolün işi değil.
+ * Burada YALNIZ projeler var, çünkü bugün gerçek uçtan gelen veri o.
  *
  * **Kapsam sunucunun sorumluluğu.** Sorgulara `ProjectFirmId` KONULMUYOR:
  * istemcinin gönderdiği bir kimlik güvenlik sınırı değildir, kullanıcı onu
