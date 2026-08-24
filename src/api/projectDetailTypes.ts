@@ -36,13 +36,21 @@ export const PROJECT_DETAIL_STATUS_LABELS: Record<ProjectDetailStatus, string> =
 /** Taslak proje işleme alınmaz: firma göndermeden onay/ret çalışmaz (KK-2). */
 export const DRAFT_STATUS: ProjectDetailStatus = 'taslak'
 
-/** `GET /api/projects/{id}` gövdesinden ekrana taşınan alanlar. */
+/**
+ * `GET /api/projects/{id}` gövdesinden ekrana taşınan alanlar.
+ *
+ * Şema bir süre yalnız DOKUZ alan okuyordu; uç otuz alan döndürüyor ve geri
+ * kalanı uydurma "extras" içinden geliyordu. Artık ucun taşıdığı her şey
+ * buradan okunuyor.
+ */
 export interface ProjectServerFields {
   id: number
   /** Serbest biçimli proje numarası; sayı olarak yorumlanmaz. */
   pId: string
   name: string
   description: string | null
+  /** GERÇEK durum; liste satırıyla aynı kaynak (eskiden detayda hiç gelmiyordu). */
+  status: ProjectDetailStatus
   cityName: string | null
   districtName: string | null
   addressLine: string | null
@@ -61,6 +69,19 @@ export interface ProjectServerFields {
   /** Dükkân adedi. */
   workplaceCount: number | null
   areaSquareMeters: number | null
+  buildingCode: string | null
+  projectFirmId: number | null
+  gasDistributionFirmId: number | null
+  projectType: string | null
+  heatingType: string | null
+  buildingUsageType: string | null
+  /** Yapı ruhsatına bağlı proje mi. */
+  isPermitProject: boolean
+  apartmentCount: number | null
+  workplaceCount: number | null
+  areaSquareMeters: number | null
+  capacityCubicMeterPerHour: number | null
+  serviceBoxPressureMbar: number | null
   createdAt: string
   updatedAt: string
 }

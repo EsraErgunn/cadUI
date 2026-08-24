@@ -12,7 +12,6 @@ import {
   resolveProjectFirmAuthorizationId,
 } from './projectFirmAuthorizations'
 import { queryMockProjectFirms } from './projectsMock'
-import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
 import { serializeProjectDataForBackend } from '../core/projectExportFormat'
 import { parseProjectJson } from '../core/serialize'
@@ -31,7 +30,7 @@ import { parseProjectJson } from '../core/serialize'
  * - SortBy: updatedAt | createdAt | name  (varsayılan: updatedAt)
  * - SortDir: asc | desc                   (varsayılan: desc)
  * - Page: 1 tabanlı, PageSize: 30
- * - ARAMA parametresi YOK — gelen sayfa istemcide süzülüyor (`filterBySearch`)
+ * - ARAMA `Search` olarak sunucuya gider (proje adı + bina kodu)
  * 200 → { items, totalCount, page, pageSize }
  *
  * GET /api/projects/status-counts
@@ -213,7 +212,7 @@ export interface ProjectListQuery {
    */
   scope: AdminScope
   /**
-   * Uçta karşılığı YOK; gelen sayfa istemcide süzülüyor (bkz. `filterBySearch`).
+   * Uca `Search` olarak gider; proje adında ve bina kodunda aranır.
    * Alan sorguda duruyor çünkü URL durumu ve arama kutusu ona bağlı.
    */
   search: string
@@ -279,7 +278,7 @@ export interface RawProjectListItem {
  *                     heatingTypeName, createdAt, updatedAt }],
  *           totalCount, page, pageSize }
  *   SÜZME VE SAYFALAMA ARTIK SUNUCUDA — istemci dizi dilimlemiyor.
- *   ARAMA parametresi YOK: sözleşmede `q`/`Search` bulunmuyor.
+ *   ARAMA `Search` parametresiyle sunucuda yapılır.
  *
  * GET /api/projects/status-counts
  *   Query: DateFrom, DateTo, CityId, DistrictId, ProjectFirmId (Status YOK —
@@ -303,6 +302,8 @@ const apiProjectListItemSchema = z.object({
    */
   gasDistributionFirmName: z.string().nullish(),
   gasDistributionFirmId: z.number().int().nullish(),
+  /** Projede en az bir evrak var mı; satırdaki rozet buna bakıyor. */
+  hasDocuments: z.boolean().nullish(),
   /** Durum KODU ve adı. `status` satır aksiyonlarını süren GERÇEK durum
       (`toProjectStatus`); `statusName` arayüze taşınmıyor — etiketler
       `PROJECT_STATUS_LABELS`'tan geliyor ve iki kaynak ayrışırdı. */
@@ -325,20 +326,7 @@ const apiProjectListItemSchema = z.object({
  * Sayfalama SUNUCUDA olana kadar iki gövde biçimi de kabul edilir; dizi
  * geldiğinde toplam/sayfa istemci tarafında türetilir.
  */
-const apiProjectPageSchema = z.union([
-  z.array(apiProjectListItemSchema),
-  pagedResultSchema(apiProjectListItemSchema),
-])
-
-function toApiProjectPage(
-  raw: z.infer<typeof apiProjectPageSchema>,
-  requestedPage: number,
-  requestedPageSize: number,
-): { items: z.infer<typeof apiProjectListItemSchema>[]; totalCount: number; page: number; pageSize: number } {
-  if (!Array.isArray(raw)) return raw
-
-  return { items: raw, totalCount: raw.length, page: requestedPage, pageSize: requestedPageSize }
-}
+const apiProjectPageSchema = pagedResultSchema(apiProjectListItemSchema)
 
 /**
  * Sunucunun durum kodu ↔ arayüzün kodu. `status-counts` yanıtının anahtarları
@@ -361,7 +349,7 @@ const SERVER_STATUS_CODES: Record<ProjectStatus, string> = {
  * bilinmeyen bir kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip
  * "Onaya Gönder" düğmesini yanlış satıra koyardı.
  */
-function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
+export function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
   const code = raw?.trim().toLowerCase()
   if (code === undefined || code === '') return null
 
@@ -400,7 +388,8 @@ function toNullableText(value: string | null | undefined): string | null {
 /**
  * Firma adı, bina kodu ve gaz dağıtım firması artık GERÇEK (`FirmName`,
  * `BuildingCode`, `GasDistributionFirmName`).
- * TODO(esra): evrak durumu (`hasDocuments`) uçtan hâlâ gelmiyor.
+ * Evrak durumu (`hasDocuments`) artık uçtan geliyor; eskiden her satıra sabit
+ * `false` yazılıyordu ve rozet hiçbir projede görünmüyordu.
  */
 function mapApiProject(raw: z.infer<typeof apiProjectListItemSchema>): ProjectListItem {
   const gasFirmName = toNullableText(raw.gasDistributionFirmName)
@@ -422,7 +411,7 @@ function mapApiProject(raw: z.infer<typeof apiProjectListItemSchema>): ProjectLi
         ? null
         : { id: raw.gasDistributionFirmId ?? null, name: gasFirmName },
     status: toProjectStatus(raw.status),
-    hasDocuments: false,
+    hasDocuments: raw.hasDocuments ?? false,
   }
 }
 
@@ -477,27 +466,11 @@ function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
   appendParam(search, 'CityId', query.cityId)
   appendParam(search, 'DistrictId', query.districtId)
   appendParam(search, 'ProjectFirmId', query.projectFirmId)
+  // Boş arama parametre olarak HİÇ yazılmaz; `appendParam` boş değeri atlıyor.
+  appendParam(search, 'Search', query.search === '' ? null : query.search)
   appendScopeParams(search, query.scope)
 
   return search
-}
-
-/**
- * Sözleşmede ARAMA parametresi YOK. Kutu kaldırılmadığı için gelen sayfa
- * istemcide süzülüyor — yani arama YALNIZ görüntülenen sayfayı kapsıyor,
- * `totalCount` süzülmemiş adedi göstermeye devam ediyor.
- *
- * TODO(esra): uca `Q` parametresi eklenmeli; eklenince bu fonksiyon ve
- * çağrısı silinip parametre `buildFilterParams`'a taşınacak.
- */
-function filterBySearch(items: ProjectListItem[], search: string): ProjectListItem[] {
-  if (search === '') return items
-
-  // `includesTr` şart: 'İ'.toLowerCase() birleşen nokta üretip eşleşmeyi
-  // sessizce kaçırıyor (knowledge/turkish-collation).
-  return items.filter(
-    (project) => includesTr(project.name, search) || includesTr(project.pId, search),
-  )
 }
 
 /**
@@ -505,8 +478,10 @@ function filterBySearch(items: ProjectListItem[], search: string): ProjectListIt
  * 2026-08-14). Yanıtın `totalCount`'u sayfalamayı, `items` sırası tabloyu
  * yönetiyor; istemci diziyi dilimlemiyor.
  *
- * Tek istisna arama: uçta karşılığı yok, gelen sayfa `filterBySearch` ile
- * süzülüyor (bkz. oradaki not).
+ * Arama da SUNUCUDA (`Search`): proje adı ve bina kodunda geçiyor. İstemcide
+ * süzülürken yalnız GÖRÜNEN sayfayı kapsıyordu ve `totalCount` süzülmemiş
+ * adedi göstermeye devam ediyordu — kullanıcı "3 sonuç" yazan bir listede 30
+ * satır görüyordu.
  */
 export async function listProjects(
   query: ProjectListQuery,
@@ -519,14 +494,13 @@ export async function listProjects(
   appendParam(search, 'Page', query.page)
   appendParam(search, 'PageSize', query.pageSize)
 
-  const raw = await requestJson(
+  const page = await requestJson(
     { method: 'GET', path: `/api/projects?${search.toString()}`, signal },
     apiProjectPageSchema,
   )
-  const page = toApiProjectPage(raw, query.page, query.pageSize)
 
   return projectPageSchema.parse({
-    items: filterBySearch(page.items.map(mapApiProject), query.search),
+    items: page.items.map(mapApiProject),
     totalCount: page.totalCount,
     page: page.page,
     pageSize: page.pageSize,
@@ -537,8 +511,8 @@ export async function listProjects(
  * Sekme rozetleri — `GET /api/projects/status-counts`. Listeyle AYNI süzgeçleri
  * alır, `Status` almaz: rozetler durumdan bağımsız sayılır.
  *
- * Arama rozetlere YANSIMAZ (uçta parametresi yok): kutuya yazılan metin
- * listedeki satırları süzer ama rozetteki adet süzülmemiş kalır.
+ * Arama rozetlere de YANSIR: `Search` diğer süzgeçlerle birlikte gidiyor,
+ * yani rozetteki adet ile listedeki satır sayısı aynı kümeyi anlatıyor.
  */
 export async function getProjectStatusCounts(
   query: ProjectStatusCountsQuery,
