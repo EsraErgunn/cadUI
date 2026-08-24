@@ -9,7 +9,7 @@ import {
   ADMIN_TOOLBAR_SEARCH_WRAPPER,
 } from '../adminToolbarLayout'
 import { adminButtonVariants, adminFieldVariants } from '../adminVariants'
-import { usePermission } from '../usePermission'
+import { useIsAdmin } from '../useIsAdmin'
 
 const NAME_QUERY_FIELD = 'firmName'
 
@@ -24,7 +24,9 @@ export function FirmTableToolbar({
   onApplyNameQuery,
   onOpenFilterPanel,
 }: FirmTableToolbarProps) {
-  const canCreateFirm = usePermission('firm.create')
+  // Sunucuda `POST /api/gasdistributionfirms` yalnız Admin'e açık; düğme o sınırı
+  // GÖSTERİYOR, kendi başına bir denetim değil.
+  const canCreateFirm = useIsAdmin()
 
   return (
     <div className={ADMIN_TOOLBAR_ROW}>
