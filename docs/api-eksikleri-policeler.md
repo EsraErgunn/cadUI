@@ -1,109 +1,109 @@
-# Poliçe Oluşturma — eksik uçlar ve sözleşme taslağı
+# Poliçeler — sunucu durumu ve kalan eksikler
 
 **Durum:** Poliçe Oluşturma sihirbazı (5 adım) ve Poliçeler LİSTESİ ekranı
-yazıldı, sunucu tarafının TAMAMI yok. `Policy` entity'si veritabanında VAR
-(`ProjectUnit`'e bağlı) ama controller'ı yok; sigorta şirketi ve acente için
-tablo bile yok.
+yazıldı. Sunucu tarafı **kısmen açıldı**: `PoliciesController` ve
+`InsuranceCompaniesController` artık VAR. Belgenin eski hâlindeki "`Policy`
+entity'si var ama controller'ı yok, sigorta şirketi için tablo bile yok" tespiti
+GEÇERSİZ.
 
-Sözleşme taslağı FRONTEND önerisidir; alan adları backend'le kesinleşecek.
+Doğrulama tabanı: cadapi @ `539383d` — `PoliciesController`, `PolicyManager`,
+`PolicyDtos.cs`, `InsuranceCompaniesController`.
 
-## Bugün çalışan uç
+> **Bu belge yalnızca durumu kaydeder.** Açılan uçlara bağlanma işi henüz
+> YAPILMADI: `policyAgencies`, `policyCreate` ve `policyList` bayrakları
+> `src/api/unimplementedEndpoints.ts` içinde DURUYOR ve poliçe kodu bilerek
+> değiştirilmedi (backend ekibinden cevap bekleniyor).
 
-Sadece proje künyesi: sihirbaz `/projects/:projectId/policies/new` yolundaki
-kimliği `GET /api/projects/{id}` (gerçek uç) üzerinden çözüyor (K63'ün deseni).
-Bunun dışındaki her şey `src/api/policiesMock.ts` içindeki BELLEK deposundan
-geliyor: oluşturulan poliçe hem Poliçeler listesinde hem proje detayının "Poliçe
-Bilgileri" sekmesinde gerçekten listeleniyor ama **sayfa yenilenince
-kayboluyor**. Kullanıcıya bu SÖYLENİYOR (K58 deseni, dönüş bildirimindeki
-`warning` şeridi).
+## Bağlanmış uçlar (gerçek)
 
-Depo TOHUMLU (K69): liste ekranının filtresi/sıralaması/sayfalaması boş depoyla
-denenemezdi. Tohumlar evrak mock'uyla aynı proje kaynağından geliyor, numaraları
-`ORNEK-POL-` önekli — hiçbiri sunucudan gelmiş gibi durmuyor ve tamamı yalnız
-geliştirme derlemesinde üretiliyor (`mockGate`). Poliçesiz projeler de var:
-sekmenin boş hâli korunuyor.
+| Uç | Frontend |
+|---|---|
+| `GET /api/policies?ProjectId=` | `listProjectPolicies` — proje detayının poliçe sekmesi |
+| `GET /api/policies/{id}` | `getPolicy` |
+| `PUT /api/policies/{id}` | `updatePolicy` — ekranı henüz yok, sözleşme bağlı |
+| `DELETE /api/policies/{id}` | `deletePolicy` |
+| `GET /api/insurance-companies` | `listInsuranceCompanies` — adım 2 "Sigorta Şirketi" |
 
-## Eksik uçlar
+Yol **tireli**: `/api/insurance-companies`. Bir süre `/api/insurancecompanies`
+varsayılıyordu ve o adres 404 dönüyordu.
 
-| # | Uç (öneri) | Ne besleyecek | Karşılığı olan entity |
-|---|---|---|---|
-| 1 | `GET /api/insurancecompanies` | Adım 2 "Sigorta Şirketi" listesi | **yok** — tablo da yok |
-| 2 | `GET /api/insurancecompanies/{id}/agencies` | Adım 2 "Acente / Poliçe Firması" listesi (seçilen şirkete bağlı) | **yok** |
-| 3 | `POST /api/projects/{id}/policies` | Adım 4 "Bitir" — poliçe kaydı | `Policy` — **tablo var, controller yok** |
-| 4 | `GET /api/projects/{id}/policies` | Proje detayının poliçe sekmesi (bu görevden ÖNCE de eksikti) | aynı |
-| 5 | `GET /api/policies?page&pageSize&q&insuranceCompanyId&sort&dir` | Poliçeler LİSTESİ ekranı — bütün projelerin poliçeleri | aynı |
+## Sunucudaki sözleşme
 
-Beşi de `src/api/unimplementedEndpoints.ts` içinde bayraklı: uç açılınca oradan
-satır silinecek ve `src/api/policies.ts` derleme hatası vererek gövdenin gerçek
-isteğe çevrilmesi gerektiğini gösterecek.
-
-### 3 — Kayıt sözleşmesi (öneri)
-
-İstek gövdesi `src/api/policies.ts` → `CreatePolicyPayload`:
+`PolicyAddDto` (POST `/api/policies`):
 
 ```
-projectId, method, insuranceCompanyId, agencyId,
-policyNumber, amount, startDate, endDate
+ProjectUnitId (zorunlu), InsuranceCompanyId?, PolicyNumber?,
+Amount?, StartDate?, EndDate?
 ```
 
-- `method` bugün tek değerli dar birleşim (`'manual'`). Sigorta şirketi
-  servisleri üzerinden otomatik poliçe ileride eklenecek; alan şimdiden
-  gövdede duruyor ki o gün sözleşme değişmesin.
-- `amount` kuruş DAHİL ondalık sayı; binlik ayraç ve `₺` yalnız gösterimde.
-- `startDate`/`endDate` `yyyy-aa-gg` düz tarih — saat dilimi kaymasın diye ISO
-  damgası değil.
-- **`policyNumber` benzersiz olmalı ve çakışma `409` dönmeli.** Bugün denetim
-  istemcide, bellekteki depoya karşı yapılıyor (`isPolicyNumberTaken`); tek
-  fonksiyondan geçiyor ki uç gelince yalnız o fonksiyonun gövdesi değişsin.
-- Yanıt en az yeni kaydın kimliğini döndürmeli (`policyId`).
+`PolicyDto` (liste ve tekil detay AYNI gövde):
 
-### 1–2 — Liste yanıtları (öneri)
+```
+Id, ProjectId, ProjectUnitId?, UnitNumber?,
+InsuranceCompanyId?, InsuranceCompanyTitle?,
+PolicyNumber?, Amount?, StartDate?, EndDate?,
+IsActive, IsUnitDeleted
+```
 
-`{ id, name }` yeterli; acente satırı ayrıca bağlı olduğu şirketin kimliğini
-taşımalı (`insuranceCompanyId`). Bugün mock, her şirket için iki örnek acente
-üretiyor ve adların örnek olduğu adın kendisinden anlaşılıyor ("… — Örnek Acente 1"):
-gerçek acente listesi iş tarafından gelecek.
+`PolicyListQueryDto`: `ProjectId`, `ExcludeUnitDeleted`, `Search`, `Page`,
+`PageSize` (varsayılan 30, üst sınır 100).
+
+## Frontend taslağıyla sunucu arasındaki FARKLAR
+
+Bunlar `policyCreate` bağlanmadan önce karara bağlanmalı:
+
+| Konu | Frontend taslağı | Sunucudaki gerçek |
+|---|---|---|
+| Yol | `POST /api/projects/{id}/policies` | **`POST /api/policies`** |
+| Bağlam | `projectId` gövdede | **`ProjectUnitId`**; proje birimden türetiliyor |
+| `method` | Gövdede (`'manual'`) | Alan YOK — kabul edilmiyor |
+| `agencyId` | Gövdede, sihirbazda ZORUNLU alan | Alan YOK — kabul edilmiyor |
+| Benzersizlik | `policyNumber` benzersiz → **409** | `policyNumber` üzerinde hiçbir kontrol YOK. Kural: **bir birimde aynı anda tek aktif poliçe** → **400** |
+| Zorunluluk | Sihirbaz hepsini zorunlu tutuyor | Sunucuda `ProjectUnitId` dışında hepsi opsiyonel |
+
+Yetki: `POST`/`PUT`/`DELETE` yalnız `Admin` + `ProjectFirmUser`.
+Mevcut poliçeyi yenilemek için önce `DELETE` (elle iptal) gerekiyor —
+otomatik kapatma yok.
+
+## Kalan eksikler
+
+| # | Eksik | Etkisi |
+|---|---|---|
+| 1 | **Acente kavramı sunucuda HİÇ YOK** — entity, tablo, controller, migration yok (tüm repoda `agency`/`acente` için sıfır eşleşme) | Sihirbazın "Acente / Poliçe Firması" adımı karşılıksız. Alan bugün ZORUNLU ve mock listeden besleniyor. `policyAgencies` bayrağı duruyor. |
+| 2 | `GET /api/policies` **`ProjectId` ZORUNLU** — `GetListByProjectAsync` önce projeyi görünürlükten geçiriyor, yoksa 404 | Poliçeler LİSTESİ ekranı (bütün projelerin poliçeleri) bu uçla beslenemiyor; mock depoda kalmaya devam ediyor. `policyList` bayrağı duruyor. |
+| 3 | Liste ucunda **`InsuranceCompanyId` süzgeci ve `SortBy`/`SortDir` yok** | Ekrandaki şirket filtresi ve sıralama sunucuya taşınamıyor. |
+| 4 | `Search` **proje adında aramıyor** — yalnız poliçe no, birim no, abone no | Liste ekranı proje adında da arıyor; uç bağlanınca kapsam daralır. |
+| 5 | Satır **proje künyesini taşımıyor** (`ProjectName`/bina kodu yok) | Bütün projelerin listesi açılırsa istemci her satır için ayrı proje isteği atmak zorunda kalır. |
+| 6 | **Ödeme durumu alanı yok** — `Policy` entity'sinde karşılığı yok | Proje detayındaki "Ödeme: Bekliyor" rozeti bir İSTEMCİ VARSAYIMIDIR; sunucudan gelen bir değer değil. Uç geldiğinde bu sabit KALDIRILMALI. |
+
+"Birim" sütunu artık eksik DEĞİL: `PolicyDto.UnitNumber` sunucudan geliyor.
 
 ## Karara bağlanması gereken konular
 
-**1. Adım 5'in bilgilendirme metni.** Gereksinim "sürecin sonraki aşamasını
+**1. Acente alanı ne olacak?** Sunucu kabul etmediği için bugün kullanıcının
+doldurduğu değer kayıtta kaybolurdu. Seçenekler: alanı sihirbazdan geçici
+kaldırmak, ya da kaydedilemediğini kullanıcıya açıkça söylemek. Karar
+verilmeden `policyCreate` bağlanmamalı.
+
+**2. Adım 5'in bilgilendirme metni.** Gereksinim "sürecin sonraki aşamasını
 açıklayan metin" diyor ama metni vermiyor. Ekrandaki cümle (`PolicyStepper.tsx`
-→ `DONE_MESSAGE`) **Esra'dan alındı, analist onayı bekleniyor** — kaynağında
-TODO ile işaretli.
+→ `DONE_MESSAGE`) Esra'dan alındı, analist onayı bekleniyor — kaynağında TODO
+ile işaretli.
 
-**2. Tablo sütunları ile sihirbaz UYUŞMUYOR: "Birim" ve "Ödeme".** Proje
-detayındaki poliçe tablosunda `unitNumber` ve `isPaid` sütunları var, ama
-gereksinimde bu iki alan sihirbazda SORULMUYOR — yani oluşturulan poliçe bu iki
-sütunu besleyemiyor. Analiste sorulacak: poliçe proje bazlı mı birim bazlı mı
-(`Policy` entity'si `ProjectUnit`'e bağlı), ödeme hangi süreçte işaretleniyor?
+**3. Poliçe proje bazlı mı birim bazlı mı?** Sunucu kararını vermiş: `Policy`
+`ProjectUnit`'e bağlı ve birimde tek aktif poliçe kuralı var. Sihirbaz da birim
+soruyor. Gereksinim belgesiyle bu hizanın analist tarafından teyidi bekleniyor.
 
-- "Birim" hücresi yeni kayıtta BOŞ ("—"): uydurulmadı.
-- **"Ödeme: Bekliyor" bir İSTEMCİ VARSAYIMIDIR.** Sunucudan gelen bir değer
-  değil; `buildMockProjectPolicies` yeni satıra sabit `isPaid: false` yazıyor,
-  tablo da bunu "Bekliyor" rozetiyle gösteriyor. Gerçek ödeme durumu bilinmiyor;
-  uç geldiğinde bu sabit KALDIRILMALI.
-
-**3. Teminat tutarının sınırları.** Alt/üst sınır verilmedi; bugün yalnız hane
+**4. Teminat tutarının sınırları.** Alt/üst sınır verilmedi; bugün yalnız hane
 sayısı sınırlı (15 hane) ve sıfırdan büyük olması isteniyor. Sunucu tarafı da
 denetlemeli.
 
-**4. Kayıt Adım 4'e alındı — analist onayı bekleniyor.** Gereksinim belgesi hem
+**5. Kayıt Adım 4'e alındı — analist onayı bekleniyor.** Gereksinim belgesi hem
 "son adımda İleri düğmesi Bitir olur" hem "beşinci adımda … Bitir'e tıklanınca
 poliçe kaydedilir" diyor, yani başarı ekranını kayıttan ÖNCE gösteriyor. Ekran
 Adım 4'te kaydediyor, Adım 5 kayıt sonrası sonuç ekranı (K64) — sapma bilinçli,
 sebebi kaydın başarısız olabilmesi. Esra onayladı; analist teyidi bekleniyor.
 
-**5. Poliçe LİSTESİ ekranı yazıldı (K69), sözleşmesi onay bekliyor.** Sol
-menüdeki "Poliçeler" artık karşılama değil gerçek liste; 5 numaralı uç gelene
-kadar mock depodan besleniyor. Analiste sorulacaklar:
-
-- Liste hangi alanları döndürecek? Ekran bugün poliçe no, sigorta şirketi,
-  acente, proje adı + ProjeId, teminat, başlangıç/bitiş ve yöntem gösteriyor.
-  Satır proje künyesini de taşımalı, yoksa istemci her satır için ayrı bir proje
-  isteği atmak zorunda kalır.
-- Süzme ölçütleri: bugün arama (poliçe no + proje adı) ve sigorta şirketi var.
-  Tarih aralığı ya da "ödeme durumu" süzgeci istenirse 2 numaralı maddedeki
-  ödeme sorusunun cevabına bağlı.
-- Yetki: liste bütün projelerin poliçelerini gösteriyor. Proje firması
-  kullanıcısının yalnız kendi projelerinin poliçelerini görmesi gerekiyorsa
-  süzme SUNUCUDA olmalı (istemci tarafı yalnız görünürlük).
+**6. Poliçe LİSTESİ ekranının yetkisi.** Liste bütün projelerin poliçelerini
+gösteriyor. Proje firması kullanıcısının yalnız kendi projelerinin poliçelerini
+görmesi gerekiyorsa süzme SUNUCUDA olmalı (istemci tarafı yalnız görünürlük).

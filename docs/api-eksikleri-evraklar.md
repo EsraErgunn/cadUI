@@ -1,121 +1,103 @@
-# Evrak ekranları — eksik uçlar ve sözleşme taslağı
+# Evrak ekranları — sunucu durumu ve kalan eksikler
 
-**Durum:** İki ekran (Evraklar listesi + Evrak Ekle) yazıldı, sunucu tarafının
-TAMAMI yok. Envanter `localhost:5193` OpenAPI'sinden çıkarıldı (2026-08-13):
-30 yol var, evrakla ilgili **tek bir yol veya DTO yok**.
+**Durum:** İki ekran (Evraklar listesi + Evrak Ekle) yazıldı ve **sunucu tarafı
+AÇILDI**. Evrak modülünün tamamı gerçek uçlara bağlı (`src/api/documents.ts`);
+bellekteki mock depo (`src/api/documentsMock.ts`) SİLİNDİ — bu adla yeni kod
+yazma.
 
-Sözleşme taslağı FRONTEND önerisidir; alan adları backend'le kesinleşecek.
+Doğrulama tabanı: cadapi @ `539383d` — `DocsController` + `DocDtos.cs`.
 
-## Bugün çalışan uç
+Bu belge artık bir sözleşme TASLAĞI değil; açılan sözleşmeyi ve **kalan**
+eksikleri kaydediyor.
 
-Yok. Ekranların tamamı `src/api/documentsMock.ts` içindeki BELLEK deposundan
-besleniyor: yüklenen evrak listeye gerçekten giriyor ama **sayfa yenilenince
-kayboluyor**. Kalıcılık veritabanı + uç işi.
+## Çalışan uçlar
 
-Tohumlanan satırlar uydurma değil, mock proje listesinden geliyor
-(`projectsMock.getMockProjectSeeds`): tablodaki "Proje Adı" bağlantısı gerçekten
-var olan bir projeye gidiyor.
+| Uç | Ne besliyor |
+|---|---|
+| `GET /api/docs` | Evraklar listesi — süzgeç, sıralama ve sayfalama SUNUCUDA |
+| `POST /api/docs` | Dosya yükleme (multipart) |
+| `DELETE /api/docs/{id}` | Evrak silme |
+| `PUT /api/docs/{id}/assign` | Evrağı başka projeye taşıma / havuza geri alma |
+| `POST /api/docs/{id}/units/{unitId}` | Birim bağı ekleme |
+| `DELETE /api/docs/{id}/units/{unitId}` | Birim bağı kaldırma |
+| `GET /api/docs/{id}/download` | Süreli indirme adresi (`DocDownloadDto.url`) |
 
-**Evrak Ekle'nin proje künyesi ise mock DEĞİL:** ekran `?project=<id>` ile gelen
-projeyi `GET /api/projects/{id}` (gerçek uç) üzerinden çözüyor. Bu yüzden o
-ekranda YÜKLENEN satır `projectFirmId`, `installationNo`, `firmName` ve
-`gasFirmName` alanlarını `null` bırakır — uç bu dört alanı döndürmüyor ve
-kimliğe denk gelen tohumdan doldurmak, gerçek bir projenin evrağını uydurma bir
-firmanın adıyla listelemek olurdu. 1 numaralı uç açılınca alanlar sunucudan
-gelecek.
+Yardımcı uçlar da açık:
 
-## Eksik uçlar
+- `GET /api/codes/by-group-name/DocumentType` — evrak tipi listesi
+  (`src/api/documentTypes.ts`). Kod grubunun adı **`DocumentType`**; belgenin
+  eski hâlindeki "EvrakTipi grubu var mı" sorusu böylece KAPANDI. İstemcide
+  sabit 18 tip tutulmuyor.
+- `GET /api/projects/{projectId}/units` — birim listesi (`ProjectUnitsController`).
 
-| # | Uç (öneri) | Ne besleyecek | Karşılığı olan entity |
-|---|---|---|---|
-| 1 | `GET /api/docs?from&to&type&firm&q&sort&dir&page&pageSize` | Evraklar listesi (sayfalı) | `Doc` + `ProjectDoc` — **tablolar var** |
-| 2 | `GET /api/projects/{id}/docs` | Proje detayının evrak sekmesi + Evrak Ekle'nin "Proje Evrakları" sekmesi | aynı |
-| 3 | `POST /api/projects/{id}/docs` (multipart) | Dosya yükleme | aynı |
-| 4 | `POST /api/projects/{id}/docs/{docId}/reassign` | Mevcut evrağı başka birimlerle yeniden ilişkilendirme (gereksinim 7) | `ProjectDoc` |
-| 5 | `GET /api/projects/{id}/units` | Birim checkbox listesi | `ProjectUnit` — **tablo var, controller yok** (proje detayıyla ORTAK, ikinci uç istenmiyor) |
-| 6 | `GET /api/codes/by-group-name/EvrakTipi` | Evrak tipi listesi | **Uç VAR**, eksik olan KOD GRUBU |
+`src/api/http.ts` multipart'ı ARTIK biliyor: `uploadForm` (`Content-Type` elle
+konmuyor, boundary'yi tarayıcı üretiyor; yetki başlığı ve hata/şema kuralları
+JSON isteğiyle aynı kapıdan geçiyor). Belgenin eski hâlindeki `requestForm`
+taslağı gereksiz kaldı.
 
-### 1 — Liste yanıtı (öneri)
+## Sözleşme (sunucudaki hâliyle)
 
-Ortak sayfalama zarfı (`PagedResult`): `{ items, totalCount, page, pageSize }`.
-Satır alanları `src/api/documents.ts` → `DocumentRow`:
+`GET /api/docs` → `PagedResultDto<DocListItemDto>` = `{ items, totalCount, page, pageSize }`.
+
+`DocListQueryDto` şu parametreleri alıyor:
 
 ```
-id, fileName, docTypeCode, receivedAt, unitNames[],
-projectId, projectName, projectPId, projectFirmId,
-installationNo, firmName, gasFirmName,
-sizeBytes, uploadedByName, contentType, url
+ProjectId, ProjectUnitId, ProjectFirmId, DocTypeCodeId,
+ReceivedFrom, ReceivedTo, PoolOnly,
+SortBy (filename | receivedat, varsayılan receivedat), SortDir (varsayılan desc),
+Page (1), PageSize (30)
 ```
 
-- `contentType` **zorunlu**: dosyanın yeni sekmede mi açılacağı yoksa
-  indirileceği mi kararını yalnız o veriyor (K57). Uzantıya bakan bir ayrım,
-  uzantısı yanlış yazılmış dosyada sessizce yanlış davranır.
-- `url` süreli bir MinIO bağlantısı olmalı (çizim JSON'undaki desenin aynısı).
-- `unitNames` çoğul: bir evrak birden çok birime bağlanabiliyor (gereksinim 11).
-- Arama `q` YALNIZ evrak adında; tarih aralığı evrağın **geliş** tarihine göre.
+`DocListItemDto` satırı:
 
-### 3 — Yükleme sözleşmesi (öneri)
+```
+Id, FileName, ContentType, SizeBytes, DocTypeCodeId, DocTypeName,
+ProjectId, ProjectName, ProjectUnits[] ({ Id, UnitNumber, SubscriberNo }),
+ProjectFirmId, ProjectFirmName, ReceivedAt
+```
 
-`multipart/form-data`, **dosya başına ayrı istek**:
+Yükleme (`POST /api/docs`, `DocUploadDto`): `ProjectId?`, `ProjectUnitId?`,
+`DocTypeCodeId?`, `ProjectFirmId?`, `FileName`, `ContentType`, `SizeBytes`.
+Dosya başına ayrı istek deseni korunuyor: biri düşünce diğerleri kaydedilmiş
+kalır.
 
-| Alan | Tip | Açıklama |
+**Evrak BİRİME bağlanıyor.** Sunucu gövdesi proje seviyesinde evrağı ve "havuz"
+kavramını (`PoolOnly`, `ProjectId = null`) destekliyor ama üründe böyle bir akış
+YOK: her evrak en az bir birimle ilişkilendiriliyor (`useDocumentUpload` bunu
+zorunlu tutuyor).
+
+## Kalan eksikler
+
+| # | Eksik | Etkisi |
 |---|---|---|
-| `file` | binary | Tek dosya |
-| `docTypeCode` | string | `EvrakTipi` kod grubundan |
-| `unitIds` | number[] | En az bir birim |
-
-Dosya başına ayrı istek, ağ/sunucu hatasında kısmi başarıyı korumak için:
-biri düşünce diğerleri kaydedilmiş kalır. Biçim (7 uzantı) ve 10 MB sınırı
-İSTEMCİDE, dosya listeye alınmadan denetleniyor (`ui/admin/documents/
-documentFiles.ts`) — sunucunun da denetlemesi gerekir, istemci yalnız
-kullanıcıya erken geri bildirim veriyor.
-
-**`.dwg` yükleme biçimlerinde YOK** ama listede DWG kayıtları görünüyor: bunlar
-kullanıcı yüklemesi değil, çizim tarafından üretilen dosyalar sayılıyor
-(iş tarafına doğrulatılıyor).
-
-### `http.ts` şu an multipart bilmiyor
-
-Bugün yalnız `rawJsonBody` var. 3 numaralı uç açılınca `src/api/http.ts`'e
-eklenecek:
-
-```ts
-export async function requestForm<Schema extends z.ZodType>(
-  request: { method: 'POST' | 'PUT'; path: string; body: FormData; signal?: AbortSignal },
-  schema: Schema,
-): Promise<z.infer<Schema>>
-```
-
-`Content-Type` **elle konulmaz** — boundary'yi tarayıcı üretir. Token yine
-`buildHeaders` üzerinden tek yerden eklenir. Bugün yazılmadı: çağıranı olmayan
-bir kod ortak dosyada ölü ağırlık olurdu.
+| 1 | `GET /api/docs` **arama (`q`/`Search`) parametresi almıyor** | Evraklar ekranındaki arama kutusu KALDIRILDI. Sayfalı bir listede istemci tarafı arama yalnız görünen sayfayı süzeceği için yanlış sonuç verirdi; yarım çalışan süzgeç olmayandan yanıltıcıdır. |
+| 2 | `DocListItemDto` **bina kodunu taşımıyor** | `DocumentRow.projectPId` `null`; hücre boş işareti çiziyor. Uydurma değer yazılmıyor. |
+| 3 | **Tesisat numarasının** sunucuda karşılığı yok (ne `Doc`ta ne `Project`te) | `DocumentRow.installationNo` `null`. |
+| 4 | Satır **gaz dağıtım firmasını taşımıyor** | `DocumentRow.gasFirmName` `null`; evrak listesinde KAPSAM süzmesi uygulanamıyor. |
+| 5 | `GET /api/projects` yanıtında **`hasDocuments` yok** | Proje listesindeki evrak ikonu hep gri; `projects.ts` alanı sabit `false` map'liyor. Gereksinim 12'nin "evrak yüklenince ikon yeşile döner" maddesi bu alan gelmeden karşılanamaz. |
 
 ## Karara bağlanması gereken konular
 
-**1. "EvrakTipi" kod grubu var mı?** Sunucuda parametrik kod grubu mekanizması
-çalışıyor (`ProjeDurumu` grubu gibi) ama bu grubun tanımlı olup olmadığı
-doğrulanamadı (yetkisiz istek 401 döndü). Bugün 18 tip
-`src/api/documentTypes.ts` içinde sabit; kodlar İSTEMCİ uydurmasıdır ve grup
-açılınca sunucunun `CodeValue`'larıyla değişecek. URL'deki `type` filtresi bu
-kodu taşıdığı için geçişte eski bağlantılar filtresiz açılır.
+**1. "Favori Evrak" tipi listeden ÇIKARILIYOR.** Kod grubu bu tipi döndürüyor
+ama arayüz `EXCLUDED_CODE_VALUES` ile süzüyor (`documentTypes.ts`): favori
+kavramı kapsam dışı ve seçilebilen ama hiçbir şey yapmayan bir tip, kullanıcıya
+olmayan bir özellik vaat ederdi. Eleme İSTEMCİDE — sunucu tarafında da
+kaldırılması isteniyorsa iş tarafına sorulmalı.
 
-**2. "Favori Evrak" tipi listeden ÇIKARILDI** (19 → 18). Favori kavramı tümüyle
-kapsam dışı. Kod grubu bu tipi döndürürse istemcide SÜZÜLMEYECEK — sözleşmeye
-giren bir kodu arayüzde saklamak, listedeki evrağın tipini boş gösterirdi.
+**2. Yükleme yetkisi.** Sunucuda `POST /api/docs` ve `DELETE /api/docs/{id}`
+`Admin` + `ProjectFirmUser` rollerine açık. Arayüzün bunu görünürlükte
+yansıtması gerekip gerekmediği (gaz dağıtım kullanıcısına yükleme düğmesi
+gösterilsin mi) netleşmedi.
 
-**3. Yükleme yetkisi hangi rollerde?** Bugün ekran üç rolde de açık; içeriğin
-sunucuda role göre daralması bekleniyor (istemci tarafı yalnız görünürlük).
-İş tarafından cevap bekleniyor.
+**3. `.dwg` yükleme biçimlerinde YOK** ama listede DWG kayıtları görünüyor:
+bunlar kullanıcı yüklemesi değil, çizim tarafından üretilen dosyalar sayılıyor
+(iş tarafına doğrulatılıyor). Biçim (7 uzantı) ve 10 MB sınırı İSTEMCİDE
+denetleniyor (`ui/admin/documents/documentFiles.ts`); sunucunun da denetlemesi
+gerekir, istemci yalnız erken geri bildirim veriyor.
 
 ## Bu iş sırasında bulunan, evrak DIŞI eksikler
 
-- **`GET /api/projects` yanıtında `hasDocuments` yok.** Proje listesindeki evrak
-  ikonu bu yüzden hep gri; `projects.ts` alanı sabit `false` map'liyor.
-  Gereksinim 12'nin "evrak yüklenince ikon yeşile döner" maddesi bu alan
-  gelmeden karşılanamaz (kapsam dışı bırakıldı, istemcide geçici iz tutulmadı).
-- **Proje firması için salt okunur bir ekran yok.** `ProjectFirmsPage` yalnız
-  `q` (ad araması) okuyor, kimlik filtresi yok; bu yüzden evrak tablosundaki
-  "Firma Adı" düz metin. Kimlik filtresi ya da firma detay ekranı gelince
-  bağlanacak.
+- **Proje firması için salt okunur bir ekran yok.** Evrak tablosundaki "Firma
+  Adı" bu yüzden düz metin (satır `ProjectFirmId` taşıyor, hedef ekran yok).
 - **G.D. firmasının tek ekranı güncelleme FORMU.** Bir liste hücresinden
   düzenleme formuna gitmek yanlış hedef; "G.D Firması" de bu yüzden düz metin.
