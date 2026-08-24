@@ -1,18 +1,17 @@
 import { useMemo } from 'react'
 
-import { GhostAreaObject, GhostBeam, GhostRoomFill, GhostRoomLabel } from './ArchitectureGhostFixtures'
+import { GhostAreaObject, GhostBeam, GhostRoomLabel } from './ArchitectureGhostFixtures'
 import { GhostPointSymbol } from './ArchitectureGhostPointSymbol'
 import { GhostOpening, GhostWall } from './ArchitectureGhostWalls'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
 import { SymbolInstance } from './SymbolInstance'
 import { useCameraZoom } from './useCameraZoom'
-import type { Room, Wall as WallData } from '../../core/model'
+import type { Room } from '../../core/model'
 import { getOpeningOutline } from '../../core/opening'
 import { findRoomFaces } from '../../core/room'
-import { insetRoomPolygon } from '../../core/roomFill'
 import { getWallSetKey } from '../../core/roomIdentity'
-import { getRoomLabelAnchor } from '../../core/roomLabel'
+import { getRoomLabelAnchor, toSquareMetres } from '../../core/roomLabel'
 import { getRoomDisplayName } from '../../core/roomUsage'
 import { getSymbolPose, getSymbolsOnFloor } from '../../core/symbolPlacement'
 import { buildPointIndex } from '../../core/wall'
@@ -23,8 +22,9 @@ import { useUiStore } from '../../store/uiStore'
  * Karşı katmanın soluk izi — iki yönlü. İkisi de SceneRoot'ta mount edilir (çizen
  * katmanın içinde değil: hayalet katmanın parçası değil GÖRÜNÜMÜN bağlamıdır) ve
  * ikisi de aktif katı KENDİ okur, mount eden kat bilgisi geçirmez.
- * Yöntemleri bilerek farklı: mimari tek soluk renge boyanır ve tesisatın altında
- * durur; tesisat rengini korur, saydamlaşır ve mimarinin üstünde durur.
+ * Yöntemleri bilerek farklı: mimari KÂĞITTAKİ kat planı paftasının çizim
+ * diliyle (içi boş kontur, iki kademeli soluk ton — K154/K165) ve tesisatın
+ * altında çizilir; tesisat rengini korur, saydamlaşır ve mimarinin üstünde durur.
  * Gerekçeler: .claude/knowledge/ghost-layers.md · şekil bileşenleri
  * `ArchitectureGhostWalls.tsx` + `ArchitectureGhostFixtures.tsx`'te (200 satır
  * sınırı yüzünden ayrıldı).
@@ -35,7 +35,7 @@ import { useUiStore } from '../../store/uiStore'
  * odalar, kirişler, alan nesneleri (merdiven/kolon/baca şaftı/kolon
  * havalandırması) ve nokta sembolleri (aydınlatma, pano, yangın söndürücü,
  * alarm cihazı, deprem sensörü, menfez, ana kesme şalteri) — `ArchitectureLayer`
- * neyi çiziyorsa hayaleti de onu çizer, yalnız tek soluk renkte.
+ * neyi çiziyorsa hayaleti de onu çizer, yalnız kâğıttaki gibi içi boş ve soluk.
  */
 export function ArchitectureGhost() {
   const walls = useCadStore((state) => state.walls)
@@ -77,30 +77,22 @@ export function ArchitectureGhost() {
   // Room.tsx ile AYNI eşleştirme: yüz duvar kümesinden bulunur, eşleşmeyen
   // (henüz store'a yansımamış ara kare) yüz çizilmez. Oda kimliği React key'i
   // için taşınır — geometri değil, `Room.tsx`'teki `shapes` ile aynı gerekçe.
-  const roomFillShapes = useMemo(() => {
+  // Oda DOLGUSU yok (K165): kâğıt gibi yalnız ad + m² yazılır.
+  const roomLabels = useMemo(() => {
     const faces = findRoomFaces(floorWalls, points, activeFloorId)
     const roomByWallSet = new Map<string, Room>()
     for (const room of rooms) roomByWallSet.set(getWallSetKey(room.wallIds), room)
-
-    const thicknessById = new Map<WallData['id'], WallData['thickness']>()
-    for (const wall of floorWalls) thicknessById.set(wall.id, wall.thickness)
 
     return faces.flatMap((face) => {
       const room = roomByWallSet.get(getWallSetKey(face.wallIds))
       if (!room) return []
 
-      const thicknessesCm = face.wallIds.map((wallId) => thicknessById.get(wallId) ?? 0)
-      const corners = insetRoomPolygon(face.corners, thicknessesCm)
-      if (!corners) return []
-
-      // Etiket çapası gerçek çevrime göre bulunur, dolgunun küçültülmüş
-      // poligonuna göre DEĞİL — Room.tsx → RoomShape ile aynı gerekçe.
       return [
         {
           id: room.id,
           name: getRoomDisplayName(room.usageType),
-          corners,
-          labelAnchor: getRoomLabelAnchor(face.corners),
+          areaM2: toSquareMetres(face.areaCm2),
+          anchor: getRoomLabelAnchor(face.corners),
         },
       ]
     })
@@ -125,13 +117,14 @@ export function ArchitectureGhost() {
 
   return (
     <group name="architecture-ghost">
-      {roomFillShapes.map((shape) => (
-        <GhostRoomFill key={shape.id} corners={shape.corners} />
-      ))}
-
       {isRoomNamesVisible &&
-        roomFillShapes.map((shape) => (
-          <GhostRoomLabel key={shape.id} anchor={shape.labelAnchor} name={shape.name} />
+        roomLabels.map((label) => (
+          <GhostRoomLabel
+            key={label.id}
+            anchor={label.anchor}
+            name={label.name}
+            areaM2={label.areaM2}
+          />
         ))}
 
       {floorWalls.map((wall) => (
@@ -139,7 +132,12 @@ export function ArchitectureGhost() {
       ))}
 
       {openingGhosts.map((opening) => (
-        <GhostOpening key={opening.id} outline={opening.outline} type={opening.type} />
+        <GhostOpening
+          key={opening.id}
+          outline={opening.outline}
+          type={opening.type}
+          zoom={zoom}
+        />
       ))}
 
       {floorBeams.map((beam) => (

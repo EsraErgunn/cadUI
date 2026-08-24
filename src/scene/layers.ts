@@ -15,29 +15,39 @@ export const RENDER_ORDER = {
   floorBelowGhostOpening: 8,
   /**
    * Tesisat görünümündeki mimari hayalet (aktif kat, `plumbing/scene/Ghosts.tsx`
-   * → `ArchitectureGhost`). Gerçek `ArchitectureLayer` ile AYNI göreli sıra —
-   * oda en altta, alan nesnesi en üstte — yalnız tek renge boyanmış hâliyle
+   * → `ArchitectureGhost`). Şekiller kâğıttaki KAT PLANI paftasının çizim
+   * diliyle basılır (K154 → K165): her mimari yüzey içi boş, iki kademeli ton
    * (bkz. knowledge/ghost-layers.md). Yalnız 'installation' görünümünde
    * mount edildiği için floorBelowGhost ile (yalnız 'architecture' görünümünde
    * mount edilir) numara çakışması sorun değil, ikisi asla aynı anda sahnede
    * olmaz — yine de karışıklık olmasın diye ayrı bant kullanılıyor.
    * Tesisat tarafının ALT KAT izi YOK (K130): boru çizerken karıştırıyordu.
    */
-  architectureGhostRoom: 9,
-  architectureGhost: 10,
   /**
-   * Hayalet açıklık, hayalet duvarın ÜSTÜNDE ayrı bir sırada: aynı renderOrder'da
-   * kalsaydı çizim sırası material id'sine (mount sırasına) düşerdi ve sonradan
-   * eklenen bir duvar deliği kapatabilirdi.
+   * Duvarın KONTURU. Hayalet kâğıttaki gibi İÇİ BOŞ çizilir (K165): önce TÜM
+   * duvarlar `kalınlık + 2×kontur` kontur renginde, sonra TÜM duvarlar tam
+   * kalınlıkta zemin renginde basılır — iki bandın AYRI sırada olması şart,
+   * yoksa bir duvarın içi komşusunun konturunu siler.
+   */
+  architectureGhost: 10,
+  /** Duvarın İÇİ: dolgu değil, konturun içini kapatan zemin (bkz. architectureGhost). */
+  architectureGhostWallVoid: 11,
+  /**
+   * Hayalet açıklığın boşluğu, hayalet duvarın ÜSTÜNDE ayrı bir sırada: aynı
+   * renderOrder'da kalsaydı çizim sırası material id'sine (mount sırasına)
+   * düşerdi ve sonradan eklenen bir duvar deliği kapatabilirdi.
    */
   architectureGhostOpening: 12,
-  /** Hayalet kirişin saydam dolgusu, kendi konturunun altında — gerekçesi beamFill ile aynı. */
-  architectureGhostBeamFill: 13,
+  /** Kapı kanadı / pencere çizgileri: kendi açtıkları boşluğun ÜSTÜNDE. */
+  architectureGhostOpeningSymbol: 13,
   architectureGhostBeam: 14,
   architectureGhostPointSymbol: 15,
-  /** Hayalet alan nesnesinin saydam dolgusu — gerekçesi areaObjectFill ile aynı. */
-  architectureGhostAreaObjectFill: 16,
   architectureGhostAreaObject: 17,
+  /**
+   * Oda adı + m²: hayalet bandın EN ÜSTÜ. Kâğıtta da yazılar en son basılır
+   * (planSvg.ts) — hiçbir konturun altında kalmamalılar.
+   */
+  architectureGhostRoomLabel: 18,
   room: 20,
   wall: 40,
   opening: 60,

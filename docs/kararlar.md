@@ -8252,3 +8252,59 @@ projede proje geçmişi boş olur ve düğme pasif görünürdü.
 
 Tesisat/izometrik görünümde kroki yığınına HİÇ bakılmıyor — orada geri alma
 tesisat aynasına gidiyor (K123), kroki mimarinin işi.
+
+### K165 — Mimari hayalet KÂĞITTAKİ pafta gibi çizilir: içi boş, iki kademeli
+
+Tesisat görünümündeki mimari hayalet (`plumbing/scene/Ghosts.tsx` →
+`ArchitectureGhost`) tek soluk renge boyanmış **dolu** bir kopyaydı. Kat planı
+paftası K154'te "her mimari yüzey içi boş, ince kontur" diline geçince ekran ile
+kâğıt ayrıştı: aynı kat, aynı görünüm, iki farklı okuma. Kullanıcı isteği
+üzerine hayalet paftanın diline geçti.
+
+**Palet KÂĞITTAN geliyor**: `PLUMBING_COLORS.architectureGhostWall/Faint/Text`
+artık `core/pdf/svgPrimitives.ts` → `PLAN_COLORS`ten türüyor. Ekranda ayrı bir
+palet tutulsaydı biri değiştirilip öteki unutulurdu — tek renk (`#94a3b8`)
+kalktı, yerine kâğıtla aynı İKİ kademe geldi: duvar `wall`, geri kalan mimari
+`faint`, oda yazısı `architectureText`.
+
+⚠️ **Duvar İKİ GEÇİŞTE**, `planSvg.ts` ile aynı hesap: önce TÜM duvarlar
+`kalınlık + 2×kontur` kontur renginde, sonra TÜM duvarlar tam kalınlıkta zemin
+renginde. Duvar duvar konturlamak yanlış sonuç verirdi — kapsüller kavşakta üst
+üste biner (K23) ve her birinin konturu ötekinin İÇİNDEN geçerdi; iki geçiş
+polygon union yazmadan birleşimin dış çeperini veriyor. İki bandın AYRI
+`renderOrder`da olması şart (`architectureGhost` / `architectureGhostWallVoid`):
+aynı bantta kalsalardı bir duvarın içi komşusunun konturunu silerdi.
+
+⚠️ **Kontur kalınlığı kâğıttaki sabitten** (`WALL_OUTLINE_CM`), yalnız piksele
+çevriliyor (`getArchitectureStrokeWidthPx`). cm bırakılamazdı: duvar bandının
+kendisi piksel yolundan geçiyor (`wallStyle.ts`, ortografik kamerada `worldUnits`
+soluklaşma yapıyor) ve biri cm biri piksel kalsaydı yakınlaştıkça kontur kıl gibi
+incelirdi.
+
+⚠️ **Açıklığın boşluğu ŞİŞİRİLİYOR**: poligon tam duvar kalınlığında, olduğu
+gibi bırakılsa duvarın iki yüz çizgisi deliğin önünden kesintisiz geçer ve delik
+"delik" gibi okunmazdı. Zemin renginde `2 × kontur` kalınlığında bir çerçeve
+çizgisi payı veriyor — kâğıttaki `WALL_OPENING_BLEED_CM` ile aynı gerekçe, aynı
+kat sayısı (çizgi kalınlığı poligonu her yöne YARISI kadar büyütür).
+
+⚠️ **Hiçbir mimari yüzey DOLU değil**: oda, kiriş, alan nesnesi (kolon dahil),
+kapı kanadı ve cihaz sembolü dolguları kalktı. Gerekçe kâğıttakiyle aynı —
+tesisat görünümünde konu gaz hattı, altından geçen boru mimari yüzeyin arkasında
+kalmamalı.
+
+⚠️ **Oda dolgusu gidince mahali gösteren tek işaret ETİKET kaldı**, bu yüzden
+kâğıttaki gibi ad + m² yazılıyor (K165 öncesi yalnız ad vardı, m² "bilerek yok"
+diye işaretliydi — dolgu varken ikinci satır fazlalıktı). Rozet YOK: hayalet
+bağlam, düz basılır. Etiket hayalet bandın en üstünde
+(`architectureGhostRoomLabel`), kâğıtta da yazılar en son basılıyor.
+
+⚠️ **Gömülü sembolün (pano, menfez) ayak izini zemin rengiyle "delme" çözümü
+kalktı**: duvarın dolu bir bant olduğu zamanın çaresiydi, duvar içi boşalınca
+gereksizleşti.
+
+`RENDER_ORDER`daki hayalet bandı yeniden numaralandı; SİLİNEN adlar:
+`architectureGhostRoom`, `architectureGhostBeamFill`,
+`architectureGhostAreaObjectFill` ve `GhostRoomFill` bileşeni — bu adlarla yeni
+kod yazma.
+
+⚠️ Kâğıt DEĞİŞMEDİ: bu karar tek yönlü, ekran kâğıda uyduruldu.
