@@ -46,10 +46,14 @@ export function ToolButton<TId extends string>({
       >
         <Icon size={18} strokeWidth={1.7} aria-hidden />
       </button>
-      {/* Tooltip (KK-8). aria-hidden: erişilebilir ad zaten butonun aria-label'ı. */}
+      {/* Tooltip (KK-8). aria-hidden: erişilebilir ad zaten butonun aria-label'ı.
+          ⚠️ Rengi `ink` DEĞİL `canvas-overlay` ailesinden: `ink` koyu temada
+          AÇILIYOR ve beyaz yazıyla okunmaz oluyordu (kullanıcı bildirimi).
+          Palet tuvalin üstünde yüzüyor ve iki temada da beyaz; ipucu da bu
+          yüzden iki temada da koyu kalmalı. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute left-full top-1/2 z-30 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded bg-ink px-2 py-1 text-xs text-white shadow-md group-hover:block"
+        className="pointer-events-none absolute left-full top-1/2 z-30 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded bg-canvas-overlay-ink-strong px-2 py-1 text-xs text-canvas-overlay shadow-md group-hover:block"
       >
         {isPlanned ? `${label}${PLANNED_HINT}` : label}
       </span>
