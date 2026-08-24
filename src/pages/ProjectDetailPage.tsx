@@ -176,11 +176,11 @@ export function ProjectDetailPage() {
       )}
 
       {savedPolicyNotice !== null && (
-        // `warning`: poliçe listeye girdi ama kayıt sunucuya gitmedi (K58).
+        // `success`: kayıt artık `POST /api/policies` ile gerçekten kalıcı.
+        // Bir süre `warning` idi çünkü poliçe yalnız bellekteki depoya yazılıyordu.
         <NoticeBar
-          tone="warning"
+          tone="success"
           message={savedPolicyNotice.message}
-          details={savedPolicyNotice.details}
           onDismiss={savedPolicyNotice.dismiss}
         />
       )}

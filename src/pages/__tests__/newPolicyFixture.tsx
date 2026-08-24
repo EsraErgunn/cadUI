@@ -27,10 +27,15 @@ export const END_DATE = '2027-01-01'
  * paylaşılsaydı gövdesi ilk okumada tükenir, yönlendirme sonrası açılan proje
  * detayı boş yanıt görürdü.
  */
-/** `GET /api/projects/{id}/units` yanıtı; "Birim" kutusunun kaynağı. */
+/**
+ * `GET /api/projects/{id}/units` yanıtı; "Birim" kutusunun kaynağı.
+ *
+ * Kimlikler `PROJECT_ID` ile BİLEREK çakışmıyor: ikisi de 7 olsaydı "birim
+ * kimliği projeden türetilmiyor" iddiası hiçbir şey kanıtlamazdı.
+ */
 export const PROJECT_UNITS = [
-  { id: 7, unitNumber: 'D20', subscriberName: 'FATMA ÇELİK', devices: [] },
-  { id: 8, unitNumber: 'D21', subscriberName: 'HASAN DEMİR', devices: [] },
+  { id: 71, unitNumber: 'D20', subscriberName: 'FATMA ÇELİK', devices: [] },
+  { id: 72, unitNumber: 'D21', subscriberName: 'HASAN DEMİR', devices: [] },
 ]
 
 /** `GET /api/insurance-companies` yanıtı; sihirbazın şirket kutusu buradan doluyor. */
@@ -41,11 +46,67 @@ export const INSURANCE_COMPANIES = [
   { id: 4, title: 'Mapfre' },
 ]
 
+/** `POST /api/policies` çağrılarını yakalar; testler gövdeyi buradan okur. */
+export const policyPostCalls: { body: unknown }[] = []
+
+/** Sunucunun bir sonraki POST yanıtı; `null` ise 200 + oluşturulan kayıt döner. */
+export let policyPostFailure: { status: number; body: unknown } | null = null
+
+export function setPolicyPostFailure(failure: { status: number; body: unknown } | null): void {
+  policyPostFailure = failure
+}
+
+export function resetPolicyPostStub(): void {
+  policyPostCalls.length = 0
+  policyPostFailure = null
+}
+
+/** `POST /api/policies` başarı gövdesi: uç `201` değil `200` ve oluşturulan
+    `PolicyDto`'yu SARMALAMADAN döndürüyor (`FromResult` → `Ok(result.Data)`). */
+const CREATED_POLICY = {
+  id: 901,
+  projectId: PROJECT_ID,
+  projectName: PROJECT_NAME,
+  projectUnitId: 71,
+  unitNumber: 'D20',
+  insuranceCompanyId: 1,
+  insuranceCompanyTitle: COMPANY_NAME,
+  policyNumber: POLICY_NUMBER,
+  amount: 1500000,
+  startDate: '2026-01-01',
+  endDate: END_DATE,
+  isActive: true,
+  isUnitDeleted: false,
+}
+
 export function stubProjectFetch(): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn((input: RequestInfo | URL) => {
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+
+      if (init?.method === 'POST' && url.includes('/api/policies')) {
+        policyPostCalls.push({
+          body: JSON.parse(String(init.body ?? '{}')) as unknown,
+        })
+
+        if (policyPostFailure !== null) {
+          return Promise.resolve(
+            new Response(JSON.stringify(policyPostFailure.body), {
+              status: policyPostFailure.status,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          )
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify(CREATED_POLICY), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
       const body = url.includes('/api/insurance-companies')
         ? INSURANCE_COMPANIES
         : url.includes('/api/policies')
@@ -95,9 +156,14 @@ export function stubProjectFetch(): void {
  * Bilgileri" sekmesine düştüğü (KK-21) ve "Vazgeç"in oraya döndürdüğü (KK-22)
  * ancak yönlendirme gerçekten çalışırsa doğrulanabilir.
  */
-export function renderPolicyPage(route = policyCreatePath(PROJECT_ID)) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
+/**
+ * Sorgu istemcisi DIŞARI veriliyor: kayıttan sonra hangi anahtarların
+ * geçersizleştiğini doğrulayan test ona ihtiyaç duyuyor.
+ */
+export function renderPolicyPage(
+  route = policyCreatePath(PROJECT_ID),
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[route]}>

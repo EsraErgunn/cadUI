@@ -1,12 +1,8 @@
 import { z } from 'zod'
 
-import { MOCK_LATENCY_MS, delay } from './adminFirms'
 import { requestJson, requestVoid } from './http'
 import { pagedResultSchema, type PagedResult } from './listQuery'
-import { mockedData, serverData, type Sourced } from './mockGate'
-import { addMockPolicy, getMockPolicies, removeMockPolicy } from './policiesMock'
-import type { ProjectSummary } from './projectDetailTypes'
-import { isEndpointImplemented } from './unimplementedEndpoints'
+import { serverData, type Sourced } from './mockGate'
 
 /**
  * API SÖZLEŞMESİ — Poliçeler. (Doğrulandı: cadapi @ a6ea695.)
@@ -36,8 +32,10 @@ import { isEndpointImplemented } from './unimplementedEndpoints'
  * `ProjectUnitId` süzgeci YOK: birim bazlı poliçe listesi için uç mevcut değil
  * (bkz. docs/api-eksikleri-policeler.md).
  *
- * Kayıt (`POST /api/policies`) ucu VAR ama ekran henüz bağlanmadı;
- * `policyCreate` bayrağı duruyor ve gövdeyi `policiesMock.ts` besliyor.
+ * **Kayıt kuralı sunucuda:** bir birimde aynı anda tek AKTİF poliçe olabilir.
+ * İhlalde uç `400` + `{ message }` döndürüyor (409 DEĞİL) ve eski poliçeyi
+ * OTOMATİK KAPATMIYOR — kullanıcı önce mevcut poliçeyi iptal etmeli. Poliçe
+ * NUMARASI üzerinde hiçbir benzersizlik kuralı YOK (ne indeks ne denetim).
  */
 
 /**
@@ -167,10 +165,6 @@ export interface CreatePolicyPayload {
   endDate: string
 }
 
-export type PolicyCreateResult =
-  | { ok: true; policyId: number }
-  | { ok: false; reason: 'duplicateNumber' | 'unavailable' }
-
 export const POLICY_PAGE_SIZE = 30
 
 /**
@@ -257,17 +251,9 @@ export async function listPolicies(
   return { ...page, items: page.items.map(toPolicyRow) }
 }
 
-/**
- * Poliçe silme — GERÇEK uç (`DELETE /api/policies/{id}`).
- *
- * Bellekteki depo da temizleniyor: KAYIT yolu hâlâ mock (`policyCreate`) ve o
- * turda oluşturulmuş bir poliçe silindikten sonra depoda kalsaydı, proje
- * detayının poliçe sekmesinde durmaya devam ederdi.
- */
-export async function deletePolicy(policyId: number, signal?: AbortSignal): Promise<void> {
-  await requestVoid({ method: 'DELETE', path: `/api/policies/${policyId}`, signal })
-
-  removeMockPolicy(policyId)
+/** Poliçe silme — GERÇEK uç (`DELETE /api/policies/{id}`); elle iptal (soft-delete). */
+export function deletePolicy(policyId: number, signal?: AbortSignal): Promise<void> {
+  return requestVoid({ method: 'DELETE', path: `/api/policies/${policyId}`, signal })
 }
 
 /**
@@ -299,58 +285,33 @@ export async function listInsuranceCompanies(
 }
 
 /**
- * Poliçe numarası benzersizliği (KK-19) — İSTEMCİ VARSAYIMI, sunucuda karşılığı
- * YOK.
+ * Poliçe kaydı — GERÇEK uç (`POST /api/policies`).
  *
- * `PolicyManager.CreateAsync` poliçe numarasına hiç bakmıyor; denetlediği kural
- * başka: bir birimde aynı anda tek aktif poliçe (ihlalde 400). Buradaki kontrol
- * yalnız BELLEKTEKİ mock depoya karşı çalışıyor ve kayıt yolu gerçek uca
- * bağlanınca kaldırılmalı — sunucunun uygulamadığı bir kuralı kullanıcıya hata
- * olarak göstermek, olmayan bir kısıtı varmış gibi öğretir.
+ * Yanıt `200` ve gövdesi oluşturulan kaydın kendisi (`PolicyDto`); `201` DEĞİL
+ * ve sarmalayıcı bir zarf YOK (`BaseApiController.FromResult` → `Ok(result.Data)`).
  *
- * TODO(esra): `policyCreate` bağlanınca bu fonksiyon ve
- * `POLICY_ERRORS.policyNumberTaken` silinecek.
+ * Hata FIRLATILIR, dönüş değerine gömülmez: `http.ts` gövdedeki `message`
+ * alanını `ApiError.message`'a taşıyor ve çağıran onu olduğu gibi kullanıcıya
+ * gösterebiliyor. Sunucunun ürettiği iki hata gövdesi de bu kapıdan geçiyor —
+ * iş kuralı `{ message }`, FluentValidation `{ errors: { alan: [...] } }`.
+ *
+ * Beklenen hâller (hepsi koddan doğrulandı, cadapi @ a6ea695):
+ * - `404` — birim ya da sigorta şirketi bulunamadı, proje görünür değil
+ * - `400` — birimde zaten aktif poliçe var (eski poliçe OTOMATİK kapanmaz)
+ * - `400` — doğrulama: `ProjectUnitId > 0`, `PolicyNumber` ≤ 50 karakter,
+ *   `Amount >= 0`, `EndDate >= StartDate`
  */
-export function isPolicyNumberTaken(policyNumber: string): boolean {
-  const normalized = policyNumber.trim().toLocaleUpperCase('tr-TR')
-
-  return getMockPolicies().some(
-    (policy) => policy.policyNumber.toLocaleUpperCase('tr-TR') === normalized,
-  )
-}
-
-/**
- * Poliçe kaydı. Depo BELLEKTE: kayıt gerçekten proje detayının "Poliçe
- * Bilgileri" sekmesine düşüyor ama sayfa yenilenince kayboluyor. Çağıran bunu
- * kullanıcıya SÖYLER (K58'in `isPersisted: false` deseni).
- *
- * Üretim derlemesinde hiç yazılmaz (`unavailable`): gösterilmeyecek bir depoya
- * kayıt atmak, kullanıcıya yapılmamış bir işi yapılmış göstermek olurdu.
- */
-export async function createProjectPolicy(
+export function createPolicy(
   payload: CreatePolicyPayload,
-  /**
-   * Proje künyesi. Uca GİTMEZ — `PolicyAddDto` proje kimliği almıyor, sunucu
-   * projeyi birimden türetiyor. Bellekteki depo proje adını gösterebilsin diye
-   * alınıyor; uç bağlanınca bu parametre düşer.
-   */
-  project: ProjectSummary,
   signal?: AbortSignal,
-): Promise<PolicyCreateResult> {
-  if (isEndpointImplemented('policyCreate')) {
-    throw new Error('createProjectPolicy: uç bağlandı ama gövdesi yazılmadı.')
-  }
-
-  // Yalnız mock deposuna karşı; sunucuda böyle bir kural YOK (bkz.
-  // `isPolicyNumberTaken`).
-  if (isPolicyNumberTaken(payload.policyNumber)) {
-    return { ok: false, reason: 'duplicateNumber' }
-  }
-
-  await delay(MOCK_LATENCY_MS, signal)
-
-  const saved = mockedData(() => addMockPolicy(payload, project))
-  if (saved.source === 'unavailable') return { ok: false, reason: 'unavailable' }
-
-  return { ok: true, policyId: saved.data.id }
+): Promise<PolicyDto> {
+  return requestJson(
+    {
+      method: 'POST',
+      path: '/api/policies',
+      rawJsonBody: JSON.stringify(payload),
+      signal,
+    },
+    policyDtoSchema,
+  )
 }

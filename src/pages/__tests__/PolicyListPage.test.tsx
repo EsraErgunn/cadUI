@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAuthSession, type AuthSession } from '../../api/authToken'
 import { POLICY_PAGE_SIZE, type PolicyRow } from '../../api/policies'
-import { resetMockPolicies } from '../../api/policiesMock'
 import { ROLE_CODES } from '../../api/roles'
 import { PolicyListPage } from '../PolicyListPage'
 
@@ -86,7 +85,6 @@ function asPage(items: PolicyRow[]) {
 }
 
 beforeEach(() => {
-  resetMockPolicies()
   listPolicies.mockResolvedValue(asPage([buildPolicy()]))
   deletePolicy.mockResolvedValue({ ok: true })
 })

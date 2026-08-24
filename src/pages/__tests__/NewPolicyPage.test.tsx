@@ -12,7 +12,6 @@ import {
   renderPolicyPage,
   stubProjectFetch,
 } from './newPolicyFixture'
-import { resetMockPolicies } from '../../api/policiesMock'
 
 const STEP_LABELS = [
   'Poliçe Yöntemi',
@@ -34,7 +33,6 @@ function stepCircle(item: HTMLElement): HTMLElement | null {
 }
 
 beforeEach(() => {
-  resetMockPolicies()
   stubProjectFetch()
 })
 
