@@ -133,7 +133,7 @@ export function EditorPage() {
     // kendi elemanına yazılsaydı imleç yalnız çizim alanında değişir, palet ve
     // barların üstünde işletim sisteminin oku geri gelirdi.
     <div data-editor-root className="flex h-screen overflow-hidden bg-surface-sunken">
-      <EditorSidebar />
+      <EditorSidebar onCloseEditor={closeEditor} />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl bg-canvas-overlay">
         <MenuBar

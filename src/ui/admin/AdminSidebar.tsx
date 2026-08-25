@@ -5,9 +5,9 @@ import { NavLink } from 'react-router-dom'
 import { getNavItemsForRole, type AdminNavItem } from './adminNavItems'
 import { ADMIN_FOCUS_RING, adminIconButtonVariants, adminNavItemVariants } from './adminVariants'
 import { useRoleCode } from './useRole'
-import { useTheme } from './useTheme'
+import { useTheme } from '../useTheme'
 import { getWorkspaceIdentity } from './workspaceIdentity'
-import logo from '../../assets/brand/logo3.png'
+import logo from '../../assets/brand/logo.st.png'
 
 /**
  * Menü maddesi. Ekranı yazılmamış madde de bağlantı: hedefinde "bu ekran

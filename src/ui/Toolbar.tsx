@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 
+import { EditorThemeToggle } from './EditorThemeToggle'
 import { ShortcutHint } from './ShortcutHint'
 import { ARCHITECTURE_SHORTCUTS } from '../core/shortcuts'
 import { ARCHITECTURE_TOOL_GROUPS } from '../core/tools'
@@ -118,8 +119,11 @@ export function Toolbar() {
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-edge p-1.5">
+      {/* Kısayol ipucu + tema düğmesi yan yana: ikisi de paletin altında yaşayan
+          "kabuk" düğmesi, araç değil — bu yüzden aynı satırda. */}
+      <div className="mt-auto flex items-center gap-1 border-t border-edge p-1.5">
         <ShortcutHint title="Mimari kısayollar" shortcuts={ARCHITECTURE_SHORTCUTS} />
+        <EditorThemeToggle />
       </div>
     </div>
   )
