@@ -54,7 +54,7 @@ type EditorActionsProps = {
  * olmayan pasif bir düğme, kullanıcıya bir şey vaat edip vermiyordu (K79 ile
  * aynı çizgi, bu kez kaldırma yönünde).
  *
- * "Gönder" ARTIK BAĞLI (K175) ve rolden iki yüzü var: gaz dağıtım kullanıcısı
+ * "Gönder" ARTIK BAĞLI (K176) ve rolden iki yüzü var: gaz dağıtım kullanıcısı
  * "Onayla" görür, kalanlar "Gönder". Pasif hâli kalktı — hata kontrolü engel
  * değil uyarı, denetim hata bulursa araya onay penceresi giriyor. Mantığın
  * tamamı `useEditorSubmit`'te; bu bileşen yalnız etiketi ve ikonu seçiyor.

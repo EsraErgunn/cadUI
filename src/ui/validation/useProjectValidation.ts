@@ -19,7 +19,7 @@ export type ProjectValidation = {
  * Denetimi o ANDAKİ çizim üzerinde çalıştırır — React'ten bağımsız.
  *
  * Dışa açık, çünkü ikinci bir çağıranı var: üst bardaki "Gönder"/"Onayla"
- * isteği atmadan önce hata sayısına bakıyor (K175). Kendi kopyasını yazsaydı
+ * isteği atmadan önce hata sayısına bakıyor (K176). Kendi kopyasını yazsaydı
  * doğrulamanın okuduğu alan listesi iki dosyada ayrı ayrı güncellenirdi.
  */
 export function runProjectValidation(): ValidationIssue[] {

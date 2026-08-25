@@ -50,7 +50,7 @@ const MISSING_DOCUMENTS_MESSAGE =
 const MISSING_PROJECT_MESSAGE = 'Proje kimliği okunamadı; editörü kapatıp yeniden açın.'
 
 /**
- * Üst bardaki "Gönder" / "Onayla" düğmesinin arkası (K175).
+ * Üst bardaki "Gönder" / "Onayla" düğmesinin arkası (K176).
  *
  * Düğme DURUMA bakmıyor (kullanıcı kararı): taslak değilse ya da zaten
  * onaylanmışsa son sözü sunucu söyler ve reddi şerit olarak görünür. Pasif bir

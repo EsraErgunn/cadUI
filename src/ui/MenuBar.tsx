@@ -102,7 +102,7 @@ export function MenuBar({
    * store'a).
    *
    * "Dışa Aktar" (JSON) İSTİSNA: o da yalnız OKUYOR ama gaz dağıtım
-   * kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı (K175) —
+   * kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı (K176) —
    * çizimin ham JSON'u başka bir projeye içe aktarılabilir bir kopya, kâğıt
    * çıktı değil.
    */

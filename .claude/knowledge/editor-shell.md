@@ -114,7 +114,7 @@ yakalanmıyor — üstlenmediğimiz kısayolu `preventDefault` ile yutmuyoruz.
 onun üstünde çalışıyor, kaldırılan şey arayüz.
 
 ⚠️ "Test Et" üst bardan kalktı — hiç bağlanmamıştı, aynı işi çalışan "Hata
-Kontrolleri" düğmesi yapıyor. "Gönder" o gün pasif KALDI ama K175'te bağlandı
+Kontrolleri" düğmesi yapıyor. "Gönder" o gün pasif KALDI ama K176'te bağlandı
 (aşağı bak) — pasiflik gerekçesi ("hatalar giderilmeden onaya gidilemez")
 uyarıya dönüştü.
 
@@ -122,7 +122,7 @@ uyarıya dönüştü.
 Tesisat Sil, Malzeme Listesi. Hepsi hâlâ pasif (K79 deseni).
 
 
-## "Gönder" bağlandı, gaz dağıtım kullanıcısında "Onayla" (K175)
+## "Gönder" bağlandı, gaz dağıtım kullanıcısında "Onayla" (K176)
 
 Üst bardaki tek düğmenin ROLDEN iki yüzü var:
 

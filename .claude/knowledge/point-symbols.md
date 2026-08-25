@@ -65,8 +65,14 @@ gelir ama kaydedilen JSON'da kalmaya devam ederdi. `deleteWall`,
 ## Dönüşüm yalnız SERBEST sembole uygulanır
 
 Duvara bağlı sembol duvarıyla gelir: duvar seçimdeyse zaten taşınıyor, değilse
-sembol duvarından kopmamalı. Panelde de açı alanı duvara bağlıyken salt okunur —
-gizlenmiyor, kullanıcı değerin nereden geldiğini görsün.
+sembol duvarından kopmamalı.
+
+⚠️ **Panelde AÇI ALANI YOK (K175)** — bu adla geri ekleme. Bu cihazların açısı
+kullanıcının vereceği bir karar değil: duvara bağlı olanların yönü duvarından
+türüyor, aydınlatma da tavana takıldığı için yönsüz. Alan eskiden vardı ve
+duvara bağlıyken salt okunur gösteriliyordu; kullanıcı kararıyla tümden kalktı.
+Seçim dönüşümü (`SelectionActions`, 90°/aynalama) sembolü hâlâ çeviriyor —
+kaldırılan yalnız panelden serbest açı yazma yolu.
 
 ## Etiket
 

@@ -248,7 +248,7 @@ describe('MenuBar', () => {
     expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
   })
 
-  it('Test Et KALDIRILDI (K142); Gönder ARTIK ÇALIŞIYOR (K175)', async () => {
+  it('Test Et KALDIRILDI (K142); Gönder ARTIK ÇALIŞIYOR (K176)', async () => {
     // "Test Et" hiç bağlanmamıştı ve aynı işi Hata Kontrolleri yapıyor.
     const user = userEvent.setup()
     const { submit } = renderMenuBar()
@@ -263,7 +263,7 @@ describe('MenuBar', () => {
     expect(submit.request).toHaveBeenCalledTimes(1)
   })
 
-  it('gaz dağıtım kullanıcısında düğme "Onayla" olur (K175)', () => {
+  it('gaz dağıtım kullanıcısında düğme "Onayla" olur (K176)', () => {
     renderMenuBar(
       undefined,
       undefined,

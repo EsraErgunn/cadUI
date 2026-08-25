@@ -32,7 +32,7 @@ type SubmitProjectDialogProps = {
  * Hata kontrolleri temiz çıkmadığında araya giren onay.
  *
  * Sert bir kapı DEĞİL: düğme pasifleştirilmedi, kullanıcı sayıyı görüp karar
- * veriyor (K175). Denetim temizse bu pencere hiç açılmaz — istek doğrudan
+ * veriyor (K176). Denetim temizse bu pencere hiç açılmaz — istek doğrudan
  * gider, tek tıkla biten bir işe ikinci tık eklemenin karşılığı yok.
  */
 export function SubmitProjectDialog({

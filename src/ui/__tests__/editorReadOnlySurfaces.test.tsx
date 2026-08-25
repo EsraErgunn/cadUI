@@ -85,7 +85,7 @@ describe('üst bar', () => {
   })
 
   /**
-   * Gaz dağıtım kullanıcısına verilen erişim "PDF indirme" (K175); çizimin ham
+   * Gaz dağıtım kullanıcısına verilen erişim "PDF indirme" (K176); çizimin ham
    * JSON'u içe aktarılabilir bir kopya, kâğıt çıktı değil.
    */
   it('salt görüntülemede Dışa Aktar (JSON) kapalı, PDF indirme açık', async () => {
