@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { UserPlus } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import { getProjectFirmUserList } from '../api/projectFirmUsers'
 import { DataTable } from '../ui/admin/DataTable'
@@ -10,7 +12,8 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
-import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
+import { ADMIN_HOME_PATH, PROJECT_FIRM_USER_CREATE_PATH } from '../ui/admin/adminNavItems'
+import { adminButtonVariants } from '../ui/admin/adminVariants'
 import {
   PROJECT_FIRM_USER_COLUMNS,
   PROJECT_FIRM_USER_TABLE_CAPTION,
@@ -18,6 +21,7 @@ import {
 } from '../ui/admin/projectFirmUsers/projectFirmUserColumns'
 import { useProjectFirmUserListParams } from '../ui/admin/projectFirmUsers/useProjectFirmUserListParams'
 import { useSavedProjectFirmUserNotice } from '../ui/admin/projectFirmUsers/useSavedProjectFirmUserNotice'
+import { useIsAdmin } from '../ui/admin/useIsAdmin'
 
 const PAGE_TITLE = 'Proje Firması Kullanıcıları'
 
@@ -46,6 +50,9 @@ const MISSING_ENDPOINT_HINT = 'GET /api/projectfirmusers'
 export function ProjectFirmUsersPage() {
   const { query, setPage } = useProjectFirmUserListParams()
   const savedNotice = useSavedProjectFirmUserNotice()
+  // Yalnız GÖRÜNÜRLÜK: kullanıcı oluşturma `POST /api/auth/register` ile
+  // yapılıyor ve o uç sunucuda `[Authorize(Roles = Admin)]`.
+  const isAdmin = useIsAdmin()
 
   // Sorgu `queryKey`'in PARÇASI: sayfalama ve süzme sunucuda, her kriter
   // değişimi yeni bir sayfa isteği demek (KK-12). Kriterler "Filtrele" ile
@@ -80,6 +87,20 @@ export function ProjectFirmUsersPage() {
           title={PAGE_TITLE}
           countLabel={formatCountLabel(totalCount)}
         />
+
+        {/* Ekranın kendi ekleme girişi. Bir süre YOKTU: kullanıcı yalnız
+            gösterge panelindeki kısayoldan gelebiliyordu ve o kısayol da
+            üretimde çizilmiyordu (63d2b68). Gaz Dağıtım Kullanıcıları
+            ekranındaki desenin aynısı. */}
+        {isAdmin && (
+          <Link
+            to={PROJECT_FIRM_USER_CREATE_PATH}
+            className={adminButtonVariants({ tone: 'primary' })}
+          >
+            <UserPlus aria-hidden className="size-4" />
+            Yeni Kullanıcı
+          </Link>
+        )}
       </div>
 
       {isPending && <QueryLoading message="Kullanıcılar yükleniyor…" />}

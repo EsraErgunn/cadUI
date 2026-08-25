@@ -6,6 +6,7 @@ import {
   buildRow,
   renderWithProviders,
 } from './projectFirmUserFixture'
+import { PROJECT_FIRM_USER_CREATE_PATH } from '../../ui/admin/adminNavItems'
 import { ProjectFirmUsersPage } from '../ProjectFirmUsersPage'
 
 const listApi = vi.hoisted(() => ({ getProjectFirmUserList: vi.fn() }))
@@ -118,5 +119,26 @@ describe('sonuç bulunmaması (KK-7)', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Sayfalama' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Ekranın kendi ekleme girişi. Bir süre YOKTU: kullanıcı yalnız gösterge
+ * panelindeki kısayoldan gelebiliyordu ve o kısayol da üretimde çizilmiyordu.
+ */
+describe('yeni kullanıcı girişi', () => {
+  it('yöneticiye "Yeni Kullanıcı" bağlantısı gösterir', async () => {
+    renderPage()
+
+    const link = await screen.findByRole('link', { name: /Yeni Kullanıcı/ })
+    expect(link).toHaveAttribute('href', PROJECT_FIRM_USER_CREATE_PATH)
+  })
+
+  /** Sunucu da öyle diyor: `POST /api/auth/register` yalnız Admin'e açık. */
+  it('yönetici olmayan kullanıcıda çizilmez', async () => {
+    renderPage({ isAdmin: false })
+
+    await screen.findByRole('table')
+    expect(screen.queryByRole('link', { name: /Yeni Kullanıcı/ })).not.toBeInTheDocument()
   })
 })
