@@ -38,10 +38,13 @@ export function PolicyMethodStep() {
     <fieldset className="max-w-md">
       <legend className="sr-only">Poliçe yöntemi</legend>
 
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-admin-primary bg-admin-primary/5 p-4">
+      {/* Başlık ve açıklama ORTALANMIŞ; radyo düğmesi de dikeyde ortada durur.
+          Eskiden `items-start` ile sola yaslıydı ve tek seçenekli kartta metin
+          kutunun solunda asılı kalıyordu. */}
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-admin-primary bg-admin-primary/5 p-4">
         <input type="radio" name="policy-method" value="manual" defaultChecked className={ADMIN_CHECKBOX} />
-        <span className="flex-1">
-          <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <span className="flex-1 text-center">
+          <span className="flex items-center justify-center gap-2 text-sm font-semibold text-ink">
             <ShieldCheck aria-hidden className="size-4" />
             Manuel Poliçe
           </span>
