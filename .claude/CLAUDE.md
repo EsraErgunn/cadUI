@@ -140,9 +140,11 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   kodda kullanılmaz. İkisi birleşene kadar tek yetki kaynağı rol kodudur — istemci tarafı
   yalnız GÖRÜNÜRLÜK içindir, denetim sunucuda.
   Proje DETAY ekranı `/projects/:id`'yi devraldı, çizim editörü
-  `/projects/:id/editor`'a taşındı (K53). Detayın verisinin çoğunun ucu YOK:
-  sahte veri yalnız geliştirme derlemesinde üretilir, üretimde bölüm boş kalır
-  ve gerçek/uydurma ayrımı tipte durur (K51) — varsayarak doldurma.
+  `/projects/:id/editor`'a taşındı (K53). Mock kapısı SÖKÜLDÜ (K160):
+  `api/mockGate.ts`, `Sourced<T>` zarfı, `MockDataNotice` ve
+  `MissingSourceNotice` SİLİNDİ — bu adlarla yeni kod yazma, api düz `T` döner.
+  Sekmelerde `undefined` artık "yükleniyor" demek, "kaynağı yok" değil.
+  Ucu olmayan ALAN hâlâ uydurulmaz: boş değer işaretiyle çizilir.
   Bir projeye bağlı açılan ekranlar künyeyi GERÇEK uçtan çözer (K63); Evrak Ekle
   kimliği query'de taşır (`?project=<id>`, K61), Poliçe Oluşturma ise YOLDA:
   sihirbaz poliçe bölümünün altında değil, `/projects/:projectId/policies/new`

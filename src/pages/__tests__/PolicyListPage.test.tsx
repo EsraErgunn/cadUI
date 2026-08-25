@@ -25,9 +25,7 @@ const deletePolicy = vi.hoisted(() => vi.fn())
 const updatePolicy = vi.hoisted(() => vi.fn())
 
 /** `GET /api/insurance-companies` yanıtı; süzgeçteki şirket kutusunun kaynağı. */
-const insuranceCompanies = vi.hoisted(() => [
-  { source: 'server' as const, data: [{ id: 1, name: 'Anadolu Sigorta' }] },
-])
+const insuranceCompanies = vi.hoisted(() => [[{ id: 1, name: 'Anadolu Sigorta' }]])
 
 vi.mock('../../api/policies', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/policies')>()),

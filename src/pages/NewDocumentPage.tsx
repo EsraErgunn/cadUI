@@ -87,11 +87,7 @@ export function NewDocumentPage() {
     enabled: hasProject,
   })
 
-  // Üretim derlemesinde sahte evrak üretilmiyor (K51); sekme boş liste gösterir.
-  const pickerRows =
-    projectDocuments === undefined || projectDocuments.source === 'unavailable'
-      ? []
-      : projectDocuments.data
+  const pickerRows = projectDocuments ?? []
 
   const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
     queryKey: ['documentTypes'],
@@ -106,9 +102,9 @@ export function NewDocumentPage() {
   // Evrak birime KİMLİKLE bağlanıyor; etiket yalnız kutuda görünüyor. Birim
   // numarası boş olabildiği için (çizimden senkron) abone adı yedek.
   const unitOptions = useMemo(() => {
-    if (units === undefined || units.source === 'unavailable') return []
+    if (units === undefined) return []
 
-    return units.data.map((unit) => ({
+    return units.map((unit) => ({
       id: unit.id,
       label:
         [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||

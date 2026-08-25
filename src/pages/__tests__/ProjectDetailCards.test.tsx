@@ -3,8 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  asMock,
-  asUnavailable,
   buildDetail,
   buildExtras,
   buildHistory,
@@ -46,10 +44,10 @@ vi.mock('../../ui/admin/useCanApproveProject', () => ({ useCanApproveProject: ca
 
 beforeEach(() => {
   detailApi.getProjectDetail.mockResolvedValue(buildDetail())
-  detailApi.getProjectUnits.mockResolvedValue(asMock(buildUnits()))
-  detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
-  detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
-  detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  detailApi.getProjectUnits.mockResolvedValue(buildUnits())
+  detailApi.getProjectHistory.mockResolvedValue(buildHistory())
+  detailApi.getProjectDocuments.mockResolvedValue([])
+  detailApi.getProjectPolicies.mockResolvedValue([])
   detailApi.getProjectFirmInfo.mockResolvedValue(FIRM_INFO)
   detailApi.requestProjectFile.mockResolvedValue({ ok: false, reason: 'unimplemented' })
   canApprove.mockReturnValue(true)
@@ -120,20 +118,18 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
    * bilgileri" alanı yok, onay geçmişe düşen bir satır.
    */
   it('onaylanmış projede onay alanları geçmişten dolar', async () => {
-    detailApi.getProjectHistory.mockResolvedValue(
-      asMock([
-        {
-          id: 'onay-1',
-          fileType: null,
-          createdAt: '2026-07-14T09:12:00.000Z',
-          userName: 'KONTROL MÜHENDİSİ',
-          roleSnapshot: 'Gaz Dağıtım',
-          operation: 'projeOnay',
-          operationName: 'Proje Onay',
-          description: 'Proje uygundur.',
-        },
-      ]),
-    )
+    detailApi.getProjectHistory.mockResolvedValue([
+      {
+        id: 'onay-1',
+        fileType: null,
+        createdAt: '2026-07-14T09:12:00.000Z',
+        userName: 'KONTROL MÜHENDİSİ',
+        roleSnapshot: 'Gaz Dağıtım',
+        operation: 'projeOnay',
+        operationName: 'Proje Onay',
+        description: 'Proje uygundur.',
+      },
+    ])
 
     renderDetail()
 
@@ -170,33 +166,6 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
     expect(screen.queryAllByRole('combobox')).toHaveLength(0)
     expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
-  })
-})
-
-/**
- * "Bu ekrandaki bazı veriler sunucudan gelmiyor" uyarısı KALKTI: kartların
- * dördü de gerçek uçlardan besleniyor. Kaynağı olmayan ALAN uydurulmuyor, boş
- * değer işaretiyle çiziliyor; kaynağı olmayan BÖLÜM ise eksiklik kutusu
- * gösteriyor.
- */
-describe('veri kaynağı', () => {
-  it('artık örnek veri uyarısı çizilmez', async () => {
-    renderDetail()
-
-    await screen.findByRole('region', { name: 'Proje Genel Bilgileri' })
-    expect(
-      screen.queryByText(/Bu ekrandaki bazı veriler sunucudan gelmiyor/),
-    ).not.toBeInTheDocument()
-  })
-
-  it('kaynağı olmayan bölümde eksiklik kutusu çıkar', async () => {
-    detailApi.getProjectDetail.mockResolvedValue(buildDetail({ extras: null }))
-    detailApi.getProjectUnits.mockResolvedValue(asUnavailable())
-
-    renderDetail()
-
-    expect(await screen.findByText('Bu bölümün veri kaynağı henüz yok.')).toBeInTheDocument()
-    expect(screen.queryByText(/Bu ekrandaki bazı veriler sunucudan gelmiyor/)).not.toBeInTheDocument()
   })
 })
 

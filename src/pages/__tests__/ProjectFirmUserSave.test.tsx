@@ -30,7 +30,7 @@ vi.mock('../../api/projectFirms', async (importOriginal) => ({
 const PROJECT_FIRM = { id: 201, name: 'AA Mühendislik' }
 
 beforeEach(() => {
-  readApi.getProjectFirmUser.mockResolvedValue({ source: 'server', data: buildDetail() })
+  readApi.getProjectFirmUser.mockResolvedValue(buildDetail())
   firmsApi.getProjectFirmList.mockResolvedValue([PROJECT_FIRM])
   formApi.saveProjectFirmUser.mockResolvedValue({ userId: 1001 })
 })

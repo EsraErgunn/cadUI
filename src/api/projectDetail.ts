@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import { listProjectDocuments } from './documents'
 import { ApiError, requestJson } from './http'
-import { serverData, type Sourced } from './mockGate'
 import { listProjectPolicies } from './policies'
 import {
   type ProjectDetail,
@@ -284,34 +283,32 @@ export async function getProjectFirmInfo(
 export async function getProjectUnits(
   projectId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectUnitRow[]>> {
+): Promise<ProjectUnitRow[]> {
   const dto = await requestJson(
     { method: 'GET', path: `/api/projects/${projectId}/units`, signal },
     projectUnitDtoSchema,
   )
 
-  return serverData(
-    dto.map((unit) => ({
-      id: unit.id,
-      unitNumber: toNullable(unit.unitNumber),
-      subscriberName: toNullable(unit.subscriberName),
-      subscriberNo: toNullable(unit.subscriberNo),
-      meterLabel: toNullable(unit.meterClassLabel),
-      flowCubicMeterPerHour: unit.flowCubicMeterPerHour ?? null,
-      pressureMbar: unit.pressureMbar ?? null,
-      areaSquareMeters: unit.area ?? null,
-      pipeType: toNullable(unit.pipeTypeName),
-      devices: unit.devices.map((device) => ({
-        id: device.id,
-        name: toNullable(device.deviceType),
-        capacity: toNullable(device.capacity),
-        flowCubicMeterPerHour: device.flowCubicMeterPerHour ?? null,
-        brand: toNullable(device.brand),
-        model: toNullable(device.model),
-        flueType: toNullable(device.flueLabel),
-      })),
+  return dto.map((unit) => ({
+    id: unit.id,
+    unitNumber: toNullable(unit.unitNumber),
+    subscriberName: toNullable(unit.subscriberName),
+    subscriberNo: toNullable(unit.subscriberNo),
+    meterLabel: toNullable(unit.meterClassLabel),
+    flowCubicMeterPerHour: unit.flowCubicMeterPerHour ?? null,
+    pressureMbar: unit.pressureMbar ?? null,
+    areaSquareMeters: unit.area ?? null,
+    pipeType: toNullable(unit.pipeTypeName),
+    devices: unit.devices.map((device) => ({
+      id: device.id,
+      name: toNullable(device.deviceType),
+      capacity: toNullable(device.capacity),
+      flowCubicMeterPerHour: device.flowCubicMeterPerHour ?? null,
+      brand: toNullable(device.brand),
+      model: toNullable(device.model),
+      flueType: toNullable(device.flueLabel),
     })),
-  )
+  }))
 }
 
 /**
@@ -338,26 +335,24 @@ const UNKNOWN_USER_LABEL = 'Bilinmeyen kullanıcı'
 export async function getProjectHistory(
   projectId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectHistoryRow[]>> {
+): Promise<ProjectHistoryRow[]> {
   const dto = await requestJson(
     { method: 'GET', path: `/api/projects/${projectId}/history`, signal },
     historyDtoSchema,
   )
 
-  return serverData(
-    dto.map((row, order) => ({
-      id: `${row.createdAt}-${row.operationCode ?? ''}-${order}`,
-      fileType: null,
-      createdAt: row.createdAt,
-      userName: toNullable(row.userFullName) ?? UNKNOWN_USER_LABEL,
-      roleSnapshot: toNullable(row.roleSnapshot) ?? '',
-      // Kod ham geçiyor: bilinen kodda rozet kendi etiketini bulur, bilinmeyende
-      // sunucunun `operationName`'ine düşer (bkz. OperationBadge).
-      operation: toNullable(row.operationCode) ?? '',
-      operationName: toNullable(row.operationName),
-      description: toNullable(row.description),
-    })),
-  )
+  return dto.map((row, order) => ({
+    id: `${row.createdAt}-${row.operationCode ?? ''}-${order}`,
+    fileType: null,
+    createdAt: row.createdAt,
+    userName: toNullable(row.userFullName) ?? UNKNOWN_USER_LABEL,
+    roleSnapshot: toNullable(row.roleSnapshot) ?? '',
+    // Kod ham geçiyor: bilinen kodda rozet kendi etiketini bulur, bilinmeyende
+    // sunucunun `operationName`'ine düşer (bkz. OperationBadge).
+    operation: toNullable(row.operationCode) ?? '',
+    operationName: toNullable(row.operationName),
+    description: toNullable(row.description),
+  }))
 }
 
 /**
@@ -373,43 +368,38 @@ export async function getProjectHistory(
 export async function getProjectDocuments(
   projectId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectDocumentRow[]>> {
+): Promise<ProjectDocumentRow[]> {
   const documents = await listProjectDocuments(projectId, signal)
-  if (documents.source === 'unavailable') return { source: 'unavailable', data: null }
 
-  return serverData(
-    documents.data.map((document) => ({
-      id: document.id,
-      fileName: document.fileName,
-      docType: document.docTypeName,
-      sizeBytes: document.sizeBytes,
-      uploadedByName: document.uploadedByName,
-      receivedAt: document.receivedAt,
-      unitIds: document.unitIds,
-      unitNames: document.unitNames,
-    })),
-  )
+  return documents.map((document) => ({
+    id: document.id,
+    fileName: document.fileName,
+    docType: document.docTypeName,
+    sizeBytes: document.sizeBytes,
+    uploadedByName: document.uploadedByName,
+    receivedAt: document.receivedAt,
+    unitIds: document.unitIds,
+    unitNames: document.unitNames,
+  }))
 }
 
 export async function getProjectPolicies(
   projectId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectPolicyRow[]>> {
+): Promise<ProjectPolicyRow[]> {
   const policies = await listProjectPolicies(projectId, signal)
 
-  return serverData(
-    policies.map((policy) => ({
-      id: policy.id,
-      policyNumber: toNullable(policy.policyNumber),
-      insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
-      projectUnitId: policy.projectUnitId ?? null,
-      unitNumber: toNullable(policy.unitNumber),
-      isUnitDeleted: policy.isUnitDeleted ?? false,
-      amount: policy.amount ?? null,
-      startDate: toNullable(policy.startDate),
-      endDate: toNullable(policy.endDate),
-    })),
-  )
+  return policies.map((policy) => ({
+    id: policy.id,
+    policyNumber: toNullable(policy.policyNumber),
+    insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
+    projectUnitId: policy.projectUnitId ?? null,
+    unitNumber: toNullable(policy.unitNumber),
+    isUnitDeleted: policy.isUnitDeleted ?? false,
+    amount: policy.amount ?? null,
+    startDate: toNullable(policy.startDate),
+    endDate: toNullable(policy.endDate),
+  }))
 }
 
 export type ProjectDecision = 'approve' | 'reject'

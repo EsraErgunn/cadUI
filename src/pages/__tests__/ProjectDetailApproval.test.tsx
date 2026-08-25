@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  asMock,
   buildDetail,
   buildExtras,
   buildHistory,
@@ -38,10 +37,10 @@ function extrasWithStatus(status: ProjectDetailExtras['general']['status']) {
 
 beforeEach(() => {
   detailApi.getProjectDetail.mockResolvedValue(buildDetail())
-  detailApi.getProjectUnits.mockResolvedValue(asMock(buildUnits()))
-  detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
-  detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
-  detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  detailApi.getProjectUnits.mockResolvedValue(buildUnits())
+  detailApi.getProjectHistory.mockResolvedValue(buildHistory())
+  detailApi.getProjectDocuments.mockResolvedValue([])
+  detailApi.getProjectPolicies.mockResolvedValue([])
   detailApi.requestProjectFile.mockResolvedValue({ ok: false, reason: 'unimplemented' })
   detailApi.submitProjectDecision.mockResolvedValue({
     status: 'onaylanan',

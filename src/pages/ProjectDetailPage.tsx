@@ -107,9 +107,9 @@ export function ProjectDetailPage() {
 
   /** Evrak sekmesindeki "Birim Değiştir" kutusu projenin birimlerinden besleniyor. */
   const documentUnitOptions = useMemo(() => {
-    if (units === undefined || units.source === 'unavailable') return []
+    if (units === undefined) return []
 
-    return units.data.map((unit) => ({
+    return units.map((unit) => ({
       id: unit.id,
       // Birim numarası boş olabiliyor (çizimden senkron); abone adı ayırt
       // etmeye yardım ediyor, ikisi de yoksa kimlik yazılıyor.
@@ -153,7 +153,7 @@ export function ProjectDetailPage() {
   const isDraft = status === DRAFT_STATUS
 
   const historyRows = mergeDecisionHistory(
-    history === undefined || history.source === 'unavailable' ? [] : history.data,
+    history ?? [],
     decisions.outcome,
     { name: session?.fullName ?? 'Bilinmeyen kullanıcı', roleLabel: session?.roleCode ?? '—' },
   )

@@ -3,7 +3,6 @@ import { render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import { setAuthSession } from '../../api/authToken'
-import type { Sourced } from '../../api/mockGate'
 import type {
   ProjectApprovalInfo,
   ProjectDetail,
@@ -187,14 +186,6 @@ export function buildHistory(): ProjectHistoryRow[] {
       description: null,
     },
   ]
-}
-
-export function asMock<T>(data: T): Sourced<T> {
-  return { source: 'mock', data }
-}
-
-export function asUnavailable<T>(): Sourced<T> {
-  return { source: 'unavailable', data: null }
 }
 
 /**

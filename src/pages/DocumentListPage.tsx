@@ -11,8 +11,6 @@ import { getProjectFirms } from '../api/projects'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
-import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
@@ -49,10 +47,6 @@ const EMPTY_WITH_FILTERS =
 const EMPTY_WITHOUT_FILTERS = 'Sisteme henüz evrak yüklenmemiş.'
 
 /** Şeritte sayılan bölüm: bu ekranda uydurma olan HER ŞEY, satırların tamamı. */
-const MOCK_SECTIONS = ['Evrak listesinin tamamı (satırlar, adet ve sayfalama)']
-
-const MISSING_ENDPOINT_HINT = 'GET /api/docs'
-
 const DELETE_DIALOG = {
   title: 'Evrak silinsin mi?',
   description:
@@ -103,7 +97,7 @@ export function DocumentListPage() {
     [query, documentTypes],
   )
 
-  const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
+  const { data, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['documents', listQuery],
     queryFn: ({ signal }) => listDocuments(listQuery, signal),
     enabled: query.docTypeCode === null || documentTypes.length > 0,
@@ -111,10 +105,6 @@ export function DocumentListPage() {
     placeholderData: keepPreviousData,
   })
 
-  // Üretim derlemesinde sahte veri HİÇ üretilmiyor (K51): tablo yerine bölümün
-  // sunucuya bağlı olmadığını söyleyen kutu çıkar.
-  const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
-  const isSourceMissing = sourced?.source === 'unavailable'
 
   // Süzgeç kutusu yalnız yönetim görünümünde var; listeyi de orada indiriyoruz.
   const { data: projectFirms } = useQuery({
@@ -179,8 +169,6 @@ export function DocumentListPage() {
         countLabel={formatCountLabel(data?.totalCount)}
       />
 
-      <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
-
       {deletion.notice !== null && (
         <NoticeBar
           tone={deletion.notice.tone}
@@ -212,8 +200,6 @@ export function DocumentListPage() {
       {isError && (
         <QueryError message="Evrak listesi yüklenemedi." onRetry={() => void refetch()} />
       )}
-
-      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
 
       {data !== undefined && !isError && (
         <StaleContent isStale={isPlaceholderData}>

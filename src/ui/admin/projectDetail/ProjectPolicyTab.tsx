@@ -2,11 +2,10 @@ import { ShieldPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { InfoBanner } from './InfoBanner'
-import type { Sourced } from '../../../api/mockGate'
 import type { ProjectPolicyRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
-import { MissingSourceNotice } from '../MissingSourceNotice'
+import { QueryLoading } from '../QueryStates'
 import { formatCurrency, formatPlainDate } from '../adminFormat'
 import { policyCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
@@ -74,7 +73,7 @@ export function ProjectPolicyTab({
   /** Oluşturulan poliçe GELİNEN projeyle ilişkilendirilir (KK-15); ekran
       kimliksiz açılamaz, o yüzden bağlantı kimliği taşır. */
   projectId: number
-  policies: Sourced<ProjectPolicyRow[]> | undefined
+  policies: ProjectPolicyRow[] | undefined
 }) {
   // Poliçe OLUŞTURMA sunucuda `Admin, ProjectFirmUser`'a açık
   // (`POST /api/policies`); gaz dağıtım kullanıcısı poliçeleri görür, açamaz.
@@ -94,13 +93,13 @@ export function ProjectPolicyTab({
         </div>
       )}
 
-      {policies === undefined || policies.source === 'unavailable' ? (
-        <MissingSourceNotice endpointHint="GET /api/projects/{id}/policies" />
-      ) : policies.data.length === 0 ? (
+      {policies === undefined ? (
+        <QueryLoading message="Poliçeler yükleniyor…" />
+      ) : policies.length === 0 ? (
         <InfoBanner message={EMPTY_MESSAGE} />
       ) : (
         <DataTable
-          rows={policies.data}
+          rows={policies}
           columns={COLUMNS}
           rowKey={(row) => row.id}
           caption={TABLE_CAPTION}

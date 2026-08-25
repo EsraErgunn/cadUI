@@ -11,7 +11,6 @@ import {
   type ProjectSummary,
 } from '../api/projectDetail'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
@@ -48,11 +47,6 @@ function buildBreadcrumb(project: ProjectSummary, homePath: string) {
 
 /** Kayıt sonrası kullanıcı poliçenin listelendiği sekmede açılır (KK-21). */
 const POLICY_TAB: ProjectDetailTabKey = 'police'
-
-const MOCK_SECTIONS = [
-  'Sigorta şirketi ve acente listeleri (örnek acente adları)',
-  'Poliçe kaydı — yalnız bu oturumda tutulur, sunucuya yazılmaz',
-]
 
 const CANCEL_DIALOG = {
   title: 'Poliçe oluşturmaktan vazgeçilsin mi?',
@@ -110,10 +104,7 @@ export function NewPolicyPage() {
   })
 
   const unitIdsWithPolicy = useMemo(() => {
-    const rows =
-      policiesQuery.data === undefined || policiesQuery.data.source === 'unavailable'
-        ? []
-        : policiesQuery.data.data
+    const rows = policiesQuery.data ?? []
 
     // Birimi silinmiş poliçe `projectUnitId` taşımıyor; hiçbir birimi kilitlemez.
     return new Set(
@@ -122,9 +113,9 @@ export function NewPolicyPage() {
   }, [policiesQuery.data])
 
   const unitOptions = useMemo(() => {
-    if (unitsQuery.data === undefined || unitsQuery.data.source === 'unavailable') return []
+    if (unitsQuery.data === undefined) return []
 
-    return unitsQuery.data.data.map((unit) => ({
+    return unitsQuery.data.map((unit) => ({
       id: unit.id,
       // Birim numarası boş olabiliyor (çizimden senkron); abone adı ayırt
       // etmeye yardım ediyor, ikisi de yoksa kimlik yazılıyor.
@@ -147,10 +138,7 @@ export function NewPolicyPage() {
    */
   const findExistingPolicy = useCallback(
     (projectUnitId: number) => {
-      const rows =
-        policiesQuery.data === undefined || policiesQuery.data.source === 'unavailable'
-          ? []
-          : policiesQuery.data.data
+      const rows = policiesQuery.data ?? []
 
       const match = rows.find((policy) => policy.projectUnitId === projectUnitId)
       if (match === undefined) return null
@@ -201,7 +189,7 @@ export function NewPolicyPage() {
     )
   }
 
-  const companyRows = companies === undefined || companies.source === 'unavailable' ? [] : companies.data
+  const companyRows = companies ?? []
 
   const goToDetail = (state?: { savedPolicyNumber: string }) => {
     void navigate(`${projectDetailPath(project.id)}?${ADMIN_PARAM_KEYS.tab}=${POLICY_TAB}`, {
@@ -229,10 +217,6 @@ export function NewPolicyPage() {
         ilişkilendirilecek.
       </p>
 
-      <MockDataNotice
-        sections={companies !== undefined && companies.source === 'mock' ? MOCK_SECTIONS : []}
-      />
-
       {wizard.submitError !== null && (
         <NoticeBar
           tone="error"
@@ -251,7 +235,6 @@ export function NewPolicyPage() {
             values={values}
             errors={wizard.errors}
             companies={companyRows}
-            hasCompanySource={companies === undefined || companies.source !== 'unavailable'}
             onCompanyChange={(id) => wizard.setValue('insuranceCompanyId', id)}
           />
         )}

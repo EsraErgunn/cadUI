@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  asMock,
   buildDetail,
   buildHistory,
   buildUnits,
@@ -29,10 +28,10 @@ vi.mock('../../ui/admin/useCanApproveProject', () => ({ useCanApproveProject: ca
 
 beforeEach(() => {
   detailApi.getProjectDetail.mockResolvedValue(buildDetail())
-  detailApi.getProjectUnits.mockResolvedValue(asMock(buildUnits()))
-  detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
-  detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
-  detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  detailApi.getProjectUnits.mockResolvedValue(buildUnits())
+  detailApi.getProjectHistory.mockResolvedValue(buildHistory())
+  detailApi.getProjectDocuments.mockResolvedValue([])
+  detailApi.getProjectPolicies.mockResolvedValue([])
   canApprove.mockReturnValue(true)
 })
 

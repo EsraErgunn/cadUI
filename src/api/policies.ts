@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import { requestJson, requestVoid } from './http'
 import { pagedResultSchema, type PagedResult } from './listQuery'
-import { serverData, type Sourced } from './mockGate'
 
 /**
  * API SÖZLEŞMESİ — Poliçeler. (Doğrulandı: cadapi @ a6ea695.)
@@ -274,10 +273,6 @@ export function deletePolicy(policyId: number, signal?: AbortSignal): Promise<vo
  *
  * Yol tireli. Bir süre `/api/insurancecompanies` varsayılıyordu ve o adres 404
  * dönüyordu; uç açıldığında bile liste boş kalırdı.
- *
- * `Sourced` zarfı DURUYOR: çağıranlar (poliçe sihirbazı) kaynağa göre farklı
- * yüzey çiziyor ve zarfı kaldırmak onları da değiştirmek olurdu. Artık her
- * zaman `server`.
  */
 const insuranceCompanyDtoSchema = z.array(
   z.object({
@@ -288,13 +283,13 @@ const insuranceCompanyDtoSchema = z.array(
 
 export async function listInsuranceCompanies(
   signal?: AbortSignal,
-): Promise<Sourced<InsuranceCompany[]>> {
+): Promise<InsuranceCompany[]> {
   const dto = await requestJson(
     { method: 'GET', path: '/api/insurance-companies', signal },
     insuranceCompanyDtoSchema,
   )
 
-  return serverData(dto.map((company) => ({ id: company.id, name: company.title })))
+  return dto.map((company) => ({ id: company.id, name: company.title }))
 }
 
 /**
