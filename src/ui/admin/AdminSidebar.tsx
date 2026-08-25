@@ -14,7 +14,17 @@ import logo from '../../assets/brand/logo3.png'
  * gelecektir" karşılaması var. Eskiden `disabled` düğmeydi ve o hâlde
  * odaklanamadığı için klavye kullanıcısı maddeyi hiç göremiyordu.
  */
-function AdminNavEntry({ item, onSelect }: { item: AdminNavItem; onSelect: () => void }) {
+function AdminNavEntry({
+  item,
+  onSelect,
+  isNested = false,
+}: {
+  item: AdminNavItem
+  onSelect: () => void
+  /** Alt madde girintili çizilir; başka farkı yok — etkin durumu ve rota
+      davranışı üst maddeyle aynı kurallardan geçiyor. */
+  isNested?: boolean
+}) {
   const Icon = item.icon
 
   return (
@@ -29,7 +39,12 @@ function AdminNavEntry({ item, onSelect }: { item: AdminNavItem; onSelect: () =>
       // Oluşturma" yazarken sol menüde hiçbir maddenin işaretli olmaması
       // kullanıcıyı yolunu kaybetmiş bırakır.
       end={item.shouldMatchExact === true}
-      className={({ isActive }) => adminNavItemVariants({ tone: isActive ? 'active' : 'plain' })}
+      className={({ isActive }) =>
+        adminNavItemVariants({
+          tone: isActive ? 'active' : 'plain',
+          className: isNested ? 'pl-9' : undefined,
+        })
+      }
     >
       {({ isActive }) => (
         <>
@@ -141,6 +156,19 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           {navItems.map((item) => (
             <li key={item.key}>
               <AdminNavEntry item={item} onSelect={onClose} />
+
+              {/* Alt maddeler ayrı bir listede: girinti görsel değil YAPISAL,
+                  ekran okuyucu da "Gaz Dağıtım Firmaları"nın altındaki iki
+                  maddeyi bir alt liste olarak duyuruyor. */}
+              {item.children !== undefined && item.children.length > 0 && (
+                <ul className="mt-1 flex flex-col gap-1">
+                  {item.children.map((child) => (
+                    <li key={child.key}>
+                      <AdminNavEntry item={child} onSelect={onClose} isNested />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

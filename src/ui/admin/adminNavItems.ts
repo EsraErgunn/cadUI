@@ -244,6 +244,15 @@ export interface AdminNavItem {
    * madde birden işaretli görünür.
    */
   shouldMatchExact?: boolean
+  /**
+   * Bir üst maddenin ALTINDA çizilen maddeler. Ayrı bir üst seviye satır
+   * olmadıkları için girintili görünürler; rota ve etkin-durum davranışları
+   * üst maddeyle AYNI kurallardan geçer (`AdminNavEntry`).
+   *
+   * Alt madde kendi rolünü taşır: üstünü gören her rol altını da görmek zorunda
+   * değil.
+   */
+  children?: AdminNavItem[]
 }
 
 /**
@@ -298,6 +307,24 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: Factory,
     path: GAS_DISTRIBUTION_FIRMS_PATH,
     roles: MANAGEMENT_SCREEN_ROLES,
+    // Kullanıcılar ekranı firmaların ALTINDA: ikisi aynı konunun iki yüzü ve
+    // ayrı üst seviye satır olarak durduklarında menüde ilişkisiz görünüyorlardı.
+    // Yol DEĞİŞMEDİ — `/admin/gas-distribution-users` hâlâ doğrudan açılabiliyor
+    // ve etkin durumu kendi maddesinden okuyor.
+    children: [
+      {
+        key: 'gasDistributionUsers',
+        label: 'Gaz Dağıtım Kullanıcıları',
+        icon: UsersRound,
+        path: GAS_DISTRIBUTION_USERS_PATH,
+        // Ekran YÖNETİME özel. Gaz dağıtım kullanıcısı bir süre bu listeyi kendi
+        // firmasıyla sınırlı görüyordu; çıkarıldı çünkü o rolün kendi ekranı var
+        // (`GAS_DISTRIBUTION_HOME_PATH`) ve işi kullanıcı yönetmek değil proje
+        // ONAYLAMAK. Liste ucu sunucuda yine `WhereVisibleTo` ile daraltılıyor —
+        // buradaki değişiklik yalnız GÖRÜNÜRLÜK, yetki sınırı değil.
+        roles: MANAGEMENT_SCREEN_ROLES,
+      },
+    ],
   },
   {
     key: 'projectFirms',
@@ -311,18 +338,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Proje Firması Kullanıcıları',
     icon: Users,
     path: PROJECT_FIRM_USERS_PATH,
-    roles: MANAGEMENT_SCREEN_ROLES,
-  },
-  {
-    key: 'gasDistributionUsers',
-    label: 'Gaz Dağıtım Kullanıcıları',
-    icon: UsersRound,
-    path: GAS_DISTRIBUTION_USERS_PATH,
-    // Ekran YÖNETİME özel. Gaz dağıtım kullanıcısı bir süre bu listeyi kendi
-    // firmasıyla sınırlı görüyordu; çıkarıldı çünkü o rolün kendi ekranı var
-    // (`GAS_DISTRIBUTION_HOME_PATH`) ve işi kullanıcı yönetmek değil proje
-    // ONAYLAMAK. Liste ucu sunucuda yine `WhereVisibleTo` ile daraltılıyor —
-    // buradaki değişiklik yalnız GÖRÜNÜRLÜK, yetki sınırı değil.
     roles: MANAGEMENT_SCREEN_ROLES,
   },
   { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH, roles: ALL_ROLES },
@@ -346,5 +361,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 export function getNavItemsForRole(roleCode: RoleCode | undefined): AdminNavItem[] {
   if (roleCode === undefined) return []
 
-  return ADMIN_NAV_ITEMS.filter((item) => item.roles.includes(roleCode))
+  // Alt maddeler de KENDİ rollerinden süzülüyor: üstünü gören her rol altını da
+  // görmek zorunda değil. Alt maddesi elenen üst madde kendi başına kalır.
+  return ADMIN_NAV_ITEMS.filter((item) => item.roles.includes(roleCode)).map((item) =>
+    item.children === undefined
+      ? item
+      : { ...item, children: item.children.filter((child) => child.roles.includes(roleCode)) },
+  )
 }
