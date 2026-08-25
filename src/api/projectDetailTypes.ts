@@ -50,7 +50,12 @@ export interface ProjectServerFields {
   name: string
   description: string | null
   /** Uçta KARŞILIĞI YOK; kimlikten türetilen mock değer (bkz. `mockStatusOf`). */
-  status: ProjectDetailStatus
+  /**
+   * `null` = sunucu durum GÖNDERMEDİ ya da tanınmayan bir kod gönderdi.
+   * Bilinmeyeni "taslak" saymak, projeyi olmadığı bir durumda gösterip onay
+   * düğmelerini yanlış satıra koyardı (`toProjectStatus` ile aynı gerekçe).
+   */
+  status: ProjectDetailStatus | null
   cityName: string | null
   districtName: string | null
   addressLine: string | null
@@ -88,7 +93,12 @@ export interface ProjectServerFields {
 
 export interface ProjectGeneralExtras {
   zpdFileName: string
-  status: ProjectDetailStatus
+  /**
+   * `null` = sunucu durum GÖNDERMEDİ ya da tanınmayan bir kod gönderdi.
+   * Bilinmeyeni "taslak" saymak, projeyi olmadığı bir durumda gösterip onay
+   * düğmelerini yanlış satıra koyardı (`toProjectStatus` ile aynı gerekçe).
+   */
+  status: ProjectDetailStatus | null
   gasFirmName: string
   installationNo: string
   neighborhood: string | null
