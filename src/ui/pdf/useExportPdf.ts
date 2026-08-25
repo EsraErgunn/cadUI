@@ -2,9 +2,10 @@ import { useState } from 'react'
 
 import type { ExportPdfSettings } from './ExportPdfOptions'
 import { PDF_FONT_FAMILY } from './planPdfFont'
-import { renderPlanPdf } from './renderPlanPdf'
+import { renderPlanPdf, type PlanPage } from './renderPlanPdf'
 import { resolveElementLabel, resolveSymbolAsset } from './symbolMarkup'
 import type { PlanPoint } from '../../core/coords'
+import { getFloorById, getFloorPlanTitle } from '../../core/floors'
 import type { Floor, Id, Point, Wall } from '../../core/model'
 import type { CoverPageInfo } from '../../core/pdf/coverPage'
 import { getBuildingFootprint } from '../../core/pdf/footprint'
@@ -14,7 +15,7 @@ import {
 } from '../../core/pdf/installationSummary'
 import { buildIsometricSvg, type IsometricSvg } from '../../core/pdf/isometricSvg'
 import { getPlanBounds } from '../../core/pdf/paper'
-import { buildPlanSvg, type PlanSvg } from '../../core/pdf/planSvg'
+import { buildPlanSvg } from '../../core/pdf/planSvg'
 import { buildSitePlanSvg, type SitePlanSvg } from '../../core/pdf/sitePlanSvg'
 import { serializeProjectDataForBackend } from '../../core/projectExportFormat'
 import { getObliqueProjection } from '../../isometric/core/isometricProjection'
@@ -242,8 +243,8 @@ export function useExportPdf(): ExportPdfState {
 
     try {
       const state = useCadStore.getState()
-      const pages: PlanSvg[] = request.floorIds.map((floorId) =>
-        buildPlanSvg({
+      const pages: PlanPage[] = request.floorIds.map((floorId) => {
+        const svg = buildPlanSvg({
           points: state.points,
           walls: state.walls,
           openings: state.openings,
@@ -259,8 +260,11 @@ export function useExportPdf(): ExportPdfState {
           resolveLineColor: resolveInstallationLineColor,
           resolveSymbolAsset,
           resolveElementLabel,
-        }),
-      )
+        })
+
+        const floor = getFloorById(state.floors, floorId)
+        return { svg, title: floor ? getFloorPlanTitle(floor) : '' }
+      })
 
       const blob = await renderPlanPdf({
         pages,

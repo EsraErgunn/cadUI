@@ -11,7 +11,7 @@ import {
   EDITOR_MENUS,
   EXPORT_ITEM_ID,
   IMPORT_ITEM_ID,
-  OPEN_PROJECT_FILE_ITEM_ID,
+  OPEN_PROJECT_ITEM_ID,
   SAVE_AS_ITEM_ID,
   SAVE_ITEM_ID,
 } from './menu/menuDefinitions'
@@ -27,8 +27,11 @@ type MenuBarProps = {
   onClearProject: () => void
   /** Proje dosyası (PDF) penceresini açar; kat seçimi ve sayfa ayarları orada. */
   onDownloadProjectFile: () => void
-  /** Proje dosyası (PDF) seçicisini açar; çizim o dosyadan geri yüklenir. */
-  onOpenProjectFile: () => void
+  /** "Aç": editörün içinden BAŞKA BİR PROJEYE geçiş penceresini açar. */
+  onOpenProject: () => void
+  /** "Proje Dosyasını İndir" ile AYNI içerik, yalnız yön dikey — pencere açmaz. */
+  onDownloadProjectInfo: () => void
+  isDownloadingProjectInfo: boolean
   onSave: () => void
   onSaveAs: () => void
   onImport: () => void
@@ -55,7 +58,9 @@ export function MenuBar({
   onCloseEditor,
   onClearProject,
   onDownloadProjectFile,
-  onOpenProjectFile,
+  onOpenProject,
+  onDownloadProjectInfo,
+  isDownloadingProjectInfo,
   onSave,
   onSaveAs,
   onImport,
@@ -97,9 +102,10 @@ export function MenuBar({
    * mekanizması yazılmadı.
    *
    * "Proje Dosyasını İndir" LİSTEDE YOK: dosyayı dışarı yazıyor, çizime
-   * dokunmuyor. Kapatılanların çoğu çizime yazar (Kaydet ve Farklı Kaydet
-   * sunucuya; İçe Aktar, Proje Dosyasını Aç ve Projeyi Temizle doğrudan
-   * store'a).
+   * dokunmuyor. "Aç" da LİSTEDE YOK: başka bir projeye NAVİGASYON, çizime
+   * yazmıyor — salt görüntüleyen kullanıcı da projeler arasında gezinebilmeli.
+   * Kapatılanların çoğu çizime yazar (Kaydet ve Farklı Kaydet sunucuya; İçe
+   * Aktar ve Projeyi Temizle doğrudan store'a).
    *
    * "Dışa Aktar" (JSON) İSTİSNA: o da yalnız OKUYOR ama gaz dağıtım
    * kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı (K176) —
@@ -112,7 +118,6 @@ export function MenuBar({
       unavailable.add(SAVE_ITEM_ID)
       unavailable.add(SAVE_AS_ITEM_ID)
       unavailable.add(IMPORT_ITEM_ID)
-      unavailable.add(OPEN_PROJECT_FILE_ITEM_ID)
       unavailable.add(CLEAR_PROJECT_ITEM_ID)
       unavailable.add(EXPORT_ITEM_ID)
     }
@@ -125,7 +130,7 @@ export function MenuBar({
     // Yalnız aktif maddeler buraya gelir; kalanı disabled.
     if (itemId === CLEAR_PROJECT_ITEM_ID) onClearProject()
     if (itemId === DOWNLOAD_PROJECT_FILE_ITEM_ID) onDownloadProjectFile()
-    if (itemId === OPEN_PROJECT_FILE_ITEM_ID) onOpenProjectFile()
+    if (itemId === OPEN_PROJECT_ITEM_ID) onOpenProject()
     if (itemId === SAVE_ITEM_ID) onSave()
     if (itemId === SAVE_AS_ITEM_ID) onSaveAs()
     if (itemId === IMPORT_ITEM_ID) onImport()
@@ -189,10 +194,14 @@ export function MenuBar({
       {/* Sahne değiştiricinin YANINDA ama çerçevesinin DIŞINDA: o üçlü tek bir
           seçici olarak okunmalı, bu ise bağımsız bir eylem (K111). Menüden buraya
           taşındı — proje künyesi bir "dosya işlemi" değil, her an bakılacak bilgi.
-          Arkasındaki ekran yazılana kadar pasif (palet dürüstlüğü, K79). */}
+          ARTIK ÇALIŞIYOR: "Proje Dosyasını İndir" penceresiyle AYNI içeriği
+          (kapak + vaziyet planı + tüm katlar + izometrik) pencere açmadan tek
+          tıkla indirir, yalnız YÖN dikeye sabitlenir (bkz. `useDownloadProjectInfoPdf`). */}
       <button
         type="button"
-        disabled
+        onClick={onDownloadProjectInfo}
+        disabled={isDownloadingProjectInfo}
+        aria-busy={isDownloadingProjectInfo}
         title="Proje Bilgileri"
         aria-label="Proje Bilgileri"
         className={editorBarButtonVariants({ tone: 'card', shape: 'icon' })}

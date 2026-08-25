@@ -18,6 +18,7 @@ import {
   getFloorIndex,
   getFloorIdInDirection,
   getFloorInsertIndex,
+  getFloorPlanTitle,
   getFloorShortLabels,
   getFloorType,
   getPositionalFloorNames,
@@ -243,6 +244,20 @@ describe('reorderFloorInList', () => {
     expect(reorderFloorInList(floors, first.id, 2)).toBe(floors)
     expect(reorderFloorInList(floors, first.id, 9)).toBe(floors)
     expect(reorderFloorInList(floors, 404, 0)).toBe(floors)
+  })
+})
+
+describe('getFloorPlanTitle — PDF kat planı anteti', () => {
+  it('kat adına "Planı" ekler', () => {
+    expect(getFloorPlanTitle(ground)).toBe('Zemin Kat Planı')
+    expect(getFloorPlanTitle(basement)).toBe('Bodrum Kat Planı')
+    expect(getFloorPlanTitle(first)).toBe('1. Kat Planı')
+  })
+
+  it('kat tipi adını da olduğu gibi taşır', () => {
+    expect(getFloorPlanTitle({ id: 9, name: 'Dubleks', heightCm: 300, isBasement: false })).toBe(
+      'Dubleks Planı',
+    )
   })
 })
 

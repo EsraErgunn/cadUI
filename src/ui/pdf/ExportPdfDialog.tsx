@@ -1,28 +1,15 @@
 import { useState } from 'react'
 
-import { ExportPdfOptions, type ExportPdfSettings } from './ExportPdfOptions'
+import { ExportPdfOptions } from './ExportPdfOptions'
+import { DEFAULT_EXPORT_PDF_SETTINGS } from './exportPdfDefaults'
 import { useExportPdf } from './useExportPdf'
 import type { Id } from '../../core/model'
-import {
-  DEFAULT_ORIENTATION,
-  DEFAULT_PAPER_SIZE,
-  DEFAULT_PDF_SCALE,
-} from '../../core/pdf/paper'
 import type { ProjectSummary } from '../../pages/useProjectSummary'
 import { useCadStore } from '../../store/cadStore'
 import { DialogShell } from '../controls/DialogShell'
 import { dialogActionVariants } from '../controls/buttonVariants'
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70'
-
-const DEFAULT_SETTINGS: ExportPdfSettings = {
-  paper: DEFAULT_PAPER_SIZE,
-  orientation: DEFAULT_ORIENTATION,
-  scale: DEFAULT_PDF_SCALE,
-  isCoverVisible: true,
-  isSitePlanVisible: true,
-  isIsometricVisible: true,
-}
 
 type ExportPdfDialogProps = {
   project: ProjectSummary
@@ -37,15 +24,17 @@ type ExportPdfDialogProps = {
  * açmadan karar vermeye zorluyordu; oysa kapsam da bir dışa aktarma ayarı.
  *
  * Üretilen dosya yalnız pafta değil, PROJE DOSYASI: çizim verisi belgeye
- * gömülüyor ve "Proje Dosyasını Aç" onu geri okuyor (core/pdf/projectPayload.ts).
- * Bu yüzden buradaki sayfa/kat seçimleri çıktının GÖRÜNEN kısmını belirliyor;
- * gömülü veri her zaman projenin tamamı.
+ * kayıpsız GÖMÜLÜYOR (core/pdf/projectPayload.ts) — uygulama içinde onu geri
+ * okuyan bir yol yok ("Proje Dosyasını Aç" SİLİNDİ, projeler arasında geçiş
+ * artık `ProjectOpenDialog` ile), gömme yalnız dosyayı bir yedek/arşiv formatı
+ * yapıyor. Bu yüzden buradaki sayfa/kat seçimleri çıktının GÖRÜNEN kısmını
+ * belirliyor; gömülü veri her zaman projenin tamamı.
  */
 export function ExportPdfDialog({ project, onClose }: ExportPdfDialogProps) {
   const floors = useCadStore((state) => state.floors)
   const { isExporting, error, exportPdf } = useExportPdf()
 
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState(DEFAULT_EXPORT_PDF_SETTINGS)
   // Varsayılan olarak TÜM katlar işaretli: kapak ve vaziyet planıyla birlikte
   // çıktı bütün bir proje dosyası, tek kat onun özel hâli.
   const [selectedFloorIds, setSelectedFloorIds] = useState<Id[]>(() =>

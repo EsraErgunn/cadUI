@@ -31,8 +31,10 @@ function renderMenuBar(
   onLoadVersion = vi.fn().mockResolvedValue(undefined),
   onClearProject = vi.fn(),
   onDownloadProjectFile = vi.fn(),
-  onOpenProjectFile = vi.fn(),
   submit = makeSubmit(),
+  onDownloadProjectInfo = vi.fn(),
+  isDownloadingProjectInfo = false,
+  onOpenProject = vi.fn(),
 ) {
   render(
     <MemoryRouter>
@@ -40,7 +42,9 @@ function renderMenuBar(
         onCloseEditor={onCloseEditor}
         onClearProject={onClearProject}
         onDownloadProjectFile={onDownloadProjectFile}
-        onOpenProjectFile={onOpenProjectFile}
+        onOpenProject={onOpenProject}
+        onDownloadProjectInfo={onDownloadProjectInfo}
+        isDownloadingProjectInfo={isDownloadingProjectInfo}
         onSave={onSave}
         onSaveAs={onSaveAs}
         onImport={onImport}
@@ -59,7 +63,8 @@ function renderMenuBar(
     onSaveAs,
     onClearProject,
     onDownloadProjectFile,
-    onOpenProjectFile,
+    onOpenProject,
+    onDownloadProjectInfo,
     submit,
   }
 }
@@ -108,10 +113,21 @@ describe('MenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'İçe Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: 'Projeyi Temizle' })).toBeEnabled()
-    // Proje dosyası maddeleri ARTIK ÇALIŞIYOR: biçim PDF olarak kararlaştı ve
+    // Proje dosyası maddesi ARTIK ÇALIŞIYOR: biçim PDF olarak kararlaştı ve
     // çizim verisi belgeye gömülüyor.
     expect(screen.getByRole('menuitem', { name: 'Proje Dosyasını İndir' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Proje Dosyasını Aç' })).toBeEnabled()
+    // "Aç" (başka projeye geçiş) ARTIK ÇALIŞIYOR.
+    expect(screen.getByRole('menuitem', { name: 'Aç' })).toBeEnabled()
+  })
+
+  it('Dosya > Aç, proje seçici penceresini açar; menü ÜRETMEZ', async () => {
+    const user = userEvent.setup()
+    const { onOpenProject } = renderMenuBar()
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Aç' }))
+
+    expect(onOpenProject).toHaveBeenCalledTimes(1)
   })
 
   it('üst barda karşılığı olan maddeler menüden KALKTI (K111)', async () => {
@@ -126,10 +142,33 @@ describe('MenuBar', () => {
     }
   })
 
-  it('Proje Bilgileri üst barda ikon düğmesi olarak durur (K111)', () => {
-    renderMenuBar()
+  it('Proje Bilgileri üst barda ikon düğmesi olarak durur, tek tıkla iner (K111, artık pasif DEĞİL)', async () => {
+    const user = userEvent.setup()
+    const { onDownloadProjectInfo } = renderMenuBar()
 
-    // Arkasındaki ekran yazılmadı: görünür ama pasif.
+    const infoButton = screen.getByRole('button', { name: 'Proje Bilgileri' })
+    expect(infoButton).toBeEnabled()
+
+    await user.click(infoButton)
+    // Pencere AÇILMAZ: kat/sayfa seçimi yok, bar doğrudan indirmeyi tetikler.
+    expect(onDownloadProjectInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('Proje Bilgileri indirilirken kilitlenir', () => {
+    renderMenuBar(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeSubmit(),
+      undefined,
+      true,
+    )
+
     expect(screen.getByRole('button', { name: 'Proje Bilgileri' })).toBeDisabled()
   })
 
@@ -142,16 +181,6 @@ describe('MenuBar', () => {
 
     // Kat seçimi ve sayfa ayarları pencerenin işi; menü yalnız haber ediyor.
     expect(onDownloadProjectFile).toHaveBeenCalledTimes(1)
-  })
-
-  it('Dosya > Proje Dosyasını Aç dosya seçicisini tetikler', async () => {
-    const user = userEvent.setup()
-    const { onOpenProjectFile } = renderMenuBar()
-
-    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Proje Dosyasını Aç' }))
-
-    expect(onOpenProjectFile).toHaveBeenCalledTimes(1)
   })
 
   it('Dosya > Projeyi Temizle onay akışını açar, doğrudan silmez', async () => {
@@ -273,7 +302,6 @@ describe('MenuBar', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       makeSubmit({ kind: 'approve' }),
     )
 
@@ -283,7 +311,6 @@ describe('MenuBar', () => {
 
   it('istek sürerken gönderim düğmesi kilitlenir', () => {
     renderMenuBar(
-      undefined,
       undefined,
       undefined,
       undefined,

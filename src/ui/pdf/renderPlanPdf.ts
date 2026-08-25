@@ -9,7 +9,9 @@ import {
   fitPlanToPage,
   getDrawableArea,
   getPageSizePt,
+  mmToPoints,
   planPointToPage,
+  PAGE_MARGIN_MM,
   type Orientation,
   type PageArea,
   type PageSizePt,
@@ -23,9 +25,18 @@ import type { SitePlanSvg } from '../../core/pdf/sitePlanSvg'
 const COVER_LINE_WIDTH_PT = 0.5
 const INK_RGB = [31, 41, 51] as const
 
+/** Kat planı antetinin punto büyüklüğü; kenar boşluğu şeridine (10mm) sığacak kadar küçük. */
+const FLOOR_TITLE_SIZE_PT = 10
+
+export type PlanPage = {
+  svg: PlanSvg
+  /** Antet metni: "Zemin Kat Planı", "1. Kat Planı" — bkz. `core/floors.ts` `getFloorPlanTitle`. */
+  title: string
+}
+
 export type RenderPlanPdfInput = {
   /** Kat planı sayfaları, çıktı sırasıyla. */
-  pages: readonly PlanSvg[]
+  pages: readonly PlanPage[]
   paper: PaperSizeId
   orientation: Orientation
   scale: PdfScaleId
@@ -41,7 +52,8 @@ export type RenderPlanPdfInput = {
   isometric: IsometricSvg | undefined
   /**
    * Belgeye GÖMÜLECEK proje JSON'u. Dosyayı hem pafta hem proje dosyası yapan
-   * şey bu — "Proje Dosyasını Aç" sayfayı okumaz, bunu geri alır.
+   * şey bu — sayfa hiç okunmaz, `extractProjectJson` bunu geri alır
+   * (core/pdf/projectPayload.ts; uygulama içinde geri okuyan bir yol yok).
    */
   projectJson: string
 }
@@ -75,7 +87,9 @@ function parseSvg(markup: string): Element {
  * Boş kat da basılır: sayfası boş çıkar ama SAYFASI çıkar — yoksa çıktıdaki
  * kat sayısı seçilenden az olur ve hangisinin boş olduğu anlaşılmaz.
  *
- * Sayfalarda ANTET YOK: künyeyi kapak taşıyor, kat planı yalnız çizim.
+ * Künyeyi kapak taşır, kat planı sayfasında yalnız KAT ADI antet olarak durur
+ * (kenar boşluğu şeridinde, çizim alanının dışında) — hangi kata bakıldığı
+ * kapak sayfasına dönmeden anlaşılsın diye.
  */
 export async function renderPlanPdf(input: RenderPlanPdfInput): Promise<Blob> {
   const pageSize = getPageSizePt(input.paper, input.orientation)
@@ -110,19 +124,20 @@ export async function renderPlanPdf(input: RenderPlanPdfInput): Promise<Blob> {
     await drawFittedSvg(doc, pageSize, area, input.sitePlan)
   }
 
-  for (const svg of input.pages) {
+  for (const page of input.pages) {
     startPage()
+    drawFloorTitle(doc, page.title)
 
-    const fit = fitPlanToPage(svg.bounds, area, input.scale)
+    const fit = fitPlanToPage(page.svg.bounds, area, input.scale)
 
-    if (svg.bounds) {
+    if (page.svg.bounds) {
       // Çizimin sol-ALT köşesi; svg2pdf sol-ÜST bekliyor, yükseklik kadar yukarı alınıyor.
       const bottomLeft = planPointToPage(
-        { x: svg.bounds.minX, y: svg.bounds.minY },
+        { x: page.svg.bounds.minX, y: page.svg.bounds.minY },
         fit.transform,
       )
 
-      await svg2pdf(parseSvg(svg.markup), doc, {
+      await svg2pdf(parseSvg(page.svg.markup), doc, {
         x: bottomLeft.xPt,
         y: toJsPdfY(bottomLeft.yPt + fit.drawingHeightPt, pageSize.heightPt),
         width: fit.drawingWidthPt,
@@ -137,6 +152,20 @@ export async function renderPlanPdf(input: RenderPlanPdfInput): Promise<Blob> {
   }
 
   return doc.output('blob')
+}
+
+/**
+ * Kat planı antetini kenar boşluğu şeridine yazar (çizim alanının DIŞI,
+ * sayfanın üst kenarıyla çizim alanı arasında) — ölçekli plan bundan
+ * etkilenmesin diye çizim alanının kendisi büyütülmez.
+ */
+function drawFloorTitle(doc: jsPDF, title: string): void {
+  const marginPt = mmToPoints(PAGE_MARGIN_MM)
+
+  doc.setFont(PDF_FONT_FAMILY, 'normal')
+  doc.setFontSize(FLOOR_TITLE_SIZE_PT)
+  doc.setTextColor(...INK_RGB)
+  doc.text(title, marginPt, marginPt * 0.65)
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { useBlocker } from 'react-router-dom'
 
 import { useCloseEditor } from './useCloseEditor'
@@ -7,13 +7,12 @@ import { useEditorReadOnlyMode } from './useEditorReadOnlyMode'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useEditorSubmit } from './useEditorSubmit'
 import { useProjectExport } from './useProjectExport'
-import { PROJECT_FILE_ACCEPT, useProjectFileOpen } from './useProjectFileOpen'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { useProjectSummary } from './useProjectSummary'
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
-import { isDrawingView } from '../core/views'
+import { DEFAULT_VIEW_ID, isDrawingView } from '../core/views'
 import { IsometricHud } from '../isometric/ui/IsometricHud'
 import { IsometricLegend } from '../isometric/ui/IsometricLegend'
 import { IsometricModeSwitch } from '../isometric/ui/IsometricModeSwitch'
@@ -38,31 +37,46 @@ import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
 import { RoomDefinitionCard } from '../ui/canvas/RoomDefinitionCard'
 import { SolidToolbar } from '../ui/canvas/SolidToolbar'
 import { ExportPdfDialog } from '../ui/pdf/ExportPdfDialog'
+import { useDownloadProjectInfoPdf } from '../ui/pdf/useDownloadProjectInfoPdf'
+import { ProjectOpenDialog } from '../ui/projects/ProjectOpenDialog'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
   const closeEditor = useCloseEditor()
   const activeViewId = useUiStore((state) => state.activeViewId)
   const isReadOnly = useEditorReadOnlyMode()
+
+  /**
+   * Sahne seçimi (mimari/tesisat/katı model/izometrik) kaydedilmeyen `uiStore`'da
+   * yaşıyor ve React Router editörü unmount ettiğinde SIFIRLANMIYOR — aynı
+   * sekmede editöre tekrar girildiğinde son bırakılan sahnede açılıyordu.
+   * Kullanıcı kararı: editöre HER girişte mimariden başlanır.
+   *
+   * `useLayoutEffect`: boyama ÖNCESİ çalışır, yoksa bir kare önceki sahne
+   * (ör. izometrik HUD'u) görünüp hemen mimariye geçerdi.
+   */
+  useLayoutEffect(() => {
+    useUiStore.getState().setActiveView(DEFAULT_VIEW_ID)
+  }, [])
   const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
     useProjectPersistence()
   const submit = useEditorSubmit(projectId)
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
-  const {
-    inputRef: projectFileInputRef,
-    error: projectFileError,
-    triggerOpen: triggerProjectFileOpen,
-    handleFileSelected: handleProjectFileSelected,
-  } = useProjectFileOpen()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
   const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
+  const [isProjectOpenDialogOpen, setIsProjectOpenDialogOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
   const projectSummary = useProjectSummary(projectId)
+  const {
+    isDownloading: isDownloadingProjectInfo,
+    error: projectInfoError,
+    downloadProjectInfo,
+  } = useDownloadProjectInfoPdf()
   // Salt görüntülemede kaydetme yolu HİÇ çağrılmaz: düğme ve kısayol zaten
   // yok, bu son kapı elle tetiklenen bir çağrıyı da durdurur. Sunucu da aynı
   // şeyi söylüyor (`newversion` → Admin, ProjectFirmUser).
@@ -140,7 +154,9 @@ export function EditorPage() {
           onCloseEditor={closeEditor}
           onClearProject={() => setIsClearProjectOpen(true)}
           onDownloadProjectFile={() => setIsPdfDialogOpen(true)}
-          onOpenProjectFile={triggerProjectFileOpen}
+          onOpenProject={() => setIsProjectOpenDialogOpen(true)}
+          onDownloadProjectInfo={() => void downloadProjectInfo(projectSummary)}
+          isDownloadingProjectInfo={isDownloadingProjectInfo}
           onSave={handleSave}
           onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
@@ -166,16 +182,6 @@ export function EditorPage() {
           onChange={handleFileSelected}
         />
 
-        {/* Dosya > Proje Dosyasını Aç. Ayrı input: kabul edilen tür farklı
-            (PDF); tek input paylaşılsaydı seçicide yanlış filtre görünürdü. */}
-        <input
-          ref={projectFileInputRef}
-          type="file"
-          accept={PROJECT_FILE_ACCEPT}
-          className="hidden"
-          onChange={handleProjectFileSelected}
-        />
-
         {error && (
           <p
             role="alert"
@@ -194,12 +200,12 @@ export function EditorPage() {
           </p>
         )}
 
-        {projectFileError && (
+        {projectInfoError && (
           <p
             role="alert"
             className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
           >
-            {projectFileError}
+            {projectInfoError}
           </p>
         )}
 
@@ -282,6 +288,13 @@ export function EditorPage() {
 
       {isPdfDialogOpen && (
         <ExportPdfDialog project={projectSummary} onClose={() => setIsPdfDialogOpen(false)} />
+      )}
+
+      {isProjectOpenDialogOpen && (
+        <ProjectOpenDialog
+          currentProjectId={projectId}
+          onClose={() => setIsProjectOpenDialogOpen(false)}
+        />
       )}
 
       {isClearProjectOpen && (

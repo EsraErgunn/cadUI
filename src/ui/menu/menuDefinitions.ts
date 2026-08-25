@@ -26,6 +26,8 @@ const DISABLED: Pick<MenuItemDefinition, 'kind' | 'isEnabled'> = {
   isEnabled: false,
 }
 
+/** "Aç" — editörün İÇİNDEN başka bir projeye geçiş (bkz. `ProjectOpenDialog`). */
+export const OPEN_PROJECT_ITEM_ID = 'open'
 export const SAVE_ITEM_ID = 'save'
 export const SAVE_AS_ITEM_ID = 'saveAs'
 export const IMPORT_ITEM_ID = 'import'
@@ -33,8 +35,6 @@ export const EXPORT_ITEM_ID = 'export'
 export const CLEAR_PROJECT_ITEM_ID = 'clearProject'
 /** "Proje Dosyasını İndir" — pafta + gömülü proje verisi taşıyan PDF. */
 export const DOWNLOAD_PROJECT_FILE_ITEM_ID = 'downloadProjectFile'
-/** "Proje Dosyasını Aç" — aynı PDF'ten çizimi geri yükler. */
-export const OPEN_PROJECT_FILE_ITEM_ID = 'openProjectFile'
 /** "Mahalleri Tanımla" — tanımsız mahalleri tek tek gezdiren kip (K145). */
 export const DEFINE_ROOMS_ITEM_ID = 'defineRooms'
 /** "Kolon Hattını Sil" — gövde (kolon + branşman), daima tüm katlar (K147). */
@@ -51,11 +51,18 @@ export const DELETE_UNIT_INSTALLATIONS_ITEM_ID = 'deleteUnitInstallations'
  * - "Proje Bilgileri" → sahne değiştiricinin yanındaki bilgi ikonu
  * - "Gönder" → sağdaki "Gönder" düğmesi
  *
- * "Proje Dosyasını İndir/Aç" artık ÇALIŞIYOR ve biçimi PDF: indirilen dosya hem
+ * "Proje Dosyasını İndir" artık ÇALIŞIYOR ve biçimi PDF: indirilen dosya hem
  * basılabilir pafta hem de çizimin kendisi — proje verisi belgeye GÖMÜLÜ
- * (core/pdf/projectPayload.ts), "Aç" onu geri okuyor. İçe/Dışa Aktar (JSON) ile
- * kopya değiller: o ikisi ham veri alışverişi, bunlar teslim edilebilir dosya.
- * Etiketlerdeki "(JSON)" ayrımı bu yüzden duruyor.
+ * (core/pdf/projectPayload.ts). İçe/Dışa Aktar (JSON) ile kopya değil: o ikisi
+ * ham veri alışverişi, bu teslim edilebilir dosya. Etiketteki "(JSON)" ayrımı
+ * bu yüzden duruyor.
+ *
+ * ⚠️ "Proje Dosyasını Aç" (yerelden .starcad.pdf yükleme) SİLİNDİ — bu adla
+ * yeni kod yazma (`useProjectFileOpen.ts`, `cadStore.loadProjectDrawing`,
+ * `OPEN_PROJECT_FILE_ITEM_ID`). Projeler arasında geçiş artık TEK yoldan:
+ * "Aç" (`OPEN_PROJECT_ITEM_ID`, `ProjectOpenDialog`) — proje DOSYASI değil,
+ * kullanıcının erişebildiği BAŞKA BİR PROJEYİ, hiçbir dosya yüklemeden ve
+ * proje listesine gitmeden açar.
  */
 export const EDITOR_MENUS: readonly MenuDefinition[] = [
   {
@@ -64,7 +71,7 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
     groups: [
       {
         items: [
-          { id: 'open', label: 'Aç', ...DISABLED },
+          { id: OPEN_PROJECT_ITEM_ID, label: 'Aç', kind: 'command', isEnabled: true },
           {
             id: SAVE_ITEM_ID,
             label: 'Kaydet',
@@ -92,12 +99,6 @@ export const EDITOR_MENUS: readonly MenuDefinition[] = [
           {
             id: DOWNLOAD_PROJECT_FILE_ITEM_ID,
             label: 'Proje Dosyasını İndir',
-            kind: 'command',
-            isEnabled: true,
-          },
-          {
-            id: OPEN_PROJECT_FILE_ITEM_ID,
-            label: 'Proje Dosyasını Aç',
             kind: 'command',
             isEnabled: true,
           },
