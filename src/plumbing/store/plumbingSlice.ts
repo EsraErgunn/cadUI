@@ -10,7 +10,8 @@ import type { PlanPoint } from '../../core/coords'
 import type { FloorPipeLink, Id } from '../../core/model'
 // cadStore ↔ plumbingSlice karşılıklı import eder; bu taraf tip-only olduğu için
 // derlemede silinir ve çalışma zamanında döngü oluşmaz (K17).
-import { applyIsometricDrag, clearIsometricOffsets } from '../../isometric/core/isometricOffset'
+import { applyIsometricNetworkDrag } from '../../isometric/core/isometricNetworkDrag'
+import { clearIsometricOffsets } from '../../isometric/core/isometricOffset'
 import type { CadState } from '../../store/cadStore'
 import { markDirty, takeNextId } from '../../store/projectMeta'
 import {
@@ -208,7 +209,11 @@ export type PlumbingSlice = {
    * Bir sürükleme = bir Ctrl+Z: canlı önizleme UI store'da tutulur, buraya
    * yalnız bırakılan son kayma gelir.
    */
-  applyIsometricLineDrag: (lineId: Id, pointId: Id, deltaCm: PlanPoint) => void
+  applyIsometricLineDrag: (
+    pointId: Id,
+    anchorPointId: Id | undefined,
+    deltaCm: PlanPoint,
+  ) => void
   /**
    * "İzometrik konumları sıfırla": izometriğe ÖZEL tüm elle yerleştirmeleri
    * (dal kaydırmaları + etiket konumları) siler. PLAN çizimine dokunmaz —
@@ -1372,26 +1377,30 @@ export const createPlumbingSlice: StateCreator<
       if (isChanged) record()
     },
 
-    applyIsometricLineDrag: (lineId, pointId, deltaCm) => {
+    applyIsometricLineDrag: (pointId, anchorPointId, deltaCm) => {
       if (deltaCm.x === 0 && deltaCm.y === 0) return
 
-      let isChanged = false
+      // Hesap `set`in DIŞINDA: yayılım tüm hatları okuyor ve immer draft'ını
+      // saf bir çekirdek fonksiyonuna sokmak (kopyalayarak) taslak nesneleri
+      // sonuca sızdırırdı.
+      const { installationLines, installationConnections } = get()
+      const next = applyIsometricNetworkDrag(
+        installationLines,
+        installationConnections,
+        pointId,
+        anchorPointId,
+        deltaCm,
+      )
+      // Referans karşılaştırması yetiyor: dokunulmayan hat AYNI nesneyle geri
+      // geliyor (bkz. isometricNetworkDrag.ts).
+      if (next.every((line, index) => line === installationLines[index])) return
 
       set((draft) => {
-        const line = draft.installationLines.find((candidate) => candidate.id === lineId)
-        if (!line) return
-
-        const next = applyIsometricDrag(line.points, pointId, deltaCm)
-        // Referans karşılaştırması yetiyor: dokunulmayan nokta AYNI nesneyle
-        // geri geliyor (bkz. isometricOffset.ts).
-        if (next.every((point, index) => point === line.points[index])) return
-
-        line.points = next
-        isChanged = true
+        draft.installationLines = next
         markDirty(draft)
       })
 
-      if (isChanged) record()
+      record()
     },
 
     resetIsometricPositions: () => {

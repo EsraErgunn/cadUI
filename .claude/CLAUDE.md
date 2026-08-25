@@ -115,7 +115,10 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   Tesisatta ALT KAT izi YOK (K130): `InstallationBelowGhost`,
   `INSTALLATION_BELOW_GHOST_ELEVATION_CM` ve `RENDER_ORDER.installationBelowGhost`
   SİLİNDİ — bu adlarla yeni kod yazma; mimarideki `FloorBelowGhost` duruyor.
-  (bkz. knowledge/label-visibility.md)
+  Tesisat görünümündeki MİMARİ HAYALET kâğıttaki kat planı paftasının diliyle
+  çizilir (K165): içi boş kontur, iki kademeli ton, palet `PLAN_COLORS`ten
+  türer — hiçbir mimari yüzey DOLU değil, mahal yalnız ad + m² ile okunur.
+  (bkz. knowledge/label-visibility.md, knowledge/ghost-layers.md)
 - `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/pdf(D), PropertyPanel/properties(B), WarningList+validation(C).
   PDF dışa aktarma `ui/pdf/` altında (K136); boş yer tutucu `ui/ExportDialog.tsx`
   SİLİNDİ — bu adla yeni kod yazma. **"Proje Dosyasını İndir/Aç" ARTIK
@@ -179,6 +182,18 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   (`core/` + `scene/` + `store/` + `ui/`). Sahne verisi TÜRETİLMİŞ, store'a
   konmaz. Kot çözümü `plumbing/core/lineElevation.ts`'ten okunur, burada
   TEKRARLANMAZ. Cam HUD token'ları (`--color-glass*`) koyu temada EZİLMEZ.
+  Kot değiştiren hatta YÜKSEKLİK etiketi yazılır (K168): `h=2,75 m`, işaretsiz,
+  hat başına TEK — segment segment değil (kot plan uzunluğuna göre dağıtılıyor).
+  Boruya ait yazı borunun RENGİNDE, eleman künyesi nötr. Tıklanan hat künyesini
+  tüketim süzgecinden bağımsız ama NUMARASIZ açar; kâğıtta süzgeç aynen duruyor.
+  EKRANDA künyeler HALKAYA dizilir (K170, `isometricLabelLayout.ts`), KÂĞITTA
+  nesnenin yanında (K156); yükseklik etiketi halkaya girmez, vana/filtre gibi
+  künyesiz armatürler iki tarafta da SUSAR. Etiketler ekran kamerasını
+  ETKİLEMEZ.
+  Köşe SÜRÜKLEMESİ borunun kendi EKSENİNE kilitli (K169); seçilen eksen hangi
+  ucun sabit kalacağını da söyler ve bağlı ağ o uçtan itibaren RİJİT gelir
+  (`isometricDragAxis.ts` + `isometricNetworkDrag.ts`). `applyIsometricDrag`
+  SİLİNDİ — bu adla yeni kod yazma.
   (bkz. knowledge/isometric-view.md, izometrik-adimlari.md)
 - `src/pages/`, `src/api/` (A)
 

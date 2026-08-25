@@ -8,7 +8,6 @@ import { getAreaObjectPlanGeometry } from '../../core/areaObjectGeometry'
 import { getBeamCorners, type BeamShape } from '../../core/beam'
 import { planToThree, type PlanPoint } from '../../core/coords'
 import type { AreaObjectType } from '../../core/model'
-import { triangulatePolygon } from '../../core/roomFill'
 import {
   AREA_OBJECT_STROKE_WIDTHS_CM,
   BEAM_DASH_SIZE_CM,
@@ -16,9 +15,7 @@ import {
   BEAM_STROKE_WIDTH_CM,
   getArchitectureStrokeWidthPx,
 } from '../../scene/architectureStrokeStyle'
-import { ARCHITECTURE_COLORS } from '../../scene/architectureTheme'
 import { RENDER_ORDER } from '../../scene/layers'
-import { SCENE_COLORS } from '../../scene/sceneTheme'
 
 /**
  * `ArchitectureGhost`in (Ghosts.tsx) oda/kiriş/alan nesnesi şekilleri — ayrı
@@ -26,92 +23,77 @@ import { SCENE_COLORS } from '../../scene/sceneTheme'
  * (`ArchitectureGhostPointSymbol.tsx`) ile birlikte 200 satır sınırını aşıyordu.
  *
  * Her şekil, mimari görünümdeki KARŞILIĞIYLA (Room/Beam/AreaObject.tsx) AYNI
- * geometriden çizilir — ayrı bir "kaba hayalet" tutulmuyor, yalnız tek soluk
- * renge boyanıyor (bkz. knowledge/ghost-layers.md).
+ * geometriden çizilir; değişen yalnız çizim dili — hayalet, kâğıttaki kat planı
+ * paftası gibi İÇİ BOŞ ve iki kademeli tonda basılır (K165).
+ *
+ * ⚠️ Bu dosyadaki hiçbir şeklin DOLGUSU yok (K154/K165): tesisat görünümünde
+ * konu gaz hattı, mimari yalnız bağlam — altından geçen boru hiçbir mimari
+ * yüzeyin arkasında kalmamalı. Kaldırılan dolgular: oda, kiriş, alan nesnesi.
  */
-
-/**
- * Kiriş/alan nesnesi/oda dolgusu hayalette de KORUNUR (yalnız renk tek tona
- * iner) — gerçek görünümdeki opaklıkla AYNI, `Room.tsx`/`AreaObject.tsx`/
- * `Beam.tsx`'teki `toFillPositions` ile aynı yöntem (üçgenleme genel amaçlı
- * `triangulatePolygon`, dört dosyada da tek tek tutulan yerel yardımcı).
- */
-function toGhostFillPositions(corners: readonly PlanPoint[], elevationCm: number): Float32Array {
-  const triangleCorners = triangulatePolygon(corners)
-  const positions = new Float32Array(triangleCorners.length * 3)
-
-  triangleCorners.forEach((corner, index) => {
-    positions.set(planToThree(corner, elevationCm), index * 3)
-  })
-
-  return positions
-}
-
-/** Kiriş/alan nesnesi dolgusunun hayaletteki opaklığı — gerçek görünümle AYNI. */
-const GHOST_FILL_OPACITY = ARCHITECTURE_COLORS.areaObjectFillOpacity
-
-/**
- * Hayalet oda: `Room.tsx`'teki dolguyla AYNI yöntem (duvarın iç yüzüne kadar
- * çekilmiş poligon, K31) — yalnız tek soluk renkte. Çağıran yalnız `rooms`
- * store kaydıyla eşleşen yüzleri geçirir (`Room.tsx` ile aynı kural).
- */
-export function GhostRoomFill({ corners }: { corners: readonly PlanPoint[] }) {
-  return (
-    <mesh
-      frustumCulled={false}
-      renderOrder={RENDER_ORDER.architectureGhostRoom}
-      raycast={() => null}
-    >
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[toGhostFillPositions(corners, ARCHITECTURE_GHOST_ELEVATION_CM), 3]}
-        />
-      </bufferGeometry>
-      <meshBasicMaterial
-        color={PLUMBING_COLORS.architectureGhost}
-        transparent
-        opacity={SCENE_COLORS.roomFillOpacity}
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
-  )
-}
 
 /** Türkçe büyük harf i → İ; varsayılan locale I üretir ve ad yanlış okunur (RoomLabel.tsx ile aynı). */
 const TURKISH_LOCALE = 'tr-TR'
 const GHOST_ROOM_NAME_SIZE_CM = 26
+const GHOST_ROOM_AREA_SIZE_CM = 20
+/** Ad ile alan arasındaki dikey boşluk; ikisi ortak bir blok gibi okunsun (RoomLabel.tsx). */
+const GHOST_ROOM_LINE_GAP_CM = 6
 
 /**
- * Hayalet oda ADI (kullanıcı isteği, 2026-08: "mahal tanımları silinmesin ghost
- * modunda") — dolgu (`GhostRoomFill`) hayalette KORUNUYORDU ama ismi hiç
- * çizilmiyordu, tesisatçı hangi mahalde olduğunu göremiyordu. `RoomLabel.tsx`
- * ile AYNI çapa noktası (`getRoomLabelAnchor`) ve büyük harf dönüşümü; rozet ve
- * m² satırı BİLEREK YOK — diğer hayalet öğeleri gibi (nokta sembolü, alan
- * nesnesi) tek satır, tek soluk renk, salt tanıma amaçlı.
+ * Hayalet oda ETİKETİ: büyük harf ad + altında m² (kullanıcı isteği, 2026-08:
+ * "mahal tanımları silinmesin ghost modunda"). Oda DOLGUSU kalktığı için
+ * (K165) mahali gösteren tek işaret bu; kâğıtta da öyle — pafta oda yüzeyini
+ * basmıyor, adı ve alanı basıyor (`planSvgArchitecture.ts`).
+ *
+ * `RoomLabel.tsx` ile AYNI çapa (`getRoomLabelAnchor`), aynı büyük harf
+ * dönüşümü ve aynı iki satır düzeni; ROZET yok — hayalet bağlam, kâğıt gibi
+ * düz basılır.
  */
-export function GhostRoomLabel({ anchor, name }: { anchor: PlanPoint; name: string }) {
+export function GhostRoomLabel({
+  anchor,
+  name,
+  areaM2,
+}: {
+  anchor: PlanPoint
+  name: string
+  areaM2: number
+}) {
   return (
-    <group position={planToThree(anchor, ARCHITECTURE_GHOST_ELEVATION_CM)} rotation={[-Math.PI / 2, 0, 0]}>
+    <group
+      position={planToThree(anchor, ARCHITECTURE_GHOST_ELEVATION_CM)}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
       <Text
         font={FONT_URL}
         fontSize={GHOST_ROOM_NAME_SIZE_CM}
-        color={PLUMBING_COLORS.architectureGhost}
+        color={PLUMBING_COLORS.architectureGhostText}
         anchorX="center"
-        anchorY="middle"
-        renderOrder={RENDER_ORDER.architectureGhostRoom}
+        anchorY="bottom"
+        renderOrder={RENDER_ORDER.architectureGhostRoomLabel}
         raycast={() => null}
       >
         {name.toLocaleUpperCase(TURKISH_LOCALE)}
+      </Text>
+
+      <Text
+        font={FONT_URL}
+        position={[0, -GHOST_ROOM_LINE_GAP_CM, 0]}
+        fontSize={GHOST_ROOM_AREA_SIZE_CM}
+        color={PLUMBING_COLORS.architectureGhostText}
+        anchorX="center"
+        anchorY="top"
+        renderOrder={RENDER_ORDER.architectureGhostRoomLabel}
+        raycast={() => null}
+      >
+        {`${areaM2.toFixed(2)} m²`}
       </Text>
     </group>
   )
 }
 
 /**
- * Hayalet kiriş: `Beam.tsx` ile AYNI dikdörtgen + kesik kontur, tek soluk
- * renkte. Sıfır boy kirişte `getBeamCorners` undefined döner, çizilmez.
+ * Hayalet kiriş: `Beam.tsx` ile AYNI dikdörtgen ve AYNI kesik kontur, yalnız
+ * dolgusuz ve soluk tonda. Sıfır boy kirişte `getBeamCorners` undefined döner,
+ * çizilmez.
  *
  * Kalınlık sabitleri gerçek kirişle ORTAK (`architectureStrokeStyle.ts`);
  * burada kopyaları duruyordu ve "gerçeğiyle aynı oran" notuna rağmen ikisi
@@ -122,50 +104,30 @@ export function GhostBeam({ beam, zoom }: { beam: BeamShape; zoom: number }) {
   if (!corners) return null
 
   return (
-    <>
-      <mesh
-        frustumCulled={false}
-        renderOrder={RENDER_ORDER.architectureGhostBeamFill}
-        raycast={() => null}
-      >
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[toGhostFillPositions(corners, ARCHITECTURE_GHOST_ELEVATION_CM), 3]}
-          />
-        </bufferGeometry>
-        <meshBasicMaterial
-          color={PLUMBING_COLORS.architectureGhost}
-          transparent
-          opacity={GHOST_FILL_OPACITY}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
-
-      <Line
-        points={[...corners, corners[0]].map((corner) =>
-          planToThree(corner, ARCHITECTURE_GHOST_ELEVATION_CM),
-        )}
-        color={PLUMBING_COLORS.architectureGhost}
-        lineWidth={getArchitectureStrokeWidthPx(BEAM_STROKE_WIDTH_CM, zoom)}
-        dashed
-        dashSize={BEAM_DASH_SIZE_CM}
-        gapSize={BEAM_GAP_SIZE_CM}
-        frustumCulled={false}
-        renderOrder={RENDER_ORDER.architectureGhostBeam}
-        depthWrite={false}
-        raycast={() => null}
-        toneMapped={false}
-      />
-    </>
+    <Line
+      points={[...corners, corners[0]].map((corner) =>
+        planToThree(corner, ARCHITECTURE_GHOST_ELEVATION_CM),
+      )}
+      color={PLUMBING_COLORS.architectureGhostFaint}
+      lineWidth={getArchitectureStrokeWidthPx(BEAM_STROKE_WIDTH_CM, zoom)}
+      dashed
+      dashSize={BEAM_DASH_SIZE_CM}
+      gapSize={BEAM_GAP_SIZE_CM}
+      frustumCulled={false}
+      renderOrder={RENDER_ORDER.architectureGhostBeam}
+      depthWrite={false}
+      raycast={() => null}
+      toneMapped={false}
+    />
   )
 }
 
 /**
  * Hayalet alan nesnesi (merdiven/kolon/baca şaftı/kolon havalandırması):
- * `AreaObject.tsx` ile AYNI geometriden (`core/areaObjectGeometry.ts`), tek
- * soluk renkte.
+ * `AreaObject.tsx` ile AYNI geometriden (`core/areaObjectGeometry.ts`), soluk
+ * tonda ve İÇİ BOŞ. Sınır poligonu dolgu yerine KONTUR olarak çizilir —
+ * kâğıttaki karşılığıyla aynı (`planSvgObjects.ts`, K154): kolonun bile dolgusu
+ * yok, altından geçen boru mimari yüzeyin arkasında kalmamalı.
  */
 export function GhostAreaObject({
   type,
@@ -180,25 +142,20 @@ export function GhostAreaObject({
 
   return (
     <>
-      <mesh
-        frustumCulled={false}
-        renderOrder={RENDER_ORDER.architectureGhostAreaObjectFill}
-        raycast={() => null}
-      >
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[toGhostFillPositions(geometry.fill, ARCHITECTURE_GHOST_ELEVATION_CM), 3]}
-          />
-        </bufferGeometry>
-        <meshBasicMaterial
-          color={PLUMBING_COLORS.architectureGhost}
-          transparent
-          opacity={GHOST_FILL_OPACITY}
+      {geometry.fill.length > 0 && (
+        <Line
+          points={[...geometry.fill, geometry.fill[0]].map((point) =>
+            planToThree(point, ARCHITECTURE_GHOST_ELEVATION_CM),
+          )}
+          color={PLUMBING_COLORS.architectureGhostFaint}
+          lineWidth={getArchitectureStrokeWidthPx(AREA_OBJECT_STROKE_WIDTHS_CM.body, zoom)}
+          frustumCulled={false}
+          renderOrder={RENDER_ORDER.architectureGhostAreaObject}
           depthWrite={false}
+          raycast={() => null}
           toneMapped={false}
         />
-      </mesh>
+      )}
 
       {geometry.strokes.map((stroke) => (
         <Line
@@ -206,7 +163,7 @@ export function GhostAreaObject({
           points={stroke.points.map((point) =>
             planToThree(point, ARCHITECTURE_GHOST_ELEVATION_CM),
           )}
-          color={PLUMBING_COLORS.architectureGhost}
+          color={PLUMBING_COLORS.architectureGhostFaint}
           lineWidth={getArchitectureStrokeWidthPx(
             AREA_OBJECT_STROKE_WIDTHS_CM[stroke.role],
             zoom,
@@ -221,4 +178,3 @@ export function GhostAreaObject({
     </>
   )
 }
-

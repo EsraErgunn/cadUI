@@ -1,8 +1,14 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 
-import { IsometricLabel, LABEL_LINE_HEIGHT, LABEL_SIZE_PX } from './IsometricLabel'
+import {
+  GLYPH_WIDTH_RATIO,
+  IsometricLabel,
+  LABEL_LINE_HEIGHT,
+  LABEL_SIZE_PX,
+} from './IsometricLabel'
 import { ISOMETRIC_DIMMED_OPACITY } from './isometricTheme'
-import type { PlanPoint, ThreePosition } from '../../core/coords'
+import { useIsometricLabelEntries } from './useIsometricLabelEntries'
+import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import type {
   InstallationConnection,
@@ -10,22 +16,18 @@ import type {
   InstallationLine,
 } from '../../plumbing/core/installationModel'
 import { useCameraZoom } from '../../scene/useCameraZoom'
-import { useCadStore } from '../../store/cadStore'
 import type { IsometricElevationContext } from '../core/isometricElevation'
-import { layoutIsometricLabels } from '../core/isometricLabelLayout'
-import type { IsometricLabelRequest } from '../core/isometricLabelLayout'
+import { getConnectedElementIds } from '../core/isometricHighlight'
 import {
-  ELEMENT_LABEL_DISTANCE_FACTOR,
+  layoutIsometricLabels,
   LINE_LABEL_DISTANCE_FACTOR,
-  getIsometricElementLabelLines,
-  getIsometricLineLabelAnchor,
-  getIsometricLineLabelLines,
-  isConsumptionLine,
-} from '../core/isometricLabels'
-import type { IsometricLineGeometry, IsometricSceneData } from '../core/isometricModel'
+} from '../core/isometricLabelLayout'
+import { layoutLabelsBesideAnchors } from '../core/isometricLabelPlacement'
+import type { LabelBox } from '../core/isometricLabelPlacement'
+import type { IsometricSceneData } from '../core/isometricModel'
 import { getCameraProjection, type IsometricAngles } from '../core/isometricProjection'
 
-/** Etiketler arası açının en az kaç satır boyu olacağı; yazı+nefes payı. */
+/** Halkadaki etiketler arası açının en az kaç satır boyu olacağı; nefes payı. */
 const LABEL_SEPARATION_EXTRA_LINES = 1
 
 const ZERO_OFFSET_CM: PlanPoint = { x: 0, y: 0 }
@@ -47,8 +49,8 @@ type IsometricLabelsProps = {
  * yoksa askıya alma izometrik kamerayı da söker ve `makeDefault` geri alınır
  * (bkz. IsometricLayer).
  *
- * Etiket METNİ ve varsayılan YERİ `core/isometricLabels.ts`'te üretiliyor:
- * burada yalnız bağlama ve sürükleme var. Çekirdekte olmasaydı testi olmazdı.
+ * Etiket METNİ ve YERLEŞİMİ `core/`de üretiliyor: burada yalnız bağlama ve
+ * sürükleme var. Çekirdekte olmasaydı testi olmazdı.
  */
 export function IsometricLabels({
   scene,
@@ -61,113 +63,98 @@ export function IsometricLabels({
   isDraggable,
 }: IsometricLabelsProps) {
   const zoom = useCameraZoom()
-  const setLineIsometricLabelOffset = useCadStore((state) => state.setLineIsometricLabelOffset)
-  const setElementIsometricLabelOffset = useCadStore(
-    (state) => state.setElementIsometricLabelOffset,
-  )
+  const entries = useIsometricLabelEntries({
+    scene,
+    lines,
+    elements,
+    connections,
+    context,
+    highlightedLineId,
+  })
 
-  const commitLineOffset = useCallback(
-    (lineId: Id) => (offsetCm: PlanPoint) => setLineIsometricLabelOffset(lineId, offsetCm),
-    [setLineIsometricLabelOffset],
-  )
-  const commitElementOffset = useCallback(
-    (elementId: Id) => (offsetCm: PlanPoint) =>
-      setElementIsometricLabelOffset(elementId, offsetCm),
-    [setElementIsometricLabelOffset],
+  /**
+   * Vurgu varken SOLMAYACAK elemanlar: vurgulanan hattın uçlarındakiler.
+   * Sembolleriyle aynı kural (`IsometricLayer`) — cihaz soluk dururken künyesi
+   * tam opak kalsaydı ekranda sahipsiz bir yazı asılı olurdu.
+   */
+  const connectedElementIds = useMemo(
+    () =>
+      highlightedLineId === null ? null : getConnectedElementIds(highlightedLineId, connections),
+    [connections, highlightedLineId],
   )
 
   /**
-   * Etiket YALNIZ tüketim noktasına varan hatlarda (kullanıcı kararı). Bir
-   * binada gövde borusu onlarca parçaya bölünüyor; hepsine boy/çap yazılınca
-   * çizim rakam bulutuna dönüyordu. Sıra numarası da süzülmüş liste üzerinden
-   * verilir — atlamalı numaralar ("1, 4, 9") kullanıcıya anlamsız gelirdi.
+   * Künyeler çizimin çevresinde bir HALKAYA dizilir (K170, kullanıcı isteği:
+   * "güzel dağıt onları önceki gibi, sadece daha yakın olsunlar"). Halka
+   * K167'de kaldırılıp kâğıdın "nesnenin yanında" yerleşimine geçilmişti;
+   * ekranda etiketler o düzende karışık okunuyordu. Geri gelen halkanın
+   * yarıçapı ESKİSİNDEN çok daha küçük — eski kusur mesafedeydi, düzende değil.
+   *
+   * ⚠️ KÂĞIT hâlâ `layoutLabelsBesideAnchors` kullanıyor (K156): orada halka
+   * on kılavuz çizgisini çizimin üstünden geçiriyordu ve karar ölçülmüştü.
+   *
+   * Yükseklik etiketleri halkaya GİRMEZ (`distanceFactor === null`): onlar
+   * künye değil ÖLÇÜ, ölçtükleri parçanın yanında kalmak zorundalar.
    */
-  const labelledLines = useMemo(() => {
-    const matched: { geometry: IsometricLineGeometry; line: InstallationLine; order: number }[] = []
-    for (const geometry of scene.lines) {
-      const line = lines.find((candidate) => candidate.id === geometry.lineId)
-      if (!line || !isConsumptionLine(line, elements, connections)) continue
-      matched.push({ geometry, line, order: matched.length + 1 })
-    }
-    return matched
-  }, [connections, elements, lines, scene.lines])
-
-  /**
-   * Her etiketin metni ve çapası; halka yerleşimi bunların hepsini BİRLİKTE
-   * görmek zorunda, yoksa hat ile eleman etiketleri birbirini bilmeden aynı
-   * açıya oturur.
-   */
-  const entries = useMemo(() => {
-    const built: {
-      key: string
-      anchor: ThreePosition
-      textLines: string[]
-      distanceFactor: number
-      lineId: Id | null
-      commit: (offsetCm: PlanPoint) => void
-      storedOffsetCm: PlanPoint | undefined
-    }[] = []
-
-    for (const { geometry, line, order } of labelledLines) {
-      const anchor = getIsometricLineLabelAnchor(geometry.positions)
-      if (!anchor) continue
-      built.push({
-        key: `line-${geometry.lineId}`,
-        anchor,
-        textLines: getIsometricLineLabelLines(line, order, context),
-        distanceFactor: LINE_LABEL_DISTANCE_FACTOR,
-        lineId: geometry.lineId,
-        commit: commitLineOffset(geometry.lineId),
-        storedOffsetCm: line.isometricLabelOffsetCm,
-      })
-    }
-
-    for (const placement of scene.elements) {
-      const element = elements.find((candidate) => candidate.id === placement.elementId)
-      if (!element) continue
-      built.push({
-        key: `element-${placement.elementId}`,
-        anchor: placement.position,
-        textLines: getIsometricElementLabelLines(element),
-        distanceFactor: ELEMENT_LABEL_DISTANCE_FACTOR,
-        lineId: null,
-        commit: commitElementOffset(placement.elementId),
-        storedOffsetCm: element.isometricLabelOffsetCm,
-      })
-    }
-
-    return built
-  }, [commitElementOffset, commitLineOffset, context, elements, labelledLines, scene.elements])
-
-  /**
-   * Ayırma payı ekran boyundan gelir: yazı ekran-sabit çizildiği için iki
-   * etiketin çakışmaması gereken mesafe de piksel cinsindendir, dünya cm'ine
-   * zoom ile çevrilir. En uzun künye kaç satırsa pay ona göre.
-   */
-  const minSeparationCm = useMemo(() => {
-    const maxLines = entries.reduce((longest, entry) => Math.max(longest, entry.textLines.length), 1)
-    return ((maxLines + LABEL_SEPARATION_EXTRA_LINES) * LABEL_SIZE_PX * LABEL_LINE_HEIGHT) / zoom
-  }, [entries, zoom])
-
   const placements = useMemo(() => {
-    if (!scene.bounds) return new Map<string, PlanPoint>()
+    if (!scene.bounds || entries.length === 0) return new Map<string, PlanPoint>()
 
-    const requests: IsometricLabelRequest[] = entries.map((entry) => ({
-      key: entry.key,
-      anchor: entry.anchor,
-      distanceFactor: entry.distanceFactor,
-    }))
-    return layoutIsometricLabels(
-      requests,
+    const labelSizeCm = LABEL_SIZE_PX / zoom
+    const projection = getCameraProjection(angles)
+
+    // Ayırma payı EKRAN boyundan: yazı ekran-sabit çizildiği için iki etiketin
+    // çakışmama mesafesi de piksel cinsinden, dünya cm'ine zoom ile çevriliyor.
+    const maxLines = entries.reduce(
+      (longest, entry) => Math.max(longest, entry.textLines.length),
+      1,
+    )
+    const minSeparationCm =
+      ((maxLines + LABEL_SEPARATION_EXTRA_LINES) * LABEL_SIZE_PX * LABEL_LINE_HEIGHT) / zoom
+
+    const placed = layoutIsometricLabels(
+      entries
+        .filter((entry) => entry.distanceFactor !== null)
+        .map((entry) => ({
+          key: entry.key,
+          anchor: entry.anchor,
+          distanceFactor: entry.distanceFactor ?? LINE_LABEL_DISTANCE_FACTOR,
+        })),
       scene.bounds.center,
-      getCameraProjection(angles),
+      projection,
       scene.bounds.sizeCm,
       minSeparationCm,
     )
-  }, [angles, entries, minSeparationCm, scene.bounds])
 
-  const opacityOf = (lineId: Id | null) =>
-    highlightedLineId === null || highlightedLineId === lineId ? 1 : ISOMETRIC_DIMMED_OPACITY
+    // Halka dışında kalanlar (yükseklik) kendi çapalarının yanına yerleşir;
+    // birbirleriyle çakışmasınlar diye yine itmeli yerleşimden geçerler.
+    const besideBoxes: LabelBox[] = entries
+      .filter((entry) => entry.distanceFactor === null)
+      .map((entry) => ({
+        key: entry.key,
+        anchor: projection.project(entry.anchor),
+        widthCm:
+          Math.max(...entry.textLines.map((text) => text.length)) * labelSizeCm * GLYPH_WIDTH_RATIO,
+        heightCm: entry.textLines.length * labelSizeCm * LABEL_LINE_HEIGHT,
+      }))
+    const beside = layoutLabelsBesideAnchors(
+      besideBoxes,
+      projection.project(scene.bounds.center),
+      labelSizeCm,
+    )
+    for (const [key, offsetCm] of beside) placed.set(key, offsetCm)
+
+    return placed
+  }, [angles, entries, scene.bounds, zoom])
+
+  /**
+   * Soluklaştırma yerleşimin DIŞINDA: `entries`ye girseydi her tıklamada
+   * yerleşim yeniden hesaplanırdı (sonuç aynı, iş boşuna).
+   */
+  const isDimmed = (entry: { lineId: Id | null; elementId: Id | null }) => {
+    if (highlightedLineId === null) return false
+    if (entry.lineId !== null) return entry.lineId !== highlightedLineId
+    return entry.elementId !== null && !connectedElementIds?.has(entry.elementId)
+  }
 
   if (!scene.bounds) return null
 
@@ -178,11 +165,12 @@ export function IsometricLabels({
           key={entry.key}
           anchor={entry.anchor}
           lines={entry.textLines}
-          // Kullanıcı taşıdıysa onun yeri; taşımadıysa halka yerleşimi.
+          // Kullanıcı taşıdıysa onun yeri; taşımadıysa otomatik yerleşim.
           offsetCm={entry.storedOffsetCm ?? placements.get(entry.key) ?? ZERO_OFFSET_CM}
           angles={angles}
           zoom={zoom}
-          opacity={opacityOf(entry.lineId)}
+          color={entry.color}
+          opacity={isDimmed(entry) ? ISOMETRIC_DIMMED_OPACITY : 1}
           isDraggable={isDraggable}
           onCommitOffsetCm={entry.commit}
         />

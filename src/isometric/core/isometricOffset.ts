@@ -1,4 +1,5 @@
 import type { PlanPoint } from '../../core/coords'
+import type { Id } from '../../core/model'
 import type { InstallationLinePoint } from '../../plumbing/core/installationModel'
 
 /**
@@ -48,32 +49,35 @@ function addOffset(current: PlanPoint | undefined, deltaCm: PlanPoint): PlanPoin
 }
 
 /**
- * Bir noktayı izometride sürüklemenin sonucu: sürüklenen nokta kendi kaymasını
- * alır, ondan SONRAKİ noktalar mirası alır, ÖNCEKİLER hiç dokunulmaz. Böylece
- * dal bir bütün olarak ayrılır ama hattın ana gövdesi yerinde kalır
- * (WebCAD `setIsometricVectorRel`).
+ * Sürüklemenin nokta listesine uygulanmış hâli: SÜRÜKLENEN nokta kendi
+ * kaymasını, `movedPointIds` içindekiler MİRASI alır, kalanlar hiç
+ * dokunulmaz.
+ *
+ * İki alan neden ayrı: kullanıcı bir noktayı çektiğinde dalın tamamı kayar
+ * ama sonradan o dalın içindeki tek bir nokta daha çekilebilmeli. Tek alanda
+ * toplansaydı ikisi ayırt edilemez, "yalnız bu noktayı geri al" imkânsız
+ * olurdu (WebCAD `setIsometricVectorRel`).
+ *
+ * Hangi noktaların kayacağına BU FONKSİYON karar VERMEZ — karar
+ * `isometricNetworkDrag.ts`'te, çünkü yayılım tek hattın içinde kalmıyor.
  *
  * Plan koordinatlarına hiç dokunulmaz — izometrikte çizimi ayıklamak plan
- * çizimini bozmamalı; kuralın kendisi bu fonksiyonun tek işi.
- *
- * TODO(izometrik): yayılım şimdilik TEK hattın içinde kalıyor. Bir gövdeye
- * bağlı ayrı `InstallationLine` dalları `installationConnections` üzerinden
- * izlenip birlikte kaydırılacak (Adım 7, bkz. izometrik-adimlari.md).
+ * çizimini bozmamalı.
  */
-export function applyIsometricDrag(
+export function applyIsometricOffsets(
   points: readonly InstallationLinePoint[],
-  draggedPointId: number,
+  draggedPointId: Id,
+  movedPointIds: ReadonlySet<Id>,
   deltaCm: PlanPoint,
 ): InstallationLinePoint[] {
-  const draggedIndex = points.findIndex((point) => point.id === draggedPointId)
-  if (draggedIndex === -1) return [...points]
   if (deltaCm.x === 0 && deltaCm.y === 0) return [...points]
 
-  return points.map((point, index) => {
-    if (index < draggedIndex) return point
-    if (index === draggedIndex) {
+  return points.map((point) => {
+    if (point.id === draggedPointId) {
       return withOffset(point, 'isometricOffsetCm', addOffset(point.isometricOffsetCm, deltaCm))
     }
+    if (!movedPointIds.has(point.id)) return point
+
     return withOffset(
       point,
       'inheritedIsometricOffsetCm',

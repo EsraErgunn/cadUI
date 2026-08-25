@@ -4,10 +4,6 @@ import { useLayoutEffect, useRef } from 'react'
 import type { OrthographicCamera as ThreeOrthographicCamera } from 'three'
 
 import { useIsometricCameraControls } from './useIsometricCameraControls'
-import {
-  ELEMENT_LABEL_DISTANCE_FACTOR,
-  getIsometricLabelDistanceCm,
-} from '../core/isometricLabels'
 import type { IsometricBounds } from '../core/isometricModel'
 import { getIsometricBasis } from '../core/isometricProjection'
 import type { IsometricAngles } from '../core/isometricProjection'
@@ -24,6 +20,14 @@ const MIN_CAMERA_DISTANCE_CM = 20_000
 
 /** Etiket yazısının kendi genişliği için ek pay — çerçeve kenarına yapışmasın. */
 const LABEL_TEXT_ALLOWANCE_CM = 140
+
+/**
+ * Etiketler için ayrılan çerçeve payı, çizim köşegeninin oranı olarak. Etiket
+ * artık kendi nesnesinin YANINDA duruyor (K167), yani gövdenin dışına yalnız
+ * bir künye boyu taşıyor — eski halka yarıçapı kadar pay bırakılsaydı çizim
+ * kadrajın ortasında küçücük kalırdı.
+ */
+const LABEL_MARGIN_RATIO = 0.08
 const FRAME_PADDING = 1.06
 const EMPTY_SCENE_EXTENT_CM = 1_000
 
@@ -91,9 +95,7 @@ export function IsometricCamera({ bounds, angles, isLocked }: IsometricCameraPro
     const camera = cameraRef.current
     if (!camera || !isLocked) return
 
-    const labelMarginCm =
-      getIsometricLabelDistanceCm(diagonalCm, ELEMENT_LABEL_DISTANCE_FACTOR) +
-      LABEL_TEXT_ALLOWANCE_CM
+    const labelMarginCm = diagonalCm * LABEL_MARGIN_RATIO + LABEL_TEXT_ALLOWANCE_CM
     // `<Canvas orthographic>` frustum'u PİKSEL cinsinden kurar (K1), yani zoom
     // doğrudan "kaç piksel = 1 cm" demek.
     const framedCm = Math.max((diagonalCm + labelMarginCm * 2) * FRAME_PADDING, 1)

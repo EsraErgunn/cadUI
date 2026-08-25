@@ -71,3 +71,54 @@ farklı alan kümesi taşınabiliyor. Diğer türler hâlâ marka + model + aç�
 İzometriğin sayaç etiketi AYRI (`isometric/core/isometricLabels.ts`,
 `Sayaç Daire 3` + sınıf + alan + debi) — WebCAD düzenini izliyor, plan
 etiketiyle ortaklaştırılmadı.
+
+## Ölçü etiketi kimliği de yazar, boru açıklaması çizime basılır (K166)
+
+Ölçü etiketi `1,20 m · DN25` (`plumbing/core/lineLabel.ts` →
+`getLineMeasurementLabel`); deşarj hattında çap yok, kimlik türün adı:
+`3,00 m · Baca`.
+
+⚠️ **K132 kısmen tersine döndü**: "çap etikete girmez, renkten okunur" artık
+geçerli değil (kullanıcı isteği). Renk ancak açıklamaya bakılarak çözülüyordu
+ve ölçüyü okuyan kişi zaten malzeme arıyor. Etiket `LengthLabels`'ın kendisi
+olduğu için çap MİMARİ görünümdeki tesisat izinde de yazıyor — K132'nin "boru
+ölçüleri mimaride de yazılır" kuralı olduğu gibi duruyor.
+
+⚠️ Anlık (lastik bant) etiket DEĞİŞMEDİ: `DraftLengthLabel` çizim geri
+bildirimi — henüz bir hat yok, kimliği de yok.
+
+Özellik panelindeki boru **Açıklaması** artık çizime basılıyor
+(`plumbing/scene/LineDescriptionLabels.tsx`); bugüne kadar hiç çizilmiyordu.
+Eleman ad etiketleriyle AYNI anahtarda (`isElementLabelsVisible`, "Eleman
+adları") ve aynı biçimde — kullanıcı için ikisi tek bir "adlar" katmanı.
+
+- ⚠️ Tür adı ("Boru") etikete GİRMEZ: önce eleman künyesinin deseni izlenip
+  `Boru\n<açıklama>` yazılmıştı, kullanıcı kaldırttı — her hatta tekrarlanan
+  aynı kelime kalabalıktan başkasını üretmiyor. Açıklaması olmayan hat etiket
+  ÜRETMEZ.
+- ⚠️ SÜRÜKLENEMEZ: hat plan tarafında `labelOffsetCm` taşımıyor (yalnız
+  `isometricLabelOffsetCm`, K121), uydurulmadı. Yeri orta bölümün ortası
+  (`getLineLabelAnchorCm`), ölçü etiketinin TERS yönünde kayar — aynı tarafta
+  olsalardı üst üste binerlerdi.
+- ⚠️ Mimari görünümdeki tesisat izine girmez: orada eleman ad etiketleri de
+  çizilmiyor, açıklama tek başına asılı kalırdı.
+- ⚠️ Açıklama alanı yalnız `pipe` türünde var (`lineProperties.ts`); bacanın
+  ve havalandırmanın karşılığı yok.
+
+## Boru yazısı borunun renginde; izometride `h=` (K168)
+
+- Boru **açıklaması** artık hattın renginde (`LineDescriptionLabels` →
+  `getLineColor(line.pipeTypeName)`), nötr gri değil. Çap zaten renkten
+  okunuyor (K27); açıklama nötr yazılınca hangi boruya ait olduğu ancak
+  konumdan tahmin ediliyordu. Açıklama alanı yalnız `pipe` türünde olduğu için
+  renk doğrudan çaptan çözülüyor — kol/deşarj ayrımına gerek yok.
+- İzometrikte hat künyesi ve yükseklik etiketi de hattın renginde
+  (`getIsometricLineColor`); eleman künyeleri NÖTR kalır.
+- ⚠️ **ÖLÇÜ etiketleri nötr kaldı** (`LengthLabels`, `MEASUREMENT_INK`): ölçü
+  katmanı mimari duvar ölçüleriyle ORTAK okunuyor, çap rengine bağlanırsa aynı
+  tuvalde iki ayrı dil çıkardı.
+- İzometrikte kot değiştiren hatta **`h=2,75 m`** yazılır
+  (`getIsometricRiseLabel`). Koşul planla AYNI (K129): ilk kot ≠ son kot.
+  İşaret YOK — h bir mesafe; yön izometrik çizimin kendisinden okunuyor,
+  planda okunmadığı için orada ▲/▼ var (K133). Ayrıntı:
+  knowledge/isometric-view.md.

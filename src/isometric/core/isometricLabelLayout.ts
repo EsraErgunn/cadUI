@@ -1,17 +1,41 @@
-import { getIsometricLabelDistanceCm } from './isometricLabels'
 import type { IsometricProjection } from './isometricProjection'
 import type { PlanPoint, ThreePosition } from '../../core/coords'
 
 const FULL_TURN_RAD = Math.PI * 2
 
+/**
+ * Halkanın çizimden ne kadar dışarı çıkacağı: çizim boyutunun oranı ve alt
+ * sınırı. SABİT bir cm OLAMAZ — 10 metrelik bir dairede 45 cm etiketi borunun
+ * üstüne bindiriyor, 40 metrelik bir binada hiç fark edilmiyordu.
+ *
+ * ⚠️ Oran K170'te 0,50'den 0,12'ye ÇEKİLDİ (kullanıcı isteği: "daha yakın
+ * olsunlar, oluşturdukları yuvarlak daha küçük olsun"). Eski değerde halka
+ * çizimin yarısı kadar daha dışarı çıkıyor, kadraja sığmak için çizim ortada
+ * küçülüyordu — K167'de halkanın tümden kaldırılmasının sebebi de buydu.
+ */
+const LABEL_DISTANCE_RATIO = 0.12
+const LABEL_MIN_DISTANCE_CM = 120
+
+/**
+ * Hat etiketi elemanınkinden DAHA YAKIN durur: bir cihaz ile ona giden kısa kol
+ * neredeyse aynı ışınsal yönde olduğu için ikisi eşit uzaklıkta olsaydı
+ * künyeler üst üste binerdi.
+ */
+export const LINE_LABEL_DISTANCE_FACTOR = 1
+export const ELEMENT_LABEL_DISTANCE_FACTOR = 1.7
+
 export type IsometricLabelRequest = {
   key: string
   anchor: ThreePosition
-  /** Hat etiketi elemanınkinden daha yakın bir halkaya oturur. */
+  /** Hangi halkaya oturacağı; hat etiketi içte, eleman künyesi dışta. */
   distanceFactor: number
 }
 
 type Placed = { key: string; angleRad: number; anchor: PlanPoint }
+
+function getRingGapCm(sceneExtentCm: number, distanceFactor: number): number {
+  return Math.max(LABEL_MIN_DISTANCE_CM, sceneExtentCm * LABEL_DISTANCE_RATIO) * distanceFactor
+}
 
 /**
  * Bir halkadaki etiketlerin açılarını, en az `minGapRad` aralık kalacak şekilde
@@ -49,17 +73,18 @@ function separateAngles(sorted: Placed[], minGapRad: number): number[] {
 }
 
 /**
- * Etiketlerin izdüşüm düzlemindeki yerleşimi: çizimin çevresinde bir HALKA.
+ * EKRANDAKİ künye yerleşimi: çizimin çevresinde bir HALKA (K170 ile geri geldi).
  *
  * Neden halka: yalnız ışınsal kaydırmada (etiket çapasından dışarı) birbirine
  * açıca yakın iki hat neredeyse aynı noktaya düşüyor ve yazılar üst üste
  * biniyordu. Halkada hepsi aynı yarıçapta durur, aralarındaki açı en az bir
- * etiket boyu kadar açılır ve kılavuz çizgileri dışarı doğru dağılır — teknik
- * çizimlerdeki "balon" düzeni.
+ * etiket boyu kadar açılır — teknik çizimlerdeki "balon" düzeni.
  *
- * Uzaklık çarpanı GRUPLARI ayrı halkalara koyar: hat etiketleri içte, eleman
- * künyeleri dışta. Aynı halkada olsalardı bir cihaz ile ona giden kısa kolun
- * etiketi aynı açıyı paylaşıp birbirini iterdi.
+ * ⚠️ KÂĞIT bunu KULLANMAZ: pafta `isometricLabelPlacement.ts` →
+ * `layoutLabelsBesideAnchors` ile basılıyor (K156, ölçülmüş karar: halka orada
+ * 10 kılavuz çizgisini çizimin üstünden geçiriyordu). Ekranda etiket
+ * sürüklenebilir ve gezinmeye yarıyor, kâğıtta yalnız okunuyor — ikisi bilerek
+ * ayrı.
  *
  * Dönen değer, çapaya göre KAYMA (cm) — `isometricLabelOffsetCm` ile aynı
  * uzay, böylece kullanıcı sürükleyince aynı alana yazılabiliyor.
@@ -99,8 +124,7 @@ export function layoutIsometricLabels(
   }
 
   for (const [distanceFactor, group] of groups) {
-    const ringRadiusCm =
-      anchorRadiusCm + getIsometricLabelDistanceCm(sceneExtentCm, distanceFactor)
+    const ringRadiusCm = anchorRadiusCm + getRingGapCm(sceneExtentCm, distanceFactor)
 
     const sorted = [...group].sort((a, b) => a.angleRad - b.angleRad)
     const minGapRad = ringRadiusCm > 0 ? minSeparationCm / ringRadiusCm : FULL_TURN_RAD

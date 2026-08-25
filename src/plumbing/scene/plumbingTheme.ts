@@ -1,3 +1,4 @@
+import { PLAN_COLORS } from '../../core/pdf/svgPrimitives'
 import type { DischargeLineKind } from '../core/lineKinds'
 
 /**
@@ -15,11 +16,16 @@ const ELEVATION_INK = '#7c3aed'
 
 export const PLUMBING_COLORS = {
   /**
-   * Soluk mimari referans — seçilemez, salt görsel bağlam. Izgaradan (gridMajor
-   * #cbd3e0) belirgin şekilde KOYU olmalı: yakın tonda kaldığında duvarlar
-   * ızgara çizgisi sanılıyor.
+   * Soluk mimari referans — seçilemez, salt görsel bağlam. Üç tonu da KÂĞITTAN
+   * gelir (`core/pdf/svgPrimitives.ts` → `PLAN_COLORS`, K154/K165): kat planı
+   * paftası mimariyi içi boş ve İKİ kademeli basıyor, ekranda ayrı bir palet
+   * tutulsaydı aynı çizim iki yerde iki türlü okunurdu.
    */
-  architectureGhost: '#94a3b8',
+  architectureGhostWall: PLAN_COLORS.wall,
+  /** Kapı/pencere, kiriş, alan nesnesi, cihaz sembolü — duvardan siliktir. */
+  architectureGhostFaint: PLAN_COLORS.faint,
+  /** Oda adı ve m² yazısı. */
+  architectureGhostText: PLAN_COLORS.architectureText,
   // Hat renkleri burada DEĞİL: çaptan gelir (core/pipeTypes.ts, K-W2). "Tuvalde
   // sarı = gaz hattı" kuralı bu kararla kalktı.
   /** Sembol yüklenemediğinde çizilen yer tutucu — seçim mavisiyle karışmayan uyarı rengi. */
