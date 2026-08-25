@@ -46,6 +46,11 @@ export interface DocumentRow {
   receivedAt: string | null
   /** Bir evrak birden çok birimle ilişkilendirilebilir (gereksinim 11). */
   unitNames: string[]
+  /**
+   * Bağlı birimlerin KİMLİKLERİ. Ad yetmiyor: bağı koparan uç kimlik istiyor
+   * (`DELETE /api/docs/{id}/units/{unitId}`) ve birim numarası boş olabiliyor.
+   */
+  unitIds: number[]
   projectId: number | null
   projectName: string | null
   /**
@@ -160,6 +165,7 @@ function toDocumentRow(dto: z.infer<typeof docListItemSchema>): DocumentRow {
     unitNames: dto.projectUnits
       .map((unit) => toNullable(unit.unitNumber) ?? toNullable(unit.subscriberNo))
       .filter((name): name is string => name !== null),
+    unitIds: dto.projectUnits.map((unit) => unit.id),
     projectId: dto.projectId ?? null,
     projectName: toNullable(dto.projectName),
     projectPId: null,

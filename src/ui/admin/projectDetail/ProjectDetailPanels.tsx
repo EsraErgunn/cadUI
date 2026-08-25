@@ -1,4 +1,5 @@
-import { ProjectDocumentsTab } from './ProjectDocumentsTab'
+import type { ProjectDocumentUnitOption } from './ProjectDocumentUnitDialog'
+import { ProjectDocumentsTab, type ProjectDocumentActions } from './ProjectDocumentsTab'
 import { ProjectHistoryTab } from './ProjectHistoryTab'
 import { ProjectInfoTab } from './ProjectInfoTab'
 import { ProjectOperationsTab } from './ProjectOperationsTab'
@@ -22,6 +23,9 @@ interface ProjectDetailPanelsProps {
   history: Sourced<ProjectHistoryRow[]> | undefined
   historyRows: ProjectHistoryRow[]
   documents: Sourced<ProjectDocumentRow[]> | undefined
+  /** Evrak sekmesindeki "Birim Değiştir" kutusunun kaynağı. */
+  documentUnitOptions: ProjectDocumentUnitOption[]
+  documentActions: ProjectDocumentActions
   policies: Sourced<ProjectPolicyRow[]> | undefined
   canApprove: boolean
   isDraft: boolean
@@ -44,6 +48,8 @@ export function ProjectDetailPanels({
   history,
   historyRows,
   documents,
+  documentUnitOptions,
+  documentActions,
   policies,
   canApprove,
   isDraft,
@@ -73,10 +79,16 @@ export function ProjectDetailPanels({
     )
   }
 
-  // Proje kimliği "Evrak Ekle" bağlantısına gidiyor: yüklenen evrak GELİNEN
-  // projeyle ilişkilendiriliyor, ekran kimliksiz açılamaz (gereksinim 6).
+  // Sekme yalnız DÜZENLİYOR: silme ve birim değiştirme. Yükleme kendi ekranında
+  // (`/admin/documents/new?project=`), çünkü orada evrak tipi de soruluyor.
   if (tab === 'evrak') {
-    return <ProjectDocumentsTab projectId={detail.server.id} documents={documents} />
+    return (
+      <ProjectDocumentsTab
+        documents={documents}
+        units={documentUnitOptions}
+        actions={documentActions}
+      />
+    )
   }
 
   if (tab === 'police') {

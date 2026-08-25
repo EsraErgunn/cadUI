@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
@@ -25,6 +25,7 @@ import { ReasonDialog } from '../ui/admin/projectDetail/ReasonDialog'
 import { mergeDecisionHistory } from '../ui/admin/projectDetail/decisionHistory'
 import { useProjectDecisions } from '../ui/admin/projectDetail/useProjectDecisions'
 import { useProjectDetailTab } from '../ui/admin/projectDetail/useProjectDetailTab'
+import { useProjectDocumentActions } from '../ui/admin/projectDetail/useProjectDocumentActions'
 import { useCanApproveProject } from '../ui/admin/useCanApproveProject'
 
 const PANEL_ID = 'project-detail-panel'
@@ -104,6 +105,22 @@ export function ProjectDetailPage() {
     queryFn: () => getProjectPolicies(projectId ?? 0),
     enabled: projectId !== undefined,
   })
+
+  const documentActions = useProjectDocumentActions(projectId ?? 0)
+
+  /** Evrak sekmesindeki "Birim Değiştir" kutusu projenin birimlerinden besleniyor. */
+  const documentUnitOptions = useMemo(() => {
+    if (units === undefined || units.source === 'unavailable') return []
+
+    return units.data.map((unit) => ({
+      id: unit.id,
+      // Birim numarası boş olabiliyor (çizimden senkron); abone adı ayırt
+      // etmeye yardım ediyor, ikisi de yoksa kimlik yazılıyor.
+      label:
+        [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||
+        `#${unit.id}`,
+    }))
+  }, [units])
 
   const decisions = useProjectDecisions(projectId ?? 0)
 
@@ -208,6 +225,8 @@ export function ProjectDetailPage() {
           history={history}
           historyRows={historyRows}
           documents={documents}
+          documentUnitOptions={documentUnitOptions}
+          documentActions={documentActions}
           policies={policies}
           canApprove={canApprove}
           isDraft={isDraft}
