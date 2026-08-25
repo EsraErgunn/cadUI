@@ -79,11 +79,12 @@ export function ProjectDetailPanels({
     )
   }
 
-  // Sekme yalnız DÜZENLİYOR: silme ve birim değiştirme. Yükleme kendi ekranında
-  // (`/admin/documents/new?project=`), çünkü orada evrak tipi de soruluyor.
+  // Proje kimliği "Evrak Ekle" bağlantısına gidiyor: yüklenen evrak GELİNEN
+  // projeyle ilişkilendiriliyor, ekran kimliksiz açılamaz (gereksinim 6).
   if (tab === 'evrak') {
     return (
       <ProjectDocumentsTab
+        projectId={detail.server.id}
         documents={documents}
         units={documentUnitOptions}
         actions={documentActions}

@@ -1,3 +1,6 @@
+import { Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+
 import { InfoBanner } from './InfoBanner'
 import {
   ProjectDocumentUnitDialog,
@@ -12,6 +15,7 @@ import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
 import { MissingSourceNotice } from '../MissingSourceNotice'
 import { NoticeBar } from '../NoticeBar'
+import { documentCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
 import { useCanWriteProjectContent } from '../useRole'
 
@@ -29,6 +33,8 @@ const DELETE_DIALOG = {
 } as const
 
 interface ProjectDocumentsTabProps {
+  /** "Evrak Ekle" bağlantısı yüklemeyi GELİNEN projeyle ilişkilendiriyor. */
+  projectId: number
   documents: Sourced<ProjectDocumentRow[]> | undefined
   /** Projenin birimleri; bağ değiştirme kutusunun kaynağı. */
   units: ProjectDocumentUnitOption[]
@@ -124,14 +130,23 @@ function buildColumns(
 }
 
 /**
- * Proje evrakları — SALT DÜZENLEME.
+ * Proje evrakları: listeleme + yükleme + düzenleme.
  *
- * Buradan yeni evrak YÜKLENMEZ: yükleme kendi ekranında (`Evrak Ekle`,
- * `/admin/documents/new?project=`), çünkü orada evrak tipi ve birim seçimi
- * birlikte alınıyor. Bu sekmede yalnız var olan kaydın birimi değiştirilir ya
- * da kayıt silinir.
+ * Yükleme kendi ekranına GÖTÜRÜR (`/admin/documents/new?project=`) — evrak tipi
+ * ve birim seçimi orada birlikte alınıyor, sekmenin içinde ikinci bir yükleme
+ * yüzeyi kurulmuyor. Sekmenin kendi işleri var olan kaydın birimini değiştirmek
+ * ve kaydı silmek.
+ *
+ * Üçü de aynı kapıdan geçiyor (`useCanWriteProjectContent`): sunucu
+ * `POST/DELETE /api/docs` uçlarını `Admin, ProjectFirmUser`'a açıyor, yani
+ * yönetici hepsini görür, gaz dağıtım kullanıcısı yalnız listeler.
  */
-export function ProjectDocumentsTab({ documents, units, actions }: ProjectDocumentsTabProps) {
+export function ProjectDocumentsTab({
+  projectId,
+  documents,
+  units,
+  actions,
+}: ProjectDocumentsTabProps) {
   const canWriteContent = useCanWriteProjectContent()
   // Her render'da yeniden kuruluyor: sütunlar `actions`'ın kapanışlarını
   // taşıyor ve `pendingDocumentId` değişince düğmelerin kilidi güncellenmeli.
@@ -139,6 +154,18 @@ export function ProjectDocumentsTab({ documents, units, actions }: ProjectDocume
 
   return (
     <div className="flex flex-col gap-4">
+      {canWriteContent && (
+        <div>
+          <Link
+            to={documentCreatePath(projectId)}
+            className={adminButtonVariants({ tone: 'primary' })}
+          >
+            <Plus aria-hidden className="size-4" />
+            Evrak Ekle
+          </Link>
+        </div>
+      )}
+
       {actions.notice !== null && (
         <NoticeBar
           tone={actions.notice.tone}
