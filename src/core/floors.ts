@@ -388,6 +388,15 @@ export function withFloorType<T extends Floor>(
  * Dönen dizi girdiyle AYNI sırada (en alt kat başta); şeridin ters çevirmesi
  * görüntüleme kararı, veri burada çevrilmez.
  */
+/**
+ * PDF kat planı sayfasının antet metni: "Zemin Kat Planı", "1. Kat Planı",
+ * "Bodrum Kat Planı", "Dubleks Planı" gibi. `floor.name` zaten TEK adlandırma
+ * kaynağıdır (bkz. `resolveFloorNames`); burada yalnız "Planı" eklenir.
+ */
+export function getFloorPlanTitle(floor: Floor): string {
+  return `${floor.name} Planı`
+}
+
 export function getFloorShortLabels(floors: readonly Floor[]): string[] {
   const basementCount = getBasementCount(floors)
   let aboveGroundIndex = 0
