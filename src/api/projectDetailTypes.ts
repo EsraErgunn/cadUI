@@ -1,3 +1,4 @@
+import type { PolicyEditTarget } from './policies'
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from './projects'
 
 /**
@@ -259,10 +260,7 @@ export interface ProjectSummary {
   pId: string
 }
 
-export interface ProjectPolicyRow {
-  id: number
-  policyNumber: string | null
-  insuranceCompanyName: string | null
+export interface ProjectPolicyRow extends PolicyEditTarget {
   /**
    * Poliçenin bağlı olduğu birimin KİMLİĞİ. Ad değil kimlik gerekiyor: poliçe
    * sihirbazı "bu birimde zaten poliçe var mı" sorusunu bununla yanıtlıyor ve
@@ -271,14 +269,10 @@ export interface ProjectPolicyRow {
    * Birimi silinmiş poliçede `null` — sunucu bağı koparıyor (`IsUnitDeleted`).
    */
   projectUnitId: number | null
-  unitNumber: string | null
   /**
    * Birim çizimden silindi mi. Poliçe İPTAL EDİLMİYOR, listede kalıyor; satır
    * uyarıyla işaretleniyor (`PolicyDto.IsUnitDeleted`).
    */
   isUnitDeleted: boolean
-  amount: number | null
-  startDate: string | null
-  endDate: string | null
 }
 

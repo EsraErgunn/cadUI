@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 
 import type { PolicyEditValues } from './PolicyEditDialog'
 import { ApiError } from '../../../api/http'
-import { updatePolicy, type PolicyRow } from '../../../api/policies'
+import { updatePolicy, type PolicyEditTarget } from '../../../api/policies'
 
 const MESSAGES = {
   updated: 'Poliçe güncellendi.',
@@ -15,20 +15,23 @@ function describeError(error: unknown, fallback: string): string {
 }
 
 export interface PolicyActions {
-  editTarget: PolicyRow | null
+  editTarget: PolicyEditTarget | null
   isSaving: boolean
   editError: string | null
   notice: { tone: 'success' | 'error'; message: string } | null
   dismissNotice: () => void
   dismissEditError: () => void
-  requestEdit: (policy: PolicyRow) => void
+  requestEdit: (policy: PolicyEditTarget) => void
   cancelEdit: () => void
   confirmEdit: (values: PolicyEditValues) => void
 }
 
 /**
  * Poliçe güncelleme. Kapsam TUTAR ve TARİHLER — birim değiştirme sunucuda
- * desteklenmiyor, poliçe numarası ve şirket bu ekranın işi değil.
+ * desteklenmiyor, poliçe numarası ve şirket bu diyaloğun işi değil.
+ *
+ * Poliçeyi listeleyen İKİ yüzey de bunu kullanıyor: poliçe listesi (proje
+ * bağımsız, `projectId` yok) ve proje detayının poliçe sekmesi.
  *
  * **Gövde okunan kayıttan tamamlanıyor.** `PolicyManager.UpdateAsync` beş
  * alanın HEPSİNİ koşulsuz yazıyor:
@@ -45,7 +48,7 @@ export interface PolicyActions {
 export function usePolicyActions(projectId: number | null): PolicyActions {
   const queryClient = useQueryClient()
 
-  const [editTarget, setEditTarget] = useState<PolicyRow | null>(null)
+  const [editTarget, setEditTarget] = useState<PolicyEditTarget | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [notice, setNotice] = useState<PolicyActions['notice']>(null)
@@ -99,7 +102,7 @@ export function usePolicyActions(projectId: number | null): PolicyActions {
     notice,
     dismissNotice: useCallback(() => setNotice(null), []),
     dismissEditError: useCallback(() => setEditError(null), []),
-    requestEdit: useCallback((policy: PolicyRow) => {
+    requestEdit: useCallback((policy: PolicyEditTarget) => {
       setEditError(null)
       setEditTarget(policy)
     }, []),

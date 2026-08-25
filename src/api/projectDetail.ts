@@ -411,6 +411,9 @@ export async function getProjectPolicies(
   return policies.map((policy) => ({
     id: policy.id,
     policyNumber: toNullable(policy.policyNumber),
+    // Güncellemede gövdeye GERİ konuyor: gönderilmezse sunucu şirketi null'a
+    // düşürüyor (`PolicyEditTarget`).
+    insuranceCompanyId: policy.insuranceCompanyId ?? null,
     insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
     projectUnitId: policy.projectUnitId ?? null,
     unitNumber: toNullable(policy.unitNumber),
