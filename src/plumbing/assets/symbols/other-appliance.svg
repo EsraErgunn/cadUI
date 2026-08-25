@@ -2,6 +2,8 @@
   <g fill="none" stroke="#1e293b" stroke-width="2">
     <line x1="0" y1="25" x2="10" y2="25" />
     <rect x="10" y="10" width="30" height="30" />
-    <polygon points="25,16 30,26 25,34 20,26" />
+    <circle cx="17" cy="25" r="3.5" />
+    <circle cx="25" cy="25" r="3.5" />
+    <circle cx="33" cy="25" r="3.5" />
   </g>
 </svg>
