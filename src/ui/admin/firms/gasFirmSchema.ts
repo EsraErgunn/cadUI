@@ -24,7 +24,6 @@ export const GAS_FIRM_ERRORS = {
   dfirmNo: 'Firma no zorunludur.',
   dfirmNoTaken: 'Bu firma numarası zaten kullanılmaktadır.',
   name: 'Firma adı zorunludur.',
-  group: 'Grup firması zorunludur.',
   phone: 'Telefon zorunludur.',
   phoneInvalid: 'Geçerli bir telefon numarası giriniz.',
   nameTooLong: `Firma adı en çok ${GAS_FIRM_MAX_LENGTHS.name} karakter olabilir.`,
@@ -45,8 +44,9 @@ export interface GasFirmFormValues {
   name: string
   /**
    * Grup firmasının KİMLİĞİ, metin olarak (seçim kutusu değerleri dizedir).
-   * Boş dize = seçilmedi; doğrulama buna izin vermez. Sunucu grubu adla değil
-   * kimlikle alıyor.
+   * Boş dize = SEÇİLMEDİ ve bu geçerli bir hâl: her gaz dağıtım firması bir
+   * gruba bağlı değil. Sunucu da `int?` alıyor ve doğrulayıcısı yalnız değer
+   * VARSA denetliyor (`GasDistributionFirmCreateDto.GroupId`).
    */
   groupId: string
   description: string
@@ -97,8 +97,9 @@ export const gasFirmSchema = z.object({
     (value) => value.trim().length <= GAS_FIRM_MAX_LENGTHS.name,
     { message: GAS_FIRM_ERRORS.nameTooLong },
   ),
-  // Grup artık zorunlu: her gaz dağıtım firması bir grup firmasına bağlı.
-  groupId: requiredText(GAS_FIRM_ERRORS.group),
+  // Grup OPSİYONEL: grubu olmayan firma geçerli bir senaryo ve sunucu `null`
+  // kabul ediyor. Bir süre zorunluydu, o kural kalktı.
+  groupId: z.string(),
   description: z.string().max(GAS_FIRM_MAX_LENGTHS.description, {
     message: GAS_FIRM_ERRORS.descriptionTooLong,
   }),

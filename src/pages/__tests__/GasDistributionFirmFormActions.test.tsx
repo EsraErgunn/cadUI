@@ -93,16 +93,17 @@ describe('zorunlu alan doğrulaması', () => {
     expect(dfirmNoInput).not.toHaveAttribute('aria-invalid')
   })
 
-  // Grup firması artık zorunlu: seçilmeden kayıt oluşturulamaz.
-  it('grup seçilmeden kaydetmez ve hatasını gösterir', async () => {
+  /** Grup OPSİYONEL: seçilmeden de kayıt gitmeli, gövdede `groupId: null`. */
+  it('grup seçilmeden kaydeder ve gövdeye null gönderir', async () => {
     await openForm()
 
     await userEvent.type(screen.getByLabelText(/Firma Adı/), 'YENİ FİRMA')
     await userEvent.type(screen.getByLabelText(/Telefon/), '05551234567')
     await userEvent.click(saveButton())
 
-    expect(await screen.findByText(GAS_FIRM_ERRORS.group)).toBeInTheDocument()
-    expect(firmFormApi.createGasDistributionFirm).not.toHaveBeenCalled()
+    await waitFor(() => expect(firmFormApi.createGasDistributionFirm).toHaveBeenCalled())
+    const [payload] = firmFormApi.createGasDistributionFirm.mock.calls[0]
+    expect(payload.groupId).toBeNull()
   })
 
   it('eksik haneli telefonda biçim hatası verir', async () => {

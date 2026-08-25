@@ -83,7 +83,6 @@ export function GasFirmFormFields({ form }: GasFirmFormFieldsProps) {
       <SelectField
         id={gasFirmFieldId('groupId')}
         label="Grup Firması"
-        labelNote={REQUIRED_MARK}
         layout="horizontal"
         leftIcon={Network}
         placeholder={GROUP_PLACEHOLDER}
