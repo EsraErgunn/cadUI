@@ -52,7 +52,8 @@ export type RenderPlanPdfInput = {
   isometric: IsometricSvg | undefined
   /**
    * Belgeye GÖMÜLECEK proje JSON'u. Dosyayı hem pafta hem proje dosyası yapan
-   * şey bu — "Proje Dosyasını Aç" sayfayı okumaz, bunu geri alır.
+   * şey bu — sayfa hiç okunmaz, `extractProjectJson` bunu geri alır
+   * (core/pdf/projectPayload.ts; uygulama içinde geri okuyan bir yol yok).
    */
   projectJson: string
 }

@@ -68,7 +68,8 @@ değil; çözüm dar ekranda Test Et/Gönder'i ikon-only'ye düşürmek.
 
 **Dosya:** pages/EditorPage.tsx · ui/EditorSidebar.tsx · ui/MenuBar.tsx ·
 ui/menu/EditorActions.tsx · ui/menu/editorBarVariants.ts · ui/menu/menuIcons.ts ·
-ui/menu/menuDefinitions.ts · styles/index.css
+ui/menu/menuDefinitions.ts · ui/projects/{ProjectOpenDialog,ProjectRow,
+useMyProjects}.ts(x) · styles/index.css
 
 
 ## Dosya menüsü yalnız dosya işleri taşır (K111)
@@ -87,11 +88,19 @@ Menüden kalkanlar → gittiği yer:
   ikon düğmesi. O üçlü tek bir "sahne seçici" olarak okunmalı; bu ise bağımsız
   bir eylem. Künye bir "dosya işlemi" değil, her an bakılacak bilgi.
 
-Kalan on madde beş öbekte: aç/kaydet · JSON · PDF · proje dosyası · temizle.
+Kalan madde dört öbekte: Aç/Kaydet/Farklı Kaydet · JSON · Proje Dosyasını
+İndir · Temizle.
 
-⚠️ `Proje Dosyasını Aç/İndir` JSON DIŞI bir biçim için ayrılmış; `İçe/Dışa
+⚠️ `Proje Dosyasını İndir` JSON DIŞI bir biçim için ayrılmış; `İçe/Dışa
 Aktar`ın kopyası DEĞİL. Etikete "(JSON)" yazılmasının sebebi bu — yoksa
 sonraki gözden geçiren onları kopya sanıp siler.
+
+⚠️ **K179 (2026-08): `Proje Dosyasını Aç` (yerel `.starcad.pdf` yükleme)
+SİLİNDİ.** "Aç" artık AYRI bir kavram — proje DOSYASI değil, kullanıcının
+erişebildiği BAŞKA BİR PROJEYİ açar (`ProjectOpenDialog`, `ui/projects/`),
+navigasyonla (`/projects/:id/editor`), hiç dosya yüklemeden. Bu adlarla yeni
+kod yazma: `pages/useProjectFileOpen.ts`, `cadStore.loadProjectDrawing`,
+`OPEN_PROJECT_FILE_ITEM_ID`. bkz. `docs/kararlar.md` K179, `pdf-export.md`.
 
 ⚠️ Menü temizliğinde maddenin pasif GÖRÜNMESİ yetmez, ÜRETİMDEKİ hâline bak.
 `Farklı Kaydet` eski main'de ölüydü, güncel main'de çalışıyordu; eski koda

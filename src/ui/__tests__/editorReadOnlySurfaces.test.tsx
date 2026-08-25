@@ -26,7 +26,7 @@ const MENU_BAR_PROPS = {
   onCloseEditor: vi.fn(),
   onClearProject: vi.fn(),
   onDownloadProjectFile: vi.fn(),
-  onOpenProjectFile: vi.fn(),
+  onOpenProject: vi.fn(),
   onDownloadProjectInfo: vi.fn(),
   isDownloadingProjectInfo: false,
   onSave: vi.fn(),

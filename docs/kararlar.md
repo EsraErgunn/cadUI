@@ -9206,3 +9206,34 @@ ilgilendirmiyor.
 test `symbols` dizisini hiç vermiyordu ve döngü `undefined` üzerinde patladı.
 Üretimde dizi her zaman var (`CadState` başlangıç durumu); eksik olan test
 verisiydi, üretim koduna savunma eklenmedi.
+
+### K179 — "Aç": projeler arasında editörün İÇİNDEN geçiş; "Proje Dosyasını Aç" (PDF yükleme) SİLİNDİ
+
+Kullanıcı: editörden çıkıp proje listesine dönmeden, kendi projeleri arasında
+geçiş yapabilmek istiyor — ve bunun için bir PDF yüklemeyi İSTEMİYOR.
+
+Dosya menüsündeki pasif "Aç" maddesi (`OPEN_PROJECT_ITEM_ID`) buna bağlandı:
+`ProjectOpenDialog` kullanıcının erişebildiği projeleri listeler (`listProjects`
+dört durumdan PARALEL çekilip son güncellenen üstte birleştirilir,
+`useMyProjects.ts`), satıra tıklamak `/projects/:id/editor`'a NAVİGE eder.
+
+⚠️ Rota deseni AYNI olduğu için `EditorPage` yeniden MOUNT OLMAZ, yalnız
+`:projectId` değişir — `useProjectPersistence` bunu zaten karşılıyordu (proje
+değişince store sıfırlanıp yeni projenin son sürümü yükleniyor, K17 civarı).
+Kaydedilmemiş değişiklik varsa router'ın kendi engeli (`useBlocker`, K112)
+gezinmeyi durdurup her zamanki onay penceresini açıyor — "← Projeler" ile AYNI
+kapı, burada AYRICA sorulmuyor.
+
+**"Proje Dosyasını Aç" (yerel `.starcad.pdf` yükleyip `loadProjectDrawing` ile
+İÇE AKTARMA) bu kararla SİLİNDİ** — bu adlarla yeni kod yazma
+(`useProjectFileOpen.ts`, `cadStore.loadProjectDrawing`,
+`OPEN_PROJECT_FILE_ITEM_ID`). "Proje Dosyasını İndir" (dışa aktarma) KALIYOR:
+indirilen dosya hâlâ proje JSON'unu gömüyor (`core/pdf/projectPayload.ts`),
+yalnız onu uygulama İÇİNDE geri okuyan bir yol yok artık — dosya bir
+pafta + yedek/arşiv formatı, projeler arası geçişin aracı değil.
+
+⚠️ `loadProjectDrawing` `loadProject`ten BİLEREK ayrıydı (dosya açmak geri
+alınabilir bir DÜZENLEME sayılıyordu, proje geçişi ise "yeni bir başlangıç").
+O ayrımın artık tek tüketicisi yoktu, action ve kendi testi (`loadProjectDrawing.test.ts`)
+birlikte kaldırıldı — kullanılmayan store action'ı "ileride lazım olur" diye
+bırakmak yerine (CLAUDE.md kod hijyeni).

@@ -24,9 +24,11 @@ type ExportPdfDialogProps = {
  * açmadan karar vermeye zorluyordu; oysa kapsam da bir dışa aktarma ayarı.
  *
  * Üretilen dosya yalnız pafta değil, PROJE DOSYASI: çizim verisi belgeye
- * gömülüyor ve "Proje Dosyasını Aç" onu geri okuyor (core/pdf/projectPayload.ts).
- * Bu yüzden buradaki sayfa/kat seçimleri çıktının GÖRÜNEN kısmını belirliyor;
- * gömülü veri her zaman projenin tamamı.
+ * kayıpsız GÖMÜLÜYOR (core/pdf/projectPayload.ts) — uygulama içinde onu geri
+ * okuyan bir yol yok ("Proje Dosyasını Aç" SİLİNDİ, projeler arasında geçiş
+ * artık `ProjectOpenDialog` ile), gömme yalnız dosyayı bir yedek/arşiv formatı
+ * yapıyor. Bu yüzden buradaki sayfa/kat seçimleri çıktının GÖRÜNEN kısmını
+ * belirliyor; gömülü veri her zaman projenin tamamı.
  */
 export function ExportPdfDialog({ project, onClose }: ExportPdfDialogProps) {
   const floors = useCadStore((state) => state.floors)

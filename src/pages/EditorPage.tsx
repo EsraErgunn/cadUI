@@ -7,7 +7,6 @@ import { useEditorReadOnlyMode } from './useEditorReadOnlyMode'
 import { useEditorShortcuts } from './useEditorShortcuts'
 import { useEditorSubmit } from './useEditorSubmit'
 import { useProjectExport } from './useProjectExport'
-import { PROJECT_FILE_ACCEPT, useProjectFileOpen } from './useProjectFileOpen'
 import { useProjectImport } from './useProjectImport'
 import { useProjectPersistence } from './useProjectPersistence'
 import { useProjectSummary } from './useProjectSummary'
@@ -39,6 +38,7 @@ import { RoomDefinitionCard } from '../ui/canvas/RoomDefinitionCard'
 import { SolidToolbar } from '../ui/canvas/SolidToolbar'
 import { ExportPdfDialog } from '../ui/pdf/ExportPdfDialog'
 import { useDownloadProjectInfoPdf } from '../ui/pdf/useDownloadProjectInfoPdf'
+import { ProjectOpenDialog } from '../ui/projects/ProjectOpenDialog'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
@@ -64,17 +64,12 @@ export function EditorPage() {
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
-  const {
-    inputRef: projectFileInputRef,
-    error: projectFileError,
-    triggerOpen: triggerProjectFileOpen,
-    handleFileSelected: handleProjectFileSelected,
-  } = useProjectFileOpen()
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isFloorCopyOpen, setIsFloorCopyOpen] = useState(false)
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false)
   const [isClearProjectOpen, setIsClearProjectOpen] = useState(false)
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
+  const [isProjectOpenDialogOpen, setIsProjectOpenDialogOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
   const projectSummary = useProjectSummary(projectId)
   const {
@@ -159,7 +154,7 @@ export function EditorPage() {
           onCloseEditor={closeEditor}
           onClearProject={() => setIsClearProjectOpen(true)}
           onDownloadProjectFile={() => setIsPdfDialogOpen(true)}
-          onOpenProjectFile={triggerProjectFileOpen}
+          onOpenProject={() => setIsProjectOpenDialogOpen(true)}
           onDownloadProjectInfo={() => void downloadProjectInfo(projectSummary)}
           isDownloadingProjectInfo={isDownloadingProjectInfo}
           onSave={handleSave}
@@ -187,16 +182,6 @@ export function EditorPage() {
           onChange={handleFileSelected}
         />
 
-        {/* Dosya > Proje Dosyasını Aç. Ayrı input: kabul edilen tür farklı
-            (PDF); tek input paylaşılsaydı seçicide yanlış filtre görünürdü. */}
-        <input
-          ref={projectFileInputRef}
-          type="file"
-          accept={PROJECT_FILE_ACCEPT}
-          className="hidden"
-          onChange={handleProjectFileSelected}
-        />
-
         {error && (
           <p
             role="alert"
@@ -221,15 +206,6 @@ export function EditorPage() {
             className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
           >
             {projectInfoError}
-          </p>
-        )}
-
-        {projectFileError && (
-          <p
-            role="alert"
-            className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
-          >
-            {projectFileError}
           </p>
         )}
 
@@ -312,6 +288,13 @@ export function EditorPage() {
 
       {isPdfDialogOpen && (
         <ExportPdfDialog project={projectSummary} onClose={() => setIsPdfDialogOpen(false)} />
+      )}
+
+      {isProjectOpenDialogOpen && (
+        <ProjectOpenDialog
+          currentProjectId={projectId}
+          onClose={() => setIsProjectOpenDialogOpen(false)}
+        />
       )}
 
       {isClearProjectOpen && (

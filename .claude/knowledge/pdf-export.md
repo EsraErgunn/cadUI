@@ -26,17 +26,22 @@ Katlar ZEMİNDEN YUKARI basılır — `floors` dizisinin kendi sırası.
 
 ## Dosya hem pafta hem PROJE DOSYASI
 
-"Proje Dosyasını Aç" indirmenin tersi: PDF'ten çizimi geri yükler
-(`pages/useProjectFileOpen.ts`).
+⚠️ **K179 (2026-08): "Proje Dosyasını Aç" (bu dosyadan çizimi GERİ YÜKLEME)
+SİLİNDİ.** Bu adlarla yeni kod yazma: `pages/useProjectFileOpen.ts`,
+`cadStore.loadProjectDrawing`, `OPEN_PROJECT_FILE_ITEM_ID`. Kullanıcı kararı:
+projeler arasında geçiş bir PDF yüklemeden, editörün İÇİNDEN olmalı — bkz.
+`ui/projects/ProjectOpenDialog.tsx` (Dosya ▸ Aç), `docs/kararlar.md` K179.
+Aşağıdaki gömme mekaniği hâlâ GEÇERLİ (yalnız "Proje Dosyasını İndir" için,
+tek yönlü) — dosya artık yalnız bir pafta + kayıpsız yedek/arşiv formatı,
+projeler arası geçişin aracı değil.
 
 ⚠️ **Sayfa OKUNMUYOR, okunamaz da:** PDF'te duvar yok, vektör yolu var.
 Vektörden model üretmek ayrı ve kayıplı bir iş olurdu. Bunun yerine dışa
-aktarırken proje JSON'u belgeye GÖMÜLÜYOR, açarken oradan alınıyor. Gömülen şey
+aktarırken proje JSON'u belgeye GÖMÜLÜYOR (`extractProjectJson` onu geri
+çıkarabilir — yalnız round-trip testinde kullanılıyor,
+`ui/pdf/__tests__/projectFileRoundTrip.test.ts`). Gömülen şey
 `serializeProjectDataForBackend` çıktısı — "Dışa Aktar (JSON)" ve sunucuya
 kayıtla AYNI kaynak.
-
-⚠️ Yalnız STARCAD'in ürettiği dosya açılır. Başka programınkinde veri yoktur;
-anlaşılır hata verilir, sessizce boş proje YÜKLENMEZ.
 
 Dosya adı `<proje numarası>.starcad.pdf` — kat adı gibi bir EK yok, dosya
 projenin tamamını taşıyor.
@@ -44,15 +49,6 @@ projenin tamamını taşıyor.
 ⚠️ UZANTI `.pdf` KALIR. `.starcad` uzantı yapılıp GERİ ALINDI: dosya gerçekten
 PDF ve uzantıyı değiştirmek onu işletim sistemi için başka bir tür yapıyordu
 (çift tıklayınca görüntüleyici açılmıyordu). `.starcad` adın parçası.
-
-⚠️ Açma yalnız ÇİZİMİ ve KAT YAPISINI yükler; KÜNYEYE dokunmaz (zaten store'da
-durmuyor, CLAUDE.md kural 4). Store'a kimlik alanı eklenirse başkasının
-dosyasını açmak açık projenin künyesini ezer — test kilitliyor.
-
-⚠️ Açma GERİ ALINABİLİR: `loadProject` değil `loadProjectDrawing` çağrılıyor.
-`loadProject` geçmişi siler (başka projeye geçiş), dosya açmak ise bir
-DÜZENLEME. Kirli işaret de durur. Sayaç `Math.max` ile geriye çekilmez — geri
-alma eski nesneleri geri getiriyor, küçülen sayaç id tekrarı üretirdi.
 
 ⚠️ jsPDF 4.2'de attachment API'si YOK, `addMetadata` var → veri XMP akışında.
 Okuma tarafı PDF'i DÜZ METİN olarak tarıyor; belge `compress` olmadan
@@ -63,14 +59,16 @@ sessizce boş döner.
 verisi Türkçe karakter taşıyor. Okurken baytlar `latin1` ile çözülüyor — `utf-8`
 PDF'in ikili kısımlarını bozardı.
 
-⚠️ Gelen JSON `core/serialize.ts` şemasından geçiyor: "İçe Aktar (JSON)" ile
-AYNI doğrulama yolu, ikinci bir okuma mantığı yazılmadı.
-
 "İçe/Dışa Aktar (JSON)" kopya DEĞİL: onlar ham veri alışverişi, bunlar teslim
 edilebilir dosya.
 
-⚠️ **ANTET KALKTI.** `core/pdf/titleBlock.ts` SİLİNDİ — bu adla yeni kod yazma;
-künyeyi kapak sayfası taşıyor, kat planı sayfası yalnız çizim.
+⚠️ **ANTET kısmen geri geldi.** Eski TAM künye bloğu (`core/pdf/titleBlock.ts`)
+hâlâ SİLİNDİ — bu adla yeni kod yazma, proje künyesini kapak sayfası taşımaya
+devam ediyor. Ama kat planı sayfaları artık TAMAMEN çizim değil: kenar boşluğu
+şeridine (çizim alanının DIŞI) kat adı basılıyor (`getFloorPlanTitle` →
+"Zemin Kat Planı" / "1. Kat Planı" / "Bodrum Kat Planı" / "Dubleks Planı" gibi,
+`renderPlanPdf.ts`'teki `drawFloorTitle`) — hangi kata bakıldığı kapağa
+dönmeden anlaşılsın diye (kullanıcı isteği, 2026-08).
 
 ⚠️ **Kapakta MOCK ALAN YOK** (K159): her değer ya gerçek bir uçtan ya çizimden.
 `ProjectDetail.extras` bu yoldan TÜMÜYLE çıktı — detay EKRANI onu kullanmaya
@@ -383,8 +381,10 @@ yazılmaz.
 **Dosya:** core/pdf/{paper,planSvg,planSvgObjects,planSvgAnnotations,
 planSvgInstallation,svgPrimitives,coverPage,coverPageCells,coverPageFields,
 sitePlanSvg,elevationSvg,footprint,footprintSvg,floorLevels,installationSummary,
-projectPayload,isometricSvg,isometricLabelSvg}.ts ·
+projectPayload,isometricSvg,isometricLabelSvg}.ts · core/floors.ts
+(getFloorPlanTitle) ·
 ui/pdf/{renderPlanPdf,planPdfFont,planPdfLogo,ExportPdfDialog,ExportPdfOptions,
-useExportPdf}.ts(x) · pages/{useProjectSummary,useProjectFileOpen}.ts ·
-store/cadStore.ts (loadProjectDrawing) ·
+exportPdfDefaults,useExportPdf,useDownloadProjectInfoPdf}.ts(x) ·
+ui/projects/{ProjectOpenDialog,ProjectRow,useMyProjects}.ts(x) ·
+pages/useProjectSummary.ts ·
 scripts/woffToTtf.mjs

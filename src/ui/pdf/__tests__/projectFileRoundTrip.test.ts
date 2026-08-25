@@ -37,7 +37,7 @@ async function renderPdfText(projectJson: string): Promise<string> {
     projectJson,
   })
 
-  // "Proje Dosyasını Aç"ın yaptığının aynısı: baytları latin1 ile oku.
+  // `extractProjectJson`ın beklediğiyle aynısı: baytları latin1 ile oku.
   return new TextDecoder('latin1').decode(await blob.arrayBuffer())
 }
 

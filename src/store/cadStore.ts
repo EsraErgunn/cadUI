@@ -40,11 +40,6 @@ export type CadState = ProjectMetaSlice &
   IsometricSlice & {
     /** Depodan gelen çizimi state'e yükler. Şema doğrulaması api/serialize'ın işi. */
     loadProject: (data: ProjectData) => void
-    /**
-     * Dosyadan gelen ÇİZİMİ ve KAT YAPISINI yükler; geri alınabilir bir
-     * DÜZENLEME olarak. "Proje Dosyasını Aç" bunu çağırır.
-     */
-    loadProjectDrawing: (data: ProjectData) => void
     /** Boş projeye döner. Editör başka bir projeye geçerken çağrılır. */
     resetProject: () => void
     /** Çizimi boşaltır; proje kimliği ve kat yapısı KALIR. Menüden tetiklenir. */
@@ -137,7 +132,7 @@ const READ_ONLY_SAFE_ACTIONS: ReadonlySet<string> = new Set([
  * kapsamlıdır ama kanıtlanabilir değildir: yarın `scene/` altına eklenen bir
  * araç kapıyı atlardı.
  *
- * Sarmalanan yalnız SLICE'lar, `loadProjectDrawing` ve `clearProjectDrawing`.
+ * Sarmalanan yalnız SLICE'lar ve `clearProjectDrawing`.
  * `loadProject`,
  * `resetProject` ve `markSaved` bilerek dışarıda: birincisi çizimin
  * GÖRÜNMESİNİN tek yolu, ikincisi proje değişiminde gerekli, üçüncüsü kirli
@@ -247,54 +242,6 @@ export const useCadStore = create<CadState>()(
         // `markSaved` / `loadProject` / `resetProject` bilerek dışarıda:
         // görüntülemenin kendisi onlara bağlı.
         ...guardReadOnlyActions({
-          /**
-           * "Proje Dosyasını Aç": dosyadaki ÇİZİMİ ve KAT YAPISINI yükler.
-           *
-           * ⚠️ Kapının İÇİNDE — `loadProject`ten farkı bu: o, çizimin görünmesinin
-           * tek yolu ve salt görüntülemede de çalışmalı; bu ise kullanıcının
-           * yazdığı bir değişiklik, salt görüntülemede açık projeyi ezmemeli.
-           *
-           * `loadProject`ten AYRI ve ondan türetilmedi — üç fark, üçü de bilerek
-           * (`clearProjectDrawing` ile aynı gerekçeler):
-           * - PROJE KÜNYESİ değişmez. Zaten store'da durmuyor (CLAUDE.md kural 4):
-           *   proje adı, numarası, taraflar ve tarihler uçtan geliyor
-           *   (`useProjectSummary`). Buraya bir kimlik alanı EKLENMEMELİ; eklenirse
-           *   başkasının dosyasını açmak açık projenin künyesini ezerdi.
-           * - GEÇMİŞ SIFIRLANMAZ. Dosya açmak bir düzenlemedir: tek Ctrl+Z önceki
-           *   çizimi geri getirmeli. `loadProject` geçmişi siliyor çünkü o "yeni
-           *   bir başlangıç" (başka projeye geçiş).
-           * - KİRLİ İŞARET DURUR. Açılan çizim kaydedilmemiş bir değişikliktir;
-           *   `savedContent` tazelenseydi kullanıcı çıkarken uyarılmaz ve işini
-           *   sessizce kaybederdi.
-           */
-          loadProjectDrawing: (data: ProjectData) => {
-            set((draft) => {
-              // ⚠️ Sayaç GERİYE ÇEKİLMEZ: dosyadaki değer düşük olabilir ve geri
-              // alma açılan çizimi kaldırınca eski nesneler dönüyor. Küçülen bir
-              // sayaç var olan bir id'yi ikinci kez üretirdi
-              // (knowledge/id-scheme.md yasağı).
-              draft.nextUniqueId = Math.max(draft.nextUniqueId, data.nextUniqueId)
-              draft.floors = data.floors
-              draft.activeFloorId = data.activeFloorId
-              draft.points = data.points
-              draft.walls = data.walls
-              draft.openings = data.openings
-              draft.rooms = data.rooms
-              draft.symbols = data.symbols
-              draft.areaObjects = data.areaObjects
-              draft.beams = data.beams
-              draft.texts = data.texts
-              draft.installationElements = data.installationElements
-              draft.installationLines = data.installationLines
-              draft.installationConnections = data.installationConnections
-              draft.floorPipeLinks = data.floorPipeLinks
-              markDirty(draft)
-            })
-            // Bu bir DÜZENLEME (geçmiş sıfırlanmıyor, K136): ayna yeni durumu
-            // alır, önceki durum tesisat geçmişine adım olarak düşer.
-            mirrorPlumbingHistory(false)
-          },
-
           /**
            * "Projeyi Temizle": çizim içeriğini boşaltır.
            *

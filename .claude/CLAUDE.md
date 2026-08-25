@@ -121,10 +121,22 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   (bkz. knowledge/label-visibility.md, knowledge/ghost-layers.md)
 - `src/ui/` — MenuBar/menu/EditorSidebar/Toolbar/tools/canvas/controls/pdf(D), PropertyPanel/properties(B), WarningList+validation(C).
   PDF dışa aktarma `ui/pdf/` altında (K136); boş yer tutucu `ui/ExportDialog.tsx`
-  SİLİNDİ — bu adla yeni kod yazma. **"Proje Dosyasını İndir/Aç" ARTIK
+  SİLİNDİ — bu adla yeni kod yazma. **"Proje Dosyasını İndir" ARTIK
   ÇALIŞIYOR** ve biçimi PDF: çizim verisi belgeye gömülü
-  (`core/pdf/projectPayload.ts`), açma onu geri okuyor — sayfadaki VEKTÖRLER
-  OKUNMUYOR, okunamaz da. Yalnız StarCAD'in ürettiği PDF açılır.
+  (`core/pdf/projectPayload.ts`) — sayfadaki VEKTÖRLER OKUNMUYOR, okunamaz da,
+  gömme yalnız dosyayı bir yedek/arşiv formatı yapıyor. Kat planı sayfalarının
+  kenar boşluğunda antet olarak kat adı basılır (`getFloorPlanTitle`, kat
+  planı şeklinde: bodrum/zemin/N./asma/çatı/dubleks). Üst bardaki "Proje
+  Bilgileri" ikonu bu pencereyle AYNI içeriği (kapak + vaziyet planı + tüm
+  katlar + izometrik, `DEFAULT_EXPORT_PDF_SETTINGS`) pencere açmadan tek tıkla
+  indirir, yalnız YÖN dikeye sabitlenir (`useDownloadProjectInfoPdf.ts`).
+  ⚠️ **"Proje Dosyasını Aç" (yerel `.starcad.pdf` yükleyip içe aktarma) SİLİNDİ**
+  (K179) — bu adla yeni kod yazma (`useProjectFileOpen.ts`,
+  `cadStore.loadProjectDrawing`). Dosya menüsündeki "Aç" artık PROJE DOSYASI
+  değil, kullanıcının erişebildiği BAŞKA BİR PROJEYİ açar: `ProjectOpenDialog`
+  (`ui/projects/`) sitedeki projeleri listeler, seçim `/projects/:id/editor`'a
+  NAVİGE eder — aynı rota deseni sayesinde `EditorPage` yeniden mount olmaz,
+  `useProjectPersistence` proje değişimini zaten karşılıyordu.
   Kabuk yeniden kuruldu (K90–K93): üst barda yalnız Dosya + Araçlar, kip
   ayarları tuvalin yüzen çubuğunda; `StatusBar`, `AxisIndicator` ve
   `menu/ShortcutButtons` SİLİNDİ — bu adlarla yeni kod yazma. **Hata

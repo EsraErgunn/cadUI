@@ -3,14 +3,16 @@
  *
  * ⚠️ Bir PDF sayfası ÇİZİMDİR, veri değil: kâğıttaki duvar bir vektör yolu,
  * boru bir çizgi. Sayfadan geri model üretmek (yolları tanıyıp duvara/boruya
- * çevirmek) ayrı ve kayıplı bir iş olurdu. Bu yüzden "Proje Dosyasını Aç"
- * sayfayı OKUMUYOR: dışa aktarırken proje JSON'u belgenin XMP metadata'sına
- * gömülüyor, açarken oradan geri alınıyor. Böylece dosya hem basılabilir bir
- * pafta hem de kayıpsız bir proje dosyası oluyor.
+ * çevirmek) ayrı ve kayıplı bir iş olurdu. Bu yüzden sayfa hiç OKUNMUYOR:
+ * "Proje Dosyasını İndir" dışa aktarırken proje JSON'unu belgenin XMP
+ * metadata'sına gömüyor, `extractProjectJson` onu geri çıkarıyor (bkz. round
+ * trip testi, `ui/pdf/__tests__/projectFileRoundTrip.test.ts`). Böylece dosya
+ * hem basılabilir bir pafta hem de kayıpsız bir proje dosyası oluyor.
  *
- * ⚠️ Bunun bedeli: yalnız STARCAD'in ürettiği PDF açılabilir. Başka bir
- * programın PDF'inde bu veri yoktur ve açılmaya çalışılırsa anlaşılır bir hata
- * verilir — sessizce boş proje yüklenmez.
+ * ⚠️ Uygulama İÇİNDE bunu geri okuyan bir yol YOK: "Proje Dosyasını Aç" (yerel
+ * dosyadan içe aktarma) SİLİNDİ (bkz. `ui/menu/menuDefinitions.ts`) — projeler
+ * arasında geçiş artık `ProjectOpenDialog` ile, dosya olmadan. Gömme yine de
+ * duruyor: indirilen dosya kayıpsız bir yedek/arşiv formatı olarak kalıyor.
  */
 
 /** Gömülü verinin sarmalandığı etiket; PDF metninde bu ada göre aranıyor. */
