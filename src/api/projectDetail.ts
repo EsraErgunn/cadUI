@@ -70,12 +70,6 @@ const projectDetailDtoSchema = z.object({
   // döndürmüyor, yerine yetki kaydının kimliğini veriyor. Firma künyesi bu
   // yüzden `project-firm-authorizations` üzerinden çözülüyor (K159).
   projectFirmAuthorizationId: z.number().int().nullish(),
-  gasDistributionFirmId: z.number().int().nullish(),
-  projectTypeName: z.string().nullish(),
-  heatingTypeName: z.string().nullish(),
-  apartmentCount: z.number().nullish(),
-  workplaceCount: z.number().nullish(),
-  areaSquareMeters: z.number().nullish(),
   status: z.string().nullish(),
   statusName: z.string().nullish(),
   projectTypeName: z.string().nullish(),
@@ -84,7 +78,8 @@ const projectDetailDtoSchema = z.object({
   isPermitProject: z.boolean().nullish(),
   apartmentCount: z.number().int().nullish(),
   workplaceCount: z.number().int().nullish(),
-  areaSquareMeters: z.number().int().nullish(),
+  // Adetlerin aksine tam sayı DEĞİL: alan kesirli gelebiliyor (120,5 m²).
+  areaSquareMeters: z.number().nullish(),
   capacity: z.number().int().nullish(),
   serviceBoxPressureMbar: z.number().int().nullish(),
   createdAt: z.string(),
@@ -130,6 +125,23 @@ export async function getProjectDetail(
     districtName: toNullable(dto.districtName),
     addressLine: toNullable(dto.addressLine),
     blockLotParcel: toNullable(dto.blockLotParcel),
+    projectFirmAuthorizationId: dto.projectFirmAuthorizationId ?? null,
+    gasDistributionFirmId: dto.gasDistributionFirmId ?? null,
+    projectTypeName: toNullable(dto.projectTypeName),
+    heatingTypeName: toNullable(dto.heatingTypeName),
+    apartmentCount: dto.apartmentCount ?? null,
+    workplaceCount: dto.workplaceCount ?? null,
+    areaSquareMeters: dto.areaSquareMeters ?? null,
+    buildingCode: toNullable(dto.buildingCode ?? dto.code),
+    // Canlı yanıt bu alanı DÖNDÜRMÜYOR (K159); firma künyesi
+    // `projectFirmAuthorizationId` üzerinden çözülüyor, burada uydurulmuyor.
+    projectFirmId: null,
+    projectType: toNullable(dto.projectTypeName),
+    heatingType: toNullable(dto.heatingTypeName),
+    buildingUsageType: toNullable(dto.buildingUsageTypeName),
+    isPermitProject: dto.isPermitProject ?? false,
+    capacityCubicMeterPerHour: dto.capacity ?? null,
+    serviceBoxPressureMbar: dto.serviceBoxPressureMbar ?? null,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   }

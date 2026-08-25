@@ -149,7 +149,7 @@ export function useProjectSummary(projectId: number | undefined): ProjectSummary
   }
 
   const { streetName, doorNumber } = splitStreetDoorNo(toText(server.addressLine))
-  const historyRows = history?.data ?? []
+  const historyRows = history ?? []
 
   return {
     name: server.name,

@@ -61,7 +61,7 @@ function wrapper({ children }: { children: ReactNode }) {
 beforeEach(() => {
   vi.clearAllMocks()
   api.getProjectDetail.mockResolvedValue({ server: serverFields(), extras: null })
-  api.getProjectHistory.mockResolvedValue({ source: 'server', data: [] })
+  api.getProjectHistory.mockResolvedValue([])
   api.getProjectFirmAuthorizations.mockResolvedValue([
     {
       id: 17,
@@ -128,21 +128,18 @@ describe('useProjectSummary', () => {
   })
 
   it('ADMIN oluşturmuşsa tasarımcı firma yetkilisine düşer', async () => {
-    api.getProjectHistory.mockResolvedValue({
-      source: 'server',
-      data: [
-        {
-          id: 'a',
-          fileType: null,
-          createdAt: '2026-07-03T08:00:00.000Z',
-          userName: 'Sistem Yöneticisi',
-          roleSnapshot: 'Yönetici',
-          operation: 'projeKayit',
-          operationName: 'Proje Kayıt',
-          description: null,
-        },
-      ],
-    })
+    api.getProjectHistory.mockResolvedValue([
+      {
+        id: 'a',
+        fileType: null,
+        createdAt: '2026-07-03T08:00:00.000Z',
+        userName: 'Sistem Yöneticisi',
+        roleSnapshot: 'Yönetici',
+        operation: 'projeKayit',
+        operationName: 'Proje Kayıt',
+        description: null,
+      },
+    ])
 
     const { result } = renderHook(() => useProjectSummary(PROJECT_ID), { wrapper })
 
@@ -151,21 +148,18 @@ describe('useProjectSummary', () => {
   })
 
   it('proje firması kullanıcısı oluşturmuşsa ONUN adı yazılır', async () => {
-    api.getProjectHistory.mockResolvedValue({
-      source: 'server',
-      data: [
-        {
-          id: 'a',
-          fileType: null,
-          createdAt: '2026-07-03T08:00:00.000Z',
-          userName: 'Ahmet Yılmaz',
-          roleSnapshot: 'Proje Firması Kullanıcısı',
-          operation: 'projeKayit',
-          operationName: 'Proje Kayıt',
-          description: null,
-        },
-      ],
-    })
+    api.getProjectHistory.mockResolvedValue([
+      {
+        id: 'a',
+        fileType: null,
+        createdAt: '2026-07-03T08:00:00.000Z',
+        userName: 'Ahmet Yılmaz',
+        roleSnapshot: 'Proje Firması Kullanıcısı',
+        operation: 'projeKayit',
+        operationName: 'Proje Kayıt',
+        description: null,
+      },
+    ])
 
     const { result } = renderHook(() => useProjectSummary(PROJECT_ID), { wrapper })
 
