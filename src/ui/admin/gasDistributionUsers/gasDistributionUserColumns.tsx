@@ -1,7 +1,11 @@
+import { Link } from 'react-router-dom'
+
 import type { GasDistributionUserRow } from '../../../api/gasDistributionUsers'
 import { formatPhone, toNormalizedPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
+import { gasDistributionUserUpdatePath } from '../adminNavItems'
+import { ADMIN_CELL_LINK } from '../adminVariants'
 
 export const GAS_DISTRIBUTION_USER_TABLE_CAPTION =
   'Gaz dağıtım firması kullanıcıları listesi.'
@@ -40,15 +44,26 @@ function renderPhone(value: string | null | undefined) {
  * şemada opsiyonel olarak duruyor — uç bir gün doldurursa sütun geri gelebilir.
  */
 export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserRow>[] = [
+  // Kullanıcı adı ve ad soyad güncelleme ekranına GÖTÜRÜR — proje firması
+  // kullanıcıları tablosundaki desen: satırın kimliğini taşıyan iki hücre
+  // düzenlemenin girişi, ayrı bir "Düzenle" sütunu açılmıyor.
   {
     key: 'username',
     label: 'Kullanıcı Adı',
-    cell: (row) => row.username,
+    cell: (row) => (
+      <Link to={gasDistributionUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
+        {row.username}
+      </Link>
+    ),
   },
   {
     key: 'fullName',
     label: 'Adı Soyadı',
-    cell: (row) => row.fullName,
+    cell: (row) => (
+      <Link to={gasDistributionUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
+        {row.fullName}
+      </Link>
+    ),
   },
   {
     key: 'email',

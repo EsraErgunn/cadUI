@@ -18,13 +18,15 @@ import { registerUser } from '../../../api/auth'
 import { ApiError } from '../../../api/http'
 import { ROLE_CODES } from '../../../api/roles'
 import { buildUsernameFromFullName } from '../../../api/turkishText'
+import { toUserPayload, updateUser, type User } from '../../../api/users'
 import { toPhoneDigits } from '../../../core/phone'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { GAS_DISTRIBUTION_USERS_PATH } from '../adminNavItems'
 import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../adminVariants'
 
-const FORM_LABEL = 'Yeni Gaz Dağıtım Kullanıcısı'
+const CREATE_FORM_LABEL = 'Yeni Gaz Dağıtım Kullanıcısı'
+const UPDATE_FORM_LABEL = 'Gaz Dağıtım Kullanıcısı Güncelleme'
 
 const CANCEL_TITLE = 'Kaydedilmemiş değişiklikler var'
 const CANCEL_DESCRIPTION = 'Yapılan değişiklikler kaydedilmeden çıkılacaktır.'
@@ -32,20 +34,44 @@ const CANCEL_DESCRIPTION = 'Yapılan değişiklikler kaydedilmeden çıkılacakt
 const SUBMIT_ERROR_MESSAGE =
   'Kullanıcı kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
 
+export interface GasDistributionUserFormProps {
+  /** `null` → oluşturma; dolu → güncelleme (aynı ekran, proje firması deseni). */
+  user?: User | null
+}
+
 /**
- * Yeni gaz dağıtım kullanıcısı. Kayıt GERÇEK uca gidiyor
- * (POST /api/auth/register); rol sabit — ekran yalnız gaz dağıtım kullanıcısı
- * üretiyor, seçtirilecek bir şey yok.
+ * Gaz dağıtım kullanıcısı — oluşturma ve GÜNCELLEME aynı ekran.
+ *
+ * Oluşturma `POST /api/auth/register`, güncelleme `PUT /api/users/{id}`. Rol
+ * sabit: ekran yalnız gaz dağıtım kullanıcısı üretiyor, seçtirilecek bir şey yok.
  *
  * `projectFirmId` gövdeye `null` gidiyor: gövde iki firma bağını da taşıyor ama
  * bu roldeki kullanıcı proje firmasına bağlanmıyor.
+ *
+ * GÜNCELLEMEDE kullanıcı adı ve şifre alanları ÇİZİLMEZ — `UserUpdateDto`
+ * ikisini de almıyor. Düzenlenebilir alanlar sunucunun gerçekten kabul
+ * ettikleri: ad soyad, e-posta, telefon ve gaz dağıtım firması. Gövde okunan
+ * kayıttan türetiliyor (`toUserPayload`), böylece ekranda olmayan alanlar
+ * (rol, proje firması bağı) silinmiyor.
  */
-export function GasDistributionUserForm() {
+export function GasDistributionUserForm({ user = null }: GasDistributionUserFormProps = {}) {
+  const isUpdate = user !== null
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [values, setValues] = useState<GasDistributionUserFormValues>(
-    buildEmptyGasDistributionUserValues,
+  const [values, setValues] = useState<GasDistributionUserFormValues>(() =>
+    user === null
+      ? buildEmptyGasDistributionUserValues()
+      : {
+          ...buildEmptyGasDistributionUserValues(),
+          email: user.email ?? '',
+          phoneDigits: user.phone === null || user.phone === undefined ? '' : toPhoneDigits(user.phone),
+          fullName: user.fullName,
+          username: user.username,
+          gasFirmId: user.gasDistributionFirmId === null || user.gasDistributionFirmId === undefined
+            ? ''
+            : String(user.gasDistributionFirmId),
+        },
   )
   const [errors, setErrors] = useState<GasDistributionUserErrors>({})
   const [isDirty, setIsDirty] = useState(false)
@@ -99,7 +125,7 @@ export function GasDistributionUserForm() {
     event.preventDefault()
     setSubmitError(null)
 
-    const { errors: fieldErrors, data } = validateGasDistributionUser(values)
+    const { errors: fieldErrors, data } = validateGasDistributionUser(values, { isUpdate })
     setErrors(fieldErrors)
 
     const firstInvalid = firstGasDistributionUserErrorField(fieldErrors)
@@ -114,20 +140,38 @@ export function GasDistributionUserForm() {
 
     setIsSubmitting(true)
     try {
-      const saved = await registerUser({
-        fullName: data.fullName.trim(),
-        email: data.email.trim(),
-        username: data.username.trim(),
-        password: data.password,
-        phone: data.phoneDigits === '' ? null : data.phoneDigits,
-        roleCode: ROLE_CODES.gasDistributionUser,
-        projectFirmId: null,
-        gasDistributionFirmId: Number(data.gasFirmId),
-      })
+      // Gövde OKUNAN kayıttan türetiliyor: `UserUpdateDto` tüm alanları bekliyor
+      // ve ekranda olmayanlar (rol, proje firması bağı) geri gönderilmezse
+      // sunucuda silinirdi.
+      const savedUserId = isUpdate
+        ? await (async () => {
+            await updateUser(
+              user.id,
+              toUserPayload(user, {
+                fullName: data.fullName.trim(),
+                email: data.email.trim(),
+                phone: data.phoneDigits === '' ? null : data.phoneDigits,
+                gasDistributionFirmId: Number(data.gasFirmId),
+              }),
+            )
+            return user.id
+          })()
+        : (
+            await registerUser({
+              fullName: data.fullName.trim(),
+              email: data.email.trim(),
+              username: data.username.trim(),
+              password: data.password,
+              phone: data.phoneDigits === '' ? null : data.phoneDigits,
+              roleCode: ROLE_CODES.gasDistributionUser,
+              projectFirmId: null,
+              gasDistributionFirmId: Number(data.gasFirmId),
+            })
+          ).id
 
-      // Liste taze veriyle açılmalı: yeni kayıt toplam adede ve listeye yansısın.
+      // Liste taze veriyle açılmalı: kayıt toplam adede ve listeye yansısın.
       void queryClient.invalidateQueries({ queryKey: ['gasDistributionUsers'] })
-      goToList(saved.id)
+      goToList(savedUserId)
     } catch (error) {
       // Sunucunun kendi Türkçe metni KORUNUYOR: çakışan e-posta / kullanıcı adı
       // kendi mesajıyla geliyor, genel bir cümle neyi düzelteceğini söylemezdi.
@@ -152,7 +196,7 @@ export function GasDistributionUserForm() {
         <NoticeBar tone="error" message={submitError} onDismiss={() => setSubmitError(null)} />
       )}
 
-      <form noValidate aria-label={FORM_LABEL} onSubmit={(event) => void handleSubmit(event)}>
+      <form noValidate aria-label={isUpdate ? UPDATE_FORM_LABEL : CREATE_FORM_LABEL} onSubmit={(event) => void handleSubmit(event)}>
         {/* `fieldset` gönderim sürerken TÜM alanları kilitler; `min-w-0` şart —
             tarayıcı varsayılanı `min-content`. */}
         <fieldset disabled={isSubmitting} className="flex min-w-0 flex-col gap-5">
@@ -160,6 +204,7 @@ export function GasDistributionUserForm() {
             values={values}
             errors={errors}
             firmOptions={firmOptions}
+            isUpdate={isUpdate}
             onChange={setValue}
           />
 

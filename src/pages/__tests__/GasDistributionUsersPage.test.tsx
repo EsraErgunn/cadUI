@@ -78,3 +78,26 @@ describe('gaz dağıtım kullanıcıları listesi', () => {
     expect(within(table).getByText('mehmet@ornek.local')).toBeInTheDocument()
   })
 })
+
+/**
+ * Düzenleme, Proje Firması Kullanıcıları ekranındaki desenin aynısı: satırın
+ * kimliğini taşıyan hücreler güncelleme ekranına GÖTÜRÜR, ayrı bir "Düzenle"
+ * sütunu açılmaz.
+ */
+describe('gaz dağıtım kullanıcısı düzenleme girişi', () => {
+  it('kullanıcı adı ve ad soyad güncelleme ekranına bağlanır', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    const target = `${GAS_DISTRIBUTION_USERS_PATH}/${USER.id}`
+
+    expect(within(table).getByRole('link', { name: USER.username })).toHaveAttribute(
+      'href',
+      target,
+    )
+    expect(within(table).getByRole('link', { name: USER.fullName })).toHaveAttribute(
+      'href',
+      target,
+    )
+  })
+})
