@@ -54,13 +54,13 @@ describe('FloorRail', () => {
 
   it('etiket kat ADINDAN değil SIRADAN gelir', () => {
     useCadStore.setState({
-      floors: [createGroundFloor(), floor(20, 'Asma Kat')],
+      floors: [createGroundFloor(), floor(20, 'Teras')],
     })
     render(<FloorRail />)
 
     expect(railLabels()).toEqual(['1', 'Z'])
     // Ad erişilebilir adda ve ipucunda duruyor.
-    expect(screen.getByRole('radio', { name: 'Asma Kat' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Teras' })).toBeInTheDocument()
   })
 
   it('tıklayınca aktif kat değişir', async () => {

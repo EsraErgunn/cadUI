@@ -9,17 +9,21 @@ import {
   createFloorPlanDraft,
   getAddableFloorCount,
   removeDraftFloors,
-  renameDraftFloor,
   reorderDraftFloor,
   setDraftActiveFloor,
   setDraftFloorCopies,
   setDraftFloorHeight,
   setDraftFloorSelection,
+  setDraftFloorType,
   type AddDraftFloorInput,
   type DraftFloorCopy,
   type FloorPlanDraft,
 } from '../../core/floorPlan'
-import { moveFloorInList } from '../../core/floors'
+import {
+  moveFloorInList,
+  withPositionalNames,
+  type FloorType,
+} from '../../core/floors'
 import type { Id } from '../../core/model'
 import { useCadStore } from '../../store/cadStore'
 
@@ -132,8 +136,6 @@ export function useFloorPlanDraft() {
         setDraft((current) => addDraftFloors(current, input, count)),
       remove: (floorIds: readonly Id[]) =>
         setDraft((current) => removeDraftFloors(current, floorIds)),
-      rename: (floorId: Id, name: string) =>
-        setDraft((current) => renameDraftFloor(current, floorId, name)),
       setHeight: (floorId: Id, heightCm: number) => {
         let isApplied = false
         setDraft((current) => {
@@ -148,13 +150,18 @@ export function useFloorPlanDraft() {
       moveByKey: (floorId: Id, direction: 'up' | 'down') =>
         setDraft((current) => {
           const floors = moveFloorInList(current.floors, floorId, direction)
-          return floors === current.floors ? current : { ...current, floors: [...floors] }
+          // Sıra değişti: adlar da konuma göre yer değiştirmeli (K167).
+          return floors === current.floors
+            ? current
+            : { ...current, floors: [...withPositionalNames(floors)] }
         }),
       makeActive: (floorId: Id) => setDraft((current) => setDraftActiveFloor(current, floorId)),
       select: (floorIds: readonly Id[]) =>
         setDraftQuietly((current) => setDraftFloorSelection(current, floorIds)),
       copyTo: (targetFloorIds: readonly Id[], copy: DraftFloorCopy) =>
         setDraft((current) => setDraftFloorCopies(current, targetFloorIds, copy)),
+      setType: (floorId: Id, type: FloorType | null) =>
+        setDraft((current) => setDraftFloorType(current, floorId, type)),
       clearCopy: (floorId: Id) => setDraft((current) => clearDraftFloorCopy(current, floorId)),
     }),
     [setDraft, setDraftQuietly],

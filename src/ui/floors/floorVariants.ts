@@ -57,6 +57,26 @@ export const floorContentDotVariants = cva('inline-block size-2.5 rounded-full b
   defaultVariants: { tone: 'empty' },
 })
 
+/**
+ * Aktif kat düğmesi (K168): adın hemen SOLUNDA, radyo okunuşlu bir halka.
+ * Aktifken ve üzerine gelindiğinde içi dolar ve BÜYÜR — sabit boyutlu bir
+ * halka "buraya tıklanabilir" olduğunu yeterince söylemiyordu.
+ */
+export const floorActiveDotVariants = cva(
+  'inline-flex size-5 shrink-0 items-center justify-center rounded-full transition-transform ' +
+    'disabled:cursor-default ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70',
+  {
+    variants: {
+      isActive: {
+        true: 'scale-110 text-brand',
+        false: 'text-ink-disabled hover:scale-110 hover:text-ink-muted',
+      },
+    },
+    defaultVariants: { isActive: false },
+  },
+)
+
 /** Satırdaki yazıdan alana dönüşen alanlar; dinlenme hâlinde çerçevesiz. */
 export const floorInlineFieldVariants = cva(
   'rounded border border-transparent bg-transparent px-1.5 py-0.5 text-sm text-ink ' +

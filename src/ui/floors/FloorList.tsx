@@ -5,7 +5,7 @@ import { FLOOR_FOCUS_RING } from './floorVariants'
 import type { FloorContent } from '../../core/floorContent'
 import { getFloorRangeIds } from '../../core/floorCopyPlan'
 import type { DraftFloor, FloorPlanDraft } from '../../core/floorPlan'
-import { MIN_FLOOR_COUNT } from '../../core/floors'
+import { MIN_FLOOR_COUNT, type FloorType } from '../../core/floors'
 import type { Id } from '../../core/model'
 
 type FloorListProps = {
@@ -15,11 +15,10 @@ type FloorListProps = {
   mode: FloorRowMode
   copySourceFloorId: Id | null
   copyTargetIds: readonly Id[]
-  nameErrorOf: (floorId: Id) => string | undefined
   onSelectionChange: (floorIds: readonly Id[]) => void
-  onRename: (floorId: Id, name: string) => boolean
   onSetHeight: (floorId: Id, heightCm: number) => boolean
   onMakeActive: (floorId: Id) => void
+  onSetType: (floorId: Id, type: FloorType | null) => void
   onCopyFrom: (floorId: Id) => void
   onClearCopy: (floorId: Id) => void
   onRemove: (floorId: Id) => void
@@ -43,11 +42,10 @@ export function FloorList({
   mode,
   copySourceFloorId,
   copyTargetIds,
-  nameErrorOf,
   onSelectionChange,
-  onRename,
   onSetHeight,
   onMakeActive,
+  onSetType,
   onCopyFrom,
   onClearCopy,
   onRemove,
@@ -98,6 +96,7 @@ export function FloorList({
       <FloorRow
         key={floor.id}
         floor={floor}
+        floors={draft.floors}
         elevationCm={elevationsCm[index]}
         content={contentOf(floor.id)}
         mode={mode}
@@ -107,11 +106,10 @@ export function FloorList({
         isDragging={draggedFloorId === floor.id}
         isCopySource={floor.id === copySourceFloorId}
         isCopyTarget={copyTargetIds.includes(floor.id)}
-        nameError={nameErrorOf(floor.id)}
         onSelect={(event) => handleSelect(floor.id, event)}
-        onRename={(name) => onRename(floor.id, name)}
         onSetHeight={(heightCm) => onSetHeight(floor.id, heightCm)}
         onMakeActive={() => onMakeActive(floor.id)}
+        onSetType={(type) => onSetType(floor.id, type)}
         onCopyFrom={() => onCopyFrom(floor.id)}
         onClearCopy={() => onClearCopy(floor.id)}
         onRemove={() => onRemove(floor.id)}

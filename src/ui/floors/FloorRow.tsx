@@ -1,18 +1,23 @@
 import { GripVertical } from 'lucide-react'
 import type { MouseEvent } from 'react'
 
+import { FloorActiveDot } from './FloorActiveDot'
 import { FloorContentDot } from './FloorContentDot'
 import { FloorInlineField } from './FloorInlineField'
 import { FloorRowActions } from './FloorRowActions'
 import { FLOOR_FOCUS_RING, floorRowVariants } from './floorVariants'
-import type { FloorContent } from '../../core/floorContent'
+import { isFloorContentEmpty, type FloorContent } from '../../core/floorContent'
 import { formatElevationM } from '../../core/floorElevation'
 import type { DraftFloor } from '../../core/floorPlan'
+import type { FloorType } from '../../core/floors'
+import type { Floor } from '../../core/model'
 
 export type FloorRowMode = 'manage' | 'copy'
 
 type FloorRowProps = {
   floor: DraftFloor
+  /** Tip kuralı konuma bakıyor, yani tüm listeye. */
+  floors: readonly Floor[]
   elevationCm: number
   content: FloorContent
   mode: FloorRowMode
@@ -23,11 +28,10 @@ type FloorRowProps = {
   /** Kopyalama kipinde kaynak satır: işaretlenir ama seçilemez. */
   isCopySource: boolean
   isCopyTarget: boolean
-  nameError?: string
   onSelect: (event: MouseEvent) => void
-  onRename: (name: string) => boolean
   onSetHeight: (heightCm: number) => boolean
   onMakeActive: () => void
+  onSetType: (type: FloorType | null) => void
   onCopyFrom: () => void
   onClearCopy: () => void
   onRemove: () => void
@@ -39,6 +43,7 @@ type FloorRowProps = {
 
 export function FloorRow({
   floor,
+  floors,
   elevationCm,
   content,
   mode,
@@ -48,11 +53,10 @@ export function FloorRow({
   isDragging,
   isCopySource,
   isCopyTarget,
-  nameError,
   onSelect,
-  onRename,
   onSetHeight,
   onMakeActive,
+  onSetType,
   onCopyFrom,
   onClearCopy,
   onRemove,
@@ -112,23 +116,23 @@ export function FloorRow({
         </button>
       )}
 
-      {/* Olay yalnız DÜZENLEME kipinde durdurulur: alana tıklamak satırı
-          seçmemeli. Kopyalama kipinde ad düz yazı, tıklama satıra geçmeli. */}
-      <span
-        className="min-w-0 flex-1"
-        onClick={isCopyMode ? undefined : (event) => event.stopPropagation()}
-      >
-        {isCopyMode ? (
-          <span className={isCopySource ? 'text-ink-disabled' : 'text-ink'}>{floor.name}</span>
-        ) : (
-          <FloorInlineField
-            value={floor.name}
-            label={`${floor.name} adı`}
-            widthClass="w-44"
-            error={nameError}
-            onCommit={onRename}
+      {/* Aktif kat düğmesi adın hemen SOLUNDA (K168): "hangi kattayım" sorusu
+          adla birlikte okunuyor. Kopyalama kipinde yok — orada aktif kat
+          değiştirilmiyor, hedef seçiliyor. */}
+      {!isCopyMode && (
+        <span onClick={(event) => event.stopPropagation()}>
+          <FloorActiveDot
+            floorName={floor.name}
+            isActive={isActive}
+            onMakeActive={onMakeActive}
           />
-        )}
+        </span>
+      )}
+
+      {/* Ad DÜZENLENMEZ (K167): konumun ya da kat TİPİNİN karşılığı (K168),
+          kullanıcının yazdığı bir şey değil. */}
+      <span className={`min-w-0 flex-1 ${isCopySource ? 'text-ink-disabled' : 'text-ink'}`}>
+        {floor.name}
       </span>
 
       {!isCopyMode && (
@@ -163,11 +167,12 @@ export function FloorRow({
       ) : (
         <FloorRowActions
           floor={floor}
-          isActive={isActive}
+          floors={floors}
           isRemovable={isRemovable}
-          onMakeActive={onMakeActive}
+          hasContent={!isFloorContentEmpty(content)}
           onCopyFrom={onCopyFrom}
           onClearCopy={onClearCopy}
+          onSetType={onSetType}
           onRemove={onRemove}
         />
       )}

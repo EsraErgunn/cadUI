@@ -211,28 +211,198 @@ export function moveFloorInList<T extends Floor>(
 }
 
 /**
- * Sol kenardaki kat şeridinin kısa etiketleri (K166): bodrum `B`, zemin `Z`,
- * üstündekiler `1`, `2`, `3`… Şerit dar ve yuvarlak; kat ADI oraya sığmıyor,
- * ayrıca kullanıcı adı serbestçe değiştirebiliyor ve "Asma Kat" gibi bir ad
- * sıradaki yerini söylemiyor. Etiket bu yüzden addan değil SIRADAN türer.
+ * Kat TİPİ (K168). Üçü de yalnız BİR AD; kat davranışını, yüksekliğini ya da
+ * çizimini değiştirmez — kullanıcının kararı bu yönde.
  *
- * Birden çok bodrumda numara EKLENİR ve aşağı doğru artar (`B1` zeminin hemen
- * altı): dizinin başı en alt kat olduğu için sayım tersten yapılıyor. Tek
- * bodrumda numara yok — okunacak bir ayrım da yok.
+ * ⚠️ Tip AYRI BİR ALANDA saklanmaz, `Floor.name`in kendisidir. Modele alan
+ * eklemek kaydedilen JSON'un şemasını değiştirirdi (`core/model.ts` sözleşme);
+ * `name` zaten kaydediliyor ve tip adları ile konumsal adlar arasında çakışma
+ * yok, bu yüzden tip addan OKUNUYOR.
+ */
+export type FloorType = 'duplex' | 'penthouse' | 'mezzanine'
+
+export const FLOOR_TYPES: readonly FloorType[] = ['duplex', 'penthouse', 'mezzanine']
+
+/** Menüde okunan ad. Asma katın GERÇEK adı altındaki katı da taşır. */
+export const FLOOR_TYPE_LABELS: Record<FloorType, string> = {
+  duplex: 'Dubleks',
+  penthouse: 'Çatı Katı',
+  mezzanine: 'Asma Kat',
+}
+
+/** Şerit etiketi: dar daireye tam ad sığmıyor. */
+const FLOOR_TYPE_SHORT_LABELS: Record<FloorType, string> = {
+  duplex: 'D',
+  penthouse: 'Ç',
+  mezzanine: 'A',
+}
+
+/**
+ * ⚠️ Asma kat ÖNEKLE tanınır, tam eşitlikle değil: adı altındaki katı taşıyor
+ * (`Asma Kat (Zemin)`, `Asma Kat (1)`), yani sabit bir dize değil.
+ */
+const MEZZANINE_NAME_PATTERN = /^(\d+\. )?Asma Kat(\s|$)/
+
+export function getFloorType(floor: Floor): FloorType | null {
+  const name = floor.name.trim()
+  if (name === FLOOR_TYPE_LABELS.duplex) return 'duplex'
+  if (name === FLOOR_TYPE_LABELS.penthouse) return 'penthouse'
+  if (MEZZANINE_NAME_PATTERN.test(name)) return 'mezzanine'
+  return null
+}
+
+/**
+ * Tip o kata verilebilir mi (kullanıcı kuralı):
+ * - `duplex` ve `penthouse` YALNIZ en üst kata,
+ * - `mezzanine` zemin ve bodrum DIŞINDA her kata.
+ *
+ * Asma kat sayısı SINIRSIZ, üst üste de gelebilir: üst üste gelenler
+ * numaralanıyor (`Asma Kat (Zemin)`, `2. Asma Kat (Zemin)`), yani adlar
+ * çakışmıyor.
+ */
+export function canAssignFloorType(
+  floors: readonly Floor[],
+  floorId: Id,
+  type: FloorType,
+): boolean {
+  const index = getFloorIndex(floors, floorId)
+  if (index < 0 || floors[index].isBasement) return false
+
+  if (type === 'mezzanine') {
+    // Zemin = ilk yer üstü kat; asma kat onun ÜSTÜNDE bir yerde olmalı.
+    const groundIndex = floors.findIndex((candidate) => !candidate.isBasement)
+    return index > groundIndex
+  }
+  return index === floors.length - 1
+}
+
+export function getAssignableFloorTypes(floors: readonly Floor[], floorId: Id): FloorType[] {
+  return FLOOR_TYPES.filter((type) => canAssignFloorType(floors, floorId, type))
+}
+
+/**
+ * Adların TEK kaynağı (K167 + K168). Aşağıdan yukarı tek geçiş; her kat ya
+ * tipinin adını alır ya sıradaki konumsal adını.
+ *
+ * ⚠️ **Asma kat numara TÜKETMEZ** (kullanıcı kararı): `1. Kat`ı asma kata
+ * çevirmek o katı yok etmiyor, yalnız adını değiştiriyor — ve `1. Kat` bir üste
+ * kayıyor. Sayaç bu yüzden asma katta ilerlemiyor. Asma katın kendi adı da
+ * ALTINDAKİ katın adından okunuyor (`Asma Kat (Zemin)`, `Asma Kat (1)`); aşağıdan
+ * yukarı gidildiği için alt komşunun adı o noktada zaten çözülmüş oluyor.
+ *
+ * Tip yalnız o konumda GEÇERLİYSE korunur; çatı katı aşağı taşınırsa adını
+ * kaybedip konumsal adına döner — sessizce yanlış adı taşımaktansa düşürmek
+ * doğrusu, kullanıcı yeniden verebilir.
+ */
+function resolveFloorNames<T extends Floor>(
+  floors: readonly T[],
+  typeOf: (floor: T) => FloorType | null,
+): string[] {
+  const basementCount = getBasementCount(floors)
+  const names: string[] = []
+  /** Aşağıdan yukarı doldurulur: üst üste asma katları saymak için gerekiyor. */
+  const isMezzanine: boolean[] = []
+  let aboveGroundIndex = 0
+
+  floors.forEach((floor, index) => {
+    if (floor.isBasement) {
+      const depth = basementCount - index
+      names.push(depth === 1 ? FIRST_BASEMENT_NAME : `${depth}. ${FIRST_BASEMENT_NAME}`)
+      return
+    }
+
+    const type = typeOf(floor)
+    const isValid = type !== null && canAssignFloorType(floors, floor.id, type)
+
+    if (isValid && type === 'mezzanine') {
+      // Üst üste asma katlar numaralanır ("Bodrum Kat / 2. Bodrum Kat" düzeni):
+      // hepsi ALTLARINDAKİ ilk gerçek katın adını taşır, sıra numarasıyla ayrılır.
+      let depth = 1
+      let below = index - 1
+      while (below >= 0 && isMezzanine[below]) {
+        depth += 1
+        below -= 1
+      }
+
+      const suffix = toFloorSuffix(names[below])
+      const label = FLOOR_TYPE_LABELS.mezzanine
+      names.push(depth === 1 ? `${label} (${suffix})` : `${depth}. ${label} (${suffix})`)
+      isMezzanine[index] = true
+      return
+    }
+
+    // Dubleks/çatı katı gerçek bir kat: numarayı tüketir, yalnız adı farklı.
+    const positional = aboveGroundIndex === 0 ? DEFAULT_FLOOR_NAME : `${aboveGroundIndex}. Kat`
+    aboveGroundIndex += 1
+    names.push(isValid ? FLOOR_TYPE_LABELS[type] : positional)
+  })
+
+  return names
+}
+
+/** `Zemin Kat` → `Zemin`, `3. Kat` → `3`. Asma katın parantez içi. */
+function toFloorSuffix(belowName: string | undefined): string {
+  const ordinal = ORDINAL_FLOOR_NAME_PATTERN.exec(belowName ?? '')
+  return ordinal ? ordinal[1] : 'Zemin'
+}
+
+/** Tipsiz, saf konumsal adlar — karşılaştırma ve test için. */
+export function getPositionalFloorNames(floors: readonly Floor[]): string[] {
+  return resolveFloorNames(floors, () => null)
+}
+
+function withNames<T extends Floor>(floors: readonly T[], names: readonly string[]): readonly T[] {
+  if (floors.every((floor, index) => floor.name === names[index])) return floors
+  return floors.map((floor, index) => ({ ...floor, name: names[index] }))
+}
+
+/** Listeyi yeniden adlandırır; değişen yoksa AYNI diziyi döndürür. */
+export function withPositionalNames<T extends Floor>(floors: readonly T[]): readonly T[] {
+  return withNames(floors, resolveFloorNames(floors, (floor) => getFloorType(floor)))
+}
+
+/**
+ * Kata tip verir ya da (`null` ile) konumsal adına döndürür. Verilemeyen tip
+ * sessizce reddedilir: AYNI dizi döner.
+ */
+export function withFloorType<T extends Floor>(
+  floors: readonly T[],
+  floorId: Id,
+  type: FloorType | null,
+): readonly T[] {
+  if (type !== null && !canAssignFloorType(floors, floorId, type)) return floors
+
+  return withNames(
+    floors,
+    resolveFloorNames(floors, (floor) => (floor.id === floorId ? type : getFloorType(floor))),
+  )
+}
+
+/**
+ * Sol kenardaki kat şeridinin kısa etiketleri: bodrum `B`, zemin `Z`, üstündekiler
+ * `1`, `2`, `3`… Şerit dar ve yuvarlak, kat ADI oraya sığmıyor.
+ *
+ * Tipli kat sıradaki yerini değil KİMLİĞİNİ gösterir: `D` / `Ç` / `A`. Asma kat
+ * numara tüketmediği için üstündeki kat numarasını korur — tam adlarla aynı kural.
  *
  * Dönen dizi girdiyle AYNI sırada (en alt kat başta); şeridin ters çevirmesi
  * görüntüleme kararı, veri burada çevrilmez.
  */
 export function getFloorShortLabels(floors: readonly Floor[]): string[] {
   const basementCount = getBasementCount(floors)
-
   let aboveGroundIndex = 0
+
   return floors.map((floor, index) => {
     if (floor.isBasement) {
       return basementCount === 1 ? 'B' : `B${basementCount - index}`
     }
+
+    const type = getFloorType(floor)
+    const isValid = type !== null && canAssignFloorType(floors, floor.id, type)
+    if (isValid && type === 'mezzanine') return FLOOR_TYPE_SHORT_LABELS.mezzanine
+
     const label = aboveGroundIndex === 0 ? 'Z' : String(aboveGroundIndex)
     aboveGroundIndex += 1
-    return label
+    return isValid ? FLOOR_TYPE_SHORT_LABELS[type] : label
   })
 }

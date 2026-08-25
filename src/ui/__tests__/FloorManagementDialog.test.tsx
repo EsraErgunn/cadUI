@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -79,9 +79,9 @@ describe('FloorManagementDialog — liste', () => {
   it('katları EN ÜST kat başta listeler', () => {
     renderDialog()
 
-    // Satırda iki alan var (ad, yükseklik); ilki ad.
-    const names = rows().map((row) => within(row).getAllByRole('textbox')[0].getAttribute('value'))
-    expect(names).toEqual(['1. Kat', DEFAULT_FLOOR_NAME])
+    const names = rows().map((row) => row.textContent ?? '')
+    expect(names[0]).toContain('1. Kat')
+    expect(names[1]).toContain(DEFAULT_FLOOR_NAME)
   })
 
   it('kot ve içerik durumu satırda okunur', () => {
@@ -124,30 +124,25 @@ describe('FloorManagementDialog — Uygula ve İptal', () => {
   })
 })
 
-describe('FloorManagementDialog — kat adı ve yükseklik', () => {
-  it('ad yerinde düzenlenir', async () => {
-    const user = userEvent.setup()
+describe('FloorManagementDialog — ad konumdan gelir (K167)', () => {
+  it('ad DÜZENLENEMEZ: satırdaki tek alan yükseklik', () => {
     renderDialog()
 
-    const field = screen.getByLabelText('1. Kat adı')
-    await user.clear(field)
-    await user.type(field, 'Asma Kat')
-    await user.tab()
-    await clickApply(user)
-
-    expect(floorNames()).toContain('Asma Kat')
+    expect(screen.queryByLabelText('1. Kat adı')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('1. Kat yüksekliği')).toBeInTheDocument()
   })
 
-  it('başka katta kullanılan ad REDDEDİLİR ve alan eski değerine döner', async () => {
+  it('kat yer değiştirince ADLAR da yer değiştirir', async () => {
     const user = userEvent.setup()
     renderDialog()
 
-    const field = screen.getByLabelText('1. Kat adı')
-    await user.clear(field)
-    await user.type(field, DEFAULT_FLOOR_NAME)
-    await user.tab()
+    // Zemin Kat'ı yukarı taşı: en üste geçen kat "1. Kat" adını devralmalı.
+    const handle = screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} sırasını değiştir` })
+    handle.focus()
+    await user.keyboard('{ArrowUp}')
 
-    expect(field).toHaveValue('1. Kat')
+    expect(rows()[0].textContent).toContain('1. Kat')
+    expect(rows()[1].textContent).toContain(DEFAULT_FLOOR_NAME)
   })
 
   it('yükseklik değişince kot ANINDA güncellenir', async () => {
@@ -228,7 +223,7 @@ describe('FloorManagementDialog — kopyalama KİP (K166)', () => {
     await enterCopyMode(user)
 
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    expect(screen.getByText(/hedef katları seçin/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Hedef katlar' })).toBeInTheDocument()
   })
 
   it('kopyalama Uygula"ya kadar store"a YAZMAZ', async () => {
@@ -323,6 +318,33 @@ describe('FloorManagementDialog — seçim ve silme (K166)', () => {
     expect(floorNames()).toEqual([DEFAULT_FLOOR_NAME])
   })
 
+  it('DOLU katı silerken satırda onay ister', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} sil` }))
+
+    // Kat henüz durUYOR; onay bekliyor.
+    expect(rows()).toHaveLength(2)
+    expect(screen.getByText('Çizim silinecek')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} silmeyi onayla` }))
+    expect(rows()).toHaveLength(1)
+  })
+
+  it('onayda İptal katı bırakır', async () => {
+    seedGroundFloorDrawing()
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: `${DEFAULT_FLOOR_NAME} sil` }))
+    await user.click(screen.getByRole('button', { name: 'Vazgeç' }))
+
+    expect(rows()).toHaveLength(2)
+    expect(screen.queryByText('Çizim silinecek')).not.toBeInTheDocument()
+  })
+
   it('silme pencere içinde GERİ ALINIR', async () => {
     const user = userEvent.setup()
     renderDialog()
@@ -365,6 +387,19 @@ describe('FloorManagementDialog — seçim ve silme (K166)', () => {
     // Projede en az bir kat kalmalı: tamamını kapsayan silme reddedilir.
     await user.click(screen.getByRole('button', { name: 'Seçili katları sil' }))
     expect(rows()).toHaveLength(2)
+  })
+
+  it('BİRDEN ÇOK kat seçiliyken toplu Kopyala YOK — kaynak tek olabilir', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByLabelText(`${DEFAULT_FLOOR_NAME} seç`))
+    expect(screen.getByRole('button', { name: 'Kopyala' })).toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('1. Kat seç'))
+    expect(screen.queryByRole('button', { name: 'Kopyala' })).not.toBeInTheDocument()
+    // Silme çok seçimde çalışmaya devam eder.
+    expect(screen.getByRole('button', { name: 'Seçili katları sil' })).toBeInTheDocument()
   })
 
   it('elle seçilen katlar toplu silinir', async () => {
