@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { useBlocker } from 'react-router-dom'
 
 import { useCloseEditor } from './useCloseEditor'
@@ -13,7 +13,7 @@ import { useProjectPersistence } from './useProjectPersistence'
 import { useProjectSummary } from './useProjectSummary'
 import { useUnsavedChangesWarning } from './useUnsavedChangesWarning'
 import { getFloorIdInDirection, type FloorDirection } from '../core/floors'
-import { isDrawingView } from '../core/views'
+import { DEFAULT_VIEW_ID, isDrawingView } from '../core/views'
 import { IsometricHud } from '../isometric/ui/IsometricHud'
 import { IsometricLegend } from '../isometric/ui/IsometricLegend'
 import { IsometricModeSwitch } from '../isometric/ui/IsometricModeSwitch'
@@ -44,6 +44,19 @@ export function EditorPage() {
   const closeEditor = useCloseEditor()
   const activeViewId = useUiStore((state) => state.activeViewId)
   const isReadOnly = useEditorReadOnlyMode()
+
+  /**
+   * Sahne seçimi (mimari/tesisat/katı model/izometrik) kaydedilmeyen `uiStore`'da
+   * yaşıyor ve React Router editörü unmount ettiğinde SIFIRLANMIYOR — aynı
+   * sekmede editöre tekrar girildiğinde son bırakılan sahnede açılıyordu.
+   * Kullanıcı kararı: editöre HER girişte mimariden başlanır.
+   *
+   * `useLayoutEffect`: boyama ÖNCESİ çalışır, yoksa bir kare önceki sahne
+   * (ör. izometrik HUD'u) görünüp hemen mimariye geçerdi.
+   */
+  useLayoutEffect(() => {
+    useUiStore.getState().setActiveView(DEFAULT_VIEW_ID)
+  }, [])
   const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
     useProjectPersistence()
   const submit = useEditorSubmit(projectId)
