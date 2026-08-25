@@ -12,6 +12,8 @@ import {
   FREE_UNIT,
   PROJECT_ID,
   UNIT_WITH_POLICY,
+  EXISTING_POLICY_ID,
+  policyDeleteCalls,
   policyPostCalls,
   resetPolicyPostStub,
   setPolicyPostFailure,
@@ -135,34 +137,30 @@ describe('Poliçe bilgileri adımı', () => {
    * sırasında 400 ile söylüyor. Dolu birim seçilebilir kalsaydı kullanıcı formu
    * baştan sona doldurup hatayı EN SON adımda görürdü.
    */
-  it('poliçesi olan birim listede görünür ama seçilemez', async () => {
+  /**
+   * Dolu birim SEÇİLEBİLİR: sunucu ikinci aktif poliçeyi reddediyor ama
+   * yenileme destekleniyor (önce iptal, sonra oluştur). Bir tur seçenek
+   * kilitliydi ve o hâlde yenileme arayüzden hiç yapılamıyordu.
+   */
+  it('poliçesi olan birim seçilebilir ve sonucu etiketinde yazar', async () => {
     const user = userEvent.setup()
     renderPolicyPage()
     await goToInfoStep(user)
 
     const unitSelect = await screen.findByLabelText('Birim')
-    const taken = within(unitSelect).getByRole('option', { name: /poliçesi var/ })
+    const taken = within(unitSelect).getByRole('option', { name: /poliçesi var \(yenilenir\)/ })
 
-    expect(taken).toBeDisabled()
+    expect(taken).not.toBeDisabled()
     expect(taken).toHaveValue(String(UNIT_WITH_POLICY.id))
-
-    // Boş birim seçilebilir durumda kalır.
-    const free = within(unitSelect).getByRole('option', {
-      name: new RegExp(FREE_UNIT.unitNumber),
-    })
-    expect(free).not.toBeDisabled()
-    expect(free).toHaveValue(String(FREE_UNIT.id))
   })
 
-  it('bir kısmı doluyken sebebi kutunun altında yazar', async () => {
+  it('yenilemenin ne yapacağı kutunun altında yazar', async () => {
     const user = userEvent.setup()
     renderPolicyPage()
     await goToInfoStep(user)
 
     await screen.findByLabelText('Birim')
-    expect(
-      screen.getByText(/Poliçesi olan birimler seçilemez/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/mevcut poliçe İPTAL EDİLİP/)).toBeInTheDocument()
   })
 
   /** Benzersizlik kuralı SUNUCUDA YOK; aynı numara adımda engellenmemeli. */
@@ -364,6 +362,66 @@ describe('Poliçe özeti ve tamamlanma', () => {
 
     const keys = invalidate.mock.calls.map(([options]) => options?.queryKey)
     expect(keys).not.toContainEqual(['policies'])
+  })
+
+  /**
+   * YENİLEME: sunucuda atomik bir "yenile" ucu yok ve ikinci aktif poliçe 400
+   * ile reddediliyor, o yüzden akış iki adımlı. İptal geri alınamadığı için
+   * onay isteniyor ve metin sonucu açıkça söylüyor.
+   */
+  it('poliçesi olan birimde kayıt önce onay ister, sonra iptal edip oluşturur', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user, { unitId: UNIT_WITH_POLICY.id })
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+
+    // Onay gelmeden HİÇBİR istek atılmaz.
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent(/İPTAL EDİLECEK/)
+    expect(dialog).toHaveTextContent(/İptal geri alınamaz/)
+    expect(policyPostCalls).toHaveLength(0)
+    expect(policyDeleteCalls).toHaveLength(0)
+
+    await user.click(within(dialog).getByRole('button', { name: /İptal et ve yenisini oluştur/ }))
+    await screen.findByText(/Poliçe kaydedildi/)
+
+    // Sıra ZORUNLU: önce iptal, sonra oluşturma.
+    expect(policyDeleteCalls).toEqual([EXISTING_POLICY_ID])
+    expect(policyPostCalls).toHaveLength(1)
+  })
+
+  it('yenileme onayından vazgeçilince hiçbir istek atılmaz', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user, { unitId: UNIT_WITH_POLICY.id })
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Vazgeç' }))
+
+    expect(policyDeleteCalls).toHaveLength(0)
+    expect(policyPostCalls).toHaveLength(0)
+  })
+
+  /**
+   * İptal geçip oluşturma düşerse birim POLİÇESİZ kalıyor ve geri alacak bir uç
+   * yok. Kullanıcıya bu SÖYLENMEK zorunda; genel bir hata, silinmiş poliçeyi
+   * fark edilmeden bırakırdı.
+   */
+  it('iptal geçip oluşturma düşerse birimin poliçesiz kaldığını söyler', async () => {
+    setPolicyPostFailure({ status: 400, body: { message: 'Kayıt reddedildi.' } })
+
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await fillUntilSummary(user, { unitId: UNIT_WITH_POLICY.id })
+
+    await user.click(await screen.findByRole('button', { name: 'Bitir' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /İptal et ve yenisini oluştur/ }))
+
+    expect(await screen.findByText(/POLİÇESİZ/)).toBeInTheDocument()
+    expect(policyDeleteCalls).toEqual([EXISTING_POLICY_ID])
   })
 
   /** FluentValidation hatası alan bazlı sözlük döndürüyor (`{ errors }`);

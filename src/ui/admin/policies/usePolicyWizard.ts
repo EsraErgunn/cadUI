@@ -16,7 +16,7 @@ import {
   type PolicyStep,
 } from './policySchema'
 import { ApiError } from '../../../api/http'
-import { createPolicy } from '../../../api/policies'
+import { createPolicy, deletePolicy } from '../../../api/policies'
 import type { ProjectSummary } from '../../../api/projectDetail'
 
 /**
@@ -27,6 +27,15 @@ import type { ProjectSummary } from '../../../api/projectDetail'
  */
 const SUBMIT_ERROR_MESSAGES = {
   unexpected: 'Poliçe kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+  /**
+   * YENİLEMENİN KIRILGAN ARALIĞI. İptal başarılı olup oluşturma düşerse birim
+   * poliçesiz kalıyor ve bunu geri alacak bir uç yok — sunucuda atomik yenileme
+   * bulunmuyor. Kullanıcıya durumu ve ne yapması gerektiğini SÖYLEMEK zorundayız;
+   * sessizce genel bir hata göstermek, poliçesi silinmiş bir birimi fark
+   * edilmeden bırakırdı.
+   */
+  renewalHalfDone:
+    'Mevcut poliçe iptal edildi ancak yenisi oluşturulamadı; birim şu anda POLİÇESİZ. Lütfen poliçeyi yeniden oluşturun.',
 } as const
 
 /** Hatalı alanın hangi adımda düzeltileceği: özetten "Bitir"e basılıp hata
@@ -41,6 +50,13 @@ const FIELD_STEPS: Record<PolicyField, PolicyStep> = {
   endDate: 'info',
 }
 
+/** Seçilen birimde yürürlükteki poliçe; yenileme onayı bunun üzerinden kuruluyor. */
+export interface ExistingUnitPolicy {
+  id: number
+  policyNumber: string | null
+  unitLabel: string
+}
+
 export interface UsePolicyWizardOptions {
   /**
    * Poliçenin bağlanacağı proje. Kimlik değil KÜNYE alıyor: kaydedilen poliçe
@@ -49,6 +65,14 @@ export interface UsePolicyWizardOptions {
    * Künye gelmeden (`undefined`) sihirbaz çizilmiyor, kayıt da yapılamıyor.
    */
   project: ProjectSummary | undefined
+  /**
+   * Seçilen birimin yürürlükteki poliçesini çözer. Değer değil FONKSİYON:
+   * poliçe, kullanıcının sihirbazda seçtiği birime bağlı ve o seçim bu hook'un
+   * İÇİNDE yaşıyor — hazır bir değer istenseydi çağıran onu bilemezdi.
+   *
+   * `null` dönerse kayıt normal oluşturma; dolu dönerse YENİLEME.
+   */
+  findExistingPolicy?: (projectUnitId: number) => ExistingUnitPolicy | null
   /** Test ve tarih varsayılanı için enjekte edilebilir; üretimde verilmez. */
   today?: Date
 }
@@ -72,6 +96,10 @@ export interface PolicyWizard {
   goNext: () => Promise<void>
   clearFocusRequest: () => void
   clearSubmitError: () => void
+  /** Onay bekleyen yenileme; `null` ise diyalog kapalı. */
+  renewalPrompt: ExistingUnitPolicy | null
+  cancelRenewal: () => void
+  confirmRenewal: () => Promise<void>
 }
 
 function stepIndex(step: PolicyStep): number {
@@ -83,7 +111,11 @@ function stepIndex(step: PolicyStep): number {
  * taşınamadığı için yenilemede adım korunup veri gitseydi kullanıcı boş bir
  * "Poliçe Bilgileri" adımına düşerdi.
  */
-export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): PolicyWizard {
+export function usePolicyWizard({
+  project,
+  findExistingPolicy,
+  today,
+}: UsePolicyWizardOptions): PolicyWizard {
   const queryClient = useQueryClient()
   // Tembel başlatıcı: başlangıç tarihi bir KEZ hesaplanır, her render'da
   // yeniden üretilseydi kullanıcının değiştirdiği tarih geri gelirdi.
@@ -94,6 +126,7 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [focusField, setFocusField] = useState<PolicyField | null>(null)
+  const [renewalPrompt, setRenewalPrompt] = useState<ExistingUnitPolicy | null>(null)
 
   const clearFieldError = useCallback((field: PolicyField) => {
     setErrors((current) => {
@@ -144,6 +177,61 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
     setStep(FIELD_STEPS[field])
   }, [])
 
+  const refresh = useCallback(() => {
+    // Poliçeyi listeleyen İKİ yüzey de tazelenir: bütün projelerin listesi ve
+    // proje detayının poliçe sekmesi. Kullanıcı kayıttan sonra ikisine de
+    // gidebiliyor ve bayat bir listede kendi kaydını göremezdi.
+    void queryClient.invalidateQueries({ queryKey: ['policies'] })
+    void queryClient.invalidateQueries({ queryKey: ['projectPolicies'] })
+  }, [queryClient])
+
+  /**
+   * Kaydı gönderir. `policyToCancel` doluysa akış YENİLEME: önce o poliçe
+   * iptal edilir, sonra yenisi oluşturulur.
+   *
+   * Sunucuda atomik yenileme YOK ve ikinci aktif poliçe 400 ile reddediliyor,
+   * yani sıra zorunlu. Aradaki kırılganlık gerçek: iptal geçip oluşturma
+   * düşerse birim poliçesiz kalıyor ve geri alacak bir uç yok — o hâl
+   * kullanıcıya AÇIKÇA söyleniyor.
+   */
+  const send = useCallback(
+    async (policyToCancel: ExistingUnitPolicy | null) => {
+      const payload = buildPolicyPayload(values)
+      if (payload === null || project === undefined) {
+        setSubmitError(SUBMIT_ERROR_MESSAGES.unexpected)
+        return
+      }
+
+      setIsSubmitting(true)
+      let isCancelled = false
+      try {
+        if (policyToCancel !== null) {
+          await deletePolicy(policyToCancel.id)
+          isCancelled = true
+        }
+
+        await createPolicy(payload)
+
+        refresh()
+        setStep('done')
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : SUBMIT_ERROR_MESSAGES.unexpected
+
+        // İptal GEÇTİ ama oluşturma düştü: birim şu anda poliçesiz. Sunucunun
+        // mesajı tek başına bunu söylemiyor, uyarı öne alınıyor.
+        setSubmitError(
+          isCancelled ? `${SUBMIT_ERROR_MESSAGES.renewalHalfDone} (${message})` : message,
+        )
+        // Liste yine de tazelenir: iptal gerçekleştiyse ekranlar onu göstermeli.
+        if (isCancelled) refresh()
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [project, refresh, values],
+  )
+
   const submit = useCallback(async () => {
     setSubmitError(null)
 
@@ -153,33 +241,28 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
       return
     }
 
-    // Gövde proje kimliği TAŞIMIYOR: sunucu projeyi birimden türetiyor.
-    const payload = buildPolicyPayload(values)
-    if (payload === null || project === undefined) {
-      setSubmitError(SUBMIT_ERROR_MESSAGES.unexpected)
+    // Yenileme ONAY İSTER: mevcut poliçenin iptali geri alınamaz. Onay
+    // diyalogdan gelince `confirmRenewal` aynı gönderim yoluna düşüyor.
+    const existing =
+      values.projectUnitId === null || findExistingPolicy === undefined
+        ? null
+        : findExistingPolicy(values.projectUnitId)
+
+    if (existing !== null) {
+      setRenewalPrompt(existing)
       return
     }
 
-    setIsSubmitting(true)
-    try {
-      await createPolicy(payload)
+    await send(null)
+  }, [failWith, findExistingPolicy, send, values])
 
-      // Poliçeyi listeleyen İKİ yüzey de tazelenir: bütün projelerin listesi ve
-      // proje detayının poliçe sekmesi. Kullanıcı kayıttan sonra ikisine de
-      // gidebiliyor ve bayat bir listede kendi kaydını göremezdi.
-      void queryClient.invalidateQueries({ queryKey: ['policies'] })
-      void queryClient.invalidateQueries({ queryKey: ['projectPolicies'] })
+  const confirmRenewal = useCallback(async () => {
+    const target = renewalPrompt
+    if (target === null) return
 
-      setStep('done')
-    } catch (error) {
-      // Sunucunun mesajı OLDUĞU GİBİ gösterilir: "bu birimde zaten aktif bir
-      // poliçe var" (400) ya da doğrulama metni. `http.ts` iki hata gövdesini de
-      // (`{ message }` ve `{ errors }`) tek bir metne indiriyor.
-      setSubmitError(error instanceof ApiError ? error.message : SUBMIT_ERROR_MESSAGES.unexpected)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [project, queryClient, values])
+    setRenewalPrompt(null)
+    await send(target)
+  }, [renewalPrompt, send])
 
   const goNext = useCallback(async () => {
     // Kayıt ÖZET adımında yapılır, sonuç adımı kayıttan SONRA gösterilir (K64).
@@ -213,5 +296,8 @@ export function usePolicyWizard({ project, today }: UsePolicyWizardOptions): Pol
     goNext,
     clearFocusRequest: useCallback(() => setFocusField(null), []),
     clearSubmitError: useCallback(() => setSubmitError(null), []),
+    renewalPrompt,
+    cancelRenewal: useCallback(() => setRenewalPrompt(null), []),
+    confirmRenewal,
   }
 }

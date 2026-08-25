@@ -6,27 +6,23 @@ import { TextField } from '../form/TextField'
 const POLICY_NUMBER_PLACEHOLDER = 'POL-2026-....'
 const AMOUNT_HINT = 'Kuruş için virgül kullanın (1.250.000,50).'
 
-/** Dolu birimin etiketine eklenen açıklama; seçenek listede görünür ama seçilemez. */
-const TAKEN_UNIT_SUFFIX = ' — poliçesi var'
+/** Dolu birimin etiketindeki açıklama: seçilebilir ama sonucu YENİLEME. */
+const TAKEN_UNIT_SUFFIX = ' — poliçesi var (yenilenir)'
 
 const NO_UNITS_HINT = 'Bu projede tanımlı birim yok; poliçe bir birime bağlanmadan açılamaz.'
-const ALL_UNITS_TAKEN_HINT =
-  'Bu projedeki her birimin yürürlükte bir poliçesi var. Yeni poliçe açmak için önce mevcut poliçeyi iptal edin.'
-const SOME_UNITS_TAKEN_HINT =
-  'Poliçesi olan birimler seçilemez; bir birimde aynı anda tek poliçe bulunabilir.'
+const RENEWAL_HINT =
+  'Poliçesi olan bir birim seçilirse mevcut poliçe İPTAL EDİLİP yerine yenisi oluşturulur; kaydetmeden önce onayınız istenir.'
 
 /**
- * Kutunun altındaki açıklama. Üç ayrı hâl var ve hiçbiri diğerinin yerine
- * geçmiyor: birim yok, hepsi dolu, bir kısmı dolu. Tek bir metin, kullanıcıya
- * yanlış sebebi okuturdu.
+ * Kutunun altındaki açıklama. Dolu birim ARTIK SEÇİLEBİLİR: sunucu aynı birimde
+ * ikinci aktif poliçeyi 400 ile reddediyor ve yenileme iki adımlı (önce iptal,
+ * sonra oluştur). Bir tur seçenek kilitliydi; o hâlde yenileme arayüzden hiç
+ * yapılamıyordu.
  */
 function buildUnitHint(units: PolicyUnitOption[], areUnitsPending: boolean): string | undefined {
   if (areUnitsPending) return undefined
   if (units.length === 0) return NO_UNITS_HINT
-
-  const selectable = units.filter((unit) => !unit.hasActivePolicy)
-  if (selectable.length === 0) return ALL_UNITS_TAKEN_HINT
-  if (selectable.length < units.length) return SOME_UNITS_TAKEN_HINT
+  if (units.some((unit) => unit.hasActivePolicy)) return RENEWAL_HINT
 
   return undefined
 }
@@ -70,10 +66,10 @@ export function PolicyInfoStep({
       {/* Poliçe sunucuda BİRİME bağlı (`PolicyAddDto.ProjectUnitId`), projeye
           değil — bu yüzden zorunlu ve ilk sırada.
 
-          Poliçesi olan birim GİZLENMİYOR, seçilemez hâlde LİSTELENİYOR: sunucu
-          o birimi 400 ile reddediyor ve bunu ancak son adımda ("Bitir")
-          söyleyebilirdi. Kullanıcı birimi görüp neden seçemediğini burada
-          okuyor, formu baştan doldurduktan sonra değil. */}
+          Poliçesi olan birim SEÇİLEBİLİR ve etiketinde sonucu yazıyor: seçim
+          yenileme demek. Sunucu ikinci aktif poliçeyi kabul etmediği için akış
+          iki adımlı (önce iptal, sonra oluştur) ve onayı "Bitir"den önce
+          alınıyor. */}
       <SelectField
         id={policyFieldId('projectUnitId')}
         label="Birim"
@@ -81,7 +77,6 @@ export function PolicyInfoStep({
         options={units.map((unit) => ({
           value: String(unit.id),
           label: unit.hasActivePolicy ? `${unit.label}${TAKEN_UNIT_SUFFIX}` : unit.label,
-          isDisabled: unit.hasActivePolicy,
         }))}
         placeholder="Seçiniz"
         isDisabled={areUnitsPending || units.length === 0}

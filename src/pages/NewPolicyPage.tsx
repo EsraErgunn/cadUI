@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
@@ -59,6 +59,21 @@ const CANCEL_DIALOG = {
   description: 'Girilen bilgiler kaydedilmeden Proje Detayı ekranına dönülecek.',
   confirmLabel: 'Vazgeç',
   cancelLabel: 'Devam et',
+}
+
+/**
+ * Yenileme onayının metni. Poliçe numarası varsa yazılıyor: kullanıcı hangi
+ * kaydın iptal edileceğini görmeli, "mevcut poliçe" tek başına belirsiz.
+ */
+function buildRenewalDescription(prompt: { policyNumber: string | null; unitLabel: string }): string {
+  const policy =
+    prompt.policyNumber === null ? 'mevcut poliçe' : `${prompt.policyNumber} numaralı poliçe`
+
+  return (
+    `${prompt.unitLabel} biriminde yürürlükte bir poliçe var. Devam edilirse önce ${policy} ` +
+    'İPTAL EDİLECEK, ardından yenisi oluşturulacak. İptal geri alınamaz; iki adım arasında bir ' +
+    'hata olursa birim poliçesiz kalır ve poliçeyi yeniden oluşturmanız gerekir.'
+  )
 }
 
 export function NewPolicyPage() {
@@ -126,7 +141,33 @@ export function NewPolicyPage() {
     enabled: projectId !== undefined,
   })
 
-  const wizard = usePolicyWizard({ project: projectQuery.data ?? undefined })
+  /**
+   * Seçilen birimin yürürlükteki poliçesini çözer. Dolu dönerse kayıt YENİLEME
+   * olur ve sihirbaz "Bitir"den önce onay ister — iptal geri alınamaz.
+   */
+  const findExistingPolicy = useCallback(
+    (projectUnitId: number) => {
+      const rows =
+        policiesQuery.data === undefined || policiesQuery.data.source === 'unavailable'
+          ? []
+          : policiesQuery.data.data
+
+      const match = rows.find((policy) => policy.projectUnitId === projectUnitId)
+      if (match === undefined) return null
+
+      return {
+        id: match.id,
+        policyNumber: match.policyNumber,
+        unitLabel: match.unitNumber ?? `#${projectUnitId}`,
+      }
+    },
+    [policiesQuery.data],
+  )
+
+  const wizard = usePolicyWizard({
+    project: projectQuery.data ?? undefined,
+    findExistingPolicy,
+  })
   const { focusField, clearFocusRequest, values } = wizard
 
   const { data: companies } = useQuery({
@@ -244,6 +285,22 @@ export function NewPolicyPage() {
           onClose={() => goToDetail({ savedPolicyNumber: values.policyNumber })}
         />
       </div>
+
+      {/* YENİLEME ONAYI. Sunucuda atomik yenileme yok: önce iptal, sonra
+          oluşturma. İptal geri alınamıyor ve arada hata olursa birim poliçesiz
+          kalıyor — metin ikisini de söylüyor, kullanıcı sonucu bilerek onaylasın. */}
+      {wizard.renewalPrompt !== null && (
+        <ConfirmDialog
+          title="Mevcut poliçe iptal edilsin mi?"
+          description={buildRenewalDescription(wizard.renewalPrompt)}
+          confirmLabel="İptal et ve yenisini oluştur"
+          cancelLabel="Vazgeç"
+          confirmTone="danger"
+          isPending={wizard.isSubmitting}
+          onConfirm={() => void wizard.confirmRenewal()}
+          onCancel={wizard.cancelRenewal}
+        />
+      )}
 
       {isCancelPrompted && (
         <ConfirmDialog
