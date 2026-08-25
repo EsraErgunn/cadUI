@@ -39,6 +39,17 @@ const MENU_ITEM =
   'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-sunken disabled:cursor-not-allowed disabled:text-ink-disabled'
 
 /**
+ * Yıkıcı menü maddesi. Tokenlar `adminButtonVariants`'ın `danger` varyantıyla
+ * AYNI (`text-danger-ink`, `hover:bg-danger/10`) — yeni bir renk sistemi
+ * kurulmuyor, var olan destructive dili menü satırına uyarlanıyor.
+ *
+ * Pasif hâl ortak sınıftan geliyor (`disabled:text-ink-disabled`): istek
+ * uçarken satır kırmızı kalsaydı hâlâ basılabilir görünürdü.
+ */
+const MENU_ITEM_DANGER =
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger-ink hover:bg-danger/10 disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent'
+
+/**
  * Üst bardaki kullanıcı bloğu artık bir MENÜ: adın yanında duran çıkış düğmesi
  * yerine ada tıklanınca açılan liste. Menüye ikinci bir eylem (şifre değiştirme)
  * gerekince satıra ikinci bir ikon düğmesi eklemek üst barı sıkıştırıyordu.
@@ -165,9 +176,10 @@ export function UserMenu() {
             }}
             disabled={isLoggingOut}
             aria-busy={isLoggingOut}
-            className={`${MENU_ITEM} ${ADMIN_FOCUS_RING}`}
+            className={`${MENU_ITEM_DANGER} ${ADMIN_FOCUS_RING}`}
           >
-            <LogOut aria-hidden className="size-4 shrink-0 text-ink-muted" />
+            {/* İkon da yıkıcı rengi alıyor; gri kalsaydı satır yarı kırmızı görünürdü. */}
+            <LogOut aria-hidden className="size-4 shrink-0" />
             Çıkış Yap
           </button>
         </div>
