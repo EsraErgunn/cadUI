@@ -12,6 +12,7 @@ const detailApi = vi.hoisted(() => ({
   getProjectHistory: vi.fn(),
   getProjectDocuments: vi.fn(),
   getProjectPolicies: vi.fn(),
+  getProjectFirmInfo: vi.fn(),
 }))
 const documentsApi = vi.hoisted(() => ({
   deleteDocument: vi.fn(),
@@ -38,6 +39,9 @@ beforeEach(() => {
   detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
   detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
   detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  // Firma künyesi ayrı bir uçtan: mock'lanmazsa gerçek istek denenir ve
+  // yeniden denemeler yönlendirme testlerini zaman aşımına uğratır.
+  detailApi.getProjectFirmInfo.mockResolvedValue(null)
   canApprove.mockReturnValue(true)
 })
 

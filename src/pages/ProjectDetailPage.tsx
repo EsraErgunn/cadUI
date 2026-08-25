@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom'
 import {
   DRAFT_STATUS,
   getProjectDetail,
+  getProjectFirmInfo,
   getProjectDocuments,
   getProjectHistory,
   getProjectPolicies,
@@ -12,8 +13,8 @@ import {
   requestProjectFile,
   type ProjectFileKind,
 } from '../api/projectDetail'
+import { projectFirmQueryKey } from '../api/projectFirmForm'
 import { useAuthSession } from '../api/useAuthSession'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { useSavedDocumentNotice } from '../ui/admin/documents/useSavedDocumentNotice'
@@ -22,6 +23,7 @@ import { ProjectDetailHeader } from '../ui/admin/projectDetail/ProjectDetailHead
 import { ProjectDetailPanels } from '../ui/admin/projectDetail/ProjectDetailPanels'
 import { ProjectDetailTabs } from '../ui/admin/projectDetail/ProjectDetailTabs'
 import { ReasonDialog } from '../ui/admin/projectDetail/ReasonDialog'
+import { buildApprovalFromHistory } from '../ui/admin/projectDetail/approvalFromHistory'
 import { mergeDecisionHistory } from '../ui/admin/projectDetail/decisionHistory'
 import { useProjectDecisions } from '../ui/admin/projectDetail/useProjectDecisions'
 import { useProjectDetailTab } from '../ui/admin/projectDetail/useProjectDetailTab'
@@ -41,23 +43,6 @@ const REASON_DIALOG_COPY = {
 const FILE_UNAVAILABLE_MESSAGES: Record<ProjectFileKind, string> = {
   zpd: 'ZetaCAD proje dosyasını (.zpd) veren uç sunucuda henüz yok.',
   pdfReport: 'PDF raporu üreten uç sunucuda henüz yok.',
-}
-
-/** Mock uyarısında sayılan bölümler; hangi kartın uydurma olduğu açıkça yazsın. */
-function buildMockSections(hasExtras: boolean, hasUnits: boolean): string[] {
-  const sections: string[] = []
-
-  if (hasExtras) {
-    sections.push(
-      'Proje Genel Bilgileri (durum, tesisat no, G.D. firması, proje/ısınma tipi, müstakil, ruhsat)',
-      'Proje Firma Bilgileri (kartın tamamı)',
-      'Proje Onay Bilgileri (kartın tamamı)',
-      'Detay Bilgileri (kartın tamamı)',
-    )
-  }
-  if (hasUnits) sections.push('Birim / Cihaz Bilgileri tablosu')
-
-  return sections
 }
 
 function parseProjectId(raw: string | undefined): number | undefined {
@@ -104,6 +89,18 @@ export function ProjectDetailPage() {
     queryKey: ['projectPolicies', projectId],
     queryFn: () => getProjectPolicies(projectId ?? 0),
     enabled: projectId !== undefined,
+  })
+
+  /**
+   * Proje firması künyesi — kimlik detay yanıtından geliyor. Anahtar tekil
+   * firma sorgusuyla ORTAK (`projectFirmQueryKey`): firma güncellenince bu kart
+   * da tazeleniyor, ikinci bir kopya önbellek tutulmuyor.
+   */
+  const projectFirmId = detailQuery.data?.server.projectFirmId ?? null
+  const { data: firm } = useQuery({
+    queryKey: projectFirmQueryKey(projectFirmId),
+    queryFn: ({ signal }) => getProjectFirmInfo(projectFirmId ?? 0, signal),
+    enabled: projectFirmId !== null,
   })
 
   const documentActions = useProjectDocumentActions(projectId ?? 0)
@@ -161,6 +158,12 @@ export function ProjectDetailPage() {
     { name: session?.fullName ?? 'Bilinmeyen kullanıcı', roleLabel: session?.roleCode ?? '—' },
   )
 
+  // Onay künyesinin kaynağı işlem geçmişi: sunucuda ayrı bir "onay bilgileri"
+  // alanı yok. `historyRows` kullanılıyor ki bu turda verilen karar da künyeye
+  // ANINDA yansısın — ham `history` beklenirse kullanıcı onayladıktan sonra kart
+  // bir sonraki çekime kadar boş kalırdı.
+  const approval = buildApprovalFromHistory(historyRows)
+
   const reasonCopy = decisions.reasonPrompt === null ? null : REASON_DIALOG_COPY[decisions.reasonPrompt]
 
   return (
@@ -174,13 +177,6 @@ export function ProjectDetailPage() {
         onApprove={() => decisions.start('approve')}
         onReject={() => decisions.start('reject')}
         onDownloadPdf={() => void handleDownload('pdfReport')}
-      />
-
-      <MockDataNotice
-        sections={buildMockSections(
-          detail.extras !== null,
-          units !== undefined && units.source === 'mock',
-        )}
       />
 
       {savedDocumentNotice !== null && (
@@ -225,6 +221,8 @@ export function ProjectDetailPage() {
           history={history}
           historyRows={historyRows}
           documents={documents}
+          firm={firm ?? null}
+          approval={approval}
           documentUnitOptions={documentUnitOptions}
           documentActions={documentActions}
           policies={policies}

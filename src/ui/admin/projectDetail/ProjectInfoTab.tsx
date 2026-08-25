@@ -5,11 +5,20 @@ import { ProjectGeneralCard } from './ProjectGeneralCard'
 import { ProjectSpecsCard } from './ProjectSpecsCard'
 import { UnitDeviceTable } from './UnitDeviceTable'
 import type { Sourced } from '../../../api/mockGate'
-import type { ProjectDetail, ProjectUnitRow } from '../../../api/projectDetail'
+import type {
+  ProjectApprovalInfo,
+  ProjectDetail,
+  ProjectFirmInfo,
+  ProjectUnitRow,
+} from '../../../api/projectDetail'
 
 interface ProjectInfoTabProps {
   detail: ProjectDetail
   units: Sourced<ProjectUnitRow[]> | undefined
+  /** `GET /api/projectfirms/{id}`; gelmeden `null` ve kart boş satır çizer. */
+  firm: ProjectFirmInfo | null
+  /** İşlem geçmişinden türetiliyor; onay yoksa `null`. */
+  approval: ProjectApprovalInfo | null
   onDownloadZpd: () => void
 }
 
@@ -22,17 +31,23 @@ interface ProjectInfoTabProps {
  * kısa olan kart (Onay) uzun olanın (Genel) boyuna uzayıp altında boşluk
  * bırakıyordu.
  */
-export function ProjectInfoTab({ detail, units, onDownloadZpd }: ProjectInfoTabProps) {
+export function ProjectInfoTab({
+  detail,
+  units,
+  firm,
+  approval,
+  onDownloadZpd,
+}: ProjectInfoTabProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-5">
           <ProjectGeneralCard detail={detail} onDownloadZpd={onDownloadZpd} />
-          <ProjectFirmCard firm={detail.extras?.firm ?? null} />
+          <ProjectFirmCard firm={firm} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <ProjectApprovalCard approval={detail.extras?.approval ?? null} />
+          <ProjectApprovalCard approval={approval} />
           <ProjectSpecsCard specs={detail.extras?.specs ?? null} />
         </div>
       </div>
