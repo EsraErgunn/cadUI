@@ -88,31 +88,17 @@ describe('evrak sekmesi (KK-9)', () => {
   })
 
   /**
-   * Sekme SALT DÜZENLEME: yükleme kendi ekranında, çünkü orada evrak tipi ve
-   * birim birlikte alınıyor. Buradan yeni evrak eklenemez.
+   * Yükleme, silme ve birim değiştirme BİR ARADA. Yükleme kısayolu bir tur
+   * kaldırılmıştı; geri geldi — yönetici sekmede her şeyi yapabilmeli.
    */
-  it('yükleme kısayolu ÇİZİLMEZ', async () => {
-    detailApi.getProjectDocuments.mockResolvedValue(
-      asMock([
-        {
-          id: 7,
-          fileName: 'ruhsat.pdf',
-          docType: 'Ruhsat',
-          sizeBytes: 2048,
-          uploadedByName: 'AHMET AKBAYIR',
-          receivedAt: '2026-07-10T11:28:28.000Z',
-          unitIds: [71],
-          unitNames: ['D20'],
-        },
-      ]),
-    )
-
+  it('Evrak Ekle kısayolu ilgili ekrana yönlendirir', async () => {
     const user = userEvent.setup()
     renderDetail()
-    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
-    await screen.findByRole('table', { name: /yüklenmiş evraklar/ })
 
-    expect(screen.queryByRole('link', { name: /Evrak Ekle/ })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
+    await user.click(await screen.findByRole('link', { name: /Evrak Ekle/ }))
+
+    expect(await screen.findByRole('heading', { name: 'Evrak Ekle' })).toBeInTheDocument()
   })
 
   it('satırda silme ve birim değiştirme eylemleri bulunur', async () => {
@@ -140,6 +126,8 @@ describe('evrak sekmesi (KK-9)', () => {
     expect(within(table).getByText('D20')).toBeInTheDocument()
     expect(within(table).getByRole('button', { name: 'Sil' })).toBeInTheDocument()
     expect(within(table).getByRole('button', { name: 'Birim Değiştir' })).toBeInTheDocument()
+    // Yükleme kısayolu da AYNI sekmede duruyor.
+    expect(screen.getByRole('link', { name: /Evrak Ekle/ })).toBeInTheDocument()
   })
 
   it('"Sil" önce onay sorar', async () => {
@@ -223,7 +211,7 @@ describe('poliçe sekmesi (KK-9)', () => {
  * `Authorize(Roles = Admin, ProjectFirmUser)`.
  */
 describe('proje detayı — gaz dağıtım kullanıcısı', () => {
-  it('evrak sekmesinde düzenleme eylemlerini göstermez', async () => {
+  it('evrak sekmesinde yazma kısayollarını göstermez', async () => {
     const user = userEvent.setup()
     renderDetail(undefined, ROLE_CODES.gasDistributionUser)
 
