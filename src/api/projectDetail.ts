@@ -11,11 +11,13 @@ import {
   type ProjectDocumentRow,
   type ProjectHistoryRow,
   type ProjectPolicyRow,
+  type ProjectFirmInfo,
   type ProjectServerFields,
   type ProjectSummary,
   type ProjectUnitRow,
 } from './projectDetailTypes'
-import { PROJECT_STATUSES } from './projects'
+import { getProjectFirm } from './projectFirmForm'
+import { toProjectStatus } from './projects'
 import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
@@ -57,6 +59,8 @@ const projectDetailDtoSchema = z.object({
   districtName: z.string().nullish(),
   addressLine: z.string().nullish(),
   blockLotParcel: z.string().nullish(),
+  status: z.string().nullish(),
+  statusName: z.string().nullish(),
   projectTypeName: z.string().nullish(),
   heatingTypeName: z.string().nullish(),
   buildingUsageTypeName: z.string().nullish(),
@@ -99,7 +103,11 @@ export async function getProjectDetail(
     pId: toProjectPId(dto),
     name: dto.name,
     description: toNullable(dto.description),
-    status: mockStatusOf(dto.id),
+    // Durum GERÇEK uçtan. Bir süre kimlikten uyduruluyordu (`mockStatusOf`)
+    // çünkü detay yanıtı `Status` taşımıyordu; backend a6ea695 ile taşımaya
+    // başladı ve liste ile detay artık ayrışamıyor — ikisi de `toProjectStatus`
+    // çeviricisinden geçiyor.
+    status: toProjectStatus(dto.status),
     cityName: toNullable(dto.cityName),
     districtName: toNullable(dto.districtName),
     addressLine: toNullable(dto.addressLine),
@@ -182,24 +190,6 @@ function buildExtras(server: ProjectServerFields): ProjectDetailExtras {
   }
 }
 
-/**
- * Mock durum kimliğe göre dönüyor: hepsi "Taslak" olsaydı onay aksiyonlarının
- * etkin hâli ve onay kartının dolu hâli hiç görülemezdi (KK-2, KK-11).
- *
- * BİLİNEN TUTARSIZLIK: durumun GERÇEK kaynağı liste ucu — `GET /api/projects`
- * satır başına `status` döndürüyor ve `projects.ts` onu `ProjectListItem.status`
- * olarak taşıyor. `GET /api/projects/{id}` ise durumu HİÇ döndürmüyor, bu yüzden
- * detay ekranı aynı proje için listeden farklı (ve geliştirmede uydurma) bir
- * durum gösterebilir. Karar düğmeleri bu değere GÜVENMİYOR: sayfa yalnız durumu
- * gerçekten taslak olan kaydı kilitler (ProjectDetailPage → isDraft).
- *
- * TODO(esra): uç `Status` döndürmeye başlayınca burası `toProjectStatus`'a
- * bağlanacak ve iki ekran ayrışamayacak.
- */
-function mockStatusOf(projectId: number): ProjectDetailStatus {
-  return PROJECT_STATUSES[projectId % PROJECT_STATUSES.length]
-}
-
 const NOT_FOUND = 404
 
 /**
@@ -258,6 +248,38 @@ const projectUnitDtoSchema = z.array(
     ),
   }),
 )
+
+/**
+ * Projenin firma künyesi — GERÇEK uç (`GET /api/projectfirms/{id}`).
+ *
+ * Kimlik detay yanıtından geliyor (`ProjectDetailDto.ProjectFirmId`, yetki
+ * kaydından türetiliyor). Kart bir süre TÜMÜYLE boştu: alanların hiçbirinin
+ * kaynağı okunmuyordu.
+ *
+ * Dört alan dolduruluyor; kalan dördü sunucuda YOK ve uydurulmuyor:
+ * - `engineerName` / `engineerRegistrationNo` — firma mühendisi kavramı
+ *   `ProjectFirmDetailDto`'da yok. `ContactPerson` YETKİLİ KİŞİ, mühendis
+ *   değil; eşitlemek uydurma olurdu.
+ * - `competencyNo` — "Yeterlilik No" alanı K102'de kaldırıldı.
+ * - `taxOffice` — vergi DAİRESİ yok, yalnız vergi NUMARASI var.
+ */
+export async function getProjectFirmInfo(
+  projectFirmId: number,
+  signal?: AbortSignal,
+): Promise<ProjectFirmInfo> {
+  const dto = await getProjectFirm(projectFirmId, { signal })
+
+  return {
+    engineerName: null,
+    engineerRegistrationNo: null,
+    title: toNullable(dto.title),
+    address: toNullable(dto.address),
+    phone: toNullable(dto.phone),
+    competencyNo: null,
+    taxOffice: null,
+    taxNumber: toNullable(dto.taxNumber),
+  }
+}
 
 export async function getProjectUnits(
   projectId: number,

@@ -349,12 +349,16 @@ const SERVER_STATUS_CODES: Record<ProjectStatus, string> = {
 }
 
 /**
- * `SERVER_STATUS_CODES`'un tersi: liste ucunun satır başına döndürdüğü durum
- * kodunu arayüz koduna çevirir. Kod tanınmazsa (ya da hiç gelmezse) `null` —
- * bilinmeyen bir kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip
- * "Onaya Gönder" düğmesini yanlış satıra koyardı.
+ * `SERVER_STATUS_CODES`'un tersi: sunucunun döndürdüğü durum kodunu arayüz
+ * koduna çevirir. Kod tanınmazsa (ya da hiç gelmezse) `null` — bilinmeyen bir
+ * kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip "Onaya Gönder"
+ * düğmesini yanlış satıra koyardı.
+ *
+ * DIŞA AÇIK: liste ve DETAY aynı çeviriyi kullanıyor. İki kopya, iki ekranın
+ * aynı proje için farklı durum göstermesi demekti — bir süre detay ekranı
+ * durumu kimlikten uyduruyordu, tam olarak bu yüzden.
  */
-function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
+export function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
   const code = raw?.trim().toLowerCase()
   if (code === undefined || code === '') return null
 
