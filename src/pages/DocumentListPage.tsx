@@ -1,14 +1,16 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 
-import { getDocumentTypes } from '../api/documentTypes'
-import { deleteDocument, listDocuments } from '../api/documents'
+import {
+  getDocumentTypes,
+  resolveDocumentTypeId,
+  type DocumentType,
+} from '../api/documentTypes'
+import { deleteDocument, listDocuments, type DocumentListQuery } from '../api/documents'
 import { getProjectFirms } from '../api/projects'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
-import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
@@ -36,15 +38,15 @@ const BREADCRUMB_TAIL = [{ label: 'Evraklar' }, { label: 'Proje Evrakları' }]
 
 const LOOKUP_STALE_MS = 5 * 60 * 1000
 
+/** Sabit boş dizi: her render'da yeni dizi üretmek alt bileşenleri boşuna
+    yeniden çizerdi. */
+const EMPTY_DOCUMENT_TYPES: DocumentType[] = []
+
 const EMPTY_WITH_FILTERS =
   'Kriterlere uyan evrak bulunamadı. Tarih aralığını genişletin veya tip/firma seçimini kaldırın.'
 const EMPTY_WITHOUT_FILTERS = 'Sisteme henüz evrak yüklenmemiş.'
 
 /** Şeritte sayılan bölüm: bu ekranda uydurma olan HER ŞEY, satırların tamamı. */
-const MOCK_SECTIONS = ['Evrak listesinin tamamı (satırlar, adet ve sayfalama)']
-
-const MISSING_ENDPOINT_HINT = 'GET /api/docs'
-
 const DELETE_DIALOG = {
   title: 'Evrak silinsin mi?',
   description:
@@ -69,17 +71,40 @@ export function DocumentListPage() {
   const { query, applyFilters, toggleSort, setPage } = useDocumentListParams()
   const queryClient = useQueryClient()
 
-  const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
-    queryKey: ['documents', query],
-    queryFn: ({ signal }) => listDocuments(query, signal),
+  // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı. Kod
+  // grubu ucundan geliyor ve nadiren değişiyor: uzun `staleTime` ile ekranlar
+  // arası gezinmede yeniden istenmiyor.
+  const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
+    queryKey: ['documentTypes'],
+    queryFn: ({ signal }) => getDocumentTypes(signal),
+    staleTime: LOOKUP_STALE_MS,
+  })
+
+  // URL evrak tipini KOD olarak taşıyor, uç KİMLİK istiyor: çeviri istek
+  // sınırında ve tipler gelmeden istek atılmıyor — yoksa seçili süzgeç sessizce
+  // yok sayılır ve kullanıcı filtrelenmemiş listeyi filtrelenmiş sanırdı.
+  const listQuery = useMemo<DocumentListQuery>(
+    () => ({
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      docTypeCodeId: resolveDocumentTypeId(query.docTypeCode, documentTypes),
+      projectFirmId: query.projectFirmId,
+      page: query.page,
+      pageSize: query.pageSize,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+    }),
+    [query, documentTypes],
+  )
+
+  const { data, isPending, isError, isPlaceholderData, refetch } = useQuery({
+    queryKey: ['documents', listQuery],
+    queryFn: ({ signal }) => listDocuments(listQuery, signal),
+    enabled: query.docTypeCode === null || documentTypes.length > 0,
     // Sayfa değişince tablo boşalıp zıplamasın; yeni sayfa gelene kadar eskisi durur.
     placeholderData: keepPreviousData,
   })
 
-  // Üretim derlemesinde sahte veri HİÇ üretilmiyor (K51): tablo yerine bölümün
-  // sunucuya bağlı olmadığını söyleyen kutu çıkar.
-  const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
-  const isSourceMissing = sourced?.source === 'unavailable'
 
   // Süzgeç kutusu yalnız yönetim görünümünde var; listeyi de orada indiriyoruz.
   const { data: projectFirms } = useQuery({
@@ -89,9 +114,6 @@ export function DocumentListPage() {
     enabled: isManagementView,
   })
 
-  // Evrak tipleri hem filtrenin hem Evrak Ekle dropdown'ının kaynağı; sabit
-  // liste olduğu için istek yok, yalnız sıralama maliyeti var.
-  const documentTypes = useMemo(() => getDocumentTypes(), [])
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['documents'] })
@@ -100,7 +122,10 @@ export function DocumentListPage() {
   }, [queryClient])
 
   const deletion = useRowDelete({
-    remove: async (documentId) => (await deleteDocument(documentId)).ok,
+    remove: async (documentId) => {
+      await deleteDocument(documentId)
+      return true
+    },
     messages: DELETE_MESSAGES,
     onDeleted: refreshList,
   })
@@ -109,7 +134,6 @@ export function DocumentListPage() {
     () =>
       buildDocumentColumns({
         rowOffset: (query.page - 1) * query.pageSize,
-        documentTypes,
         pendingDocumentId: deletion.pendingId,
         isManagementView,
         canDelete: canWriteContent,
@@ -118,7 +142,6 @@ export function DocumentListPage() {
     [
       query.page,
       query.pageSize,
-      documentTypes,
       deletion.pendingId,
       isManagementView,
       canWriteContent,
@@ -126,8 +149,7 @@ export function DocumentListPage() {
     ],
   )
 
-  const hasActiveFilters =
-    query.search !== '' || query.docTypeCode !== null || query.projectFirmId !== null
+  const hasActiveFilters = query.docTypeCode !== null || query.projectFirmId !== null
 
   // Filtre çubuğu taslak durumunu kendi tutuyor; dışarıdan gelen değişim (geri
   // tuşu, etiket kaldırma) ancak bileşen yeni bir key ile kurulunca yansır.
@@ -136,7 +158,6 @@ export function DocumentListPage() {
     dateTo: query.dateTo ?? '',
     docTypeCode: query.docTypeCode,
     projectFirmId: query.projectFirmId,
-    search: query.search,
   }
   const filterKey = Object.values(appliedFilters).join('|')
 
@@ -147,8 +168,6 @@ export function DocumentListPage() {
         title={PAGE_TITLE}
         countLabel={formatCountLabel(data?.totalCount)}
       />
-
-      <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
 
       {deletion.notice !== null && (
         <NoticeBar
@@ -181,8 +200,6 @@ export function DocumentListPage() {
       {isError && (
         <QueryError message="Evrak listesi yüklenemedi." onRetry={() => void refetch()} />
       )}
-
-      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
 
       {data !== undefined && !isError && (
         <StaleContent isStale={isPlaceholderData}>

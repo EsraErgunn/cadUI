@@ -9,15 +9,39 @@ import {
 export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
 
 /**
- * API SÖZLEŞMESİ — Proje firmaları listesi (doğrulandı: yerel cadapi OpenAPI).
+ * API SÖZLEŞMESİ — Proje firmaları listesi.
+ * (Doğrulandı: cadapi @ a6ea695 — ProjectFirmsController + ProjectFirmManager.)
  *
- * GET /api/projectfirms → ProjectFirmListItemDto[]
- * - "Aktif proje firmalarını listeler". Filtresiz, sayfalamasız DÜZ DİZİ:
- *   `q`/`page`/`pageSize`/`sort` parametresi YOK.
- * - Arama, sıralama ve sayfalama bu yüzden İSTEMCİDE (`projectFirmListQuery.ts`) —
- *   K27'nin aynı gerekçeyle ikinci kez uygulanması, bkz. docs/kararlar.md K29.
- * - Satır FİRMA bazlı: yetki bazlı DEĞİL. Uç hiçbir gaz dağıtım firması alanı
- *   taşımadığı için kayıt adedi tekil firma sayısıdır (KK-5 karşılanmıyor).
+ * GET /api/projectfirms → PagedResultDto<ProjectFirmListItemDto>
+ *   `{ items, totalCount, page, pageSize }` — DÜZ DİZİ DEĞİL, sayfalı zarf.
+ *
+ * Kabul edilen sorgu parametreleri:
+ * - `Page` (varsayılan 1), `PageSize` (varsayılan 30, ÜST SINIR 100 — üstü
+ *   sessizce kırpılır, bkz. `listQuery.ts`).
+ * - `GasDistributionFirmId`, `GasDistributionGroupId` — firmayı yetkisi
+ *   üzerinden süzer.
+ * - `SortDir` (`asc`/`desc`).
+ * - `SortBy` gövdede VAR ama sunucu bugün OKUMUYOR: `ApplySort` yalnız
+ *   `SortDir` alıyor ve sıralama her hâlde `Title` + `Id` üzerinden yapılıyor.
+ *   Yani göndermek zararsız, güvenmek yanlış.
+ *
+ * ARAMA (`q`) PARAMETRESİ YOK — istemci tarafı süzmenin tek gerçek gerekçesi
+ * budur. Sıralama ve sayfalama sunucuda MEVCUT; `getProjectFirmList` yine de
+ * tüm sayfaları toplayıp işi istemcide bitiriyor çünkü ekran arama yapıyor ve
+ * benzersizlik ön kontrolü listenin TAMAMINI görmek zorunda (aşağıdaki
+ * `fetchAllPages` yorumuna bakın). Sunucu taraflı listeye geçiş `q` gelince
+ * mümkün olur — bkz. docs/api-eksikleri-proje-firmalari.md.
+ *
+ * Görünürlük sunucuda: global `IsActive` süzgeci + `WhereVisibleTo` (admin
+ * hepsi, proje firması kendi kaydı, gaz dağıtım kendi kapsamı).
+ *
+ * Satır FİRMA bazlı, yetki bazlı DEĞİL — kayıt adedi tekil firma sayısıdır
+ * (KK-5 karşılanmıyor). NOT: `ProjectFirmListItemDto` sunucuda
+ * `AuthorizedGasDistributionFirms` (yürürlükteki yetkilerin `{id, title}`
+ * listesi) TAŞIYOR; bu modülün şeması onu OKUMUYOR ve gaz dağıtım firması bağı
+ * ayrı uçtan (`GET /api/project-firm-authorizations`) birleştiriliyor.
+ * TODO(esra): iki kaynaktan hangisinin kalacağı kararı verilmeli — satır alanı
+ * kullanılırsa liste ekranı ikinci isteği bırakabilir.
  *
  * MOCK GÖVDE YOK. Eskiden `VITE_API_URL` tanımsızken sessizce sahte listeye
  * düşüyordu; uç sözleşmede VAR, o yüzden tek doğru davranış gerçek isteği

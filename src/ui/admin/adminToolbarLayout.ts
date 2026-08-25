@@ -2,9 +2,9 @@
  * Liste ekranlarının başlık satırındaki araç çubuğunun YERLEŞİM sınıfları.
  *
  * `adminVariants.ts`'te değil: orası buton/rozet/alan GÖRÜNÜMÜNÜ tanımlıyor,
- * buradakiler kap davranışı. Dört ekran (gaz dağıtım firmaları, proje firmaları,
- * proje firması kullanıcıları, duyurular) aynı çubuğu kuruyor; sınıf dizesi dört
- * yerde kopyalanınca biri güncellenip diğerleri unutuluyordu.
+ * buradakiler kap davranışı. Birden çok liste ekranı (gaz dağıtım firmaları,
+ * proje firmaları, proje firması kullanıcıları) aynı çubuğu kuruyor; sınıf
+ * dizesi her ekranda kopyalanınca biri güncellenip diğerleri unutuluyordu.
  */
 
 /**

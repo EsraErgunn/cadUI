@@ -1,43 +1,33 @@
-import { MOCK_LATENCY_MS, delay, fetchAllFirms } from './adminFirms'
-import type { PagedResult } from './listQuery'
-import { isMockDataAllowed, mockedData, type Sourced } from './mockGate'
-import type {
-  FirmReference,
-  ProjectFirmUserDetail,
-  ProjectFirmUserQuery,
-  ProjectFirmUserRow,
-} from './projectFirmUserDto'
+import { fetchAllFirms } from './adminFirms'
+import { requestJson } from './http'
+import { pagedResultSchema, type PagedResult } from './listQuery'
 import {
-  findMockProjectFirmUser,
-  queryMockProjectFirmUsers,
-  seedProjectFirmUsers,
-} from './projectFirmUsersMock'
-import { getProjectFirmList } from './projectFirms'
-import { isEndpointImplemented } from './unimplementedEndpoints'
+  toProjectFirmUserRow,
+  userListItemSchema,
+  type FirmReference,
+  type ProjectFirmUserDetail,
+  type ProjectFirmUserQuery,
+  type ProjectFirmUserRow,
+} from './projectFirmUserDto'
+import { ROLE_CODES } from './roles'
 
 /**
- * API SÖZLEŞMESİ — Proje firması kullanıcıları.
+ * API SÖZLEŞMESİ — Proje firması kullanıcıları. Hepsi GERÇEK uç:
  *
- * KULLANICI UÇLARI SUNUCUDA YOK. cadapi'de kullanıcı controller'ı bulunmuyor;
- * `AuthController` yalnız login/register/me/logout taşıyor ve `User` tablosu
- * kullanıcı başına TEK (proje firması, G.D. firması) ikilisi tutuyor — yani
- * "her yetki ayrı satır" (KK-11) şemada ifade edilemiyor. Eksiklerin dökümü ve
- * önerilen sözleşme: docs/api-eksikleri-kullanicilar.md
+ * - `GET /api/users?RoleCode=ProjectFirmUser&…` → sayfalı liste
+ * - `GET /api/users/{id}`                      → güncelleme ekranının kaydı
+ * - `POST /api/auth/register`                  → oluşturma (`projectFirmUserForm.ts`)
+ * - `PUT /api/users/{id}`                      → güncelleme (`projectFirmUserForm.ts`)
  *
- * FİRMALAR İSE GERÇEK UÇTAN GELİYOR:
- * - `GET /api/gasdistributionfirms`        → yetki satırının G.D. firması seçenekleri
- * - `GET /api/project-firm-authorizations` → proje firması seçenekleri (KK-20 daraltması)
- * - `GET /api/projectfirms`                → mock kullanıcı tohumu (daraltmasız tam liste)
+ * AYRI bir "proje firması kullanıcısı" ucu yok; rol süzgeci bağlamı veriyor.
  *
- * Kullanıcı satırları bu iki gerçek listeden TOHUMLANIYOR (`seedProjectFirmUsers`).
- * Böylece formdaki seçeneklerle listedeki kayıtlar aynı firmaları gösteriyor;
- * uydurulan tek şey kullanıcının kendisi.
- *
- * Mock'a düşme kararı `hasApiBaseUrl`'e değil UÇ BAZLI bayrağa bağlı
- * (`unimplementedEndpoints.ts`, docs/kararlar.md K46).
+ * Kapsam sunucuya gidiyor (`GasDistributionFirmId` / `GasDistributionGroupId`).
+ * Arama parametresi UÇTA YOK — bkz. `ProjectFirmUserQuery`.
  */
 
 export const PROJECT_FIRM_USER_PAGE_SIZE = 30
+
+const userPageSchema = pagedResultSchema(userListItemSchema)
 
 /** G.D. firmasının seçim kutusundaki etiketi; grup adı varsa ayırt etsin diye eklenir. */
 function toGasFirmLabel(firm: { name: string; groupName: string | null }): string {
@@ -56,75 +46,59 @@ export async function getCompetencyGasFirms(signal?: AbortSignal): Promise<FirmR
     .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
 }
 
-/**
- * Kullanıcı satırlarının dayandığı gerçek firma listeleri; ikisi paralel çekilir.
- *
- * Proje firmaları burada YETKİ ucundan değil `getProjectFirmList`'ten geliyor:
- * tohum tüm firmaları istiyor, oysa yetki ucu bir G.D. firmasına daraltılmadan
- * anlamlı değil.
- */
-async function seedFromRealFirms(signal?: AbortSignal): Promise<void> {
-  const [gasFirms, projectFirms] = await Promise.all([
-    getCompetencyGasFirms(signal),
-    getProjectFirmList(signal),
-  ])
+function buildListQuery(query: ProjectFirmUserQuery): string {
+  const search = new URLSearchParams({
+    RoleCode: ROLE_CODES.projectFirmUser,
+    Page: String(query.page),
+    PageSize: String(query.pageSize),
+    SortBy: 'fullName',
+    SortDir: 'asc',
+  })
 
-  seedProjectFirmUsers(
-    gasFirms,
-    projectFirms.map((firm) => ({ id: firm.id, name: firm.name })),
-  )
+  // Boş süzgeç parametre olarak HİÇ yazılmaz; "tümü" demek için yokluğu kullanılır.
+  if (query.gasFirmGroupId !== null) {
+    search.set('GasDistributionGroupId', String(query.gasFirmGroupId))
+  }
+
+  return search.toString()
 }
 
-/**
- * Sayfalama SUNUCU tarafında (madde 7, KK-12). Uç açılana kadar mock aynı
- * sözleşmeyi taklit ediyor: sorgu parametre olarak gider, yanıt yalnız o
- * sayfayı ve filtrelenmiş toplamı taşır — istemcide dilimleyen bir ara katman
- * yazılmadı (K46).
- *
- * `Sourced` zarfı ŞART (K51): satırların KULLANICI kısmı uydurma ve ekran bunu
- * söylemek zorunda. Üretim derlemesinde liste hiç kurulmaz — uydurma bir
- * kullanıcı kadrosu bir demoda gerçek sanılırdı; orada ekran "kaynağı yok" der.
- */
+/** Liste — `GET /api/users?RoleCode=ProjectFirmUser&…`. */
 export async function getProjectFirmUserList(
   query: ProjectFirmUserQuery,
   signal?: AbortSignal,
-): Promise<Sourced<PagedResult<ProjectFirmUserRow>>> {
-  if (isEndpointImplemented('firmUserList')) {
-    throw new Error('getProjectFirmUserList: uç bağlandı ama gövdesi yazılmadı.')
+): Promise<PagedResult<ProjectFirmUserRow>> {
+  const page = await requestJson(
+    { method: 'GET', path: `/api/users?${buildListQuery(query)}`, signal },
+    userPageSchema,
+  )
+
+  return {
+    items: page.items.map(toProjectFirmUserRow),
+    totalCount: page.totalCount,
+    page: page.page,
+    pageSize: page.pageSize,
   }
-
-  // Tohum GERÇEK firma uçlarından geliyor; üretimde onu da çekmenin anlamı yok.
-  if (!isMockDataAllowed()) return mockedData(() => queryMockProjectFirmUsers(query))
-
-  await seedFromRealFirms(signal)
-  await delay(MOCK_LATENCY_MS, signal)
-  return mockedData(() => queryMockProjectFirmUsers(query))
 }
 
-/**
- * Güncelleme ekranını dolduran kayıt (KK-25).
- *
- * Listeyle AYNI zarf (K51): uydurma bir kişinin adı, e-postası ve telefonu
- * doldurulmuş bir form, tablodaki uydurma satırdan daha inandırıcı görünür.
- * Üretim derlemesinde kayıt hiç kurulmaz, ekran "kaynağı yok" der.
- */
+/** Güncelleme ekranının kaydı — `GET /api/users/{id}`. */
 export async function getProjectFirmUser(
   userId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectFirmUserDetail>> {
-  if (isEndpointImplemented('firmUserDetail')) {
-    throw new Error('getProjectFirmUser: uç bağlandı ama gövdesi yazılmadı.')
+): Promise<ProjectFirmUserDetail> {
+  const dto = await requestJson(
+    { method: 'GET', path: `/api/users/${userId}`, signal },
+    userListItemSchema,
+  )
+
+  const row = toProjectFirmUserRow(dto)
+
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    username: row.username,
+    email: row.email,
+    phone: row.phone,
+    projectFirmId: dto.projectFirmId ?? null,
   }
-
-  if (!isMockDataAllowed()) return { source: 'unavailable', data: null }
-
-  // Doğrudan güncelleme adresine gelen kullanıcı için satırlar henüz
-  // tohumlanmamış olabilir; liste ekranından geçmek şart olmasın.
-  await seedFromRealFirms(signal)
-  await delay(MOCK_LATENCY_MS, signal)
-
-  const user = findMockProjectFirmUser(userId)
-  // Bulunamayan kayıt "kaynak yok" DEĞİL gerçek bir hata: adres yanlış.
-  if (user === null) throw new Error('Kullanıcı bulunamadı.')
-  return mockedData(() => user)
 }

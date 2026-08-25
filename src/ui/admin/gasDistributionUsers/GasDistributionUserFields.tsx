@@ -22,6 +22,12 @@ interface GasDistributionUserFieldsProps {
   values: GasDistributionUserFormValues
   errors: GasDistributionUserErrors
   firmOptions: SelectFieldOption[]
+  /**
+   * Güncelleme modunda kullanıcı adı ve şifre alanları ÇİZİLMEZ: `UserUpdateDto`
+   * ikisini de almıyor. Pasif göstermek yerine hiç çizilmiyor — düzenlenemeyen
+   * ama görünen bir alan, kaydedilecekmiş gibi okunur.
+   */
+  isUpdate?: boolean
   onChange: (field: GasDistributionUserField, value: string) => void
 }
 
@@ -33,6 +39,7 @@ export function GasDistributionUserFields({
   values,
   errors,
   firmOptions,
+  isUpdate = false,
   onChange,
 }: GasDistributionUserFieldsProps) {
   return (
@@ -73,29 +80,35 @@ export function GasDistributionUserFields({
         onChange={(value) => onChange('fullName', value)}
       />
 
-      <TextField
-        id={gasDistributionUserFieldId('username')}
-        label="Kullanıcı Adı"
-        labelNote={REQUIRED_MARK}
-        layout="horizontal"
-        leftIcon={UserCircle}
-        placeholder="kullanici.adi"
-        value={values.username}
-        error={errors.username}
-        onChange={(value) => onChange('username', value)}
-      />
+      {/* Sunucu ikisini de GÜNCELLEMİYOR (`UserUpdateDto`); şifre için ayrı bir
+          uç var (`POST /api/users/{id}/reset-password`) ve onun ekranı yok. */}
+      {!isUpdate && (
+        <>
+          <TextField
+            id={gasDistributionUserFieldId('username')}
+            label="Kullanıcı Adı"
+            labelNote={REQUIRED_MARK}
+            layout="horizontal"
+            leftIcon={UserCircle}
+            placeholder="kullanici.adi"
+            value={values.username}
+            error={errors.username}
+            onChange={(value) => onChange('username', value)}
+          />
 
-      <PasswordField
-        id={gasDistributionUserFieldId('password')}
-        label="Şifre"
-        labelNote={REQUIRED_MARK}
-        layout="horizontal"
-        leftIcon={KeyRound}
-        placeholder="••••••••"
-        value={values.password}
-        error={errors.password}
-        onChange={(value) => onChange('password', value)}
-      />
+          <PasswordField
+            id={gasDistributionUserFieldId('password')}
+            label="Şifre"
+            labelNote={REQUIRED_MARK}
+            layout="horizontal"
+            leftIcon={KeyRound}
+            placeholder="••••••••"
+            value={values.password}
+            error={errors.password}
+            onChange={(value) => onChange('password', value)}
+          />
+        </>
+      )}
 
       <SelectField
         id={gasDistributionUserFieldId('gasFirmId')}

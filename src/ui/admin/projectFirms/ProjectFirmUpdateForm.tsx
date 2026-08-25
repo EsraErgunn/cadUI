@@ -7,6 +7,7 @@ import { ProjectFirmInfoCard } from './ProjectFirmInfoCard'
 import { projectFirmFieldId, toProjectFirmFormValues } from './projectFirmSchema'
 import { useProjectFirmForm } from './useProjectFirmForm'
 import type { ProjectFirmFullDto } from '../../../api/projectFirmDto'
+import { projectFirmQueryKey } from '../../../api/projectFirmForm'
 import { getProjectFirmList, type ProjectFirm } from '../../../api/projectFirms'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
@@ -81,7 +82,7 @@ export function ProjectFirmUpdateForm({ firm }: ProjectFirmUpdateFormProps) {
     // Liste ve BU kaydın detayı birlikte tazelenir: kullanıcı geri dönüp aynı
     // kaydı yeniden açtığında eski değerleri görmemeli.
     void queryClient.invalidateQueries({ queryKey: ['projectFirmList'] })
-    void queryClient.invalidateQueries({ queryKey: ['projectFirm', firm.id] })
+    void queryClient.invalidateQueries({ queryKey: projectFirmQueryKey(firm.id) })
     goToList(saved.firmId)
   }
 

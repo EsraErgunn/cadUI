@@ -24,7 +24,7 @@ vi.mock('../../api/projectFirmUserForm', async (importOriginal) => ({
 }))
 
 beforeEach(() => {
-  readApi.getProjectFirmUser.mockResolvedValue({ source: 'mock', data: buildDetail() })
+  readApi.getProjectFirmUser.mockResolvedValue(buildDetail())
   formApi.findTakenProjectFirmUserFields.mockResolvedValue({
     isEmailTaken: false,
     isUsernameTaken: false,
@@ -36,43 +36,13 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// K51: güncelleme ekranını dolduran kişi uydurma; ekran bunu söylemek zorunda
-// ve üretim derlemesinde formu HİÇ doldurmuyor.
-describe('veri kaynağı uyarısı (K51)', () => {
+describe('güncelleme ekranı', () => {
   const updateRoute = '/admin/project-firm-users/1001'
 
-  it('mock kayıtta form uyarı şeridiyle birlikte açılır', async () => {
+  it('kaydı okuyup formu dolu açar', async () => {
     renderFormFlow(updateRoute)
 
-    const notice = await screen.findByRole('status')
-    expect(notice).toHaveTextContent('Bu ekrandaki bazı veriler sunucudan gelmiyor.')
-    expect(notice).toHaveTextContent('Kullanıcının bilgileri')
     expect(await screen.findByLabelText(/Adı Soyadı/)).toHaveValue('Tolga Ertek')
-  })
-
-  it('kaynak yokken form yerine "kaynağı yok" kutusu çıkar', async () => {
-    readApi.getProjectFirmUser.mockResolvedValue({ source: 'unavailable', data: null })
-    renderFormFlow(updateRoute)
-
-    expect(await screen.findByText('Bu bölümün veri kaynağı henüz yok.')).toBeInTheDocument()
-    expect(screen.queryByLabelText(/Adı Soyadı/)).not.toBeInTheDocument()
-    expect(
-      screen.queryByText('Bu ekrandaki bazı veriler sunucudan gelmiyor.'),
-    ).not.toBeInTheDocument()
-  })
-
-  it('yazacak yer yokken kayıt listeye dönmez, sebebini söyler', async () => {
-    const user = userEvent.setup()
-    formApi.saveProjectFirmUser.mockResolvedValue({ ok: false, reason: 'unavailable' })
-    renderFormFlow(updateRoute)
-
-    await screen.findByLabelText(/Adı Soyadı/)
-    await user.click(screen.getByRole('button', { name: /Kaydet/ }))
-
-    expect(
-      await screen.findByText('Kullanıcı kaydedilemiyor: bu ekranın sunucu ucu henüz açılmadı.'),
-    ).toBeInTheDocument()
-    expect(screen.getByLabelText(/Adı Soyadı/)).toBeInTheDocument()
   })
 })
 

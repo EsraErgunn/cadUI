@@ -4,10 +4,10 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
-import { getDocumentTypes } from '../api/documentTypes'
+import { getDocumentTypes, type DocumentType } from '../api/documentTypes'
 import { listProjectDocuments, saveProjectDocuments } from '../api/documents'
+import { ApiError } from '../api/http'
 import { getProjectSummary, getProjectUnits } from '../api/projectDetail'
-import { useAuthSession } from '../api/useAuthSession'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
@@ -23,7 +23,16 @@ import { ProjectDocumentPicker } from '../ui/admin/documents/ProjectDocumentPick
 import { UploadedDocumentRow } from '../ui/admin/documents/UploadedDocumentRow'
 import type { DocumentSource } from '../ui/admin/documents/documentSources'
 import { useDocumentUpload } from '../ui/admin/documents/useDocumentUpload'
+import { ProjectDocumentActionDialogs } from '../ui/admin/projectDetail/ProjectDocumentActionDialogs'
+import { useProjectDocumentActions } from '../ui/admin/projectDetail/useProjectDocumentActions'
 import { useHomePath } from '../ui/admin/useHomePath'
+
+/** Kod grubu nadiren değişiyor; ekranlar arası gezinmede yeniden istenmesin. */
+const DOCUMENT_TYPE_STALE_MS = 5 * 60 * 1000
+
+/** Sabit boş dizi: her render'da yeni dizi üretmek alt bileşenleri boşuna
+    yeniden çizerdi. */
+const EMPTY_DOCUMENT_TYPES: DocumentType[] = []
 
 const PAGE_TITLE = 'Evrak Ekle'
 const PANEL_ID = 'document-source-panel'
@@ -33,11 +42,8 @@ const NO_FILE_HINT = 'Kaydetmek için önce en az bir dosya ekleyin.'
 const UNITS_MISSING_HINT =
   'Projenin birimleri okunamadı; birim seçimi olmadan evrak kaydedilemez.'
 
-/** Uç yokken kayıt yalnız geliştirme derlemesinde tutulabiliyor (K51). */
-const SAVE_ERROR_MESSAGES = {
-  unavailable:
-    'Evrak yükleme ucu sunucuda henüz yok; kayıt yapılamadı (POST /api/projects/{id}/docs).',
-} as const
+/** Ağa HİÇ çıkılamadığında gösterilen metin; sunucunun kendi mesajı varsa o kazanır. */
+const SAVE_ERROR_MESSAGE = 'Evrak kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'
 
 /** İlk madde ROLE göre çözülüyor (`useHomePath`); ekran üç rolde de açık. */
 const BREADCRUMB_TAIL = [{ label: 'Projeler', to: PROJECT_LIST_PATH }, { label: PAGE_TITLE }]
@@ -47,7 +53,6 @@ export function NewDocumentPage() {
   const [searchParams] = useSearchParams()
   const projectId = parseProjectParam(searchParams.get(PROJECT_PARAM))
   const navigate = useNavigate()
-  const session = useAuthSession()
 
   const [source, setSource] = useState<DocumentSource>('computer')
   const [isSaving, setIsSaving] = useState(false)
@@ -82,19 +87,29 @@ export function NewDocumentPage() {
     enabled: hasProject,
   })
 
-  // Üretim derlemesinde sahte evrak üretilmiyor (K51); sekme boş liste gösterir.
-  const pickerRows =
-    projectDocuments === undefined || projectDocuments.source === 'unavailable'
-      ? []
-      : projectDocuments.data
+  const pickerRows = projectDocuments ?? []
 
-  const documentTypes = useMemo(() => getDocumentTypes(), [])
+  const { data: documentTypes = EMPTY_DOCUMENT_TYPES } = useQuery({
+    queryKey: ['documentTypes'],
+    queryFn: ({ signal }) => getDocumentTypes(signal),
+    staleTime: DOCUMENT_TYPE_STALE_MS,
+  })
 
-  const unitNames = useMemo(() => {
-    if (units === undefined || units.source === 'unavailable') return []
-    return units.data
-      .map((unit) => unit.unitNumber)
-      .filter((unitNumber): unitNumber is string => unitNumber !== null)
+  // "Proje Evrakları" sekmesindeki silme ve birim değiştirme — proje detayının
+  // evrak sekmesiyle AYNI hook, ikinci bir kopya yazılmıyor.
+  const documentActions = useProjectDocumentActions(projectId ?? 0)
+
+  // Evrak birime KİMLİKLE bağlanıyor; etiket yalnız kutuda görünüyor. Birim
+  // numarası boş olabildiği için (çizimden senkron) abone adı yedek.
+  const unitOptions = useMemo(() => {
+    if (units === undefined) return []
+
+    return units.map((unit) => ({
+      id: unit.id,
+      label:
+        [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||
+        `#${unit.id}`,
+    }))
   }, [units])
 
   // Evrak hangi projeye bağlanacağını bilmeden çalışamaz (gereksinim 6): kimlik
@@ -124,17 +139,19 @@ export function NewDocumentPage() {
     setIsSaving(true)
     setSaveError(null)
 
-    const result = await saveProjectDocuments(project, uploads, session?.fullName ?? null)
-    setIsSaving(false)
+    try {
+      const result = await saveProjectDocuments(project.id, uploads)
 
-    if (!result.ok) {
-      setSaveError(SAVE_ERROR_MESSAGES[result.reason])
-      return
+      void navigate(projectDetailPath(project.id), {
+        state: { savedDocumentCount: result.savedCount },
+      })
+    } catch (error) {
+      // Sunucunun kendi mesajı KORUNUR (dosya boyutu, tip kısıtı gibi hatalar
+      // ancak orada biliniyor); ağ hatasında genel metne düşülüyor.
+      setSaveError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+    } finally {
+      setIsSaving(false)
     }
-
-    void navigate(projectDetailPath(project.id), {
-      state: { savedDocumentCount: result.savedCount },
-    })
   }
 
   const hasRows = upload.rows.length > 0
@@ -174,12 +191,7 @@ export function NewDocumentPage() {
           {source === 'computer' ? (
             <DocumentDropzone onFilesSelected={upload.addFiles} />
           ) : (
-            <ProjectDocumentPicker
-              documents={pickerRows}
-              documentTypes={documentTypes}
-              isAdded={upload.hasExistingDocument}
-              onAdd={upload.addExistingDocument}
-            />
+            <ProjectDocumentPicker documents={pickerRows} actions={documentActions} />
           )}
         </div>
 
@@ -193,10 +205,10 @@ export function NewDocumentPage() {
                   key={row.key}
                   row={row}
                   documentTypes={documentTypes}
-                  units={unitNames}
+                  units={unitOptions}
                   errors={upload.errors.get(row.key)}
-                  onTypeChange={(docTypeCode) => upload.setRowType(row.key, docTypeCode)}
-                  onUnitsChange={(names) => upload.setRowUnits(row.key, names)}
+                  onTypeChange={(docTypeCodeId) => upload.setRowType(row.key, docTypeCodeId)}
+                  onUnitsChange={(unitIds) => upload.setRowUnits(row.key, unitIds)}
                   onRemove={() => upload.removeRow(row.key)}
                 />
               ))}
@@ -205,7 +217,7 @@ export function NewDocumentPage() {
             <p className="text-sm text-ink-muted">{NO_FILE_HINT}</p>
           )}
 
-          {hasRows && unitNames.length === 0 && (
+          {hasRows && unitOptions.length === 0 && (
             <p role="alert" className="text-sm text-danger-ink">
               {UNITS_MISSING_HINT}
             </p>
@@ -230,6 +242,10 @@ export function NewDocumentPage() {
           </button>
         </div>
       </div>
+
+      {/* "Proje Evrakları" sekmesindeki eylemlerin diyalogları; proje detayının
+          evrak sekmesiyle AYNI bileşen. */}
+      <ProjectDocumentActionDialogs units={unitOptions} actions={documentActions} />
     </div>
   )
 }

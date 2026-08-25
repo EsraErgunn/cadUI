@@ -12,9 +12,10 @@ import { ROLE_CODES } from '../../api/roles'
  * "bilinmeyen kod hiçbir role sayılmaz" kuralı her çağıran için aynı işlesin.
  * İmza değişmedi, çağıranların hiçbiri etkilenmiyor.
  *
- * Rol `usePermission` yerine oturumdan okunuyor: `api/permissions.ts` hâlâ mock
- * bir izin listesi döndürüyor (gerçek uç yok), oysa `roleCode` login yanıtından
- * geliyor ve senkron.
+ * Rol oturumdan okunuyor: `roleCode` login yanıtından geliyor ve senkron.
+ * Mock bir izin listesine bakan eski geçit (`usePermission` + `api/permissions.ts`)
+ * SİLİNDİ — gerçek uç (`GET /api/me/permissions`) hiç açılmadı ve üretim
+ * derlemesinde boş dizi döndüğü için yetkili kullanıcıya da kapalı görünüyordu.
  */
 export function useIsAdmin(): boolean {
   return useRoleCode() === ROLE_CODES.admin

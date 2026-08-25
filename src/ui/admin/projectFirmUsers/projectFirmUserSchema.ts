@@ -20,6 +20,7 @@ export const PROJECT_FIRM_USER_ERRORS = {
   emailTaken: 'Bu e-posta adresi zaten kullanılmaktadır.',
   fullName: 'Adı soyadı zorunludur.',
   username: 'Kullanıcı adı zorunludur.',
+  projectFirm: 'Proje firması seçiniz.',
   usernameTaken: 'Bu kullanıcı adı zaten kullanılmaktadır.',
   password: 'Şifre zorunludur.',
   passwordRule: PASSWORD_RULE_MESSAGE,
@@ -33,6 +34,12 @@ export interface ProjectFirmUserFormValues {
   fullName: string
   username: string
   password: string
+  /**
+   * Kullanıcının bağlanacağı proje firması. Seçim kutusu değeri DİZE; boş dize
+   * = seçilmedi. Sunucu alanı opsiyonel kabul ediyor ama firmasız bir proje
+   * firması kullanıcısı hiçbir projeyi göremez — bu yüzden formda zorunlu.
+   */
+  projectFirmId: string
 }
 
 export type ProjectFirmUserField = keyof ProjectFirmUserFormValues
@@ -45,6 +52,7 @@ export function buildEmptyProjectFirmUserValues(): ProjectFirmUserFormValues {
     fullName: '',
     username: '',
     password: '',
+    projectFirmId: '',
   }
 }
 
@@ -102,6 +110,7 @@ function createProjectFirmUserSchema(isUpdate: boolean) {
     fullName: requiredText(PROJECT_FIRM_USER_ERRORS.fullName),
     username: requiredText(PROJECT_FIRM_USER_ERRORS.username),
     password,
+    projectFirmId: requiredText(PROJECT_FIRM_USER_ERRORS.projectFirm),
   })
 }
 

@@ -6,7 +6,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProjectFirmUserListProbe } from './ProjectFirmUserListProbe'
 import { UrlProbe } from './UrlProbe'
 import type { PagedResult } from '../../api/listQuery'
-import type { Sourced } from '../../api/mockGate'
 import type {
   ProjectFirmUserDetail,
   ProjectFirmUserRow,
@@ -18,30 +17,21 @@ export const CREATE_PATH = `${LIST_PATH}/new`
 
 export function buildRow(overrides: Partial<ProjectFirmUserRow> = {}): ProjectFirmUserRow {
   return {
-    competencyId: 5001,
-    userId: 1001,
+    id: 1001,
     username: 'tolga.ertek',
     fullName: 'Tolga Ertek',
     email: 'tolga.ertek@tekhnelogos.com',
     phone: '5555555555',
-    authorityType: 'firmEngineer',
-    gasFirm: { id: 103, name: 'AKSA-GEMLİK' },
     projectFirm: { id: 201, name: 'AA Mühendislik' },
-    gdfRegistrationNumber: null,
     ...overrides,
   }
 }
 
-/** Liste `Sourced` zarfıyla dönüyor: sahte veri yalnız geliştirmede üretilir
-    (K51). Testler geliştirme derlemesinde koştuğu için `mock` kolu. */
 export function buildPage(
   rows: ProjectFirmUserRow[],
   overrides: Partial<PagedResult<ProjectFirmUserRow>> = {},
-): Sourced<PagedResult<ProjectFirmUserRow>> {
-  return {
-    source: 'mock',
-    data: { items: rows, totalCount: rows.length, page: 1, pageSize: 30, ...overrides },
-  }
+): PagedResult<ProjectFirmUserRow> {
+  return { items: rows, totalCount: rows.length, page: 1, pageSize: 30, ...overrides }
 }
 
 export const MOCK_GAS_FIRMS = [
@@ -63,15 +53,7 @@ export function buildDetail(
     username: 'tolga.ertek',
     email: 'tolga.ertek@tekhnelogos.com',
     phone: '05321180880',
-    competencies: [
-      {
-        id: 5001,
-        gasFirm: MOCK_GAS_FIRMS[0],
-        projectFirm: MOCK_PROJECT_FIRMS[0],
-        authorityType: 'firmEngineer',
-        gdfRegistrationNumber: '512',
-      },
-    ],
+    projectFirmId: 201,
     ...overrides,
   }
 }

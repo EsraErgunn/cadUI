@@ -81,9 +81,8 @@ sunucuda yok (`UNIMPLEMENTED_ENDPOINTS`). Firma genelindeki poliçeleri dönen
 sayfalı bir uç da yok; var olan akış proje bazlı.
 
 Madde yine de kaldı (kullanıcı kararı, 2026-08). Gerekçe: ekran üretim
-derlemesinde zaten eksik ucu ADIYLA söylüyor (`MISSING_ENDPOINT_HINT =
-'GET /api/policies'`) ve mock yalnız dev'de üretiliyor (`mockGate`). Yani
-kullanıcı boş bir liste değil, sebebini okuyor. Maddeyi menüden düşürmek rolün
+derlemesinde poliçe listesi artık GERÇEK uçtan (`GET /api/policies`) besleniyor;
+eksik uç şeridi ve `mockGate` K160'ta silindi. Maddeyi menüden düşürmek rolün
 bir işlevini görünmez kılardı; uç açıldığında ise menüyü ve rotayı yeniden
 kurmak gerekirdi.
 

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 
 import { partitionDocumentFiles, type RejectedFile } from './documentFiles'
-import type { DocumentRow, DocumentUpload, DocumentUploadSource } from '../../../api/documents'
+import type { DocumentUpload, DocumentUploadSource } from '../../../api/documents'
 
 export const MISSING_TYPE_MESSAGE = 'Evrak tipi seçilmeden kayıt tamamlanamaz.'
 export const MISSING_UNIT_MESSAGE = 'En az bir birim seçilmelidir.'
@@ -12,8 +12,8 @@ export interface UploadRow {
   key: number
   source: DocumentUploadSource
   fileName: string
-  docTypeCode: string | null
-  unitNames: string[]
+  docTypeCodeId: number | null
+  unitIds: number[]
 }
 
 export interface UploadRowErrors {
@@ -28,12 +28,10 @@ export interface DocumentUploadState {
   errors: Map<number, UploadRowErrors>
   addFiles: (files: File[]) => void
   /** "Proje Evrakları" sekmesinden yeniden ilişkilendirme (gereksinim 7). */
-  addExistingDocument: (document: DocumentRow) => void
   /** Aynı evrağın iki kez eklenmesini engellemek için: sekme düğmesi pasifleşir. */
-  hasExistingDocument: (documentId: number) => boolean
   removeRow: (key: number) => void
-  setRowType: (key: number, docTypeCode: string | null) => void
-  setRowUnits: (key: number, unitNames: string[]) => void
+  setRowType: (key: number, docTypeCodeId: number | null) => void
+  setRowUnits: (key: number, unitIds: number[]) => void
   dismissRejections: () => void
   /** Doğrulama geçerse yükleme listesini döndürür, geçmezse `null` yazıp
       hataları ekrana basar. */
@@ -42,8 +40,8 @@ export interface DocumentUploadState {
 
 function validateRow(row: UploadRow): UploadRowErrors {
   const errors: UploadRowErrors = {}
-  if (row.docTypeCode === null) errors.docType = MISSING_TYPE_MESSAGE
-  if (row.unitNames.length === 0) errors.units = MISSING_UNIT_MESSAGE
+  if (row.docTypeCodeId === null) errors.docType = MISSING_TYPE_MESSAGE
+  if (row.unitIds.length === 0) errors.units = MISSING_UNIT_MESSAGE
   return errors
 }
 
@@ -71,41 +69,14 @@ export function useDocumentUpload(): DocumentUploadState {
           key: nextKey.current,
           source: { kind: 'file', file },
           fileName: file.name,
-          docTypeCode: null,
-          unitNames: [],
+          docTypeCodeId: null,
+          unitIds: [],
         }
         nextKey.current += 1
         return row
       }),
     ])
   }, [])
-
-  const addExistingDocument = useCallback((document: DocumentRow) => {
-    setRows((current) => {
-      const isAlreadyAdded = current.some(
-        (row) => row.source.kind === 'existing' && row.source.documentId === document.id,
-      )
-      if (isAlreadyAdded) return current
-
-      const row: UploadRow = {
-        key: nextKey.current,
-        source: { kind: 'existing', documentId: document.id },
-        fileName: document.fileName,
-        // Tip kaynağından geliyor ama DEĞİŞTİRİLEBİLİR kalıyor: aynı dosya
-        // başka bir tiple yeniden ilişkilendirilebilmeli.
-        docTypeCode: document.docTypeCode,
-        unitNames: [],
-      }
-      nextKey.current += 1
-      return [...current, row]
-    })
-  }, [])
-
-  const hasExistingDocument = useCallback(
-    (documentId: number) =>
-      rows.some((row) => row.source.kind === 'existing' && row.source.documentId === documentId),
-    [rows],
-  )
 
   const removeRow = useCallback((key: number) => {
     setRows((current) => current.filter((row) => row.key !== key))
@@ -119,14 +90,14 @@ export function useDocumentUpload(): DocumentUploadState {
     })
   }, [])
 
-  const setRowType = useCallback((key: number, docTypeCode: string | null) => {
+  const setRowType = useCallback((key: number, docTypeCodeId: number | null) => {
     setRows((current) =>
-      current.map((row) => (row.key === key ? { ...row, docTypeCode } : row)),
+      current.map((row) => (row.key === key ? { ...row, docTypeCodeId } : row)),
     )
   }, [])
 
-  const setRowUnits = useCallback((key: number, unitNames: string[]) => {
-    setRows((current) => current.map((row) => (row.key === key ? { ...row, unitNames } : row)))
+  const setRowUnits = useCallback((key: number, unitIds: number[]) => {
+    setRows((current) => current.map((row) => (row.key === key ? { ...row, unitIds } : row)))
   }, [])
 
   const dismissRejections = useCallback(() => setRejected([]), [])
@@ -146,8 +117,8 @@ export function useDocumentUpload(): DocumentUploadState {
       source: row.source,
       // Doğrulama geçtiyse tip seçilmiştir; tip sistemi bunu göremediği için
       // burada daraltılıyor.
-      docTypeCode: row.docTypeCode ?? '',
-      unitNames: row.unitNames,
+      docTypeCodeId: row.docTypeCodeId ?? 0,
+      unitIds: row.unitIds,
     }))
   }, [rows])
 
@@ -156,8 +127,6 @@ export function useDocumentUpload(): DocumentUploadState {
     rejected,
     errors,
     addFiles,
-    addExistingDocument,
-    hasExistingDocument,
     removeRow,
     setRowType,
     setRowUnits,

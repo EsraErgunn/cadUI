@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -39,16 +40,17 @@ vi.mock('../../api/projectFirms', async (importOriginal) => ({
   ...projectFirmsApi,
 }))
 
-function openForm() {
+function openForm(client?: QueryClient) {
   renderNewProjectFirmPage({
     form: formApi,
     lookups: { ...firmsApi, ...projectFirmsApi },
+    client,
   })
 }
 
 /** Kaydetmeye hazır form: bir yetkilendirme + geçerli firma bilgileri. */
-async function fillReadyForm(overrides: Record<string, string> = {}) {
-  openForm()
+async function fillReadyForm(client?: QueryClient, overrides: Record<string, string> = {}) {
+  openForm(client)
   await selectGroup('AKSA')
   await addAuthorization()
   await fillFirmInfo(overrides)
@@ -94,7 +96,7 @@ describe('KK-5 — şahıs şirketi geçişi', () => {
   })
 
   it('işaretliyken vergi no zorunluluktan çıkar, kimlik zorunlu olur', async () => {
-    await fillReadyForm({ 'Vergi No': '' })
+    await fillReadyForm(undefined, { 'Vergi No': '' })
     await userEvent.click(screen.getByRole('checkbox', { name: 'Şahıs Şirketi' }))
 
     await save()
@@ -120,7 +122,7 @@ describe('KK-6 — zorunlu alan doğrulaması', () => {
   })
 
   it('geçersiz e-postada belgedeki mesajı gösterir', async () => {
-    await fillReadyForm({ 'E-mail': 'bilgi@' })
+    await fillReadyForm(undefined, { 'E-mail': 'bilgi@' })
 
     await save()
 
@@ -129,7 +131,7 @@ describe('KK-6 — zorunlu alan doğrulaması', () => {
   })
 
   it('alan düzeltilince hatası anında kalkar', async () => {
-    await fillReadyForm({ Ünvan: '' })
+    await fillReadyForm(undefined, { Ünvan: '' })
     await save()
     expect(screen.getByText(PROJECT_FIRM_ERRORS.name)).toBeInTheDocument()
 
@@ -166,7 +168,7 @@ describe('KK-7 — yetkilendirme kaydı olmadan kaydetme', () => {
 
 describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
   it('kullanılmış vergi numarasında kaydetmez', async () => {
-    await fillReadyForm({ 'Vergi No': EXISTING_PROJECT_FIRM.taxNumber ?? '' })
+    await fillReadyForm(undefined, { 'Vergi No': EXISTING_PROJECT_FIRM.taxNumber ?? '' })
 
     await save()
 
@@ -180,6 +182,25 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
     await screen.findByRole('heading', { name: 'Firma Bilgileri' })
 
     expect(screen.queryByLabelText(/^Seri No/)).not.toBeInTheDocument()
+  })
+
+  /**
+   * Kayıt sonrası liste TAZELENMELİ: yeni firma kullanıcı sayfayı yenilemeden
+   * görünsün. Anahtar altı ekranda paylaşılıyor (K75), kökü düşürmek yetiyor.
+   */
+  it('kayıttan sonra proje firması listesini geçersizleştirir', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    await fillReadyForm(client)
+    await save()
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Proje Firmaları' })).toBeInTheDocument(),
+    )
+
+    const keys = invalidate.mock.calls.map(([options]) => options?.queryKey)
+    expect(keys).toContainEqual(['projectFirmList'])
   })
 
   it('yetkilendirme bölümünde Yeterlilik No alanı bulunmaz', async () => {
@@ -209,7 +230,12 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
     // Gövdede seri no anahtarı HİÇ yok; `null` bile gitmiyor.
     expect(formApi.createProjectFirm.mock.calls[0][0]).not.toHaveProperty('serialNumber')
     expect(formApi.saveProjectFirmAuthorizations).toHaveBeenCalledWith(NEW_FIRM_ID, [
-      { gasDistributionFirmId: 11, certificateNumber: null },
+      {
+        gasDistributionFirmId: 11,
+        certificateNumber: 'ST-1',
+        validFrom: '2026-01-01',
+        validTo: null,
+      },
     ])
     // Liste ekranı başarı mesajını bu durumdan üretiyor (useSavedFirmNotice).
     expect(screen.getByTestId('list-state')).toHaveTextContent(String(NEW_FIRM_ID))

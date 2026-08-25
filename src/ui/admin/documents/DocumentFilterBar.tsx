@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 
 import type { DocumentType } from '../../../api/documentTypes'
 import type { Lookup } from '../../../api/projects'
@@ -6,9 +6,6 @@ import { FilterSelect, type FilterSelectOption } from '../FilterSelect'
 import { adminFieldVariants } from '../adminVariants'
 import type { DocumentFilters } from './useDocumentListParams'
 
-const SEARCH_FIELD = 'documentSearch'
-const SEARCH_PLACEHOLDER = 'Evrak Ara'
-const SEARCH_LABEL = 'Evrak adında ara'
 const ANY_OPTION_LABEL = 'Tümü'
 
 function toFirmOptions(lookups: Lookup[]): FilterSelectOption[] {
@@ -57,8 +54,6 @@ export function DocumentFilterBar({
   const [docTypeCode, setDocTypeCode] = useState(filters.docTypeCode)
   const [projectFirmId, setProjectFirmId] = useState(filters.projectFirmId)
   // Kontrolsüz arama kutusu; değeri uygulama anında ref'ten okunuyor ki seçim
-  // değişince yazılmış metin kaybolmasın.
-  const searchRef = useRef<HTMLInputElement>(null)
 
   const applyNow = (changed: Partial<DocumentFilters>) => {
     onApply({
@@ -66,7 +61,6 @@ export function DocumentFilterBar({
       dateTo,
       docTypeCode,
       projectFirmId,
-      search: searchRef.current?.value.trim() ?? filters.search,
       ...changed,
     })
   }
@@ -139,26 +133,6 @@ export function DocumentFilterBar({
         />
       )}
 
-      <div className="flex min-w-56 flex-1 flex-col gap-1">
-        <label htmlFor="document-filter-search" className="text-xs font-medium text-ink-muted">
-          Evrak Ara
-        </label>
-        <input
-          ref={searchRef}
-          id="document-filter-search"
-          type="search"
-          name={SEARCH_FIELD}
-          defaultValue={filters.search}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            event.preventDefault()
-            applyNow({ search: event.currentTarget.value.trim() })
-          }}
-          aria-label={SEARCH_LABEL}
-          placeholder={SEARCH_PLACEHOLDER}
-          className={adminFieldVariants()}
-        />
-      </div>
     </div>
   )
 }

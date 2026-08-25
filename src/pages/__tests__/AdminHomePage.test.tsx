@@ -6,18 +6,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { toDayKey } from '../../api/dayKey'
 import {
-  ANNOUNCEMENTS_PATH,
   PROJECT_FIRM_CREATE_PATH,
   PROJECT_FIRM_USER_CREATE_PATH,
 } from '../../ui/admin/adminNavItems'
 import { AdminHomePage } from '../AdminHomePage'
 import { ComingSoonPage } from '../ComingSoonPage'
 
-const dashboardApi = vi.hoisted(() => ({
-  getDashboardSummary: vi.fn(),
-  publishAnnouncement: vi.fn(),
-}))
-const permissionsApi = vi.hoisted(() => ({ getMyPermissions: vi.fn() }))
+const dashboardApi = vi.hoisted(() => ({ getDashboardSummary: vi.fn() }))
+const useIsAdmin = vi.hoisted(() => vi.fn())
 /** Kapsam kimliğini ADA çeviren listeler; başlıktaki kapsam adı buradan geliyor.
     Firma listesi de gerekiyor: kapsam tek bir gaz dağıtım firması olabilir. */
 const firmsApi = vi.hoisted(() => ({ getFirmGroups: vi.fn(), fetchAllFirms: vi.fn() }))
@@ -27,7 +23,7 @@ vi.mock('../../api/adminDashboard', async (importOriginal) => ({
   ...dashboardApi,
 }))
 
-vi.mock('../../api/permissions', () => permissionsApi)
+vi.mock('../../ui/admin/useIsAdmin', () => ({ useIsAdmin }))
 
 vi.mock('../../api/adminFirms', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/adminFirms')>()),
@@ -45,38 +41,11 @@ const SUMMARY = {
     { id: 4, name: 'DOĞUGAZ', projectCount: 12 },
     { id: 1, name: 'AKMERCAN', projectCount: 8 },
   ],
-  announcements: [
-    {
-      id: 2,
-      title: 'Planlı Bakım Bildirimi',
-      summary: '19 Temmuz Pazar 02:00–06:00 arasında sistem bakımda olacaktır.',
-      publishedAt: '2026-07-11T06:00:00.000Z',
-      source: 'Sistem',
-    },
-    {
-      id: 1,
-      title: 'ZetaCAD 3.0 Versiyon 3469 Yayında',
-      summary: 'Yeni versiyon yayında.',
-      publishedAt: '2026-06-19T09:00:00.000Z',
-      source: 'Teknhelogos',
-    },
-  ],
 }
 
-const ALL_PERMISSIONS = ['firm.create', 'projectFirm.create', 'user.create']
-
-const PUBLISHED = {
-  id: 9,
-  title: 'Yeni Duyuru',
-  summary: 'Duyuru gövdesi.',
-  publishedAt: '2026-08-09T09:00:00.000Z',
-  source: 'Yönetim',
-}
-
-function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS, summary = SUMMARY } = {}) {
+function renderPage({ route = '/admin', isAdmin = true, summary = SUMMARY } = {}) {
   dashboardApi.getDashboardSummary.mockResolvedValue(summary)
-  dashboardApi.publishAnnouncement.mockResolvedValue(PUBLISHED)
-  permissionsApi.getMyPermissions.mockResolvedValue(permissions)
+  useIsAdmin.mockReturnValue(isAdmin)
   firmsApi.getFirmGroups.mockResolvedValue([
     { id: 1, name: 'AKMERCAN' },
     { id: 2, name: 'AKSA' },
@@ -104,14 +73,6 @@ function renderPage({ route = '/admin', permissions = ALL_PERMISSIONS, summary =
   )
 }
 
-/** Duyuru formunu açar ve zorunlu alanları doldurur. */
-async function fillAnnouncementForm(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Duyuru Yayınla' }))
-
-  await user.type(screen.getByLabelText('Başlık'), 'Yeni Duyuru')
-  await user.type(screen.getByLabelText('Duyuru Metni'), 'Duyuru gövdesi.')
-}
-
 afterEach(() => {
   vi.clearAllMocks()
 })
@@ -126,13 +87,6 @@ describe('KK-1 ekran açılışı', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     // Başlık altı YALNIZ ana başlığı söyler; tarih "Bugün" kartında, kapsam adı
     // özet kartlarının altında yazıyor.
-  })
-
-  it('sağ üstte "Duyuru Yayınla" bulunur ve etkindir', async () => {
-    renderPage()
-
-    const button = await screen.findByRole('button', { name: 'Duyuru Yayınla' })
-    expect(button).toBeEnabled()
   })
 })
 
@@ -311,39 +265,6 @@ describe('KK-5 yoğunluk kartı', () => {
   })
 })
 
-// KK-6 — Duyurular
-describe('KK-6 duyurular', () => {
-  it('iki duyuru yeniden eskiye, tarih ve kaynakla görünür', async () => {
-    renderPage()
-    const card = await screen.findByRole('region', { name: 'Duyurular' })
-
-    const items = within(card).getAllByRole('listitem')
-    expect(items).toHaveLength(2)
-    expect(items[0]).toHaveTextContent('Planlı Bakım Bildirimi')
-    expect(items[0]).toHaveTextContent('11.07.2026 • Sistem')
-    expect(items[1]).toHaveTextContent('ZetaCAD 3.0 Versiyon 3469 Yayında')
-  })
-
-  it('"Tümünü Gör" duyuru listesine giden bağlantıdır', async () => {
-    renderPage()
-    const card = await screen.findByRole('region', { name: 'Duyurular' })
-
-    expect(within(card).getByRole('link', { name: 'Tümünü Gör' })).toHaveAttribute(
-      'href',
-      ANNOUNCEMENTS_PATH,
-    )
-  })
-
-  it('sistem kaynaklı duyuru amber sol kenarlıkla ayrışır', async () => {
-    renderPage()
-    const card = await screen.findByRole('region', { name: 'Duyurular' })
-    const items = within(card).getAllByRole('listitem')
-
-    expect(items[0].className).toContain('border-warning')
-    expect(items[1].className).not.toContain('border-warning')
-  })
-})
-
 // KK-7 — Hızlı işlemler
 describe('KK-7 hızlı işlemler', () => {
   it('dört kısayol iki sütunlu ızgarada görünür', async () => {
@@ -391,119 +312,15 @@ describe('KK-7 hızlı işlemler', () => {
     expect(screen.getByText('Bu ekran gelecektir.')).toBeInTheDocument()
   })
 
-  it('yetkisi olmayan kısayol listede yer almaz', async () => {
-    renderPage({ permissions: ['firm.create'] })
+  it('Admin olmayan kullanıcıda yönetim kısayolları listede yer almaz', async () => {
+    renderPage({ isAdmin: false })
     const card = await screen.findByRole('region', { name: 'Hızlı İşlemler' })
 
-    await within(card).findByText('Gaz Dağıtım Firması Ekle')
+    // Üçünün de sunucudaki ucu Admin'e kapalı; gizlenmeleri o sınırı yansıtıyor.
+    expect(within(card).queryByText('Gaz Dağıtım Firması Ekle')).not.toBeInTheDocument()
     expect(within(card).queryByText('Proje Firması Ekle')).not.toBeInTheDocument()
     expect(within(card).queryByText('Kullanıcı Oluştur')).not.toBeInTheDocument()
-    // İzin aranmayan kısayol her hâlde durur.
+    // Rol aranmayan kısayol her hâlde durur (K28).
     expect(within(card).getByText('Projeleri Görüntüle')).toBeInTheDocument()
-  })
-})
-
-// "Duyuru Yayınla" — kullanıcı ekranlarındaki duyuru alanına içerik girme formu
-describe('duyuru yayınlama', () => {
-  it('düğme formu diyalog olarak açar', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.click(await screen.findByRole('button', { name: 'Duyuru Yayınla' }))
-
-    const dialog = screen.getByRole('dialog')
-    expect(dialog).toHaveAccessibleName('Duyuru Yayınla')
-    expect(within(dialog).getByLabelText('Başlık')).toBeInTheDocument()
-    expect(within(dialog).getByLabelText('Duyuru Metni')).toBeInTheDocument()
-  })
-
-  it('boş formda başlık ve metin zorunlu, odak ilk hatalı alana gider', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.click(await screen.findByRole('button', { name: 'Duyuru Yayınla' }))
-    await user.click(screen.getByRole('button', { name: 'Yayınla' }))
-
-    expect(screen.getByText('Duyuru başlığı zorunludur.')).toBeInTheDocument()
-    expect(screen.getByText('Duyuru metni zorunludur.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Başlık')).toHaveFocus()
-    expect(dashboardApi.publishAnnouncement).not.toHaveBeenCalled()
-  })
-
-  // Form kapsamsız açılır; duyurunun KENDİ kapsamı kutuda seçilmeye devam ediyor.
-  it('form kapsamsız açılır', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.click(await screen.findByRole('button', { name: 'Duyuru Yayınla' }))
-
-    expect(screen.getByLabelText('Kapsam')).toHaveValue('')
-  })
-
-  it('geçerli form yayınlanır ve sonuç bildirilir', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await fillAnnouncementForm(user)
-    await user.click(screen.getByRole('button', { name: 'Yayınla' }))
-
-    expect(dashboardApi.publishAnnouncement).toHaveBeenCalledWith({
-      title: 'Yeni Duyuru',
-      body: 'Duyuru gövdesi.',
-      scopeName: null,
-      isSystem: false,
-    })
-    // Diyalog kapanır, sayfada olumlu bildirim kalır.
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(await screen.findByRole('status')).toHaveTextContent('duyurusu yayınlandı')
-  })
-
-  it('sistem duyurusu işaretlenince uca öyle gider', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await fillAnnouncementForm(user)
-    await user.click(screen.getByLabelText(/Sistem duyurusu/))
-    await user.click(screen.getByRole('button', { name: 'Yayınla' }))
-
-    expect(dashboardApi.publishAnnouncement).toHaveBeenCalledWith(
-      expect.objectContaining({ isSystem: true }),
-    )
-  })
-
-  it('sunucu hatasında diyalog açık kalır ve yazılan metin korunur', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    dashboardApi.publishAnnouncement.mockRejectedValueOnce(new Error('Sunucu 500 döndü.'))
-
-    await fillAnnouncementForm(user)
-    await user.click(screen.getByRole('button', { name: 'Yayınla' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Sunucu 500 döndü.')
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByLabelText('Başlık')).toHaveValue('Yeni Duyuru')
-  })
-
-  it('Vazgeç diyaloğu kapatır, duyuru gönderilmez', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await fillAnnouncementForm(user)
-    await user.click(screen.getByRole('button', { name: 'Vazgeç' }))
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(dashboardApi.publishAnnouncement).not.toHaveBeenCalled()
-  })
-
-  it('Esc ile kapanır ve odak tetikleyen düğmeye döner', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    const trigger = await screen.findByRole('button', { name: 'Duyuru Yayınla' })
-    await user.click(trigger)
-    await user.keyboard('{Escape}')
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(trigger).toHaveFocus()
   })
 })

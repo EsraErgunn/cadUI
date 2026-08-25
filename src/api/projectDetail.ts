@@ -1,24 +1,22 @@
 import { z } from 'zod'
 
+import { listProjectDocuments } from './documents'
 import { ApiError, requestJson } from './http'
-import { mockedData, serverData, type Sourced } from './mockGate'
-import {
-  buildMockProjectDocuments,
-  buildMockProjectExtras,
-  buildMockProjectPolicies,
-  buildMockProjectUnits,
-} from './projectDetailMock'
+import { listProjectPolicies } from './policies'
 import {
   type ProjectDetail,
+  type ProjectDetailExtras,
   type ProjectDetailStatus,
   type ProjectDocumentRow,
   type ProjectHistoryRow,
   type ProjectPolicyRow,
+  type ProjectFirmInfo,
   type ProjectServerFields,
   type ProjectSummary,
   type ProjectUnitRow,
 } from './projectDetailTypes'
-import { PROJECT_STATUSES } from './projects'
+import { getProjectFirm } from './projectFirmForm'
+import { toProjectStatus } from './projects'
 import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
@@ -53,6 +51,8 @@ const projectDetailDtoSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   description: z.string().nullish(),
+  projectFirmId: z.number().int().nullish(),
+  gasDistributionFirmId: z.number().int().nullish(),
   buildingCode: z.string().nullish(),
   cityName: z.string().nullish(),
   districtName: z.string().nullish(),
@@ -76,6 +76,17 @@ const projectDetailDtoSchema = z.object({
   apartmentCount: z.number().nullish(),
   workplaceCount: z.number().nullish(),
   areaSquareMeters: z.number().nullish(),
+  status: z.string().nullish(),
+  statusName: z.string().nullish(),
+  projectTypeName: z.string().nullish(),
+  heatingTypeName: z.string().nullish(),
+  buildingUsageTypeName: z.string().nullish(),
+  isPermitProject: z.boolean().nullish(),
+  apartmentCount: z.number().int().nullish(),
+  workplaceCount: z.number().int().nullish(),
+  areaSquareMeters: z.number().int().nullish(),
+  capacity: z.number().int().nullish(),
+  serviceBoxPressureMbar: z.number().int().nullish(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -89,21 +100,6 @@ function toProjectPId(raw: { id: number; buildingCode?: string | null }): string
 function toNullable(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed === undefined || trimmed === '' ? null : trimmed
-}
-
-/**
- * Mock durum kimliğe göre dönüyor: hepsi "Taslak" olsaydı onay aksiyonlarının
- * etkin hâli ve onay kartının dolu hâli hiç görülemezdi (KK-2, KK-11).
- *
- * BİLİNEN TUTARSIZLIK: durumun GERÇEK kaynağı liste ucu — `GET /api/projects`
- * satır başına `status` döndürüyor ve `projects.ts` onu `ProjectListItem.status`
- * olarak taşıyor. `GET /api/projects/{id}` ise durumu HİÇ döndürmüyor, bu yüzden
- * detay ekranı aynı proje için listeden farklı (ve geliştirmede uydurma) bir
- * durum gösterebilir. Karar düğmeleri bu değere GÜVENMİYOR: sayfa yalnız durumu
- * gerçekten taslak olan kaydı kilitler (ProjectDetailPage → isDraft).
- */
-function mockStatusOf(projectId: number): ProjectDetailStatus {
-  return PROJECT_STATUSES[projectId % PROJECT_STATUSES.length]
 }
 
 /**
@@ -125,28 +121,79 @@ export async function getProjectDetail(
     pId: toProjectPId({ id: dto.id, buildingCode: dto.buildingCode ?? dto.code }),
     name: dto.name,
     description: toNullable(dto.description),
+    // Durum GERÇEK uçtan. Bir süre kimlikten uyduruluyordu (`mockStatusOf`)
+    // çünkü detay yanıtı `Status` taşımıyordu; backend a6ea695 ile taşımaya
+    // başladı ve liste ile detay artık ayrışamıyor — ikisi de `toProjectStatus`
+    // çeviricisinden geçiyor.
+    status: toProjectStatus(dto.status),
     cityName: toNullable(dto.cityName),
     districtName: toNullable(dto.districtName),
     addressLine: toNullable(dto.addressLine),
     blockLotParcel: toNullable(dto.blockLotParcel),
-    projectFirmAuthorizationId: dto.projectFirmAuthorizationId ?? null,
-    gasDistributionFirmId: dto.gasDistributionFirmId ?? null,
-    projectTypeName: toNullable(dto.projectTypeName),
-    heatingTypeName: toNullable(dto.heatingTypeName),
-    apartmentCount: dto.apartmentCount ?? null,
-    workplaceCount: dto.workplaceCount ?? null,
-    areaSquareMeters: dto.areaSquareMeters ?? null,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   }
 
-  if (isEndpointImplemented('projectDetailExtras')) {
-    throw new Error('getProjectDetail: detay ucu bağlandı ama gövdesi yazılmadı.')
+  return { server, extras: buildExtras(server) }
+}
+
+/**
+ * Sunucunun DÖNDÜRDÜĞÜ alanlardan türetilen ek bölümler.
+ *
+ * Bu paket eskiden tümüyle uydurmaydı (`buildMockProjectExtras`) ve yalnız
+ * geliştirme derlemesinde çiziliyordu. Uç otuz alan döndürdüğü için artık
+ * çoğunun gerçek karşılığı var; KARŞILIĞI OLMAYAN alan `null` bırakılıyor ve
+ * hücre boş işaretini çiziyor — uydurma bir değer yazmak, bir demoda gerçek
+ * sanılırdı.
+ *
+ * Hâlâ kaynağı olmayanlar (ayrı bir uç isterler): firma mühendisi ve vergi
+ * bilgileri, onay tarihi/onaylayan/onay kodu, tesisat numarası, mahalle ve
+ * kapı numarası, sayaç/kat/daire desenleri, .zpd dosya adı.
+ */
+function buildExtras(server: ProjectServerFields): ProjectDetailExtras {
+  return {
+    general: {
+      zpdFileName: '',
+      status: server.status,
+      gasFirmName: '',
+      installationNo: '',
+      neighborhood: null,
+      streetDoorNo: null,
+      projectType: server.projectType ?? '',
+      heatingType: server.heatingType ?? '',
+      isDetached: null,
+      hasLicense: server.isPermitProject,
+    },
+    firm: {
+      engineerName: null,
+      engineerRegistrationNo: null,
+      title: null,
+      address: null,
+      phone: null,
+      competencyNo: null,
+      taxOffice: null,
+      taxNumber: null,
+    },
+    approval: { approvedAt: null, approverName: null, approvalCode: null, note: null },
+    specs: {
+      meterCount: null,
+      floorCount: null,
+      residenceCount: server.apartmentCount,
+      shopCount: server.workplaceCount,
+      boxPressureMbar: server.serviceBoxPressureMbar,
+      usagePressureMbar: null,
+      meterType: null,
+      floorPattern: null,
+      residenceShopPattern: null,
+      totalAreaSquareMeters: server.areaSquareMeters,
+      totalCapacity: server.capacityCubicMeterPerHour,
+      gasAreas: null,
+      renovationNote: null,
+      orderNumber: null,
+      // "Bağlantı Nesnesi" sunucuda bina kodunun kendisi (backend 91baf4c).
+      connectionObject: server.buildingCode,
+    },
   }
-
-  const extras = mockedData(() => buildMockProjectExtras(dto.id, mockStatusOf(dto.id)))
-
-  return { server, extras: extras.source === 'unavailable' ? null : extras.data }
 }
 
 const NOT_FOUND = 404
@@ -175,12 +222,100 @@ export async function getProjectSummary(
   }
 }
 
-export function getProjectUnits(projectId: number): Promise<Sourced<ProjectUnitRow[]>> {
-  if (isEndpointImplemented('projectUnits')) {
-    throw new Error('getProjectUnits: uç bağlandı ama gövdesi yazılmadı.')
-  }
+/**
+ * `GET /api/projects/{id}/units` — GERÇEK uç.
+ *
+ * Satırlar çizimden senkronlanıyor (`unitReport`), bu yüzden neredeyse her alan
+ * opsiyonel: kullanıcı sayacı çizmiş ama abone adını yazmamış olabilir. Şema
+ * bunu `nullish` ile karşılıyor — zorunlu tutulsaydı eksik doldurulmuş tek bir
+ * birim yüzünden tablo hiç açılmazdı.
+ */
+const projectUnitDtoSchema = z.array(
+  z.object({
+    id: z.number().int().positive(),
+    unitNumber: z.string().nullish(),
+    subscriberName: z.string().nullish(),
+    subscriberNo: z.string().nullish(),
+    meterClassLabel: z.string().nullish(),
+    area: z.number().nullish(),
+    flowCubicMeterPerHour: z.number().nullish(),
+    pressureMbar: z.number().nullish(),
+    pipeTypeName: z.string().nullish(),
+    devices: z.array(
+      z.object({
+        id: z.number().int().positive(),
+        deviceType: z.string().nullish(),
+        brand: z.string().nullish(),
+        model: z.string().nullish(),
+        capacity: z.string().nullish(),
+        flowCubicMeterPerHour: z.number().nullish(),
+        flueLabel: z.string().nullish(),
+      }),
+    ),
+  }),
+)
 
-  return Promise.resolve(mockedData(() => buildMockProjectUnits(projectId)))
+/**
+ * Projenin firma künyesi — GERÇEK uç (`GET /api/projectfirms/{id}`).
+ *
+ * Kimlik detay yanıtından geliyor (`ProjectDetailDto.ProjectFirmId`, yetki
+ * kaydından türetiliyor). Kart bir süre TÜMÜYLE boştu: alanların hiçbirinin
+ * kaynağı okunmuyordu.
+ *
+ * Dört alan dolduruluyor; kalan dördü sunucuda YOK ve uydurulmuyor:
+ * - `engineerName` / `engineerRegistrationNo` — firma mühendisi kavramı
+ *   `ProjectFirmDetailDto`'da yok. `ContactPerson` YETKİLİ KİŞİ, mühendis
+ *   değil; eşitlemek uydurma olurdu.
+ * - `competencyNo` — "Yeterlilik No" alanı K102'de kaldırıldı.
+ * - `taxOffice` — vergi DAİRESİ yok, yalnız vergi NUMARASI var.
+ */
+export async function getProjectFirmInfo(
+  projectFirmId: number,
+  signal?: AbortSignal,
+): Promise<ProjectFirmInfo> {
+  const dto = await getProjectFirm(projectFirmId, { signal })
+
+  return {
+    engineerName: null,
+    engineerRegistrationNo: null,
+    title: toNullable(dto.title),
+    address: toNullable(dto.address),
+    phone: toNullable(dto.phone),
+    competencyNo: null,
+    taxOffice: null,
+    taxNumber: toNullable(dto.taxNumber),
+  }
+}
+
+export async function getProjectUnits(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<ProjectUnitRow[]> {
+  const dto = await requestJson(
+    { method: 'GET', path: `/api/projects/${projectId}/units`, signal },
+    projectUnitDtoSchema,
+  )
+
+  return dto.map((unit) => ({
+    id: unit.id,
+    unitNumber: toNullable(unit.unitNumber),
+    subscriberName: toNullable(unit.subscriberName),
+    subscriberNo: toNullable(unit.subscriberNo),
+    meterLabel: toNullable(unit.meterClassLabel),
+    flowCubicMeterPerHour: unit.flowCubicMeterPerHour ?? null,
+    pressureMbar: unit.pressureMbar ?? null,
+    areaSquareMeters: unit.area ?? null,
+    pipeType: toNullable(unit.pipeTypeName),
+    devices: unit.devices.map((device) => ({
+      id: device.id,
+      name: toNullable(device.deviceType),
+      capacity: toNullable(device.capacity),
+      flowCubicMeterPerHour: device.flowCubicMeterPerHour ?? null,
+      brand: toNullable(device.brand),
+      model: toNullable(device.model),
+      flueType: toNullable(device.flueLabel),
+    })),
+  }))
 }
 
 /**
@@ -207,48 +342,71 @@ const UNKNOWN_USER_LABEL = 'Bilinmeyen kullanıcı'
 export async function getProjectHistory(
   projectId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectHistoryRow[]>> {
+): Promise<ProjectHistoryRow[]> {
   const dto = await requestJson(
     { method: 'GET', path: `/api/projects/${projectId}/history`, signal },
     historyDtoSchema,
   )
 
-  return serverData(
-    dto.map((row, order) => ({
-      id: `${row.createdAt}-${row.operationCode ?? ''}-${order}`,
-      fileType: null,
-      createdAt: row.createdAt,
-      userName: toNullable(row.userFullName) ?? UNKNOWN_USER_LABEL,
-      roleSnapshot: toNullable(row.roleSnapshot) ?? '',
-      // Kod ham geçiyor: bilinen kodda rozet kendi etiketini bulur, bilinmeyende
-      // sunucunun `operationName`'ine düşer (bkz. OperationBadge).
-      operation: toNullable(row.operationCode) ?? '',
-      operationName: toNullable(row.operationName),
-      description: toNullable(row.description),
-    })),
-  )
+  return dto.map((row, order) => ({
+    id: `${row.createdAt}-${row.operationCode ?? ''}-${order}`,
+    fileType: null,
+    createdAt: row.createdAt,
+    userName: toNullable(row.userFullName) ?? UNKNOWN_USER_LABEL,
+    roleSnapshot: toNullable(row.roleSnapshot) ?? '',
+    // Kod ham geçiyor: bilinen kodda rozet kendi etiketini bulur, bilinmeyende
+    // sunucunun `operationName`'ine düşer (bkz. OperationBadge).
+    operation: toNullable(row.operationCode) ?? '',
+    operationName: toNullable(row.operationName),
+    description: toNullable(row.description),
+  }))
 }
 
 /**
- * Projenin evrakları. Kaynak, Evraklar ekranının BELLEKTEKİ deposuyla AYNI
- * (`documentsMock`): "yüklenen evrak hem projenin evrak listesine hem genel
- * Evraklar ekranına yansır" (gereksinim 12) ancak tek depo varsa doğru olur.
- * İki ayrı mock tutulsaydı aynı evrak bir ekranda görünüp öbüründe kaybolurdu.
+ * Projenin evrakları — GERÇEK uç (`GET /api/docs?ProjectId=`). Evraklar ekranı
+ * da AYNI ucu kullanıyor, bu yüzden "yüklenen evrak hem projenin evrak
+ * listesine hem genel Evraklar ekranına yansır" (gereksinim 12) kendiliğinden
+ * sağlanıyor — iki ayrı kaynak tutulsaydı aynı evrak birinde görünüp öbüründe
+ * kaybolurdu.
+ *
+ * `uploadedByName` liste gövdesinde YOK (yalnız `DocDetailDto` taşıyor); satır
+ * başına ikinci istek atmamak için boş kalıyor ve hücre boş işaretini çiziyor.
  */
-export function getProjectDocuments(projectId: number): Promise<Sourced<ProjectDocumentRow[]>> {
-  if (isEndpointImplemented('projectDocuments')) {
-    throw new Error('getProjectDocuments: uç bağlandı ama gövdesi yazılmadı.')
-  }
+export async function getProjectDocuments(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<ProjectDocumentRow[]> {
+  const documents = await listProjectDocuments(projectId, signal)
 
-  return Promise.resolve(mockedData(() => buildMockProjectDocuments(projectId)))
+  return documents.map((document) => ({
+    id: document.id,
+    fileName: document.fileName,
+    docType: document.docTypeName,
+    sizeBytes: document.sizeBytes,
+    uploadedByName: document.uploadedByName,
+    receivedAt: document.receivedAt,
+    unitIds: document.unitIds,
+    unitNames: document.unitNames,
+  }))
 }
 
-export function getProjectPolicies(projectId: number): Promise<Sourced<ProjectPolicyRow[]>> {
-  if (isEndpointImplemented('projectPolicies')) {
-    throw new Error('getProjectPolicies: uç bağlandı ama gövdesi yazılmadı.')
-  }
+export async function getProjectPolicies(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<ProjectPolicyRow[]> {
+  const policies = await listProjectPolicies(projectId, signal)
 
-  return Promise.resolve(mockedData(() => buildMockProjectPolicies(projectId)))
+  return policies.map((policy) => ({
+    id: policy.id,
+    policyNumber: toNullable(policy.policyNumber),
+    insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
+    projectUnitId: policy.projectUnitId ?? null,
+    unitNumber: toNullable(policy.unitNumber),
+    isUnitDeleted: policy.isUnitDeleted ?? false,
+    amount: policy.amount ?? null,
+    startDate: toNullable(policy.startDate),
+    endDate: toNullable(policy.endDate),
+  }))
 }
 
 export type ProjectDecision = 'approve' | 'reject'

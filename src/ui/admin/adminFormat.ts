@@ -11,15 +11,16 @@ const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('tr-TR', {
   year: 'numeric',
 })
 
-/** "19.06.2026" — duyuru alt satırındaki tarih. */
+/** "19.06.2026" — künye satırlarındaki tarih (proje tarihi gibi). */
 const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat('tr-TR', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
 })
 
-/** "19.06.2026 12:00" — duyuru listesinde saat de gerekiyor: aynı gün birden
-    çok duyuru yayınlanabiliyor, sıralamayı yalnız tarih açıklamıyor. */
+/** "19.06.2026 12:00" — son güncelleme/onay satırlarında saat de gerekiyor:
+    aynı gün birden çok kayıt değişebiliyor, sıralamayı yalnız tarih
+    açıklamıyor. */
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('tr-TR', {
   day: '2-digit',
   month: '2-digit',

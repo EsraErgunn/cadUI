@@ -6,6 +6,7 @@ import { GasDistributionFirmPicker } from './GasDistributionFirmPicker'
 import type { ProjectFirmAuthorization } from './authorizationDraft'
 import { useProjectFirmAuthorizationDraft } from './useProjectFirmAuthorizationDraft'
 import { adminButtonVariants } from '../adminVariants'
+import { DateField } from '../form/DateField'
 import { FieldError } from '../form/FieldError'
 import { FieldWarning } from '../form/FieldWarning'
 import { FormCard } from '../form/FormCard'
@@ -20,6 +21,8 @@ const SECTION_TITLE = 'G.D. Firması & Bölge Yetkilendirme'
 const GROUP_FIELD_ID = 'project-firm-authorization-group'
 const GAS_FIRM_FIELD_ID = 'project-firm-authorization-gas-firms'
 const CERTIFICATE_FIELD_ID = 'project-firm-authorization-certificate'
+const VALID_FROM_FIELD_ID = 'project-firm-authorization-valid-from'
+const VALID_TO_FIELD_ID = 'project-firm-authorization-valid-to'
 
 interface ProjectFirmAuthorizationCardProps {
   authorizations: ProjectFirmAuthorization[]
@@ -85,7 +88,8 @@ export function ProjectFirmAuthorizationCard({
         onSelectGasFirm={draft.selectGasFirm}
       />
 
-      {/* "Yeterlilik No" KALKTI (K102): kayıtta tek numara kaldı. */}
+      {/* "Yeterlilik No" KALKTI (K102): kayıtta tek numara kaldı.
+          ZORUNLU: uç boş sertifika numarasını reddediyor. */}
       <TextField
         id={CERTIFICATE_FIELD_ID}
         label="Sertifika No"
@@ -93,8 +97,32 @@ export function ProjectFirmAuthorizationCard({
         leftIcon={ShieldCheck}
         placeholder="Sertifika numarası"
         value={draft.certificateNumber}
+        error={draft.errors.certificateNumber}
         onChange={draft.setCertificateNumber}
       />
+
+      {/* Geçerlilik aralığı: başlangıç uçta ZORUNLU, bitiş boş bırakılabilir
+          (süresiz). Bitişin `min`i başlangıca bağlı — geçersiz aralık takvimde
+          hiç seçilemesin. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <DateField
+          id={VALID_FROM_FIELD_ID}
+          label="Geçerlilik Başlangıcı"
+          value={draft.validFrom}
+          error={draft.errors.validFrom}
+          onChange={draft.setValidFrom}
+        />
+        <DateField
+          id={VALID_TO_FIELD_ID}
+          label="Geçerlilik Bitişi"
+          labelNote="(isteğe bağlı)"
+          value={draft.validTo}
+          min={draft.validFrom === '' ? undefined : draft.validFrom}
+          hint="Boş bırakılırsa süresiz sayılır."
+          error={draft.errors.validTo}
+          onChange={draft.setValidTo}
+        />
+      </div>
 
       {/* Mockup: bölümün sağ alt köşesinde, birincil renkte "+ Ekle".
           `type="button"`: form içinde durduğu için varsayılan `submit` olsaydı

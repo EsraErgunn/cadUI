@@ -1,92 +1,64 @@
-import { MOCK_LATENCY_MS, delay } from './adminFirms'
-import { mockedData } from './mockGate'
+import { registerUser } from './auth'
+import { requestVoid } from './http'
 import type { ProjectFirmUserPayload } from './projectFirmUserDto'
-import {
-  createMockProjectFirmUser,
-  findMockTakenFields,
-  updateMockProjectFirmUser,
-  type MockTakenFields,
-} from './projectFirmUsersMock'
-import { isEndpointImplemented } from './unimplementedEndpoints'
+import { ROLE_CODES } from './roles'
 
 /**
- * API SÖZLEŞMESİ — Proje firma kullanıcısı oluştur/güncelle (HENÜZ YOK).
+ * API SÖZLEŞMESİ — Proje firma kullanıcısı oluştur/güncelle. GERÇEK uçlar:
  *
- * `POST /api/auth/register`'a BAĞLANMADI. O gövde (`RegisterRequest`) yalnız
- * `fullName`, `email`, `username`, `password`, `phone`, `roleCode` ve TEK bir
- * `projectFirmId` + `gasDistributionFirmId` ikilisi taşıyor:
+ * - Oluşturma: `POST /api/auth/register` (rol SABİT `ProjectFirmUser`)
+ * - Güncelleme: `PUT /api/users/{id}`
  *
- * - `Aktif` (KK-18) ve `GDF Kayıt No` (KK-9) alanları yok,
- * - yetki satırı ÇOKLU olamıyor (KK-11/19/22),
- * - kullanıcıyı geri okuyacak liste/detay ucu da yok.
+ * İki uç AYNI gövdeyi almıyor ve bu ayrım burada kalıyor: register şifre
+ * istiyor, update istemiyor. Şifre değiştirme ayrı uçta
+ * (`POST /api/users/{id}/reset-password`, bkz. `api/users.ts`).
  *
- * Yarım bağlanırsa listelenemeyen ve güncellenemeyen kayıt üretilirdi; kaydın
- * tamamı bu yüzden mock'ta tutuluyor ve kullanıcıya "sunucuya yazılmadı" uyarısı
- * gösteriliyor (`arePersisted`). Register genişletilecek mi yoksa ayrı bir admin
- * ucu mu açılacak — açık soru, bkz. docs/api-eksikleri-kullanicilar.md
+ * `gasDistributionFirmId` HER ZAMAN `null`: bu ekran proje firması
+ * kullanıcısı üretiyor, gaz dağıtım firması bağı o rolün işi.
  */
 
-export type ProjectFirmUserSaveResult =
-  | {
-      ok: true
-      userId: number
-      /**
-       * Kayıt gerçekten sunucuya yazıldı mı. Bugün HER ZAMAN `false`: uç yok.
-       * Karar burada veriliyor, arayüzde değil — uç açılınca koşulsuz `true`
-       * olacak ve ekranlarda hiçbir şey değişmeyecek.
-       */
-      isPersisted: boolean
-    }
-  /** Üretim derlemesi: yazacak uç da yok, sahte kayıt üretme izni de (K50). */
-  | { ok: false; reason: 'unavailable' }
+export interface ProjectFirmUserSaveResult {
+  userId: number
+}
 
 /**
  * Oluşturma ve güncelleme TEK giriş: ekran da tek (KK-25). `userId` doluysa
  * güncelleme, `null` ise oluşturma.
+ *
+ * Güncellemede şifre GÖNDERİLMEZ — `UserUpdateDto` şifre alanı taşımıyor.
  */
 export async function saveProjectFirmUser(
   payload: ProjectFirmUserPayload,
   userId: number | null,
 ): Promise<ProjectFirmUserSaveResult> {
-  const endpoint = userId === null ? 'firmUserCreate' : 'firmUserUpdate'
+  if (userId === null) {
+    const created = await registerUser({
+      fullName: payload.fullName,
+      email: payload.email,
+      username: payload.username,
+      password: payload.password ?? '',
+      phone: payload.phone,
+      roleCode: ROLE_CODES.projectFirmUser,
+      projectFirmId: payload.projectFirmId,
+      gasDistributionFirmId: null,
+    })
 
-  if (isEndpointImplemented(endpoint)) {
-    throw new Error('saveProjectFirmUser: uç bağlandı ama gövdesi yazılmadı.')
+    return { userId: created.id }
   }
 
-  await delay(MOCK_LATENCY_MS)
-
-  // Yazma da mock kapısından geçiyor (K50): üretimde kaydın gideceği bir yer
-  // yok — bellekteki depoya yazmak, kullanıcıya yapılmamış bir işi yapılmış
-  // göstermek olurdu. Liste ve detay orada zaten "kaynağı yok" diyor.
-  const written = mockedData(() => {
-    if (userId === null) return createMockProjectFirmUser(payload)
-
-    updateMockProjectFirmUser(userId, payload)
-    return userId
+  await requestVoid({
+    method: 'PUT',
+    path: `/api/users/${userId}`,
+    rawJsonBody: JSON.stringify({
+      fullName: payload.fullName,
+      email: payload.email,
+      // Uç boş dize bekliyor, `null` değil: alan `string` ve zorunlu.
+      phone: payload.phone ?? '',
+      roleCode: ROLE_CODES.projectFirmUser,
+      projectFirmId: payload.projectFirmId,
+      gasDistributionFirmId: null,
+    }),
   })
 
-  if (written.source === 'unavailable') return { ok: false, reason: 'unavailable' }
-  return { ok: true, userId: written.data, isPersisted: false }
-}
-
-export type ProjectFirmUserTakenFields = MockTakenFields
-
-/**
- * E-posta ve kullanıcı adı benzersizliği. Gereksinim (KK-16) denetimin
- * SUNUCUDA çalışmasını istiyor; uç açılana kadar mock aynı sözleşmeyi taklit
- * ediyor. İstemcide tam liste üzerinde arama YAPILMIYOR — 25 bin kayıtlık bir
- * listeyi benzersizlik için indirmek, sunucunun işini istemciye taşımak olurdu.
- */
-export async function findTakenProjectFirmUserFields(
-  email: string,
-  username: string,
-  excludedUserId: number | null,
-): Promise<ProjectFirmUserTakenFields> {
-  if (!isEndpointImplemented('firmUserAvailability')) {
-    await delay(MOCK_LATENCY_MS)
-    return findMockTakenFields(email, username, excludedUserId)
-  }
-
-  throw new Error('findTakenProjectFirmUserFields: uç bağlandı ama gövdesi yazılmadı.')
+  return { userId }
 }

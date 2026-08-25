@@ -23,9 +23,9 @@ satır gerçekten listeye giriyor, sayfa yenilenince kayboluyor. Başarı şerid
 `isPersisted: false` deseni burada da geçerli, düz yeşil bir şerit kullanıcıya
 yapılmamış bir işi yapılmış gösterirdi. Bu satırları KALDIRMA.
 
-**Mock YALNIZ geliştirmede** (`mockGate`, K51): üretimde liste
-`MissingSourceNotice` gösterir, "Kaydet" hiç yazmadan `unavailable` döner.
-Geliştirmede kalıcı `MockDataNotice` şeridi duruyor — kapatılamaz.
+⚠️ **Mock kapısı SÖKÜLDÜ** (K160). `mockGate`, `MissingSourceNotice` ve
+`MockDataNotice` SİLİNDİ; evrak listesi gerçek uçtan (`GET /api/docs`) geliyor
+ve api düz dizi döner. Bu adlarla yeni kod yazma.
 
 **Evrak Ekle'nin PROJE KÜNYESİ mock değil** (K63): `findDocumentProject` projeyi
 `GET /api/projects/{id}` ile çözer. Mock tohumundan (`findMockProjectSeed`)
@@ -61,7 +61,7 @@ bir `isEndpointImplemented` çağrısının yanında tutuyor; evrak tarafında h
   değişecek ve URL'deki `type` filtresini taşıyan eski bağlantılar filtresiz
   açılacak. "Favori Evrak" tipi listeden ÇIKARILDI (19 → 18) ama sunucu
   döndürürse istemcide SÜZÜLMEYECEK.
-- **Birimler proje detayıyla ORTAK kaynaktan** (`getProjectUnits`, mockGate ile
+- **Birimler proje detayıyla ORTAK kaynaktan** (`getProjectUnits`, gerçek uçla
   DEV'e kilitli). Üretim derlemesinde birim listesi boş gelir ve ekran bunu
   söyler; ikinci bir uç/mock açma.
 

@@ -1,6 +1,5 @@
 import type { AdminScope } from './adminDashboard'
 import { allMockFirms, MOCK_FIRM_GROUPS } from './adminFirmsMock'
-import { appendStoredAnnouncement, readStoredAnnouncements } from './announcementStore'
 import { toDayKey } from './dayKey'
 
 /**
@@ -10,7 +9,7 @@ import { toDayKey } from './dayKey'
  *
  * Kapsam adları gaz dağıtım GRUP firmalarından TÜRETİLİYOR: iki kopya olsaydı
  * üst bardaki seçenekler ile yoğunluk satırları birbirini tutmaz, kullanıcı
- * seçtiği kapsamı kartta bulamazdı. Duyuru yayınlama kutusu da bunu kullanıyor.
+ * seçtiği kapsamı kartta bulamazdı.
  *
  * Mock'un kırılımı GRUP düzeyinde: tek bir firma seçildiğinde o firmanın
  * grubunun satırları veriliyor, çünkü firma başına örnek veri üretmek mock'u
@@ -69,96 +68,6 @@ const TODAY_ACTIVITY: ScopeDayActivity[] = [
   { dayKey: MOCK_ACTIVITY_DAY_KEY, name: MOCK_SCOPE_NAMES[6], newProjects: 4, approved: 0, rejected: 0 },
 ]
 
-/** `source` alanı amber sol kenarlığı belirler; 'Sistem' dışındakiler düz görünür. */
-export const SYSTEM_ANNOUNCEMENT_SOURCE = 'Sistem'
-
-/**
- * Sistem duyurusu olarak işaretlenmeyen yayınların kaynağı. Gerçek uçta kaynağı
- * SUNUCU belirler (yayınlayan kurum); mock bir ad uydurmak zorunda olduğu için
- * nötr bir etiket kullanıyor.
- */
-export const MANAGEMENT_ANNOUNCEMENT_SOURCE = 'Yönetim'
-
-interface MockAnnouncement {
-  id: number
-  title: string
-  /** KISALTILMAMIŞ ham metin; kısaltma `adminDashboard.ts` içinde yapılır. */
-  body: string
-  publishedAt: string
-  source: string
-  /** Duyuru tüm kapsamları ilgilendiriyorsa null. */
-  scopeName: string | null
-}
-
-const SEED_ANNOUNCEMENTS: MockAnnouncement[] = [
-  {
-    id: 1,
-    title: 'ZetaCAD 3.0 Versiyon 3469 Yayında',
-    body:
-      '10.06.2026 Çarşamba 14:30 itibarıyla yeni versiyon yayında. Lidar ile mimari tarama, ' +
-      'mouse ile çizim ve 300 mbar servis kutusu desteği bu sürümle birlikte kullanıma açıldı.',
-    publishedAt: '2026-06-19T09:00:00.000Z',
-    source: 'Teknhelogos',
-    scopeName: null,
-  },
-  {
-    id: 2,
-    title: 'Planlı Bakım Bildirimi',
-    body: '19 Temmuz Pazar 02:00–06:00 arasında sistem bakımda olacaktır.',
-    publishedAt: '2026-07-11T06:00:00.000Z',
-    source: SYSTEM_ANNOUNCEMENT_SOURCE,
-    scopeName: null,
-  },
-  {
-    id: 3,
-    title: 'Yeterlilik Belgesi Yenileme Dönemi',
-    body:
-      'Proje firmalarının yeterlilik belgelerini 30 Haziran tarihine kadar yenilemesi ' +
-      'gerekmektedir. Yenilenmeyen belgeler pasife alınacaktır.',
-    publishedAt: '2026-05-02T10:30:00.000Z',
-    source: 'Teknhelogos',
-    scopeName: MOCK_SCOPE_NAMES[0],
-  },
-]
-
-/**
- * Tohum duyurular + kullanıcının YAYINLADIKLARI. Yayınlananlar `localStorage`'da
- * duruyor (`announcementStore.ts`), yani sekme yenilenince kaybolmuyor — duyuru
- * ucu sunucuda hiç yazılmadığı için tek kalıcılık yolu bu (docs/kararlar.md K48).
- * Depo her okumada taranıyor: aynı tarayıcının başka sekmesinde yayınlanan
- * duyuru burada da görünsün.
- */
-function allAnnouncements(): MockAnnouncement[] {
-  return [...SEED_ANNOUNCEMENTS, ...readStoredAnnouncements()]
-}
-
-function nextAnnouncementId(): number {
-  return allAnnouncements().reduce((largest, item) => Math.max(largest, item.id), 0) + 1
-}
-
-export interface MockAnnouncementInput {
-  title: string
-  body: string
-  /** null = tüm kapsamlar. */
-  scopeName: string | null
-  /** Bakım/kesinti duyurusu mu — amber sol kenarlık buna bağlı. */
-  isSystem: boolean
-}
-
-export function publishMockAnnouncement(input: MockAnnouncementInput): MockAnnouncement {
-  const created: MockAnnouncement = {
-    id: nextAnnouncementId(),
-    title: input.title,
-    body: input.body,
-    publishedAt: new Date().toISOString(),
-    source: input.isSystem ? SYSTEM_ANNOUNCEMENT_SOURCE : MANAGEMENT_ANNOUNCEMENT_SOURCE,
-    scopeName: input.scopeName,
-  }
-
-  appendStoredAnnouncement(created)
-  return created
-}
-
 /**
  * Kapsam → mock kayıtlarının taşıdığı AD. Üst bar kimlik yazıyor, mock kayıtlar
  * ad taşıyor; çeviri tek yerde durur ki her çağıran kendi eşlemesini kurmasın.
@@ -205,8 +114,4 @@ export function queryMockDayActivity(
   )
 }
 
-export function allMockAnnouncements(): MockAnnouncement[] {
-  return allAnnouncements()
-}
-
-export type { ScopeDayActivity, ScopeFacts, MockAnnouncement }
+export type { ScopeDayActivity, ScopeFacts }

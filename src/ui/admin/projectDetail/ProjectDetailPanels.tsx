@@ -1,15 +1,17 @@
-import { ProjectDocumentsTab } from './ProjectDocumentsTab'
+import type { ProjectDocumentUnitOption } from './ProjectDocumentUnitDialog'
+import { ProjectDocumentsTab, type ProjectDocumentActions } from './ProjectDocumentsTab'
 import { ProjectHistoryTab } from './ProjectHistoryTab'
 import { ProjectInfoTab } from './ProjectInfoTab'
 import { ProjectOperationsTab } from './ProjectOperationsTab'
 import { ProjectPolicyTab } from './ProjectPolicyTab'
 import type { ProjectDetailTabKey } from './tabItems'
-import type { Sourced } from '../../../api/mockGate'
 import type {
+  ProjectApprovalInfo,
   ProjectDecision,
   ProjectDetail,
   ProjectDocumentRow,
   ProjectFileKind,
+  ProjectFirmInfo,
   ProjectHistoryRow,
   ProjectPolicyRow,
   ProjectUnitRow,
@@ -18,11 +20,16 @@ import type {
 interface ProjectDetailPanelsProps {
   tab: ProjectDetailTabKey
   detail: ProjectDetail
-  units: Sourced<ProjectUnitRow[]> | undefined
-  history: Sourced<ProjectHistoryRow[]> | undefined
+  units: ProjectUnitRow[] | undefined
+  history: ProjectHistoryRow[] | undefined
   historyRows: ProjectHistoryRow[]
-  documents: Sourced<ProjectDocumentRow[]> | undefined
-  policies: Sourced<ProjectPolicyRow[]> | undefined
+  documents: ProjectDocumentRow[] | undefined
+  /** Evrak sekmesindeki "Birim Değiştir" kutusunun kaynağı. */
+  firm: ProjectFirmInfo | null
+  approval: ProjectApprovalInfo | null
+  documentUnitOptions: ProjectDocumentUnitOption[]
+  documentActions: ProjectDocumentActions
+  policies: ProjectPolicyRow[] | undefined
   canApprove: boolean
   isDraft: boolean
   isSubmitting: boolean
@@ -44,6 +51,10 @@ export function ProjectDetailPanels({
   history,
   historyRows,
   documents,
+  firm,
+  approval,
+  documentUnitOptions,
+  documentActions,
   policies,
   canApprove,
   isDraft,
@@ -56,6 +67,8 @@ export function ProjectDetailPanels({
       <ProjectInfoTab
         detail={detail}
         units={units}
+        firm={firm}
+        approval={approval}
         onDownloadZpd={() => onDownload('zpd')}
       />
     )
@@ -63,20 +76,23 @@ export function ProjectDetailPanels({
 
   if (tab === 'gecmis') {
     return (
-      <ProjectHistoryTab
-        history={
-          history === undefined || history.source === 'unavailable'
-            ? history
-            : { source: history.source, data: historyRows }
-        }
-      />
+      // `historyRows` ham geçmişe bu turda verilen kararı ekliyor; sorgu
+      // gelmeden sekme yükleniyor durumunda kalsın diye `undefined` korunuyor.
+      <ProjectHistoryTab history={history === undefined ? undefined : historyRows} />
     )
   }
 
   // Proje kimliği "Evrak Ekle" bağlantısına gidiyor: yüklenen evrak GELİNEN
   // projeyle ilişkilendiriliyor, ekran kimliksiz açılamaz (gereksinim 6).
   if (tab === 'evrak') {
-    return <ProjectDocumentsTab projectId={detail.server.id} documents={documents} />
+    return (
+      <ProjectDocumentsTab
+        projectId={detail.server.id}
+        documents={documents}
+        units={documentUnitOptions}
+        actions={documentActions}
+      />
+    )
   }
 
   if (tab === 'police') {

@@ -42,6 +42,27 @@ export { SORT_DIRECTIONS, type SortDirection } from './listQuery'
 
 export const GAS_FIRM_PAGE_SIZE = 30
 
+/**
+ * Gaz dağıtım firması listesini önbelleğe alan TÜM sorgu köklerinin tek kaynağı.
+ *
+ * Aynı veri dört ayrı anahtar altında duruyor ve her biri farklı bir ekranı
+ * besliyor: liste sayfası ve kapsam seçicisi (`gasDistributionFirms`), proje
+ * firması yetkilendirmesinin gruba göre daraltılmış listesi
+ * (`gasDistributionFirmsByGroup`), gaz dağıtım kullanıcısı formunun açılırı
+ * (`gasDistributionFirmOptions`) ve tekil kayıt (`gasDistributionFirm`).
+ *
+ * Firma eklendiğinde bir süre yalnız İLKİ geçersizleştiriliyordu; yeni firma
+ * proje firması ve kullanıcı formlarındaki kutularda görünmüyor, kullanıcı
+ * sayfayı yenilemek zorunda kalıyordu. Kökler burada toplandı ki mutasyon
+ * tarafı hangi ekranın hangi anahtarı kullandığını bilmek zorunda kalmasın.
+ */
+export const GAS_FIRM_QUERY_ROOTS = [
+  'gasDistributionFirms',
+  'gasDistributionFirmsByGroup',
+  'gasDistributionFirmOptions',
+  'gasDistributionFirm',
+] as const
+
 export const GAS_FIRM_SORT_KEYS = ['dfirmNo', 'groupName', 'name'] as const
 export type GasFirmSortKey = (typeof GAS_FIRM_SORT_KEYS)[number]
 
@@ -91,9 +112,14 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- *  gerçek `GET /api/admin/gas-distribution-firms` bağlanınca bu gövde
- * fetch + `gasDistributionFirmPageSchema.parse(await response.json())` olacak;
- * imza ve dönüş tipi aynı kalacağı için çağıran taraf değişmez.
+ * Arama, sıralama ve sayfalama İSTEMCİDE: uç ünvan araması (`Search`) ve tek
+ * firma daraltması (`Id`) almıyor, yalnız `GasDistributionGroupId` ve sayfalama
+ * parametreleri var. İkisi olmadan sunucuya taşımak arama kutusunu ve üst
+ * bardaki firma kapsamını sessizce işlevsiz bırakırdı.
+ *
+ * CLAUDE.md "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası
+ * (K27). TODO(esra): uca `Search` + tek firma süzgeci eklenince gövde tek
+ * isteğe iner ve `queryFirmList` silinir.
  */
 export async function getGasDistributionFirms(
   query: GasDistributionFirmQuery,
@@ -143,21 +169,37 @@ export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributi
 /**
  * Bir grup firmasına bağlı gaz dağıtım firmaları ("AKSA-GEMLİK" gibi).
  *
- * Proje firması ekleme ekranındaki "G.D Firması Bölgeleri" listesinin kaynağı:
- * gereksinim bölgeleri "seçilen gruba bağlı gaz dağıtım firmaları" olarak
- * tanımlıyor. Uçta grup süzgeci YOK, bu yüzden liste tümüyle çekilip burada
- * süzülüyor — sayfalı liste ekranıyla aynı geçici çözüm (K27).
+ * Proje firması ekleme ekranındaki "G.D Firması Bölgeleri" listesinin kaynağı.
+ * Süzgeç artık SUNUCUDA (`GasDistributionGroupId`): eskiden bütün firma listesi
+ * sayfa sayfa indirilip istemcide süzülüyordu — tek bir grup için onlarca
+ * kaydın tamamı ağdan geçiyordu.
  *
- * Sıralama İSTEMCİDE ve Türkçe: sunucu 'Ç'yi 'D'den sonra veriyor.
+ * Sıralama İSTEMCİDE kaldı ve Türkçe: sunucu 'Ç'yi 'D'den sonra veriyor.
  */
 export async function getGasDistributionFirmsByGroup(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<GasDistributionFirm[]> {
-  const firms = await fetchAllFirms(signal)
+  if (!hasApiBaseUrl()) {
+    await delay(MOCK_LATENCY_MS, signal)
+    return allMockFirms()
+      .filter((firm) => firm.groupId === groupId)
+      .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
+  }
 
-  return firms
-    .filter((firm) => firm.groupId === groupId)
+  const dtos = await fetchAllPages(({ page, pageSize }) =>
+    requestJson(
+      {
+        method: 'GET',
+        path: `/api/gasdistributionfirms?GasDistributionGroupId=${groupId}&Page=${page}&PageSize=${pageSize}`,
+        signal,
+      },
+      firmListPageSchema,
+    ),
+  )
+
+  return dtos
+    .map(toFirmListItem)
     .sort((left, right) => left.name.localeCompare(right.name, 'tr'))
 }
 

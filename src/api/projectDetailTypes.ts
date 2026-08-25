@@ -36,13 +36,26 @@ export const PROJECT_DETAIL_STATUS_LABELS: Record<ProjectDetailStatus, string> =
 /** Taslak proje işleme alınmaz: firma göndermeden onay/ret çalışmaz (KK-2). */
 export const DRAFT_STATUS: ProjectDetailStatus = 'taslak'
 
-/** `GET /api/projects/{id}` gövdesinden ekrana taşınan alanlar. */
+/**
+ * `GET /api/projects/{id}` gövdesinden ekrana taşınan alanlar.
+ *
+ * Şema bir süre yalnız DOKUZ alan okuyordu; uç otuz alan döndürüyor ve geri
+ * kalanı uydurma "extras" içinden geliyordu. Artık ucun taşıdığı her şey
+ * buradan okunuyor.
+ */
 export interface ProjectServerFields {
   id: number
   /** Serbest biçimli proje numarası; sayı olarak yorumlanmaz. */
   pId: string
   name: string
   description: string | null
+  /** Uçta KARŞILIĞI YOK; kimlikten türetilen mock değer (bkz. `mockStatusOf`). */
+  /**
+   * `null` = sunucu durum GÖNDERMEDİ ya da tanınmayan bir kod gönderdi.
+   * Bilinmeyeni "taslak" saymak, projeyi olmadığı bir durumda gösterip onay
+   * düğmelerini yanlış satıra koyardı (`toProjectStatus` ile aynı gerekçe).
+   */
+  status: ProjectDetailStatus | null
   cityName: string | null
   districtName: string | null
   addressLine: string | null
@@ -61,13 +74,31 @@ export interface ProjectServerFields {
   /** Dükkân adedi. */
   workplaceCount: number | null
   areaSquareMeters: number | null
+  buildingCode: string | null
+  projectFirmId: number | null
+  gasDistributionFirmId: number | null
+  projectType: string | null
+  heatingType: string | null
+  buildingUsageType: string | null
+  /** Yapı ruhsatına bağlı proje mi. */
+  isPermitProject: boolean
+  apartmentCount: number | null
+  workplaceCount: number | null
+  areaSquareMeters: number | null
+  capacityCubicMeterPerHour: number | null
+  serviceBoxPressureMbar: number | null
   createdAt: string
   updatedAt: string
 }
 
 export interface ProjectGeneralExtras {
   zpdFileName: string
-  status: ProjectDetailStatus
+  /**
+   * `null` = sunucu durum GÖNDERMEDİ ya da tanınmayan bir kod gönderdi.
+   * Bilinmeyeni "taslak" saymak, projeyi olmadığı bir durumda gösterip onay
+   * düğmelerini yanlış satıra koyardı (`toProjectStatus` ile aynı gerekçe).
+   */
+  status: ProjectDetailStatus | null
   gasFirmName: string
   installationNo: string
   neighborhood: string | null
@@ -136,13 +167,17 @@ export interface ProjectDetail {
 
 export interface ProjectDeviceRow {
   id: number
-  name: string
-  /** kcal/h (belge: cihaz kapasitesi bu birimde tutulur). */
-  capacityKcalPerHour: number | null
+  name: string | null
+  /**
+   * SERBEST METİN, sayı değil. Çizimden senkronlanan değerler karışık birimli
+   * geliyor ("12000 kcal/h", "24 kW", "14 L/dk", "—"); tek bir birime
+   * çevrilemez, o yüzden olduğu gibi gösteriliyor.
+   */
+  capacity: string | null
   flowCubicMeterPerHour: number | null
   brand: string | null
   model: string | null
-  /** Baca tipi: "AÇIK", "HERMETİK". */
+  /** Baca etiketi: "AÇIK", "HERMETİK". */
   flueType: string | null
 }
 
@@ -151,7 +186,8 @@ export interface ProjectUnitRow {
   unitNumber: string | null
   subscriberName: string | null
   subscriberNo: string | null
-  meterSerial: string | null
+  /** Sayaç SINIFI ("G4"), seri numarası değil — uçtaki adı `meterClassLabel`. */
+  meterLabel: string | null
   flowCubicMeterPerHour: number | null
   pressureMbar: number | null
   areaSquareMeters: number | null
@@ -207,6 +243,13 @@ export interface ProjectDocumentRow {
   sizeBytes: number | null
   uploadedByName: string | null
   receivedAt: string | null
+  /**
+   * Evrağın bağlı olduğu birimler. Proje detayındaki sekme bağı
+   * DEĞİŞTİREBİLİYOR; eski bağı koparmak için kimlik, hücreyi yazmak için ad
+   * gerekiyor.
+   */
+  unitIds: number[]
+  unitNames: string[]
 }
 
 /**
@@ -224,7 +267,20 @@ export interface ProjectPolicyRow {
   id: number
   policyNumber: string | null
   insuranceCompanyName: string | null
+  /**
+   * Poliçenin bağlı olduğu birimin KİMLİĞİ. Ad değil kimlik gerekiyor: poliçe
+   * sihirbazı "bu birimde zaten poliçe var mı" sorusunu bununla yanıtlıyor ve
+   * birim numarası boş olabiliyor (çizimden senkron).
+   *
+   * Birimi silinmiş poliçede `null` — sunucu bağı koparıyor (`IsUnitDeleted`).
+   */
+  projectUnitId: number | null
   unitNumber: string | null
+  /**
+   * Birim çizimden silindi mi. Poliçe İPTAL EDİLMİYOR, listede kalıyor; satır
+   * uyarıyla işaretleniyor (`PolicyDto.IsUnitDeleted`).
+   */
+  isUnitDeleted: boolean
   amount: number | null
   startDate: string | null
   endDate: string | null

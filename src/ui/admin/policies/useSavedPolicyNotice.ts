@@ -12,19 +12,12 @@ const savedPolicyStateSchema = z.object({
 })
 
 /**
- * Kayıt SUNUCUYA GİTMEDİ ve bu kullanıcıdan saklanmıyor (K58'in `isPersisted`
- * deseni). Poliçe listeye gerçekten giriyor, o yüzden mesajın kendisi doğru;
- * eksik olan kalıcılık ve bunu söylemeyen bir başarı şeridi, kullanıcıya
- * yapılmamış bir işi yapılmış gösterirdi.
+ * "Sunucuya yazılmadı" uyarısı KALKTI: kayıt artık `POST /api/policies` ile
+ * gerçekten kalıcı. Uyarıyı bırakmak, yapılmış bir işi yapılmamış göstermek
+ * olurdu — K58'in deseni her iki yönde de geçerli.
  */
-const NOT_PERSISTED_DETAILS = [
-  'Kayıt yalnız bu oturumda tutuluyor; sunucuya yazılmadı.',
-  'Sayfa yenilenince poliçe listeden düşer — poliçe ucu ve veritabanı henüz yok.',
-]
-
 export interface SavedPolicyNotice {
   message: string
-  details: string[]
   dismiss: () => void
 }
 
@@ -54,5 +47,5 @@ export function useSavedPolicyNotice(): SavedPolicyNotice | null {
 
   if (message === null) return null
 
-  return { message, details: NOT_PERSISTED_DETAILS, dismiss: () => setMessage(null) }
+  return { message, dismiss: () => setMessage(null) }
 }

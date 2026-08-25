@@ -59,9 +59,13 @@ describe('AdminSidebar', () => {
   it('her madde bağlantıdır, pasif düğme kalmadı', () => {
     renderSidebar()
 
+    // Alt maddeler de sayılıyor: "Gaz Dağıtım Kullanıcıları" artık firmaların
+    // ALTINDA çiziliyor ama yine bir bağlantı.
+    const allItems = ADMIN_NAV_ITEMS.flatMap((item) => [item, ...(item.children ?? [])])
+
     // +1: StarCAD logosu da artık rolün anasayfasına giden bir bağlantı.
-    expect(screen.getAllByRole('link')).toHaveLength(ADMIN_NAV_ITEMS.length + 1)
-    for (const item of ADMIN_NAV_ITEMS) {
+    expect(screen.getAllByRole('link')).toHaveLength(allItems.length + 1)
+    for (const item of allItems) {
       expect(screen.getByRole('link', { name: new RegExp(item.label) })).toBeInTheDocument()
     }
   })
@@ -190,18 +194,12 @@ describe('AdminSidebar rol bazlı menü', () => {
       expect.stringContaining('StarCAD'),
       expect.stringContaining('Anasayfa'),
       expect.stringContaining('Projeler'),
-      expect.stringContaining('Gaz Dağıtım Kullanıcıları'),
       expect.stringContaining('Evraklar'),
       expect.stringContaining('Poliçeler'),
     ])
   })
 
-  /** Gaz dağıtım kullanıcısının GÖRDÜĞÜ "Gaz Dağıtım Kullanıcıları" hariç. */
-  const gasUserHiddenLabels = MANAGEMENT_LABELS.filter(
-    (label) => label !== 'Gaz Dağıtım Kullanıcıları',
-  )
-
-  it.each(gasUserHiddenLabels)('gaz dağıtım kullanıcısı "%s" maddesini görmez', (label) => {
+  it.each(MANAGEMENT_LABELS)('gaz dağıtım kullanıcısı "%s" maddesini görmez', (label) => {
     renderSidebar(GAS_DISTRIBUTION_HOME_PATH, ROLE_CODES.gasDistributionUser)
 
     expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()

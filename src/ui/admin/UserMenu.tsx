@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, IdCard, KeyRound, LogOut, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -6,15 +7,22 @@ import { ChangePasswordDialog } from './ChangePasswordDialog'
 import { PROFILE_PATH } from './adminNavItems'
 import { ADMIN_FOCUS_RING } from './adminVariants'
 import { useLogout } from './useLogout'
-import { ROLE_CODES } from '../../api/roles'
+import { ROLE_CODES, listRoles } from '../../api/roles'
 import { useAuthSession } from '../../api/useAuthSession'
 
-/** Rol KODU kullanıcıya gösterilmez; ekrandaki karşılığı burada. */
+/**
+ * Rol KODU kullanıcıya gösterilmez. Ad artık `GET /api/roles`'ten geliyor; bu
+ * sözlük YEDEK: istek dönene kadar ya da uca ulaşılamazsa menü ham kod
+ * ("Admin") göstermesin diye duruyor.
+ */
 const ROLE_LABELS: Record<string, string> = {
   [ROLE_CODES.admin]: 'Sistem Yöneticisi',
   [ROLE_CODES.gasDistributionUser]: 'Gaz Dağıtım Kullanıcısı',
   [ROLE_CODES.projectFirmUser]: 'Proje Firması Kullanıcısı',
 }
+
+/** Roller oturum boyunca değişmiyor; tek istek yeter. */
+const ROLE_STALE_MS = 60 * 60 * 1000
 
 /**
  * Sistem yöneticisinin üst barda GÖRÜNEN adı. Yalnız gösterim: oturumdaki
@@ -29,6 +37,17 @@ const UNKNOWN_USER_NAME = 'Kullanıcı'
 
 const MENU_ITEM =
   'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-sunken disabled:cursor-not-allowed disabled:text-ink-disabled'
+
+/**
+ * Yıkıcı menü maddesi. Tokenlar `adminButtonVariants`'ın `danger` varyantıyla
+ * AYNI (`text-danger-ink`, `hover:bg-danger/10`) — yeni bir renk sistemi
+ * kurulmuyor, var olan destructive dili menü satırına uyarlanıyor.
+ *
+ * Pasif hâl ortak sınıftan geliyor (`disabled:text-ink-disabled`): istek
+ * uçarken satır kırmızı kalsaydı hâlâ basılabilir görünürdü.
+ */
+const MENU_ITEM_DANGER =
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger-ink hover:bg-danger/10 disabled:cursor-not-allowed disabled:text-ink-disabled disabled:hover:bg-transparent'
 
 /**
  * Üst bardaki kullanıcı bloğu artık bir MENÜ: adın yanında duran çıkış düğmesi
@@ -80,7 +99,18 @@ export function UserMenu() {
       : session.roleCode === ROLE_CODES.admin
         ? ADMIN_DISPLAY_NAME
         : session.fullName
-  const roleLabel = session === undefined ? '' : (ROLE_LABELS[session.roleCode] ?? session.roleCode)
+  const { data: roles } = useQuery({
+    queryKey: ['roles'],
+    queryFn: ({ signal }) => listRoles(signal),
+    staleTime: ROLE_STALE_MS,
+  })
+
+  const roleLabel =
+    session === undefined
+      ? ''
+      : ((roles ?? []).find((role) => role.code === session.roleCode)?.name ??
+        ROLE_LABELS[session.roleCode] ??
+        session.roleCode)
 
   return (
     <div ref={containerRef} className="relative shrink-0">
@@ -146,9 +176,10 @@ export function UserMenu() {
             }}
             disabled={isLoggingOut}
             aria-busy={isLoggingOut}
-            className={`${MENU_ITEM} ${ADMIN_FOCUS_RING}`}
+            className={`${MENU_ITEM_DANGER} ${ADMIN_FOCUS_RING}`}
           >
-            <LogOut aria-hidden className="size-4 shrink-0 text-ink-muted" />
+            {/* İkon da yıkıcı rengi alıyor; gri kalsaydı satır yarı kırmızı görünürdü. */}
+            <LogOut aria-hidden className="size-4 shrink-0" />
             Çıkış Yap
           </button>
         </div>

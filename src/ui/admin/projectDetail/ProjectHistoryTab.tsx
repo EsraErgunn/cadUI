@@ -1,10 +1,9 @@
 import { FileTypeBadge, OperationBadge } from './HistoryBadges'
-import type { Sourced } from '../../../api/mockGate'
 import type { ProjectHistoryRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
-import { MissingSourceNotice } from '../MissingSourceNotice'
+import { QueryLoading } from '../QueryStates'
 
 const TABLE_CAPTION =
   'Proje işlem geçmişi. Kayıtlar en yeniden eskiye sıralıdır ve düzenlenemez.'
@@ -48,14 +47,12 @@ const COLUMNS: DataTableColumn<ProjectHistoryRow>[] = [
  * tarafından değiştirilemez (KK-8), bu yüzden satırlarda "Aksiyonlar" sütunu da
  * üretilmiyor.
  */
-export function ProjectHistoryTab({ history }: { history: Sourced<ProjectHistoryRow[]> | undefined }) {
-  if (history === undefined || history.source === 'unavailable') {
-    return <MissingSourceNotice endpointHint="GET /api/projects/{id}/history" />
-  }
+export function ProjectHistoryTab({ history }: { history: ProjectHistoryRow[] | undefined }) {
+  if (history === undefined) return <QueryLoading message="İşlem geçmişi yükleniyor…" />
 
   return (
     <DataTable
-      rows={sortNewestFirst(history.data)}
+      rows={sortNewestFirst(history)}
       columns={COLUMNS}
       rowKey={(row) => row.id}
       caption={TABLE_CAPTION}

@@ -12,7 +12,6 @@ import {
 import { ApiError } from '../../../api/http'
 import type { ProjectFirmUserDetail } from '../../../api/projectFirmUserDto'
 import {
-  findTakenProjectFirmUserFields,
   saveProjectFirmUser,
 } from '../../../api/projectFirmUserForm'
 import { buildUsernameFromFullName } from '../../../api/turkishText'
@@ -26,12 +25,26 @@ const SUBMIT_ERROR_MESSAGE =
  * formda KALIR — listeye "kaydedildi" diye göndermek, hiçbir yere gitmemiş bir
  * kaydı gitmiş göstermek olurdu.
  */
-const UNAVAILABLE_MESSAGE =
-  'Kullanıcı kaydedilemiyor: bu ekranın sunucu ucu henüz açılmadı.'
 
 export interface ProjectFirmUserSaveOutcome {
   userId: number
-  isPersisted: boolean
+}
+
+const CONFLICT = 409
+
+/** Sunucunun 409 metni hangi alanı işaret ediyor. */
+const CONFLICT_MESSAGES = {
+  username: PROJECT_FIRM_USER_ERRORS.usernameTaken,
+  email: PROJECT_FIRM_USER_ERRORS.emailTaken,
+} as const
+
+type ConflictField = keyof typeof CONFLICT_MESSAGES
+
+function findConflictField(message: string): ConflictField | null {
+  const text = message.toLocaleLowerCase('tr')
+  if (text.includes('kullanıcı adı')) return 'username'
+  if (text.includes('e-posta')) return 'email'
+  return null
 }
 
 export interface ProjectFirmUserFormOptions {
@@ -49,6 +62,7 @@ function buildInitialValues(user: ProjectFirmUserDetail | null): ProjectFirmUser
     username: user.username,
     // Güncellemede şifre BOŞ gelir; boş bırakılırsa değişmez (KK-25).
     password: '',
+    projectFirmId: user.projectFirmId === null ? '' : String(user.projectFirmId),
   }
 }
 
@@ -106,20 +120,6 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
 
     setIsSubmitting(true)
     try {
-      // Benzersizlik SUNUCUDA denetleniyor (KK-16); alan kuralları geçtikten
-      // sonra bakılır ki yarım girilmiş bir adres "kullanımda" denmesin.
-      const taken = await findTakenProjectFirmUserFields(
-        data.email.trim(),
-        data.username.trim(),
-        user?.id ?? null,
-      )
-
-      if (taken.isEmailTaken || taken.isUsernameTaken) {
-        setErrors(buildTakenErrors(taken))
-        setFocusField(taken.isEmailTaken ? 'email' : 'username')
-        return null
-      }
-
       const saved = await saveProjectFirmUser(
         {
           fullName: data.fullName.trim(),
@@ -127,17 +127,27 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
           email: data.email.trim(),
           phone: data.phoneDigits === '' ? null : data.phoneDigits,
           password: data.password === '' ? null : data.password,
+          projectFirmId: Number(data.projectFirmId),
         },
         user?.id ?? null,
       )
 
-      if (!saved.ok) {
-        setSubmitError(UNAVAILABLE_MESSAGE)
+      return { userId: saved.userId }
+    } catch (error) {
+      // Benzersizlik denetimi SUNUCUDA (KK-16) ve 409 ile geliyor. Ön kontrol
+      // ucu YOK, zaten olsa da iki istek arasında başka biri aynı adı alabilir —
+      // tek doğru yer sunucunun cevabı. Hangi alanın çakıştığı mesajdan
+      // okunuyor; ayırt edilemezse şerit olarak gösteriliyor.
+      const conflictField = error instanceof ApiError && error.status === CONFLICT
+        ? findConflictField(error.message)
+        : null
+
+      if (conflictField !== null) {
+        setErrors({ [conflictField]: CONFLICT_MESSAGES[conflictField] })
+        setFocusField(conflictField)
         return null
       }
 
-      return { userId: saved.userId, isPersisted: saved.isPersisted }
-    } catch (error) {
       setSubmitError(error instanceof ApiError ? error.message : SUBMIT_ERROR_MESSAGE)
       return null
     } finally {
@@ -162,12 +172,4 @@ export function useProjectFirmUserForm({ user }: ProjectFirmUserFormOptions) {
 
 export type ProjectFirmUserForm = ReturnType<typeof useProjectFirmUserForm>
 
-function buildTakenErrors(taken: {
-  isEmailTaken: boolean
-  isUsernameTaken: boolean
-}): ProjectFirmUserErrors {
-  const errors: ProjectFirmUserErrors = {}
-  if (taken.isEmailTaken) errors.email = PROJECT_FIRM_USER_ERRORS.emailTaken
-  if (taken.isUsernameTaken) errors.username = PROJECT_FIRM_USER_ERRORS.usernameTaken
-  return errors
-}
+

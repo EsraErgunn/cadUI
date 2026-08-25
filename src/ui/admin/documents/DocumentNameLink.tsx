@@ -1,3 +1,6 @@
+import { useState } from 'react'
+
+import { getDocumentDownloadUrl } from '../../../api/documents'
 import { ADMIN_CELL_LINK } from '../adminVariants'
 
 /**
@@ -12,33 +15,59 @@ function isViewableInBrowser(contentType: string): boolean {
 }
 
 interface DocumentNameLinkProps {
+  documentId: number
   fileName: string
-  contentType: string
-  /** Dosyanın adresi; kaynağı olmayan kayıtta `null`. */
-  url: string | null
+  /** MIME tipi; sunucu göndermemişse indirme davranışına düşülür. */
+  contentType: string | null
 }
 
-export function DocumentNameLink({ fileName, contentType, url }: DocumentNameLinkProps) {
-  // Adres yoksa bağlantı da yok: tıklanınca hiçbir şey yapmayan (ya da 404'e
-  // giden) bir bağlantı, düz metinden daha yanıltıcı olurdu.
-  if (url === null) return <span className="font-medium text-ink">{fileName}</span>
+/**
+ * Adres SATIRDA DEĞİL: `GET /api/docs/{id}/download` süreli (presigned) bir
+ * adres üretiyor ve listedeki her satır için önden istemek hem gereksiz hem de
+ * kullanıcı tabloyu açık bıraktığında süresi dolmuş adresler bırakırdı. Bu
+ * yüzden adres TIKLANINCA alınıyor.
+ *
+ * Bağlantı değil düğme: `href`i olmayan bir `<a>` klavye ve ekran okuyucu için
+ * bağlantı gibi davranmaz.
+ */
+export function DocumentNameLink({ documentId, fileName, contentType }: DocumentNameLinkProps) {
+  const [isOpening, setIsOpening] = useState(false)
+  const [hasFailed, setHasFailed] = useState(false)
 
-  if (isViewableInBrowser(contentType)) {
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`font-medium ${ADMIN_CELL_LINK}`}
-      >
-        {fileName}
-      </a>
-    )
+  const open = async () => {
+    setIsOpening(true)
+    setHasFailed(false)
+    try {
+      const url = await getDocumentDownloadUrl(documentId)
+
+      if (contentType !== null && isViewableInBrowser(contentType)) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+        return
+      }
+
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = fileName
+      anchor.click()
+    } catch {
+      // Sebebi satırda yazılmıyor: tablo hücresi hata metni taşıyacak yer
+      // değil. Ad kırmızıya dönüp başlıkta sebebi söylüyor, kullanıcı tekrar
+      // deneyebiliyor.
+      setHasFailed(true)
+    } finally {
+      setIsOpening(false)
+    }
   }
 
   return (
-    <a href={url} download={fileName} className={`font-medium ${ADMIN_CELL_LINK}`}>
+    <button
+      type="button"
+      onClick={() => void open()}
+      disabled={isOpening}
+      title={hasFailed ? 'Dosya açılamadı. Tekrar deneyin.' : undefined}
+      className={`font-medium ${hasFailed ? 'text-danger' : ADMIN_CELL_LINK}`}
+    >
       {fileName}
-    </a>
+    </button>
   )
 }

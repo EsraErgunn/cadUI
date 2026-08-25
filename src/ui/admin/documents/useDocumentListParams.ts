@@ -6,13 +6,11 @@ import {
   DEFAULT_DOCUMENT_SORT_KEY,
   DOCUMENT_PAGE_SIZE,
   DOCUMENT_SORT_KEYS,
-  type DocumentListQuery,
   type DocumentSortKey,
 } from '../../../api/documents'
 import type { SortDirection } from '../../../api/listQuery'
 import { lastMonthRange } from '../adminDateRange'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../adminUrlParams'
-import { useScopeGasFirms } from '../useScopeGasFirms'
 
 function parseSortKey(raw: string | null): DocumentSortKey {
   return DOCUMENT_SORT_KEYS.find((key) => key === raw) ?? DEFAULT_DOCUMENT_SORT_KEY
@@ -32,11 +30,26 @@ export interface DocumentFilters {
   dateTo: string
   docTypeCode: string | null
   projectFirmId: number | null
-  search: string
+}
+
+/**
+ * URL'den okunan hâl. `DocumentListQuery`den farkı evrak tipini KOD olarak
+ * taşıması: adres okunur kalsın diye `type=License` yazılıyor, kimliğe çeviri
+ * istek sınırında yapılıyor (kod kimlikleri veritabanına göre değişebiliyor).
+ */
+export interface DocumentUrlQuery {
+  dateFrom: string
+  dateTo: string
+  docTypeCode: string | null
+  projectFirmId: number | null
+  page: number
+  pageSize: number
+  sortBy: DocumentSortKey
+  sortDir: SortDirection
 }
 
 export interface DocumentListControls {
-  query: DocumentListQuery
+  query: DocumentUrlQuery
   applyFilters: (filters: DocumentFilters) => void
   toggleSort: (key: DocumentSortKey) => void
   setPage: (page: number) => void
@@ -49,19 +62,8 @@ export interface DocumentListControls {
 export function useDocumentListParams(): DocumentListControls {
   const [searchParams] = useSearchParams()
   const updateParams = useAdminParamWriter()
-  const scopeGasFirms = useScopeGasFirms()
 
-  // Sıralı dizi: sorgu react-query anahtarına giriyor, küme sırası değişirse
-  // aynı kapsam iki farklı anahtar üretir ve liste boşuna yeniden çekilirdi.
-  const gasFirmNames = useMemo(
-    () =>
-      scopeGasFirms.names === null
-        ? null
-        : [...scopeGasFirms.names].sort((left, right) => left.localeCompare(right, 'tr')),
-    [scopeGasFirms.names],
-  )
-
-  const query = useMemo<DocumentListQuery>(() => {
+  const query = useMemo<DocumentUrlQuery>(() => {
     const defaultRange = lastMonthRange(new Date())
 
     return {
@@ -69,14 +71,12 @@ export function useDocumentListParams(): DocumentListControls {
       dateTo: searchParams.get(ADMIN_PARAM_KEYS.dateTo) ?? defaultRange.to,
       docTypeCode: searchParams.get(ADMIN_PARAM_KEYS.documentType),
       projectFirmId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.projectFirm)),
-      gasFirmNames,
-      search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: DOCUMENT_PAGE_SIZE,
       sortBy: parseSortKey(searchParams.get(ADMIN_PARAM_KEYS.sortKey)),
       sortDir: parseSortDir(searchParams.get(ADMIN_PARAM_KEYS.sortDir)),
     }
-  }, [searchParams, gasFirmNames])
+  }, [searchParams])
 
   const applyFilters = useCallback(
     (filters: DocumentFilters) => {
@@ -90,7 +90,6 @@ export function useDocumentListParams(): DocumentListControls {
           dateTo: filters.dateTo === defaultRange.to ? null : filters.dateTo,
           documentType: filters.docTypeCode,
           projectFirm: filters.projectFirmId === null ? null : String(filters.projectFirmId),
-          nameQuery: filters.search,
         },
         true,
       )

@@ -48,8 +48,9 @@ export function toGasFirmPayload(values: GasFirmParsedValues): GasDistributionFi
   return {
     dfirmNo: Number(values.dfirmNo.trim()),
     name: values.name.trim(),
-    // Doğrulamadan geçmiş değer: alan zorunlu, kimlik her zaman dolu.
-    groupId: Number(values.groupId),
+    // Boş seçim `null` gider, `0` DEĞİL: sunucu `int?` bekliyor ve `0`
+    // doğrulayıcıdan ("sıfırdan büyük olmalı") 400 ile dönerdi.
+    groupId: values.groupId === '' ? null : Number(values.groupId),
     description: optionalText(values.description),
     contactPerson: optionalText(values.contactPerson),
     address: optionalText(values.address),

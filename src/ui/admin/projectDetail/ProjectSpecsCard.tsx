@@ -18,49 +18,41 @@ const CARD_TITLE = 'Detay Bilgileri'
  * değil, düz metin (KK-5).
  */
 export function ProjectSpecsCard({ specs }: { specs: ProjectSpecs | null }) {
-  const isMock = specs !== null
-
   return (
     <InfoCard title={CARD_TITLE} icon={Gauge}>
-      <InfoRow label="Sayaç Adedi" value={formatInteger(specs?.meterCount ?? null)} isMock={isMock} />
-      <InfoRow label="Kat Adedi" value={formatInteger(specs?.floorCount ?? null)} isMock={isMock} />
+      <InfoRow label="Sayaç Adedi" value={formatInteger(specs?.meterCount ?? null)} />
+      <InfoRow label="Kat Adedi" value={formatInteger(specs?.floorCount ?? null)} />
       <InfoRow
         label="Mesken Adedi"
         value={formatInteger(specs?.residenceCount ?? null)}
-        isMock={isMock}
       />
-      <InfoRow label="Dükkan Adedi" value={formatInteger(specs?.shopCount ?? null)} isMock={isMock} />
+      <InfoRow label="Dükkan Adedi" value={formatInteger(specs?.shopCount ?? null)} />
       <InfoRow
         label="Kutu Basıncı"
         value={formatPressureMbar(specs?.boxPressureMbar ?? null)}
-        isMock={isMock}
       />
       <InfoRow
         label="Kullanım Basıncı"
         value={formatPressureMbar(specs?.usagePressureMbar ?? null)}
-        isMock={isMock}
       />
-      <InfoRow label="Sayaç Tipi" value={specs?.meterType ?? null} isMock={isMock} />
-      <InfoRow label="Kat Sayısı" value={specs?.floorPattern ?? null} isMock={isMock} />
+      <InfoRow label="Sayaç Tipi" value={specs?.meterType ?? null} />
+      <InfoRow label="Kat Sayısı" value={specs?.floorPattern ?? null} />
       <InfoRow
         label="Daire Dükkan Sayısı"
         value={specs?.residenceShopPattern ?? null}
-        isMock={isMock}
       />
       <InfoRow
         label="Toplam Alan"
         value={formatAreaSquareMeters(specs?.totalAreaSquareMeters ?? null)}
-        isMock={isMock}
       />
       <InfoRow
         label="Toplam Kapasite"
         value={formatDecimal(specs?.totalCapacity ?? null)}
-        isMock={isMock}
       />
-      <InfoRow label="Gaz Alanlar" value={specs?.gasAreas ?? null} isMock={isMock} />
-      <InfoRow label="Tadilat Açıklama" value={specs?.renovationNote ?? null} isMock={isMock} />
-      <InfoRow label="Sipariş Numarası" value={specs?.orderNumber ?? null} isMock={isMock} />
-      <InfoRow label="Bağlantı Nesnesi" value={specs?.connectionObject ?? null} isMock={isMock} />
+      <InfoRow label="Gaz Alanlar" value={specs?.gasAreas ?? null} />
+      <InfoRow label="Tadilat Açıklama" value={specs?.renovationNote ?? null} />
+      <InfoRow label="Sipariş Numarası" value={specs?.orderNumber ?? null} />
+      <InfoRow label="Bağlantı Nesnesi" value={specs?.connectionObject ?? null} />
     </InfoCard>
   )
 }

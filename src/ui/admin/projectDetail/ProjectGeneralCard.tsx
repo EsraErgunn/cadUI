@@ -31,7 +31,6 @@ export function ProjectGeneralCard({ detail, onDownloadZpd }: ProjectGeneralCard
 
       <InfoRow
         label="Zetacad Proje Dosyası"
-        isMock={extras !== null}
         value={
           extras === null ? null : (
             // Dosyayı veren uç yok; düğme yine de GERÇEK bir eylem çağırıyor ve
@@ -48,52 +47,47 @@ export function ProjectGeneralCard({ detail, onDownloadZpd }: ProjectGeneralCard
 
       <InfoRow
         label="Proje Durumu"
-        isMock={extras !== null}
-        value={extras === null ? null : <ProjectStatusChip status={extras.general.status} />}
+        value={
+          extras === null || extras.general.status === null ? null : (
+            <ProjectStatusChip status={extras.general.status} />
+          )
+        }
       />
 
       <InfoRow
         label="G.D Firması"
-        isMock={extras !== null}
         value={extras?.general.gasFirmName ?? null}
       />
       <InfoRow
         label="Tesisat No"
-        isMock={extras !== null}
         value={extras?.general.installationNo ?? null}
       />
 
       <InfoRow label="İl / İlçe" value={joinCityDistrict(server.cityName, server.districtName)} />
       <InfoRow
         label="Mahalle"
-        isMock={extras !== null}
         value={extras?.general.neighborhood ?? null}
       />
       <InfoRow
         label="Sokak / Kapı No"
-        isMock={extras !== null}
         value={extras?.general.streetDoorNo ?? null}
       />
       <InfoRow label="Adres" value={server.addressLine} />
 
       <InfoRow
         label="Proje Tipi"
-        isMock={extras !== null}
         value={extras?.general.projectType ?? null}
       />
       <InfoRow
         label="Isınma Tipi"
-        isMock={extras !== null}
         value={extras?.general.heatingType ?? null}
       />
       <InfoRow
         label="Müstakil"
-        isMock={extras !== null}
         value={extras === null ? null : formatYesNo(extras.general.isDetached)}
       />
       <InfoRow
         label="Ruhsat"
-        isMock={extras !== null}
         value={extras === null ? null : formatYesNo(extras.general.hasLicense)}
       />
     </InfoCard>

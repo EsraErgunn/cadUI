@@ -1,5 +1,4 @@
-import { MOCK_LATENCY_MS, delay } from './adminFirms'
-import { hasApiBaseUrl, requestJson, requestVoid, type RequestOptions } from './http'
+import { requestJson, requestVoid, type RequestOptions } from './http'
 import {
   PROJECT_FIRM_COMPANY_TYPES,
   projectFirmDetailDtoSchema,
@@ -10,7 +9,6 @@ import {
   type ProjectFirmFullDto,
   type ProjectFirmPayload,
 } from './projectFirmDto'
-import { recordMockProjectFirmAuthorizations } from './projectFirmsMock'
 
 export type { ProjectFirmPayload } from './projectFirmDto'
 export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
@@ -33,14 +31,14 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
  * zorunlu, `taxNumber` boş. Aynı T.C. numarasıyla ikinci kayıt 409 döner ve
  * SİLİNMİŞ firma da numarayı rezerve tutar.
  *
- * SUNUCUDA KARŞILIĞI OLMAYANLAR — hiçbiri uydurulmadı, arayüzde duruyor:
+ * **Yetkilendirme kayıtları ARTIK GERÇEK uca yazılıyor**
+ * (`POST /api/project-firm-authorizations`, satır başına bir istek). Bu blok bir
+ * süre "her zaman mock" diyordu; uç açıldı, gövde bağlandı ve not güncellenmeden
+ * kalmıştı. GÜNCELLEME ekranı yetkilendirme bölümünü yine de göstermiyor
+ * (bkz. `ProjectFirmUpdateForm`).
  *
- * - **Yetkilendirme kayıtları**: `ProjectFirmAuthorization` tablosu VAR ama onu
- *   yazan bir uç yok; `ProjectFirmCreateDto` yetki alanı taşımıyor.
- *   `saveProjectFirmAuthorizations` bu yüzden HER ZAMAN mock (aynı durumdaki
- *   `getNextDfirmNo` deseni) — uç açılınca yalnız bu gövde `requestJson`'a
- *   döner, imza değişmez. GÜNCELLEME ekranı bu yüzden yetkilendirme bölümünü
- *   HİÇ göstermiyor (bkz. `ProjectFirmUpdateForm`).
+ * SUNUCUDA KARŞILIĞI OLMAYAN:
+ *
  * - **Benzersizlik**: sunucu VERGİ numarasını denetlemiyor (409 yok); ön
  *   kontrol istemcide, liste ucundan gelen kayıtlar üzerinde
  *   (`projectFirmUniqueness.ts`). Yarış durumunu kapatmaz; sunucu kuralı gelince
@@ -48,22 +46,24 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
  *   orada sunucu 409 döndürüyor ve silinmiş firma bile numarayı rezerve
  *   tutuyor, yani istemcide ön kontrol yapılamaz.
  *
- * MOCK GÖVDE YOK. Firma uçlarının hepsi sözleşmede var, bu yüzden `VITE_API_URL`
- * tanımsızken sahte gövdeye düşmüyorlar: API kökü yoksa `http.ts` anlaşılır bir
- * `NetworkError` fırlatır. Tek istisna `saveProjectFirmAuthorizations` — o ucun
- * sözleşmede karşılığı YOK (aşağıdaki nota bakın).
+ * MOCK GÖVDE YOK — istisnasız. Firma uçlarının hepsi sözleşmede var, bu yüzden
+ * `VITE_API_URL` tanımsızken sahte gövdeye düşmüyorlar: API kökü yoksa `http.ts`
+ * anlaşılır bir `NetworkError` fırlatır.
  */
 
 const PROJECT_FIRMS_PATH = '/api/projectfirms'
 
-/** Yetkilendirme kaydının istek gövdesindeki karşılığı (uç açılınca kullanılacak). */
+/** Yetkilendirme kaydının istek gövdesindeki karşılığı. */
 export interface ProjectFirmAuthorizationPayload {
   /** Gaz dağıtım firmasının kimliği. Sunucu modeli bir tur `GasDistributionFirmRegionId`
-      diyordu; bölge kavramı kalkınca alan `GasDistributionFirmId` oldu ve arayüzdeki
-      adla örtüştü — uç açılınca eşlemenin doğrulanması yine de gerekecek. */
+      diyordu; bölge kavramı kalkınca alan `GasDistributionFirmId` oldu. */
   gasDistributionFirmId: number
-  /** Kayıttaki TEK numara; "Yeterlilik No" kalktı (K102). */
-  certificateNumber: string | null
+  /** Kayıttaki TEK numara; "Yeterlilik No" kalktı (K102). Uçta ZORUNLU. */
+  certificateNumber: string
+  /** yyyy-aa-gg; uçta zorunlu. */
+  validFrom: string
+  /** yyyy-aa-gg ya da null (süresiz). */
+  validTo: string | null
 }
 
 /** Ekleme yanıtı tam detay nesnesi döndürüyor; çağıranın ihtiyacı olan kimlik. */
@@ -103,34 +103,46 @@ export async function updateProjectFirm(
 
 export interface AuthorizationSaveResult {
   /**
-   * Kayıt gerçekten kalıcı oldu mu. Bugün YALNIZ mock modda `true`: orada
-   * firma da yetkilendirme de aynı bellekteki gövdeye yazılıyor, yani ekran
-   * kendi içinde tutarlı. Gerçek uçta firma sunucuya gidiyor ama yetkilendirme
-   * mock'ta kalıyor — arayüz bunu kullanıcıya SÖYLEMEK zorunda.
+   * Kayıt gerçekten kalıcı oldu mu. Artık HER ZAMAN `true`: satırlar
+   * `POST /api/project-firm-authorizations` ile sunucuya yazılıyor. Alan
+   * duruyor çünkü arayüz kullanıcıya "kalıcı değil" uyarısını buna bakarak
+   * gösteriyor ve bir gün kısmi başarı doğarsa yeri hazır.
    */
   arePersisted: boolean
 }
 
+const PROJECT_FIRM_AUTHORIZATIONS_PATH = '/api/project-firm-authorizations'
+
 /**
- * Yetkilendirme kayıtları. HER ZAMAN mock: sunucuda bunları yazan bir uç yok
- * (yukarıdaki sözleşme notu). Firma kaydı başarılı olduktan SONRA çağrılır,
- * bu yüzden burada bir hata firma kaydını geri almaz.
+ * Yetkilendirme kayıtları — GERÇEK uç, satır başına BİR istek
+ * (`POST /api/project-firm-authorizations`). Uç toplu gövde kabul etmiyor.
  *
- * "Kalıcı oldu mu" kararı BURADA veriliyor, arayüzde değil: uç açıldığında
- * `arePersisted` koşulsuz `true` olacak ve ekranda hiçbir şey değişmeyecek.
- * Arayüz `hasApiBaseUrl()`e kendisi baksaydı, bu bilgi iki yerde dururdu.
+ * Firma kaydı başarılı olduktan SONRA çağrılıyor, bu yüzden buradaki bir hata
+ * firma kaydını geri ALMAZ — çağıran hatayı gösterir, kullanıcı yetkilendirmeyi
+ * firma güncelleme ekranından tamamlar.
  *
- * TODO(esra): `POST /api/projectfirms/{id}/authorizations` açılınca gövde
- * `requestJson`'a dönecek, imza aynı kalacak.
+ * Sıralı gönderiliyor, paralel değil: uç aynı firma için çakışan kayıtları
+ * reddedebiliyor ve paralel istekte hangisinin geçtiği belirsiz olurdu.
  */
 export async function saveProjectFirmAuthorizations(
   firmId: number,
   authorizations: ProjectFirmAuthorizationPayload[],
 ): Promise<AuthorizationSaveResult> {
-  await delay(MOCK_LATENCY_MS)
-  recordMockProjectFirmAuthorizations(firmId, authorizations)
+  for (const authorization of authorizations) {
+    await requestVoid({
+      method: 'POST',
+      path: PROJECT_FIRM_AUTHORIZATIONS_PATH,
+      rawJsonBody: JSON.stringify({
+        projectFirmId: firmId,
+        gasDistributionFirmId: authorization.gasDistributionFirmId,
+        certificateNumber: authorization.certificateNumber,
+        validFrom: authorization.validFrom,
+        validTo: authorization.validTo,
+      }),
+    })
+  }
 
-  return { arePersisted: !hasApiBaseUrl() }
+  return { arePersisted: true }
 }
 
 /**
@@ -143,6 +155,23 @@ export function toCompanyType(isSoleProprietorship: boolean): number {
   return isSoleProprietorship
     ? PROJECT_FIRM_COMPANY_TYPES.individual
     : PROJECT_FIRM_COMPANY_TYPES.legal
+}
+
+/**
+ * Tekil firmanın önbellek anahtarı — fonksiyonun YANINDA duruyor.
+ *
+ * Aynı kaydı iki ekran çekiyor (Profil ve Firma Güncelle) ve anahtarı ayrı ayrı
+ * yazdıkları sürece iki farklı ada (`projectFirmDetail` / `projectFirm`)
+ * kaymışlardı: iki kopya önbellek, iki istek ve en kötüsü çapraz tutmayan
+ * geçersizleştirme — biri kaydı güncelleyince ötekinin kopyası bayat kalıyordu.
+ * Anahtarı üreten tek yer burası olduğu sürece o kayma tekrar edemez.
+ */
+export const PROJECT_FIRM_QUERY_KEY = 'projectFirm'
+
+/** Kimlik `null` olabilir: çağıran sorguyu `enabled` ile kapatana kadar anahtar
+    yine de kararlı bir değer taşımalı. */
+export function projectFirmQueryKey(id: number | null): readonly [string, number | null] {
+  return [PROJECT_FIRM_QUERY_KEY, id]
 }
 
 /**

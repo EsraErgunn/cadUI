@@ -45,8 +45,16 @@ function jsonResponse(body: unknown, status = 200): Response {
  * Uç 2026-08-16'da sayfalı zarfa geçti. `totalCount` öğe sayısına eşit:
  * tek sayfaya sığan yanıt, `fetchAllPages` ikinci istek atmasın.
  */
-function listPage(items: unknown[]): Response {
-  return jsonResponse({ items, totalCount: items.length, page: 1, pageSize: 100 })
+function listPage(
+  items: unknown[],
+  envelope: { page?: number; pageSize?: number; totalCount?: number } = {},
+): Response {
+  return jsonResponse({
+    items,
+    totalCount: envelope.totalCount ?? items.length,
+    page: envelope.page ?? 1,
+    pageSize: envelope.pageSize ?? 100,
+  })
 }
 
 function stubFetch(...responses: Response[]) {
@@ -79,9 +87,9 @@ describe('getGasDistributionFirms', () => {
   })
 
   /**
-   * Sayfalama hâlâ İSTEMCİDE (K27). Uca `Page`/`PageSize` GİDİYOR ama ekranın
-   * sayfası olarak değil, "hepsini topla" amacıyla: istenen `pageSize: 1`
-   * sorguya YANSIMAZ, sunucudan azami sayfa istenir ve dilimleme burada yapılır.
+   * Sayfalama hâlâ İSTEMCİDE (K27): uç ünvan araması ve tek firma daraltması
+   * almadığı için liste tümüyle çekilip burada dilimleniyor. İstenen
+   * `pageSize: 1` sorguya YANSIMAZ.
    */
   it('ekranın sayfa boyutunu uca YANSITMAZ, dilimlemeyi istemcide yapar', async () => {
     const fetchMock = stubFetch(listPage(LIST_DTO))
@@ -94,31 +102,33 @@ describe('getGasDistributionFirms', () => {
     expect(page.totalCount).toBe(2)
   })
 
-  /**
-   * Benzer ad uyarısı (`useGasFirmForm.checkSimilarNames`) bu fonksiyonu
-   * çağırıyor; fonksiyon gerçek uca gittiği için uyarı da gerçek veriye bakıyor.
-   * Mock'a bakarken veritabanındaki mükerrer adı göremiyordu.
-   */
+  /** Arama istemcide ve Türkçe duyarsız; uca `Search` GİTMEZ (uçta yok). */
   it('ad araması gerçek veriden süzer', async () => {
-    stubFetch(listPage(LIST_DTO))
+    const fetchMock = stubFetch(listPage(LIST_DTO))
 
     const page = await getGasDistributionFirms({ ...LIST_QUERY, nameQuery: 'çorum' })
 
     expect(page.items.map((firm) => firm.name)).toEqual(['ÇORUMGAZ'])
+    expect(requestOf(fetchMock).url).not.toContain('Search=')
   })
 })
 
 describe('getGasDistributionFirmsByGroup', () => {
-  it('yalnız gruba bağlı kayıtları verir', async () => {
-    stubFetch(listPage(LIST_DTO))
+  /**
+   * Grup süzgeci SUNUCUDA: `GasDistributionGroupId` uçta ZATEN vardı, eskiden
+   * bütün firma listesi indirilip istemcide süzülüyordu.
+   */
+  it('grup süzgecini uca gönderir', async () => {
+    const fetchMock = stubFetch(listPage([LIST_DTO[0]]))
 
     const firms = await getGasDistributionFirmsByGroup(1)
 
+    expect(requestOf(fetchMock).url).toContain('GasDistributionGroupId=1')
     expect(firms.map((firm) => firm.name)).toEqual(['Adana Doğalgaz Dağıtım A.Ş.'])
   })
 
   it('gruba bağlı kayıt yoksa boş döner', async () => {
-    stubFetch(listPage(LIST_DTO))
+    stubFetch(listPage([]))
 
     expect(await getGasDistributionFirmsByGroup(99)).toEqual([])
   })

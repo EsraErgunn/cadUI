@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
-import { listInsuranceCompanies, listPolicyAgencies } from '../api/policies'
-import { getProjectSummary, type ProjectSummary } from '../api/projectDetail'
+import { listInsuranceCompanies } from '../api/policies'
+import {
+  getProjectPolicies,
+  getProjectSummary,
+  getProjectUnits,
+  type ProjectSummary,
+} from '../api/projectDetail'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
@@ -44,16 +48,26 @@ function buildBreadcrumb(project: ProjectSummary, homePath: string) {
 /** Kayıt sonrası kullanıcı poliçenin listelendiği sekmede açılır (KK-21). */
 const POLICY_TAB: ProjectDetailTabKey = 'police'
 
-const MOCK_SECTIONS = [
-  'Sigorta şirketi ve acente listeleri (örnek acente adları)',
-  'Poliçe kaydı — yalnız bu oturumda tutulur, sunucuya yazılmaz',
-]
-
 const CANCEL_DIALOG = {
   title: 'Poliçe oluşturmaktan vazgeçilsin mi?',
   description: 'Girilen bilgiler kaydedilmeden Proje Detayı ekranına dönülecek.',
   confirmLabel: 'Vazgeç',
   cancelLabel: 'Devam et',
+}
+
+/**
+ * Yenileme onayının metni. Poliçe numarası varsa yazılıyor: kullanıcı hangi
+ * kaydın iptal edileceğini görmeli, "mevcut poliçe" tek başına belirsiz.
+ */
+function buildRenewalDescription(prompt: { policyNumber: string | null; unitLabel: string }): string {
+  const policy =
+    prompt.policyNumber === null ? 'mevcut poliçe' : `${prompt.policyNumber} numaralı poliçe`
+
+  return (
+    `${prompt.unitLabel} biriminde yürürlükte bir poliçe var. Devam edilirse önce ${policy} ` +
+    'İPTAL EDİLECEK, ardından yenisi oluşturulacak. İptal geri alınamaz; iki adım arasında bir ' +
+    'hata olursa birim poliçesiz kalır ve poliçeyi yeniden oluşturmanız gerekir.'
+  )
 }
 
 export function NewPolicyPage() {
@@ -66,24 +80,87 @@ export function NewPolicyPage() {
 
   // Künye GERÇEK uçtan (K63): mock tohumundan okunsaydı sunucudaki proje ya
   // bulunamaz ya başka bir projenin adıyla açılırdı.
+  // Poliçe sunucuda BİRİME bağlanıyor; seçim kutusunun kaynağı proje detayının
+  // kullandığı uç — anahtar ORTAK, iki ekran arasında ikinci istek çıkmıyor.
+  const unitsQuery = useQuery({
+    queryKey: ['projectUnits', projectId],
+    queryFn: ({ signal }) => getProjectUnits(projectId ?? 0, signal),
+    enabled: projectId !== undefined,
+  })
+
+  /**
+   * Projenin MEVCUT poliçeleri. Anahtar proje detayının poliçe sekmesiyle ORTAK
+   * (`projectPolicies`): iki ekran aynı veriyi paylaşıyor ve kayıttan sonraki
+   * geçersizleştirme ikisini birden tazeliyor.
+   *
+   * Gerekçe: sunucu bir birimde tek aktif poliçeye izin veriyor ve ihlali ancak
+   * `POST` sırasında 400 ile söylüyor. Bu liste olmadan sihirbaz dolu bir birimi
+   * seçtirir, kullanıcı formu baştan sona doldurur ve hatayı en son adımda görür.
+   */
+  const policiesQuery = useQuery({
+    queryKey: ['projectPolicies', projectId],
+    queryFn: ({ signal }) => getProjectPolicies(projectId ?? 0, signal),
+    enabled: projectId !== undefined,
+  })
+
+  const unitIdsWithPolicy = useMemo(() => {
+    const rows = policiesQuery.data ?? []
+
+    // Birimi silinmiş poliçe `projectUnitId` taşımıyor; hiçbir birimi kilitlemez.
+    return new Set(
+      rows.map((policy) => policy.projectUnitId).filter((id): id is number => id !== null),
+    )
+  }, [policiesQuery.data])
+
+  const unitOptions = useMemo(() => {
+    if (unitsQuery.data === undefined) return []
+
+    return unitsQuery.data.map((unit) => ({
+      id: unit.id,
+      // Birim numarası boş olabiliyor (çizimden senkron); abone adı ayırt
+      // etmeye yardım ediyor, ikisi de yoksa kimlik yazılıyor.
+      label:
+        [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||
+        `#${unit.id}`,
+      hasActivePolicy: unitIdsWithPolicy.has(unit.id),
+    }))
+  }, [unitsQuery.data, unitIdsWithPolicy])
+
   const projectQuery = useQuery({
     queryKey: ['projectSummary', projectId],
     queryFn: ({ signal }) => getProjectSummary(projectId ?? 0, signal),
     enabled: projectId !== undefined,
   })
 
-  const wizard = usePolicyWizard({ project: projectQuery.data ?? undefined })
+  /**
+   * Seçilen birimin yürürlükteki poliçesini çözer. Dolu dönerse kayıt YENİLEME
+   * olur ve sihirbaz "Bitir"den önce onay ister — iptal geri alınamaz.
+   */
+  const findExistingPolicy = useCallback(
+    (projectUnitId: number) => {
+      const rows = policiesQuery.data ?? []
+
+      const match = rows.find((policy) => policy.projectUnitId === projectUnitId)
+      if (match === undefined) return null
+
+      return {
+        id: match.id,
+        policyNumber: match.policyNumber,
+        unitLabel: match.unitNumber ?? `#${projectUnitId}`,
+      }
+    },
+    [policiesQuery.data],
+  )
+
+  const wizard = usePolicyWizard({
+    project: projectQuery.data ?? undefined,
+    findExistingPolicy,
+  })
   const { focusField, clearFocusRequest, values } = wizard
 
   const { data: companies } = useQuery({
     queryKey: ['insuranceCompanies'],
     queryFn: ({ signal }) => listInsuranceCompanies(signal),
-  })
-
-  const { data: agencies } = useQuery({
-    queryKey: ['policyAgencies', values.insuranceCompanyId],
-    queryFn: ({ signal }) => listPolicyAgencies(values.insuranceCompanyId ?? 0, signal),
-    enabled: values.insuranceCompanyId !== null,
   })
 
   useEffect(() => {
@@ -112,8 +189,7 @@ export function NewPolicyPage() {
     )
   }
 
-  const companyRows = companies === undefined || companies.source === 'unavailable' ? [] : companies.data
-  const agencyRows = agencies === undefined || agencies.source === 'unavailable' ? [] : agencies.data
+  const companyRows = companies ?? []
 
   const goToDetail = (state?: { savedPolicyNumber: string }) => {
     void navigate(`${projectDetailPath(project.id)}?${ADMIN_PARAM_KEYS.tab}=${POLICY_TAB}`, {
@@ -141,10 +217,6 @@ export function NewPolicyPage() {
         ilişkilendirilecek.
       </p>
 
-      <MockDataNotice
-        sections={companies !== undefined && companies.source === 'mock' ? MOCK_SECTIONS : []}
-      />
-
       {wizard.submitError !== null && (
         <NoticeBar
           tone="error"
@@ -163,10 +235,7 @@ export function NewPolicyPage() {
             values={values}
             errors={wizard.errors}
             companies={companyRows}
-            agencies={agencyRows}
-            hasCompanySource={companies === undefined || companies.source !== 'unavailable'}
             onCompanyChange={(id) => wizard.setValue('insuranceCompanyId', id)}
-            onAgencyChange={(id) => wizard.setValue('agencyId', id)}
           />
         )}
 
@@ -174,6 +243,10 @@ export function NewPolicyPage() {
           <PolicyInfoStep
             values={values}
             errors={wizard.errors}
+            units={unitOptions}
+            // Poliçe listesi de beklenir: gelmeden çizilen kutu, dolu bir birimi
+            // bir an seçilebilir gösterirdi.
+            areUnitsPending={unitsQuery.isPending || policiesQuery.isPending}
             onChange={wizard.setValue}
             onAmountChange={wizard.setAmountText}
             onAmountBlur={wizard.formatAmount}
@@ -181,7 +254,7 @@ export function NewPolicyPage() {
         )}
 
         {wizard.step === 'summary' && (
-          <PolicySummaryStep values={values} companies={companyRows} />
+          <PolicySummaryStep values={values} companies={companyRows} units={unitOptions} />
         )}
 
         {wizard.step === 'done' && <PolicyDoneStep />}
@@ -195,6 +268,22 @@ export function NewPolicyPage() {
           onClose={() => goToDetail({ savedPolicyNumber: values.policyNumber })}
         />
       </div>
+
+      {/* YENİLEME ONAYI. Sunucuda atomik yenileme yok: önce iptal, sonra
+          oluşturma. İptal geri alınamıyor ve arada hata olursa birim poliçesiz
+          kalıyor — metin ikisini de söylüyor, kullanıcı sonucu bilerek onaylasın. */}
+      {wizard.renewalPrompt !== null && (
+        <ConfirmDialog
+          title="Mevcut poliçe iptal edilsin mi?"
+          description={buildRenewalDescription(wizard.renewalPrompt)}
+          confirmLabel="İptal et ve yenisini oluştur"
+          cancelLabel="Vazgeç"
+          confirmTone="danger"
+          isPending={wizard.isSubmitting}
+          onConfirm={() => void wizard.confirmRenewal()}
+          onCancel={wizard.cancelRenewal}
+        />
+      )}
 
       {isCancelPrompted && (
         <ConfirmDialog

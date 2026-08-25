@@ -8,10 +8,8 @@ import { CREATE_PATH, LIST_PATH, buildDetail, renderFormFlow } from './projectFi
 const PASSWORD_LABEL = /^Şifre( \*)?$/
 
 const readApi = vi.hoisted(() => ({ getProjectFirmUser: vi.fn() }))
-const formApi = vi.hoisted(() => ({
-  saveProjectFirmUser: vi.fn(),
-  findTakenProjectFirmUserFields: vi.fn(),
-}))
+const formApi = vi.hoisted(() => ({ saveProjectFirmUser: vi.fn() }))
+const firmsApi = vi.hoisted(() => ({ getProjectFirmList: vi.fn() }))
 
 vi.mock('../../api/projectFirmUsers', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/projectFirmUsers')>()),
@@ -23,35 +21,46 @@ vi.mock('../../api/projectFirmUserForm', async (importOriginal) => ({
   ...formApi,
 }))
 
+/** Formdaki "Proje Firması" kutusunun kaynağı; kullanıcı bir firmaya bağlanıyor. */
+vi.mock('../../api/projectFirms', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/projectFirms')>()),
+  ...firmsApi,
+}))
+
+const PROJECT_FIRM = { id: 201, name: 'AA Mühendislik' }
+
 beforeEach(() => {
-  // Kayıt `Sourced` zarfıyla dönüyor (K51); testler geliştirme kolunda koşuyor.
-  readApi.getProjectFirmUser.mockResolvedValue({ source: 'mock', data: buildDetail() })
-  formApi.findTakenProjectFirmUserFields.mockResolvedValue({
-    isEmailTaken: false,
-    isUsernameTaken: false,
-  })
-  formApi.saveProjectFirmUser.mockResolvedValue({ ok: true, userId: 1001, isPersisted: false })
+  readApi.getProjectFirmUser.mockResolvedValue(buildDetail())
+  firmsApi.getProjectFirmList.mockResolvedValue([PROJECT_FIRM])
+  formApi.saveProjectFirmUser.mockResolvedValue({ userId: 1001 })
 })
 
 afterEach(() => {
   vi.clearAllMocks()
 })
 
-/** Zorunlu alanları doldurur. */
+/** Zorunlu alanları doldurur; proje firması da zorunlu. */
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
+  // Seçenekler istekten sonra geliyor; kutu çizilmiş olsa da beklenmeli.
+  await screen.findByRole('option', { name: PROJECT_FIRM.name })
+  await user.selectOptions(screen.getByLabelText(/^Proje Firması/), String(PROJECT_FIRM.id))
   await user.type(screen.getByLabelText(/^Email/), 'yeni.kullanici@firma.com')
   await user.type(screen.getByLabelText(/^Adı Soyadı/), 'Selin Arslan')
   await user.type(screen.getByLabelText(PASSWORD_LABEL), 'Guclu.Sifre1')
 }
 
-// KK-16: benzersizlik sunucuda denetlenir.
+/**
+ * KK-16: benzersizlik SUNUCUDA denetleniyor ve 409 ile geliyor. Ön kontrol ucu
+ * yok; zaten olsa da iki istek arasında başka biri aynı adı alabilirdi — tek
+ * doğru yer sunucunun cevabı. Hangi alanın çakıştığı mesajdan okunuyor.
+ */
 describe('benzersizlik (KK-16)', () => {
-  it('kullanımdaki kullanıcı adı belgedeki mesajı gösterir', async () => {
+  it('kullanımdaki kullanıcı adını alan hatası olarak gösterir', async () => {
     const user = userEvent.setup()
-    formApi.findTakenProjectFirmUserFields.mockResolvedValue({
-      isEmailTaken: false,
-      isUsernameTaken: true,
-    })
+    const { ApiError } = await import('../../api/http')
+    formApi.saveProjectFirmUser.mockRejectedValueOnce(
+      new ApiError(409, 'Bu kullanıcı adı zaten kullanılıyor.'),
+    )
     renderFormFlow()
     await fillValidForm(user)
 
@@ -60,15 +69,14 @@ describe('benzersizlik (KK-16)', () => {
     expect(
       await screen.findByText('Bu kullanıcı adı zaten kullanılmaktadır.'),
     ).toBeInTheDocument()
-    expect(formApi.saveProjectFirmUser).not.toHaveBeenCalled()
   })
 
   it('kullanımdaki e-posta ile kayıt tamamlanmaz', async () => {
     const user = userEvent.setup()
-    formApi.findTakenProjectFirmUserFields.mockResolvedValue({
-      isEmailTaken: true,
-      isUsernameTaken: false,
-    })
+    const { ApiError } = await import('../../api/http')
+    formApi.saveProjectFirmUser.mockRejectedValueOnce(
+      new ApiError(409, 'Bu e-posta adresi zaten kullanılıyor.'),
+    )
     renderFormFlow()
     await fillValidForm(user)
 
@@ -95,6 +103,7 @@ describe('kaydetme ve iptal (KK-24)', () => {
         email: 'yeni.kullanici@firma.com',
         fullName: 'Selin Arslan',
         username: 'selin.arslan',
+        projectFirmId: PROJECT_FIRM.id,
       }),
       null,
     )

@@ -1,7 +1,11 @@
+import { Link } from 'react-router-dom'
+
 import type { GasDistributionUserRow } from '../../../api/gasDistributionUsers'
 import { formatPhone, toNormalizedPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
+import { gasDistributionUserUpdatePath } from '../adminNavItems'
+import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
 
 export const GAS_DISTRIBUTION_USER_TABLE_CAPTION =
   'Gaz dağıtım firması kullanıcıları listesi.'
@@ -40,15 +44,26 @@ function renderPhone(value: string | null | undefined) {
  * şemada opsiyonel olarak duruyor — uç bir gün doldurursa sütun geri gelebilir.
  */
 export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserRow>[] = [
+  // Kullanıcı adı ve ad soyad güncelleme ekranına GÖTÜRÜR — proje firması
+  // kullanıcıları tablosundaki desen: satırın kimliğini taşıyan iki hücre
+  // düzenlemenin girişi, ayrı bir "Düzenle" sütunu açılmıyor.
   {
     key: 'username',
     label: 'Kullanıcı Adı',
-    cell: (row) => row.username,
+    cell: (row) => (
+      <Link to={gasDistributionUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
+        {row.username}
+      </Link>
+    ),
   },
   {
     key: 'fullName',
     label: 'Adı Soyadı',
-    cell: (row) => row.fullName,
+    cell: (row) => (
+      <Link to={gasDistributionUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
+        {row.fullName}
+      </Link>
+    ),
   },
   {
     key: 'email',
@@ -62,9 +77,47 @@ export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserR
     cellClassName: 'tabular-nums text-ink-muted',
     cell: (row) => renderPhone(row.phone),
   },
-  {
-    key: 'projectFirmName',
-    label: 'Proje Firması',
-    cell: (row) => renderText(row.projectFirmName),
-  },
 ]
+
+/** Eylem sütunu içeriği kadar dursun (liste ekranlarıyla aynı gerekçe). */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
+export interface GasDistributionUserColumnsOptions {
+  /**
+   * Satır silinebilir mi. Yalnız GÖRÜNÜRLÜK; yetkisizde sütun HİÇ üretilmez —
+   * boş bir "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+   */
+  canDelete: boolean
+  /** İsteği süren satır; o satırın düğmesi kilitlenir. */
+  pendingUserId: number | null
+  onDelete: (userId: number) => void
+}
+
+export function buildGasDistributionUserColumns({
+  canDelete,
+  pendingUserId,
+  onDelete,
+}: GasDistributionUserColumnsOptions): DataTableColumn<GasDistributionUserRow>[] {
+  if (!canDelete) return GAS_DISTRIBUTION_USER_COLUMNS
+
+  return [
+    ...GAS_DISTRIBUTION_USER_COLUMNS,
+    {
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (row) => (
+        <button
+          type="button"
+          onClick={() => onDelete(row.id)}
+          disabled={pendingUserId === row.id}
+          aria-busy={pendingUserId === row.id}
+          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+        >
+          Sil
+        </button>
+      ),
+    },
+  ]
+}

@@ -105,8 +105,21 @@ export function projectFirmUserUpdatePath(userId: number): string {
  */
 export const GAS_DISTRIBUTION_USERS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-users`
 
-/** Yeni gaz dağıtım kullanıcısı ekranı; güncelleme rotası YOK (uç yetmiyor). */
 export const GAS_DISTRIBUTION_USER_CREATE_PATH = `${GAS_DISTRIBUTION_USERS_PATH}/new`
+
+/**
+ * Oluşturma ile AYNI ekran; kimlik varsa form güncelleme modunda açılır —
+ * proje firması kullanıcılarındaki desen (KK-25).
+ *
+ * Bir süre güncelleme rotası YOKTU: gerekçe "liste satırı rol/firma bağını
+ * taşımıyor, yarım bir form sunucudaki dolu alanları silerdi" idi. O engel
+ * kalktı — kayıt `GET /api/users/{id}` ile TAM okunuyor ve gövde
+ * `toUserPayload` ile okunan kayıttan türetiliyor, yani düzenlenmeyen alanlar
+ * olduğu gibi geri gidiyor.
+ */
+export function gasDistributionUserUpdatePath(userId: number): string {
+  return `${GAS_DISTRIBUTION_USERS_PATH}/${userId}`
+}
 
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
@@ -155,9 +168,6 @@ export function parseProjectParam(raw: string | null): number | undefined {
   const parsed = Number(raw)
   return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
-
-/** Duyuru listesi ekranı; anasayfadaki "Tümünü Gör" buraya gider. */
-export const ANNOUNCEMENTS_PATH = `${ADMIN_HOME_PATH}/announcements`
 
 /** Kişi Bilgileri ekranı; sol menüde madde YOK, üst bardaki kullanıcı
     menüsünden açılıyor (kişisel ayar, yönetim bölümü değil). */
@@ -247,6 +257,15 @@ export interface AdminNavItem {
    * madde birden işaretli görünür.
    */
   shouldMatchExact?: boolean
+  /**
+   * Bir üst maddenin ALTINDA çizilen maddeler. Ayrı bir üst seviye satır
+   * olmadıkları için girintili görünürler; rota ve etkin-durum davranışları
+   * üst maddeyle AYNI kurallardan geçer (`AdminNavEntry`).
+   *
+   * Alt madde kendi rolünü taşır: üstünü gören her rol altını da görmek zorunda
+   * değil.
+   */
+  children?: AdminNavItem[]
 }
 
 /**
@@ -301,6 +320,24 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: Factory,
     path: GAS_DISTRIBUTION_FIRMS_PATH,
     roles: MANAGEMENT_SCREEN_ROLES,
+    // Kullanıcılar ekranı firmaların ALTINDA: ikisi aynı konunun iki yüzü ve
+    // ayrı üst seviye satır olarak durduklarında menüde ilişkisiz görünüyorlardı.
+    // Yol DEĞİŞMEDİ — `/admin/gas-distribution-users` hâlâ doğrudan açılabiliyor
+    // ve etkin durumu kendi maddesinden okuyor.
+    children: [
+      {
+        key: 'gasDistributionUsers',
+        label: 'Gaz Dağıtım Kullanıcıları',
+        icon: UsersRound,
+        path: GAS_DISTRIBUTION_USERS_PATH,
+        // Ekran YÖNETİME özel. Gaz dağıtım kullanıcısı bir süre bu listeyi kendi
+        // firmasıyla sınırlı görüyordu; çıkarıldı çünkü o rolün kendi ekranı var
+        // (`GAS_DISTRIBUTION_HOME_PATH`) ve işi kullanıcı yönetmek değil proje
+        // ONAYLAMAK. Liste ucu sunucuda yine `WhereVisibleTo` ile daraltılıyor —
+        // buradaki değişiklik yalnız GÖRÜNÜRLÜK, yetki sınırı değil.
+        roles: MANAGEMENT_SCREEN_ROLES,
+      },
+    ],
   },
   {
     key: 'projectFirms',
@@ -315,17 +352,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     icon: Users,
     path: PROJECT_FIRM_USERS_PATH,
     roles: MANAGEMENT_SCREEN_ROLES,
-  },
-  {
-    key: 'gasDistributionUsers',
-    label: 'Gaz Dağıtım Kullanıcıları',
-    icon: UsersRound,
-    path: GAS_DISTRIBUTION_USERS_PATH,
-    // Gaz dağıtım kullanıcısı KENDİ firmasının kullanıcılarını görüyor: liste
-    // ucu `WhereVisibleTo` ile token'daki firmaya daraltılıyor
-    // (`UserManager.GetListAsync`). "Yeni Kullanıcı" düğmesi `useIsAdmin`
-    // arkasında kaldığı için o rolde çizilmiyor.
-    roles: [ROLE_CODES.admin, ROLE_CODES.gasDistributionUser],
   },
   { key: 'documents', label: 'Evraklar', icon: FileText, path: DOCUMENTS_PATH, roles: ALL_ROLES },
   {
@@ -348,5 +374,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 export function getNavItemsForRole(roleCode: RoleCode | undefined): AdminNavItem[] {
   if (roleCode === undefined) return []
 
-  return ADMIN_NAV_ITEMS.filter((item) => item.roles.includes(roleCode))
+  // Alt maddeler de KENDİ rollerinden süzülüyor: üstünü gören her rol altını da
+  // görmek zorunda değil. Alt maddesi elenen üst madde kendi başına kalır.
+  return ADMIN_NAV_ITEMS.filter((item) => item.roles.includes(roleCode)).map((item) =>
+    item.children === undefined
+      ? item
+      : { ...item, children: item.children.filter((child) => child.roles.includes(roleCode)) },
+  )
 }

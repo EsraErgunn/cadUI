@@ -4,13 +4,60 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getMockDocuments, resetMockDocuments } from '../../api/documentsMock'
 import { NewDocumentPage } from '../NewDocumentPage'
 import { ProjectDetailPage } from '../ProjectDetailPage'
+
+/** Kod grubu ucunun yanıtı; etiket çözümü buna bakıyor. */
+const saveProjectDocuments = vi.hoisted(() => vi.fn())
+const listProjectDocuments = vi.hoisted(() => vi.fn())
+
+vi.mock('../../api/documents', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/documents')>()),
+  saveProjectDocuments,
+  listProjectDocuments,
+}))
+
+const documentTypes = vi.hoisted(() => [
+  { id: 5015, code: 'CustomerAgreement', label: 'Müşteri Sözleşmesi' },
+  { id: 5013, code: 'GeneralDocument', label: 'Genel Evrak' },
+  { id: 5019, code: 'License', label: 'Ruhsat' },
+])
+
+vi.mock('../../api/documentTypes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/documentTypes')>()),
+  getDocumentTypes: () => Promise.resolve(documentTypes),
+}))
 
 /** Ekranın bağlandığı proje; künyesi gerçek uçtan (`GET /api/projects/{id}`) gelir. */
 const PROJECT_ID = 1
 const PROJECT_NAME = 'Demo Doğalgaz Projesi'
+
+/** `GET /api/projects/{id}/units` yanıtı; birim onay kutuları buradan geliyor. */
+/** "Proje Evrakları" sekmesindeki satır; dosya yeniden yüklenmiyor. */
+const EXISTING_DOCUMENT = {
+  id: 91,
+  fileName: 'onceki-ruhsat.pdf',
+  docTypeCodeId: 5019,
+  docTypeName: 'Ruhsat',
+  receivedAt: '2026-07-01T09:00:00.000Z',
+  unitNames: ['D20'],
+  unitIds: [71],
+  projectId: 1,
+  projectName: 'Demo Doğalgaz Projesi',
+  projectPId: null,
+  projectFirmId: null,
+  installationNo: null,
+  firmName: null,
+  gasFirmName: null,
+  sizeBytes: 1024,
+  uploadedByName: null,
+  contentType: 'application/pdf',
+}
+
+const PROJECT_UNITS = [
+  { id: 1, unitNumber: 'D20', devices: [] },
+  { id: 2, unitNumber: 'D21', devices: [] },
+]
 
 function buildFile(name: string, sizeBytes = 1024): File {
   const file = new File(['x'], name)
@@ -43,24 +90,31 @@ async function addFiles(user: ReturnType<typeof userEvent.setup>, files: File[])
 }
 
 beforeEach(() => {
-  resetMockDocuments()
-  // Uç iki kez çağrılıyor: ekranın kendi proje künyesi ve yönlendirme sonrası
-  // proje detayı. Yanıt HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
+  saveProjectDocuments.mockResolvedValue({ savedCount: 1 })
+  listProjectDocuments.mockResolvedValue([])
+  // Ekran İKİ uca gidiyor: proje künyesi ve birim listesi. Yanıt yola göre
+  // seçiliyor ve HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
   // paylaşılsaydı gövdesi ilk okumada tükenir, ikinci ekran boş yanıt görürdü.
   vi.stubGlobal(
     'fetch',
-    vi.fn(
-      () =>
-        new Response(
-          JSON.stringify({
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      const body = url.includes('/units')
+        ? PROJECT_UNITS
+        : {
             id: PROJECT_ID,
             name: PROJECT_NAME,
             createdAt: '2026-07-01T09:00:00.000Z',
             updatedAt: '2026-07-01T09:00:00.000Z',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-    ),
+          }
+
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }),
   )
 })
 
@@ -91,14 +145,14 @@ describe('NewDocumentPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await addFiles(user, [buildFile('ruhsat.pdf'), buildFile('buyuk.png', 11 * 1024 * 1024)])
+    await addFiles(user, [buildFile('ruhsat.pdf'), buildFile('buyuk.pdf', 11 * 1024 * 1024)])
 
     const notice = await screen.findByRole('alert')
-    expect(notice).toHaveTextContent("buyuk.png: Dosya boyutu 10MB'ı aşamaz.")
+    expect(notice).toHaveTextContent("buyuk.pdf: Dosya boyutu 10MB'ı aşamaz.")
 
     const uploaded = screen.getByRole('region', { name: 'Yüklenen Evraklar' })
     expect(within(uploaded).getByText('ruhsat.pdf')).toBeInTheDocument()
-    expect(within(uploaded).queryByText('buyuk.png')).not.toBeInTheDocument()
+    expect(within(uploaded).queryByText('buyuk.pdf')).not.toBeInTheDocument()
   })
 
   /**
@@ -118,7 +172,7 @@ describe('NewDocumentPage', () => {
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'kolon.dwg: Desteklenmeyen dosya formatı.',
+      'kolon.dwg: Yalnızca PDF yüklenebilir.',
     )
     const uploaded = screen.getByRole('region', { name: 'Yüklenen Evraklar' })
     expect(within(uploaded).queryByText('kolon.dwg')).not.toBeInTheDocument()
@@ -157,7 +211,7 @@ describe('NewDocumentPage', () => {
     renderPage()
 
     await addFiles(user, [buildFile('ruhsat.pdf')])
-    await user.selectOptions(await screen.findByLabelText('Evrak Tipi'), 'ruhsat')
+    await user.selectOptions(await screen.findByLabelText('Evrak Tipi'), '5019')
 
     const unitGroup = screen.getByRole('group', { name: 'Birimler' })
     await user.click(within(unitGroup).getAllByRole('checkbox')[0])
@@ -165,15 +219,17 @@ describe('NewDocumentPage', () => {
     await user.click(screen.getByRole('button', { name: /Kaydet/ }))
 
     expect(await screen.findByText('Evrak başarıyla yüklendi.')).toBeInTheDocument()
-    // Kalıcı olmadığı SÖYLENMELİ: kayıt sunucuya gitmiyor (karar 12).
-    expect(screen.getByText(/sunucuya yazılmadı/)).toBeInTheDocument()
-    expect(screen.getByText(/Sayfa yenilenince yüklenen evraklar listeden düşer/)).toBeInTheDocument()
+    // Kayıt SUNUCUDA: "kalıcı değil" uyarısı kalktı.
+    expect(screen.queryByText(/sunucuya yazılmadı/)).not.toBeInTheDocument()
 
-    const saved = getMockDocuments().filter((document) => document.fileName === 'ruhsat.pdf')
-    expect(saved).toHaveLength(1)
-    expect(saved[0].projectId).toBe(PROJECT_ID)
-    expect(saved[0].docTypeCode).toBe('ruhsat')
-    expect(saved[0].unitNames.length).toBeGreaterThan(0)
+    // Tip ve birim KİMLİKLE gidiyor; uç kod metni ya da birim adı kabul etmiyor.
+    // İşaretlenen kutu "Tümünü Seç" olduğu için iki birim de gidiyor.
+    expect(saveProjectDocuments).toHaveBeenCalledWith(PROJECT_ID, [
+      expect.objectContaining({
+        docTypeCodeId: 5019,
+        unitIds: PROJECT_UNITS.map((unit) => unit.id),
+      }),
+    ])
   })
 
   it('satır kaldırılınca listeden düşer', async () => {
@@ -189,16 +245,36 @@ describe('NewDocumentPage', () => {
     expect(screen.getByText('police.pdf')).toBeInTheDocument()
   })
 
-  it('"Proje Evrakları" sekmesinden mevcut evrak yeniden ilişkilendirilebilir', async () => {
+  /**
+   * Sekme bir süre SEÇİCİYDİ: var olan evrağı yükleme listesine ekleyip başka
+   * birimlerle yeniden ilişkilendiriyordu. O akış kalktı — burada yalnız
+   * DÜZENLEME var.
+   */
+  it('"Proje Evrakları" sekmesi projenin evraklarını birim ve eylemlerle listeler', async () => {
     const user = userEvent.setup()
+    listProjectDocuments.mockResolvedValue([EXISTING_DOCUMENT])
     renderPage()
 
     await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
 
-    const addButtons = await screen.findAllByRole('button', { name: /dosyasını listeye ekle/ })
-    await user.click(addButtons[0])
+    const table = await screen.findByRole('table', { name: /birimini değiştirebilir/ })
+    expect(within(table).getByText('onceki-ruhsat.pdf')).toBeInTheDocument()
+    expect(within(table).getByText('D20')).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Birim Değiştir' })).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+    // "Listeye ekle" akışı KALKTI.
+    expect(screen.queryByRole('button', { name: /listeye ekle/ })).not.toBeInTheDocument()
+  })
 
-    const uploaded = screen.getByRole('region', { name: 'Yüklenen Evraklar' })
-    expect(within(uploaded).getAllByRole('combobox')).toHaveLength(1)
+  it('"Sil" önce onay sorar', async () => {
+    const user = userEvent.setup()
+    listProjectDocuments.mockResolvedValue([EXISTING_DOCUMENT])
+    renderPage()
+
+    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
+    const table = await screen.findByRole('table', { name: /birimini değiştirebilir/ })
+    await user.click(within(table).getByRole('button', { name: 'Sil' }))
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Evrak silinsin mi?')
   })
 })

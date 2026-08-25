@@ -3,7 +3,6 @@ import { render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import { setAuthSession } from '../../api/authToken'
-import type { Sourced } from '../../api/mockGate'
 import type {
   ProjectApprovalInfo,
   ProjectDetail,
@@ -29,6 +28,8 @@ export function buildServerFields(
     pId: '30006185',
     name: 'İlave',
     description: null,
+    // Durum artık GERÇEK uçtan geliyor (eskiden kimliğe göre uyduruluyordu).
+    status: 'taslak',
     cityName: 'Kütahya',
     districtName: 'Merkez',
     addressLine: 'Altunizade Mahallesi',
@@ -40,6 +41,18 @@ export function buildServerFields(
     apartmentCount: null,
     workplaceCount: null,
     areaSquareMeters: null,
+    buildingCode: '30006185',
+    projectFirmId: 11,
+    gasDistributionFirmId: 101,
+    projectType: 'İlave',
+    heatingType: 'Bireysel',
+    buildingUsageType: 'Konut',
+    isPermitProject: false,
+    apartmentCount: 4,
+    workplaceCount: 0,
+    areaSquareMeters: 120,
+    capacityCubicMeterPerHour: 12,
+    serviceBoxPressureMbar: 21,
     createdAt: '2026-07-03T08:00:00.000Z',
     updatedAt: '2026-07-10T11:36:53.000Z',
     ...overrides,
@@ -127,7 +140,7 @@ export function buildUnits(): ProjectUnitRow[] {
       unitNumber: 'D20',
       subscriberName: 'FATMA ÇELİK',
       subscriberNo: '10208728',
-      meterSerial: 'G4',
+      meterLabel: 'G4',
       flowCubicMeterPerHour: 3.5,
       pressureMbar: 21,
       areaSquareMeters: 64,
@@ -136,7 +149,7 @@ export function buildUnits(): ProjectUnitRow[] {
         {
           id: 11,
           name: 'Ocak',
-          capacityKcalPerHour: 13200,
+          capacity: '13200',
           flowCubicMeterPerHour: 1.6,
           brand: null,
           model: null,
@@ -145,7 +158,7 @@ export function buildUnits(): ProjectUnitRow[] {
         {
           id: 12,
           name: 'Kombi',
-          capacityKcalPerHour: 20640,
+          capacity: '20640',
           flowCubicMeterPerHour: 2.5,
           brand: 'BOSCH',
           model: 'Condens 1200 W',
@@ -180,14 +193,6 @@ export function buildHistory(): ProjectHistoryRow[] {
       description: null,
     },
   ]
-}
-
-export function asMock<T>(data: T): Sourced<T> {
-  return { source: 'mock', data }
-}
-
-export function asUnavailable<T>(): Sourced<T> {
-  return { source: 'unavailable', data: null }
 }
 
 /**

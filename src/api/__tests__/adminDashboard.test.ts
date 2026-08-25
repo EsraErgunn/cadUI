@@ -1,17 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  ANNOUNCEMENT_PAGE_SIZE,
-  ANNOUNCEMENT_SUMMARY_MAX_LENGTH,
   GLOBAL_SCOPE,
-  MANAGEMENT_ANNOUNCEMENT_SOURCE,
-  MAX_ANNOUNCEMENTS,
   MAX_DENSITY_ROWS,
-  SYSTEM_ANNOUNCEMENT_SOURCE,
-  getAnnouncements,
   getDashboardSummary,
-  publishAnnouncement,
-  truncateAnnouncementSummary,
   type AdminScope,
 } from '../adminDashboard'
 import {
@@ -19,11 +11,8 @@ import {
   allMockScopeFacts,
   queryMockDayActivity,
 } from '../adminDashboardMock'
-import { clearStoredAnnouncements } from '../announcementStore'
 import { toDayKey } from '../dayKey'
 import { ApiError, NetworkError } from '../http'
-
-const LONG_BODY = `${'kelime '.repeat(40)}son`
 
 /** Mock hareketler uygulamanın açıldığı güne yazılıyor; testler de o günü sorar. */
 const TODAY_KEY = toDayKey(new Date())
@@ -35,8 +24,6 @@ const OTHER_DAY_KEY = '2020-01-01'
  * GERÇEK ucun (`GET /api/admin/dashboard`) gövdesi. Alan adları arayüzünkilerle
  * bilerek FARKLI — eşlemenin gerçekten yapıldığı böyle görülür. Yoğunluk sırasız
  * veriliyor: sıralama ve üst sınır istemcinin garantisi.
- *
- * Duyuru YOK: sunucu duyuru döndürmüyor, kartın verisi yerel depodan geliyor.
  */
 const RAW_SUMMARY = {
   summary: {
@@ -81,44 +68,8 @@ function stubStatus(status: number) {
   return fetchMock
 }
 
-beforeEach(() => {
-  clearStoredAnnouncements()
-})
-
 afterEach(() => {
   vi.unstubAllGlobals()
-  clearStoredAnnouncements()
-})
-
-/**
- * Kısaltma CSS ile değil VERİ katmanında yapılıyor; satır sayısı yazı tipine ve
- * kart genişliğine bağlı olduğu için test edilemezdi, karakter sınırı deterministik.
- */
-describe('truncateAnnouncementSummary', () => {
-  it('sınırın altındaki metne dokunmaz', () => {
-    expect(truncateAnnouncementSummary('Kısa duyuru')).toBe('Kısa duyuru')
-  })
-
-  it('sınırdaki metne kısaltma göstergesi eklemez', () => {
-    const exact = 'a'.repeat(ANNOUNCEMENT_SUMMARY_MAX_LENGTH)
-
-    expect(truncateAnnouncementSummary(exact)).toBe(exact)
-  })
-
-  it('uzun metni sınıra indirir ve üç nokta ekler', () => {
-    const result = truncateAnnouncementSummary(LONG_BODY)
-
-    expect(result.length).toBeLessThanOrEqual(ANNOUNCEMENT_SUMMARY_MAX_LENGTH + 1)
-    expect(result.endsWith('…')).toBe(true)
-  })
-
-  it('kelime ortasında kesmez', () => {
-    expect(truncateAnnouncementSummary(LONG_BODY)).not.toMatch(/kelim…$/)
-  })
-
-  it('boşluksuz uzun metni yine de keser', () => {
-    expect(truncateAnnouncementSummary('x'.repeat(300), 10)).toBe(`${'x'.repeat(10)}…`)
-  })
 })
 
 describe('getDashboardSummary', () => {
@@ -269,47 +220,6 @@ describe('getDashboardSummary', () => {
     await expect(getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)).resolves.toHaveProperty('counts')
   })
 
-  // KK-6: en fazla iki duyuru, yeniden eskiye.
-  it('duyuruları yeniden eskiye sıralar ve ikiye indirir', async () => {
-    stubFetch(RAW_SUMMARY)
-
-    const { announcements } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
-
-    expect(announcements).toHaveLength(MAX_ANNOUNCEMENTS)
-    expect(announcements.map((item) => item.id)).toEqual([2, 1])
-  })
-
-  /**
-   * Duyurular sunucudan DEĞİL yerel depodan geliyor (K48); tohum duyurular kısa
-   * olduğu için kısaltma ancak uzun metinli bir yayınla sınanabiliyor.
-   */
-  it('duyuru özetlerini kısaltır', async () => {
-    // Duyuru ucu sunucuda yok: yayınlama 404 alıp yerel depoya düşüyor (K48).
-    stubStatus(404)
-    await publishAnnouncement({
-      title: 'Uzun duyuru',
-      body: LONG_BODY,
-      scopeName: null,
-      isSystem: false,
-    })
-
-    stubFetch(RAW_SUMMARY)
-    const { announcements } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
-
-    expect(announcements[0].summary.length).toBeLessThanOrEqual(
-      ANNOUNCEMENT_SUMMARY_MAX_LENGTH + 1,
-    )
-    expect(announcements[0].summary.endsWith('…')).toBe(true)
-  })
-
-  it('sistem kaynağını olduğu gibi taşır — amber kenarlık buna bağlı', async () => {
-    stubFetch(RAW_SUMMARY)
-
-    const { announcements } = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
-
-    expect(announcements[0].source).toBe(SYSTEM_ANNOUNCEMENT_SOURCE)
-  })
-
   // KK-4: sıfır değer gizlenmez, veri katmanı da düşürmez.
   it('sıfır sayacı düşürmez', async () => {
     stubFetch(RAW_SUMMARY)
@@ -394,179 +304,5 @@ describe('mock gövde gün kapsamı', () => {
 
     expect(scoped).toHaveLength(1)
     expect(scoped[0].name).toBe(MOCK_SCOPE_NAMES[0])
-  })
-})
-
-/**
- * Duyuru yayınlama ucu da yok. Uç açılınca mock'a düşen dallar kalkacak; şimdilik
- * form gerçekten çalışıyor ve yayınlanan duyuru özet yanıtında görünüyor.
- */
-describe('publishAnnouncement', () => {
-  const DRAFT = {
-    title: 'Test Duyurusu',
-    body: 'Duyuru gövdesi.',
-    scopeName: null,
-    isSystem: false,
-  }
-
-  it('duyuru ucuna POST atar', async () => {
-    const fetchMock = stubFetch({
-      id: 9,
-      title: DRAFT.title,
-      summary: DRAFT.body,
-      publishedAt: '2026-08-09T09:00:00.000Z',
-      source: MANAGEMENT_ANNOUNCEMENT_SOURCE,
-    })
-
-    await publishAnnouncement(DRAFT)
-
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/dashboard/announcements')
-    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
-  })
-
-  it('uç yokken yerel depoya düşer ve duyuru özet yanıtında görünür', async () => {
-    stubStatus(404)
-    const title = `Yeni Duyuru ${Date.now()}`
-
-    const published = await publishAnnouncement({ ...DRAFT, title })
-
-    // Özet ucu GERÇEK: 404 artık yutulmuyor, gövde yeniden kurulmalı.
-    vi.unstubAllGlobals()
-    stubFetch(RAW_SUMMARY)
-    const summary = await getDashboardSummary(TODAY_KEY, GLOBAL_SCOPE)
-
-    expect(published.title).toBe(title)
-    // En yeni duyuru listenin başında: sıralama yeniden eskiye (KK-6).
-    expect(summary.announcements[0].title).toBe(title)
-  })
-
-  it('sistem duyurusu işareti kaynağa yansır — amber kenarlık buna bağlı', async () => {
-    stubStatus(404)
-
-    const published = await publishAnnouncement({ ...DRAFT, isSystem: true })
-
-    expect(published.source).toBe(SYSTEM_ANNOUNCEMENT_SOURCE)
-  })
-
-  it('işaretlenmemiş duyuru sistem kaynağı almaz', async () => {
-    stubStatus(404)
-
-    const published = await publishAnnouncement(DRAFT)
-
-    expect(published.source).toBe(MANAGEMENT_ANNOUNCEMENT_SOURCE)
-  })
-
-  it('uzun metin kartta görünecek hâliyle kısaltılır', async () => {
-    stubStatus(404)
-
-    const published = await publishAnnouncement({ ...DRAFT, body: LONG_BODY })
-
-    expect(published.summary.endsWith('…')).toBe(true)
-  })
-
-  it('500 mock’a YUTULMAZ — kullanıcı yayınlandı sanmamalı', async () => {
-    stubStatus(500)
-
-    await expect(publishAnnouncement(DRAFT)).rejects.toBeInstanceOf(ApiError)
-  })
-})
-
-/** Duyuru listesi ucu da yok; mock'a düşen yol aynı sözleşmeyi sağlamalı. */
-describe('getAnnouncements', () => {
-  const QUERY = {
-    textQuery: '',
-    scope: GLOBAL_SCOPE,
-    page: 1,
-    pageSize: ANNOUNCEMENT_PAGE_SIZE,
-  }
-
-  it('liste ucuna sayfa parametreleriyle gider', async () => {
-    const fetchMock = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
-
-    await getAnnouncements(QUERY)
-
-    const url = String(fetchMock.mock.calls[0][0])
-    expect(url).toContain('/api/dashboard/announcements')
-    expect(url).toContain('page=1')
-    expect(url).toContain('pageSize=10')
-  })
-
-  it('arama ve kapsam yalnız doluyken sorguya girer', async () => {
-    const withFilters = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
-    await getAnnouncements({
-      ...QUERY,
-      textQuery: 'bakım',
-      scope: { type: 'group', groupId: 2 },
-    })
-    expect(String(withFilters.mock.calls[0][0])).toContain('q=bak')
-    expect(String(withFilters.mock.calls[0][0])).toContain('gdGroupId=2')
-
-    vi.unstubAllGlobals()
-    const withoutFilters = stubFetch({ items: [], totalCount: 0, page: 1, pageSize: 10 })
-    await getAnnouncements(QUERY)
-    expect(String(withoutFilters.mock.calls[0][0])).not.toContain('q=')
-    expect(String(withoutFilters.mock.calls[0][0])).not.toContain('gdGroupId')
-  })
-
-  // Sunucu sırasız dönerse liste sessizce karışmasın (özet ucuyla aynı gerekçe).
-  it('sunucu sırasız dönse de yeniden eskiye sıralar', async () => {
-    stubFetch({
-      items: [
-        { id: 1, title: 'Eski', body: 'a', publishedAt: '2026-05-02T10:30:00.000Z', source: 'X', scopeName: null },
-        { id: 2, title: 'Yeni', body: 'b', publishedAt: '2026-07-11T06:00:00.000Z', source: 'X', scopeName: null },
-      ],
-      totalCount: 2,
-      page: 1,
-      pageSize: 10,
-    })
-
-    const page = await getAnnouncements(QUERY)
-
-    expect(page.items.map((item) => item.title)).toEqual(['Yeni', 'Eski'])
-  })
-
-  it('uç yokken mock listeye düşer ve metni KISALTMAZ', async () => {
-    stubStatus(404)
-
-    const page = await getAnnouncements(QUERY)
-
-    expect(page.totalCount).toBeGreaterThan(0)
-    // Liste ekranının işi duyuruyu tam göstermek; kısaltma yalnız anasayfa kartında.
-    expect(page.items.every((item) => !item.body.endsWith('…'))).toBe(true)
-  })
-
-  it('mock’ta arama başlıkta ve metinde Türkçe duyarsız çalışır', async () => {
-    stubStatus(404)
-
-    const page = await getAnnouncements({ ...QUERY, textQuery: 'BAKIM' })
-
-    expect(page.items.length).toBeGreaterThan(0)
-    expect(page.items.every((item) => /bakım/i.test(`${item.title} ${item.body}`))).toBe(true)
-  })
-
-  it('mock’ta sayfa boyutu aşılmaz', async () => {
-    stubStatus(404)
-
-    const page = await getAnnouncements({ ...QUERY, pageSize: 1 })
-
-    expect(page.items).toHaveLength(1)
-    expect(page.totalCount).toBeGreaterThan(1)
-  })
-
-  // Duyurunun KENDİ kapsamı duruyor: kartta rozet olarak görünüyor, listede
-  // hepsi bir arada.
-  it('kapsamlı ve kapsamsız duyuruların hepsi listelenir', async () => {
-    stubStatus(404)
-
-    const page = await getAnnouncements(QUERY)
-
-    expect(page.items.some((item) => item.scopeName === null)).toBe(true)
-    expect(page.items.some((item) => item.scopeName !== null)).toBe(true)
-  })
-
-  it('500 mock’a YUTULMAZ', async () => {
-    stubStatus(500)
-
-    await expect(getAnnouncements(QUERY)).rejects.toBeInstanceOf(ApiError)
   })
 })

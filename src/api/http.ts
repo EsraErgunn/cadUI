@@ -160,6 +160,25 @@ async function send(request: JsonRequest): Promise<Response> {
 }
 
 /**
+ * Şema denetiminin TEK yeri. `safeParse` kullanılıyor çünkü `parse`'ın
+ * fırlattığı `ZodError` bir `ApiError` değil: çağıranların hata dalı ona
+ * hazırlıklı değil ve kullanıcıya kütüphanenin teknik metni yansırdı.
+ */
+function parseOrThrow<Schema extends z.ZodType>(
+  schema: Schema,
+  body: unknown,
+  status: number,
+): z.infer<Schema> {
+  const parsed = schema.safeParse(body)
+
+  if (!parsed.success) {
+    throw new ApiError(status, 'Sunucu beklenmeyen bir yanıt gövdesi döndürdü.')
+  }
+
+  return parsed.data
+}
+
+/**
  * Yanıt gövdesi şemadan GEÇMEDEN dönmez (CLAUDE.md güvenlik). Şema tutmazsa
  * sınırda patlar; sözleşme kayması bileşenin içinde "undefined is not an
  * object" olarak görünmesin.
@@ -169,13 +188,8 @@ export async function requestJson<Schema extends z.ZodType>(
   schema: Schema,
 ): Promise<z.infer<Schema>> {
   const response = await send(request)
-  const parsed = schema.safeParse(await response.json())
 
-  if (!parsed.success) {
-    throw new ApiError(response.status, 'Sunucu beklenmeyen bir yanıt gövdesi döndürdü.')
-  }
-
-  return parsed.data
+  return parseOrThrow(schema, await response.json(), response.status)
 }
 
 /**
@@ -189,6 +203,49 @@ export async function requestJson<Schema extends z.ZodType>(
  */
 export async function requestVoid(request: JsonRequest): Promise<void> {
   await send(request)
+}
+
+export type FormRequest = RequestOptions & {
+  path: string
+  form: FormData
+}
+
+/**
+ * Multipart yükleme (`POST`). `requestJson`'dan ayrı çünkü `Content-Type`
+ * ELLE YAZILAMAZ: `multipart/form-data` başlığı sınır (boundary) belirteci
+ * taşıyor ve onu yalnız tarayıcı üretebiliyor. Başlığı kendimiz koysaydık
+ * sunucu gövdeyi ayrıştıramazdı.
+ *
+ * Yetki başlığı ve hata/oturum kuralları JSON isteğiyle AYNI: gövde
+ * oluşturmayı `send` üstleniyor.
+ */
+export async function uploadForm<TSchema extends z.ZodType>(
+  request: FormRequest,
+  schema: TSchema,
+): Promise<z.infer<TSchema>> {
+  const session = getAuthSession()
+
+  let response: Response
+  try {
+    response = await fetch(buildUrl(request.path), {
+      method: 'POST',
+      signal: request.signal,
+      headers: session ? { Authorization: `Bearer ${session.token}` } : undefined,
+      body: request.form,
+    })
+  } catch (cause) {
+    if (isAbort(cause)) throw cause
+    throw new NetworkError('Sunucuya ulaşılamadı.', { cause })
+  }
+
+  if (response.status === UNAUTHORIZED) setAuthSession(undefined)
+
+  if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response))
+
+  // `requestJson` ile AYNI kapı: `parse` bir `ZodError` fırlatırdı ve o
+  // `ApiError` olmadığı için çağıranın hata dalına Türkçe mesaj yerine
+  // kütüphanenin teknik metni düşerdi.
+  return parseOrThrow(schema, await response.json(), response.status)
 }
 
 /** Presigned URL gibi API DIŞI bir adresten ham metin çeker. */

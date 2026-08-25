@@ -2,11 +2,10 @@ import { ShieldPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { InfoBanner } from './InfoBanner'
-import type { Sourced } from '../../../api/mockGate'
 import type { ProjectPolicyRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
-import { MissingSourceNotice } from '../MissingSourceNotice'
+import { QueryLoading } from '../QueryStates'
 import { formatCurrency, formatPlainDate } from '../adminFormat'
 import { policyCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
@@ -15,8 +14,9 @@ import { detailBadgeVariants } from './projectDetailVariants'
 
 const EMPTY_MESSAGE = 'Proje Poliçe Kaydı Bulunamamıştır.'
 
-/** Poliçenin durumu tek değerli: kayıt oluştuğu anda onaylanmış sayılıyor. */
-const POLICY_STATUS_LABEL = 'Onaylandı'
+const DELETED_UNIT_LABEL = 'Silinmiş Birim'
+const DELETED_UNIT_TITLE =
+  'Poliçenin bağlı olduğu bağımsız bölüm çizimden silindi. Poliçe iptal edilmedi, kaydı duruyor.'
 
 const TABLE_CAPTION = 'Projeye bağlı poliçeler.'
 
@@ -34,7 +34,19 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
   {
     key: 'unit',
     label: 'Birim',
-    cell: (row) => (row.unitNumber === null ? <EmptyValue /> : row.unitNumber),
+    // Birim silinince sunucu bağı koparıyor (`ProjectUnitId` null) ama poliçeyi
+    // İPTAL ETMİYOR. Hücre boş kalsaydı kayıt eksik veriymiş gibi okunurdu;
+    // rozet sebebini söylüyor.
+    cell: (row) =>
+      row.isUnitDeleted ? (
+        <span className={detailBadgeVariants({ tone: 'warning' })} title={DELETED_UNIT_TITLE}>
+          {DELETED_UNIT_LABEL}
+        </span>
+      ) : row.unitNumber === null ? (
+        <EmptyValue />
+      ) : (
+        row.unitNumber
+      ),
   },
   {
     key: 'amount',
@@ -52,15 +64,6 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
     label: 'Bitiş',
     cell: (row) => formatPlainDate(row.endDate) ?? <EmptyValue />,
   },
-  {
-    key: 'status',
-    label: 'Durum',
-    // Ödeme akışı yok: poliçe oluşturulduğu anda onaylı sayılıyor, o yüzden
-    // satır başına değişen bir durum alanı da yok.
-    cell: () => (
-      <span className={detailBadgeVariants({ tone: 'success' })}>{POLICY_STATUS_LABEL}</span>
-    ),
-  },
 ]
 
 export function ProjectPolicyTab({
@@ -70,7 +73,7 @@ export function ProjectPolicyTab({
   /** Oluşturulan poliçe GELİNEN projeyle ilişkilendirilir (KK-15); ekran
       kimliksiz açılamaz, o yüzden bağlantı kimliği taşır. */
   projectId: number
-  policies: Sourced<ProjectPolicyRow[]> | undefined
+  policies: ProjectPolicyRow[] | undefined
 }) {
   // Poliçe OLUŞTURMA sunucuda `Admin, ProjectFirmUser`'a açık
   // (`POST /api/policies`); gaz dağıtım kullanıcısı poliçeleri görür, açamaz.
@@ -90,13 +93,13 @@ export function ProjectPolicyTab({
         </div>
       )}
 
-      {policies === undefined || policies.source === 'unavailable' ? (
-        <MissingSourceNotice endpointHint="GET /api/projects/{id}/policies" />
-      ) : policies.data.length === 0 ? (
+      {policies === undefined ? (
+        <QueryLoading message="Poliçeler yükleniyor…" />
+      ) : policies.length === 0 ? (
         <InfoBanner message={EMPTY_MESSAGE} />
       ) : (
         <DataTable
-          rows={policies.data}
+          rows={policies}
           columns={COLUMNS}
           rowKey={(row) => row.id}
           caption={TABLE_CAPTION}

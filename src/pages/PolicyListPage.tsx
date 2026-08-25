@@ -5,13 +5,12 @@ import { deletePolicy, listInsuranceCompanies, listPolicies } from '../api/polic
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
-import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
+import { PolicyEditDialog } from '../ui/admin/policies/PolicyEditDialog'
 import { PolicyFilterBar } from '../ui/admin/policies/PolicyFilterBar'
 import {
   POLICY_TABLE_CAPTION,
@@ -19,6 +18,7 @@ import {
   buildPolicyColumns,
 } from '../ui/admin/policies/policyColumns'
 import { buildPolicyFilterChips } from '../ui/admin/policies/policyFilterChips'
+import { usePolicyActions } from '../ui/admin/policies/usePolicyActions'
 import { usePolicyListParams } from '../ui/admin/policies/usePolicyListParams'
 import { useHomePath } from '../ui/admin/useHomePath'
 import { useCanWriteProjectContent } from '../ui/admin/useRole'
@@ -26,22 +26,14 @@ import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Poliçeler'
 
-
-
 const EMPTY_WITH_FILTERS =
   'Kriterlere uyan poliçe bulunamadı. Aramayı veya sigorta şirketi seçimini kaldırın.'
 const EMPTY_WITHOUT_FILTERS =
   'Sistemde henüz poliçe yok. Poliçe, proje detayındaki "Poliçelendir" ile oluşturulur.'
 
-/** Şeritte sayılan bölüm: bu ekranda uydurma olan HER ŞEY, satırların tamamı. */
-const MOCK_SECTIONS = ['Poliçe listesinin tamamı (satırlar, adet ve sayfalama)']
-
-const MISSING_ENDPOINT_HINT = 'GET /api/policies'
-
 const DELETE_DIALOG = {
   title: 'Poliçe silinsin mi?',
-  description:
-    'Poliçe listeden kaldırılacak. Depo bellekte olduğu için sayfa yenilenince örnek liste geri gelir.',
+  description: 'Poliçe iptal edilecek ve listeden kaldırılacak.',
   confirmLabel: 'Sil',
 }
 
@@ -57,27 +49,24 @@ export function PolicyListPage() {
   // Poliçe silme sunucuda `Admin, ProjectFirmUser`'a açık; gaz dağıtım
   // kullanıcısı listeyi görür ama satır silemez.
   const canWriteContent = useCanWriteProjectContent()
-  const { query, applyFilters, toggleSort, setPage } = usePolicyListParams()
+  const { query, applyFilters, setPage } = usePolicyListParams()
   const queryClient = useQueryClient()
 
-  const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
+  // Sorgu anahtarın PARÇASI: süzme ve sayfalama artık sunucuda, her değişim
+  // yeni bir istek demek. `projectId` bu ekranda `null` — uç onsuz çağrıldığında
+  // kullanıcının görünürlük kapsamındaki tüm poliçeleri döndürüyor.
+  const { data, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['policies', query],
     queryFn: ({ signal }) => listPolicies(query, signal),
     // Sayfa değişince tablo boşalıp zıplamasın; yeni sayfa gelene kadar eskisi durur.
     placeholderData: keepPreviousData,
   })
 
-  // Üretim derlemesinde sahte veri HİÇ üretilmiyor (K51): tablo yerine bölümün
-  // sunucuya bağlı olmadığını söyleyen kutu çıkar.
-  const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
-  const isSourceMissing = sourced?.source === 'unavailable'
-
   const { data: companies } = useQuery({
     queryKey: ['insuranceCompanies'],
     queryFn: ({ signal }) => listInsuranceCompanies(signal),
   })
-  const companyRows =
-    companies === undefined || companies.source === 'unavailable' ? [] : companies.data
+  const companyRows = companies ?? []
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['policies'] })
@@ -85,8 +74,15 @@ export function PolicyListPage() {
     void queryClient.invalidateQueries({ queryKey: ['projectPolicies'] })
   }, [queryClient])
 
+  // Güncelleme: yalnız tutar ve tarih. Liste proje BAĞIMSIZ olduğu için
+  // geçersizleştirme proje kimliği olmadan yapılıyor (kök anahtar).
+  const policyActions = usePolicyActions(null)
+
   const deletion = useRowDelete({
-    remove: async (policyId) => (await deletePolicy(policyId)).ok,
+    remove: async (policyId) => {
+      await deletePolicy(policyId)
+      return true
+    },
     messages: DELETE_MESSAGES,
     onDeleted: refreshList,
   })
@@ -98,8 +94,16 @@ export function PolicyListPage() {
         pendingPolicyId: deletion.pendingId,
         canDelete: canWriteContent,
         onDelete: deletion.request,
+        onEdit: policyActions.requestEdit,
       }),
-    [query.page, query.pageSize, deletion.pendingId, canWriteContent, deletion.request],
+    [
+      query.page,
+      query.pageSize,
+      deletion.pendingId,
+      canWriteContent,
+      deletion.request,
+      policyActions.requestEdit,
+    ],
   )
 
   const hasActiveFilters = query.search !== '' || query.insuranceCompanyId !== null
@@ -120,7 +124,13 @@ export function PolicyListPage() {
         countLabel={formatCountLabel(data?.totalCount)}
       />
 
-      <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
+      {policyActions.notice !== null && (
+        <NoticeBar
+          tone={policyActions.notice.tone}
+          message={policyActions.notice.message}
+          onDismiss={policyActions.dismissNotice}
+        />
+      )}
 
       {deletion.notice !== null && (
         <NoticeBar
@@ -151,8 +161,6 @@ export function PolicyListPage() {
         <QueryError message="Poliçe listesi yüklenemedi." onRetry={() => void refetch()} />
       )}
 
-      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
-
       {data !== undefined && !isError && (
         <StaleContent isStale={isPlaceholderData}>
           <DataTable
@@ -161,9 +169,6 @@ export function PolicyListPage() {
             rowKey={(policy) => policy.id}
             caption={POLICY_TABLE_CAPTION}
             minWidthClassName={POLICY_TABLE_MIN_WIDTH_CLASS}
-            sortKey={query.sortBy}
-            sortDir={query.sortDir}
-            onToggleSort={toggleSort}
             emptyMessage={hasActiveFilters ? EMPTY_WITH_FILTERS : EMPTY_WITHOUT_FILTERS}
           />
           {data.totalCount > 0 && (
@@ -175,6 +180,17 @@ export function PolicyListPage() {
             />
           )}
         </StaleContent>
+      )}
+
+      {policyActions.editTarget !== null && (
+        <PolicyEditDialog
+          policy={policyActions.editTarget}
+          isSaving={policyActions.isSaving}
+          error={policyActions.editError}
+          onDismissError={policyActions.dismissEditError}
+          onSave={policyActions.confirmEdit}
+          onClose={policyActions.cancelEdit}
+        />
       )}
 
       {deletion.targetId !== null && (

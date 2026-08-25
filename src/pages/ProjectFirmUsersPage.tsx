@@ -1,27 +1,29 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { UserPlus } from 'lucide-react'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 
-import type { ProjectFirmUserQuery } from '../api/projectFirmUserDto'
 import { getProjectFirmUserList } from '../api/projectFirmUsers'
+import { deleteUser } from '../api/users'
+import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { EmptyState } from '../ui/admin/EmptyState'
-import { FilterChips } from '../ui/admin/FilterChips'
-import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
-import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
-import { ProjectFirmUserFilterBar } from '../ui/admin/projectFirmUsers/ProjectFirmUserFilterBar'
+import { ADMIN_HOME_PATH, PROJECT_FIRM_USER_CREATE_PATH } from '../ui/admin/adminNavItems'
+import { adminButtonVariants } from '../ui/admin/adminVariants'
 import {
-  PROJECT_FIRM_USER_COLUMNS,
   PROJECT_FIRM_USER_TABLE_CAPTION,
   PROJECT_FIRM_USER_TABLE_MIN_WIDTH,
+  buildProjectFirmUserColumns,
 } from '../ui/admin/projectFirmUsers/projectFirmUserColumns'
-import { buildProjectFirmUserFilterChips } from '../ui/admin/projectFirmUsers/projectFirmUserFilterChips'
 import { useProjectFirmUserListParams } from '../ui/admin/projectFirmUsers/useProjectFirmUserListParams'
 import { useSavedProjectFirmUserNotice } from '../ui/admin/projectFirmUsers/useSavedProjectFirmUserNotice'
+import { useIsAdmin } from '../ui/admin/useIsAdmin'
+import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Proje Firması Kullanıcıları'
 
@@ -36,44 +38,66 @@ const BREADCRUMB = [
 /** Belge KK-7, birebir. */
 const NO_RESULT_MESSAGE = 'Arama kriterlerine uygun kayıt bulunamadı.'
 
-/**
- * Şeritte sayılan bölüm. Satırların FİRMA sütunları gerçek uçlardan geliyor,
- * uydurma olan kullanıcının kendisi — şerit bu ayrımı söylüyor ki kullanıcı
- * neyin sahte olduğunu bilsin.
- */
-const MOCK_SECTIONS = [
-  'Kullanıcı satırları (ad, kullanıcı adı, e-posta, telefon, yetki ve adet) — firma sütunları gerçek uçtan geliyor',
-]
+const DELETE_MESSAGES = {
+  success: 'Kullanıcı silindi.',
+  // Uç YOK: "hata" değil, "burada yapılamaz". Sunucu tarafı açılınca bu kol
+  // hiç çalışmayacak.
+  unavailable: 'Kullanıcı silme ucu sunucuda henüz yok; kayıt silinmedi.',
+  error: 'Kullanıcı silinemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+} as const
 
-const MISSING_ENDPOINT_HINT = 'GET /api/projectfirmusers'
+const DELETE_DIALOG = {
+  title: 'Kullanıcı silinsin mi?',
+  description: 'Kullanıcı listeden kaldırılacak ve erişimi sonlanacak.',
+  confirmLabel: 'Sil',
+} as const
 
 export function ProjectFirmUsersPage() {
-  const { query, applyFilters, setPage } = useProjectFirmUserListParams()
+  const { query, setPage } = useProjectFirmUserListParams()
   const savedNotice = useSavedProjectFirmUserNotice()
+  // Yalnız GÖRÜNÜRLÜK: kullanıcı oluşturma `POST /api/auth/register` ile
+  // yapılıyor ve o uç sunucuda `[Authorize(Roles = Admin)]`.
+  const isAdmin = useIsAdmin()
+  const queryClient = useQueryClient()
 
   // Sorgu `queryKey`'in PARÇASI: sayfalama ve süzme sunucuda, her kriter
   // değişimi yeni bir sayfa isteği demek (KK-12). Kriterler "Filtrele" ile
   // uygulandığı için bu, tuş başına değil uygulama başına bir istektir.
-  const { data: sourced, isPending, isError, refetch } = useQuery({
+  const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['projectFirmUserList', query],
     queryFn: ({ signal }) => getProjectFirmUserList(query, signal),
   })
 
-  // Üretim derlemesinde sahte kullanıcı HİÇ üretilmiyor (K51): tablo yerine
-  // bölümün sunucuya bağlı olmadığını söyleyen kutu çıkar.
-  const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
-  const isSourceMissing = sourced?.source === 'unavailable'
+  const deletion = useRowDelete({
+    remove: (userId) => deleteUser(userId),
+    messages: DELETE_MESSAGES,
+    onDeleted: () => {
+      void queryClient.invalidateQueries({ queryKey: ['projectFirmUserList'] })
+    },
+  })
 
-  const applyPatch = (patch: Partial<ProjectFirmUserQuery>) =>
-    applyFilters({
-      nameQuery: patch.nameQuery ?? query.nameQuery,
-      authorityType: patch.authorityType === undefined ? query.authorityType : patch.authorityType,
-    })
+  const columns = useMemo(
+    () =>
+      buildProjectFirmUserColumns({
+        canDelete: isAdmin,
+        pendingUserId: deletion.pendingId,
+        onDelete: deletion.request,
+      }),
+    [isAdmin, deletion.pendingId, deletion.request],
+  )
 
   const totalCount = data?.totalCount
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+      {deletion.notice !== null && (
+        <NoticeBar
+          tone={deletion.notice.tone}
+          message={deletion.notice.message}
+          onDismiss={deletion.dismissNotice}
+        />
+      )}
+
       {savedNotice !== null && (
         <NoticeBar
           tone={savedNotice.tone}
@@ -82,24 +106,27 @@ export function ProjectFirmUsersPage() {
         />
       )}
 
-      <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
-
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={BREADCRUMB}
           title={PAGE_TITLE}
           countLabel={formatCountLabel(totalCount)}
         />
-        <ProjectFirmUserFilterBar
-          filters={{
-            nameQuery: query.nameQuery,
-            authorityType: query.authorityType,
-          }}
-          onApply={applyFilters}
-        />
-      </div>
 
-      <FilterChips filters={buildProjectFirmUserFilterChips({ query, onRemove: applyPatch })} />
+        {/* Ekranın kendi ekleme girişi. Bir süre YOKTU: kullanıcı yalnız
+            gösterge panelindeki kısayoldan gelebiliyordu ve o kısayol da
+            üretimde çizilmiyordu (63d2b68). Gaz Dağıtım Kullanıcıları
+            ekranındaki desenin aynısı. */}
+        {isAdmin && (
+          <Link
+            to={PROJECT_FIRM_USER_CREATE_PATH}
+            className={adminButtonVariants({ tone: 'primary' })}
+          >
+            <UserPlus aria-hidden className="size-4" />
+            Yeni Kullanıcı
+          </Link>
+        )}
+      </div>
 
       {isPending && <QueryLoading message="Kullanıcılar yükleniyor…" />}
 
@@ -109,8 +136,6 @@ export function ProjectFirmUsersPage() {
           onRetry={() => void refetch()}
         />
       )}
-
-      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
 
       {data !== undefined && !isError && (
         <>
@@ -124,8 +149,8 @@ export function ProjectFirmUsersPage() {
             <>
               <DataTable
                 rows={data.items}
-                columns={PROJECT_FIRM_USER_COLUMNS}
-                rowKey={(row) => row.competencyId}
+                columns={columns}
+                rowKey={(row) => row.id}
                 caption={PROJECT_FIRM_USER_TABLE_CAPTION}
                 minWidthClassName={PROJECT_FIRM_USER_TABLE_MIN_WIDTH}
                 emptyMessage={NO_RESULT_MESSAGE}
@@ -139,6 +164,18 @@ export function ProjectFirmUsersPage() {
             </>
           )}
         </>
+      )}
+
+      {deletion.targetId !== null && (
+        <ConfirmDialog
+          title={DELETE_DIALOG.title}
+          description={DELETE_DIALOG.description}
+          confirmLabel={DELETE_DIALOG.confirmLabel}
+          confirmTone="danger"
+          isPending={deletion.pendingId !== null}
+          onConfirm={() => void deletion.confirm()}
+          onCancel={deletion.cancel}
+        />
       )}
     </div>
   )

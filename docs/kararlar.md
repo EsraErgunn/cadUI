@@ -8960,3 +8960,142 @@ kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı; JSON çizimi
 aktarılabilir bir kopyası, kâğıt çıktı değil. "Proje Dosyasını İndir" (PDF)
 açık kaldı. Düğmenin kendisi salt görüntülemede de duruyor — onay o rolün asıl
 işi.
+
+### K158 — Evrak yüklemede desteklenen biçim YALNIZ PDF
+
+Gereksinim 8 yedi biçim sayıyordu (`.jpg .jpeg .png .gif .bmp .pdf .alp`) ve
+Evrak Ekle ekranı yedisini de kabul ediyordu. Sunucu ise yalnız PDF alıyor:
+
+```csharp
+// StarCAD.Business/Validators/DocValidators.cs
+public static readonly string[] AllowedContentTypes = ["application/pdf"];
+// "Desteklenmeyen dosya türü. Yalnızca PDF yüklenebilir."
+```
+
+Sonuç: kullanıcı PNG seçebiliyor, satır listeye giriyor, "Kaydet"e basınca
+sunucudan hata dönüyordu. Seçim en baştan boşunaydı ve hata ancak formun sonunda
+görünüyordu.
+
+**Karar: istemci listesi SUNUCUYA daraltıldı.** `ACCEPTED_DOCUMENT_EXTENSIONS`
+tek elemanlı (`.pdf`), `<input accept>` hem MIME hem uzantı yazıyor
+(`application/pdf,.pdf` — bazı işletim sistemlerinde seçici yalnız birini
+dikkate alıyor), reddetme metni sunucununkiyle BİREBİR aynı:
+"Yalnızca PDF yüklenebilir."
+
+⚠️ **Gereksinim 8 artık KARŞILANMIYOR** ve bu bilinçli. Alternatif, ekranda
+kabul edilip sunucuda reddedilen dosyalar bırakmaktı; kullanıcıya yapabileceğini
+sandığı bir şeyi vaat etmek, yapamayacağını baştan söylemekten kötü. Biçim
+desteği iş tarafından isteniyorsa BACKEND'e eklenmeli — o gün yalnız bu dizi
+büyür, `accept`, ipucu metni ve doğrulama ondan türüyor.
+
+⚠️ Boyut sınırı 10 MB KALDI. Sunucu 20 MB'a izin veriyor (`MaxSizeBytes`); iki
+sınırın farklı olması sorun değil, istemcinin daha sıkı olması yalnız erken
+uyarı demek. Gereksinimdeki sayı 10.
+
+⚠️ Denetim UZANTIDAN yapılıyor, MIME'dan değil: tarayıcı `File.type`'ı bazı
+dosyalarda boş bırakıyor ve MIME'a bakan bir kontrol geçerli bir PDF'i
+reddedebilirdi. Sunucu kendi denetimini `ContentType` üzerinden yapıyor —
+istemcideki kontrol onun yerine geçmiyor, erken haber veriyor.
+
+### K159 — Poliçe sözleşmesi: yenileme atomik değil, birim taşınmaz, ödeme kapsam dışı
+
+Backend poliçe sorularının tamamını cevapladı. Kararların arayüze yansıyan
+hâli ve gerekçeleri.
+
+**1) Yenileme ATOMİK DEĞİL — iki adım, arası kırılgan.**
+`POST /api/policies` aynı birimde ikinci aktif poliçeyi `400` ile reddediyor ve
+eskisini otomatik kapatmıyor (`PolicyManager.CreateAsync`). Sunucuda "yenile"
+diye tek bir uç YOK, yani sıra zorunlu: **önce `DELETE`, sonra `POST`.**
+
+⚠️ İki adım arasında hata olursa **birim poliçesiz kalır** ve geri alacak bir uç
+yoktur. Bu risk gizlenemez: sihirbaz "Bitir"den ÖNCE onay istiyor ve metin iki
+şeyi birden söylüyor — iptalin geri alınamayacağını ve arada hata olursa birimin
+poliçesiz kalacağını. İptal geçip oluşturma düşerse hata mesajı sunucunun
+metnini değil, ÖNCE "birim şu anda POLİÇESİZ" uyarısını gösteriyor; genel bir
+hata, silinmiş poliçeyi fark edilmeden bırakırdı.
+
+⚠️ Poliçesi olan birim seçim kutusunda KİLİTLİ DEĞİL. Bir tur kilitliydi
+(sunucu 400 döndürüyor diye) ama o hâlde yenileme arayüzden hiç yapılamıyordu.
+Seçenek açık, etiketi sonucu söylüyor: "— poliçesi var (yenilenir)".
+
+**2) Birim DEĞİŞTİRİLEMEZ.** `PolicyUpdateDto` `ProjectUnitId` almıyor; poliçe
+başka bir bağımsız bölüme taşınmıyor. Güncelleme formunda birim GÖSTERİLİYOR
+ama salt okunur — gizlenseydi kullanıcı hangi birimi düzenlediğini göremezdi.
+
+⚠️ Güncellemenin kapsamı TUTAR ve TARİHLER. Ama gövde beş alanın hepsini
+taşımak ZORUNDA: `UpdateAsync` `InsuranceCompanyId` ve `PolicyNumber`'ı da
+koşulsuz yazıyor, yani gönderilmezlerse sunucuda `null`'a düşerler. İkisi
+satırdan okunup geri gönderiliyor (`toUserPayload` deseni).
+
+**3) Listeleme PROJE bazlı.** Birim bazlı istek atılmıyor — uçta `ProjectUnitId`
+süzgeci yok. "Her birimin bir poliçesi olmalı" bir iş kuralı ama sunucuda
+ZORLANMIYOR; ekran bu yüzden "bir birimin tek poliçesi var" varsayımına
+dayanmıyor, düz liste gösteriyor.
+
+**4) Silinmiş birim poliçeyi İPTAL ETMEZ.** Birim çizimden silinince
+`UnitSyncManager` `ProjectUnitId`'yi `null`'a çekip `IsUnitDeleted`'i `true`
+yapıyor; `IsActive` DOKUNULMUYOR, kayıt listede kalıyor. Satır bu yüzden
+"Silinmiş Birim" rozetiyle işaretleniyor — hücre boş kalsaydı veri kaybı gibi
+okunurdu.
+
+**5) Ödeme KAPSAM DIŞI.** `Policy` entity'sinde ödeme alanı yok ve eklenmeyecek.
+"Ödeme" sütunu yok; yerinde `Amount` (teminat tutarı) var.
+
+⚠️ Proje detayındaki sabit "Onaylandı" rozeti de KALKTI. Sunucuda poliçe durumu
+diye bir alan yok; her satıra sabit bir durum basmak, olmayan bir iş akışı
+varmış gibi gösteriyordu.
+
+**6) Sıralama ve bina kodu EKLENMEYECEK.** `SortBy`/`SortDir` yok, sıra sunucuda
+sabit; sıralanabilir başlıklar kaldırılmış hâlde kalıyor. `PolicyDto` bina kodu
+taşımayacak; "ProjeId" sütunu kaldırılmış hâlde kalıyor.
+
+**7) Poliçe numarası benzersizliği ARTIK BİR KURAL DEĞİL.** Gereksinim KK-19
+benzersizlik istiyordu; sunucuda ne benzersiz indeks ne denetim var. İstemcideki
+kontrol kaldırıldı ve GERİ GELMEYECEK — olmayan bir kısıtı kullanıcıya hata
+olarak göstermek, sistemi yanlış öğretir. Yerinde sunucunun gerçek sınırı var:
+poliçe numarası en fazla 50 karakter (`PolicyAddValidator`).
+
+## Hâlâ cevaplanmadı — dokunulmadı
+
+- **Poliçe listesi araması:** backend "bana kalsa çıkarılabilir" dedi ama karar
+  vermedi. Mevcut hâlinde bırakıldı (poliçe no / birim no / abone no).
+- **Doğrulama hatası biçimi:** iki farklı `400` var — iş kuralı `{ message }`,
+  FluentValidation `{ errors: { alan: [...] } }`. İkisini de karşılayan
+  `readErrorMessage` sadeleştirilmedi.
+
+### K160 — Mock kapısı (K51) SÖKÜLDÜ: `Sourced` zarfı, iki şerit ve üç mock dosyası silindi
+
+K51 karma veri düzeni kurmuştu: `api/mockGate.ts` sahte gövdeyi yalnız
+geliştirme derlemesinde üretiyor, dönüş tipi `Sourced<T>` kaynağı taşıyor,
+`MockDataNotice` uydurma bölümleri kalıcı bir şeritte sayıyor, `MissingSourceNotice`
+üretimde boş kalan bölümün sebebini yazıyordu. Düzen amacını tamamladı ve P0
+entegrasyonu bitince ÖLÜ kaldı.
+
+**Ölçüm.** `mockedData()` fonksiyonunun üretim kodunda SIFIR çağrısı kalmıştı;
+tek çağıranı olan `isMockDataAllowed` da onunla birlikte erişilemez durumdaydı.
+Yani `Sourced<T>` her koşulda `{ source: 'server' }` dönüyordu ve on ekrandaki
+`source === 'mock'` / `'unavailable'` dalları hiçbir girdiyle çizilemiyordu.
+
+**Asıl sebep testler.** `projectFirmUserFixture` ve `DocumentListPage.test`
+kendi elleriyle `source: 'mock'` üretip şeridin çizildiğini doğruluyordu; API
+ise koşulsuz `serverData(...)` dönüyordu. Dört test GERÇEKLEŞMESİ İMKÂNSIZ bir
+durumu doğrulayıp yeşil yanıyordu — koruma sağlamayan ama sağlıyormuş gibi
+duran testler, hiç test olmamasından daha kötü.
+
+**Yapılan.** `Sourced` zarfı tümüyle kalktı; beş API dosyası (`documents`,
+`gasDistributionUsers`, `policies`, `projectDetail`, `projectFirmUsers`) düz `T`
+dönüyor. `mockGate.ts`, `MockDataNotice.tsx`, `MissingSourceNotice.tsx` ve
+artık kimsenin import etmediği `projectDetailMock.ts` / `projectFirmsMock.ts` /
+`policiesMock.ts` silindi. Zarfı kaldırmak derleyiciyi kılavuz yaptı: union
+kolları yok olunca her ölü dal derleme hatası olarak kendini gösterdi.
+
+**Yükleniyor ≠ kaynağı yok.** Proje detayı sekmeleri `undefined`'ı
+`MissingSourceNotice` ile karşılıyordu; sorgu HENÜZ dönmemişken "bu bölümün
+veri kaynağı yok" yazmak yanlış bir şey söylüyordu. Dördü de (`ProjectInfoTab`,
+`ProjectHistoryTab`, `ProjectDocumentsTab`, `ProjectPolicyTab`) artık
+`QueryLoading` gösteriyor.
+
+**`hasApiBaseUrl()` yedekleri BU KARARIN DIŞINDA.** `adminFirms`,
+`adminFirmForm`, `adminDashboard` ve `projects` içindeki mock'lar `VITE_API_URL`
+tanımsızken devreye giren ayrı ve BİLİNÇLİ bir düzen (K27); onlara
+dokunulmadı. Silinen üç dosya o zincire bağlı değildi.

@@ -12,44 +12,23 @@
  * Beklenen sözleşme taslağı: docs/api-eksikleri-kullanicilar.md
  */
 export const UNIMPLEMENTED_ENDPOINTS = {
-  /** TODO(esra): GET /api/projectfirmusers?page&pageSize&q&authorityType */
-  firmUserList: 'GET /api/projectfirmusers',
-  /** TODO(esra): GET /api/projectfirmusers/{id} — güncelleme ekranını besleyecek. */
-  firmUserDetail: 'GET /api/projectfirmusers/{id}',
-  /** TODO(esra): POST /api/projectfirmusers — `auth/register` bu gövdeyi taşımıyor. */
-  firmUserCreate: 'POST /api/projectfirmusers',
-  /** TODO(esra): PUT /api/projectfirmusers/{id} — şifre boşsa değişmez (KK-25). */
-  firmUserUpdate: 'PUT /api/projectfirmusers/{id}',
-  /** TODO(esra): GET /api/projectfirmusers/availability?email&username&excludeUserId */
-  firmUserAvailability: 'GET /api/projectfirmusers/availability',
 
   /**
-   * Proje detayı — `GET /api/projects/{id}` VAR ama yalnız ad/kod/adres/tarih
-   * döndürüyor. Durum, tesisat no, proje/ısınma tipi, müstakil, ruhsat, firma
-   * mühendisi, onay bilgileri ve teknik değerler ayrı bir uç ister.
-   * TODO(esra): GET /api/projects/{id}/detail
+   * TODO(esra): DELETE /api/users/{id} — kullanıcı silme.
+   *
+   * `UsersController` yalnız GET/PUT/reset-password taşıyor. Silme ucu öteki
+   * DOKUZ kaynağın hepsinde var (docs, policies, projects, projectfirms,
+   * gasdistributionfirms, gasdistributiongroups, codes, code-groups,
+   * project-firm-authorizations) — yalnız kullanıcıda yok.
+   *
+   * `PUT` üzerinden pasifleştirme de mümkün değil: `UserUpdateDto` bir
+   * `IsActive`/`IsEnabled` alanı taşımıyor (K130).
+   *
+   * `User : SoftDeleteEntity` olduğu için uç açıldığında `Remove` çağrısı global
+   * `SaveChanges` kancasıyla zaten soft-delete'e dönecek — öteki kaynaklardaki
+   * desenin aynısı.
    */
-  projectDetailExtras: 'GET /api/projects/{id}/detail',
-  /** TODO(esra): GET /api/projects/{id}/units — ProjectUnit + Device entity'leri VAR, controller yok. */
-  projectUnits: 'GET /api/projects/{id}/units',
-  /** TODO(esra): GET /api/projects/{id}/docs — Doc + ProjectDoc entity'leri VAR. */
-  projectDocuments: 'GET /api/projects/{id}/docs',
-  /** TODO(esra): GET /api/projects/{id}/policies — Policy entity'si ProjectUnit'e bağlı. */
-  projectPolicies: 'GET /api/projects/{id}/policies',
-  /** TODO(esra): GET /api/insurancecompanies — sigorta şirketi listesi; tablo bile yok. */
-  insuranceCompanies: 'GET /api/insurancecompanies',
-  /** TODO(esra): GET /api/insurancecompanies/{id}/agencies — şirkete bağlı acenteler. */
-  policyAgencies: 'GET /api/insurancecompanies/{id}/agencies',
-  /** TODO(esra): POST /api/projects/{id}/policies — `Policy` entity'si VAR, controller yok;
-      poliçe numarası benzersizliği 409 dönmeli (bugün kontrol istemcide). */
-  policyCreate: 'POST /api/projects/{id}/policies',
-  /** TODO(esra): GET /api/policies?page&pageSize&q&insuranceCompanyId&sort&dir —
-      bütün projelerin poliçeleri; satır proje künyesini de taşımalı. */
-  policyList: 'GET /api/policies',
-  /** TODO(esra): DELETE /api/policies/{id} — liste ekranındaki "Sil". */
-  policyDelete: 'DELETE /api/policies/{id}',
-  /** TODO(esra): DELETE /api/docs/{id} — Evraklar ekranındaki "Sil". */
-  documentDelete: 'DELETE /api/docs/{id}',
+  userDelete: 'DELETE /api/users/{id}',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */
@@ -60,6 +39,13 @@ export const UNIMPLEMENTED_ENDPOINTS = {
  * KK-20 daraltması (yetki satırındaki proje firması listesi) burada DEĞİL ve
  * hiç olmadı: seçenekler mock değildi, artık daraltma da gerçek uçtan geliyor
  * (`GET /api/project-firm-authorizations?GasDistributionFirmId=`, K87).
+ *
+ * Poliçe uçlarının ÜÇÜ DE listeden kalktı (backend a6ea695):
+ * - `policyList` — `GET /api/policies` artık `ProjectId` olmadan da çağrılıyor.
+ * - `policyCreate` — `POST /api/policies` bağlandı.
+ * - `policyAgencies` — sebebi farklı: uç açıldığı için değil, ACENTE KAVRAMI
+ *   OLMADIĞI için. Poliçenin tek firma alanı `InsuranceCompanyId`; bu adla yeni
+ *   tip, sorgu ya da uç ekleme.
  */
 
 export type UnimplementedEndpoint = keyof typeof UNIMPLEMENTED_ENDPOINTS

@@ -75,19 +75,29 @@ export interface ProjectFirmAuthorization {
   groupName: string
   gasDistributionFirmId: number
   gasDistributionFirmName: string
-  certificateNumber: string | null
+  /** ZORUNLU: uç boş sertifika numarasını reddediyor (NotEmpty). */
+  certificateNumber: string
+  /** yyyy-aa-gg. Yetkinin geçerlilik başlangıcı; uçta zorunlu. */
+  validFrom: string
+  /** yyyy-aa-gg ya da null (süresiz). Doluysa başlangıçtan SONRA olmalı. */
+  validTo: string | null
 }
 
 /** Yetkilendirme alt formunun hata metinleri (belgede yazmıyordu). */
 export const AUTHORIZATION_ERRORS = {
   group: 'Grup firması seçiniz.',
   gasFirms: 'En az bir bölge seçiniz.',
+  certificateNumber: 'Sertifika numarası zorunludur.',
+  validFrom: 'Geçerlilik başlangıcı zorunludur.',
+  validToBeforeFrom: 'Geçerlilik bitişi başlangıçtan sonra olmalıdır.',
 } as const
 
 export interface AuthorizationDraft {
   group: AuthorizationGroup
   gasFirms: AuthorizationGasFirm[]
   certificateNumber: string
+  validFrom: string
+  validTo: string
 }
 
 /** Aynı gaz dağıtım firması için ikinci yetkilendirme engellenir (belge madde 20). */
@@ -117,14 +127,43 @@ export function buildProjectFirmAuthorizations(
   draft: AuthorizationDraft,
 ): ProjectFirmAuthorization[] {
   const certificateNumber = draft.certificateNumber.trim()
+  const validTo = draft.validTo.trim()
 
   return draft.gasFirms.map((gasFirm) => ({
     groupId: draft.group.id,
     groupName: draft.group.name,
     gasDistributionFirmId: gasFirm.id,
     gasDistributionFirmName: gasFirm.name,
-    certificateNumber: certificateNumber === '' ? null : certificateNumber,
+    certificateNumber,
+    validFrom: draft.validFrom,
+    validTo: validTo === '' ? null : validTo,
   }))
+}
+
+/**
+ * Taslağın kendi alanlarının doğrulaması. Grup/firma seçimi çağıranda kalıyor:
+ * onlar listeye (`authorizations`) de bakmak zorunda, bunlar bakmıyor.
+ */
+export function validateAuthorizationFields(draft: {
+  certificateNumber: string
+  validFrom: string
+  validTo: string
+}): Partial<Record<'certificateNumber' | 'validFrom' | 'validTo', string>> {
+  const errors: Partial<Record<'certificateNumber' | 'validFrom' | 'validTo', string>> = {}
+
+  if (draft.certificateNumber.trim() === '') {
+    errors.certificateNumber = AUTHORIZATION_ERRORS.certificateNumber
+  }
+
+  if (draft.validFrom === '') {
+    errors.validFrom = AUTHORIZATION_ERRORS.validFrom
+  } else if (draft.validTo !== '' && draft.validTo <= draft.validFrom) {
+    // ISO tarihler dize olarak karşılaştırılabiliyor; Date nesnesi kurmak
+    // saat dilimi kaymasını da işin içine sokardı.
+    errors.validTo = AUTHORIZATION_ERRORS.validToBeforeFrom
+  }
+
+  return errors
 }
 
 export function removeAuthorization(
@@ -143,5 +182,7 @@ export function toAuthorizationPayloads(
   return authorizations.map((authorization) => ({
     gasDistributionFirmId: authorization.gasDistributionFirmId,
     certificateNumber: authorization.certificateNumber,
+    validFrom: authorization.validFrom,
+    validTo: authorization.validTo,
   }))
 }

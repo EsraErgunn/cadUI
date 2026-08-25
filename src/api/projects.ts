@@ -48,7 +48,13 @@ import { parseProjectJson } from '../core/serialize'
  * POST /api/projects/{id}/submit → "Onaya Gönder"; eksik evrakta
  * `{ ok: false, missingDocuments }`.
  *
- * SUNUCUDA YOK: proje GÜNCELLEME (`PUT /api/projects/{id}`) — gövdesi create
+ * PUT /api/projects/{id} → proje güncelleme. Uç VAR ve `RowVersion` ile
+ * iyimser eşzamanlılık destekliyor; eksik olan EKRAN.
+ * TODO(esra): güncelleme ekranı yazılınca `updateProject` buraya eklenecek —
+ * gövde `ProjectUpdateDto` ve detay ucundan okunan `rowVersion` geri gönderilmeli,
+ * yoksa sunucu 409 döndürür.
+ *
+ * ESKİ NOT (artık geçersiz): proje GÜNCELLEME — gövdesi create
  * alanları + `rowVersion` ister ama `GET /api/projects/{id}` o alanları
  * döndürmediği için doldurulacak bir form da kurulamıyor
  * (bkz. `projectDetailExtras`).
@@ -325,20 +331,7 @@ const apiProjectListItemSchema = z.object({
  * Sayfalama SUNUCUDA olana kadar iki gövde biçimi de kabul edilir; dizi
  * geldiğinde toplam/sayfa istemci tarafında türetilir.
  */
-const apiProjectPageSchema = z.union([
-  z.array(apiProjectListItemSchema),
-  pagedResultSchema(apiProjectListItemSchema),
-])
-
-function toApiProjectPage(
-  raw: z.infer<typeof apiProjectPageSchema>,
-  requestedPage: number,
-  requestedPageSize: number,
-): { items: z.infer<typeof apiProjectListItemSchema>[]; totalCount: number; page: number; pageSize: number } {
-  if (!Array.isArray(raw)) return raw
-
-  return { items: raw, totalCount: raw.length, page: requestedPage, pageSize: requestedPageSize }
-}
+const apiProjectPageSchema = pagedResultSchema(apiProjectListItemSchema)
 
 /**
  * Sunucunun durum kodu ↔ arayüzün kodu. `status-counts` yanıtının anahtarları
@@ -356,12 +349,16 @@ const SERVER_STATUS_CODES: Record<ProjectStatus, string> = {
 }
 
 /**
- * `SERVER_STATUS_CODES`'un tersi: liste ucunun satır başına döndürdüğü durum
- * kodunu arayüz koduna çevirir. Kod tanınmazsa (ya da hiç gelmezse) `null` —
- * bilinmeyen bir kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip
- * "Onaya Gönder" düğmesini yanlış satıra koyardı.
+ * `SERVER_STATUS_CODES`'un tersi: sunucunun döndürdüğü durum kodunu arayüz
+ * koduna çevirir. Kod tanınmazsa (ya da hiç gelmezse) `null` — bilinmeyen bir
+ * kodu "taslak" saymak, projeyi olmadığı bir durumda gösterip "Onaya Gönder"
+ * düğmesini yanlış satıra koyardı.
+ *
+ * DIŞA AÇIK: liste ve DETAY aynı çeviriyi kullanıyor. İki kopya, iki ekranın
+ * aynı proje için farklı durum göstermesi demekti — bir süre detay ekranı
+ * durumu kimlikten uyduruyordu, tam olarak bu yüzden.
  */
-function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
+export function toProjectStatus(raw: string | null | undefined): ProjectStatus | null {
   const code = raw?.trim().toLowerCase()
   if (code === undefined || code === '') return null
 
@@ -487,7 +484,7 @@ function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
  * istemcide süzülüyor — yani arama YALNIZ görüntülenen sayfayı kapsıyor,
  * `totalCount` süzülmemiş adedi göstermeye devam ediyor.
  *
- * TODO(esra): uca `Q` parametresi eklenmeli; eklenince bu fonksiyon ve
+ * TODO(esra): uca `Search` parametresi eklenmeli; eklenince bu fonksiyon ve
  * çağrısı silinip parametre `buildFilterParams`'a taşınacak.
  */
 function filterBySearch(items: ProjectListItem[], search: string): ProjectListItem[] {
@@ -519,11 +516,10 @@ export async function listProjects(
   appendParam(search, 'Page', query.page)
   appendParam(search, 'PageSize', query.pageSize)
 
-  const raw = await requestJson(
+  const page = await requestJson(
     { method: 'GET', path: `/api/projects?${search.toString()}`, signal },
     apiProjectPageSchema,
   )
-  const page = toApiProjectPage(raw, query.page, query.pageSize)
 
   return projectPageSchema.parse({
     items: filterBySearch(page.items.map(mapApiProject), query.search),
@@ -567,9 +563,12 @@ export async function deleteProject(id: number): Promise<void> {
 /**
  * "Onaya Gönder" — GERÇEK uç: `POST /api/projects/{id}/submit`.
  *
- * Uç gövdesiz 200 dönebiliyor; eksik evrak durumu ise `{ ok: false,
- * missingDocuments }` olarak geliyor. Gövde şemaya uymazsa (boş/farklı) işlem
- * BAŞARILI sayılır — sunucu 2xx dediyse kayıt değişmiştir, gövde biçimi yüzünden
+ * Uç bugün yalnız `{ message }` döndürüyor: zorunlu evrak kontrolü SUNUCUDA
+ * YOK. `{ ok: false, missingDocuments }` dalı sözleşmede tanımlı ama uç onu
+ * üretmiyor — şema yine de duruyor ki kontrol eklendiğinde çağıran değişmesin.
+ *
+ * Gövde şemaya uymazsa (bugün her başarılı çağrıda böyle) işlem BAŞARILI
+ * sayılır: sunucu 2xx dediyse kayıt değişmiştir, gövde biçimi yüzünden
  * kullanıcıya "gönderilemedi" demek yanlış olurdu.
  */
 export async function submitProject(id: number): Promise<SubmitProjectResult> {
@@ -756,9 +755,16 @@ async function resolveAuthorizationId(payload: CreateProjectPayload): Promise<nu
  * int32 — ondalık gövde 400 döner, doğrulama `newProjectSchema`'da tam sayıyı
  * zorunlu tutuyor.
  *
- * `description` ve `code` GÖNDERİLMİYOR: formda karşılıkları yok, uçta ikisi de
- * `null` kabul ediyor. Form alanlarını `description` içine JSON olarak gömmek
- * sunucunun sorgulayamadığı şemasız bir alan yaratırdı.
+ * İKİ ALAN AD DEĞİŞTİREREK gidiyor ve bu bilinçli (backend 91baf4c): sunucuda
+ * `connectionObject` ve `coverNote` diye alan YOK — ekip "Bağlantı Nesnesi"nin
+ * bina koduyla aynı işi gördüğüne karar verip `Building.Code`'u tuttu, kapak
+ * açıklamasını da `description` içinde birleştirdi. Payload adları formun
+ * etiketlerini yansıttığı için DEĞİŞMİYOR; çeviri yalnız burada, `capacity`
+ * dönüşümüyle aynı desen.
+ *
+ * `buildingCode` sunucuda BENZERSİZ: aynı bağlantı nesnesi ikinci bir projede
+ * kullanılırsa uç 409 döner ve form onu alan hatasına çevirir
+ * (`useNewProjectForm`).
  */
 export async function createProject(payload: CreateProjectPayload): Promise<CreatedProject> {
   // Yetki kimliği kayıttan ÖNCE çözülüyor: çözülemezse proje hiç açılmasın.
@@ -776,7 +782,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
         districtId: payload.districtId,
         addressLine: payload.address,
         blockLotParcel: payload.parcelInfo,
-        connectionObject: payload.connectionObject,
+        buildingCode: payload.connectionObject,
         projectTypeCodeId: payload.projectTypeCodeId,
         heatingTypeCodeId: payload.heatingTypeCodeId,
         buildingUsageTypeCodeId: payload.buildingUsageTypeCodeId,
@@ -788,7 +794,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
         // `capacityCubicMeterPerHour` kalıyor, çeviri yalnız burada.
         capacity: payload.capacityCubicMeterPerHour,
         serviceBoxPressureMbar: payload.serviceBoxPressureMbar,
-        coverNote: payload.coverNote,
+        description: payload.coverNote,
       }),
     },
     apiCreatedProjectSchema,

@@ -141,6 +141,20 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           {navItems.map((item) => (
             <li key={item.key}>
               <AdminNavEntry item={item} onSelect={onClose} />
+
+              {/* Alt maddeler AYRI bir listede duruyor — ekran okuyucu onları
+                  üst maddenin altındaki bir alt liste olarak duyuruyor — ama
+                  GİRİNTİSİZ çiziliyor: satırlar öteki maddelerle aynı hizada.
+                  Bir tur `pl-9` ile girintiliydi, hizasızlık istenmedi. */}
+              {item.children !== undefined && item.children.length > 0 && (
+                <ul className="mt-1 flex flex-col gap-1">
+                  {item.children.map((child) => (
+                    <li key={child.key}>
+                      <AdminNavEntry item={child} onSelect={onClose} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

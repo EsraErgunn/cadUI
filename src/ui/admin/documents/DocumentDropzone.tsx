@@ -9,7 +9,12 @@ import {
 } from './documentFiles'
 
 const DROP_HINT = 'Dosyaları buraya sürükleyip bırakın'
-const FORMAT_HINT = `Lütfen ${ACCEPTED_DOCUMENT_EXTENSIONS.join(', ')} formatında doküman yükleyiniz!`
+/**
+ * Cümle listeden TÜRÜYOR: sunucu bir gün başka biçimleri de kabul ederse
+ * `ACCEPTED_DOCUMENT_EXTENSIONS` büyüyecek ve metin kendiliğinden güncellenecek.
+ * Bugün liste tek elemanlı, o yüzden cümle de tekil okunuyor.
+ */
+const FORMAT_HINT = `Yalnızca ${ACCEPTED_DOCUMENT_EXTENSIONS.join(', ')} formatında doküman yükleyebilirsiniz.`
 const SIZE_HINT = `Maksimum dosya boyutu ${MAX_DOCUMENT_SIZE_MB} MB olmalıdır!`
 
 interface DocumentDropzoneProps {

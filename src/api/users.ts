@@ -1,10 +1,12 @@
 import { z } from 'zod'
 
 import { requestJson, requestVoid, type RequestOptions } from './http'
+import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
  * API SÖZLEŞMESİ — kullanıcı kaydı (`Users` tablosu).
  *
+ * POST /api/users/{id}/reset-password → { newPassword } → 200
  * GET /api/users/{id} → UserDto
  * PUT /api/users/{id} → { email, fullName, phone, roleCode, projectFirmId,
  *                         gasDistributionFirmId }
@@ -71,6 +73,55 @@ export function toUserPayload(user: User, changes: Partial<UserPayload>): UserPa
     gasDistributionFirmId: user.gasDistributionFirmId ?? null,
     ...changes,
   }
+}
+
+/**
+ * Yöneticinin BAŞKA bir kullanıcının şifresini sıfırlaması.
+ *
+ * Uç kullanıcının TÜM oturumlarını sonlandırıyor (TokenVersion artıyor), yani
+ * geri alınamaz bir işlem — çağıran ekran onay sormak zorunda.
+ *
+ * TODO(esra): ekranı henüz yok. Fonksiyon sözleşmeyi bağlamak için burada:
+ * yol ve gövde biçimi bir yerde yazılı olmazsa ekranı yazan kişi yeniden
+ * keşfetmek zorunda kalır.
+ */
+export function resetUserPassword(
+  id: number,
+  newPassword: string,
+  options?: RequestOptions,
+): Promise<void> {
+  return requestVoid({
+    method: 'POST',
+    path: `/api/users/${id}/reset-password`,
+    rawJsonBody: JSON.stringify({ newPassword }),
+    signal: options?.signal,
+  })
+}
+
+/**
+ * Kullanıcı silme. Uç sunucuda HENÜZ YOK (`userDelete` bayrağı).
+ *
+ * `false` dönüyor: çağıran (`useRowDelete`) bunu "kayıt DÜŞMEDİ, ucun karşılığı
+ * yok" olarak okuyup kullanıcıya sebebini söylüyor. Sahte bir başarı döndürmek
+ * ya da olmayan bir adrese istek atıp 404'ü hata gibi göstermek, ikisi de
+ * kullanıcıya yapılmamış bir işi yapılmış ya da bozuk gösterirdi.
+ *
+ * Uç açılınca `unimplementedEndpoints.ts`'ten satır silinecek ve buradaki
+ * `isEndpointImplemented` çağrısı DERLEME HATASI vererek gövdeyi gerçek isteğe
+ * çevirmeye götürecek.
+ */
+export function deleteUser(id: number, options?: RequestOptions): Promise<boolean> {
+  if (isEndpointImplemented('userDelete')) {
+    // Uç açıldığında gövde şu olacak:
+    // await requestVoid({ method: 'DELETE', path: `/api/users/${id}`, signal: options?.signal })
+    // return true
+    throw new Error('deleteUser: uç bağlandı ama gövdesi yazılmadı.')
+  }
+
+  // Parametreler imzada DURUYOR: uç açılınca çağıranların hiçbiri değişmesin.
+  void id
+  void options
+  return Promise.resolve(false)
 }
 
 export function getUser(id: number, options?: RequestOptions): Promise<User> {

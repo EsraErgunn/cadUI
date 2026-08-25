@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
   DRAFT_STATUS,
   getProjectDetail,
+  getProjectFirmInfo,
   getProjectDocuments,
   getProjectHistory,
   getProjectPolicies,
@@ -12,8 +13,8 @@ import {
   requestProjectFile,
   type ProjectFileKind,
 } from '../api/projectDetail'
+import { projectFirmQueryKey } from '../api/projectFirmForm'
 import { useAuthSession } from '../api/useAuthSession'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { useSavedDocumentNotice } from '../ui/admin/documents/useSavedDocumentNotice'
@@ -22,9 +23,11 @@ import { ProjectDetailHeader } from '../ui/admin/projectDetail/ProjectDetailHead
 import { ProjectDetailPanels } from '../ui/admin/projectDetail/ProjectDetailPanels'
 import { ProjectDetailTabs } from '../ui/admin/projectDetail/ProjectDetailTabs'
 import { ReasonDialog } from '../ui/admin/projectDetail/ReasonDialog'
+import { buildApprovalFromHistory } from '../ui/admin/projectDetail/approvalFromHistory'
 import { mergeDecisionHistory } from '../ui/admin/projectDetail/decisionHistory'
 import { useProjectDecisions } from '../ui/admin/projectDetail/useProjectDecisions'
 import { useProjectDetailTab } from '../ui/admin/projectDetail/useProjectDetailTab'
+import { useProjectDocumentActions } from '../ui/admin/projectDetail/useProjectDocumentActions'
 import { useCanApproveProject } from '../ui/admin/useCanApproveProject'
 
 const PANEL_ID = 'project-detail-panel'
@@ -40,23 +43,6 @@ const REASON_DIALOG_COPY = {
 const FILE_UNAVAILABLE_MESSAGES: Record<ProjectFileKind, string> = {
   zpd: 'ZetaCAD proje dosyasını (.zpd) veren uç sunucuda henüz yok.',
   pdfReport: 'PDF raporu üreten uç sunucuda henüz yok.',
-}
-
-/** Mock uyarısında sayılan bölümler; hangi kartın uydurma olduğu açıkça yazsın. */
-function buildMockSections(hasExtras: boolean, hasUnits: boolean): string[] {
-  const sections: string[] = []
-
-  if (hasExtras) {
-    sections.push(
-      'Proje Genel Bilgileri (durum, tesisat no, G.D. firması, proje/ısınma tipi, müstakil, ruhsat)',
-      'Proje Firma Bilgileri (kartın tamamı)',
-      'Proje Onay Bilgileri (kartın tamamı)',
-      'Detay Bilgileri (kartın tamamı)',
-    )
-  }
-  if (hasUnits) sections.push('Birim / Cihaz Bilgileri tablosu')
-
-  return sections
 }
 
 function parseProjectId(raw: string | undefined): number | undefined {
@@ -105,6 +91,34 @@ export function ProjectDetailPage() {
     enabled: projectId !== undefined,
   })
 
+  /**
+   * Proje firması künyesi — kimlik detay yanıtından geliyor. Anahtar tekil
+   * firma sorgusuyla ORTAK (`projectFirmQueryKey`): firma güncellenince bu kart
+   * da tazeleniyor, ikinci bir kopya önbellek tutulmuyor.
+   */
+  const projectFirmId = detailQuery.data?.server.projectFirmId ?? null
+  const { data: firm } = useQuery({
+    queryKey: projectFirmQueryKey(projectFirmId),
+    queryFn: ({ signal }) => getProjectFirmInfo(projectFirmId ?? 0, signal),
+    enabled: projectFirmId !== null,
+  })
+
+  const documentActions = useProjectDocumentActions(projectId ?? 0)
+
+  /** Evrak sekmesindeki "Birim Değiştir" kutusu projenin birimlerinden besleniyor. */
+  const documentUnitOptions = useMemo(() => {
+    if (units === undefined) return []
+
+    return units.map((unit) => ({
+      id: unit.id,
+      // Birim numarası boş olabiliyor (çizimden senkron); abone adı ayırt
+      // etmeye yardım ediyor, ikisi de yoksa kimlik yazılıyor.
+      label:
+        [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||
+        `#${unit.id}`,
+    }))
+  }, [units])
+
   const decisions = useProjectDecisions(projectId ?? 0)
 
   const handleDownload = useCallback(async (kind: ProjectFileKind) => {
@@ -139,10 +153,16 @@ export function ProjectDetailPage() {
   const isDraft = status === DRAFT_STATUS
 
   const historyRows = mergeDecisionHistory(
-    history === undefined || history.source === 'unavailable' ? [] : history.data,
+    history ?? [],
     decisions.outcome,
     { name: session?.fullName ?? 'Bilinmeyen kullanıcı', roleLabel: session?.roleCode ?? '—' },
   )
+
+  // Onay künyesinin kaynağı işlem geçmişi: sunucuda ayrı bir "onay bilgileri"
+  // alanı yok. `historyRows` kullanılıyor ki bu turda verilen karar da künyeye
+  // ANINDA yansısın — ham `history` beklenirse kullanıcı onayladıktan sonra kart
+  // bir sonraki çekime kadar boş kalırdı.
+  const approval = buildApprovalFromHistory(historyRows)
 
   const reasonCopy = decisions.reasonPrompt === null ? null : REASON_DIALOG_COPY[decisions.reasonPrompt]
 
@@ -159,29 +179,21 @@ export function ProjectDetailPage() {
         onDownloadPdf={() => void handleDownload('pdfReport')}
       />
 
-      <MockDataNotice
-        sections={buildMockSections(
-          detail.extras !== null,
-          units !== undefined && units.source === 'mock',
-        )}
-      />
-
       {savedDocumentNotice !== null && (
-        // `warning`: işlem başarılı ama YARIM — kayıt sunucuya gitmedi.
+        // Kayıt SUNUCUDA: artık yarım bir işlem değil, düz başarı bildirimi.
         <NoticeBar
-          tone="warning"
+          tone="success"
           message={savedDocumentNotice.message}
-          details={savedDocumentNotice.details}
           onDismiss={savedDocumentNotice.dismiss}
         />
       )}
 
       {savedPolicyNotice !== null && (
-        // `warning`: poliçe listeye girdi ama kayıt sunucuya gitmedi (K58).
+        // `success`: kayıt artık `POST /api/policies` ile gerçekten kalıcı.
+        // Bir süre `warning` idi çünkü poliçe yalnız bellekteki depoya yazılıyordu.
         <NoticeBar
-          tone="warning"
+          tone="success"
           message={savedPolicyNotice.message}
-          details={savedPolicyNotice.details}
           onDismiss={savedPolicyNotice.dismiss}
         />
       )}
@@ -209,6 +221,10 @@ export function ProjectDetailPage() {
           history={history}
           historyRows={historyRows}
           documents={documents}
+          firm={firm ?? null}
+          approval={approval}
+          documentUnitOptions={documentUnitOptions}
+          documentActions={documentActions}
           policies={policies}
           canApprove={canApprove}
           isDraft={isDraft}

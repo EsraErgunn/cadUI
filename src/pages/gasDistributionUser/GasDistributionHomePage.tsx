@@ -32,9 +32,8 @@ const FIRST_PAGE = 1
  * Yönetici panosunun (`/api/admin/dashboard`) kopyası DEĞİL ve o ucu HİÇ
  * çağırmıyor. Sebebi tek tek: ucun döndürdüğü `counts` firma/kullanıcı YÖNETİM
  * sayıları ve kartları bu role kapalı ekranlara bağlanıyor; `density` firma
- * kapsamında tek satıra düşüp anlamsızlaşıyor; `announcements` ekranı bu role
- * kapalı. Üstelik yol `/api/admin/...` ve rolün oraya erişip erişemediği
- * doğrulanmış değil.
+ * kapsamında tek satıra düşüp anlamsızlaşıyor. Üstelik yol `/api/admin/...` ve
+ * rolün oraya erişip erişemediği doğrulanmış değil.
  *
  * Bunun yerine iki KESİN gerçek uç: `GET /api/projects/status-counts` ve
  * `GET /api/projects`. Proje firması panosuyla aynı desen ve aynı iki bileşen

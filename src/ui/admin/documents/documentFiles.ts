@@ -1,27 +1,35 @@
-/** Yükleme alanında yazılı olan desteklenen biçimler (gereksinim 8). */
-export const ACCEPTED_DOCUMENT_EXTENSIONS = [
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.gif',
-  '.bmp',
-  '.pdf',
-  '.alp',
-] as const
+/**
+ * Desteklenen biçimler — SUNUCUNUN kabul ettiği kadar.
+ *
+ * Gereksinim 8 yedi biçim sayıyordu (`.jpg .jpeg .png .gif .bmp .pdf .alp`) ve
+ * ekran onları kabul ediyordu; sunucu ise yalnız PDF alıyor
+ * (`DocUploadRules.AllowedContentTypes = ["application/pdf"]`). Kullanıcı PDF
+ * dışında bir dosya seçebiliyor, "Kaydet"e basınca sunucudan
+ * "Yalnızca PDF yüklenebilir." hatası alıyordu — yani seçim en baştan boşunaydı.
+ *
+ * Liste sunucuya daraltıldı. Backend yedi biçimi desteklemeye başlarsa yalnız
+ * bu dizi büyür; `accept` niteliği, ipucu metni ve doğrulama ondan türüyor.
+ */
+export const ACCEPTED_DOCUMENT_EXTENSIONS = ['.pdf'] as const
 
 const BYTES_PER_MEGABYTE = 1024 * 1024
 export const MAX_DOCUMENT_SIZE_MB = 10
 export const MAX_DOCUMENT_SIZE_BYTES = MAX_DOCUMENT_SIZE_MB * BYTES_PER_MEGABYTE
 
-export const UNSUPPORTED_FORMAT_MESSAGE = 'Desteklenmeyen dosya formatı.'
+/** Sunucunun metniyle BİREBİR: iki taraf aynı cümleyi kursun, kullanıcı
+    reddin nereden geldiğine göre farklı bir açıklama okumasın. */
+export const UNSUPPORTED_FORMAT_MESSAGE = 'Yalnızca PDF yüklenebilir.'
 export const OVERSIZE_FILE_MESSAGE = "Dosya boyutu 10MB'ı aşamaz."
 
 /**
  * `<input accept>` değeri. Tarayıcının dosya seçicisini daraltır ama TEK
  * denetim değildir: sürükle-bırak `accept`'i dinlemez ve kullanıcı seçicide
  * "tüm dosyalar"a geçebilir — asıl denetim `validateDocumentFile`.
+ *
+ * Hem MIME hem uzantı yazılı: bazı işletim sistemlerinde seçici yalnız MIME'ı,
+ * bazılarında yalnız uzantıyı dikkate alıyor.
  */
-export const DOCUMENT_ACCEPT_ATTRIBUTE = ACCEPTED_DOCUMENT_EXTENSIONS.join(',')
+export const DOCUMENT_ACCEPT_ATTRIBUTE = 'application/pdf,.pdf'
 
 function extensionOf(fileName: string): string {
   const dotIndex = fileName.lastIndexOf('.')
@@ -29,9 +37,11 @@ function extensionOf(fileName: string): string {
 }
 
 /**
- * Biçim kontrolü UZANTIDAN: tarayıcı `File.type`'ı bazı biçimlerde (`.alp`,
- * `.bmp`) boş bırakıyor, MIME'a bakan bir denetim geçerli dosyayı reddederdi.
- * Listeye alınan dosyanın MIME'ı ayrıca `contentType` olarak taşınıyor.
+ * Biçim kontrolü UZANTIDAN yapılıyor, MIME'dan değil: tarayıcı `File.type`'ı
+ * bazı dosyalarda boş bırakabiliyor ve MIME'a bakan bir denetim geçerli bir
+ * PDF'i reddedebilirdi. Sunucu ayrıca kendi denetimini `ContentType` üzerinden
+ * yapıyor — buradaki kontrol onun yerine geçmiyor, kullanıcıya erken haber
+ * veriyor.
  */
 export function validateDocumentFile(file: File): string | null {
   const extension = extensionOf(file.name)

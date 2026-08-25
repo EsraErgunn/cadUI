@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Mock } from 'vitest'
@@ -73,7 +73,12 @@ export interface RenderOptions {
 }
 
 export function renderNewProjectFirmPage(
-  mocks: { form: ProjectFirmFormMocks; lookups: ProjectFirmLookupMocks },
+  mocks: {
+    form: ProjectFirmFormMocks
+    lookups: ProjectFirmLookupMocks
+    /** Verilmezse test kendi istemcisini kurar; verilirse çağıran gözlemleyebilir. */
+    client?: QueryClient
+  },
   { existingFirms = [EXISTING_PROJECT_FIRM] }: RenderOptions = {},
 ) {
   mocks.form.createProjectFirm.mockResolvedValue(NEW_FIRM_ID)
@@ -85,7 +90,10 @@ export function renderNewProjectFirmPage(
     Promise.resolve(groupId === 1 ? AKSA_GAS_FIRMS : ENERYA_GAS_FIRMS),
   )
 
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // Sorgu istemcisi DIŞARIDAN verilebiliyor: kayıttan sonra hangi anahtarların
+  // geçersizleştiğini doğrulayan test ona ihtiyaç duyuyor.
+  const client =
+    mocks.client ?? new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   return render(
     <QueryClientProvider client={client}>
@@ -140,10 +148,19 @@ export async function fillFirmInfo(overrides: Record<string, string> = {}) {
   }
 }
 
-/** Bir yetkilendirme kaydı ekler (Kaydet'in ön koşulu). */
+/**
+ * Bir yetkilendirme kaydı ekler (Kaydet'in ön koşulu).
+ *
+ * Sertifika numarası ve geçerlilik başlangıcı ZORUNLU: uç ikisini de istiyor
+ * (`ProjectFirmAuthorizationCreateDto`), boş bırakılırsa "Ekle" satırı üretmez.
+ */
 export async function addAuthorization(gasFirmName = 'AKSA-GEMLİK') {
   const user = setupUser()
 
   await user.click(screen.getByRole('radio', { name: gasFirmName }))
+  await user.type(screen.getByLabelText(/^Sertifika No/), 'ST-1')
+  fireEvent.change(screen.getByLabelText(/^Geçerlilik Başlangıcı/), {
+    target: { value: '2026-01-01' },
+  })
   await user.click(screen.getByRole('button', { name: 'Ekle' }))
 }

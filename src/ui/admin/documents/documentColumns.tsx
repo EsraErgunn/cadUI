@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 
-import { resolveDocumentTypeLabel, type DocumentType } from '../../../api/documentTypes'
 import type { DocumentRow, DocumentSortKey } from '../../../api/documents'
 import type { DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
@@ -23,7 +22,6 @@ const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
 interface DocumentColumnsOptions {
   /** Sayfa başlangıcı; "No" sütunu sayfa 2'de 31'den devam etsin diye. */
   rowOffset: number
-  documentTypes: DocumentType[]
   /** İsteği süren satır; o satırın düğmesi kilitlenir. */
   pendingDocumentId: number | null
   /** Yönetim görünümü mü (`useIsManagementUser`); firma sütunlarını açar. */
@@ -50,7 +48,6 @@ const FIRM_COLUMN_INDEX = 8
  */
 export function buildDocumentColumns({
   rowOffset,
-  documentTypes,
   pendingDocumentId,
   isManagementView,
   canDelete,
@@ -70,16 +67,17 @@ export function buildDocumentColumns({
       sortKey: 'fileName',
       cell: (document) => (
         <DocumentNameLink
+          documentId={document.id}
           fileName={document.fileName}
           contentType={document.contentType}
-          url={document.url}
         />
       ),
     },
     {
       key: 'docType',
       label: 'Evrak Tipi',
-      cell: (document) => resolveDocumentTypeLabel(document.docTypeCode, documentTypes),
+      // Tip ADI sunucudan geliyor; istemcide ikinci bir sözlük tutulmuyor.
+      cell: (document) => document.docTypeName ?? <EmptyValue />,
     },
     {
       key: 'receivedAt',
@@ -99,11 +97,16 @@ export function buildDocumentColumns({
     {
       key: 'projectName',
       label: 'Proje Adı',
-      cell: (document) => (
-        <Link to={projectDetailPath(document.projectId)} className={ADMIN_CELL_LINK}>
-          {document.projectName}
-        </Link>
-      ),
+      // Havuzdaki (projesiz) evrakta bağlantı YOK: hiçbir yere gitmeyen bir
+      // bağlantı düz metinden yanıltıcı olurdu.
+      cell: (document) =>
+        document.projectId === null || document.projectName === null ? (
+          <EmptyValue />
+        ) : (
+          <Link to={projectDetailPath(document.projectId)} className={ADMIN_CELL_LINK}>
+            {document.projectName}
+          </Link>
+        ),
     },
     {
       key: 'projectPId',

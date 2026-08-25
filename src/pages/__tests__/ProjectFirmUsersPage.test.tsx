@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -6,6 +7,7 @@ import {
   buildRow,
   renderWithProviders,
 } from './projectFirmUserFixture'
+import { PROJECT_FIRM_USER_CREATE_PATH } from '../../ui/admin/adminNavItems'
 import { ProjectFirmUsersPage } from '../ProjectFirmUsersPage'
 
 const listApi = vi.hoisted(() => ({ getProjectFirmUserList: vi.fn() }))
@@ -29,32 +31,6 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// K51: kullanıcı satırları uydurma; ekran bunu kalıcı bir şeritle SÖYLEMEK
-// zorunda, üretimde ise tablo yerine "kaynağı yok" kutusu çıkar.
-describe('veri kaynağı uyarısı (K51)', () => {
-  it('mock satırlarda kalıcı uyarı şeridi gösterir', async () => {
-    renderPage()
-    await screen.findByRole('table')
-
-    const notice = screen.getByRole('status')
-    expect(notice).toHaveTextContent('Bu ekrandaki bazı veriler sunucudan gelmiyor.')
-    expect(notice).toHaveTextContent('Kullanıcı satırları')
-    // Şerit KAPATILAMAZ: uyarıyı bir kez kapatıp sahte kaydı gerçek sanmak
-    // bu ekranın en bilinen başarısızlığı olurdu.
-    expect(within(notice).queryByRole('button')).not.toBeInTheDocument()
-  })
-
-  it('kaynak yokken tablo yerine "kaynağı yok" kutusu çıkar', async () => {
-    listApi.getProjectFirmUserList.mockResolvedValue({ source: 'unavailable', data: null })
-    useIsAdmin.mockReturnValue(true)
-    renderWithProviders({ children: <ProjectFirmUsersPage /> })
-
-    expect(await screen.findByText('Bu bölümün veri kaynağı henüz yok.')).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    expect(screen.queryByText('Bu ekrandaki bazı veriler sunucudan gelmiyor.')).not.toBeInTheDocument()
-  })
-})
-
 // KK-1: kırılım, başlık + parantez içinde adet, altında açıklama.
 describe('ekran açılışı (KK-1)', () => {
   it('başlık, kırılım, adet ve açıklamayı gösterir', async () => {
@@ -69,73 +45,6 @@ describe('ekran açılışı (KK-1)', () => {
   })
 
   // KK-2: yetki "Tümü", sağ üstteki sıra korunuyor.
-  it('filtre alanları varsayılan hâlleriyle açılır', async () => {
-    renderPage()
-
-    expect(await screen.findByLabelText('Yetki')).toHaveValue('')
-    expect(screen.getByLabelText(/Kullanıcı adı, ad soyad veya e-postada ara/)).toHaveValue('')
-    // "Filtrele" düğmesi KALKTI: kriter seçilir seçilmez uygulanıyor.
-    expect(screen.queryByRole('button', { name: 'Filtrele' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Yeni Kullanıcı/ })).toHaveAttribute(
-      'href',
-      '/admin/project-firm-users/new',
-    )
-  })
-})
-
-// KK-8: sütun sırası ve renkli kullanıcı tipi etiketi.
-describe('liste sütunları (KK-8)', () => {
-  it('sütunları belgedeki sırayla listeler', async () => {
-    renderPage()
-    const table = await screen.findByRole('table')
-
-    const headers = within(table)
-      .getAllByRole('columnheader')
-      .map((header) => header.textContent)
-
-    expect(headers).toEqual([
-      'Kullanıcı Adı',
-      'Adı Soyadı',
-      'E-mail',
-      'Telefon',
-      'Kullanıcı Tipi',
-      'G.D. Firması',
-      'Proje Firması',
-      'Gdf Kayıt No',
-    ])
-  })
-
-  it('kullanıcı tipini etiketle gösterir', async () => {
-    renderPage({
-      rows: [
-        buildRow({ authorityType: 'firmEngineer' }),
-        buildRow({ competencyId: 5002, authorityType: 'firmAuthorizedPerson' }),
-      ],
-      total: 2,
-    })
-
-    expect(await screen.findByText('Firma Mühendisi')).toBeInTheDocument()
-    expect(screen.getByText('Firma Yetkilisi')).toBeInTheDocument()
-  })
-})
-
-// KK-9: telefon biçimi ve boş Gdf kayıt no.
-describe('telefon ve boş değer gösterimi (KK-9)', () => {
-  it('farklı biçimdeki numaraları maskeye indirir', async () => {
-    renderPage({
-      rows: [
-        buildRow({ phone: '5555555555' }),
-        buildRow({ competencyId: 5002, phone: '+90 532 118 08 80' }),
-        buildRow({ competencyId: 5003, phone: '02164021000' }),
-      ],
-      total: 3,
-    })
-
-    expect(await screen.findByText('0555 555 55 55')).toBeInTheDocument()
-    expect(screen.getByText('0532 118 08 80')).toBeInTheDocument()
-    expect(screen.getByText('0216 402 10 00')).toBeInTheDocument()
-  })
-
   // Uydurma biçim dayatmak yerine ham metin kalır.
   it('maskeye uymayan numarayı olduğu gibi gösterir', async () => {
     renderPage({ rows: [buildRow({ phone: '1180' })] })
@@ -143,17 +52,14 @@ describe('telefon ve boş değer gösterimi (KK-9)', () => {
     expect(await screen.findByText('1180')).toBeInTheDocument()
   })
 
-  it('Gdf kayıt no boşsa tire gösterir', async () => {
+  it('proje firması yoksa tire gösterir', async () => {
     renderPage({
-      rows: [
-        buildRow({ gdfRegistrationNumber: null }),
-        buildRow({ competencyId: 5002, gdfRegistrationNumber: '512' }),
-      ],
+      rows: [buildRow({ projectFirm: null }), buildRow({ id: 1002 })],
       total: 2,
     })
 
     expect(await screen.findByText('—')).toBeInTheDocument()
-    expect(screen.getByText('512')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'AA Mühendislik' })).toBeInTheDocument()
   })
 })
 
@@ -171,31 +77,10 @@ describe('tıklanabilir sütunlar (KK-10)', () => {
       'href',
       '/admin/project-firm-users/1001',
     )
-    expect(within(table).getByRole('link', { name: 'AKSA-GEMLİK' })).toHaveAttribute(
-      'href',
-      '/admin/gas-distribution-firms/103',
-    )
     expect(within(table).getByRole('link', { name: 'AA Mühendislik' })).toHaveAttribute(
       'href',
       '/admin/project-firms/201',
     )
-  })
-})
-
-// KK-11: aynı kullanıcının her yetkisi ayrı satır, bilgileri yineleniyor.
-describe('çoklu yetkili kullanıcı (KK-11)', () => {
-  it('aynı kullanıcı için iki satır çizer', async () => {
-    renderPage({
-      rows: [
-        buildRow({ competencyId: 5001, projectFirm: { id: 201, name: 'AA Mühendislik' } }),
-        buildRow({ competencyId: 5002, projectFirm: { id: 202, name: 'Aksa Test Firması' } }),
-      ],
-      total: 2,
-    })
-
-    const table = await screen.findByRole('table')
-    expect(within(table).getAllByRole('row')).toHaveLength(3)
-    expect(within(table).getAllByRole('link', { name: 'tolga.ertek' })).toHaveLength(2)
   })
 })
 
@@ -209,5 +94,57 @@ describe('sonuç bulunmaması (KK-7)', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Sayfalama' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Ekranın kendi ekleme girişi. Bir süre YOKTU: kullanıcı yalnız gösterge
+ * panelindeki kısayoldan gelebiliyordu ve o kısayol da üretimde çizilmiyordu.
+ */
+describe('yeni kullanıcı girişi', () => {
+  it('yöneticiye "Yeni Kullanıcı" bağlantısı gösterir', async () => {
+    renderPage()
+
+    const link = await screen.findByRole('link', { name: /Yeni Kullanıcı/ })
+    expect(link).toHaveAttribute('href', PROJECT_FIRM_USER_CREATE_PATH)
+  })
+
+  /** Sunucu da öyle diyor: `POST /api/auth/register` yalnız Admin'e açık. */
+  it('yönetici olmayan kullanıcıda çizilmez', async () => {
+    renderPage({ isAdmin: false })
+
+    await screen.findByRole('table')
+    expect(screen.queryByRole('link', { name: /Yeni Kullanıcı/ })).not.toBeInTheDocument()
+  })
+})
+
+/** Silme ucu HENÜZ YOK; sahte başarı yerine sebebi söyleniyor (gaz dağıtım
+    kullanıcıları ekranındaki desenin aynısı). */
+describe('kullanıcı silme', () => {
+  it('yöneticiye satır başına "Sil" gösterir', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getAllByRole('button', { name: 'Sil' }).length).toBeGreaterThan(0)
+  })
+
+  it('yönetici olmayanda eylem sütunu hiç üretilmez', async () => {
+    renderPage({ isAdmin: false })
+
+    const table = await screen.findByRole('table')
+    expect(within(table).queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+  })
+
+  it('onaylanınca ucun olmadığını söyler', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getAllByRole('button', { name: 'Sil' })[0])
+
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Sil' }))
+
+    expect(await screen.findByText(/silme ucu sunucuda henüz yok/)).toBeInTheDocument()
   })
 })
