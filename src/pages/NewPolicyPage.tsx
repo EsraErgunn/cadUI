@@ -4,7 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { listInsuranceCompanies } from '../api/policies'
-import { getProjectSummary, getProjectUnits, type ProjectSummary } from '../api/projectDetail'
+import {
+  getProjectPolicies,
+  getProjectSummary,
+  getProjectUnits,
+  type ProjectSummary,
+} from '../api/projectDetail'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
@@ -74,6 +79,33 @@ export function NewPolicyPage() {
     enabled: projectId !== undefined,
   })
 
+  /**
+   * Projenin MEVCUT poliçeleri. Anahtar proje detayının poliçe sekmesiyle ORTAK
+   * (`projectPolicies`): iki ekran aynı veriyi paylaşıyor ve kayıttan sonraki
+   * geçersizleştirme ikisini birden tazeliyor.
+   *
+   * Gerekçe: sunucu bir birimde tek aktif poliçeye izin veriyor ve ihlali ancak
+   * `POST` sırasında 400 ile söylüyor. Bu liste olmadan sihirbaz dolu bir birimi
+   * seçtirir, kullanıcı formu baştan sona doldurur ve hatayı en son adımda görür.
+   */
+  const policiesQuery = useQuery({
+    queryKey: ['projectPolicies', projectId],
+    queryFn: ({ signal }) => getProjectPolicies(projectId ?? 0, signal),
+    enabled: projectId !== undefined,
+  })
+
+  const unitIdsWithPolicy = useMemo(() => {
+    const rows =
+      policiesQuery.data === undefined || policiesQuery.data.source === 'unavailable'
+        ? []
+        : policiesQuery.data.data
+
+    // Birimi silinmiş poliçe `projectUnitId` taşımıyor; hiçbir birimi kilitlemez.
+    return new Set(
+      rows.map((policy) => policy.projectUnitId).filter((id): id is number => id !== null),
+    )
+  }, [policiesQuery.data])
+
   const unitOptions = useMemo(() => {
     if (unitsQuery.data === undefined || unitsQuery.data.source === 'unavailable') return []
 
@@ -84,8 +116,9 @@ export function NewPolicyPage() {
       label:
         [unit.unitNumber, unit.subscriberName].filter((part) => part !== null).join(' — ') ||
         `#${unit.id}`,
+      hasActivePolicy: unitIdsWithPolicy.has(unit.id),
     }))
-  }, [unitsQuery.data])
+  }, [unitsQuery.data, unitIdsWithPolicy])
 
   const projectQuery = useQuery({
     queryKey: ['projectSummary', projectId],
@@ -187,7 +220,9 @@ export function NewPolicyPage() {
             values={values}
             errors={wizard.errors}
             units={unitOptions}
-            areUnitsPending={unitsQuery.isPending}
+            // Poliçe listesi de beklenir: gelmeden çizilen kutu, dolu bir birimi
+            // bir an seçilebilir gösterirdi.
+            areUnitsPending={unitsQuery.isPending || policiesQuery.isPending}
             onChange={wizard.setValue}
             onAmountChange={wizard.setAmountText}
             onAmountBlur={wizard.formatAmount}

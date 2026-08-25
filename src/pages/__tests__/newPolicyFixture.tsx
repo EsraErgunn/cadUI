@@ -38,6 +38,11 @@ export const PROJECT_UNITS = [
   { id: 72, unitNumber: 'D21', subscriberName: 'HASAN DEMİR', devices: [] },
 ]
 
+/** Mevcut poliçe İLK birime bağlı (aşağıdaki liste yanıtı); yeni poliçe ancak
+    İKİNCİ birime açılabilir. Sunucu bir birimde tek aktif poliçeye izin veriyor. */
+export const UNIT_WITH_POLICY = PROJECT_UNITS[0]
+export const FREE_UNIT = PROJECT_UNITS[1]
+
 /** `GET /api/insurance-companies` yanıtı; sihirbazın şirket kutusu buradan doluyor. */
 export const INSURANCE_COMPANIES = [
   { id: 1, title: 'Anadolu Sigorta' },
@@ -67,8 +72,8 @@ const CREATED_POLICY = {
   id: 901,
   projectId: PROJECT_ID,
   projectName: PROJECT_NAME,
-  projectUnitId: 71,
-  unitNumber: 'D20',
+  projectUnitId: 72,
+  unitNumber: 'D21',
   insuranceCompanyId: 1,
   insuranceCompanyTitle: COMPANY_NAME,
   policyNumber: POLICY_NUMBER,
@@ -200,8 +205,9 @@ export async function fillFirmStep(user: User): Promise<void> {
 /** Adım 3. Tarih girdisine `fireEvent.change`: native `input[type=date]` tuş
     vuruşuyla doldurulamıyor (yeni proje formu testindeki desen). */
 export async function fillInfoStep(user: User, policyNumber = POLICY_NUMBER): Promise<void> {
-  // Birim ZORUNLU: poliçe sunucuda projeye değil birime bağlanıyor.
-  await user.selectOptions(await screen.findByLabelText('Birim'), String(PROJECT_UNITS[0].id))
+  // Birim ZORUNLU: poliçe sunucuda projeye değil birime bağlanıyor. İLK birimin
+  // zaten poliçesi var ve seçilemez — boş olan ikinci birim seçiliyor.
+  await user.selectOptions(await screen.findByLabelText('Birim'), String(FREE_UNIT.id))
   await user.type(await screen.findByLabelText('Poliçe No'), policyNumber)
   await user.type(screen.getByLabelText('Teminat Tutarı'), AMOUNT_INPUT)
   fireEvent.change(screen.getByLabelText('Bitiş Tarihi'), { target: { value: END_DATE } })

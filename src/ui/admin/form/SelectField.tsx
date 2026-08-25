@@ -9,6 +9,12 @@ import { adminFieldVariants, fieldIconPadding } from '../adminVariants'
 export interface SelectFieldOption {
   value: string
   label: string
+  /**
+   * Seçenek listede GÖRÜNÜR ama seçilemez. Gizlemek yerine bu: kullanıcı
+   * kaydın var olduğunu görüp neden seçemediğini okuyabilsin (poliçesi olan
+   * birim gibi). Verilmezse seçilebilir.
+   */
+  isDisabled?: boolean
 }
 
 interface SelectFieldProps {
@@ -63,7 +69,7 @@ export function SelectField({
           kaldırılsaydı tarayıcı ilk seçeneği kullanıcı seçmiş gibi gösterirdi. */}
       <option value="">{placeholder}</option>
       {options.map((option) => (
-        <option key={option.value} value={option.value}>
+        <option key={option.value} value={option.value} disabled={option.isDisabled}>
           {option.label}
         </option>
       ))}

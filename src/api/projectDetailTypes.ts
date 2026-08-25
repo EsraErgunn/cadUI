@@ -250,6 +250,14 @@ export interface ProjectPolicyRow {
   id: number
   policyNumber: string | null
   insuranceCompanyName: string | null
+  /**
+   * Poliçenin bağlı olduğu birimin KİMLİĞİ. Ad değil kimlik gerekiyor: poliçe
+   * sihirbazı "bu birimde zaten poliçe var mı" sorusunu bununla yanıtlıyor ve
+   * birim numarası boş olabiliyor (çizimden senkron).
+   *
+   * Birimi silinmiş poliçede `null` — sunucu bağı koparıyor (`IsUnitDeleted`).
+   */
+  projectUnitId: number | null
   unitNumber: string | null
   amount: number | null
   startDate: string | null

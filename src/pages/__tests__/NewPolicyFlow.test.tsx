@@ -9,8 +9,9 @@ import {
   COMPANY_NAME,
   END_DATE,
   POLICY_NUMBER,
+  FREE_UNIT,
   PROJECT_ID,
-  PROJECT_UNITS,
+  UNIT_WITH_POLICY,
   policyPostCalls,
   resetPolicyPostStub,
   setPolicyPostFailure,
@@ -129,6 +130,41 @@ describe('Poliçe bilgileri adımı', () => {
     ).toBeInTheDocument()
   })
 
+  /**
+   * Sunucu bir birimde tek aktif poliçeye izin veriyor ve ihlali ancak `POST`
+   * sırasında 400 ile söylüyor. Dolu birim seçilebilir kalsaydı kullanıcı formu
+   * baştan sona doldurup hatayı EN SON adımda görürdü.
+   */
+  it('poliçesi olan birim listede görünür ama seçilemez', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await goToInfoStep(user)
+
+    const unitSelect = await screen.findByLabelText('Birim')
+    const taken = within(unitSelect).getByRole('option', { name: /poliçesi var/ })
+
+    expect(taken).toBeDisabled()
+    expect(taken).toHaveValue(String(UNIT_WITH_POLICY.id))
+
+    // Boş birim seçilebilir durumda kalır.
+    const free = within(unitSelect).getByRole('option', {
+      name: new RegExp(FREE_UNIT.unitNumber),
+    })
+    expect(free).not.toBeDisabled()
+    expect(free).toHaveValue(String(FREE_UNIT.id))
+  })
+
+  it('bir kısmı doluyken sebebi kutunun altında yazar', async () => {
+    const user = userEvent.setup()
+    renderPolicyPage()
+    await goToInfoStep(user)
+
+    await screen.findByLabelText('Birim')
+    expect(
+      screen.getByText(/Poliçesi olan birimler seçilemez/),
+    ).toBeInTheDocument()
+  })
+
   /** Benzersizlik kuralı SUNUCUDA YOK; aynı numara adımda engellenmemeli. */
   it('aynı poliçe numarası adımda engellenmez', async () => {
     const user = userEvent.setup()
@@ -224,7 +260,7 @@ describe('Poliçe özeti ve tamamlanma', () => {
     const body = policyPostCalls[0].body as Record<string, unknown>
 
     expect(body).toEqual({
-      projectUnitId: PROJECT_UNITS[0].id,
+      projectUnitId: FREE_UNIT.id,
       insuranceCompanyId: 1,
       policyNumber: POLICY_NUMBER,
       amount: 1500000,
@@ -242,7 +278,7 @@ describe('Poliçe özeti ve tamamlanma', () => {
     await screen.findByText(/Poliçe kaydedildi/)
 
     const body = policyPostCalls[0].body as Record<string, unknown>
-    expect(body.projectUnitId).toBe(PROJECT_UNITS[0].id)
+    expect(body.projectUnitId).toBe(FREE_UNIT.id)
     expect(body.projectUnitId).not.toBe(PROJECT_ID)
   })
 
