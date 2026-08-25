@@ -9,6 +9,7 @@ import {
   getIsometricElementLabelLines,
   getIsometricLineLabelAnchor,
   getIsometricLineLabelLines,
+  getIsometricRiseLabel,
   hasIsometricElementLabel,
   isConsumptionLine,
 } from '../../isometric/core/isometricLabels'
@@ -79,6 +80,20 @@ export function buildIsometricLabelSvg(
   for (const geometry of scene.lines) {
     const line = lineById.get(geometry.lineId)
     if (!line) continue
+
+    // Yükseklik etiketi TÜKETİM süzgecinin DIŞINDA (ekranla aynı kural):
+    // kolon gövde borusunun bir parçası ve `isConsumptionLine` onu eler —
+    // süzgece bağlansaydı binanın asıl yükselişleri yazısız kalırdı.
+    const rise = getIsometricRiseLabel(line, geometry, context)
+    if (rise) {
+      entries.push({
+        key: rise.key,
+        anchor: rise.anchor,
+        textLines: [rise.text],
+        storedOffsetCm: undefined,
+      })
+    }
+
     if (!isConsumptionLine(line, input.installationElements, input.installationConnections)) {
       continue
     }

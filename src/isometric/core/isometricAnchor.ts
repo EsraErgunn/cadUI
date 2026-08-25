@@ -1,3 +1,4 @@
+import { getPointIsometricOffsetCm } from './isometricOffset'
 import type { PlanPoint } from '../../core/coords'
 import { getOnLineAnchorOffset } from '../../plumbing/core/attachGeometry'
 import type {
@@ -5,6 +6,7 @@ import type {
   InstallationElement,
   InstallationLine,
 } from '../../plumbing/core/installationModel'
+import { getLineEndPointId } from '../../plumbing/core/lineCornerLink'
 import { getPortWorldPosition, svgLocalToPlanOffset } from '../../plumbing/core/ports'
 import type { SymbolMetadata } from '../../plumbing/core/symbolMetadata'
 
@@ -18,6 +20,13 @@ export type IsometricElementAnchor = {
    * içinde bu kadar geri kaydırılır ki çapası tam boru ucuna otursun.
    */
   localOffsetCm: PlanPoint
+  /**
+   * Tutunduğu boru NOKTASININ izometrik kayması (K169). Eleman kendi kaymasını
+   * TAŞIMAZ: bir dal çekildiğinde sembolün de gelmesi gerekiyor ve kaymayı
+   * ayrıca saklamak iki kaynak (boru ucu ile sembol) doğurup ayrışmalarına yol
+   * açardı — türetmek her zaman tutarlı.
+   */
+  isometricOffsetCm: PlanPoint
 }
 
 const NO_OFFSET: PlanPoint = { x: 0, y: 0 }
@@ -50,6 +59,7 @@ export function getElementIsometricAnchor(
       return {
         position: node.position,
         localOffsetCm: scaleOffset(getOnLineAnchorOffset(metadata), element.scale),
+        isometricOffsetCm: getPointIsometricOffsetCm(node),
       }
     }
   }
@@ -59,10 +69,30 @@ export function getElementIsometricAnchor(
   )
   const portId = connection?.target.kind === 'port' ? connection.target.portId : undefined
   const port = metadata.ports.find((candidate) => candidate.id === portId)
-  if (!port) return { position: element.position, localOffsetCm: NO_OFFSET }
+  if (!port) {
+    return { position: element.position, localOffsetCm: NO_OFFSET, isometricOffsetCm: NO_OFFSET }
+  }
 
   return {
     position: getPortWorldPosition(element, port, metadata),
     localOffsetCm: svgLocalToPlanOffset(port.position, metadata.origin, element.scale),
+    isometricOffsetCm: getConnectedPointOffsetCm(connection, lines),
   }
+}
+
+/** Elemanın portuna oturan boru ucunun kayması — sembol o uçla birlikte gider. */
+function getConnectedPointOffsetCm(
+  connection: InstallationConnection | undefined,
+  lines: readonly InstallationLine[],
+): PlanPoint {
+  if (!connection) return NO_OFFSET
+
+  const pointId = getLineEndPointId(lines, connection.lineId, connection.end)
+  if (pointId === undefined) return NO_OFFSET
+
+  for (const line of lines) {
+    const point = line.points.find((candidate) => candidate.id === pointId)
+    if (point) return getPointIsometricOffsetCm(point)
+  }
+  return NO_OFFSET
 }

@@ -6,6 +6,7 @@ import type { IsometricElevationContext } from './isometricElevation'
 import type { IsometricLineGeometry } from './isometricModel'
 import type { ThreePosition } from '../../core/coords'
 import { formatLengthMeters } from '../../core/lengthFormat'
+import type { Id } from '../../core/model'
 import { INSTALLATION_ELEMENT_TYPE_LABELS } from '../../plumbing/core/elementLabels'
 import {
   APPLIANCE_TYPE_LABELS,
@@ -46,13 +47,17 @@ function formatFlow(flowCubicMeterPerHour: number | undefined): string | undefin
  * `order` hattın çizimdeki sırası; kimlik değil okuma kolaylığı için — id'ler
  * proje bazlı artan tamsayı olduğu için kullanıcıya anlamsız büyük sayılar
  * gösterirdi.
+ *
+ * `order === null` → numara YAZILMAZ. Numaralandırma paftadaki tüketim
+ * hatlarına ait bir sıra; ekranda tıklanarak geçici olarak okunan bir ara
+ * boruya numara vermek o sırayı bozardı (bkz. IsometricLabels).
  */
 export function getIsometricLineLabelLines(
   line: InstallationLine,
-  order: number,
+  order: number | null,
   context: IsometricElevationContext,
 ): string[] {
-  const labelLines: string[] = [`(${order})`]
+  const labelLines: string[] = order === null ? [] : [`(${order})`]
 
   const lengthCm = getIsometricLine3dLengthCm(line, context)
   if (lengthCm > 0) labelLines.push(formatLengthMeters(lengthCm))
@@ -203,6 +208,68 @@ export function getIsometricLineLabelAnchor(
   const from = positions[segmentIndex]
   const to = positions[segmentIndex + 1]
   return [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2]
+}
+
+/**
+ * Yükseklik etiketinin ÖNEKİ. Referans gaz paftasında düşey parçalar `h=`
+ * ile yazılıyor; birimi metre olduğu için sayı `formatLengthMeters`ten gelir.
+ */
+const RISE_LABEL_PREFIX = 'h='
+
+/**
+ * Yuvarlanınca "0,00 m" yazacak fark etiket ÜRETMEZ: kot serbest sayı, kalan
+ * milimetrik artık bilgi değil gürültü olurdu.
+ */
+const MIN_RISE_CM = 0.5
+
+export type IsometricRiseLabel = {
+  key: string
+  lineId: Id
+  /** Düşey parçanın ortası — hat etiketiyle AYNI çapa. */
+  anchor: ThreePosition
+  text: string
+}
+
+/**
+ * Kot DEĞİŞTİREN hattın yükseklik etiketi: `h=2,00 m` (kullanıcı isteği,
+ * 2026-08 — "izometride yükseklik olan yerlere h yüksekliğini belirt").
+ *
+ * Koşul plan görünümündekiyle AYNI (K129): hattın İLK ve SON kotu farklıysa
+ * yazılır. Segment segment yazılmaz, çünkü kot hat boyunca PLAN uzunluğuna
+ * göre dağıtılıyor (`getLinePointElevationsCm`) — eğimli bir hattın her
+ * parçası farkın bir kesrini taşır ve her birine ayrı sayı yazmak tek bir
+ * yükselişi rakam bulutuna çevirirdi.
+ *
+ * İŞARET YOK: h bir mesafe, kot değil (`formatSignedMeters` bu yüzden
+ * kullanılmıyor). Yukarı mı aşağı mı gidildiği izometrik çizimin kendisinden
+ * okunuyor — plan görünümünde okunmadığı için orada ▲/▼ var (K133).
+ *
+ * Katlar arası bağlantı (`FloorPipeLink`) etiketlenmez: o döşemeyi delen
+ * teknik bir ek, kullanıcının verdiği bir yükseklik değil — verdiği kot zaten
+ * iki yandaki hatta yazılı.
+ */
+export function getIsometricRiseLabel(
+  line: InstallationLine,
+  geometry: IsometricLineGeometry,
+  context: IsometricElevationContext,
+): IsometricRiseLabel | null {
+  const elevationsCm = getIsometricLineElevationsCm(line, context)
+  const firstCm = elevationsCm[0]
+  const lastCm = elevationsCm.at(-1)
+  if (firstCm === undefined || lastCm === undefined) return null
+
+  const riseCm = Math.abs(lastCm - firstCm)
+  if (riseCm < MIN_RISE_CM) return null
+
+  const anchor = getIsometricLineLabelAnchor(geometry.positions)
+  if (!anchor) return null
+
+  return {
+    key: `rise-${line.id}`,
+    lineId: line.id,
+    anchor,
+    text: `${RISE_LABEL_PREFIX}${formatLengthMeters(riseCm)}`,
+  }
 }
 
 /**

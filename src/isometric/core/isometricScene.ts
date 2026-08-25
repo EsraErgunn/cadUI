@@ -192,10 +192,10 @@ export function buildIsometricScene(
               input.installationConnections,
               input.installationElements,
             ),
-          // Elemanın KENDİ izometrik kaydırması bu turda yok (bkz.
-          // izometrik-adimlari.md, sonraki turlar); bağlı olduğu hattın
-          // kaymasını da devralmıyor — eleman plan konumunda kalır.
-          { x: 0, y: 0 },
+          // Kayma tutunduğu boru UCUNDAN devralınır (K169): dal çekildiğinde
+          // sembol de gelmezse boru ucunda sahipsiz bir işaret kalırdı.
+          // Elemanın KENDİ kayma alanı hâlâ YOK — tek kaynak boru noktası.
+          anchor.isometricOffsetCm,
           options.projection,
         ),
       }

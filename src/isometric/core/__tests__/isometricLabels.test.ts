@@ -53,6 +53,14 @@ describe('getIsometricLineLabelLines', () => {
     ])
   })
 
+  it('sıra numarası YOKSA künye boyla başlar (tıklanan ara boru)', () => {
+    expect(getIsometricLineLabelLines(makeLine(), null, EMPTY_CONTEXT)).toEqual([
+      '4,00 m',
+      'DN25',
+      'Ø33,7 mm',
+    ])
+  })
+
   it('boy GERÇEK 3B uzunluktur (kot farkı dahil)', () => {
     // 400 cm plan + 300 cm kot farkı → 500 cm (3-4-5 üçgeni).
     const line = makeLine({ pipe: { startHeightCm: 0, endHeightCm: 300, description: '' } })

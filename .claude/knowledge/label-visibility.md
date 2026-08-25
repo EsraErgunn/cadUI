@@ -104,3 +104,21 @@ adları") ve aynı biçimde — kullanıcı için ikisi tek bir "adlar" katmanı
   çizilmiyor, açıklama tek başına asılı kalırdı.
 - ⚠️ Açıklama alanı yalnız `pipe` türünde var (`lineProperties.ts`); bacanın
   ve havalandırmanın karşılığı yok.
+
+## Boru yazısı borunun renginde; izometride `h=` (K168)
+
+- Boru **açıklaması** artık hattın renginde (`LineDescriptionLabels` →
+  `getLineColor(line.pipeTypeName)`), nötr gri değil. Çap zaten renkten
+  okunuyor (K27); açıklama nötr yazılınca hangi boruya ait olduğu ancak
+  konumdan tahmin ediliyordu. Açıklama alanı yalnız `pipe` türünde olduğu için
+  renk doğrudan çaptan çözülüyor — kol/deşarj ayrımına gerek yok.
+- İzometrikte hat künyesi ve yükseklik etiketi de hattın renginde
+  (`getIsometricLineColor`); eleman künyeleri NÖTR kalır.
+- ⚠️ **ÖLÇÜ etiketleri nötr kaldı** (`LengthLabels`, `MEASUREMENT_INK`): ölçü
+  katmanı mimari duvar ölçüleriyle ORTAK okunuyor, çap rengine bağlanırsa aynı
+  tuvalde iki ayrı dil çıkardı.
+- İzometrikte kot değiştiren hatta **`h=2,75 m`** yazılır
+  (`getIsometricRiseLabel`). Koşul planla AYNI (K129): ilk kot ≠ son kot.
+  İşaret YOK — h bir mesafe; yön izometrik çizimin kendisinden okunuyor,
+  planda okunmadığı için orada ▲/▼ var (K133). Ayrıntı:
+  knowledge/isometric-view.md.

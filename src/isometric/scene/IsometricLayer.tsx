@@ -16,9 +16,14 @@ import type { Id } from '../../core/model'
 import { getSymbolMetadata } from '../../plumbing/scene/symbolLoader'
 import { useCameraZoom } from '../../scene/useCameraZoom'
 import { useCadStore } from '../../store/cadStore'
+import {
+  getIsometricDragAxes,
+  pickIsometricDragAxis,
+  projectDragOntoAxis,
+} from '../core/isometricDragAxis'
 import type { IsometricElevationContext } from '../core/isometricElevation'
 import { getConnectedElementIds } from '../core/isometricHighlight'
-import { applyIsometricDrag } from '../core/isometricOffset'
+import { applyIsometricNetworkDrag } from '../core/isometricNetworkDrag'
 import { getCameraProjection } from '../core/isometricProjection'
 import { buildIsometricScene } from '../core/isometricScene'
 import { useIsometricUiStore } from '../store/isometricUiStore'
@@ -61,12 +66,14 @@ export function IsometricLayer() {
    */
   const previewLines = useMemo(() => {
     if (!lineDrag) return installationLines
-    return installationLines.map((line) =>
-      line.id === lineDrag.lineId
-        ? { ...line, points: applyIsometricDrag(line.points, lineDrag.pointId, lineDrag.deltaCm) }
-        : line,
+    return applyIsometricNetworkDrag(
+      installationLines,
+      installationConnections,
+      lineDrag.pointId,
+      lineDrag.anchorPointId,
+      lineDrag.deltaCm,
     )
-  }, [installationLines, lineDrag])
+  }, [installationConnections, installationLines, lineDrag])
 
   // Sahne verisi TÜRETİLMİŞ: store'a konmaz, her çizimde yeniden üretilir.
   // Memo şart — kamera çerçevelemesi `bounds`'tan türeyen ilkellere bağlı ve
@@ -108,20 +115,6 @@ export function IsometricLayer() {
     [highlightedLineId, installationConnections],
   )
 
-  const handleDrag = useCallback(
-    (lineId: Id, pointId: Id) => (deltaCm: PlanPoint) =>
-      setLineDrag({ lineId, pointId, deltaCm }),
-    [setLineDrag],
-  )
-
-  const handleDragEnd = useCallback(
-    (lineId: Id, pointId: Id) => (deltaCm: PlanPoint) => {
-      setLineDrag(null)
-      applyIsometricLineDrag(lineId, pointId, deltaCm)
-    },
-    [applyIsometricLineDrag, setLineDrag],
-  )
-
   // Tutamaçlar YALNIZ vurgulanan hatta çıkar: her köşede sürekli bir top
   // dursaydı kalabalık çizim okunmaz olurdu. Keşif yolu "hatta tıkla →
   // tutamaçlar belirsin".
@@ -129,6 +122,52 @@ export function IsometricLayer() {
     highlightedLineId === null
       ? null
       : (scene.lines.find((geometry) => geometry.lineId === highlightedLineId) ?? null)
+
+  /**
+   * Sürükleme borunun KENDİ eksenine kilitlenir (K169): serbest sürüklemede
+   * yatay bir boru eğik bir yere bırakılabiliyordu ve şema teknik çizim
+   * olmaktan çıkıyordu. Seçilen eksen aynı zamanda hangi ucun SABİT kalacağını
+   * söyler — çekilen parça uzar, karşı taraftaki ağ yerinde durur.
+   *
+   * Eksenler tutamacın ÇİZİLEN konumundan okunur, yani kayma uygulanmış
+   * hâlden: art arda çekişlerde yön kaymaz.
+   */
+  const resolveDrag = useCallback(
+    (pointIndex: number, deltaCm: PlanPoint) => {
+      if (!handledGeometry) return { deltaCm, anchorPointId: undefined }
+
+      const axes = getIsometricDragAxes(
+        handledGeometry.positions,
+        pointIndex,
+        getCameraProjection(angles).project,
+      )
+      const axis = pickIsometricDragAxis(deltaCm, axes)
+      if (!axis) return { deltaCm, anchorPointId: undefined }
+
+      return {
+        deltaCm: projectDragOntoAxis(deltaCm, axis),
+        anchorPointId: handledGeometry.pointIds[axis.neighborIndex],
+      }
+    },
+    [angles, handledGeometry],
+  )
+
+  const handleDrag = useCallback(
+    (lineId: Id, pointId: Id, pointIndex: number) => (rawDeltaCm: PlanPoint) => {
+      const { deltaCm, anchorPointId } = resolveDrag(pointIndex, rawDeltaCm)
+      setLineDrag({ lineId, pointId, anchorPointId, deltaCm })
+    },
+    [resolveDrag, setLineDrag],
+  )
+
+  const handleDragEnd = useCallback(
+    (pointId: Id, pointIndex: number) => (rawDeltaCm: PlanPoint) => {
+      const { deltaCm, anchorPointId } = resolveDrag(pointIndex, rawDeltaCm)
+      setLineDrag(null)
+      applyIsometricLineDrag(pointId, anchorPointId, deltaCm)
+    },
+    [applyIsometricLineDrag, resolveDrag, setLineDrag],
+  )
 
   const opacityOf = (lineId: Id) =>
     highlightedLineId === null || highlightedLineId === lineId ? 1 : ISOMETRIC_DIMMED_OPACITY
@@ -187,8 +226,8 @@ export function IsometricLayer() {
               key={`handle-${handledGeometry.pointIds[index]}`}
               position={position}
               zoom={zoom}
-              onDrag={handleDrag(handledGeometry.lineId, handledGeometry.pointIds[index])}
-              onDragEnd={handleDragEnd(handledGeometry.lineId, handledGeometry.pointIds[index])}
+              onDrag={handleDrag(handledGeometry.lineId, handledGeometry.pointIds[index], index)}
+              onDragEnd={handleDragEnd(handledGeometry.pointIds[index], index)}
             />
           ))}
       </group>

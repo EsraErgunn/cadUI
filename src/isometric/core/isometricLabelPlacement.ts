@@ -23,6 +23,27 @@ const RELAX_PASSES = 24
  */
 const ANCHOR_PULL = 0.08
 
+/**
+ * Bir etiketin kendi payından EN ÇOK ne kadar uzağa itilebileceği (yazı boyu
+ * cinsinden). Sınırsız bırakılınca yoğun bir öbekteki etiketler birbirini
+ * ite ite çizimden kopuyor, kılavuz çizgileri uzayıp gövdenin üstünden
+ * geçiyordu (kullanıcı isteği, 2026-08: "etiketler dağılsın ama çok da
+ * değil").
+ *
+ * ⚠️ Kısıt AYIRMAYI EZMEZ: geri çekmeyle aynı yerde, turun başında uygulanır.
+ * Çok sıkışık bir öbekte etiket bu payı aşabilir — çakışmamak, paya sığmaktan
+ * önce gelir.
+ */
+const MAX_PUSH_RATIO = 4
+
+/**
+ * Kısıtın uygulandığı tur sayısı — turların YARISI. Son turlar serbest
+ * bırakılmazsa sıkışık bir öbek hiç oturmuyor: her tur ayrılan kutular geri
+ * çekiliyor ve döngü çakışmalı bir durumda bitiyordu. Erken turlarda sınır
+ * dağılmayı toplu tutuyor, son turlar çakışmayı bitiriyor.
+ */
+const CLAMP_PASSES = RELAX_PASSES / 2
+
 export type LabelBox = {
   key: string
   /** Etiketin bağlı olduğu nesnenin çizim koordinatı (cm, y YUKARI). */
@@ -36,6 +57,8 @@ type Placed = {
   /** Yazının merkezi (çapa değil). */
   center: PlanPoint
   preferred: PlanPoint
+  /** Çapaya olan İSTENEN uzaklık; itilme payı bunun üstüne binir. */
+  clearanceCm: number
 }
 
 function isOverlapping(a: Placed, b: Placed, paddingCm: number): boolean {
@@ -76,6 +99,9 @@ function getOutwardDirection(anchor: PlanPoint, center: PlanPoint): PlanPoint {
  *
  * Dönen değer çapaya göre KAYMA (cm) — `isometricLabelOffsetCm` ile aynı uzay,
  * böylece kullanıcının elle taşıdığı değer aynı yere yazılabiliyor.
+ *
+ * ⚠️ Ayırma SINIRLI (`MAX_PUSH_RATIO`): etiket kendi payından en çok birkaç
+ * satır boyu uzaklaşır. Sınırsız itmede yoğun öbekler çizimden kopuyordu.
  */
 export function layoutLabelsBesideAnchors(
   boxes: readonly LabelBox[],
@@ -84,6 +110,7 @@ export function layoutLabelsBesideAnchors(
 ): Map<string, PlanPoint> {
   const gapCm = labelSizeCm * ANCHOR_GAP_RATIO
   const paddingCm = labelSizeCm * BOX_PADDING_RATIO
+  const maxPushCm = labelSizeCm * MAX_PUSH_RATIO
 
   const placed: Placed[] = boxes.map((box) => {
     const direction = getOutwardDirection(box.anchor, sceneCenter)
@@ -98,7 +125,7 @@ export function layoutLabelsBesideAnchors(
       x: box.anchor.x + direction.x * clearanceCm,
       y: box.anchor.y + direction.y * clearanceCm,
     }
-    return { box, center, preferred: { ...center } }
+    return { box, center, preferred: { ...center }, clearanceCm }
   })
 
   for (let pass = 0; pass < RELAX_PASSES; pass += 1) {
@@ -110,6 +137,23 @@ export function layoutLabelsBesideAnchors(
       for (const item of placed) {
         item.center.x += (item.preferred.x - item.center.x) * ANCHOR_PULL
         item.center.y += (item.preferred.y - item.center.y) * ANCHOR_PULL
+
+        // İtilme payı SINIRLI (`MAX_PUSH_RATIO`): etiket çizimden kopmasın.
+        // Geri çekmeyle AYNI yerde, yani ayırmadan ÖNCE — turun son işlemi
+        // kısıtlama olsaydı ayrılan kutuları geri bindirirdi (yukarıdaki
+        // uyarının aynısı; sınırlama ilk yazılışında bu hataya düşmüştü ve
+        // etiketler üst üste kalıyordu).
+        if (pass >= CLAMP_PASSES) continue
+
+        const dx = item.center.x - item.box.anchor.x
+        const dy = item.center.y - item.box.anchor.y
+        const distanceCm = Math.hypot(dx, dy)
+        const maxDistanceCm = item.clearanceCm + maxPushCm
+        if (distanceCm <= maxDistanceCm || distanceCm < Number.EPSILON) continue
+
+        const scale = maxDistanceCm / distanceCm
+        item.center.x = item.box.anchor.x + dx * scale
+        item.center.y = item.box.anchor.y + dy * scale
       }
     }
 

@@ -11,6 +11,8 @@ import type { Id } from '../../core/model'
 export type IsometricLineDrag = {
   lineId: Id
   pointId: Id
+  /** Eksenin karşı ucu — o köşe ve arkasındaki ağ SABİT kalır (K169). */
+  anchorPointId: Id | undefined
   deltaCm: PlanPoint
 }
 

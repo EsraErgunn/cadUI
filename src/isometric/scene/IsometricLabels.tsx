@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 
 import {
   GLYPH_WIDTH_RATIO,
@@ -7,7 +7,8 @@ import {
   LABEL_SIZE_PX,
 } from './IsometricLabel'
 import { ISOMETRIC_DIMMED_OPACITY } from './isometricTheme'
-import type { PlanPoint, ThreePosition } from '../../core/coords'
+import { useIsometricLabelEntries } from './useIsometricLabelEntries'
+import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import type {
   InstallationConnection,
@@ -15,19 +16,19 @@ import type {
   InstallationLine,
 } from '../../plumbing/core/installationModel'
 import { useCameraZoom } from '../../scene/useCameraZoom'
-import { useCadStore } from '../../store/cadStore'
 import type { IsometricElevationContext } from '../core/isometricElevation'
 import { getConnectedElementIds } from '../core/isometricHighlight'
+import {
+  layoutIsometricLabels,
+  LINE_LABEL_DISTANCE_FACTOR,
+} from '../core/isometricLabelLayout'
 import { layoutLabelsBesideAnchors } from '../core/isometricLabelPlacement'
 import type { LabelBox } from '../core/isometricLabelPlacement'
-import {
-  getIsometricElementLabelLines,
-  getIsometricLineLabelAnchor,
-  getIsometricLineLabelLines,
-  isConsumptionLine,
-} from '../core/isometricLabels'
-import type { IsometricLineGeometry, IsometricSceneData } from '../core/isometricModel'
+import type { IsometricSceneData } from '../core/isometricModel'
 import { getCameraProjection, type IsometricAngles } from '../core/isometricProjection'
+
+/** Halkadaki etiketler arası açının en az kaç satır boyu olacağı; nefes payı. */
+const LABEL_SEPARATION_EXTRA_LINES = 1
 
 const ZERO_OFFSET_CM: PlanPoint = { x: 0, y: 0 }
 
@@ -62,36 +63,14 @@ export function IsometricLabels({
   isDraggable,
 }: IsometricLabelsProps) {
   const zoom = useCameraZoom()
-  const setLineIsometricLabelOffset = useCadStore((state) => state.setLineIsometricLabelOffset)
-  const setElementIsometricLabelOffset = useCadStore(
-    (state) => state.setElementIsometricLabelOffset,
-  )
-
-  const commitLineOffset = useCallback(
-    (lineId: Id) => (offsetCm: PlanPoint) => setLineIsometricLabelOffset(lineId, offsetCm),
-    [setLineIsometricLabelOffset],
-  )
-  const commitElementOffset = useCallback(
-    (elementId: Id) => (offsetCm: PlanPoint) =>
-      setElementIsometricLabelOffset(elementId, offsetCm),
-    [setElementIsometricLabelOffset],
-  )
-
-  /**
-   * Etiket YALNIZ tüketim noktasına varan hatlarda (kullanıcı kararı). Bir
-   * binada gövde borusu onlarca parçaya bölünüyor; hepsine boy/çap yazılınca
-   * çizim rakam bulutuna dönüyordu. Sıra numarası da süzülmüş liste üzerinden
-   * verilir — atlamalı numaralar ("1, 4, 9") kullanıcıya anlamsız gelirdi.
-   */
-  const labelledLines = useMemo(() => {
-    const matched: { geometry: IsometricLineGeometry; line: InstallationLine; order: number }[] = []
-    for (const geometry of scene.lines) {
-      const line = lines.find((candidate) => candidate.id === geometry.lineId)
-      if (!line || !isConsumptionLine(line, elements, connections)) continue
-      matched.push({ geometry, line, order: matched.length + 1 })
-    }
-    return matched
-  }, [connections, elements, lines, scene.lines])
+  const entries = useIsometricLabelEntries({
+    scene,
+    lines,
+    elements,
+    connections,
+    context,
+    highlightedLineId,
+  })
 
   /**
    * Vurgu varken SOLMAYACAK elemanlar: vurgulanan hattın uçlarındakiler.
@@ -105,79 +84,66 @@ export function IsometricLabels({
   )
 
   /**
-   * Her etiketin metni ve çapası; yerleşim hepsini BİRLİKTE görmek zorunda,
-   * yoksa hat ile eleman etiketleri birbirini bilmeden aynı yere oturur.
-   */
-  const entries = useMemo(() => {
-    const built: {
-      key: string
-      anchor: ThreePosition
-      textLines: string[]
-      /** Hangi nesnenin etiketi — soluklaştırma kuralı buradan okunur. */
-      lineId: Id | null
-      elementId: Id | null
-      commit: (offsetCm: PlanPoint) => void
-      storedOffsetCm: PlanPoint | undefined
-    }[] = []
-
-    for (const { geometry, line, order } of labelledLines) {
-      const anchor = getIsometricLineLabelAnchor(geometry.positions)
-      if (!anchor) continue
-      built.push({
-        key: `line-${geometry.lineId}`,
-        anchor,
-        textLines: getIsometricLineLabelLines(line, order, context),
-        lineId: geometry.lineId,
-        elementId: null,
-        commit: commitLineOffset(geometry.lineId),
-        storedOffsetCm: line.isometricLabelOffsetCm,
-      })
-    }
-
-    for (const placement of scene.elements) {
-      const element = elements.find((candidate) => candidate.id === placement.elementId)
-      if (!element) continue
-      built.push({
-        key: `element-${placement.elementId}`,
-        anchor: placement.position,
-        textLines: getIsometricElementLabelLines(element),
-        lineId: null,
-        elementId: element.id,
-        commit: commitElementOffset(placement.elementId),
-        storedOffsetCm: element.isometricLabelOffsetCm,
-      })
-    }
-
-    return built
-  }, [commitElementOffset, commitLineOffset, context, elements, labelledLines, scene.elements])
-
-  /**
-   * Yerleşim KÂĞITLA ORTAK (K167): etiket kendi nesnesinin yanında durur,
-   * çakışanlar itilerek ayrılır. Önce halka yerleşimi vardı — etiket sayısı
-   * arttıkça çember büyüyüp çizim ortada küçülüyordu.
+   * Künyeler çizimin çevresinde bir HALKAYA dizilir (K170, kullanıcı isteği:
+   * "güzel dağıt onları önceki gibi, sadece daha yakın olsunlar"). Halka
+   * K167'de kaldırılıp kâğıdın "nesnenin yanında" yerleşimine geçilmişti;
+   * ekranda etiketler o düzende karışık okunuyordu. Geri gelen halkanın
+   * yarıçapı ESKİSİNDEN çok daha küçük — eski kusur mesafedeydi, düzende değil.
    *
-   * Kutu ölçüsü ZOOM'a bağlı: yazı ekran-sabit boyda çiziliyor, yani dünya
-   * cinsinden boyu px/zoom. Sabit bir cm alınsaydı yakınlaşınca etiketler
-   * gereksiz yere ayrılırdı.
+   * ⚠️ KÂĞIT hâlâ `layoutLabelsBesideAnchors` kullanıyor (K156): orada halka
+   * on kılavuz çizgisini çizimin üstünden geçiriyordu ve karar ölçülmüştü.
+   *
+   * Yükseklik etiketleri halkaya GİRMEZ (`distanceFactor === null`): onlar
+   * künye değil ÖLÇÜ, ölçtükleri parçanın yanında kalmak zorundalar.
    */
   const placements = useMemo(() => {
     if (!scene.bounds || entries.length === 0) return new Map<string, PlanPoint>()
 
     const labelSizeCm = LABEL_SIZE_PX / zoom
     const projection = getCameraProjection(angles)
-    const boxes: LabelBox[] = entries.map((entry) => ({
-      key: entry.key,
-      anchor: projection.project(entry.anchor),
-      widthCm:
-        Math.max(...entry.textLines.map((text) => text.length)) * labelSizeCm * GLYPH_WIDTH_RATIO,
-      heightCm: entry.textLines.length * labelSizeCm * LABEL_LINE_HEIGHT,
-    }))
 
-    return layoutLabelsBesideAnchors(
-      boxes,
+    // Ayırma payı EKRAN boyundan: yazı ekran-sabit çizildiği için iki etiketin
+    // çakışmama mesafesi de piksel cinsinden, dünya cm'ine zoom ile çevriliyor.
+    const maxLines = entries.reduce(
+      (longest, entry) => Math.max(longest, entry.textLines.length),
+      1,
+    )
+    const minSeparationCm =
+      ((maxLines + LABEL_SEPARATION_EXTRA_LINES) * LABEL_SIZE_PX * LABEL_LINE_HEIGHT) / zoom
+
+    const placed = layoutIsometricLabels(
+      entries
+        .filter((entry) => entry.distanceFactor !== null)
+        .map((entry) => ({
+          key: entry.key,
+          anchor: entry.anchor,
+          distanceFactor: entry.distanceFactor ?? LINE_LABEL_DISTANCE_FACTOR,
+        })),
+      scene.bounds.center,
+      projection,
+      scene.bounds.sizeCm,
+      minSeparationCm,
+    )
+
+    // Halka dışında kalanlar (yükseklik) kendi çapalarının yanına yerleşir;
+    // birbirleriyle çakışmasınlar diye yine itmeli yerleşimden geçerler.
+    const besideBoxes: LabelBox[] = entries
+      .filter((entry) => entry.distanceFactor === null)
+      .map((entry) => ({
+        key: entry.key,
+        anchor: projection.project(entry.anchor),
+        widthCm:
+          Math.max(...entry.textLines.map((text) => text.length)) * labelSizeCm * GLYPH_WIDTH_RATIO,
+        heightCm: entry.textLines.length * labelSizeCm * LABEL_LINE_HEIGHT,
+      }))
+    const beside = layoutLabelsBesideAnchors(
+      besideBoxes,
       projection.project(scene.bounds.center),
       labelSizeCm,
     )
+    for (const [key, offsetCm] of beside) placed.set(key, offsetCm)
+
+    return placed
   }, [angles, entries, scene.bounds, zoom])
 
   /**
@@ -203,6 +169,7 @@ export function IsometricLabels({
           offsetCm={entry.storedOffsetCm ?? placements.get(entry.key) ?? ZERO_OFFSET_CM}
           angles={angles}
           zoom={zoom}
+          color={entry.color}
           opacity={isDimmed(entry) ? ISOMETRIC_DIMMED_OPACITY : 1}
           isDraggable={isDraggable}
           onCommitOffsetCm={entry.commit}

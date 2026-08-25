@@ -70,7 +70,7 @@ describe('IsometricHud — varsayılana döndür', () => {
     useCadStore.getState().setElementIsometricLabelOffset(elementId, { x: 99, y: 99 })
 
     render(<IsometricHud />)
-    await user.click(screen.getByRole('button', { name: /Varsayılana döndür/ }))
+    await user.click(screen.getByRole('button', { name: /Sıfırla/ }))
 
     const element = useCadStore
       .getState()
@@ -86,7 +86,7 @@ describe('IsometricHud — varsayılana döndür', () => {
     useIsometricUiStore.setState({ isCameraLocked: false })
 
     render(<IsometricHud />)
-    await user.click(screen.getByRole('button', { name: /Varsayılana döndür/ }))
+    await user.click(screen.getByRole('button', { name: /Sıfırla/ }))
 
     expect(useCadStore.getState().isometricAngles).toEqual(ISOMETRIC_ANGLES_DEFAULT)
     expect(useIsometricUiStore.getState().isCameraLocked).toBe(true)

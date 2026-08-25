@@ -47,10 +47,13 @@ type IsometricLabelProps = {
   offsetCm: PlanPoint
   angles: IsometricAngles
   zoom: number
+  /** Yazı rengi; boruya ait etiketlerde HATTIN rengi (K27), künyelerde nötr. */
+  color: string
   opacity: number
   /** Serbest yörünge kipinde KAPALI: aynı jest kamerayı döndürüyor. */
   isDraggable: boolean
-  onCommitOffsetCm: (offsetCm: PlanPoint) => void
+  /** Yoksa etiket taşınamaz — yükseklik etiketinin saklanacak bir alanı yok. */
+  onCommitOffsetCm?: (offsetCm: PlanPoint) => void
 }
 
 /**
@@ -71,6 +74,7 @@ export function IsometricLabel({
   offsetCm,
   angles,
   zoom,
+  color,
   opacity,
   isDraggable,
   onCommitOffsetCm,
@@ -99,7 +103,7 @@ export function IsometricLabel({
       const committed = toOffsetCm(event)
       setDrag(null)
       setPreviewOffsetCm(null)
-      onCommitOffsetCm(committed)
+      onCommitOffsetCm?.(committed)
     }
 
     window.addEventListener('pointermove', handleMove)
@@ -126,6 +130,10 @@ export function IsometricLabel({
   }, [lines])
 
   if (lines.length === 0) return null
+
+  // Yazılacak yeri OLMAYAN etiket tutulamaz: sürükleme bırakıldığında hiçbir
+  // yere yazılmayan bir önizleme geri sıçrardı.
+  const isDragEnabled = isDraggable && onCommitOffsetCm !== undefined
 
   /**
    * Kılavuz çizgisi İSTİSNA (K167, kâğıtla aynı kural): etiket kendi nesnesinin
@@ -156,7 +164,7 @@ export function IsometricLabel({
         {/* Ölçek ile ekran-sabit boy: `fontSize` her değiştiğinde troika metni
             yeniden dizer, ölçek yalnız matrisi günceller (LengthLabels deseni). */}
         <group scale={1 / zoom}>
-          {isDraggable && (
+          {isDragEnabled && (
             <mesh
               onPointerDown={(event) => {
                 // Durdurulmazsa altındaki boru da tıklanmış sayılır ve etiketi
@@ -177,7 +185,7 @@ export function IsometricLabel({
             font={FONT_URL}
             fontSize={LABEL_SIZE_PX}
             lineHeight={LABEL_LINE_HEIGHT}
-            color={ISOMETRIC_COLORS.label}
+            color={color}
             anchorX="center"
             anchorY="middle"
             textAlign="center"

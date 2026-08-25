@@ -3,8 +3,8 @@ import { Fragment, type RefObject } from 'react'
 
 import { DragOffsetGroup } from './InstallationLineMesh'
 import { FONT_URL } from './LengthLabels'
+import { getLineColor } from './lineStyle'
 import { ELEMENT_LABEL_ELEVATION_CM } from './plumbingLayers'
-import { PLUMBING_COLORS } from './plumbingTheme'
 import { useCameraZoom } from './useCameraZoom'
 import { useDraggedCorners, type DraggedCorner } from './useDraggedCorners'
 import { useLinePointPositions } from './useLinePointPositions'
@@ -37,6 +37,12 @@ type LineDescriptionLabelProps = {
   draggedCorner: DraggedCorner | undefined
 }
 
+/**
+ * Yazı HATTIN renginde (kullanıcı isteği, 2026-08). Çap zaten renkten okunuyor
+ * (K27); açıklama nötr griyle yazılınca hangi boruya ait olduğu ancak konumdan
+ * tahmin ediliyordu. Açıklama alanı yalnız `pipe` türünde var, o yüzden renk
+ * doğrudan çaptan çözülüyor — kol/deşarj ayrımına gerek yok.
+ */
 function LineDescriptionLabel({ line, label, zoom, draggedCorner }: LineDescriptionLabelProps) {
   const positions = useLinePointPositions(line, draggedCorner)
   const anchor = getLineLabelAnchorCm(
@@ -55,7 +61,7 @@ function LineDescriptionLabel({ line, label, zoom, draggedCorner }: LineDescript
       <Text
         font={FONT_URL}
         fontSize={ELEMENT_LABEL_SIZE_PX}
-        color={PLUMBING_COLORS.elementLabelInk}
+        color={getLineColor(line.pipeTypeName)}
         anchorX="center"
         anchorY="middle"
         textAlign="center"

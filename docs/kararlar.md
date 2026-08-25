@@ -8409,3 +8409,176 @@ ayrışırdı.
 ⚠️ Tıklanabilir olan hâlâ yalnız HAT (`highlightedLineId`): elemana tıklayınca
 vurgu açılmıyor. Vurgu modeli tek kimlik taşıyor, elemanı da hedef yapmak
 ayrık birleşime geçmeyi gerektirir — istenirse ayrı adım.
+
+### K168 — İzometride yükseklik etiketi (`h=`), tıklanan boru künyesini açar, yazı borunun renginde
+
+Kullanıcı, sırayla: "izometride yükseklik olan yerlere h yüksekliğini belirt",
+"borunun bir tüketimi olmasa da üzerine tıklanınca bilgileri gelsin",
+"etiketler bizim formüle göre dağılsın ama çok da değil, kameramızı
+etkilemesin", "izometride veya tesisattaki boru açıklamaları o borunun rengine
+göre değişsin".
+
+**1. Yükseklik etiketi** (`getIsometricRiseLabel`, `isometric/core/isometricLabels.ts`):
+kot değiştiren hatta `h=2,75 m`. Çapası hat künyesiyle aynı — düşey hattın
+(plan boyu sıfır, K102) iki ucunun ortası, yani çubuğun tam ortası. EKRAN ve
+KÂĞIT ortak.
+
+⚠️ Koşul plan görünümündekiyle AYNI (K129): hattın İLK ve SON kotu farklıysa
+yazılır. Segment segment YAZILMAZ — kot hat boyunca PLAN uzunluğuna göre
+dağıtılıyor (`getLinePointElevationsCm`), yani eğimli bir hattın her parçası
+farkın bir kesrini taşır ve her birine ayrı sayı yazmak tek bir yükselişi
+rakam bulutuna çevirirdi.
+
+⚠️ İŞARET YOK: h bir mesafe, kot değil (`formatSignedMeters` kullanılmıyor).
+Yukarı mı aşağı mı gidildiği izometrik çizimin KENDİSİNDEN okunuyor; plan
+görünümünde okunmadığı için orada ▲/▼ var (K133).
+
+⚠️ Tüketim süzgecinin DIŞINDA (`isConsumptionLine`): kolon gövde borusunun bir
+parçası ve süzgeç onu eler — bağlansaydı binanın asıl yükselişleri yazısız
+kalırdı.
+
+⚠️ Katlar arası bağlantı (`FloorPipeLink`) etiketlenmez: döşemeyi delen teknik
+bir ek, kullanıcının verdiği bir yükseklik değil — verdiği kot zaten iki
+yandaki hatta yazılı.
+
+⚠️ Yuvarlanınca "0,00 m" yazacak fark (< 0,5 cm) etiket üretmez. Etiket
+TAŞINAMAZ: hattın tek `isometricLabelOffsetCm` alanı künyeye ait, yükseklik onu
+da birlikte kaydırırdı. `IsometricLabel.onCommitOffsetCm` bu yüzden opsiyonel
+oldu.
+
+**2. Tıklanan boru künyesini açar** (yalnız EKRAN): vurgulanan hat
+`isConsumptionLine` süzgecinin dışında da etiketlenir. Kalıcı yazılsaydı
+K156'nın kaldırdığı kalabalık geri gelirdi; vurgu geçici olduğu için çizim yine
+sade kalıyor.
+
+⚠️ Numara YAZILMAZ (`getIsometricLineLabelLines(line, null, …)`): numaralandırma
+paftadaki TÜKETİM hatlarına ait bir sıra, araya geçici bir boru sokmak o sırayı
+bozardı. Kâğıt değişmedi — orada süzgeç aynen duruyor (K156).
+
+**3. Dağılma SINIRLI** (`MAX_PUSH_RATIO = 4`, `isometricLabelPlacement.ts`):
+bir etiket kendi payından en çok birkaç satır boyu uzağa itilebilir. Sınırsız
+itmede yoğun öbekler çizimden kopuyor, kılavuz çizgileri gövdenin üstünden
+geçiyordu. Sınıra dayanan etiketler biraz binebilir — okunurlukta binmek,
+sahipsiz kalmaktan iyi. Kısıtlama ayırmadan SONRA uygulanır, yoksa aynı turda
+yeniden sınır dışına itilirdi.
+
+⚠️ Etiketler EKRAN KAMERASINI zaten hiç etkilemiyordu ve etkilememeye devam
+ediyor: `IsometricCamera` `scene.bounds`'a bakar, o da yalnız boru ve
+elemanlardan hesaplanır (`computeBounds`). Etiketlerin sınırı büyüttüğü tek yer
+KÂĞIT — orada sayfa payı bilerek yazıyı da kapsıyor.
+
+**4. Yazı borunun renginde** (K27'nin devamı): izometrikte hat künyesi ve
+yükseklik etiketi `getIsometricLineColor(geometry)` ile, tesisat görünümünde
+boru açıklaması `getLineColor(line.pipeTypeName)` ile boyanır.
+
+⚠️ Eleman künyesi NÖTR kalır (`ISOMETRIC_COLORS.label`): sembolün kendi çizimi
+var, künyeyi de boyamak çizimde ikinci bir renk kodu doğururdu.
+
+⚠️ ÖLÇÜ etiketleri (`LengthLabels`, `MEASUREMENT_INK`) da nötr kaldı: ölçü
+katmanı mimariyle ORTAK okunuyor, çap rengine bağlanırsa duvar ölçüsüyle boru
+ölçüsü iki ayrı dilde çıkardı.
+
+⚠️ Açıklama alanı yalnız `pipe` türünde var (`lineProperties.ts`), o yüzden
+tesisat tarafında renk doğrudan çaptan çözülüyor — kol/deşarj ayrımına gerek
+kalmadı.
+
+### K169 — İzometrik sürükleme EKSENE kilitli, bağlı ağı da çeker; düğme "Sıfırla"
+
+Kullanıcı: "izometride borular 2D olarak hareket etsin kafasına göre değil,
+hangi eksendeyse o tarafa çekebilelim; çekerken bağlı olduklarını da çekelim ki
+okumak için amacımız yerine gelsin", "varsayılana döndür yerine sıfırla
+yazabiliriz, bu da boruların uzattığımız kısımlarını geri yerine koyar",
+"etiketleri ayırma algoritmamız da hiç çalışmıyor galiba".
+
+**1. Eksen kilidi** (`isometric/core/isometricDragAxis.ts`): tutamaç serbest
+değil, komşu parçalardan ÇEKME YÖNÜNE en yakın olanın ekseninde gider; dike
+düşen bileşen atılır. Serbest sürüklemede kullanıcı yatay bir boruyu eğik bir
+yere bırakabiliyordu ve şema teknik çizim olmaktan çıkıyordu.
+
+⚠️ Yön 3B'den değil İZDÜŞÜMDEN okunur: sürükleme ekranda oluyor, kayma da
+izdüşüm düzleminde saklanıyor (`isometricOffsetCm`).
+
+⚠️ Seçilen eksen aynı zamanda **hangi ucun SABİT kalacağını** söyler
+(`IsometricDragAxis.neighborIndex`). Bu ikisi ayrılamaz: çekilen parça uzarken
+karşı taraf yerinde durmazsa ya hiçbir şey ayrılmaz ya da komşu parça eğrilir.
+
+**2. Yayılım artık TÜM AĞDA** (`isometric/core/isometricNetworkDrag.ts`,
+`resolveIsometricDragTargets`): eski kural tek `InstallationLine` içinde
+kalıyordu ve her sol tık kendi borusunu yazdığı için (K-W) pratikte İKİ noktayı
+kapsıyordu — sürükleme neredeyse hiçbir şeyi ayırmıyordu. Ağ kenarları: hattın
+ardışık noktaları + hat-hat bağlantısı (iki yönlü) + elemanın portuna oturan
+uçlar (eleman üzerinden) + düğüme oturan armatür. Yayılım `anchorPointId`de
+DURUR; oradan ötesi yerinde kalır.
+
+⚠️ Bağlı dal RİJİT gelir, aradaki borular ESNEMEZ — esneselerdi eksen kilidi
+anlamını yitirir, yatay parça eğik çizilirdi.
+
+⚠️ `moveTargets.ts`/`resizeTargets.ts` yeniden kullanılmadı: ikisi de PLAN
+geometrisini değiştiriyor ve orada duraklar var (port çapası, `FloorPipeLink`in
+sakladığı konum). İzometrik kayma plan konumuna hiç dokunmadığı için o
+durakların hiçbiri geçerli değil.
+
+⚠️ `applyIsometricDrag` (hat içi "sonrakiler mirası alır" kuralı) SİLİNDİ,
+yerine `applyIsometricOffsets(points, draggedPointId, movedPointIds, delta)` —
+hangi noktaların kayacağına artık ağ çözümü karar veriyor. Bu adla yeni kod
+yazma.
+
+⚠️ `applyIsometricLineDrag` imzası DEĞİŞTİ: `(pointId, anchorPointId, deltaCm)`.
+`lineId` gereksizdi (nokta kimliği zaten benzersiz) ve çapa olmadan yayılım
+ağın iki yanına birden koşuyordu.
+
+**3. Eleman sembolü kaymayı boru UCUNDAN devralır**
+(`IsometricElementAnchor.isometricOffsetCm`): eskiden eleman plan konumunda
+kalıyordu, yani çekilen bir dalın ucundaki kombi yerinde duruyor ve boru ondan
+kopuyordu. Eleman kendi kayma alanı TAŞIMAZ — türetmek iki kaynağın ayrışmasını
+baştan engelliyor.
+
+**4. Düğme "Sıfırla"** (eski "Varsayılana döndür"): kullanıcının dilinde bu
+düğme boruların UZATILMIŞ kısımlarını yerine koyuyor. Davranış aynı — kaymalar,
+etiket konumları, açı ve kamera kilidi birlikte sıfırlanır.
+
+**5. Etiket ayırma kısıtı DÜZELTİLDİ**: K168'in `MAX_PUSH_RATIO` kısıtı turun
+SONUNA konmuştu ve ayrılan kutuları geri bindiriyordu — dosyanın kendi
+yazılı dersinin (geri çekme ayırmadan ÖNCE) tam olarak ihlali, sonuç "ayırma
+hiç çalışmıyor" oldu. Kısıt artık geri çekmeyle aynı yerde ve yalnız turların
+İLK YARISINDA (`CLAMP_PASSES`): erken turlar dağılmayı toplu tutuyor, son
+turlar serbest kalıp çakışmayı bitiriyor. Sıkışık öbekte etiket payı aşabilir —
+çakışmamak paya sığmaktan önce gelir.
+
+### K170 — Ekranda künye HALKASI geri geldi (küçük yarıçapla); vana etiketi ekranda da sustu
+
+Kullanıcı: "etiketler hâlâ karışık gözüküyor, güzel dağıt onları önceki gibi
+sadece daha yakın olsunlar yani daha küçük olsun oluşturdukları yuvarlak",
+"vana etiketi de olmasın".
+
+**1. Halka geri geldi — ama YALNIZ EKRANDA.** `isometricLabelLayout.ts` ve
+`layoutIsometricLabels` yeniden var (K167'de silinmişlerdi). Künyeler çizimin
+çevresinde iki halkaya diziliyor: hat etiketleri içte
+(`LINE_LABEL_DISTANCE_FACTOR = 1`), eleman künyeleri dışta (`= 1.7`).
+
+⚠️ K167 kısmen GERİ ALINDI. O kararın teşhisi yanlıştı: kusur halkanın kendisi
+değil YARIÇAPIYDI. Eski değerler halkayı çizim boyunun yarısı kadar dışarı
+itiyordu (`LABEL_DISTANCE_RATIO = 0.50`, eleman çarpanı 2) ve kadraja sığmak
+için çizim ortada küçülüyordu. Yeni değerler: oran **0,12**, alt sınır **120
+cm**, çarpanlar 1 / 1,7 — tipik bir binada halka yarıçapı yaklaşık YARIYA
+iniyor. "Nesnenin yanında + itme" düzeni ekranda denendi ve kullanıcı iki kez
+"karışık" dedi; teknik çizimin balon düzeni burada daha okunaklı.
+
+⚠️ KÂĞIT DEĞİŞMEDİ: pafta `layoutLabelsBesideAnchors` ile basılmaya devam
+ediyor (K156, ölçülmüş karar — halka orada 10 kılavuz çizgisini çizimin
+üstünden geçiriyordu). Ekran ile kâğıt yine bilerek ayrı: ekranda etiket
+sürüklenebiliyor ve gezinmeye yarıyor, kâğıtta yalnız okunuyor.
+
+⚠️ YÜKSEKLİK etiketleri (K168) halkaya GİRMEZ (`distanceFactor === null`):
+onlar künye değil ÖLÇÜ ve ölçtükleri parçanın yanında kalmak zorundalar —
+halkaya alınsalardı bir kolonun `h=2,75 m`'si binanın kenarına düşerdi.
+Kendi aralarında yine itmeli yerleşimden geçiyorlar.
+
+**2. Künyesiz armatürler EKRANDA da sustu**: `hasIsometricElementLabel` artık
+ekranda da süzüyor, yani vana, solenoid vana, filtre, manometre, regülatör,
+süzme sayaç ve izolasyon etiket yazmıyor (kâğıt bunu K156'dan beri yapıyordu).
+
+⚠️ K156'nın "ekranda kalsın, çünkü etiket sürüklenebilir ve gezinmeye yarıyor"
+gerekçesi kullanıcı karşısında tutmadı. Kullanıcı yalnız VANAYI söyledi ama
+kural aynı: bu yedi tür etiket olarak yalnız KENDİ ADINI yazıyor, yani sembolün
+zaten söylediği şeyi. Sayaç, yakıcı cihaz ve servis kutusu künyeleri duruyor.

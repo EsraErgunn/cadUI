@@ -130,6 +130,21 @@ describe('kâğıt etiket yerleşimi: çakışma', () => {
     }
   })
 
+  it('itilme SINIRLI: kalabalık öbekte bile etiket çizimden kopmaz', () => {
+    // Sınırsız itmede on kutu birbirini metrelerce uzağa savuruyor, kılavuz
+    // çizgileri gövdenin üstünden geçiyordu (kullanıcı isteği: "çok da değil").
+    const boxes = Array.from({ length: 10 }, (_, index) => box(`k${index}`, 400, 400))
+    const offsets = layoutLabelsBesideAnchors(boxes, CENTER, LABEL_SIZE_CM)
+
+    // Pay: istenen uzaklık (boşluk + kutunun yarı boyu) + birkaç satır boyu.
+    // Kısıt AYIRMAYI ezmediği için son ayırma adımı payı bir miktar aşabilir;
+    // aranan şey "kopmaması", milimetrik bir tavan değil.
+    const maxDistanceCm = LABEL_SIZE_CM * 1.2 + 60 / 2 + 30 / 2 + LABEL_SIZE_CM * 4
+    for (const offset of offsets.values()) {
+      expect(Math.hypot(offset.x, offset.y)).toBeLessThan(maxDistanceCm * 1.5)
+    }
+  })
+
   it('boş liste boş yerleşim verir', () => {
     expect(layoutLabelsBesideAnchors([], CENTER, LABEL_SIZE_CM).size).toBe(0)
   })

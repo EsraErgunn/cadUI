@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { InstallationLinePoint } from '../../../plumbing/core/installationModel'
 import {
-  applyIsometricDrag,
+  applyIsometricOffsets,
   clearIsometricOffsets,
   getPointIsometricOffsetCm,
   hasDefaultIsometricPosition,
@@ -35,10 +35,15 @@ describe('getPointIsometricOffsetCm', () => {
   })
 })
 
-describe('applyIsometricDrag', () => {
+/** Ağ yayılımının verdiği küme (`isometricNetworkDrag.ts`); burada elle. */
+function movedIds(...ids: number[]): Set<number> {
+  return new Set(ids)
+}
+
+describe('applyIsometricOffsets', () => {
   it('sürüklenen noktadan SONRAKİLER mirası alır, ÖNCEKİLER dokunulmaz', () => {
     const points = makePoints(5)
-    const result = applyIsometricDrag(points, 3, { x: -4, y: -255 })
+    const result = applyIsometricOffsets(points, 3, movedIds(4, 5), { x: -4, y: -255 })
 
     // 1 ve 2: hiç alan yok.
     expect(result[0].isometricOffsetCm).toBeUndefined()
@@ -60,7 +65,10 @@ describe('applyIsometricDrag', () => {
     // Referans projede tek bir sürüklemenin izi: 24 nokta birebir aynı
     // `formerIsometricPositionRel` taşıyor.
     const points = makePoints(6)
-    const result = applyIsometricDrag(points, 2, { x: -4, y: -255.23318403094322 })
+    const result = applyIsometricOffsets(points, 2, movedIds(3, 4, 5, 6), {
+      x: -4,
+      y: -255.23318403094322,
+    })
 
     const downstream = result.slice(1).map((point) => getPointIsometricOffsetCm(point))
     for (const offset of downstream) {
@@ -71,8 +79,8 @@ describe('applyIsometricDrag', () => {
 
   it('üst üste sürüklemeler BİRİKİR', () => {
     const points = makePoints(3)
-    const once = applyIsometricDrag(points, 1, { x: 10, y: 20 })
-    const twice = applyIsometricDrag(once, 1, { x: 5, y: -8 })
+    const once = applyIsometricOffsets(points, 1, movedIds(2, 3), { x: 10, y: 20 })
+    const twice = applyIsometricOffsets(once, 1, movedIds(2, 3), { x: 5, y: -8 })
 
     expect(twice[0].isometricOffsetCm).toEqual({ x: 15, y: 12 })
     expect(twice[1].inheritedIsometricOffsetCm).toEqual({ x: 15, y: 12 })
@@ -82,8 +90,8 @@ describe('applyIsometricDrag', () => {
     // `{x:0,y:0}` olarak bırakılsaydı docs/sample-project.json bit-bit testi
     // "yoktan var edilmiş alan" olarak yakalardı.
     const points = makePoints(3)
-    const moved = applyIsometricDrag(points, 1, { x: 10, y: 20 })
-    const restored = applyIsometricDrag(moved, 1, { x: -10, y: -20 })
+    const moved = applyIsometricOffsets(points, 1, movedIds(2, 3), { x: 10, y: 20 })
+    const restored = applyIsometricOffsets(moved, 1, movedIds(2, 3), { x: -10, y: -20 })
 
     for (const point of restored) {
       expect('isometricOffsetCm' in point).toBe(false)
@@ -93,15 +101,15 @@ describe('applyIsometricDrag', () => {
 
   it('PLAN konumlarına asla dokunmaz', () => {
     const points = makePoints(4)
-    const result = applyIsometricDrag(points, 2, { x: 999, y: -999 })
+    const result = applyIsometricOffsets(points, 2, movedIds(3, 4), { x: 999, y: -999 })
 
     expect(result.map((point) => point.position)).toEqual(points.map((point) => point.position))
   })
 
   it('sıfır delta ve bilinmeyen nokta durumu değiştirmez', () => {
     const points = makePoints(3)
-    expect(applyIsometricDrag(points, 2, { x: 0, y: 0 })).toEqual(points)
-    expect(applyIsometricDrag(points, 99, { x: 5, y: 5 })).toEqual(points)
+    expect(applyIsometricOffsets(points, 2, movedIds(3), { x: 0, y: 0 })).toEqual(points)
+    expect(applyIsometricOffsets(points, 99, movedIds(), { x: 5, y: 5 })).toEqual(points)
   })
 })
 
@@ -144,7 +152,7 @@ describe('inheritIsometricOffset', () => {
 
 describe('clearIsometricOffsets', () => {
   it('iki alanı da temizler, plan konumlarını korur', () => {
-    const points = applyIsometricDrag(makePoints(4), 2, { x: 40, y: -60 })
+    const points = applyIsometricOffsets(makePoints(4), 2, movedIds(3, 4), { x: 40, y: -60 })
     const cleared = clearIsometricOffsets(points)
 
     for (const point of cleared) {

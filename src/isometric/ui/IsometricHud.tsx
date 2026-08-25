@@ -46,10 +46,11 @@ export function IsometricHud() {
   const setCameraLocked = useIsometricUiStore((state) => state.setCameraLocked)
 
   /**
-   * Tek düğme her şeyi varsayılana döndürür: elle yerleştirmeler (dal ayırma +
-   * etiket konumları), bakış açısı ve kamera kilidi. Yalnız konumları temizleyip
-   * açıyı bırakmak yarım bir "sıfırlama" olurdu — kullanıcı kaybolduğunda tek
-   * tıkla bilinen bir başlangıca dönmek istiyor.
+   * "Sıfırla" (kullanıcı adlandırması, 2026-08): boruların izometride
+   * UZATILMIŞ kısımlarını yerine koyar — kaymalar yalnız bu görünüme ait, plan
+   * çizimi zaten hiç etkilenmiyor. Aynı düğme etiket konumlarını, bakış açısını
+   * ve kamera kilidini de varsayılana çeker: yalnız konumları temizleyip açıyı
+   * bırakmak yarım bir sıfırlama olurdu.
    */
   const resetToDefaults = () => {
     resetIsometricPositions()
@@ -101,7 +102,7 @@ export function IsometricHud() {
 
       <button type="button" className={isometricActionVariants()} onClick={resetToDefaults}>
         <RotateCcw size={13} strokeWidth={1.8} aria-hidden />
-        Varsayılana döndür
+        Sıfırla
       </button>
     </div>
   )

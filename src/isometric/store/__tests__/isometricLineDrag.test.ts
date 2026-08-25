@@ -39,7 +39,7 @@ describe('applyIsometricLineDrag', () => {
   it('sürüklenen noktadan SONRAKİLER birlikte kayar, ÖNCEKİLER durur', () => {
     const { lineId, pointIds } = seedPipe()
 
-    useCadStore.getState().applyIsometricLineDrag(lineId, pointIds[1], { x: 50, y: -80 })
+    useCadStore.getState().applyIsometricLineDrag(pointIds[1], pointIds[0], { x: 50, y: -80 })
 
     const points = readPoints(lineId)
     expect(points[0].isometricOffsetCm).toBeUndefined()
@@ -52,7 +52,7 @@ describe('applyIsometricLineDrag', () => {
     const { lineId, pointIds } = seedPipe()
     const before = readPoints(lineId).map((point) => ({ ...point.position }))
 
-    useCadStore.getState().applyIsometricLineDrag(lineId, pointIds[0], { x: 999, y: -999 })
+    useCadStore.getState().applyIsometricLineDrag(pointIds[0], pointIds[1], { x: 999, y: -999 })
 
     expect(readPoints(lineId).map((point) => point.position)).toEqual(before)
   })
@@ -62,7 +62,7 @@ describe('applyIsometricLineDrag', () => {
     // alırdı; dallanma `activeViewHistory.ts`'te.
     useUiStore.setState({ activeViewId: 'isometric' })
     const { lineId, pointIds } = seedPipe()
-    useCadStore.getState().applyIsometricLineDrag(lineId, pointIds[1], { x: 50, y: -80 })
+    useCadStore.getState().applyIsometricLineDrag(pointIds[1], pointIds[0], { x: 50, y: -80 })
 
     undoActiveView()
 
@@ -73,15 +73,15 @@ describe('applyIsometricLineDrag', () => {
     const { lineId, pointIds } = seedPipe()
     const before = readPoints(lineId)
 
-    useCadStore.getState().applyIsometricLineDrag(lineId, pointIds[1], { x: 0, y: 0 })
-    useCadStore.getState().applyIsometricLineDrag(9999, pointIds[1], { x: 5, y: 5 })
+    useCadStore.getState().applyIsometricLineDrag(pointIds[1], pointIds[0], { x: 0, y: 0 })
+    useCadStore.getState().applyIsometricLineDrag(9999, undefined, { x: 5, y: 5 })
 
     expect(readPoints(lineId)).toEqual(before)
   })
 
   it('sıfırlama sürükleme kaymalarını da temizler', () => {
     const { lineId, pointIds } = seedPipe()
-    useCadStore.getState().applyIsometricLineDrag(lineId, pointIds[1], { x: 50, y: -80 })
+    useCadStore.getState().applyIsometricLineDrag(pointIds[1], pointIds[0], { x: 50, y: -80 })
 
     useCadStore.getState().resetIsometricPositions()
 
