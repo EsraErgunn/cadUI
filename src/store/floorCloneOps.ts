@@ -1,12 +1,13 @@
-import type { DraftSetter } from './architecturePropertyOps'
 // Yalnız tip: çalışma zamanı döngüsü oluşmasın (K17).
 import type { CadState } from './cadStore'
 import { removeFloorArchitectureInDraft, removeFloorInstallationInDraft } from './floorOps'
-import { markDirty, takeNextId } from './projectMeta'
-import { cloneFloorArchitecture } from '../core/floorClone'
-import { planFloorCopy, type FloorCopySelection } from '../core/floorCopyPlan'
+import { takeNextId } from './projectMeta'
+import { cloneFloorArchitecture, type FloorArchitecture } from '../core/floorClone'
 import type { Id } from '../core/model'
-import { cloneFloorInstallation } from '../plumbing/core/floorInstallationClone'
+import {
+  cloneFloorInstallation,
+  type FloorInstallation,
+} from '../plumbing/core/floorInstallationClone'
 
 export type CopyFloorInput = {
   sourceFloorId: Id
@@ -16,17 +17,65 @@ export type CopyFloorInput = {
   isInstallationIncluded: boolean
 }
 
-export type CopyFloorActions = {
-  /**
-   * Bir katın çizimini seçilen katlara aktarır (KK-15…KK-18). Hedefte içerik
-   * varsa ne olacağını `mode` söyler; kural core/floorCopyPlan.ts'te.
-   *
-   * Bütün hedefler TEK `set` çağrısında işlenir: kat başına ayrı action olsaydı
-   * üç kata kopyalama üç Ctrl+Z isterdi (madde 19: "tek adımda geri alınır").
-   *
-   * Reddedilirse false döner ve hiçbir şey değişmez — id bile harcanmaz.
-   */
-  copyFloorToTargets: (selection: FloorCopySelection) => boolean
+type FloorClonePayload = {
+  architecture: FloorArchitecture | null
+  installation: FloorInstallation | null
+}
+
+/**
+ * Kopyanın İÇERİĞİNİ üretir ama store'a YAZMAZ — okuma ile yazma bilerek ayrı
+ * (K166). Yeni id'ler burada alınır; sayaç ilerlemesi yazımdan bağımsızdır ve
+ * zaten geri alınabilir bir işlemin parçası.
+ */
+function readFloorClone(draft: CadState, input: CopyFloorInput): FloorClonePayload {
+  const { sourceFloorId, targetFloorId } = input
+
+  return {
+    architecture: input.isArchitectureIncluded
+      ? cloneFloorArchitecture(draft, sourceFloorId, targetFloorId, () => takeNextId(draft))
+      : null,
+    // Eleman TEK BAŞINA kopyalanmaz: hat ve bağlantı kaydı da gelmeli. Eskiden
+    // yalnız eleman kopyalanıyordu ve "üzerine yaz" kipinde hedefin boruları
+    // silinip yerine yenisi YAZILMIYORDU — kaynak özeti "3 boru bölümü" deyip
+    // hiçbirini taşımıyordu.
+    installation: input.isInstallationIncluded
+      ? cloneFloorInstallation(draft, sourceFloorId, targetFloorId, () => takeNextId(draft))
+      : null,
+  }
+}
+
+function writeFloorClone(draft: CadState, payload: FloorClonePayload): boolean {
+  let isChanged = false
+
+  const architecture = payload.architecture
+  if (
+    architecture &&
+    (architecture.points.length > 0 ||
+      architecture.symbols.length > 0 ||
+      architecture.areaObjects.length > 0 ||
+      architecture.beams.length > 0 ||
+      architecture.texts.length > 0)
+  ) {
+    draft.points.push(...architecture.points)
+    draft.walls.push(...architecture.walls)
+    draft.openings.push(...architecture.openings)
+    draft.rooms.push(...architecture.rooms)
+    draft.symbols.push(...architecture.symbols)
+    draft.areaObjects.push(...architecture.areaObjects)
+    draft.beams.push(...architecture.beams)
+    draft.texts.push(...architecture.texts)
+    isChanged = true
+  }
+
+  const installation = payload.installation
+  if (installation && (installation.elements.length > 0 || installation.lines.length > 0)) {
+    draft.installationElements.push(...installation.elements)
+    draft.installationLines.push(...installation.lines)
+    draft.installationConnections.push(...installation.connections)
+    isChanged = true
+  }
+
+  return isChanged
 }
 
 /**
@@ -36,85 +85,40 @@ export type CopyFloorActions = {
  * sebepsiz reddedilirdi.
  */
 export function cloneFloorContentInDraft(draft: CadState, input: CopyFloorInput): boolean {
-  const { sourceFloorId, targetFloorId } = input
-  if (sourceFloorId === targetFloorId) return false
-
-  let isChanged = false
-
-  if (input.isArchitectureIncluded) {
-    const clone = cloneFloorArchitecture(draft, sourceFloorId, targetFloorId, () =>
-      takeNextId(draft),
-    )
-    if (
-      clone.points.length > 0 ||
-      clone.symbols.length > 0 ||
-      clone.areaObjects.length > 0 ||
-      clone.beams.length > 0 ||
-      clone.texts.length > 0
-    ) {
-      draft.points.push(...clone.points)
-      draft.walls.push(...clone.walls)
-      draft.openings.push(...clone.openings)
-      draft.rooms.push(...clone.rooms)
-      draft.symbols.push(...clone.symbols)
-      draft.areaObjects.push(...clone.areaObjects)
-      draft.beams.push(...clone.beams)
-      draft.texts.push(...clone.texts)
-      isChanged = true
-    }
-  }
-
-  if (input.isInstallationIncluded) {
-    // Eleman TEK BAŞINA kopyalanmaz: hat ve bağlantı kaydı da gelmeli. Eskiden
-    // yalnız eleman kopyalanıyordu ve "üzerine yaz" kipinde hedefin boruları
-    // silinip yerine yenisi YAZILMIYORDU — kaynak özeti "3 boru bölümü" deyip
-    // hiçbirini taşımıyordu.
-    const clone = cloneFloorInstallation(draft, sourceFloorId, targetFloorId, () =>
-      takeNextId(draft),
-    )
-    if (clone.elements.length > 0 || clone.lines.length > 0) {
-      draft.installationElements.push(...clone.elements)
-      draft.installationLines.push(...clone.lines)
-      draft.installationConnections.push(...clone.connections)
-      isChanged = true
-    }
-  }
-
-  return isChanged
+  if (input.sourceFloorId === input.targetFloorId) return false
+  return writeFloorClone(draft, readFloorClone(draft, input))
 }
 
-function copyFloorToTargetsInDraft(draft: CadState, selection: FloorCopySelection): boolean {
-  const plan = planFloorCopy(draft, draft.floors, selection)
-  if (!plan.isRunnable) return false
+/**
+ * Birden çok kopyalamayı TEK işlemde uygular (K166). `applyFloorPlan`'ın
+ * kopyalama fazı; ayrı bir "kat kopyala" action'ı YOK — pencere kopyalamayı da
+ * taslakta biriktiriyor, böylece Uygula tek `set` ve tek Ctrl+Z kalıyor.
+ *
+ * ⚠️ Faz sırası kritik: bütün kaynaklar HERHANGİ bir silmeden ÖNCE okunur. Aynı
+ * Uygula içinde bir kat hem kaynak hem hedef olabiliyor; hedef başına "sil sonra
+ * klonla" döngüsü kurulsaydı sonuç katların LİSTE SIRASINA bağlı çıkardı.
+ * Klonlama saf okuma olduğu için üç faza ayrılabiliyor.
+ */
+export function applyFloorCopiesInDraft(
+  draft: CadState,
+  copies: readonly CopyFloorInput[],
+): boolean {
+  const valid = copies.filter((copy) => copy.sourceFloorId !== copy.targetFloorId)
+  if (valid.length === 0) return false
 
+  // 1. OKU — hepsi, kopyalama öncesi durumdan.
+  const payloads = valid.map((copy) => ({ copy, payload: readFloorClone(draft, copy) }))
+
+  // 2. SİL — yalnız kopyalanan türler (madde 18).
+  for (const { copy } of payloads) {
+    if (copy.isArchitectureIncluded) removeFloorArchitectureInDraft(draft, copy.targetFloorId)
+    if (copy.isInstallationIncluded) removeFloorInstallationInDraft(draft, copy.targetFloorId)
+  }
+
+  // 3. YAZ
   let isChanged = false
-  for (const targetFloorId of plan.targetFloorIds) {
-    // Önce AYNI TÜRDEN çizim silinir, sonra kaynağınki yazılır (madde 18).
-    // "Atla" kipinde işlenen hedefte zaten çakışma yok, silme boşa çalışır.
-    if (selection.isArchitectureIncluded) removeFloorArchitectureInDraft(draft, targetFloorId)
-    if (selection.isInstallationIncluded) removeFloorInstallationInDraft(draft, targetFloorId)
-
-    const isCopied = cloneFloorContentInDraft(draft, {
-      sourceFloorId: selection.sourceFloorId,
-      targetFloorId,
-      isArchitectureIncluded: selection.isArchitectureIncluded,
-      isInstallationIncluded: selection.isInstallationIncluded,
-    })
-    isChanged = isChanged || isCopied
+  for (const { payload } of payloads) {
+    if (writeFloorClone(draft, payload)) isChanged = true
   }
-
   return isChanged
-}
-
-export function createCopyFloorActions(set: DraftSetter): CopyFloorActions {
-  return {
-    copyFloorToTargets: (selection) => {
-      let isCopied = false
-      set((draft) => {
-        isCopied = copyFloorToTargetsInDraft(draft, selection)
-        if (isCopied) markDirty(draft)
-      })
-      return isCopied
-    },
-  }
 }

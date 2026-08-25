@@ -8321,3 +8321,108 @@ izdüşümde olduğu gibi bir çekirdek yön var — plan (−0,866, −1) doğr
 ~21° eğimle inen bir hat noktaya çöker. Gaz tesisatı yatay+düşey ağırlıklı
 olduğu için pratikte erişilmiyor: Δkot = 0 olan hiçbir yatay hat, hiçbir düşey
 hat çökmüyor.
+
+### K166 — Kat yönetimi ve kopyalama tek pencerede yeniden tasarlandı; kat şeridi sahneye taşındı
+
+Kullanıcı: "kat yönetimi ve kat kopyalama kısımları aşırı kalabalık geldi",
+"sayfalardaki gereksiz açıklamaları da sil", "en sade ve işlevsel tasarımı
+oluştur".
+
+Ölçüldü: iki pencere, 16 dosya, ~1900 satır. Kat satırı başına DOKUZ öge
+(tutamak, onay kutusu, ad kutusu, yükseklik kutusu, kot, iki rozet, "Aktif Yap"
+düğmesi, iki ikon). Beş katlı projede ekranda 45 kontrol.
+
+**Beş yapısal sorun vardı, kalabalık bunların belirtisiydi:**
+
+1. **Pencere içinden pencere ve GİZLİ yazım.** `openCopyDialog` bekleyen
+   taslağı sessizce store'a uyguluyor, sonra ikinci bir modal açıyordu. "İptal"
+   o noktadan sonra hiçbir şeyi iptal etmiyordu.
+2. **Aynı liste iki kez yazılmıştı** (`FloorTable`+`FloorRow` 273 satır,
+   `FloorCopyTargetList` 161 satır) — aynı ters sıra, aynı kot, aynı rozet.
+3. **Aynı bilgi üç yerde**: "boş kat" hem özet sayısı, hem satır rozeti, hem
+   alttaki uyarı. "Aktif kat" hem özet hücresi hem satır rozeti.
+4. **Açıklama paragrafları tasarımın kendini savunmasıydı**: üç cümle `SEÇ`
+   sütununu, `AKTİF KAT` sütununu ve sürüklemeyi anlatıyordu.
+5. **`AKTİF KAT` sütunu yanlış yerdeydi**: her gün yapılan bir iş, taslak
+   üzerinde çalıştığı için Uygula'ya kadar yürürlüğe de girmiyordu.
+
+**Kopyalama artık bir KİP, ayrı pencere değil.** Aynı liste hedef seçmeye
+geçiyor; kaynak elle seçiliyor (aktif kat VARSAYILMAZ — kullanıcı çoğu zaman
+baktığı katı değil başkasını çoğaltıyor), alttaki ince şerit iki içerik
+anahtarını ve üzerine-yaz/atla kararını taşıyor.
+
+**Kopyalama TASLAKTA bekliyor** (kullanıcı kararı: iki seçenek sunuldu, (b)
+seçildi). `DraftFloor.copyFromFloorId` → `DraftFloor.pendingCopy`
+(`{sourceFloorId, isArchitectureIncluded, isInstallationIncluded}`); alan hem
+YENİ kat "X'tan kopyalayarak" eklendiğinde hem MEVCUT kat hedef seçildiğinde
+kullanılıyor — iki yol tek kavrama indi. Mekanizma sıfırdan yazılmadı, alan
+zaten vardı, yalnız kapsamı genişledi.
+
+⚠️ **"Üzerine yaz / atla" kipi taslakta SAKLANMAZ.** Kip hedef listesini süzen
+bir karar; taslakta duran şey kipin SONUCU, yani gerçekten kopyalanacak katlar.
+
+⚠️ **`copyFloorToTargets` action'ı SİLİNDİ** — bu adla kod yazma. Tek yazım
+`applyFloorPlan`; ayrı action iki `set` çağrısı, dolayısıyla iki Ctrl+Z
+demekti.
+
+⚠️ **Kopyalama fazı ÜÇ ADIM: önce hepsini OKU, sonra SİL, sonra YAZ**
+(`applyFloorCopiesInDraft`). Bir kat aynı Uygula içinde hem kaynak hem hedef
+olabiliyor; hedef başına "sil sonra klonla" döngüsü kurulsaydı sonuç katların
+LİSTE SIRASINA bağlı çıkardı. Klonlama saf okuma (yeni diziler döndürür,
+store'a dokunmaz), bu yüzden fazlara ayrılabiliyor. Teste bağlı.
+
+⚠️ **`planFloorCopy` artık ham store dizisi değil FONKSİYON alıyor**
+(`FloorContentLookup`): pencere taslak üzerinde çalışıyor ve bir katın içeriği
+"store'da ne var"dan ibaret değil. Store tarafı için köprü
+`toFloorContentLookup`.
+
+**Silme ONAY SORMUYOR** (kullanıcı kararı). Dokunulan şey store değil taslak;
+Uygula'ya kadar hiçbir şey yazılmıyor, "İptal" hepsini atıyor. Yerine pencerenin
+KENDİ geri al/yinele yığını geldi (`useFloorPlanDraft`, zundo DEĞİL — o store'un
+geçmişi, pencere store'a hiç yazmıyor). ⚠️ SEÇİM geçmişe yazılmaz: bir düzenleme
+değil, neye bakıldığı; yığına girseydi Ctrl+Z önce seçim adımlarını geri sarardı.
+⚠️ Ctrl+Z/Ctrl+Y dinleyicisi YAKALAMA fazında — editörün kısayolu da window'da ve
+baloncuk fazında, durdurulmasaydı aynı tuş iki geçmişi birden oynatırdı.
+`core/floorDeletion.ts`, `FloorDeleteDialog` ve `floorCountText` SİLİNDİ.
+
+**Satır artık 4 duran öge.** Ad ve yükseklik TIKLAYINCA düzenlenen alan
+(`FloorInlineField`) — dinlenme hâlinde çerçevesiz, ama yine gerçek `<input>`,
+klavye ve ekran okuyucu için değişen bir şey yok. İçerik üç rozet yerine TEK
+glif (dolu/yarım/boş halka); boş halka sözlüğü kat seçicisinden geliyor.
+⚠️ Satır işlemleri açılır menüde DEĞİL, hepsi ikon (kullanıcı kararı): aktif yap
+(aktif katta DOLU halka, radyo okunuşu), kopyala, sil. Onay kutusu görünür ve
+başlıkta "tümünü seç" var. ⚠️ Tıklama seçimi BİRİKTİRİR, değiştirmez — onay
+kutusunun sözleşmesi bu; önceki davranış bir kattan diğerine geçerken öncekini
+düşürüyordu (kullanıcı bildirimi). Shift aralık seçer.
+
+**"Yeni kat yüksekliği" alanı SİLİNDİ.** Yeni kat ALTINDAKİ katın yüksekliğini
+devralıyor; alan da gitti, "mevcut katları değiştirmez" feragatnamesi de.
+
+**Sayıyla toplu ekleme** (kullanıcı isteği): `+ [3] kat [kaynak ▾] Ekle` — adet,
+kaynak ve eylem tek cümlede. ⚠️ KISMİ ekleme YOK: istenen sayı tavana sığmıyorsa
+hiçbiri eklenmez (`addDraftFloors`), sessizce 10 yerine 4 kat eklemek
+kullanıcının saymadığı bir sonuç doğururdu; kalan kapasite alanın yanında yazar.
+`3 kat · Zemin Kat'tan kopyalayarak` tipik bir apartmanı tek işlemde kuruyor.
+
+**Kat şeridi sahnenin sol üstüne taşındı** (`ui/canvas/FloorRail.tsx`). Yüzen
+çubuktaki kat LİSTESİ kalktı, orada yalnız iki pencere maddesi kaldı — aynı
+listenin iki yerde durması gereksizdi ve geçiş için menü açtırmak her kat
+değişimine bir tıklama ekliyordu. Yuvarlak, sade, YUKARIDAN AŞAĞI en üst kattan
+en alta. ⚠️ Etiket kat ADINDAN değil SIRADAN türer (`getFloorShortLabels`): B /
+Z / 1 / 2 — daire dar, ad serbest metin ve "Asma Kat" sıradaki yerini söylemiyor;
+tam ad ipucunda. Çok bodrumda numara eklenir ve AŞAĞI indikçe artar (`B1` zeminin
+hemen altı). ⚠️ Kaydırma çubuğu GİZLİ (`styles/floorRail.css`, kullanıcı kararı:
+"scroll işareti kirliliği istemiyorum") ama kaydırmanın kendisi çalışıyor.
+⚠️ Sarmalayıcı `pointer-events-none`: şeridin boş dikey alanı tuvalin tıklamasını
+yutmamalı. Şerit AÇILIR/KAPANIR; kat ikonlu yuvarlak düğme sol üstte SABİT kalır.
+Varsayılan AÇIK — varlık sebebi tek tıklamayla kat değiştirmek.
+
+**Silinen dosyalar** — bu adlarla kod yazma: `FloorCopyDialog`, `FloorTable`,
+`FloorSummary`, `FloorPlanActionBar`, `NewFloorHeightField`, `AddFloorMenu`,
+`FloorCopyOptions`, `FloorCopySourceSection`, `FloorCopyTargetList`,
+`FloorHeightField`, `FloorDeleteDialog`, `floorCountText`, `core/floorDeletion`.
+
+⚠️ Test tuzağı: `floorCopy.test.ts`'in `resetState`i `installationLines` ve
+`installationConnections` dizilerini SIFIRLAMIYORDU; `setState` birleştirdiği
+için başka bir describe blogunun seedlediği hat sonraki testlere sızıyor ve
+klonlamada "id remap eksik" hatası veriyordu.

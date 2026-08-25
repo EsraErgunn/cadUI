@@ -17,6 +17,7 @@ import {
   getFloorIndex,
   getFloorIdInDirection,
   getFloorInsertIndex,
+  getFloorShortLabels,
   getNextFloorName,
   isFloorNameTaken,
   isFloorNameValid,
@@ -237,5 +238,42 @@ describe('reorderFloorInList', () => {
     expect(reorderFloorInList(floors, first.id, 2)).toBe(floors)
     expect(reorderFloorInList(floors, first.id, 9)).toBe(floors)
     expect(reorderFloorInList(floors, 404, 0)).toBe(floors)
+  })
+})
+
+describe('getFloorShortLabels — kat şeridi etiketleri (K166)', () => {
+  const at = (id: number, name: string, isBasement = false): Floor => ({
+    id,
+    name,
+    heightCm: 300,
+    isBasement,
+  })
+
+  it('zemin Z, üstü sırayla sayı', () => {
+    expect(
+      getFloorShortLabels([at(1, 'Zemin Kat'), at(2, '1. Kat'), at(3, '2. Kat')]),
+    ).toEqual(['Z', '1', '2'])
+  })
+
+  it('tek bodrum sade B', () => {
+    expect(getFloorShortLabels([at(1, 'Bodrum Kat', true), at(2, 'Zemin Kat')])).toEqual([
+      'B',
+      'Z',
+    ])
+  })
+
+  it('çok bodrumda B1 zeminin hemen altı, aşağı indikçe artar', () => {
+    expect(
+      getFloorShortLabels([
+        at(1, '3. Bodrum', true),
+        at(2, '2. Bodrum', true),
+        at(3, 'Bodrum Kat', true),
+        at(4, 'Zemin Kat'),
+      ]),
+    ).toEqual(['B3', 'B2', 'B1', 'Z'])
+  })
+
+  it('etiket kat ADINI okumaz — serbest metin sırayı söylemiyor', () => {
+    expect(getFloorShortLabels([at(1, 'Giriş'), at(2, 'Asma Kat')])).toEqual(['Z', '1'])
   })
 })

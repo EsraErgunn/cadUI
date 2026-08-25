@@ -1,5 +1,10 @@
-import { getFloorContent, isFloorContentEmpty, type FloorContentSource } from './floorContent'
+import { getFloorContent, isFloorContentEmpty, type FloorContent, type FloorContentSource } from './floorContent'
 import type { Floor, Id } from './model'
+
+/** Ham store dizilerini içerik sorgusuna çeviren köprü — store tarafı çağıranlar için. */
+export function toFloorContentLookup(source: FloorContentSource): FloorContentLookup {
+  return (floorId) => getFloorContent(source, floorId)
+}
 
 /** Madde 18: hedefte içerik varsa ne yapılacağı. Varsayılan "üzerine yaz". */
 export type FloorCopyMode = 'overwrite' | 'skip'
@@ -76,8 +81,16 @@ export function getFloorRangeIds(
   return floors.slice(start, end + 1).map((floor) => floor.id)
 }
 
+/**
+ * İçerik ham store dizilerinden DEĞİL bir fonksiyondan okunur (K166): pencere
+ * artık taslak üzerinde çalışıyor ve bir katın içeriği "store'da ne var"dan
+ * ibaret değil — aynı oturumda eklenmiş ya da kopyalama hedefi yapılmış olabilir.
+ * Çağıran hangi gerçekliğe baktığını kendi seçer.
+ */
+export type FloorContentLookup = (floorId: Id) => FloorContent
+
 export function getFloorCopyTargets(
-  source: FloorContentSource,
+  contentOf: FloorContentLookup,
   floors: readonly Floor[],
   selection: FloorCopySelection,
 ): FloorCopyTarget[] {
@@ -87,7 +100,7 @@ export function getFloorCopyTargets(
     // Kaynak kat listede PASİF (madde 17): kendi üstüne kopyalamak anlamsız.
     .filter((floor) => floor.id !== selection.sourceFloorId && selected.has(floor.id))
     .map((floor) => {
-      const content = getFloorContent(source, floor.id)
+      const content = contentOf(floor.id)
       return {
         floorId: floor.id,
         name: floor.name,
@@ -105,13 +118,13 @@ export function getFloorCopyTargets(
  * yazılacak" diye uyarılmaz da (madde 18).
  */
 export function planFloorCopy(
-  source: FloorContentSource,
+  contentOf: FloorContentLookup,
   floors: readonly Floor[],
   selection: FloorCopySelection,
 ): FloorCopyPlan {
   const hasType = selection.isArchitectureIncluded || selection.isInstallationIncluded
   const hasSource = floors.some((floor) => floor.id === selection.sourceFloorId)
-  const targets = hasSource ? getFloorCopyTargets(source, floors, selection) : []
+  const targets = hasSource ? getFloorCopyTargets(contentOf, floors, selection) : []
 
   const overwrittenFloors = targets.filter((target) => target.hasConflict)
   const skippedFloors = selection.mode === 'skip' ? overwrittenFloors : []

@@ -5,6 +5,7 @@ import {
   getFloorCopyTargets,
   getFloorRangeIds,
   planFloorCopy,
+  toFloorContentLookup,
   withInstallationDependency,
   type FloorCopySelection,
 } from '../floorCopyPlan'
@@ -103,8 +104,7 @@ describe('getFloorRangeIds (KK-16)', () => {
 
 describe('getFloorCopyTargets', () => {
   it('kaynak katı hedeflerden çıkarır (madde 17)', () => {
-    const targets = getFloorCopyTargets(
-      source,
+    const targets = getFloorCopyTargets(toFloorContentLookup(source),
       floors,
       makeSelection({ targetFloorIds: [GROUND_ID, FIRST_ID] }),
     )
@@ -114,7 +114,7 @@ describe('getFloorCopyTargets', () => {
 
   it('içerik rozetini ve çakışmayı AYRI hesaplar', () => {
     // Yalnız mimari kopyalanıyor: 2. Kat"ta içerik VAR ama tesisat, çakışma yok.
-    const targets = getFloorCopyTargets(source, floors, makeSelection())
+    const targets = getFloorCopyTargets(toFloorContentLookup(source), floors, makeSelection())
 
     expect(targets).toEqual([
       { floorId: FIRST_ID, name: '1. Kat', hasContent: true, hasConflict: true },
@@ -124,8 +124,7 @@ describe('getFloorCopyTargets', () => {
   })
 
   it('tesisat da kopyalanınca 2. Kat çakışır', () => {
-    const targets = getFloorCopyTargets(
-      source,
+    const targets = getFloorCopyTargets(toFloorContentLookup(source),
       floors,
       makeSelection({ isInstallationIncluded: true }),
     )
@@ -136,7 +135,7 @@ describe('getFloorCopyTargets', () => {
 
 describe('planFloorCopy — üzerine yaz (KK-17)', () => {
   it('bütün hedefleri işler, çakışanları uyarıda listeler', () => {
-    const plan = planFloorCopy(source, floors, makeSelection())
+    const plan = planFloorCopy(toFloorContentLookup(source), floors, makeSelection())
 
     expect(plan.targetFloorIds).toEqual([FIRST_ID, SECOND_ID, THIRD_ID])
     expect(plan.overwrittenFloors.map((floor) => floor.name)).toEqual(['1. Kat'])
@@ -147,21 +146,20 @@ describe('planFloorCopy — üzerine yaz (KK-17)', () => {
 
 describe('planFloorCopy — bu katları atla (KK-17)', () => {
   it('çakışan katları işlem dışında bırakır', () => {
-    const plan = planFloorCopy(source, floors, makeSelection({ mode: 'skip' }))
+    const plan = planFloorCopy(toFloorContentLookup(source), floors, makeSelection({ mode: 'skip' }))
 
     expect(plan.targetFloorIds).toEqual([SECOND_ID, THIRD_ID])
     expect(plan.skippedFloors.map((floor) => floor.name)).toEqual(['1. Kat'])
   })
 
   it('atla kipinde üzerine yazma uyarısı ÇIKMAZ', () => {
-    const plan = planFloorCopy(source, floors, makeSelection({ mode: 'skip' }))
+    const plan = planFloorCopy(toFloorContentLookup(source), floors, makeSelection({ mode: 'skip' }))
 
     expect(plan.overwrittenFloors).toEqual([])
   })
 
   it('bütün hedefler atlanınca kopyalama çalıştırılamaz', () => {
-    const plan = planFloorCopy(
-      source,
+    const plan = planFloorCopy(toFloorContentLookup(source),
       floors,
       makeSelection({ targetFloorIds: [FIRST_ID], mode: 'skip' }),
     )
@@ -173,14 +171,13 @@ describe('planFloorCopy — bu katları atla (KK-17)', () => {
 
 describe('planFloorCopy — çalıştırılabilirlik (KK-15)', () => {
   it('hedef seçilmeden çalıştırılamaz', () => {
-    expect(planFloorCopy(source, floors, makeSelection({ targetFloorIds: [] })).isRunnable).toBe(
+    expect(planFloorCopy(toFloorContentLookup(source), floors, makeSelection({ targetFloorIds: [] })).isRunnable).toBe(
       false,
     )
   })
 
   it('içerik seçilmeden çalıştırılamaz', () => {
-    const plan = planFloorCopy(
-      source,
+    const plan = planFloorCopy(toFloorContentLookup(source),
       floors,
       makeSelection({ isArchitectureIncluded: false, isInstallationIncluded: false }),
     )
@@ -189,7 +186,7 @@ describe('planFloorCopy — çalıştırılabilirlik (KK-15)', () => {
   })
 
   it('tanınmayan kaynak kat çalıştırılamaz', () => {
-    expect(planFloorCopy(source, floors, makeSelection({ sourceFloorId: 404 })).isRunnable).toBe(
+    expect(planFloorCopy(toFloorContentLookup(source), floors, makeSelection({ sourceFloorId: 404 })).isRunnable).toBe(
       false,
     )
   })

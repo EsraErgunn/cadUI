@@ -24,13 +24,13 @@ import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 import { ClearProjectDialog } from '../ui/ClearProjectDialog'
 import { EditorSidebar } from '../ui/EditorSidebar'
-import { FloorCopyDialog } from '../ui/FloorCopyDialog'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
+import { FloorRail } from '../ui/canvas/FloorRail'
 import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
 import { RoomDefinitionCard } from '../ui/canvas/RoomDefinitionCard'
 import { SolidToolbar } from '../ui/canvas/SolidToolbar'
@@ -230,6 +230,9 @@ export function EditorPage() {
             {/* Tuvalin çalışma kipi ve çizim yardımcıları (K54). İki ÇİZİM
                 görünümünde de var (K57); izometrikte ve katı modelde çizilecek
                 bir şey yok, orada tuval etkileşimi de yok. */}
+            {/* Kat şeridi sol paletin hemen yanında, tuvalin ÜSTÜNDE (K166):
+                kat geçişinin ana yolu burası, yüzen çubuktaki liste kalktı. */}
+            {isDrawingView(activeViewId) && <FloorRail />}
             {isDrawingView(activeViewId) && (
               <FloatingToolbar
                 onGoToFloor={goToFloor}
@@ -253,9 +256,15 @@ export function EditorPage() {
         </div>
       </div>
 
-      {isFloorDialogOpen && <FloorManagementDialog onClose={() => setIsFloorDialogOpen(false)} />}
-
-      {isFloorCopyOpen && <FloorCopyDialog onClose={() => setIsFloorCopyOpen(false)} />}
+      {(isFloorDialogOpen || isFloorCopyOpen) && (
+        <FloorManagementDialog
+          isCopyMode={isFloorCopyOpen}
+          onClose={() => {
+            setIsFloorDialogOpen(false)
+            setIsFloorCopyOpen(false)
+          }}
+        />
+      )}
 
       {isPdfDialogOpen && (
         <ExportPdfDialog project={projectSummary} onClose={() => setIsPdfDialogOpen(false)} />

@@ -1,58 +1,41 @@
-import { ChevronDown, Copy, Layers, Settings2 } from 'lucide-react'
+import { Copy, Layers, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { canvasBarButtonVariants, canvasBarMenuItemVariants } from './canvasBarVariants'
-import { getFloorContent, isFloorContentEmpty } from '../../core/floorContent'
-import type { Id } from '../../core/model'
+import {
+  CANVAS_BAR_DIVIDER,
+  canvasBarButtonVariants,
+  canvasBarMenuItemVariants,
+} from './canvasBarVariants'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
-import { useFloorContentSource } from '../floors/useFloorContentSource'
 
-/**
- * Çizimi olmayan katın işareti: içi BOŞ halka. "Boş" yazmak yerine işaret
- * kullanılıyor — kaldırılan kat şeridinden devralındı, gerekçesi aynı
- * (satırda birkaç piksel var, halka `currentColor` ile her zeminde okunur).
- */
-function EmptyRing() {
-  return (
-    <span
-      aria-hidden
-      className="ml-auto inline-block size-2 shrink-0 rounded-full border border-current opacity-70"
-    />
-  )
-}
-
-/**
- * Çubuktaki aktif kat düğmesi ve tüm katları listeleyen açılırı (K55).
- *
- * Sol üstteki kat şeridi KALDIRILDI (kullanıcı isteği) ve taşıdığı iki bilgi
- * buraya taşındı: katların tam listesi ve hangi katın boş olduğu. Yalnız ↓/↑
- * bırakılsaydı uzak bir kata gitmek için aradaki her kattan geçmek gerekirdi.
- *
- * Sıra ALTTAN ÜSTE, yani store dizisinin kendi sırası — şeritte de öyleydi.
- * ("Katlar" penceresi listeyi ters çevirir: orada bina kesitten okunuyor.)
- */
 type FloorSelectProps = {
   onOpenFloorManagement: () => void
   onOpenFloorCopy: () => void
 }
 
+/**
+ * Çubuktaki kat düğmesi. Açılırında YALNIZ iki pencere maddesi var (K166):
+ * kat GEÇİŞİ artık sol kenardaki şeritten (`FloorRail`) yapılıyor, katların
+ * listesi buradan kalktı. Aynı listenin iki yerde durması gereksizdi ve
+ * geçiş için önce bir menü açtırmak her kat değişimine bir tıklama ekliyordu.
+ *
+ * Düğmenin kendisi kalıyor: aktif kat adı ve kat sayısı her an görünür — şerit
+ * yalnız kısa etiket (B/Z/1) gösteriyor, tam ad burada okunuyor.
+ */
 export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSelectProps) {
-  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
   const floors = useCadStore((state) => state.floors)
   const activeFloorId = useCadStore((state) => state.activeFloorId)
-  const setActiveFloor = useCadStore((state) => state.setActiveFloor)
-  const contentSource = useFloorContentSource()
+  const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
 
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!isOpen) return undefined
+    if (!isOpen) return
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (containerRef.current?.contains(event.target as Node)) return
-      setIsOpen(false)
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false)
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsOpen(false)
@@ -66,7 +49,6 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
     }
   }, [isOpen])
 
-  const isEmpty = (floorId: Id) => isFloorContentEmpty(getFloorContent(contentSource, floorId))
   const activeFloorName = floors.find((floor) => floor.id === activeFloorId)?.name ?? ''
 
   const openDialog = (open: () => void) => {
@@ -74,11 +56,22 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
     open()
   }
 
+  // Salt görüntülemede açılırın İÇİ boş kalırdı: kat ekleme/silme/kopyalama
+  // çizimi değiştirir, ikisi de orada çizilmiyor. Düğme o zaman yalnız etiket.
+  if (isReadOnly) {
+    return (
+      <span
+        title={`Aktif kat: ${activeFloorName}`}
+        className={canvasBarButtonVariants({ shape: 'label' })}
+      >
+        <Layers size={16} strokeWidth={1.8} aria-hidden />
+        {activeFloorName || 'Katlar'}
+      </span>
+    )
+  }
+
   return (
     <div ref={containerRef} className="relative">
-      {/* Düğme metni aktif kat adı (hangi kattayız her an görünür kalsın diye) +
-          kat SAYISI; açılırda da aynı kat işaretli duruyor. Kalkan "Katlar"
-          menüsündeki rozet de buraya geldi. */}
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -90,48 +83,20 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
       >
         <Layers size={16} strokeWidth={1.8} aria-hidden />
         {activeFloorName || 'Katlar'}
+        {/* Aktif kat ADI ile toplam kat SAYISI iki ayrı bilgi; ince çizgi
+            ikisini ayırıyor. Açılır ok kalktı (kullanıcı kararı): düğme zaten
+            menü açıyor ve ok üç bilgiyi tek düğmeye sıkıştırıyordu. */}
+        <span className={CANVAS_BAR_DIVIDER} aria-hidden />
         <span className="text-xs font-semibold text-ink-disabled">{floors.length}</span>
-        <ChevronDown size={14} strokeWidth={2} aria-hidden />
       </button>
 
       {isOpen && (
         <div
           role="menu"
           aria-label="Katlar"
-          // Çubuk altta olduğu için açılır YUKARI doğru açılır; çok katlı
-          // binada liste ekranı taşmasın diye kendi içinde kaydırılır.
-          className="absolute bottom-full left-1/2 z-20 mb-1 max-h-64 min-w-40 -translate-x-1/2 overflow-y-auto rounded-lg border border-edge bg-surface p-1 shadow-lg"
+          // Çubuk altta olduğu için açılır YUKARI doğru açılır.
+          className="absolute bottom-full left-1/2 z-20 mb-1 min-w-52 -translate-x-1/2 rounded-lg border border-edge bg-surface p-1 shadow-lg"
         >
-          {floors.map((floor) => {
-            const isActive = floor.id === activeFloorId
-
-            return (
-              <button
-                key={floor.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={isActive}
-                onClick={() => {
-                  setActiveFloor(floor.id)
-                  setIsOpen(false)
-                }}
-                className={`${canvasBarMenuItemVariants()} ${isActive ? 'text-selection' : ''}`}
-              >
-                {floor.name}
-                {isEmpty(floor.id) && <EmptyRing />}
-              </button>
-            )
-          })}
-
-          {/* Kat YÖNETİMİ listenin altında, ayraçla: yukarısı "hangi kattayım",
-              aşağısı "katları değiştir". Üst bardaki Katlar menüsü kalkınca bu
-              iki pencerenin tek girişi burası kaldı.
-
-              Salt görüntülemede bu iki madde HİÇ çizilmez: kat ekleme/silme/
-              kopyalama çizimi değiştirir. Kat SEÇME yukarıda ve açık kalıyor. */}
-          {!isReadOnly && (
-            <>
-          <div className="my-1 h-px bg-edge" aria-hidden />
           <button
             type="button"
             role="menuitem"
@@ -152,8 +117,6 @@ export function FloorSelect({ onOpenFloorManagement, onOpenFloorCopy }: FloorSel
             Kat Kopyalama
             <span className="ml-auto pl-4 text-xs text-ink-disabled">Ctrl+Shift+K</span>
           </button>
-            </>
-          )}
         </div>
       )}
     </div>

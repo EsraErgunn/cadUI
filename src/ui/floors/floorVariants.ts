@@ -4,47 +4,70 @@ import { cva } from 'class-variance-authority'
 export const FLOOR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70'
 
-export const floorRowVariants = cva('border-b border-edge/60 text-sm last:border-b-0', {
-  variants: {
-    tone: {
-      plain: 'bg-surface',
-      /** Bodrum satırının zemini farklı: kotu negatif, listede ayrı okunmalı (madde 4). */
-      basement: 'bg-surface-sunken/60',
-    },
-    isActive: {
-      true: 'ring-1 ring-inset ring-brand/50',
-      false: '',
-    },
-    isDragging: {
-      true: 'opacity-40',
-      false: '',
-    },
-  },
-  defaultVariants: { tone: 'plain', isActive: false, isDragging: false },
-})
-
-export const floorBadgeVariants = cva(
-  'inline-flex items-center rounded px-1.5 py-0.5 text-[11px] leading-none',
+/**
+ * Kat satırı. Aktif kat ROZETLE değil sol kenar şeridiyle işaretleniyor (K166):
+ * rozet kendine bir sütun istiyordu, şerit satırın zaten var olan kenarını
+ * kullanıyor ve gözü listenin başına götürüyor.
+ */
+export const floorRowVariants = cva(
+  'group relative flex items-center gap-3 border-l-2 px-3 py-2 text-sm transition-colors',
   {
     variants: {
       tone: {
-        content: 'border border-edge text-ink-muted',
-        /** Boş rozeti kesikli: "bir şey var" değil "bir şey yok" diyor. */
-        empty: 'border border-dashed border-edge text-ink-disabled',
-        active: 'bg-ink text-surface',
+        plain: '',
+        /** Bodrum satırının zemini farklı: kotu negatif, listede ayrı okunmalı. */
+        basement: 'bg-surface-sunken/50',
+      },
+      isActive: {
+        true: 'border-l-brand',
+        false: 'border-l-transparent',
+      },
+      isSelected: {
+        true: 'bg-selection/10',
+        false: 'hover:bg-surface-sunken/70',
+      },
+      isDragging: {
+        true: 'opacity-40',
+        false: '',
       },
     },
-    defaultVariants: { tone: 'content' },
+    defaultVariants: {
+      tone: 'plain',
+      isActive: false,
+      isSelected: false,
+      isDragging: false,
+    },
   },
 )
 
-export const floorSummaryValueVariants = cva('text-lg font-semibold', {
+/**
+ * İçerik göstergesi TEK glif: dolu / yarım / boş halka. Eskiden "Mimari",
+ * "Tesisat" ve "Boş" diye üç ayrı rozet vardı ve satırın en gürültülü parçasıydı.
+ * Boş halka sözlüğü kat seçicisinden (`FloorSelect`) geliyor — iki yüzey aynı
+ * dili konuşsun.
+ */
+export const floorContentDotVariants = cva('inline-block size-2.5 rounded-full border', {
   variants: {
     tone: {
-      plain: 'text-ink',
-      /** Boş kat adedi sıfırdan büyükse vurgulanır (madde 2). */
-      warning: 'text-danger',
+      full: 'border-ink-muted bg-ink-muted',
+      partial: 'border-ink-muted bg-gradient-to-r from-ink-muted from-50% to-transparent to-50%',
+      empty: 'border-dashed border-ink-disabled',
     },
   },
-  defaultVariants: { tone: 'plain' },
+  defaultVariants: { tone: 'empty' },
 })
+
+/** Satırdaki yazıdan alana dönüşen alanlar; dinlenme hâlinde çerçevesiz. */
+export const floorInlineFieldVariants = cva(
+  'rounded border border-transparent bg-transparent px-1.5 py-0.5 text-sm text-ink ' +
+    'hover:border-edge aria-[invalid=true]:border-danger',
+  {
+    variants: {
+      align: {
+        left: 'text-left',
+        right: 'text-right tabular-nums',
+      },
+    },
+    defaultVariants: { align: 'left' },
+  },
+)
