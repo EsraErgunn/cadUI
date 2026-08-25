@@ -62,9 +62,4 @@ export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserR
     cellClassName: 'tabular-nums text-ink-muted',
     cell: (row) => renderPhone(row.phone),
   },
-  {
-    key: 'projectFirmName',
-    label: 'Proje Firması',
-    cell: (row) => renderText(row.projectFirmName),
-  },
 ]

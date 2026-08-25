@@ -11,10 +11,16 @@ import { ROLE_CODES } from './roles'
  * GET /api/users?roleCode=GasDistributionUser&Page&PageSize
  *   200 → { items, totalCount, page, pageSize }
  *
- * Satır alanları UYDURULMADI: `id`, `username`, `fullName`, `email`, `phone`,
- * `projectFirmName` sunucunun `UserDto`'sunda VAR (users.ts).
- * `gdfRegistrationNumber` orada YOK — bu yüzden şemada opsiyonel ve gelmezse
- * hücre `EmptyValue` çizer, uydurma bir değer değil.
+ * Satır alanları UYDURULMADI: `id`, `username`, `fullName`, `email`, `phone`
+ * sunucunun `UserDto`'sunda VAR (users.ts). `gdfRegistrationNumber` orada YOK —
+ * bu yüzden şemada opsiyonel ve gelmezse hücre `EmptyValue` çizer, uydurma bir
+ * değer değil.
+ *
+ * `projectFirmName` OKUNMUYOR: gaz dağıtım kullanıcısı proje firmasına bağlı
+ * DEĞİL (ürün kuralı). Sunucu alanı gövdede taşımaya devam ediyor — `UserDto`
+ * tek tablo için yazıldı ve iki rolü de karşılıyor — ama bu ekranda gösterilmesi
+ * olmayan bir ilişki varmış gibi okunurdu. Form da göndermiyor (`projectFirmId:
+ * null`).
  */
 
 const GAS_DISTRIBUTION_USERS_PATH = '/api/users'
@@ -27,7 +33,6 @@ const gasDistributionUserRowSchema = z.object({
   fullName: z.string(),
   email: z.string().nullish(),
   phone: z.string().nullish(),
-  projectFirmName: z.string().nullish(),
   /** Sunucunun bugünkü kullanıcı gövdesinde KARŞILIĞI YOK; opsiyonel. */
   gdfRegistrationNumber: z.string().nullish(),
 })
