@@ -40,15 +40,18 @@ describe('PropertyPanel — nokta sembolü', () => {
     expect(screen.getByRole('heading', { name: /Pano Özellikleri/ })).toBeInTheDocument()
   })
 
-  it('tür, etiket ve açı gösterilir', () => {
+  it('panelde YALNIZ etiket ve not var (K175)', () => {
     const id = addSymbol('vent', 100, 100)
-    useCadStore.getState().rotatePointSymbol(id, 90)
     useArchitectureUiStore.setState({ selection: [{ kind: 'symbol', id }] })
     render(<PropertyPanel />)
 
-    expect(screen.getByText('Menfez')).toBeInTheDocument()
     expect(screen.getByLabelText('Etiket')).toHaveValue('MN-01')
-    expect(screen.getByLabelText('Açı (°)')).toHaveValue(90)
+    expect(screen.getByLabelText('Not')).toBeInTheDocument()
+
+    // Tür başlıkta zaten yazıyor; panelde ayrıca satır tutmuyor.
+    expect(screen.queryByLabelText('Açı (°)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Bağlantı')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tür')).not.toBeInTheDocument()
   })
 
   it('etiket düzenlenir', async () => {
@@ -79,20 +82,6 @@ describe('PropertyPanel — nokta sembolü', () => {
     await userEvent.tab()
     expect(useCadStore.getState().symbols.find((s) => s.id === second)?.label).toBe('MN-01')
     expect(useCadStore.getState().symbols.find((s) => s.id === first)?.label).toBe('P-01')
-  })
-
-  it('açı 15 derece adımına yakalanır', async () => {
-    const id = addSymbol('panel', 100, 100)
-    useArchitectureUiStore.setState({ selection: [{ kind: 'symbol', id }] })
-    render(<PropertyPanel />)
-
-    const input = screen.getByLabelText('Açı (°)')
-    await userEvent.clear(input)
-    await userEvent.type(input, '47')
-    await userEvent.tab()
-
-    const symbol = useCadStore.getState().symbols[0]
-    expect(symbol.attachment === 'free' && symbol.rotationDeg).toBe(45)
   })
 
   it('not yazılır', async () => {
