@@ -14,7 +14,7 @@ import { cva } from 'class-variance-authority'
  * ikon taşıyor ve zemini biraz daha koyu.
  */
 export const floorRailToggleVariants = cva(
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-full border ' +
+  'cursor-pointer inline-flex size-8 shrink-0 items-center justify-center rounded-full border ' +
     'shadow-sm backdrop-blur transition-colors ' +
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-selection/70',
   {
@@ -29,7 +29,7 @@ export const floorRailToggleVariants = cva(
 )
 
 export const floorRailButtonVariants = cva(
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-full border text-xs ' +
+  'cursor-pointer inline-flex size-8 shrink-0 items-center justify-center rounded-full border text-xs ' +
     'font-semibold tabular-nums shadow-sm backdrop-blur transition-colors ' +
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-selection/70',
   {

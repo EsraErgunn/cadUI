@@ -42,13 +42,19 @@ type WallDrag = {
 }
 
 /**
- * Taşınan sembollerin GEÇİCİ ötelemesi. draggingWall ile aynı gerekçe: sürükleme
- * boyunca cadStore'a yazılmaz, tek yazım bırakma anında olur (tek Ctrl+Z).
+ * Sürüklenen sembolün GEÇİCİ hedef noktası. draggingWall ile aynı gerekçe:
+ * sürükleme boyunca cadStore'a yazılmaz, tek yazım bırakma anında olur (tek
+ * Ctrl+Z).
+ *
+ * ⚠️ Öteleme (dx/dy) DEĞİL hedef NOKTA tutuluyor (K177). Öteleme tutulduğunda
+ * önizleme sembolü duvardan koparıp havada gösteriyordu; bağlanma yalnız bırakma
+ * anında çözüldüğü için cihaz ancak fare bırakılınca duvara geri sıçrıyordu.
+ * Nokta tutulunca hem önizleme hem yazım AYNI noktadan bağlanmayı çözüyor —
+ * sembol duvar boyunca kayarak sürükleniyor ve görülen yer yazılan yer oluyor.
  */
 type SymbolDrag = {
   symbolIds: Id[]
-  dxCm: number
-  dyCm: number
+  targetCm: PlanPoint
 }
 
 /**

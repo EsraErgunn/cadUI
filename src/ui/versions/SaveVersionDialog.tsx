@@ -2,7 +2,7 @@ import { useId, useState, type FormEvent } from 'react'
 
 import { VERSION_LABEL_MAX_LENGTH } from './versionFormat'
 import { DialogShell } from '../controls/DialogShell'
-import { chromeButtonVariants } from '../controls/buttonVariants'
+import { dialogActionVariants } from '../controls/buttonVariants'
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70'
 
@@ -55,14 +55,14 @@ export function SaveVersionDialog({ isSaving, onCancel, onSave }: SaveVersionDia
           <button
             type="button"
             onClick={onCancel}
-            className={`${chromeButtonVariants()} ${FOCUS_RING}`}
+            className={`${dialogActionVariants({ tone: 'cancel' })} ${FOCUS_RING}`}
           >
             Vazgeç
           </button>
           <button
             type="submit"
             disabled={trimmedLabel === '' || isSaving}
-            className={`${chromeButtonVariants({ tone: 'active' })} ${FOCUS_RING}`}
+            className={`${dialogActionVariants({ tone: 'primary' })} ${FOCUS_RING}`}
           >
             {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>

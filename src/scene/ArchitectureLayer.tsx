@@ -44,7 +44,11 @@ import { DEFAULT_AREA_OBJECT_SIZE_CM } from '../core/areaObject'
 import { DEFAULT_BEAM_THICKNESS_CM } from '../core/beam'
 import { getOpeningOutline } from '../core/opening'
 import { isSelected } from '../core/selection'
-import { getSymbolPose, getSymbolsOnFloor } from '../core/symbolPlacement'
+import {
+  getSymbolPose,
+  getSymbolsOnFloor,
+  resolveSymbolAttachment,
+} from '../core/symbolPlacement'
 import { useArchitectureUiStore } from '../store/architectureUiStore'
 import { useCadStore } from '../store/cadStore'
 
@@ -131,12 +135,26 @@ function PointSymbols() {
             : 'normal'
 
         // Sürüklenen sembol geçici konumuyla çizilir; store'a bırakma anında yazılır.
+        //
+        // ⚠️ Bağlanma sürükleme SIRASINDA çözülür (K177): hedef noktadan
+        // resolveSymbolAttachment geçilip poz yeniden hesaplanıyor. Eskiden ham
+        // öteleme uygulanıyordu ve duvara ait cihaz sürüklenirken duvardan
+        // kopup havada duruyor, ancak fare bırakılınca geri sıçrıyordu.
+        // Bırakma da AYNI noktadan çözüyor, yani görülen yer yazılan yer.
         const drag = draggingSymbols?.symbolIds.includes(symbol.id) ? draggingSymbols : undefined
         const drawnPose = drag
-          ? {
-              ...pose,
-              position: { x: pose.position.x + drag.dxCm, y: pose.position.y + drag.dyCm },
-            }
+          ? getSymbolPose(
+              {
+                ...symbol,
+                ...resolveSymbolAttachment(drag.targetCm, symbol.type, {
+                  walls: symbolWalls,
+                  points: symbolPoints,
+                  floorId: activeFloorId,
+                }),
+              },
+              symbolWalls,
+              symbolPoints,
+            ) ?? pose
           : pose
 
         // key id, indeks DEĞİL: R3F indeks anahtarında yanlış mesh'i yeniden kullanır.

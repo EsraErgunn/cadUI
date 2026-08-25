@@ -1,5 +1,5 @@
 import { DialogShell } from './controls/DialogShell'
-import { chromeButtonVariants } from './controls/buttonVariants'
+import { dialogActionVariants } from './controls/buttonVariants'
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70'
 
@@ -35,13 +35,13 @@ export function ClearProjectDialog({ onCancel, onConfirm }: ClearProjectDialogPr
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-2 border-t border-edge px-5 py-3">
-        <button type="button" onClick={onCancel} className={`${chromeButtonVariants()} ${FOCUS_RING}`}>
+        <button type="button" onClick={onCancel} className={`${dialogActionVariants({ tone: 'cancel' })} ${FOCUS_RING}`}>
           Vazgeç
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className={`${chromeButtonVariants()} text-danger hover:bg-danger/10 ${FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'danger' })} ${FOCUS_RING}`}
         >
           Temizle
         </button>

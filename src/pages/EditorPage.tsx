@@ -129,7 +129,10 @@ export function EditorPage() {
     // zaten tuval ve tuval iki temada da beyaz (sceneTheme.background). Kabuk
     // token'ı kullanılsaydı üst bar beyaz tuvalin üstünde lacivert bir şerit
     // olurdu. Tema DEĞİŞEN parçalar solda: sol bar ve yüzen çubuk.
-    <div className="flex h-screen overflow-hidden bg-surface-sunken">
+    // `data-editor-root`: sahne imleçleri buraya yazılıyor (K177). Tuvalin
+    // kendi elemanına yazılsaydı imleç yalnız çizim alanında değişir, palet ve
+    // barların üstünde işletim sisteminin oku geri gelirdi.
+    <div data-editor-root className="flex h-screen overflow-hidden bg-surface-sunken">
       <EditorSidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl bg-canvas-overlay">

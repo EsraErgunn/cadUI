@@ -11,7 +11,7 @@ import {
 import type { ProjectSummary } from '../../pages/useProjectSummary'
 import { useCadStore } from '../../store/cadStore'
 import { DialogShell } from '../controls/DialogShell'
-import { chromeButtonVariants } from '../controls/buttonVariants'
+import { dialogActionVariants } from '../controls/buttonVariants'
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70'
 
@@ -120,7 +120,7 @@ export function ExportPdfDialog({ project, onClose }: ExportPdfDialogProps) {
           type="button"
           onClick={onClose}
           disabled={isExporting}
-          className={`${chromeButtonVariants()} ${FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'cancel' })} ${FOCUS_RING}`}
         >
           Vazgeç
         </button>
@@ -135,7 +135,7 @@ export function ExportPdfDialog({ project, onClose }: ExportPdfDialogProps) {
               !settings.isSitePlanVisible &&
               !settings.isIsometricVisible)
           }
-          className={`${chromeButtonVariants({ tone: 'active' })} ${FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'primary' })} ${FOCUS_RING}`}
         >
           {isExporting ? 'Oluşturuluyor…' : 'Oluştur'}
         </button>

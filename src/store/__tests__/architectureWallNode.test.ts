@@ -21,6 +21,7 @@ function seedStraightWall() {
       { id: WALL_A, floorId: DEFAULT_FLOOR_ID, p1Id: P1, p2Id: P2, thickness: 20, height: 280 },
     ],
     openings: [],
+    symbols: [],
     rooms: [],
     activeFloorId: DEFAULT_FLOOR_ID,
     nextUniqueId: 100,
@@ -41,6 +42,7 @@ function seedCollinearPair() {
       { id: WALL_B, floorId: DEFAULT_FLOOR_ID, p1Id: P3, p2Id: P2, thickness: 20, height: 280 },
     ],
     openings: [],
+    symbols: [],
     rooms: [],
     activeFloorId: DEFAULT_FLOOR_ID,
     nextUniqueId: 100,
@@ -122,6 +124,83 @@ describe('splitWallAtPoint — duvara çift tık', () => {
     expect(useCadStore.getState().revision).toBe(before)
   })
 
+  it('duvara bağlı SEMBOL doğru parçaya taşınır, bölme noktasına ışınlanmaz', () => {
+    // Kullanıcı bildirimi: cihaz bulunan duvarı bölünce cihaz tıklanan noktaya
+    // sıçrıyordu. Sebep: sembol eski (kısalmış) parçada kalıyor, bayat offset
+    // getWallFrameAtOffsetCm'de duvarın ucuna kırpılıyordu.
+    useCadStore.setState({
+      symbols: [
+        {
+          id: 60,
+          type: 'panel',
+          label: 'P-01',
+          note: '',
+          attachment: 'wall',
+          wallId: WALL_A,
+          offsetCm: 100,
+          isMountedOnFarFace: false,
+        },
+      ],
+    })
+
+    // Bölme 300 cm'de: sembol 100 cm'de, yani İLK parçada kalmalı.
+    useCadStore.getState().splitWallAtPoint(WALL_A, { x: 300, y: 0 })
+
+    const [symbol] = useCadStore.getState().symbols
+    expect(symbol).toMatchObject({ wallId: WALL_A, offsetCm: 100 })
+  })
+
+  it('bölmenin ÖTESİNDEKİ sembol ikinci parçaya geçer ve offset yeniden ölçülür', () => {
+    useCadStore.setState({
+      symbols: [
+        {
+          id: 61,
+          type: 'vent',
+          label: 'MN-01',
+          note: '',
+          attachment: 'wall',
+          wallId: WALL_A,
+          offsetCm: 320,
+          isMountedOnFarFace: true,
+        },
+      ],
+    })
+
+    useCadStore.getState().splitWallAtPoint(WALL_A, { x: 200, y: 0 })
+
+    const { walls, symbols } = useCadStore.getState()
+    const tail = walls.find((wall) => wall.id !== WALL_A)
+    const [symbol] = symbols
+
+    // İkinci parçanın başı 200 cm'de: 320 − 200 = 120.
+    expect(symbol).toMatchObject({ wallId: tail?.id, offsetCm: 120 })
+    // Yüz bilgisi korunur; bölme monte edildiği yüzü değiştirmez.
+    expect(symbol.attachment === 'wall' && symbol.isMountedOnFarFace).toBe(true)
+  })
+
+  it('SERBEST sembol bölmeden etkilenmez', () => {
+    // Aydınlatma duvara bağlanmıyor; bölme onun konumuna dokunmamalı.
+    useCadStore.setState({
+      symbols: [
+        {
+          id: 62,
+          type: 'lighting',
+          label: 'AY-01',
+          note: '',
+          attachment: 'free',
+          floorId: DEFAULT_FLOOR_ID,
+          x: 150,
+          y: 80,
+          rotationDeg: 0,
+        },
+      ],
+    })
+
+    useCadStore.getState().splitWallAtPoint(WALL_A, { x: 200, y: 0 })
+
+    expect(useCadStore.getState().symbols[0]).toMatchObject({ x: 150, y: 80 })
+  })
+
   it('uygulanan bölme projeyi KİRLETİR', () => {
     const before = useCadStore.getState().revision
     useCadStore.getState().splitWallAtPoint(WALL_A, { x: 150, y: 0 })
@@ -143,6 +222,87 @@ describe('mergeWallsAtPoint — düğüme çift tık', () => {
     expect(points.some((point) => point.id === P3)).toBe(false)
     // Birleşik duvar uçtan uca uzanmalı.
     expect(walls[0]).toMatchObject({ p1Id: P1, p2Id: P2 })
+  })
+
+  it('KAYBEDEN duvardaki cihaz kazanana taşınır, yok olmaz', () => {
+    // Kullanıcı bildirimi: çift tıkla birleştirilen duvarlardaki cihazlar
+    // kayboluyordu. Sebep: birleşme açıklıkları taşıyordu ama sembolleri
+    // taşımıyordu; kaybeden duvar silinince sembol sahipsiz kalıp çizilemez
+    // oluyordu.
+    useCadStore.setState({
+      symbols: [
+        {
+          id: 70,
+          type: 'panel',
+          label: 'P-01',
+          note: '',
+          attachment: 'wall',
+          // WALL_B: (200,0) → (400,0); p1 eklemde, kendi p1'inden 50 cm.
+          wallId: WALL_B,
+          offsetCm: 50,
+          isMountedOnFarFace: false,
+        },
+      ],
+    })
+
+    useCadStore.getState().mergeWallsAtPoint(P3)
+
+    const { walls, symbols } = useCadStore.getState()
+    expect(walls).toHaveLength(1)
+
+    const [symbol] = symbols
+    // Birleşik duvar (0,0) → (400,0) ve p1 = P1: eklem 200 cm'de, cihaz 250'de.
+    expect(symbol).toMatchObject({ wallId: WALL_A, offsetCm: 250 })
+    expect(symbol.attachment === 'wall' && symbol.isMountedOnFarFace).toBe(false)
+  })
+
+  it('KAZANAN duvardaki cihazın offset"i de birleşmeyle kayar', () => {
+    // Kazananın p1'i eklemdeyse birleşmede p1 değişiyor; kendi cihazı da kayar.
+    useCadStore.setState({
+      walls: [
+        { id: WALL_A, floorId: DEFAULT_FLOOR_ID, p1Id: P3, p2Id: P1, thickness: 20, height: 280 },
+        { id: WALL_B, floorId: DEFAULT_FLOOR_ID, p1Id: P3, p2Id: P2, thickness: 20, height: 280 },
+      ],
+      symbols: [
+        {
+          id: 71,
+          type: 'vent',
+          label: 'MN-01',
+          note: '',
+          attachment: 'wall',
+          wallId: WALL_A,
+          offsetCm: 40,
+          isMountedOnFarFace: true,
+        },
+      ],
+    })
+
+    useCadStore.getState().mergeWallsAtPoint(P3)
+
+    // Kaybedenin boyu 200 cm, kazananın p1'i eklemdeydi: 200 + 40 = 240.
+    expect(useCadStore.getState().symbols[0]).toMatchObject({ offsetCm: 240 })
+  })
+
+  it('SERBEST cihaz birleşmeden etkilenmez', () => {
+    useCadStore.setState({
+      symbols: [
+        {
+          id: 72,
+          type: 'lighting',
+          label: 'AY-01',
+          note: '',
+          attachment: 'free',
+          floorId: DEFAULT_FLOOR_ID,
+          x: 120,
+          y: 60,
+          rotationDeg: 0,
+        },
+      ],
+    })
+
+    useCadStore.getState().mergeWallsAtPoint(P3)
+
+    expect(useCadStore.getState().symbols[0]).toMatchObject({ x: 120, y: 60 })
   })
 
   it('küçük id KAZANIR: "ilk çizilen kazanır"', () => {
@@ -234,6 +394,7 @@ describe('mergeWallsAtPoint — elle sürüklenmiş düğüm', () => {
         { id: WALL_B, floorId: DEFAULT_FLOOR_ID, p1Id: P3, p2Id: P2, thickness: 20, height: 280 },
       ],
       openings: [],
+      symbols: [],
       rooms: [],
       activeFloorId: DEFAULT_FLOOR_ID,
       nextUniqueId: 100,
@@ -279,6 +440,7 @@ describe('mergeWallsAtPoint — elle sürüklenmiş düğüm', () => {
       points: useCadStore.getState().points,
       walls: useCadStore.getState().walls,
       openings: [],
+      symbols: [],
       rooms: [],
       activeFloorId: DEFAULT_FLOOR_ID,
     }) as unknown as Parameters<typeof mergeCollinearWallsInDraft>[0]
@@ -295,6 +457,7 @@ describe('mergeWallsAtPoint — elle sürüklenmiş düğüm', () => {
       points: useCadStore.getState().points,
       walls: useCadStore.getState().walls,
       openings: [],
+      symbols: [],
       rooms: [],
       activeFloorId: DEFAULT_FLOOR_ID,
     }) as unknown as Parameters<typeof mergeCollinearWallsInDraft>[0]
