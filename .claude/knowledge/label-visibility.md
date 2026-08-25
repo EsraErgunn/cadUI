@@ -71,3 +71,36 @@ farklı alan kümesi taşınabiliyor. Diğer türler hâlâ marka + model + aç�
 İzometriğin sayaç etiketi AYRI (`isometric/core/isometricLabels.ts`,
 `Sayaç Daire 3` + sınıf + alan + debi) — WebCAD düzenini izliyor, plan
 etiketiyle ortaklaştırılmadı.
+
+## Ölçü etiketi kimliği de yazar, boru açıklaması çizime basılır (K166)
+
+Ölçü etiketi `1,20 m · DN25` (`plumbing/core/lineLabel.ts` →
+`getLineMeasurementLabel`); deşarj hattında çap yok, kimlik türün adı:
+`3,00 m · Baca`.
+
+⚠️ **K132 kısmen tersine döndü**: "çap etikete girmez, renkten okunur" artık
+geçerli değil (kullanıcı isteği). Renk ancak açıklamaya bakılarak çözülüyordu
+ve ölçüyü okuyan kişi zaten malzeme arıyor. Etiket `LengthLabels`'ın kendisi
+olduğu için çap MİMARİ görünümdeki tesisat izinde de yazıyor — K132'nin "boru
+ölçüleri mimaride de yazılır" kuralı olduğu gibi duruyor.
+
+⚠️ Anlık (lastik bant) etiket DEĞİŞMEDİ: `DraftLengthLabel` çizim geri
+bildirimi — henüz bir hat yok, kimliği de yok.
+
+Özellik panelindeki boru **Açıklaması** artık çizime basılıyor
+(`plumbing/scene/LineDescriptionLabels.tsx`); bugüne kadar hiç çizilmiyordu.
+Eleman ad etiketleriyle AYNI anahtarda (`isElementLabelsVisible`, "Eleman
+adları") ve aynı biçimde — kullanıcı için ikisi tek bir "adlar" katmanı.
+
+- ⚠️ Tür adı ("Boru") etikete GİRMEZ: önce eleman künyesinin deseni izlenip
+  `Boru\n<açıklama>` yazılmıştı, kullanıcı kaldırttı — her hatta tekrarlanan
+  aynı kelime kalabalıktan başkasını üretmiyor. Açıklaması olmayan hat etiket
+  ÜRETMEZ.
+- ⚠️ SÜRÜKLENEMEZ: hat plan tarafında `labelOffsetCm` taşımıyor (yalnız
+  `isometricLabelOffsetCm`, K121), uydurulmadı. Yeri orta bölümün ortası
+  (`getLineLabelAnchorCm`), ölçü etiketinin TERS yönünde kayar — aynı tarafta
+  olsalardı üst üste binerlerdi.
+- ⚠️ Mimari görünümdeki tesisat izine girmez: orada eleman ad etiketleri de
+  çizilmiyor, açıklama tek başına asılı kalırdı.
+- ⚠️ Açıklama alanı yalnız `pipe` türünde var (`lineProperties.ts`); bacanın
+  ve havalandırmanın karşılığı yok.

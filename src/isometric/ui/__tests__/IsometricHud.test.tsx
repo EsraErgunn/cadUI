@@ -114,27 +114,30 @@ describe('IsometricModeSwitch', () => {
 })
 
 describe('IsometricLegend', () => {
-  it('çizimde çap yoksa hiç çizilmez', () => {
+  it('çizimde hat yoksa hiç çizilmez', () => {
     const { container } = render(<IsometricLegend />)
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('yalnız kullanılan çapları listeler', () => {
+  it('yalnız kullanılan çapları listeler, ölçü yazmaz', () => {
     const start = useCadStore.getState().addElement({ type: 'valve', position: { x: 0, y: 0 } })
     expect(start).toBeGreaterThan(0)
     useCadStore.getState().addLine({
       kind: 'pipe',
       points: [
         { x: 0, y: 0 },
-        { x: 100, y: 0 },
+        { x: 300, y: 0 },
       ],
       pipeTypeName: 'DN32',
     })
 
     render(<IsometricLegend />)
-    const group = screen.getByRole('group', { name: 'Boru çapı renkleri' })
+    const group = screen.getByRole('group', { name: 'Boru renkleri' })
 
     expect(within(group).getByText('DN32')).toBeInTheDocument()
     expect(within(group).queryByText('DN25')).toBeNull()
+    // Dış çap ve toplam boy K166'da kaldırıldı.
+    expect(within(group).queryByText(/mm/)).toBeNull()
+    expect(within(group).queryByText(/m$/)).toBeNull()
   })
 })

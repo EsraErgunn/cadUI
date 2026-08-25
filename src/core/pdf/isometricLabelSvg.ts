@@ -1,7 +1,10 @@
-import { layoutLabelsBesideAnchors, type LabelBox } from './isometricLabelPlacement'
 import type { IsometricSvgInput } from './isometricSvg'
 import { svgLine, svgText, SVG_COLORS } from './svgPrimitives'
 import type { IsometricElevationContext } from '../../isometric/core/isometricElevation'
+import {
+  layoutLabelsBesideAnchors,
+  type LabelBox,
+} from '../../isometric/core/isometricLabelPlacement'
 import {
   getIsometricElementLabelLines,
   getIsometricLineLabelAnchor,

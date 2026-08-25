@@ -8308,3 +8308,104 @@ gereksizleşti.
 kod yazma.
 
 ⚠️ Kâğıt DEĞİŞMEDİ: bu karar tek yönlü, ekran kâğıda uyduruldu.
+
+### K166 — Boru bilgisi ÇİZİM ekranlarına taşındı; izometrik açıklama yalnız renk
+
+Kullanıcı isteği (iki turda): "boruların çapına göre bilgilerinin yazması" →
+"boruların açıklamaları eleman adları ile gelsin, hangi boru olduğu da yazılsın
+boru ölçüleri açılınca, bunlar çizim kısmındaki ekranlarda olsun, dış çap ve
+toplam boy yazmasın sol altta" → "Boru yazma ama açıklama kalsın".
+
+**1) Ölçü etiketi artık kimliği de taşıyor**: `1,20 m · DN25`
+(`plumbing/core/lineLabel.ts` → `getLineMeasurementLabel`). Deşarj hattında çap
+yok, kimlik TÜRÜN adı: `3,00 m · Baca`.
+
+⚠️ **K132 kısmen tersine döndü**: "çap etikete girmez, renkten okunur" artık
+geçerli değil. Gerekçe: renk ancak açıklamaya bakılarak çözülüyordu ve ölçüyü
+okuyan kişi zaten malzeme arıyor. Etiket `LengthLabels`'ın kendisi olduğu için
+çap MİMARİ görünümdeki tesisat izinde de yazıyor — K132'nin "boru ölçüleri
+mimaride de yazılır" kuralı olduğu gibi duruyor.
+
+⚠️ Anlık (lastik bant) etiket DEĞİŞMEDİ: `DraftLengthLabel` çizim geri
+bildirimi, kalıcı kotalama değil — henüz bir hat yok, kimliği de yok.
+
+**2) Boru AÇIKLAMASI çizime basılıyor** (`LineDescriptionLabels.tsx`): özellik
+panelindeki "Açıklama" alanı bugüne kadar hiç çizilmiyordu. Eleman ad
+etiketleriyle AYNI anahtarda ("Eleman adları", `isElementLabelsVisible`) ve
+aynı biçimde — kullanıcı için ikisi tek bir "adlar" katmanı.
+
+⚠️ **Tür adı ("Boru") etikete GİRMEZ** (kullanıcı, ikinci düzeltme): önce
+eleman künyesinin deseni izlenip "Boru
+<açıklama>" yazılmıştı; her hatta
+tekrarlanan aynı kelime kalabalıktan başka bir şey üretmiyor ve hattın ne
+olduğu zaten renginden + ölçü etiketindeki çapından okunuyor. Açıklaması
+olmayan hat etiket ÜRETMEZ.
+
+⚠️ Etiket SÜRÜKLENEMEZ: hat modeli plan tarafında `labelOffsetCm` taşımıyor
+(yalnız `isometricLabelOffsetCm` var, K121), uydurulmadı. Yeri ORTA bölümün
+ortası (`getLineLabelAnchorCm`) ve ölçü etiketinin TERS yönünde kayar — aynı
+tarafta olsalardı üst üste binerlerdi.
+
+⚠️ Mimari görünümdeki tesisat izine GİRMEZ: orada eleman ad etiketleri de
+çizilmiyor, açıklama tek başına asılı kalırdı.
+
+⚠️ Açıklama alanı yalnız `pipe` türünde var (`lineProperties.ts`); bacanın ve
+havalandırmanın karşılığı yok, uydurulmadı.
+
+**3) İzometrik açıklama (sol alt) yalnız KİMLİK**: dış çap ve toplam boy
+kaldırıldı, tablo tekrar renk + ad listesi oldu. Açıklamanın tek işi "bu renk ne
+demek"; ölçü bilgisi çizim ekranlarında borunun kendi etiketinde okunuyor.
+Deşarj satırları (Baca / Havalandırma Kanalı) KALDI — izometrikte çiziliyorlar
+ama renkleri eskiden hiç açıklanmıyordu.
+
+⚠️ İzometrik hat KÜNYESİ değişmedi: `(3)` / `4,74 m` / `DN25` / `Ø33,7 mm`.
+Kaldırma isteği "sol alt" içindi; künye izometriğin kendi tüketim etiketi ve
+PDF ile ortak (`getIsometricLineLabelLines`). `formatPipeOuterDiameter` orada
+kullanılıyor, tek yer.
+
+### K167 — İzometrik etiketler nesnelerinin yanında; vurgu ETİKETLERİ de soluklaştırır
+
+Kullanıcı: "izometride etiketler daha toplu dursun, üst üste gelmesin; ayrıca
+bir şeye tıklarsak onun etiketleri hariç her şey soluk halde gözüksün".
+
+**HALKA yerleşimi SİLİNDİ**: `layoutIsometricLabels`, `isometricLabelLayout.ts`,
+`getIsometricLabelDistanceCm`, `LINE_LABEL_DISTANCE_FACTOR`,
+`ELEMENT_LABEL_DISTANCE_FACTOR` ve testleri kaldırıldı — bu adlarla yeni kod
+yazma. Ekran artık kâğıdın yerleşimini kullanıyor
+(`layoutLabelsBesideAnchors`): etiket kendi nesnesinin yanında, çakışanlar
+itilerek ayrılıyor.
+
+⚠️ K156 "iki yerleşim yan yana duruyor, ekran dokunulmadan kaldı" diyordu;
+gerekçesi (yazı ekran-sabit, etiket sürüklenebilir, uzak durması gezinmeyi
+kolaylaştırır) kullanıcı karşısında tutmadı — halkanın kusuru ekranda da aynı:
+etiket sayısı arttıkça çember büyüyor ve çizim ortada küçülüyor.
+
+⚠️ Modül `core/pdf/`den `isometric/core/isometricLabelPlacement.ts`'e TAŞINDI:
+iki tüketicisi olunca "pdf" klasörü yanıltıcı kalıyordu.
+
+⚠️ Kutu ölçüsü ZOOM'a bağlı: ekranda yazı ekran-sabit boyda, yani dünya
+cinsinden boyu px/zoom. Sabit cm alınsaydı yakınlaşınca etiketler gereksiz yere
+ayrılırdı. Karakter genişliği/satır yüksekliği oranları ekran ile kâğıtta
+FARKLI (0.62/1.35 ve 0.55/1.25) — kutuyu çağıran hesaplıyor, yerleşim yalnız
+ayırıyor.
+
+⚠️ Kılavuz çizgisi ekranda da İSTİSNA oldu: etiket nesnesinin dibinde dururken
+kısa bir kılavuz yazının ortasına kadar girip okunurluğu bozuyordu. Eşik
+kâğıttakiyle aynı fikirde (yarım genişlik + yükseklik).
+
+⚠️ Kamera çerçeveleme payı halka yarıçapına bağlıydı, oran oldu
+(`LABEL_MARGIN_RATIO = 0.08`) — eski pay bırakılsaydı çizim kadrajın ortasında
+küçücük kalırdı.
+
+**Vurgu artık ETİKETLERİ de kapsıyor**: eleman künyeleri vurgulanan hatta bağlı
+değilse solar. Önce yalnız hat etiketleri soluyordu (`opacityOf(lineId)`,
+elemanda `lineId: null` → hep 1) ve cihaz sembolü solmuşken künyesi tam opak
+kalıyordu — ekranda sahipsiz bir yazı asılı duruyordu.
+
+⚠️ `getConnectedElementIds` `IsometricLayer`'dan `isometric/core/isometricHighlight.ts`'e
+taşındı: sembol ile etiket AYNI kuralı okumak zorunda, ikinci kopya zamanla
+ayrışırdı.
+
+⚠️ Tıklanabilir olan hâlâ yalnız HAT (`highlightedLineId`): elemana tıklayınca
+vurgu açılmıyor. Vurgu modeli tek kimlik taşıyor, elemanı da hedef yapmak
+ayrık birleşime geçmeyi gerektirir — istenirse ayrı adım.

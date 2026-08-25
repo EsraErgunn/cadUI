@@ -44,14 +44,19 @@ function makeElement(overrides: Partial<InstallationElement> = {}): Installation
 }
 
 describe('getIsometricLineLabelLines', () => {
-  it('sıra, 3B boy ve çapı bu düzende yazar', () => {
-    expect(getIsometricLineLabelLines(makeLine(), 3, EMPTY_CONTEXT)).toEqual(['(3)', '4,00 m', 'DN25'])
+  it('sıra, 3B boy, anma çapı ve dış çapı bu düzende yazar', () => {
+    expect(getIsometricLineLabelLines(makeLine(), 3, EMPTY_CONTEXT)).toEqual([
+      '(3)',
+      '4,00 m',
+      'DN25',
+      'Ø33,7 mm',
+    ])
   })
 
   it('boy GERÇEK 3B uzunluktur (kot farkı dahil)', () => {
     // 400 cm plan + 300 cm kot farkı → 500 cm (3-4-5 üçgeni).
     const line = makeLine({ pipe: { startHeightCm: 0, endHeightCm: 300, description: '' } })
-    expect(getIsometricLineLabelLines(line, 1, EMPTY_CONTEXT)).toEqual(['(1)', '5,00 m', 'DN25'])
+    expect(getIsometricLineLabelLines(line, 1, EMPTY_CONTEXT)).toEqual(['(1)', '5,00 m', 'DN25', 'Ø33,7 mm'])
   })
 
   it('saf dikey bağlantının boyu yalnız kot farkıdır', () => {
@@ -62,7 +67,7 @@ describe('getIsometricLineLabelLines', () => {
       ],
       pipe: { startHeightCm: 0, endHeightCm: 275, description: '' },
     })
-    expect(getIsometricLineLabelLines(line, 2, EMPTY_CONTEXT)).toEqual(['(2)', '2,75 m', 'DN25'])
+    expect(getIsometricLineLabelLines(line, 2, EMPTY_CONTEXT)).toEqual(['(2)', '2,75 m', 'DN25', 'Ø33,7 mm'])
   })
 
   it('deşarj hattında ÇAP yazılmaz, boy baca kotundan hesaplanır', () => {
@@ -85,7 +90,7 @@ describe('getIsometricLineLabelLines', () => {
         { id: 12, position: { x: 0, y: 0 } },
       ],
     })
-    expect(getIsometricLineLabelLines(degenerate, 1, EMPTY_CONTEXT)).toEqual(['(1)', 'DN25'])
+    expect(getIsometricLineLabelLines(degenerate, 1, EMPTY_CONTEXT)).toEqual(['(1)', 'DN25', 'Ø33,7 mm'])
   })
 
   it('izometrik kaydırma boyu DEĞİŞTİRMEZ', () => {

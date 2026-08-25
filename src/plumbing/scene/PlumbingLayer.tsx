@@ -5,6 +5,7 @@ import { ElementRotateHandle } from './ElementRotateHandle'
 import { FloorLinkGlyphs } from './FloorLinkGlyph'
 import { InstallationLines } from './InstallationLineMesh'
 import { LengthLabels } from './LengthLabels'
+import { LineDescriptionLabels } from './LineDescriptionLabels'
 import { MeasurementOverlay } from './MeasurementOverlay'
 import { DrawingPortMarkers } from './PortMarkers'
 import { SelectionMarquee } from './SelectionMarquee'
@@ -78,6 +79,11 @@ export function PlumbingLayer() {
       />
       <ElementNameLabels
         draggedElementIds={selection.draggedElementIds}
+        dragDeltaRef={selection.dragDeltaRef}
+      />
+      {/* Hat açıklamaları eleman adlarıyla AYNI anahtarda (kullanıcı isteği). */}
+      <LineDescriptionLabels
+        draggedLineIds={selection.draggedLineIds}
         dragDeltaRef={selection.dragDeltaRef}
       />
       <ServiceBoxElevationLabels

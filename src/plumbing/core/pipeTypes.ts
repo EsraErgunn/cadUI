@@ -48,3 +48,17 @@ export const DEFAULT_PIPE_TYPE_NAME: PipeTypeName = 'DN25'
 export function isPipeTypeName(name: string): name is PipeTypeName {
   return name in PIPE_TYPES
 }
+
+/** Katalog santimetre tutuyor, tesisatçı çapı milimetre okur. */
+const MM_PER_CM = 10
+
+const DIAMETER_FORMATTER = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 1 })
+
+/**
+ * Çapın okunur hâli: `Ø33,7 mm`. Ad ile gerçek ölçü arasındaki köprü —
+ * "DN25" bir anma çapı, borunun dış çapı değil; ikisi karıştırılmasın diye
+ * açıklamada ve künyede yan yana yazılıyor.
+ */
+export function formatPipeOuterDiameter(typeName: PipeTypeName): string {
+  return `Ø${DIAMETER_FORMATTER.format(PIPE_TYPES[typeName].outerDiameterCm * MM_PER_CM)} mm`
+}

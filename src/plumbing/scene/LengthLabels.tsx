@@ -1,6 +1,6 @@
 import { Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { Fragment, useMemo, useRef, useState, type RefObject } from 'react'
+import { Fragment, useRef, useState, type RefObject } from 'react'
 import type { Group } from 'three'
 
 import { DragOffsetGroup } from './InstallationLineMesh'
@@ -8,6 +8,7 @@ import { MEASUREMENT_ELEVATION_CM } from './plumbingLayers'
 import { PLUMBING_COLORS } from './plumbingTheme'
 import { useCameraZoom } from './useCameraZoom'
 import { useDraggedCorners, type DraggedCorner } from './useDraggedCorners'
+import { useLinePointPositions } from './useLinePointPositions'
 import { planToThree, type PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
 import { RENDER_ORDER } from '../../scene/layers'
@@ -16,6 +17,7 @@ import { useUiStore } from '../../store/uiStore'
 import type { InstallationLine } from '../core/installationModel'
 import { formatLengthMeters } from '../core/lengthFormat'
 import { getMeasurementAnchor, getSegmentLengthCm, isSamePoint } from '../core/lineGeometry'
+import { getLineMeasurementLabel } from '../core/lineLabel'
 
 /**
  * Font REPODAN gelir (RoomLabel ile aynı gerekçe): verilmezse troika varsayılanı
@@ -86,24 +88,6 @@ export function LengthText({
   )
 }
 
-/**
- * Hattın köşeleri, sürüklenen köşe geçici konumuyla yerine konmuş hâlde.
- * `useDraggedLinePoints` ile aynı gerekçe: köşe bırakılana kadar cadStore
- * yazılmaz, etiket yine de canlı uzunluğu göstermeli.
- */
-function useLinePointPositions(
-  line: InstallationLine,
-  corner: DraggedCorner | undefined,
-): ReadonlyMap<Id, PlanPoint> {
-  return useMemo(() => {
-    const positions = new Map<Id, PlanPoint>()
-    for (const point of line.points) {
-      positions.set(point.id, point.id === corner?.pointId ? corner.position : point.position)
-    }
-    return positions
-  }, [line.points, corner])
-}
-
 type LineLengthLabelsProps = {
   line: InstallationLine
   zoom: number
@@ -129,7 +113,9 @@ function LineLengthLabels({ line, zoom, draggedCorner }: LineLengthLabelsProps) 
             key={segment.id}
             position={planToThree(getMeasurementAnchor(from, to, offsetCm), MEASUREMENT_ELEVATION_CM)}
           >
-            <LengthText label={formatLengthMeters(getSegmentLengthCm(from, to))} zoom={zoom} />
+            {/* Boyun yanında HANGİ BORU olduğu da yazılı (kullanıcı isteği):
+                çap eskiden yalnız renkten okunuyordu. */}
+            <LengthText label={getLineMeasurementLabel(line, getSegmentLengthCm(from, to))} zoom={zoom} />
           </group>
         )
       })}

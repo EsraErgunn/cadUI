@@ -67,8 +67,9 @@ export type IsometricSvg = {
  *
  * Ekrandaki izometrikle AYNI kaynaklardan üretilir — `buildIsometricScene`
  * geometriyi, `projectIsometric` izdüşümü, `isometricLabels` etiket metnini,
- * `layoutIsometricLabels` halka yerleşimini veriyor. Kâğıt kendi çizim dilini
- * uydurmuyor (K136'nın kuralı); burada yalnız SVG'ye dökülüyor.
+ * `layoutLabelsBesideAnchors` yerleşimi veriyor (K167'den beri ekran da aynı
+ * yerleşimi kullanıyor). Kâğıt kendi çizim dilini uydurmuyor (K136'nın
+ * kuralı); burada yalnız SVG'ye dökülüyor.
  *
  * ⚠️ Sayfa ÖLÇEKSİZ. İzdüşümde uzunluklar kısalır (foreshortening), cetvelle
  * ölçülemez — bu yüzden alana SIĞDIRILARAK yerleşir ve üstünde ölçek YAZMAZ.

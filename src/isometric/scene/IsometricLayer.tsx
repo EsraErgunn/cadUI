@@ -13,12 +13,11 @@ import {
 } from './isometricTheme'
 import type { PlanPoint } from '../../core/coords'
 import type { Id } from '../../core/model'
-import { getTargetElementId } from '../../plumbing/core/installationModel'
-import type { InstallationConnection } from '../../plumbing/core/installationModel'
 import { getSymbolMetadata } from '../../plumbing/scene/symbolLoader'
 import { useCameraZoom } from '../../scene/useCameraZoom'
 import { useCadStore } from '../../store/cadStore'
 import type { IsometricElevationContext } from '../core/isometricElevation'
+import { getConnectedElementIds } from '../core/isometricHighlight'
 import { applyIsometricDrag } from '../core/isometricOffset'
 import { getCameraProjection } from '../core/isometricProjection'
 import { buildIsometricScene } from '../core/isometricScene'
@@ -26,20 +25,6 @@ import { useIsometricUiStore } from '../store/isometricUiStore'
 
 /** Işık yönü sahneye göre SABİT: kamera dönerken gölgeleme kaymasın. */
 const DIRECTIONAL_LIGHT_POSITION: [number, number, number] = [1, 2, 1]
-
-/** Vurgulanan hattın uçlarına bağlı elemanlar — onlar solmaz. */
-function getConnectedElementIds(
-  lineId: Id,
-  connections: readonly InstallationConnection[],
-): Set<Id> {
-  const elementIds = new Set<Id>()
-  for (const connection of connections) {
-    if (connection.lineId !== lineId) continue
-    const elementId = getTargetElementId(connection.target)
-    if (elementId !== null) elementIds.add(elementId)
-  }
-  return elementIds
-}
 
 /**
  * İzometrik sahnenin kökü; `SceneRoot` yalnız izometrik görünümde mount eder.

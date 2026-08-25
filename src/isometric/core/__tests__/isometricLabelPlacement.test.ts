@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { PlanPoint } from '../coords'
+import type { PlanPoint } from '../../../core/coords'
 import {
   layoutLabelsBesideAnchors,
   type LabelBox,
-} from '../pdf/isometricLabelPlacement'
+} from '../isometricLabelPlacement'
 
 const LABEL_SIZE_CM = 10
 const CENTER: PlanPoint = { x: 0, y: 0 }

@@ -27,7 +27,7 @@ const LEADER_GAP_SIZE_CM = 8
  * dizgi bittikten sonra okunabiliyor ve o değeri beklemek etiketi bir kare
  * geç tıklanabilir yapardı.
  */
-const GLYPH_WIDTH_RATIO = 0.62
+export const GLYPH_WIDTH_RATIO = 0.62
 const HIT_AREA_PADDING_PX = 6
 
 /** Etiket tıklanmaz (vurgulama gövdeye tıklayarak yapılıyor); sürükleme ayrı hedefte. */
@@ -127,19 +127,31 @@ export function IsometricLabel({
 
   if (lines.length === 0) return null
 
+  /**
+   * Kılavuz çizgisi İSTİSNA (K167, kâğıtla aynı kural): etiket kendi nesnesinin
+   * yanında durduğu için çoğunda gereksiz — üstelik kısa bir çizgi yazının
+   * ortasına kadar girip okunurluğu bozuyor. Yalnız çakışma çözümü etiketi
+   * kendi payının ötesine ittiyse çiziliyor; o zaman hangi nesneye ait olduğu
+   * şekilden okunmuyor.
+   */
+  const offsetPx = Math.hypot(effectiveOffsetCm.x, effectiveOffsetCm.y) * zoom
+  const isLeaderVisible = offsetPx > hitArea.widthPx / 2 + hitArea.heightPx
+
   return (
     <>
-      <Line
-        points={leaderPoints}
-        color={ISOMETRIC_COLORS.labelLeader}
-        lineWidth={LEADER_WIDTH_PX}
-        dashed
-        dashSize={LEADER_DASH_SIZE_CM}
-        gapSize={LEADER_GAP_SIZE_CM}
-        transparent
-        opacity={opacity}
-        raycast={NO_RAYCAST}
-      />
+      {isLeaderVisible && (
+        <Line
+          points={leaderPoints}
+          color={ISOMETRIC_COLORS.labelLeader}
+          lineWidth={LEADER_WIDTH_PX}
+          dashed
+          dashSize={LEADER_DASH_SIZE_CM}
+          gapSize={LEADER_GAP_SIZE_CM}
+          transparent
+          opacity={opacity}
+          raycast={NO_RAYCAST}
+        />
+      )}
       <Billboard position={position}>
         {/* Ölçek ile ekran-sabit boy: `fontSize` her değiştiğinde troika metni
             yeniden dizer, ölçek yalnız matrisi günceller (LengthLabels deseni). */}

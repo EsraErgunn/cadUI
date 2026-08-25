@@ -290,6 +290,55 @@ arkasından boru geçince yazıyı okunmaz yapıyor.
 geliyor, Tailwind sınıfı üretilemez ve `style={{...}}` yasak. `fill` bir sunum
 özniteliği, satır içi CSS değil.
 
+## Boru bilgisi ve açıklaması (K166)
+
+Hat künyesi DÖRT satır: `(3)` / `4,74 m` / `DN25` / `Ø33,7 mm`. Son satır
+K166'da eklendi — "DN25" bir ANMA çapı, borunun gerçek dış çapı 33,7 mm.
+Biçimlendirmenin TEK yeri `plumbing/core/pipeTypes.ts` →
+`formatPipeOuterDiameter`.
+
+⚠️ Künye metni ekran ile KÂĞIDIN ortak kaynağı (`getIsometricLineLabelLines`):
+satır eklemek PDF'i de değiştirir, bilerek yapıldı. K157'de geri alınan şey her
+SEGMENTE boy yazmaktı; künye zaten yalnız tüketim hatlarında.
+
+Sol alttaki açıklama yalnız KİMLİK verir: renk örneği + hat adı
+(`getIsometricLegendRows` → `{ rowId, label }`). Dış çap ve toplam boy bir tur
+denendi ve kullanıcı isteğiyle KALDIRILDI — açıklamanın tek işi "bu renk ne
+demek", ölçü bilgisi çizim ekranlarında borunun kendi etiketinde (K166/1).
+
+- Deşarj hatları (baca, havalandırma) açıklamada VAR, gaz çaplarından sonra.
+  Eski açıklamada hiç yoktular; izometrikte çizildikleri hâlde renkleri
+  açıklanmıyordu.
+- Renk `core/`de DEĞİL: satır yalnız `rowId` taşır. Gaz rengi `PIPE_TYPES`ten,
+  deşarj rengi `ISOMETRIC_COLORS`ten — `core/` sahneyi import edemez, çizen
+  taraf çözer (`getIsometricLineColor` ile aynı iki kaynak).
+
+## Etiket yerleşimi ve vurgu (K167)
+
+Etiket kendi nesnesinin YANINDA durur, çakışanlar itilerek ayrılır —
+`isometric/core/isometricLabelPlacement.ts` → `layoutLabelsBesideAnchors`,
+EKRAN ve KÂĞIT ortak. Halka yerleşimi (`layoutIsometricLabels`) SİLİNDİ; K156
+onu ekranda bırakmıştı, kullanıcı orada da kaldırttı ("daha toplu dursun, üst
+üste gelmesin").
+
+- Kutu ölçüsü ZOOM'a bağlı: yazı ekran-sabit boyda, dünya boyu px/zoom. Sabit
+  cm alınsaydı yakınlaşınca etiketler gereksiz yere ayrılırdı.
+- Karakter genişliği / satır yüksekliği oranları ekran (0.62 / 1.35) ile kâğıtta
+  (0.55 / 1.25) farklı — kutuyu ÇAĞIRAN hesaplar, yerleşim yalnız ayırır.
+- Kılavuz çizgisi İSTİSNA (kâğıtla aynı fikir): etiket nesnesinin dibindeyken
+  kısa kılavuz yazının ortasına girip okunurluğu bozuyordu.
+- Kamera çerçeveleme payı halka yarıçapına bağlıydı, oran oldu
+  (`LABEL_MARGIN_RATIO`).
+
+Vurgu ETİKETLERİ de kapsar: eleman künyesi, vurgulanan hatta bağlı değilse
+solar. Önce yalnız hat etiketleri soluyordu ve cihaz sembolü solmuşken künyesi
+tam opak kalıyordu. Kuralın tek yeri
+`isometric/core/isometricHighlight.ts` → `getConnectedElementIds`; sembol de
+etiket de oradan okur.
+
+⚠️ Tıklanabilir olan hâlâ yalnız HAT (`highlightedLineId`). Elemana tıklayınca
+vurgu açılmaz — vurgu modeli tek kimlik taşıyor.
+
 ## Bilinen boşluklar
 
 - **DN çap tablosu uyuşmazlığı**: WebCAD `DN25.radius = 2.69`, bizde

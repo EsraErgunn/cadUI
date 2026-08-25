@@ -1,5 +1,9 @@
-import { getIsometricLine3dLengthCm } from './isometricElevation'
+import {
+  getIsometricLine3dLengthCm,
+  getIsometricLineElevationsCm,
+} from './isometricElevation'
 import type { IsometricElevationContext } from './isometricElevation'
+import type { IsometricLineGeometry } from './isometricModel'
 import type { ThreePosition } from '../../core/coords'
 import { formatLengthMeters } from '../../core/lengthFormat'
 import { INSTALLATION_ELEMENT_TYPE_LABELS } from '../../plumbing/core/elementLabels'
@@ -14,6 +18,7 @@ import {
   type InstallationLine,
 } from '../../plumbing/core/installationModel'
 import { isGasCarryingKind } from '../../plumbing/core/lineKinds'
+import { formatPipeOuterDiameter } from '../../plumbing/core/pipeTypes'
 import { isBurnerAppliance } from '../../plumbing/core/symbolMetadata'
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 })
@@ -30,9 +35,13 @@ function formatFlow(flowCubicMeterPerHour: number | undefined): string | undefin
 }
 
 /**
- * Hat etiketi: `(3)` / `4,74 m` / `DN25`. WebCAD'in izometrik hat etiketiyle
- * aynı düzen, tek farkı ikinci satırdaki debi (`6.9m³/h`) — hidrolik hesap
- * bizde YOK, o satır hiç yazılmıyor (bkz. izometrik-adimlari.md).
+ * Hat etiketi: `(3)` / `4,74 m` / `DN25` / `Ø33,7 mm`. WebCAD'in izometrik hat
+ * etiketiyle aynı düzen, tek farkı ikinci satırdaki debi (`6.9m³/h`) —
+ * hidrolik hesap bizde YOK, o satır hiç yazılmıyor (bkz. izometrik-adimlari.md).
+ *
+ * Dış çap ANMA ÇAPININ altına yazılır: "DN25" bir anma değeri, borunun gerçek
+ * dış çapı 33,7 mm — malzeme seçerken okunan sayı bu ve künyeden başka yerde
+ * yazmıyor.
  *
  * `order` hattın çizimdeki sırası; kimlik değil okuma kolaylığı için — id'ler
  * proje bazlı artan tamsayı olduğu için kullanıcıya anlamsız büyük sayılar
@@ -50,7 +59,10 @@ export function getIsometricLineLabelLines(
 
   // Çap yalnız gaz taşıyan hatta anlamlı: deşarj hattında alan yazılır ama
   // okunmaz (bkz. lineKinds.ts).
-  if (isGasCarryingKind(line.kind)) labelLines.push(line.pipeTypeName)
+  if (isGasCarryingKind(line.kind)) {
+    labelLines.push(line.pipeTypeName)
+    labelLines.push(formatPipeOuterDiameter(line.pipeTypeName))
+  }
 
   return labelLines
 }
@@ -175,34 +187,6 @@ export function getIsometricElementLabelLines(element: InstallationElement): str
   if (applianceSource) return getApplianceLabelLines(element, applianceSource)
 
   return [INSTALLATION_ELEMENT_TYPE_LABELS[element.type]]
-}
-
-/**
- * Varsayılan etiket uzaklığının çizim boyutuna oranı ve alt sınırı. SABİT bir
- * cm değeri OLAMAZ: 10 metrelik bir dairede 45 cm etiketi borunun üstüne
- * bindiriyor, 40 metrelik bir binada ise hiç fark edilmiyordu.
- */
-const LABEL_DISTANCE_RATIO = 0.50
-const LABEL_MIN_DISTANCE_CM = 240
-
-/**
- * Hat etiketi elemanınkinden DAHA YAKIN durur: bir cihaz ile ona giden kısa kol
- * neredeyse aynı ışınsal yönde olduğu için ikisi eşit uzaklıkta olsaydı
- * künyeler üst üste binerdi.
- */
-export const LINE_LABEL_DISTANCE_FACTOR = 0.85
-export const ELEMENT_LABEL_DISTANCE_FACTOR = 2
-
-/**
- * Etiketin çapasından ne kadar uzağa kaçtığı. Kamera çerçevelemesi de bunu
- * okur: yalnız gövde sınırlarına göre sığdırılsaydı etiketler kadraj dışında
- * kalırdı — kullanıcı çizimi görüp yazıyı göremezdi.
- */
-export function getIsometricLabelDistanceCm(
-  sceneExtentCm: number,
-  distanceFactor: number,
-): number {
-  return Math.max(LABEL_MIN_DISTANCE_CM, sceneExtentCm * LABEL_DISTANCE_RATIO) * distanceFactor
 }
 
 /**

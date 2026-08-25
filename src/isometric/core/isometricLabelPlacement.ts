@@ -1,4 +1,4 @@
-import type { PlanPoint } from '../coords'
+import type { PlanPoint } from '../../core/coords'
 
 /**
  * Etiketin çapasına bırakılan boşluk, yazı boyu cinsinden. Yazıya değmeyecek
@@ -60,16 +60,19 @@ function getOutwardDirection(anchor: PlanPoint, center: PlanPoint): PlanPoint {
 }
 
 /**
- * Kâğıdın etiket yerleşimi: her etiket KENDİ nesnesinin yanına konur, çakışanlar
- * itilerek ayrılır (K156).
+ * İzometrik etiket yerleşimi: her etiket KENDİ nesnesinin yanına konur,
+ * çakışanlar itilerek ayrılır (K156).
  *
- * ⚠️ Ekrandaki HALKA yerleşiminin (`layoutIsometricLabels`) yerine geçmez, onun
- * YANINDA durur — ekran dokunulmadan kaldı. Halka ekranda mantıklı: yazı
- * ekran-sabit boyutta, kullanıcı etiketi sürükleyebiliyor ve çizimden uzakta
- * durması gezinmeyi kolaylaştırıyor. Kâğıtta ise etiket sayısı arttıkça halka
- * büyüyor, çizim ortada küçülüyor ve her etiketten çizimin üstünden geçen bir
- * kesikli kılavuz iniyordu — kullanıcının şikâyet ettiği kalabalık buydu.
- * Referans paftada etiketler nesnelerinin yanında ve kılavuz yok.
+ * ⚠️ EKRAN da KÂĞIT da bunu kullanır (K167). Ekranda önce HALKA yerleşimi
+ * vardı; etiket sayısı arttıkça çember büyüyor, çizim ortada küçülüyor ve her
+ * etiketten çizimin üstünden bir kesikli kılavuz iniyordu — kullanıcı önce
+ * kâğıtta, sonra ekranda bunu kaldırttı ("etiketler daha toplu dursun, üst
+ * üste gelmesin"). Halka yerleşimi (`layoutIsometricLabels`) SİLİNDİ, bu adla
+ * yeni kod yazma.
+ *
+ * Kutu ölçüleri ÇAĞIRANDAN gelir: kâğıtta punto sabit, ekranda yazı
+ * ekran-sabit boyda (px/zoom) ve iki tarafın karakter genişliği/satır yüksekliği
+ * oranları da farklı.
  *
  * Dönen değer çapaya göre KAYMA (cm) — `isometricLabelOffsetCm` ile aynı uzay,
  * böylece kullanıcının elle taşıdığı değer aynı yere yazılabiliyor.
