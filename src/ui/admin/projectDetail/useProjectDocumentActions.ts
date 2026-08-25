@@ -8,7 +8,18 @@ import {
   unlinkDocumentFromUnit,
 } from '../../../api/documents'
 import { ApiError } from '../../../api/http'
-import type { ProjectDocumentRow } from '../../../api/projectDetail'
+
+/**
+ * Düzenlenebilir evrağın gerektirdiği EN AZ alan. İki ekran da bu şekli
+ * karşılıyor: proje detayının `ProjectDocumentRow`'u ve Evrak Ekle ekranının
+ * `DocumentRow`'u. Tam satır tipine bağlanmak, aynı işi yapan ikinci bir
+ * diyalog ve ikinci bir hook doğururdu.
+ */
+export interface EditableDocument {
+  id: number
+  fileName: string
+  unitIds: number[]
+}
 
 const MESSAGES = {
   deleted: 'Evrak silindi.',
@@ -38,12 +49,14 @@ export function useProjectDocumentActions(projectId: number): ProjectDocumentAct
   const [pendingDocumentId, setPendingDocumentId] = useState<number | null>(null)
   const [notice, setNotice] = useState<ProjectDocumentActions['notice']>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
-  const [unitTarget, setUnitTarget] = useState<ProjectDocumentRow | null>(null)
+  const [unitTarget, setUnitTarget] = useState<EditableDocument | null>(null)
   const [unitError, setUnitError] = useState<string | null>(null)
 
   const refresh = useCallback(() => {
-    // İki yüzey de aynı kaydı gösteriyor: bu sekme ve Evraklar listesi.
+    // Aynı kaydı gösteren ÜÇ yüzey var: proje detayının evrak sekmesi, Evrak
+    // Ekle ekranındaki "Proje Evrakları" listesi ve Evraklar liste ekranı.
     void queryClient.invalidateQueries({ queryKey: ['projectDocuments', projectId] })
+    void queryClient.invalidateQueries({ queryKey: ['projectDocumentPicker', projectId] })
     void queryClient.invalidateQueries({ queryKey: ['documents'] })
   }, [projectId, queryClient])
 
@@ -120,7 +133,7 @@ export function useProjectDocumentActions(projectId: number): ProjectDocumentAct
     unitTarget,
     unitError,
     dismissUnitError: useCallback(() => setUnitError(null), []),
-    requestUnitChange: useCallback((document: ProjectDocumentRow) => {
+    requestUnitChange: useCallback((document: EditableDocument) => {
       setUnitError(null)
       setUnitTarget(document)
     }, []),

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { ProjectDocumentRow } from '../../../api/projectDetail'
+import type { EditableDocument } from './useProjectDocumentActions'
 import { AdminDialog } from '../AdminDialog'
 import { NoticeBar } from '../NoticeBar'
 import { adminButtonVariants } from '../adminVariants'
@@ -18,7 +18,7 @@ export interface ProjectDocumentUnitOption {
 }
 
 interface ProjectDocumentUnitDialogProps {
-  document: ProjectDocumentRow
+  document: EditableDocument
   units: ProjectDocumentUnitOption[]
   isSaving: boolean
   error: string | null

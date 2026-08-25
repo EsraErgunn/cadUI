@@ -2,14 +2,12 @@ import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { InfoBanner } from './InfoBanner'
-import {
-  ProjectDocumentUnitDialog,
-  type ProjectDocumentUnitOption,
-} from './ProjectDocumentUnitDialog'
+import { ProjectDocumentActionDialogs } from './ProjectDocumentActionDialogs'
+import type { ProjectDocumentUnitOption } from './ProjectDocumentUnitDialog'
 import { formatFileSize } from './projectDetailFormat'
+import type { EditableDocument } from './useProjectDocumentActions'
 import type { Sourced } from '../../../api/mockGate'
 import type { ProjectDocumentRow } from '../../../api/projectDetail'
-import { ConfirmDialog } from '../ConfirmDialog'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
@@ -25,12 +23,6 @@ const TABLE_CAPTION = 'Projeye yüklenmiş evraklar.'
 
 /** Eylem sütunu içeriği kadar dursun (liste ekranlarıyla aynı gerekçe). */
 const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
-
-const DELETE_DIALOG = {
-  title: 'Evrak silinsin mi?',
-  description: 'Evrak projeden kaldırılacak ve bu işlem geri alınamaz.',
-  confirmLabel: 'Sil',
-} as const
 
 interface ProjectDocumentsTabProps {
   /** "Evrak Ekle" bağlantısı yüklemeyi GELİNEN projeyle ilişkilendiriyor. */
@@ -55,10 +47,10 @@ export interface ProjectDocumentActions {
   cancelDelete: () => void
   confirmDelete: () => void
 
-  unitTarget: ProjectDocumentRow | null
+  unitTarget: EditableDocument | null
   unitError: string | null
   dismissUnitError: () => void
-  requestUnitChange: (document: ProjectDocumentRow) => void
+  requestUnitChange: (document: EditableDocument) => void
   cancelUnitChange: () => void
   confirmUnitChange: (unitId: number) => void
 }
@@ -188,29 +180,7 @@ export function ProjectDocumentsTab({
         />
       )}
 
-      {actions.deleteTargetId !== null && (
-        <ConfirmDialog
-          title={DELETE_DIALOG.title}
-          description={DELETE_DIALOG.description}
-          confirmLabel={DELETE_DIALOG.confirmLabel}
-          confirmTone="danger"
-          isPending={actions.pendingDocumentId !== null}
-          onConfirm={actions.confirmDelete}
-          onCancel={actions.cancelDelete}
-        />
-      )}
-
-      {actions.unitTarget !== null && (
-        <ProjectDocumentUnitDialog
-          document={actions.unitTarget}
-          units={units}
-          isSaving={actions.pendingDocumentId !== null}
-          error={actions.unitError}
-          onDismissError={actions.dismissUnitError}
-          onSave={actions.confirmUnitChange}
-          onClose={actions.cancelUnitChange}
-        />
-      )}
+      <ProjectDocumentActionDialogs units={units} actions={actions} />
     </div>
   )
 }
