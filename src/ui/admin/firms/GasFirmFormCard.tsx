@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { GasFirmFormFields } from './GasFirmFormFields'
 import { gasFirmFieldId, type GasFirmFormValues } from './gasFirmSchema'
 import { useGasFirmForm } from './useGasFirmForm'
+import { GAS_FIRM_QUERY_ROOTS } from '../../../api/adminFirms'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { GAS_DISTRIBUTION_FIRMS_PATH } from '../adminNavItems'
@@ -50,7 +51,12 @@ export function GasFirmFormCard({ firmId, initialValues, formLabel }: GasFirmFor
     if (savedId === null) return
 
     // Liste taze veriyle açılmalı: yeni kayıt toplam adede ve listeye yansısın (KK-10).
-    void queryClient.invalidateQueries({ queryKey: ['gasDistributionFirms'] })
+    // Firma listesini önbelleğe alan HER kök düşürülüyor: kayıt yalnız liste
+    // sayfasında değil, proje firması yetkilendirmesindeki ve gaz dağıtım
+    // kullanıcısı formundaki açılırlarda da görünmeli.
+    for (const root of GAS_FIRM_QUERY_ROOTS) {
+      void queryClient.invalidateQueries({ queryKey: [root] })
+    }
     void queryClient.invalidateQueries({ queryKey: ['gasFirmNextNo'] })
     goToList(savedId)
   }

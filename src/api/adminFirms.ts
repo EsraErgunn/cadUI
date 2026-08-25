@@ -42,6 +42,27 @@ export { SORT_DIRECTIONS, type SortDirection } from './listQuery'
 
 export const GAS_FIRM_PAGE_SIZE = 30
 
+/**
+ * Gaz dağıtım firması listesini önbelleğe alan TÜM sorgu köklerinin tek kaynağı.
+ *
+ * Aynı veri dört ayrı anahtar altında duruyor ve her biri farklı bir ekranı
+ * besliyor: liste sayfası ve kapsam seçicisi (`gasDistributionFirms`), proje
+ * firması yetkilendirmesinin gruba göre daraltılmış listesi
+ * (`gasDistributionFirmsByGroup`), gaz dağıtım kullanıcısı formunun açılırı
+ * (`gasDistributionFirmOptions`) ve tekil kayıt (`gasDistributionFirm`).
+ *
+ * Firma eklendiğinde bir süre yalnız İLKİ geçersizleştiriliyordu; yeni firma
+ * proje firması ve kullanıcı formlarındaki kutularda görünmüyor, kullanıcı
+ * sayfayı yenilemek zorunda kalıyordu. Kökler burada toplandı ki mutasyon
+ * tarafı hangi ekranın hangi anahtarı kullandığını bilmek zorunda kalmasın.
+ */
+export const GAS_FIRM_QUERY_ROOTS = [
+  'gasDistributionFirms',
+  'gasDistributionFirmsByGroup',
+  'gasDistributionFirmOptions',
+  'gasDistributionFirm',
+] as const
+
 export const GAS_FIRM_SORT_KEYS = ['dfirmNo', 'groupName', 'name'] as const
 export type GasFirmSortKey = (typeof GAS_FIRM_SORT_KEYS)[number]
 
