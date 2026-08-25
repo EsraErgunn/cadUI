@@ -54,6 +54,12 @@ export const INSURANCE_COMPANIES = [
 /** `POST /api/policies` çağrılarını yakalar; testler gövdeyi buradan okur. */
 export const policyPostCalls: { body: unknown }[] = []
 
+/** `DELETE /api/policies/{id}` çağrılarındaki kimlikler — yenileme sırası için. */
+export const policyDeleteCalls: number[] = []
+
+/** İLK birimin yürürlükteki poliçesi; yenileme akışında iptal edilecek kayıt. */
+export const EXISTING_POLICY_ID = 900
+
 /** Sunucunun bir sonraki POST yanıtı; `null` ise 200 + oluşturulan kayıt döner. */
 export let policyPostFailure: { status: number; body: unknown } | null = null
 
@@ -63,6 +69,7 @@ export function setPolicyPostFailure(failure: { status: number; body: unknown } 
 
 export function resetPolicyPostStub(): void {
   policyPostCalls.length = 0
+  policyDeleteCalls.length = 0
   policyPostFailure = null
 }
 
@@ -89,6 +96,12 @@ export function stubProjectFetch(): void {
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+
+      if (init?.method === 'DELETE' && url.includes('/api/policies/')) {
+        const id = Number(url.split('/api/policies/')[1])
+        policyDeleteCalls.push(id)
+        return Promise.resolve(new Response(null, { status: 200 }))
+      }
 
       if (init?.method === 'POST' && url.includes('/api/policies')) {
         policyPostCalls.push({
@@ -118,7 +131,7 @@ export function stubProjectFetch(): void {
           ? {
               items: [
                 {
-                  id: 900,
+                  id: EXISTING_POLICY_ID,
                   projectId: PROJECT_ID,
                   projectUnitId: PROJECT_UNITS[0].id,
                   unitNumber: PROJECT_UNITS[0].unitNumber,
@@ -204,20 +217,27 @@ export async function fillFirmStep(user: User): Promise<void> {
 
 /** Adım 3. Tarih girdisine `fireEvent.change`: native `input[type=date]` tuş
     vuruşuyla doldurulamıyor (yeni proje formu testindeki desen). */
-export async function fillInfoStep(user: User, policyNumber = POLICY_NUMBER): Promise<void> {
+export async function fillInfoStep(
+  user: User,
+  policyNumber = POLICY_NUMBER,
+  unitId: number = FREE_UNIT.id,
+): Promise<void> {
   // Birim ZORUNLU: poliçe sunucuda projeye değil birime bağlanıyor. İLK birimin
   // zaten poliçesi var ve seçilemez — boş olan ikinci birim seçiliyor.
-  await user.selectOptions(await screen.findByLabelText('Birim'), String(FREE_UNIT.id))
+  await user.selectOptions(await screen.findByLabelText('Birim'), String(unitId))
   await user.type(await screen.findByLabelText('Poliçe No'), policyNumber)
   await user.type(screen.getByLabelText('Teminat Tutarı'), AMOUNT_INPUT)
   fireEvent.change(screen.getByLabelText('Bitiş Tarihi'), { target: { value: END_DATE } })
 }
 
 /** Adım 1'den özet adımına kadar tüm zorunlu alanları doldurur. */
-export async function fillUntilSummary(user: User, policyNumber = POLICY_NUMBER): Promise<void> {
+export async function fillUntilSummary(
+  user: User,
+  options: { policyNumber?: string; unitId?: number } = {},
+): Promise<void> {
   await goToFirmStep(user)
   await fillFirmStep(user)
   await user.click(nextButton())
-  await fillInfoStep(user, policyNumber)
+  await fillInfoStep(user, options.policyNumber ?? POLICY_NUMBER, options.unitId ?? FREE_UNIT.id)
   await user.click(nextButton())
 }
