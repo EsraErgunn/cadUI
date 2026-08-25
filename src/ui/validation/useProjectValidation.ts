@@ -15,25 +15,33 @@ export type ProjectValidation = {
   run: () => void
 }
 
-function runValidation(): ValidationResult {
+/**
+ * Denetimi o ANDAKİ çizim üzerinde çalıştırır — React'ten bağımsız.
+ *
+ * Dışa açık, çünkü ikinci bir çağıranı var: üst bardaki "Gönder"/"Onayla"
+ * isteği atmadan önce hata sayısına bakıyor (K175). Kendi kopyasını yazsaydı
+ * doğrulamanın okuduğu alan listesi iki dosyada ayrı ayrı güncellenirdi.
+ */
+export function runProjectValidation(): ValidationIssue[] {
   // Alanlar tek tek okunuyor: store'un tamamı `ValidationSource`'a uyuyor ama
   // sözleşme kadarını geçmek, doğrulamanın hangi veriye baktığını sabitliyor.
   const state = useCadStore.getState()
-  return {
-    revision: state.revision,
-    issues: validateProject({
-      floors: state.floors,
-      points: state.points,
-      walls: state.walls,
-      openings: state.openings,
-      rooms: state.rooms,
-      symbols: state.symbols,
-      installationElements: state.installationElements,
-      installationLines: state.installationLines,
-      installationConnections: state.installationConnections,
-      floorPipeLinks: state.floorPipeLinks,
-    }),
-  }
+  return validateProject({
+    floors: state.floors,
+    points: state.points,
+    walls: state.walls,
+    openings: state.openings,
+    rooms: state.rooms,
+    symbols: state.symbols,
+    installationElements: state.installationElements,
+    installationLines: state.installationLines,
+    installationConnections: state.installationConnections,
+    floorPipeLinks: state.floorPipeLinks,
+  })
+}
+
+function runValidation(): ValidationResult {
+  return { revision: useCadStore.getState().revision, issues: runProjectValidation() }
 }
 
 /**

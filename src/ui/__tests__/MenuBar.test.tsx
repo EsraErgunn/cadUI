@@ -3,9 +3,24 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { EditorSubmit } from '../../pages/useEditorSubmit'
 import { useCadStore } from '../../store/cadStore'
 import { MenuBar } from '../MenuBar'
 import { EDITOR_MENUS } from '../menu/menuDefinitions'
+
+function makeSubmit(overrides: Partial<EditorSubmit> = {}): EditorSubmit {
+  return {
+    kind: 'submit',
+    isPending: false,
+    notice: null,
+    request: vi.fn(),
+    confirmIssueCount: null,
+    confirm: vi.fn(),
+    cancel: vi.fn(),
+    dismissNotice: vi.fn(),
+    ...overrides,
+  }
+}
 
 function renderMenuBar(
   onCloseEditor = vi.fn(),
@@ -17,6 +32,7 @@ function renderMenuBar(
   onClearProject = vi.fn(),
   onDownloadProjectFile = vi.fn(),
   onOpenProjectFile = vi.fn(),
+  submit = makeSubmit(),
 ) {
   render(
     <MemoryRouter>
@@ -30,6 +46,7 @@ function renderMenuBar(
         onImport={onImport}
         onExport={onExport}
         isSaving={false}
+        submit={submit}
         versionHistory={{ projectId: 1, currentVersionId: undefined, onLoadVersion }}
       />
     </MemoryRouter>,
@@ -43,6 +60,7 @@ function renderMenuBar(
     onClearProject,
     onDownloadProjectFile,
     onOpenProjectFile,
+    submit,
   }
 }
 
@@ -230,11 +248,53 @@ describe('MenuBar', () => {
     expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument()
   })
 
-  it('Test Et KALDIRILDI; Gönder görünür ama pasif (K142)', () => {
+  it('Test Et KALDIRILDI (K142); Gönder ARTIK ÇALIŞIYOR (K175)', async () => {
     // "Test Et" hiç bağlanmamıştı ve aynı işi Hata Kontrolleri yapıyor.
-    renderMenuBar()
+    const user = userEvent.setup()
+    const { submit } = renderMenuBar()
 
     expect(screen.queryByRole('button', { name: 'Test Et' })).not.toBeInTheDocument()
+
+    const submitButton = screen.getByRole('button', { name: 'Gönder' })
+    expect(submitButton).toBeEnabled()
+
+    await user.click(submitButton)
+    // Denetim + istek hook'un işi; bar yalnız haber ediyor.
+    expect(submit.request).toHaveBeenCalledTimes(1)
+  })
+
+  it('gaz dağıtım kullanıcısında düğme "Onayla" olur (K175)', () => {
+    renderMenuBar(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeSubmit({ kind: 'approve' }),
+    )
+
+    expect(screen.getByRole('button', { name: 'Onayla' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Gönder' })).not.toBeInTheDocument()
+  })
+
+  it('istek sürerken gönderim düğmesi kilitlenir', () => {
+    renderMenuBar(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeSubmit({ isPending: true }),
+    )
+
     expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled()
   })
 

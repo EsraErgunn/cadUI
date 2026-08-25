@@ -131,8 +131,14 @@ dökümü dahil) alır. Ekip: 4 stajyer. Repo: gitlab.tekhnelogos.com/tekhnestar
   Kontrolleri artık ÇALIŞIYOR** (K115): `core/validate.ts` on kuraldan sekizini
   denetliyor, düğme kendi açılır listesini taşıyor. Hata3 (mahal TİPİ yok) ve
   Hata8 (topraklanma NESNESİ yok) BİLEREK yazılmadı — bu konularda varsayım
-  kodlama, bkz. `docs/api-eksikleri-hata-kontrol.md`. "Test Et" ve "Gönder"
-  hâlâ pasif.
+  kodlama, bkz. `docs/api-eksikleri-hata-kontrol.md`. "Test Et" KALDIRILDI.
+  **"Gönder" artık ÇALIŞIYOR** (K175) ve rolden iki yüzü var: gaz dağıtım
+  kullanıcısında **"Onayla"** (`.../approve`), kalanlarda "Gönder"
+  (`.../submit`). Düğme HİÇ pasifleşmez (proje durumu sorulmaz, reddi sunucu
+  söyler); hata kontrolü ENGEL değil UYARI — denetim hata bulursa araya onay
+  penceresi girer. Editörde RET YOK (gerekçe penceresi listede/detayda).
+  Salt görüntülemede "Dışa Aktar" (JSON) da kapalı: o role verilen erişim PDF
+  indirme.
   Üst bar tuvalle aynı yüzeyde ve `canvas-overlay` token'larıyla KOYU TEMADA DA BEYAZ; kendi
   varyantları `menu/editorBarVariants.ts`'te, `controls/buttonVariants.ts`
   pencerelerin (tema değiştiren yüzey). İki özellik paneli ortak kabuk

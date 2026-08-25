@@ -8886,3 +8886,48 @@ süzme sayaç ve izolasyon etiket yazmıyor (kâğıt bunu K156'dan beri yapıyo
 gerekçesi kullanıcı karşısında tutmadı. Kullanıcı yalnız VANAYI söyledi ama
 kural aynı: bu yedi tür etiket olarak yalnız KENDİ ADINI yazıyor, yani sembolün
 zaten söylediği şeyi. Sayaç, yakıcı cihaz ve servis kutusu künyeleri duruyor.
+
+### K175 — Editör üst barındaki "Gönder" bağlandı, gaz dağıtım kullanıcısında "Onayla" oluyor
+
+**Karar.** K90'dan beri pasif duran üst bar düğmesi gerçek uçlara bağlandı ve
+ROLDEN iki yüzü var:
+
+| Rol | Etiket | Uç |
+| --- | --- | --- |
+| Admin, ProjectFirmUser | **Gönder** | `POST /api/projects/{id}/submit` |
+| GasDistributionUser | **Onayla** | `POST /api/projects/{id}/approve` |
+
+Rol `useIsGasDistributionUser()` ile okunuyor, yani login yanıtındaki
+`roleCode`'dan — `GET /api/auth/me` çağrılmıyor, editörün ihtiyacı olan tek şey
+rol ve o zaten oturumda.
+
+**Düğme HİÇ pasifleşmiyor** (kullanıcı kararı). Proje durumu (taslak mı, onay
+bekleyen mi) sorulmuyor: editör o veriyi taşımıyor, taşımak için ayrı bir istek
+gerekirdi ve "neden basamıyorum" sorusunun cevabını sunucunun reddi zaten
+veriyor. Yanlış durumdaki istek şerit olarak geri dönüyor.
+
+**Hata kontrolleri ENGEL değil UYARI.** Basınca `runProjectValidation()`
+çalışıyor; denetim temizse istek DOĞRUDAN gidiyor (tek tıkla biten işe ikinci
+tık eklenmedi), hata varsa `SubmitProjectDialog` açılıyor ve sayıyı gösterip
+"Yine de Gönder/Onayla" diyor. Eski `title`'ın vaadi ("önce hata kontrolleri
+giderilmeli") bilerek terk edildi: ürün kuralı zaten "bağlanmamış boru ucu
+uyarıyla gösterilir ama çalışmayı ENGELLEMEZ" diyor ve son sözü sunucu söylüyor.
+
+⚠️ **Editörde RET YOK.** Gaz dağıtım kullanıcısı yalnız onaylıyor; ret gerekçe
+istiyor (`requiresReason`) ve o pencere proje listesinde/detayında yaşıyor —
+`submitProjectDecision(id, 'approve', null)` çağrısındaki `null` bunun sonucu.
+
+⚠️ `runProjectValidation` `ui/validation/useProjectValidation.ts`'ten DIŞA
+AÇILDI. İkinci bir kopya yazılsaydı doğrulamanın okuduğu alan listesi iki
+dosyada ayrı ayrı güncellenirdi.
+
+⚠️ Sonuç şeridi (`EditorNoticeBar`) kendi kendine KAYBOLMUYOR: eksik evrak
+yanıtı (`{ ok: false, missingDocuments }`) satır satır okunacak bir liste,
+birkaç saniyede silinen bir bildirime sığmaz. `role` tona bağlı — hata `alert`,
+başarı `status`.
+
+**Salt görüntülemede "Dışa Aktar" (JSON) da kapandı.** Gaz dağıtım
+kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı; JSON çizimin içe
+aktarılabilir bir kopyası, kâğıt çıktı değil. "Proje Dosyasını İndir" (PDF)
+açık kaldı. Düğmenin kendisi salt görüntülemede de duruyor — onay o rolün asıl
+işi.
