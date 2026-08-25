@@ -9,6 +9,7 @@ import {
   validateGasFirm,
   type GasFirmFormValues,
 } from '../firms/gasFirmSchema'
+import { toGasFirmPayload } from '../firms/gasFirmValues'
 
 function buildValues(overrides: Partial<GasFirmFormValues> = {}): GasFirmFormValues {
   return {
@@ -39,12 +40,23 @@ describe('validateGasFirm', () => {
     expect(data).not.toBeNull()
   })
 
-  // Grup firması zorunlu: seçilmeden kayıt oluşturulamaz.
-  it('grup seçilmemişse hata üretir', () => {
+  /**
+   * Grup firması OPSİYONEL: grubu olmayan firma geçerli bir senaryo ve sunucu
+   * `GroupId`'yi `int?` olarak alıyor, doğrulayıcısı yalnız değer varsa
+   * denetliyor. Bir süre zorunluydu.
+   */
+  it('grup seçilmemişse hata ÜRETMEZ ve gövdeye null gider', () => {
     const { errors, data } = validateGasFirm(buildValues({ groupId: '' }))
 
-    expect(data).toBeNull()
-    expect(errors.groupId).toBe(GAS_FIRM_ERRORS.group)
+    expect(errors.groupId).toBeUndefined()
+    expect(data).not.toBeNull()
+    expect(toGasFirmPayload(data!).groupId).toBeNull()
+  })
+
+  it('grup seçilmişse kimliği sayı olarak gövdeye girer', () => {
+    const { data } = validateGasFirm(buildValues({ groupId: '4' }))
+
+    expect(toGasFirmPayload(data!).groupId).toBe(4)
   })
 
   // KK-8: üç zorunlu alan da boşken üçünün de mesajı GÖRÜNMELİ; kullanıcı
