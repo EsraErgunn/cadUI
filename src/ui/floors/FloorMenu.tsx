@@ -73,7 +73,10 @@ export function FloorMenu({
         <div
           role="menu"
           aria-label={label}
-          className={`absolute z-20 ${widthClass} overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-lg ${
+          // ⚠️ Zemin `surface` DEĞİL `surface-sunken`: menü pencerenin kendi
+          // yüzeyinin üstünde açılıyor, aynı renk olunca sınırı yalnız gölgeden
+          // okunuyordu (kullanıcı bildirimi).
+          className={`absolute z-20 ${widthClass} overflow-hidden rounded-lg border border-edge bg-surface-sunken py-1 shadow-lg ${
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           } ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
@@ -103,7 +106,11 @@ export function FloorMenuItem({
       role="menuitem"
       onClick={onSelect}
       disabled={isDisabled}
-      className={`${menuItemVariants()} ${tone === 'danger' ? 'enabled:text-danger' : ''} ${FLOOR_FOCUS_RING}`}
+      // Kat adları TAM kontrastta: `menuItemVariants` soluk (`ink-muted`) geliyor,
+      // menü maddeleri okunacak asıl içerik.
+      className={`${menuItemVariants()} enabled:text-ink hover:bg-edge ${
+        tone === 'danger' ? 'enabled:text-danger' : ''
+      } ${FLOOR_FOCUS_RING}`}
     >
       {children}
     </button>

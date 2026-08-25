@@ -8385,7 +8385,8 @@ değil, neye bakıldığı; yığına girseydi Ctrl+Z önce seçim adımlarını
 baloncuk fazında, durdurulmasaydı aynı tuş iki geçmişi birden oynatırdı.
 `core/floorDeletion.ts`, `FloorDeleteDialog` ve `floorCountText` SİLİNDİ.
 
-**Satır artık 4 duran öge.** Ad ve yükseklik TIKLAYINCA düzenlenen alan
+**Satır artık 4 duran öge.** Yükseklik TIKLAYINCA düzenlenen alan (ad da
+öyleydi, K167 ile ad DÜZENLENEMEZ oldu)
 (`FloorInlineField`) — dinlenme hâlinde çerçevesiz, ama yine gerçek `<input>`,
 klavye ve ekran okuyucu için değişen bir şey yok. İçerik üç rozet yerine TEK
 glif (dolu/yarım/boş halka); boş halka sözlüğü kat seçicisinden geliyor.
@@ -8426,3 +8427,132 @@ Varsayılan AÇIK — varlık sebebi tek tıklamayla kat değiştirmek.
 `installationConnections` dizilerini SIFIRLAMIYORDU; `setState` birleştirdiği
 için başka bir describe blogunun seedlediği hat sonraki testlere sızıyor ve
 klonlamada "id remap eksik" hatası veriyordu.
+
+### K167 — Kat adı KONUMDAN türer; yeniden adlandırma kalktı
+
+Kullanıcı: "katların isim değiştirilme özelliği kalkmalı. katlar yer değiştirse
+isimleri de değişir. kim hangi kattaysa o ismi alır."
+
+Kat adı artık kullanıcının yazdığı bir şey değil, bulunduğu SIRANIN karşılığı.
+Katlar yer değiştirince adlar yerinde kalır, içerik taşınır.
+
+| Konum | Ad |
+|---|---|
+| en derin bodrum | `2. Bodrum Kat`, `3. Bodrum Kat`… |
+| zeminin hemen altı | `Bodrum Kat` |
+| ilk yer üstü kat | `Zemin Kat` |
+| üstündekiler | `1. Kat`, `2. Kat`, … |
+
+Kural `getPositionalFloorNames`te; `withPositionalNames` listeyi baştan
+adlandırır ve değişen yoksa AYNI diziyi döndürür (taslak sözleşmesi).
+
+⚠️ **`renameDraftFloor` SİLİNDİ** — bu adla kod yazma. Satırdaki ad alanı da
+kalktı, ad artık düz yazı; satırın tek düzenlenebilir alanı yükseklik.
+
+⚠️ **Adlar yalnız YAPISAL değişimden sonra tazelenir**: ekleme, silme, sıralama
+(`withRenumberedFloors`, ayrıca `moveByKey`). Yükseklik ve aktif kat değişimi
+sırayı bozmadığı için oralarda çağrılmıyor.
+
+⚠️ **`createFloorPlanDraft` de normalleştirir.** Eski projelerde elle konmuş ad
+olabilir ("Asma Kat"); pencere yürürlükteki kuralı göstermeli, yoksa kullanıcı
+listede kuralın geçerli olmadığını sanır. Store'a yazan yine yalnız "Uygula",
+yani pencereyi açıp İptal demek hiçbir şeyi değiştirmez.
+
+⚠️ **JSON DEĞİŞMEDİ**: `Floor.name` modelde duruyor ve kaydedilmeye devam
+ediyor, yalnız değeri artık türetiliyor. `core/model.ts` ve `core/serialize.ts`
+ele alınmadı; gidiş-dönüş kabul testleri yerinde.
+
+⚠️ Kısa etiketlerle (`getFloorShortLabels`, kat şeridi) tek kaynaktan
+çıkmıyorlar: kural aynı, biçim ayrı — biri tam ad (`2. Kat`), öteki dar bir
+daireye sığan işaret (`2`).
+
+**Aynı oturumda düzeltilen iki kusur:**
+
+⚠️ Toplu **Kopyala** düğmesi yalnız TEK seçimde çıkıyor. Çok seçimde
+`selectedIds[0]`ı kaynak alıp gerisini sessizce yutuyordu (kullanıcı
+bildirimi) — kaynak tanımı gereği tek bir kat, düğmeyi gizlemek yanlış katı
+kopyalamaktan iyi. Toplu **Sil** her seçim sayısında çalışmaya devam ediyor.
+
+⚠️ Dolu kat silinirken SATIR İÇİNDE küçük bir onay çıkıyor ("Çizim silinecek /
+Vazgeç / Sil"). K166 silmeyi tümüyle onaysız yapmıştı; kullanıcı "uygula demeden
+uygulanmasa da yanlış bir şey yapıyormuş gibi hissettim" dedi. Onay YALNIZ dolu
+katta — boş katta soracak bir şey yok. Ayrı bir onay PENCERESİ yine yok.
+⚠️ Satırdaki iptal düğmesi "Vazgeç": alt bardaki "İptal" bütün oturumu atıyor,
+iki farklı anlam aynı kelimeyi taşımamalı.
+⚠️ Onaydaki "Sil" `chromeButtonVariants` KULLANMAZ: onun `plain` tonundaki
+`hover:bg-surface-sunken` kırmızı dolgunun üstüne binip düğmeyi koyu temada
+yüzeye gömüyordu. Hover için yeni token `--color-danger-strong` (açık `#c23a2f`,
+koyu `#d95d51`) — tehlike düğmesinin hover'ı kırmızının KOYUSU olmalı, nötr bir
+gri değil.
+
+### K168 — Kat TİPİ: dubleks, çatı katı, asma kat
+
+Kullanıcı: "3 adet kat tipimiz olmalı, ama sadece isim olarak: dubleks, çatı
+katı, asma kat."
+
+Üçü de YALNIZ BİR AD. Kat davranışını, yüksekliğini, çizimini ya da kotu
+etkilemiyor — kullanıcının kararı bu yönde.
+
+| Tip | Nereye verilebilir | Ad | Şerit |
+|---|---|---|---|
+| Dubleks | yalnız EN ÜST kat | `Dubleks` | `D` |
+| Çatı Katı | yalnız EN ÜST kat | `Çatı Katı` | `Ç` |
+| Asma Kat | zemin ve bodrum DIŞINDA her kat | `Asma Kat (Zemin)`, `Asma Kat (1)` | `A` |
+
+⚠️ **Tip AYRI BİR ALANDA saklanmıyor, `Floor.name`in kendisi.** Modele alan
+eklemek kaydedilen JSON'un şemasını değiştirirdi (`core/model.ts` sözleşme, K167
+de aynı gerekçeyle adı türetilmiş bırakmıştı). `name` zaten kaydediliyor ve tip
+adlarıyla konumsal adlar çakışmıyor, bu yüzden tip ADDAN OKUNUYOR
+(`getFloorType`). Yeni bir tip adı eklenecekse konumsal adlarla (`Zemin Kat`,
+`Bodrum Kat`, `N. Bodrum Kat`, `N. Kat`) çakışmadığı doğrulanmalı.
+
+⚠️ **Asma kat adı ALTINDAKİ katı taşır** (kullanıcı kararı): `Asma Kat (Zemin)`,
+`Asma Kat (1)`. Sabit bir dize değil, bu yüzden `getFloorType` onu ÖNEKLE tanır.
+
+⚠️ **Asma kat NUMARA TÜKETMEZ.** Sayaç asma katta ilerlemiyor; üstündeki katlar
+numaralarını korur.
+
+⚠️ **Asma kat yapmak kat SAYISINI BİR ARTIRIR** (`setDraftFloorType`). Kullanıcı:
+"1. katı asma kat yaptığımda 1. kat yok olmaz, üstüne kopyalanır… en üstteki kat
+silinmemeli". Dönüştürülen kat çizimiyle birlikte kendini korur ve asma kata
+dönüşür; üstüne, onun adını devralan YENİ ve BOŞ bir kat girer. Böylece
+`Zemin / 1. Kat / 2. Kat` → `Zemin / Asma Kat (Zemin) / 1. Kat / 2. Kat`.
+Dubleks ve çatı katı kat EKLEMEZ, yalnız adlandırır.
+
+⚠️ Bu yüzden `withFloorType` (core/floors.ts, saf ADLANDIRMA) ile
+`setDraftFloorType` (core/floorPlan.ts, kat EKLEYEBİLİR) ayrı: id üretmek
+taslağın işi, `core/floors.ts` id mintleyemez.
+
+⚠️ **Asma kat SINIRSIZ ve üst üste gelebilir** (kullanıcı düzeltmesi). Üst üste
+gelenler numaralanır — `Asma Kat (Zemin)`, `2. Asma Kat (Zemin)` — yani hepsi
+altlarındaki ilk GERÇEK katın adını taşır, sıra numarasıyla ayrılırlar. Düzen
+`Bodrum Kat / 2. Bodrum Kat` ile aynı; adlar benzersiz kalıyor (`isPlanValid`).
+
+⚠️ **Tip yalnız o konumda GEÇERLİYSE korunur.** Çatı katı aşağı taşınırsa adını
+kaybedip konumsal adına döner: kural "en üst kat" diyor ve kat artık orada
+değil. Sessizce yanlış adı taşımaktansa düşürmek doğrusu; kullanıcı yeniden
+verebilir. Tip KALDIRMAK kat silmez, yalnız adı konumsala döndürür — asma kat
+yapılırken eklenen kat yerinde kalır (silmek, o kata bu arada çizim yapılmışsa
+veri kaybı olurdu).
+
+⚠️ Adların TEK kaynağı `resolveFloorNames`: aşağıdan yukarı tek geçiş. Asma katın
+adı alt komşusundan okunduğu için sıra ZORUNLU — alttan gidildiğinde komşunun
+adı o noktada zaten çözülmüş oluyor. `getPositionalFloorNames` bu fonksiyonun
+tipsiz hâli.
+
+**Arayüz:** tip satırdaki `⋯` menüsünde (kullanıcı isteği) — üç seçenekli ve çoğu
+katta hiçbiri geçerli değil, satırda sürekli duran bir kontrolü hak etmiyor.
+Menü yalnız verilebilir tipleri listeler; hiçbiri yoksa ve katın tipi de yoksa
+menü hiç çizilmez.
+
+**Aynı oturumdaki düzeltmeler:**
+
+- Aktif kat düğmesi kat ADININ hemen SOLUNA alındı (`FloorActiveDot`): "hangi
+  kattayım" sorusu adla birlikte okunuyor. Aktifken ve hover'da içi dolup BÜYÜR
+  — sabit boyutlu bir halka tıklanabilir olduğunu söylemiyordu.
+- Yüzen çubuktaki kat düğmesinden aşağı ok KALKTI; aktif kat adı ile kat sayısı
+  arasına `CANVAS_BAR_DIVIDER` girdi.
+- Pencere başlığı kipi söylüyor: **Kat Yönetimi** ↔ **Kat Kopyalama**.
+- Kopyalama kipinin başlık satırı çerçeveli, kaynak kat açılırı da çerçeveli
+  (düz bir etiketten ayırt edilmiyordu); "hedef katları seçin" başlık satırından
+  çıkıp LİSTENİN ÜSTÜNE "Hedef katlar" başlığı olarak taşındı.

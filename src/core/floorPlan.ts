@@ -9,8 +9,12 @@ import {
   getNextFloorName,
   isFloorHeightValid,
   isFloorNameTaken,
-  isFloorNameValid,
   reorderFloorInList,
+  canAssignFloorType,
+  getFloorType,
+  withFloorType,
+  withPositionalNames,
+  type FloorType,
 } from './floors'
 import { DEFAULT_FLOOR_HEIGHT_CM, type Floor, type Id } from './model'
 
@@ -68,10 +72,22 @@ function takeDraftFloorId(floors: readonly DraftFloor[]): Id {
 
 export function createFloorPlanDraft(floors: readonly Floor[], activeFloorId: Id): FloorPlanDraft {
   return {
-    floors: floors.map((floor) => ({ ...floor, pendingCopy: null })),
+    // Adlar AÇILIŞTA da konuma göre normalleşir (K167): pencere yürürlükteki
+    // kuralı göstermeli. Store"a yazan yine yalnız "Uygula".
+    floors: [...withPositionalNames(floors.map((floor) => ({ ...floor, pendingCopy: null })))],
     activeFloorId,
     selectedFloorIds: [],
   }
+}
+
+/**
+ * Yapısal her değişiklikten sonra adları konuma göre tazeler (K167). Ekleme,
+ * silme ve sıralama katların yerini değiştiriyor; ad yere bağlı olduğu için
+ * bu üçünün ardından yeniden hesaplanmak ZORUNDA. Yükseklik ve aktif kat
+ * değişimi sırayı bozmaz, oralarda çağrılmıyor.
+ */
+function withRenumberedFloors(draft: FloorPlanDraft, floors: readonly DraftFloor[]): FloorPlanDraft {
+  return { ...draft, floors: [...withPositionalNames(floors)] }
 }
 
 export type AddDraftFloorInput = {
@@ -126,7 +142,7 @@ export function addDraftFloor(draft: FloorPlanDraft, input: AddDraftFloorInput =
 
   const floors = [...draft.floors]
   floors.splice(insertIndex, 0, added)
-  return { ...draft, floors }
+  return withRenumberedFloors(draft, floors)
 }
 
 /**
@@ -174,7 +190,7 @@ export function removeDraftFloors(draft: FloorPlanDraft, floorIds: readonly Id[]
   if (floors.length === draft.floors.length || floors.length === 0) return draft
 
   return {
-    floors,
+    ...withRenumberedFloors(draft, floors),
     // Aktif kat silindiyse altındaki, o yoksa üstündeki kat aktif olur —
     // store'daki getFloorIdAfterRemoval ile aynı yön tercihi.
     activeFloorId: removed.has(draft.activeFloorId)
@@ -199,21 +215,6 @@ function resolveActiveFloorId(
     if (remaining.has(before[above].id)) return before[above].id
   }
   return after[0].id
-}
-
-export function renameDraftFloor(draft: FloorPlanDraft, floorId: Id, name: string): FloorPlanDraft {
-  const trimmed = name.trim()
-  if (!isFloorNameValid(trimmed) || isFloorNameTaken(draft.floors, trimmed, floorId)) return draft
-
-  const floor = draft.floors.find((candidate) => candidate.id === floorId)
-  if (!floor || floor.name === trimmed) return draft
-
-  return {
-    ...draft,
-    floors: draft.floors.map((candidate) =>
-      candidate.id === floorId ? { ...candidate, name: trimmed } : candidate,
-    ),
-  }
 }
 
 export function setDraftFloorHeight(
@@ -242,7 +243,7 @@ export function reorderDraftFloor(
   const floors = reorderFloorInList(draft.floors, floorId, targetIndex)
   if (floors === draft.floors) return draft
 
-  return { ...draft, floors: [...floors] }
+  return withRenumberedFloors(draft, floors)
 }
 
 /** Aktif kat yalnız TEK olabilir; rozet satır değiştirir (madde 8). */
@@ -277,6 +278,48 @@ export function setDraftFloorCopies(
       targets.has(floor.id) ? { ...floor, pendingCopy: { ...copy } } : floor,
     ),
   }
+}
+
+/**
+ * Kata tip verir ya da kaldırır (K168). Kural ve adlandırma core/floors.ts'te;
+ * taslak yalnız sonucu yazıyor.
+ */
+export function setDraftFloorType(
+  draft: FloorPlanDraft,
+  floorId: Id,
+  type: FloorType | null,
+): FloorPlanDraft {
+  const index = draft.floors.findIndex((floor) => floor.id === floorId)
+  if (index < 0) return draft
+
+  const isNewMezzanine =
+    type === 'mezzanine' && getFloorType(draft.floors[index]) !== 'mezzanine'
+
+  if (!isNewMezzanine) {
+    const floors = withFloorType(draft.floors, floorId, type)
+    return floors === draft.floors ? draft : { ...draft, floors: [...floors] }
+  }
+
+  // ⚠️ Asma kat yapmak kat SAYISINI BİR ARTIRIR (kullanıcı kararı): dönüştürülen
+  // kat çizimiyle birlikte kendini korur ve asma kata dönüşür, üstüne de onun
+  // adını devralan YENİ boş bir kat girer. Yani "1. Kat"ı asma kat yapmak
+  // "1. Kat"ı yok etmiyor, bir üste taşıyor; üstündeki katların adları hiç
+  // değişmiyor (asma kat numara tüketmediği için).
+  if (!canAddFloor(draft.floors)) return draft
+  if (!canAssignFloorType(draft.floors, floorId, 'mezzanine')) return draft
+
+  const added: DraftFloor = {
+    id: takeDraftFloorId(draft.floors),
+    // Ad boş bırakılıyor; `withFloorType` bütün listeyi baştan adlandırıyor.
+    name: '',
+    heightCm: draft.floors[index].heightCm,
+    isBasement: false,
+    pendingCopy: null,
+  }
+
+  const floors = [...draft.floors]
+  floors.splice(index + 1, 0, added)
+  return { ...draft, floors: [...withFloorType(floors, floorId, 'mezzanine')] }
 }
 
 /** Bekleyen kopyalamayı geri alır (satır menüsündeki "Kopyalamayı kaldır"). */

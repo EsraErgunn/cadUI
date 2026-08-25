@@ -11,7 +11,6 @@ import { FLOOR_FOCUS_RING } from './floors/floorVariants'
 import { useFloorPlanDraft } from './floors/useFloorPlanDraft'
 import { planFloorCopy, type FloorCopyMode } from '../core/floorCopyPlan'
 import { formatLengthM, getBuildingHeightCm } from '../core/floorElevation'
-import { isFloorNameTaken, isFloorNameValid } from '../core/floors'
 import type { Id } from '../core/model'
 
 type FloorManagementDialogProps = {
@@ -95,20 +94,6 @@ export function FloorManagementDialog({
     return () => window.removeEventListener('keydown', handleKeyDown, true)
   }, [undo, redo])
 
-  const nameErrorOf = (floorId: Id): string | undefined => {
-    const name = draft.floors.find((floor) => floor.id === floorId)?.name
-    if (name === undefined || isFloorNameValid(name)) return undefined
-    return 'Kat adı boş olamaz.'
-  }
-
-  const handleRename = (floorId: Id, name: string): boolean => {
-    const trimmed = name.trim()
-    if (!isFloorNameValid(trimmed)) return false
-    if (isFloorNameTaken(draft.floors, trimmed, floorId)) return false
-    actions.rename(floorId, trimmed)
-    return true
-  }
-
   const copyPlan = useMemo(
     () =>
       planFloorCopy(contentOf, draft.floors, {
@@ -147,7 +132,15 @@ export function FloorManagementDialog({
       onClose={onClose}
     >
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="mb-3 flex items-center gap-3 text-sm">
+        <div
+          className={`mb-3 flex items-center gap-3 text-sm ${
+            copy === null
+              ? ''
+              : // Çerçeve alttaki hedef kat listesiyle AYNI: iki blok tek
+                // yüzeyin parçası gibi okunuyor, vurgu rengi gürültü yapıyordu.
+                'rounded-lg border border-edge px-3 py-2'
+          }`}
+        >
           {copy === null ? (
             <>
               <span className="font-medium text-ink">{draft.floors.length} kat</span>
@@ -161,13 +154,19 @@ export function FloorManagementDialog({
               <span className="ml-auto flex items-center gap-1">
                 {selectedIds.length > 0 && (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setCopy(newCopySession(selectedIds[0]))}
-                      className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
-                    >
-                      Kopyala
-                    </button>
+                    {/* ⚠️ Kopyalama YALNIZ tek seçimde: kaynak tek bir kat
+                        olabilir. Çok seçimde `selectedIds[0]`ı almak gerisini
+                        sessizce yutuyordu (kullanıcı bildirimi) — düğmeyi
+                        gizlemek, yanlış katı kopyalamaktan iyi. */}
+                    {selectedIds.length === 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCopy(newCopySession(selectedIds[0]))}
+                        className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
+                      >
+                        Kopyala
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => actions.remove(selectedIds)}
@@ -204,15 +203,23 @@ export function FloorManagementDialog({
             </>
           ) : (
             <>
-              <span className="text-ink-muted">Kaynak kat</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Kaynak kat
+              </span>
               {/* Kaynak ELLE seçilir; aktif kat varsayılan DEĞİL — kullanıcı
                   çoğu zaman baktığı katı değil başka bir katı çoğaltıyor. */}
               <FloorMenu
                 label="Kaynak kat"
                 widthClass="w-56"
-                triggerClassName={chromeButtonVariants({
-                  tone: copy.sourceFloorId === null ? 'active' : 'plain',
-                })}
+                // Çerçeve, bunun bir SEÇİCİ olduğunu söylüyor: çerçevesiz hâli
+                // düz bir etiketten ayırt edilmiyordu (kullanıcı bildirimi).
+                // ⚠️ Çerçeve ve ton kaynak seçilince DEĞİŞMİYOR: eskiden seçilmemiş
+                // hâl "active" tonundaydı ve seçim yapılınca halkası kayboluyordu,
+                // düğme çerçevesini yitirmiş gibi görünüyordu. Kutu hep aynı;
+                // değişen tek şey içindeki metin.
+                // ⚠️ Zemin `surface-sunken`: pencerenin yüzeyiyle aynı renk olunca
+                // düğme olduğu anlaşılmıyordu. Metin de tam kontrastta.
+                triggerClassName={`${chromeButtonVariants()} min-w-40 justify-between rounded-md border border-edge bg-surface-sunken text-ink hover:bg-edge`}
                 trigger={
                   <>
                     {sourceName ?? 'Kat seçin'}
@@ -236,12 +243,17 @@ export function FloorManagementDialog({
                   ))
                 }
               </FloorMenu>
-              {copy.sourceFloorId !== null && (
-                <span className="text-ink-muted">→ hedef katları seçin</span>
-              )}
             </>
           )}
         </div>
+
+        {/* Başlık kaynak seçilmeden de duruyor: listenin NE olduğunu her an
+            söylemeli, seçime bağlı belirip kaybolmamalı. */}
+        {copy !== null && (
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            Hedef katlar
+          </h3>
+        )}
 
         <div className="overflow-hidden rounded-lg border border-edge">
           <FloorList
@@ -251,14 +263,13 @@ export function FloorManagementDialog({
             mode={copy === null ? 'manage' : 'copy'}
             copySourceFloorId={copy?.sourceFloorId ?? null}
             copyTargetIds={copy?.targetFloorIds ?? []}
-            nameErrorOf={nameErrorOf}
             onSelectionChange={(floorIds) => {
               if (copy === null) actions.select(floorIds)
               else setCopy({ ...copy, targetFloorIds: [...floorIds] })
             }}
-            onRename={handleRename}
             onSetHeight={actions.setHeight}
             onMakeActive={actions.makeActive}
+            onSetType={actions.setType}
             onCopyFrom={(floorId) => setCopy(newCopySession(floorId))}
             onClearCopy={actions.clearCopy}
             onRemove={(floorId) => actions.remove([floorId])}
