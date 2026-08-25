@@ -1,7 +1,11 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 
-import { getFirmGroups, getGasDistributionFirms } from '../api/adminFirms'
+import {
+  GAS_FIRM_QUERY_ROOTS,
+  getFirmGroups,
+  getGasDistributionFirms,
+} from '../api/adminFirms'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { FilterChips } from '../ui/admin/FilterChips'
@@ -54,10 +58,14 @@ export function GasDistributionFirmsPage() {
     placeholderData: keepPreviousData,
   })
 
-  // Anahtarın yalnız KÖKÜ veriliyor: silinen kayıt hangi sayfada/filtrede
-  // olursa olsun, önbellekteki tüm liste sorguları tazelensin.
+  // Anahtarların yalnız KÖKÜ veriliyor: silinen kayıt hangi sayfada/filtrede
+  // olursa olsun tüm liste sorguları tazelensin. Firma listesini önbelleğe alan
+  // her kök düşürülüyor — pasifleştirilen firma öteki ekranların açılırlarında
+  // da kalmamalı.
   const refreshList = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: [GAS_FIRMS_QUERY_KEY] })
+    for (const root of GAS_FIRM_QUERY_ROOTS) {
+      void queryClient.invalidateQueries({ queryKey: [root] })
+    }
   }, [queryClient])
 
   const actions = useGasFirmActions({ onChanged: refreshList })
