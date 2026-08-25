@@ -8996,3 +8996,69 @@ uyarı demek. Gereksinimdeki sayı 10.
 dosyalarda boş bırakıyor ve MIME'a bakan bir kontrol geçerli bir PDF'i
 reddedebilirdi. Sunucu kendi denetimini `ContentType` üzerinden yapıyor —
 istemcideki kontrol onun yerine geçmiyor, erken haber veriyor.
+
+### K159 — Poliçe sözleşmesi: yenileme atomik değil, birim taşınmaz, ödeme kapsam dışı
+
+Backend poliçe sorularının tamamını cevapladı. Kararların arayüze yansıyan
+hâli ve gerekçeleri.
+
+**1) Yenileme ATOMİK DEĞİL — iki adım, arası kırılgan.**
+`POST /api/policies` aynı birimde ikinci aktif poliçeyi `400` ile reddediyor ve
+eskisini otomatik kapatmıyor (`PolicyManager.CreateAsync`). Sunucuda "yenile"
+diye tek bir uç YOK, yani sıra zorunlu: **önce `DELETE`, sonra `POST`.**
+
+⚠️ İki adım arasında hata olursa **birim poliçesiz kalır** ve geri alacak bir uç
+yoktur. Bu risk gizlenemez: sihirbaz "Bitir"den ÖNCE onay istiyor ve metin iki
+şeyi birden söylüyor — iptalin geri alınamayacağını ve arada hata olursa birimin
+poliçesiz kalacağını. İptal geçip oluşturma düşerse hata mesajı sunucunun
+metnini değil, ÖNCE "birim şu anda POLİÇESİZ" uyarısını gösteriyor; genel bir
+hata, silinmiş poliçeyi fark edilmeden bırakırdı.
+
+⚠️ Poliçesi olan birim seçim kutusunda KİLİTLİ DEĞİL. Bir tur kilitliydi
+(sunucu 400 döndürüyor diye) ama o hâlde yenileme arayüzden hiç yapılamıyordu.
+Seçenek açık, etiketi sonucu söylüyor: "— poliçesi var (yenilenir)".
+
+**2) Birim DEĞİŞTİRİLEMEZ.** `PolicyUpdateDto` `ProjectUnitId` almıyor; poliçe
+başka bir bağımsız bölüme taşınmıyor. Güncelleme formunda birim GÖSTERİLİYOR
+ama salt okunur — gizlenseydi kullanıcı hangi birimi düzenlediğini göremezdi.
+
+⚠️ Güncellemenin kapsamı TUTAR ve TARİHLER. Ama gövde beş alanın hepsini
+taşımak ZORUNDA: `UpdateAsync` `InsuranceCompanyId` ve `PolicyNumber`'ı da
+koşulsuz yazıyor, yani gönderilmezlerse sunucuda `null`'a düşerler. İkisi
+satırdan okunup geri gönderiliyor (`toUserPayload` deseni).
+
+**3) Listeleme PROJE bazlı.** Birim bazlı istek atılmıyor — uçta `ProjectUnitId`
+süzgeci yok. "Her birimin bir poliçesi olmalı" bir iş kuralı ama sunucuda
+ZORLANMIYOR; ekran bu yüzden "bir birimin tek poliçesi var" varsayımına
+dayanmıyor, düz liste gösteriyor.
+
+**4) Silinmiş birim poliçeyi İPTAL ETMEZ.** Birim çizimden silinince
+`UnitSyncManager` `ProjectUnitId`'yi `null`'a çekip `IsUnitDeleted`'i `true`
+yapıyor; `IsActive` DOKUNULMUYOR, kayıt listede kalıyor. Satır bu yüzden
+"Silinmiş Birim" rozetiyle işaretleniyor — hücre boş kalsaydı veri kaybı gibi
+okunurdu.
+
+**5) Ödeme KAPSAM DIŞI.** `Policy` entity'sinde ödeme alanı yok ve eklenmeyecek.
+"Ödeme" sütunu yok; yerinde `Amount` (teminat tutarı) var.
+
+⚠️ Proje detayındaki sabit "Onaylandı" rozeti de KALKTI. Sunucuda poliçe durumu
+diye bir alan yok; her satıra sabit bir durum basmak, olmayan bir iş akışı
+varmış gibi gösteriyordu.
+
+**6) Sıralama ve bina kodu EKLENMEYECEK.** `SortBy`/`SortDir` yok, sıra sunucuda
+sabit; sıralanabilir başlıklar kaldırılmış hâlde kalıyor. `PolicyDto` bina kodu
+taşımayacak; "ProjeId" sütunu kaldırılmış hâlde kalıyor.
+
+**7) Poliçe numarası benzersizliği ARTIK BİR KURAL DEĞİL.** Gereksinim KK-19
+benzersizlik istiyordu; sunucuda ne benzersiz indeks ne denetim var. İstemcideki
+kontrol kaldırıldı ve GERİ GELMEYECEK — olmayan bir kısıtı kullanıcıya hata
+olarak göstermek, sistemi yanlış öğretir. Yerinde sunucunun gerçek sınırı var:
+poliçe numarası en fazla 50 karakter (`PolicyAddValidator`).
+
+## Hâlâ cevaplanmadı — dokunulmadı
+
+- **Poliçe listesi araması:** backend "bana kalsa çıkarılabilir" dedi ama karar
+  vermedi. Mevcut hâlinde bırakıldı (poliçe no / birim no / abone no).
+- **Doğrulama hatası biçimi:** iki farklı `400` var — iş kuralı `{ message }`,
+  FluentValidation `{ errors: { alan: [...] } }`. İkisini de karşılayan
+  `readErrorMessage` sadeleştirilmedi.
