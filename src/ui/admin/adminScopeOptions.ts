@@ -37,10 +37,17 @@ export function parseScopeValue(raw: string): AdminScope {
   return { type: 'global' }
 }
 
-/** Grup satırı kendi adını taşır; altındaki firmalarla karışmasın diye sonuna
-    kapsamın tamamını kastettiğini söyleyen bir ek geliyor. */
+/**
+ * Grup satırı YALIN adını taşır.
+ *
+ * Bir süre sonuna "(tümü)" ekleniyordu ve satır `<optgroup>` başlığının hemen
+ * altında duruyordu: kullanıcı kalın "AKSA" başlığını ve altında "AKSA (tümü)"
+ * satırını görüyor, aynı şeyin iki kez yazıldığını sanıyordu. Başlık kalktı,
+ * grup artık kendi satırıyla temsil ediliyor ve altındaki firmalar girintiyle
+ * ayrılıyor (`AdminTopBar`).
+ */
 function toGroupOptionLabel(name: string): string {
-  return `${name} (tümü)`
+  return name
 }
 
 function compareByName(left: { name: string }, right: { name: string }): number {

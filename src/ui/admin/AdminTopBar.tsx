@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Menu, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 
 import { UserMenu } from './UserMenu'
 import { MANAGEMENT_SCREEN_ROLES } from './adminNavItems'
@@ -14,6 +14,12 @@ const SCOPE_SELECT_ID = 'admin-scope'
 
 /** Kapsam seçilmemiş hâl. Boş dize `<option>` değeri; global kapsamın DOM karşılığı. */
 const GLOBAL_SCOPE_VALUE = ''
+
+/**
+ * Firma satırlarını grup satırından ayıran girinti. Bölünemez boşluk şart:
+ * tarayıcı `<option>` metnindeki normal boşlukları kırpıyor.
+ */
+const FIRM_OPTION_INDENT = '   '
 
 /**
  * Kabuk üst barı.
@@ -93,22 +99,37 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
           className={adminFieldVariants({ className: 'w-32 min-w-0 sm:w-44 lg:w-56' })}
         >
           <option value={GLOBAL_SCOPE_VALUE}>Sistem geneli</option>
-          {optionGroups.map((optionGroup) => (
-            <optgroup key={optionGroup.label} label={optionGroup.label}>
-              {/* Grubun kendisi de seçilebilmeli; `<optgroup label>` tıklanabilir
-                  değil, bu yüzden ilk satır olarak ayrıca yazılıyor. */}
-              {optionGroup.groupOption !== null && (
+          {optionGroups.map((optionGroup) =>
+            optionGroup.groupOption === null ? (
+              /* Grubu olmayan firmalar: seçilebilecek bir GRUP kapsamı yok, bu
+                 yüzden başlık `<optgroup>` olarak kalıyor. */
+              <optgroup key={optionGroup.label} label={optionGroup.label}>
+                {optionGroup.firmOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {FIRM_OPTION_INDENT}
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : (
+              /* Grup KENDİ satırı — `<optgroup>` başlığı DEĞİL. Başlık HTML'de
+                 tıklanamıyor; grubun tamamını seçmek için ayrıca bir "(tümü)"
+                 satırı yazmak gerekiyordu ve ikisi yan yana yinelenme gibi
+                 okunuyordu. Şimdi tek satır var ve o satır grubu seçiyor;
+                 altındaki firmalar girintiyle ayrılıyor. */
+              <Fragment key={optionGroup.label}>
                 <option value={optionGroup.groupOption.value}>
                   {optionGroup.groupOption.label}
                 </option>
-              )}
-              {optionGroup.firmOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
+                {optionGroup.firmOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {FIRM_OPTION_INDENT}
+                    {option.label}
+                  </option>
+                ))}
+              </Fragment>
+            ),
+          )}
         </select>
       </div>
 
