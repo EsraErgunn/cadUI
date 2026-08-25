@@ -29,6 +29,9 @@ type MenuBarProps = {
   onDownloadProjectFile: () => void
   /** Proje dosyası (PDF) seçicisini açar; çizim o dosyadan geri yüklenir. */
   onOpenProjectFile: () => void
+  /** Yalnız kapak sayfasını (dikey) indirir; kat/vaziyet/izometrik seçimi YOK. */
+  onDownloadProjectInfo: () => void
+  isDownloadingProjectInfo: boolean
   onSave: () => void
   onSaveAs: () => void
   onImport: () => void
@@ -56,6 +59,8 @@ export function MenuBar({
   onClearProject,
   onDownloadProjectFile,
   onOpenProjectFile,
+  onDownloadProjectInfo,
+  isDownloadingProjectInfo,
   onSave,
   onSaveAs,
   onImport,
@@ -189,10 +194,14 @@ export function MenuBar({
       {/* Sahne değiştiricinin YANINDA ama çerçevesinin DIŞINDA: o üçlü tek bir
           seçici olarak okunmalı, bu ise bağımsız bir eylem (K111). Menüden buraya
           taşındı — proje künyesi bir "dosya işlemi" değil, her an bakılacak bilgi.
-          Arkasındaki ekran yazılana kadar pasif (palet dürüstlüğü, K79). */}
+          ARTIK ÇALIŞIYOR: "Proje Dosyasını İndir" penceresiyle AYNI içeriği
+          (kapak + vaziyet planı + tüm katlar + izometrik) pencere açmadan tek
+          tıkla indirir, yalnız YÖN dikeye sabitlenir (bkz. `useDownloadProjectInfoPdf`). */}
       <button
         type="button"
-        disabled
+        onClick={onDownloadProjectInfo}
+        disabled={isDownloadingProjectInfo}
+        aria-busy={isDownloadingProjectInfo}
         title="Proje Bilgileri"
         aria-label="Proje Bilgileri"
         className={editorBarButtonVariants({ tone: 'card', shape: 'icon' })}

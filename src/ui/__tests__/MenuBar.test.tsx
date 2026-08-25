@@ -33,6 +33,8 @@ function renderMenuBar(
   onDownloadProjectFile = vi.fn(),
   onOpenProjectFile = vi.fn(),
   submit = makeSubmit(),
+  onDownloadProjectInfo = vi.fn(),
+  isDownloadingProjectInfo = false,
 ) {
   render(
     <MemoryRouter>
@@ -41,6 +43,8 @@ function renderMenuBar(
         onClearProject={onClearProject}
         onDownloadProjectFile={onDownloadProjectFile}
         onOpenProjectFile={onOpenProjectFile}
+        onDownloadProjectInfo={onDownloadProjectInfo}
+        isDownloadingProjectInfo={isDownloadingProjectInfo}
         onSave={onSave}
         onSaveAs={onSaveAs}
         onImport={onImport}
@@ -60,6 +64,7 @@ function renderMenuBar(
     onClearProject,
     onDownloadProjectFile,
     onOpenProjectFile,
+    onDownloadProjectInfo,
     submit,
   }
 }
@@ -126,10 +131,34 @@ describe('MenuBar', () => {
     }
   })
 
-  it('Proje Bilgileri üst barda ikon düğmesi olarak durur (K111)', () => {
-    renderMenuBar()
+  it('Proje Bilgileri üst barda ikon düğmesi olarak durur, tek tıkla iner (K111, artık pasif DEĞİL)', async () => {
+    const user = userEvent.setup()
+    const { onDownloadProjectInfo } = renderMenuBar()
 
-    // Arkasındaki ekran yazılmadı: görünür ama pasif.
+    const infoButton = screen.getByRole('button', { name: 'Proje Bilgileri' })
+    expect(infoButton).toBeEnabled()
+
+    await user.click(infoButton)
+    // Pencere AÇILMAZ: kat/sayfa seçimi yok, bar doğrudan indirmeyi tetikler.
+    expect(onDownloadProjectInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('Proje Bilgileri indirilirken kilitlenir', () => {
+    renderMenuBar(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeSubmit(),
+      undefined,
+      true,
+    )
+
     expect(screen.getByRole('button', { name: 'Proje Bilgileri' })).toBeDisabled()
   })
 

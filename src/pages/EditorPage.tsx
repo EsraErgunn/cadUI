@@ -38,6 +38,7 @@ import { ReadOnlyNotice } from '../ui/canvas/ReadOnlyNotice'
 import { RoomDefinitionCard } from '../ui/canvas/RoomDefinitionCard'
 import { SolidToolbar } from '../ui/canvas/SolidToolbar'
 import { ExportPdfDialog } from '../ui/pdf/ExportPdfDialog'
+import { useDownloadProjectInfoPdf } from '../ui/pdf/useDownloadProjectInfoPdf'
 import { SaveVersionDialog } from '../ui/versions/SaveVersionDialog'
 
 export function EditorPage() {
@@ -76,6 +77,11 @@ export function EditorPage() {
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
   const isDirty = useCadStore(selectIsProjectDirty)
   const projectSummary = useProjectSummary(projectId)
+  const {
+    isDownloading: isDownloadingProjectInfo,
+    error: projectInfoError,
+    downloadProjectInfo,
+  } = useDownloadProjectInfoPdf()
   // Salt görüntülemede kaydetme yolu HİÇ çağrılmaz: düğme ve kısayol zaten
   // yok, bu son kapı elle tetiklenen bir çağrıyı da durdurur. Sunucu da aynı
   // şeyi söylüyor (`newversion` → Admin, ProjectFirmUser).
@@ -154,6 +160,8 @@ export function EditorPage() {
           onClearProject={() => setIsClearProjectOpen(true)}
           onDownloadProjectFile={() => setIsPdfDialogOpen(true)}
           onOpenProjectFile={triggerProjectFileOpen}
+          onDownloadProjectInfo={() => void downloadProjectInfo(projectSummary)}
+          isDownloadingProjectInfo={isDownloadingProjectInfo}
           onSave={handleSave}
           onSaveAs={() => setIsSaveAsOpen(true)}
           onImport={triggerImport}
@@ -204,6 +212,15 @@ export function EditorPage() {
             className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
           >
             {importError}
+          </p>
+        )}
+
+        {projectInfoError && (
+          <p
+            role="alert"
+            className="shrink-0 border-y border-canvas-overlay-edge px-4 py-1.5 text-sm text-canvas-overlay-danger"
+          >
+            {projectInfoError}
           </p>
         )}
 
