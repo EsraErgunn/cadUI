@@ -7,7 +7,7 @@ import {
   projectFirmUpdatePath,
   projectFirmUserUpdatePath,
 } from '../adminNavItems'
-import { ADMIN_CELL_LINK } from '../adminVariants'
+import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
 
 export const PROJECT_FIRM_USER_TABLE_CAPTION =
   'Proje firması kullanıcıları listesi. Bir kullanıcının her yetkisi ayrı satırdır.'
@@ -95,3 +95,46 @@ export const PROJECT_FIRM_USER_COLUMNS: DataTableColumn<ProjectFirmUserRow>[] = 
       ),
   },
 ]
+
+/** Eylem sütunu içeriği kadar dursun (liste ekranlarıyla aynı gerekçe). */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
+export interface ProjectFirmUserColumnsOptions {
+  /**
+   * Satır silinebilir mi. Yalnız GÖRÜNÜRLÜK; yetkisizde sütun HİÇ üretilmez —
+   * boş bir "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+   */
+  canDelete: boolean
+  /** İsteği süren satır; o satırın düğmesi kilitlenir. */
+  pendingUserId: number | null
+  onDelete: (userId: number) => void
+}
+
+export function buildProjectFirmUserColumns({
+  canDelete,
+  pendingUserId,
+  onDelete,
+}: ProjectFirmUserColumnsOptions): DataTableColumn<ProjectFirmUserRow>[] {
+  if (!canDelete) return PROJECT_FIRM_USER_COLUMNS
+
+  return [
+    ...PROJECT_FIRM_USER_COLUMNS,
+    {
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (row) => (
+        <button
+          type="button"
+          onClick={() => onDelete(row.id)}
+          disabled={pendingUserId === row.id}
+          aria-busy={pendingUserId === row.id}
+          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+        >
+          Sil
+        </button>
+      ),
+    },
+  ]
+}

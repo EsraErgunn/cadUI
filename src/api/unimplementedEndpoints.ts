@@ -13,6 +13,22 @@
  */
 export const UNIMPLEMENTED_ENDPOINTS = {
 
+  /**
+   * TODO(esra): DELETE /api/users/{id} — kullanıcı silme.
+   *
+   * `UsersController` yalnız GET/PUT/reset-password taşıyor. Silme ucu öteki
+   * DOKUZ kaynağın hepsinde var (docs, policies, projects, projectfirms,
+   * gasdistributionfirms, gasdistributiongroups, codes, code-groups,
+   * project-firm-authorizations) — yalnız kullanıcıda yok.
+   *
+   * `PUT` üzerinden pasifleştirme de mümkün değil: `UserUpdateDto` bir
+   * `IsActive`/`IsEnabled` alanı taşımıyor (K130).
+   *
+   * `User : SoftDeleteEntity` olduğu için uç açıldığında `Remove` çağrısı global
+   * `SaveChanges` kancasıyla zaten soft-delete'e dönecek — öteki kaynaklardaki
+   * desenin aynısı.
+   */
+  userDelete: 'DELETE /api/users/{id}',
   /** TODO(esra): GET /api/projects/{id}/zpd — ZetaCAD kaynak dosyası. */
   projectZpdFile: 'GET /api/projects/{id}/zpd',
   /** TODO(esra): GET /api/projects/{id}/report.pdf — PDF rapor üretimi yok. */

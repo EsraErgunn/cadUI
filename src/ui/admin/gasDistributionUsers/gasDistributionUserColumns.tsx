@@ -5,7 +5,7 @@ import { formatPhone, toNormalizedPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
 import { gasDistributionUserUpdatePath } from '../adminNavItems'
-import { ADMIN_CELL_LINK } from '../adminVariants'
+import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
 
 export const GAS_DISTRIBUTION_USER_TABLE_CAPTION =
   'Gaz dağıtım firması kullanıcıları listesi.'
@@ -78,3 +78,46 @@ export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserR
     cell: (row) => renderPhone(row.phone),
   },
 ]
+
+/** Eylem sütunu içeriği kadar dursun (liste ekranlarıyla aynı gerekçe). */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
+export interface GasDistributionUserColumnsOptions {
+  /**
+   * Satır silinebilir mi. Yalnız GÖRÜNÜRLÜK; yetkisizde sütun HİÇ üretilmez —
+   * boş bir "Aksiyonlar" başlığı eylem varmış gibi görünürdü.
+   */
+  canDelete: boolean
+  /** İsteği süren satır; o satırın düğmesi kilitlenir. */
+  pendingUserId: number | null
+  onDelete: (userId: number) => void
+}
+
+export function buildGasDistributionUserColumns({
+  canDelete,
+  pendingUserId,
+  onDelete,
+}: GasDistributionUserColumnsOptions): DataTableColumn<GasDistributionUserRow>[] {
+  if (!canDelete) return GAS_DISTRIBUTION_USER_COLUMNS
+
+  return [
+    ...GAS_DISTRIBUTION_USER_COLUMNS,
+    {
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (row) => (
+        <button
+          type="button"
+          onClick={() => onDelete(row.id)}
+          disabled={pendingUserId === row.id}
+          aria-busy={pendingUserId === row.id}
+          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+        >
+          Sil
+        </button>
+      ),
+    },
+  ]
+}

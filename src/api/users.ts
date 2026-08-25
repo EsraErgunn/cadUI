@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { requestJson, requestVoid, type RequestOptions } from './http'
+import { isEndpointImplemented } from './unimplementedEndpoints'
 
 /**
  * API SÖZLEŞMESİ — kullanıcı kaydı (`Users` tablosu).
@@ -95,6 +96,32 @@ export function resetUserPassword(
     rawJsonBody: JSON.stringify({ newPassword }),
     signal: options?.signal,
   })
+}
+
+/**
+ * Kullanıcı silme. Uç sunucuda HENÜZ YOK (`userDelete` bayrağı).
+ *
+ * `false` dönüyor: çağıran (`useRowDelete`) bunu "kayıt DÜŞMEDİ, ucun karşılığı
+ * yok" olarak okuyup kullanıcıya sebebini söylüyor. Sahte bir başarı döndürmek
+ * ya da olmayan bir adrese istek atıp 404'ü hata gibi göstermek, ikisi de
+ * kullanıcıya yapılmamış bir işi yapılmış ya da bozuk gösterirdi.
+ *
+ * Uç açılınca `unimplementedEndpoints.ts`'ten satır silinecek ve buradaki
+ * `isEndpointImplemented` çağrısı DERLEME HATASI vererek gövdeyi gerçek isteğe
+ * çevirmeye götürecek.
+ */
+export function deleteUser(id: number, options?: RequestOptions): Promise<boolean> {
+  if (isEndpointImplemented('userDelete')) {
+    // Uç açıldığında gövde şu olacak:
+    // await requestVoid({ method: 'DELETE', path: `/api/users/${id}`, signal: options?.signal })
+    // return true
+    throw new Error('deleteUser: uç bağlandı ama gövdesi yazılmadı.')
+  }
+
+  // Parametreler imzada DURUYOR: uç açılınca çağıranların hiçbiri değişmesin.
+  void id
+  void options
+  return Promise.resolve(false)
 }
 
 export function getUser(id: number, options?: RequestOptions): Promise<User> {

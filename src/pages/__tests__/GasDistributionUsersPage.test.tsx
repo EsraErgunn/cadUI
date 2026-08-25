@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -99,5 +100,47 @@ describe('gaz dağıtım kullanıcısı düzenleme girişi', () => {
       'href',
       target,
     )
+  })
+})
+
+/**
+ * Silme ucu sunucuda HENÜZ YOK (`DELETE /api/users/{id}`). Düğme çiziliyor ama
+ * onaylandığında sahte başarı göstermiyor: `useRowDelete`'in "unavailable" kolu
+ * sebebini söylüyor ve satır listede kalıyor.
+ */
+describe('kullanıcı silme', () => {
+  it('yöneticiye satır başına "Sil" gösterir', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+  })
+
+  it('yönetici olmayanda eylem sütunu hiç üretilmez', async () => {
+    useIsAdmin.mockReturnValue(false)
+    renderPage()
+    useIsAdmin.mockReturnValue(false)
+
+    const table = await screen.findByRole('table')
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent?.trim())
+
+    expect(headers).not.toContain('Aksiyonlar')
+    expect(within(table).queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+  })
+
+  it('onaylanınca ucun olmadığını söyler ve satır listede kalır', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getByRole('button', { name: 'Sil' }))
+
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Sil' }))
+
+    expect(await screen.findByText(/silme ucu sunucuda henüz yok/)).toBeInTheDocument()
+    expect(within(await screen.findByRole('table')).getByText(USER.username)).toBeInTheDocument()
   })
 })
