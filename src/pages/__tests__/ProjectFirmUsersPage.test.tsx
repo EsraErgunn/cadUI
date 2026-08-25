@@ -31,32 +31,6 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// K51: kullanıcı satırları uydurma; ekran bunu kalıcı bir şeritle SÖYLEMEK
-// zorunda, üretimde ise tablo yerine "kaynağı yok" kutusu çıkar.
-describe('veri kaynağı uyarısı (K51)', () => {
-  it('mock satırlarda kalıcı uyarı şeridi gösterir', async () => {
-    renderPage()
-    await screen.findByRole('table')
-
-    const notice = screen.getByRole('status')
-    expect(notice).toHaveTextContent('Bu ekrandaki bazı veriler sunucudan gelmiyor.')
-    expect(notice).toHaveTextContent('Kullanıcı satırları')
-    // Şerit KAPATILAMAZ: uyarıyı bir kez kapatıp sahte kaydı gerçek sanmak
-    // bu ekranın en bilinen başarısızlığı olurdu.
-    expect(within(notice).queryByRole('button')).not.toBeInTheDocument()
-  })
-
-  it('kaynak yokken tablo yerine "kaynağı yok" kutusu çıkar', async () => {
-    listApi.getProjectFirmUserList.mockResolvedValue({ source: 'unavailable', data: null })
-    useIsAdmin.mockReturnValue(true)
-    renderWithProviders({ children: <ProjectFirmUsersPage /> })
-
-    expect(await screen.findByText('Bu bölümün veri kaynağı henüz yok.')).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    expect(screen.queryByText('Bu ekrandaki bazı veriler sunucudan gelmiyor.')).not.toBeInTheDocument()
-  })
-})
-
 // KK-1: kırılım, başlık + parantez içinde adet, altında açıklama.
 describe('ekran açılışı (KK-1)', () => {
   it('başlık, kırılım, adet ve açıklamayı gösterir', async () => {

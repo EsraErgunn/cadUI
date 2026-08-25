@@ -11,7 +11,6 @@ import {
 import { deleteUser } from '../api/users'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
-import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
@@ -37,9 +36,6 @@ const BREADCRUMB = [
 ]
 
 const EMPTY_MESSAGE = 'Kayıtlı gaz dağıtım kullanıcısı yok.'
-
-/** Kutuda yazan uç adı; ekibin hangi ucu açacağını ekrandan okuyabilmesi için. */
-const MISSING_ENDPOINT_HINT = 'GET /api/users?roleCode=GasDistributionUser'
 
 /**
  * Liste ekranı durumunun tek sahibi URL (`admin-list-state`). Bugün yalnız
@@ -84,17 +80,12 @@ export function GasDistributionUsersPage() {
   const isAdmin = useIsAdmin()
   const queryClient = useQueryClient()
 
-  const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
+  const { data, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['gasDistributionUsers', query],
     queryFn: ({ signal }) => listGasDistributionUsers(query, signal),
     // Sayfa değişince tablo boşalıp zıplamasın; yeni sayfa gelene kadar eskisi durur.
     placeholderData: keepPreviousData,
   })
-
-  // Uç açılana kadar tablo YERİNE bölümün kaynağı olmadığını söyleyen kutu
-  // çıkar (K51): sahte satır üretmek, bir demoda gerçek sanılırdı.
-  const isSourceMissing = sourced?.source === 'unavailable'
-  const data = isSourceMissing ? undefined : sourced?.data
 
   const deletion = useRowDelete({
     remove: (userId) => deleteUser(userId),
@@ -147,8 +138,6 @@ export function GasDistributionUsersPage() {
       {isError && (
         <QueryError message="Kullanıcı listesi yüklenemedi." onRetry={() => void refetch()} />
       )}
-
-      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
 
       {data !== undefined && !isError && (
         <StaleContent isStale={isPlaceholderData}>

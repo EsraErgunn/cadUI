@@ -85,13 +85,8 @@ function renderPage(roleCode: string = ROLE_CODES.admin) {
   )
 }
 
-/** Liste `Sourced` zarfıyla dönüyor: sahte veri yalnız geliştirmede üretilir
-    (K51). Testler geliştirme derlemesinde koştuğu için `mock` kolu. */
-function asMock(items: DocumentRow[]) {
-  return {
-    source: 'mock' as const,
-    data: { items, totalCount: items.length, page: 1, pageSize: DOCUMENT_PAGE_SIZE },
-  }
+function buildPage(items: DocumentRow[]) {
+  return { items, totalCount: items.length, page: 1, pageSize: DOCUMENT_PAGE_SIZE }
 }
 
 
@@ -109,7 +104,7 @@ const ADMIN_SESSION: AuthSession = {
 
 beforeEach(() => {
   setAuthSession(ADMIN_SESSION)
-  listDocuments.mockResolvedValue(asMock([buildDocument()]))
+  listDocuments.mockResolvedValue(buildPage([buildDocument()]))
   deleteDocument.mockResolvedValue({ ok: true })
 })
 
@@ -227,7 +222,7 @@ describe('DocumentListPage', () => {
     const open = vi.fn()
     vi.stubGlobal('open', open)
     getDocumentDownloadUrl.mockResolvedValue('https://depo/plan.pdf')
-    listDocuments.mockResolvedValue(asMock([buildDocument({ id: 1, fileName: 'plan.pdf' })]))
+    listDocuments.mockResolvedValue(buildPage([buildDocument({ id: 1, fileName: 'plan.pdf' })]))
 
     renderPage()
 
@@ -254,22 +249,6 @@ describe('DocumentListPage', () => {
       expect(search).toContain('type=License')
       expect(search).not.toContain('page=')
     })
-  })
-
-  it('kaynak yoksa tablo yerine "sunucuya bağlı değil" kutusu çıkar', async () => {
-    listDocuments.mockResolvedValue({ source: 'unavailable', data: null })
-
-    renderPage()
-
-    expect(await screen.findByText(/veri kaynağı henüz yok/)).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-  })
-
-  it('geliştirmede kalıcı mock uyarısı gösterir', async () => {
-    renderPage()
-    await screen.findByRole('table')
-
-    expect(screen.getByText(/bazı veriler sunucudan gelmiyor/)).toBeInTheDocument()
   })
 
   it('varsayılan tarih aralığı adrese YAZILMAZ ama uca gider', async () => {

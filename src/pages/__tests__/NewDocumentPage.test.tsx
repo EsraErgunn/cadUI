@@ -91,7 +91,7 @@ async function addFiles(user: ReturnType<typeof userEvent.setup>, files: File[])
 
 beforeEach(() => {
   saveProjectDocuments.mockResolvedValue({ savedCount: 1 })
-  listProjectDocuments.mockResolvedValue({ source: 'server', data: [] })
+  listProjectDocuments.mockResolvedValue([])
   // Ekran İKİ uca gidiyor: proje künyesi ve birim listesi. Yanıt yola göre
   // seçiliyor ve HER ÇAĞRIDA yeniden kuruluyor — tek bir `Response`
   // paylaşılsaydı gövdesi ilk okumada tükenir, ikinci ekran boş yanıt görürdü.
@@ -252,10 +252,7 @@ describe('NewDocumentPage', () => {
    */
   it('"Proje Evrakları" sekmesi projenin evraklarını birim ve eylemlerle listeler', async () => {
     const user = userEvent.setup()
-    listProjectDocuments.mockResolvedValue({
-      source: 'server',
-      data: [EXISTING_DOCUMENT],
-    })
+    listProjectDocuments.mockResolvedValue([EXISTING_DOCUMENT])
     renderPage()
 
     await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
@@ -271,10 +268,7 @@ describe('NewDocumentPage', () => {
 
   it('"Sil" önce onay sorar', async () => {
     const user = userEvent.setup()
-    listProjectDocuments.mockResolvedValue({
-      source: 'server',
-      data: [EXISTING_DOCUMENT],
-    })
+    listProjectDocuments.mockResolvedValue([EXISTING_DOCUMENT])
     renderPage()
 
     await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))

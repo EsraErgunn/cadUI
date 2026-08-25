@@ -8,8 +8,6 @@ import { deleteUser } from '../api/users'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { EmptyState } from '../ui/admin/EmptyState'
-import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
-import { MockDataNotice } from '../ui/admin/MockDataNotice'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
@@ -54,18 +52,6 @@ const DELETE_DIALOG = {
   confirmLabel: 'Sil',
 } as const
 
-
-/**
- * Şeritte sayılan bölüm. Satırların FİRMA sütunları gerçek uçlardan geliyor,
- * uydurma olan kullanıcının kendisi — şerit bu ayrımı söylüyor ki kullanıcı
- * neyin sahte olduğunu bilsin.
- */
-const MOCK_SECTIONS = [
-  'Kullanıcı satırları (ad, kullanıcı adı, e-posta, telefon, yetki ve adet) — firma sütunları gerçek uçtan geliyor',
-]
-
-const MISSING_ENDPOINT_HINT = 'GET /api/projectfirmusers'
-
 export function ProjectFirmUsersPage() {
   const { query, setPage } = useProjectFirmUserListParams()
   const savedNotice = useSavedProjectFirmUserNotice()
@@ -77,7 +63,7 @@ export function ProjectFirmUsersPage() {
   // Sorgu `queryKey`'in PARÇASI: sayfalama ve süzme sunucuda, her kriter
   // değişimi yeni bir sayfa isteği demek (KK-12). Kriterler "Filtrele" ile
   // uygulandığı için bu, tuş başına değil uygulama başına bir istektir.
-  const { data: sourced, isPending, isError, refetch } = useQuery({
+  const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['projectFirmUserList', query],
     queryFn: ({ signal }) => getProjectFirmUserList(query, signal),
   })
@@ -100,11 +86,6 @@ export function ProjectFirmUsersPage() {
     [isAdmin, deletion.pendingId, deletion.request],
   )
 
-  // Üretim derlemesinde sahte kullanıcı HİÇ üretilmiyor (K51): tablo yerine
-  // bölümün sunucuya bağlı olmadığını söyleyen kutu çıkar.
-  const data = sourced?.source === 'unavailable' ? undefined : sourced?.data
-  const isSourceMissing = sourced?.source === 'unavailable'
-
   const totalCount = data?.totalCount
 
   return (
@@ -124,8 +105,6 @@ export function ProjectFirmUsersPage() {
           onDismiss={savedNotice.dismiss}
         />
       )}
-
-      <MockDataNotice sections={sourced?.source === 'mock' ? MOCK_SECTIONS : []} />
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
@@ -157,8 +136,6 @@ export function ProjectFirmUsersPage() {
           onRetry={() => void refetch()}
         />
       )}
-
-      {isSourceMissing && <MissingSourceNotice endpointHint={MISSING_ENDPOINT_HINT} />}
 
       {data !== undefined && !isError && (
         <>

@@ -27,8 +27,10 @@ const USER = {
 
 function renderPage() {
   listApi.listGasDistributionUsers.mockResolvedValue({
-    source: 'server' as const,
-    data: { items: [USER], totalCount: 1, page: 1, pageSize: 30 },
+    items: [USER],
+    totalCount: 1,
+    page: 1,
+    pageSize: 30,
   })
   useIsAdmin.mockReturnValue(true)
 

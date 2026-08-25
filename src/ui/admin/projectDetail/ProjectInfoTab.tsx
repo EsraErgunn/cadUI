@@ -1,10 +1,9 @@
-import { MissingSourceNotice } from '../MissingSourceNotice'
+import { QueryLoading } from '../QueryStates'
 import { ProjectApprovalCard } from './ProjectApprovalCard'
 import { ProjectFirmCard } from './ProjectFirmCard'
 import { ProjectGeneralCard } from './ProjectGeneralCard'
 import { ProjectSpecsCard } from './ProjectSpecsCard'
 import { UnitDeviceTable } from './UnitDeviceTable'
-import type { Sourced } from '../../../api/mockGate'
 import type {
   ProjectApprovalInfo,
   ProjectDetail,
@@ -14,7 +13,7 @@ import type {
 
 interface ProjectInfoTabProps {
   detail: ProjectDetail
-  units: Sourced<ProjectUnitRow[]> | undefined
+  units: ProjectUnitRow[] | undefined
   /** `GET /api/projectfirms/{id}`; gelmeden `null` ve kart boş satır çizer. */
   firm: ProjectFirmInfo | null
   /** İşlem geçmişinden türetiliyor; onay yoksa `null`. */
@@ -52,10 +51,10 @@ export function ProjectInfoTab({
         </div>
       </div>
 
-      {units === undefined || units.source === 'unavailable' ? (
-        <MissingSourceNotice endpointHint="GET /api/projects/{id}/units" />
+      {units === undefined ? (
+        <QueryLoading message="Birim ve cihaz bilgileri yükleniyor…" />
       ) : (
-        <UnitDeviceTable units={units.data} />
+        <UnitDeviceTable units={units} />
       )}
     </div>
   )

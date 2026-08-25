@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import { requestJson } from './http'
 import { pagedResultSchema, type PagedResult } from './listQuery'
-import { serverData, type Sourced } from './mockGate'
 import { ROLE_CODES } from './roles'
 
 /**
@@ -62,7 +61,7 @@ function buildQuery(query: GasDistributionUserQuery): string {
 export async function listGasDistributionUsers(
   query: GasDistributionUserQuery,
   signal?: AbortSignal,
-): Promise<Sourced<PagedResult<GasDistributionUserRow>>> {
+): Promise<PagedResult<GasDistributionUserRow>> {
   const page = await requestJson(
     {
       method: 'GET',
@@ -72,5 +71,5 @@ export async function listGasDistributionUsers(
     pagedGasDistributionUserSchema,
   )
 
-  return serverData(page)
+  return page
 }

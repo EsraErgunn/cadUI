@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import { requestJson, requestVoid, uploadForm } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
-import { serverData, type Sourced } from './mockGate'
 
 /**
  * API SÖZLEŞMESİ — Evraklar. Hepsi GERÇEK uç:
@@ -215,20 +214,17 @@ function buildListQuery(query: DocumentListQuery): string {
 /**
  * Evraklar listesi. Sayfalama, süzme ve sıralama SUNUCUDA; istemci gelen diziyi
  * daraltmıyor.
- *
- * `Sourced` zarfı duruyor çünkü çağıranlar kaynağa göre farklı yüzey çiziyor;
- * artık her zaman `server`.
  */
 export async function listDocuments(
   query: DocumentListQuery,
   signal?: AbortSignal,
-): Promise<Sourced<PagedResult<DocumentRow>>> {
+): Promise<PagedResult<DocumentRow>> {
   const page = await requestJson(
     { method: 'GET', path: `/api/docs?${buildListQuery(query)}`, signal },
     docPageSchema,
   )
 
-  return serverData({ ...page, items: page.items.map(toDocumentRow) })
+  return { ...page, items: page.items.map(toDocumentRow) }
 }
 
 /**
@@ -241,7 +237,7 @@ const PROJECT_DOCUMENT_PAGE_SIZE = 100
 export async function listProjectDocuments(
   projectId: number,
   signal?: AbortSignal,
-): Promise<Sourced<DocumentRow[]>> {
+): Promise<DocumentRow[]> {
   const search = new URLSearchParams({
     ProjectId: String(projectId),
     Page: '1',
@@ -255,7 +251,7 @@ export async function listProjectDocuments(
     docPageSchema,
   )
 
-  return serverData(page.items.map(toDocumentRow))
+  return page.items.map(toDocumentRow)
 }
 
 export async function deleteDocument(documentId: number, signal?: AbortSignal): Promise<void> {

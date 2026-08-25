@@ -66,8 +66,7 @@ export function PolicyListPage() {
     queryKey: ['insuranceCompanies'],
     queryFn: ({ signal }) => listInsuranceCompanies(signal),
   })
-  const companyRows =
-    companies === undefined || companies.source === 'unavailable' ? [] : companies.data
+  const companyRows = companies ?? []
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['policies'] })

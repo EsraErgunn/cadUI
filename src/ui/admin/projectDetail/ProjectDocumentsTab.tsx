@@ -6,13 +6,12 @@ import { ProjectDocumentActionDialogs } from './ProjectDocumentActionDialogs'
 import type { ProjectDocumentUnitOption } from './ProjectDocumentUnitDialog'
 import { formatFileSize } from './projectDetailFormat'
 import type { EditableDocument } from './useProjectDocumentActions'
-import type { Sourced } from '../../../api/mockGate'
 import type { ProjectDocumentRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
-import { MissingSourceNotice } from '../MissingSourceNotice'
 import { NoticeBar } from '../NoticeBar'
+import { QueryLoading } from '../QueryStates'
 import { documentCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
 import { useCanWriteProjectContent } from '../useRole'
@@ -27,7 +26,7 @@ const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
 interface ProjectDocumentsTabProps {
   /** "Evrak Ekle" bağlantısı yüklemeyi GELİNEN projeyle ilişkilendiriyor. */
   projectId: number
-  documents: Sourced<ProjectDocumentRow[]> | undefined
+  documents: ProjectDocumentRow[] | undefined
   /** Projenin birimleri; bağ değiştirme kutusunun kaynağı. */
   units: ProjectDocumentUnitOption[]
   actions: ProjectDocumentActions
@@ -166,13 +165,13 @@ export function ProjectDocumentsTab({
         />
       )}
 
-      {documents === undefined || documents.source === 'unavailable' ? (
-        <MissingSourceNotice endpointHint="GET /api/docs?ProjectId=" />
-      ) : documents.data.length === 0 ? (
+      {documents === undefined ? (
+        <QueryLoading message="Evraklar yükleniyor…" />
+      ) : documents.length === 0 ? (
         <InfoBanner message={EMPTY_MESSAGE} />
       ) : (
         <DataTable
-          rows={documents.data}
+          rows={documents}
           columns={columns}
           rowKey={(row) => row.id}
           caption={TABLE_CAPTION}

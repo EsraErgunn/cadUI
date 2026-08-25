@@ -3,8 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  asMock,
-  asUnavailable,
   buildDetail,
   buildHistory,
   buildUnits,
@@ -30,10 +28,10 @@ vi.mock('../../ui/admin/useCanApproveProject', () => ({ useCanApproveProject: ca
 
 beforeEach(() => {
   detailApi.getProjectDetail.mockResolvedValue(buildDetail())
-  detailApi.getProjectUnits.mockResolvedValue(asMock(buildUnits()))
-  detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
-  detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
-  detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  detailApi.getProjectUnits.mockResolvedValue(buildUnits())
+  detailApi.getProjectHistory.mockResolvedValue(buildHistory())
+  detailApi.getProjectDocuments.mockResolvedValue([])
+  detailApi.getProjectPolicies.mockResolvedValue([])
   canApprove.mockReturnValue(true)
 })
 
@@ -98,15 +96,5 @@ describe('proje işlem geçmişi (KK-8)', () => {
     expect(within(table).queryByRole('button', { name: /Sil/ })).not.toBeInTheDocument()
     expect(within(table).queryByRole('button', { name: /Düzenle/ })).not.toBeInTheDocument()
     expect(within(table).queryAllByRole('button')).toHaveLength(0)
-  })
-
-  it('kaynağı olmayan ortamda eksiklik kutusu gösterir', async () => {
-    detailApi.getProjectHistory.mockResolvedValue(asUnavailable())
-
-    const user = userEvent.setup()
-    renderDetail()
-    await user.click(await screen.findByRole('tab', { name: 'Proje İşlem Geçmişi' }))
-
-    expect(await screen.findByText('Bu bölümün veri kaynağı henüz yok.')).toBeInTheDocument()
   })
 })

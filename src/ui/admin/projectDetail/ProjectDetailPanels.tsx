@@ -5,7 +5,6 @@ import { ProjectInfoTab } from './ProjectInfoTab'
 import { ProjectOperationsTab } from './ProjectOperationsTab'
 import { ProjectPolicyTab } from './ProjectPolicyTab'
 import type { ProjectDetailTabKey } from './tabItems'
-import type { Sourced } from '../../../api/mockGate'
 import type {
   ProjectApprovalInfo,
   ProjectDecision,
@@ -21,16 +20,16 @@ import type {
 interface ProjectDetailPanelsProps {
   tab: ProjectDetailTabKey
   detail: ProjectDetail
-  units: Sourced<ProjectUnitRow[]> | undefined
-  history: Sourced<ProjectHistoryRow[]> | undefined
+  units: ProjectUnitRow[] | undefined
+  history: ProjectHistoryRow[] | undefined
   historyRows: ProjectHistoryRow[]
-  documents: Sourced<ProjectDocumentRow[]> | undefined
+  documents: ProjectDocumentRow[] | undefined
   /** Evrak sekmesindeki "Birim Değiştir" kutusunun kaynağı. */
   firm: ProjectFirmInfo | null
   approval: ProjectApprovalInfo | null
   documentUnitOptions: ProjectDocumentUnitOption[]
   documentActions: ProjectDocumentActions
-  policies: Sourced<ProjectPolicyRow[]> | undefined
+  policies: ProjectPolicyRow[] | undefined
   canApprove: boolean
   isDraft: boolean
   isSubmitting: boolean
@@ -77,13 +76,9 @@ export function ProjectDetailPanels({
 
   if (tab === 'gecmis') {
     return (
-      <ProjectHistoryTab
-        history={
-          history === undefined || history.source === 'unavailable'
-            ? history
-            : { source: history.source, data: historyRows }
-        }
-      />
+      // `historyRows` ham geçmişe bu turda verilen kararı ekliyor; sorgu
+      // gelmeden sekme yükleniyor durumunda kalsın diye `undefined` korunuyor.
+      <ProjectHistoryTab history={history === undefined ? undefined : historyRows} />
     )
   }
 

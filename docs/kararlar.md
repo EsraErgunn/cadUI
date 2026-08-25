@@ -9062,3 +9062,40 @@ poliçe numarası en fazla 50 karakter (`PolicyAddValidator`).
 - **Doğrulama hatası biçimi:** iki farklı `400` var — iş kuralı `{ message }`,
   FluentValidation `{ errors: { alan: [...] } }`. İkisini de karşılayan
   `readErrorMessage` sadeleştirilmedi.
+
+### K160 — Mock kapısı (K51) SÖKÜLDÜ: `Sourced` zarfı, iki şerit ve üç mock dosyası silindi
+
+K51 karma veri düzeni kurmuştu: `api/mockGate.ts` sahte gövdeyi yalnız
+geliştirme derlemesinde üretiyor, dönüş tipi `Sourced<T>` kaynağı taşıyor,
+`MockDataNotice` uydurma bölümleri kalıcı bir şeritte sayıyor, `MissingSourceNotice`
+üretimde boş kalan bölümün sebebini yazıyordu. Düzen amacını tamamladı ve P0
+entegrasyonu bitince ÖLÜ kaldı.
+
+**Ölçüm.** `mockedData()` fonksiyonunun üretim kodunda SIFIR çağrısı kalmıştı;
+tek çağıranı olan `isMockDataAllowed` da onunla birlikte erişilemez durumdaydı.
+Yani `Sourced<T>` her koşulda `{ source: 'server' }` dönüyordu ve on ekrandaki
+`source === 'mock'` / `'unavailable'` dalları hiçbir girdiyle çizilemiyordu.
+
+**Asıl sebep testler.** `projectFirmUserFixture` ve `DocumentListPage.test`
+kendi elleriyle `source: 'mock'` üretip şeridin çizildiğini doğruluyordu; API
+ise koşulsuz `serverData(...)` dönüyordu. Dört test GERÇEKLEŞMESİ İMKÂNSIZ bir
+durumu doğrulayıp yeşil yanıyordu — koruma sağlamayan ama sağlıyormuş gibi
+duran testler, hiç test olmamasından daha kötü.
+
+**Yapılan.** `Sourced` zarfı tümüyle kalktı; beş API dosyası (`documents`,
+`gasDistributionUsers`, `policies`, `projectDetail`, `projectFirmUsers`) düz `T`
+dönüyor. `mockGate.ts`, `MockDataNotice.tsx`, `MissingSourceNotice.tsx` ve
+artık kimsenin import etmediği `projectDetailMock.ts` / `projectFirmsMock.ts` /
+`policiesMock.ts` silindi. Zarfı kaldırmak derleyiciyi kılavuz yaptı: union
+kolları yok olunca her ölü dal derleme hatası olarak kendini gösterdi.
+
+**Yükleniyor ≠ kaynağı yok.** Proje detayı sekmeleri `undefined`'ı
+`MissingSourceNotice` ile karşılıyordu; sorgu HENÜZ dönmemişken "bu bölümün
+veri kaynağı yok" yazmak yanlış bir şey söylüyordu. Dördü de (`ProjectInfoTab`,
+`ProjectHistoryTab`, `ProjectDocumentsTab`, `ProjectPolicyTab`) artık
+`QueryLoading` gösteriyor.
+
+**`hasApiBaseUrl()` yedekleri BU KARARIN DIŞINDA.** `adminFirms`,
+`adminFirmForm`, `adminDashboard` ve `projects` içindeki mock'lar `VITE_API_URL`
+tanımsızken devreye giren ayrı ve BİLİNÇLİ bir düzen (K27); onlara
+dokunulmadı. Silinen üç dosya o zincire bağlı değildi.

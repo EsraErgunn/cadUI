@@ -6,7 +6,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProjectFirmUserListProbe } from './ProjectFirmUserListProbe'
 import { UrlProbe } from './UrlProbe'
 import type { PagedResult } from '../../api/listQuery'
-import type { Sourced } from '../../api/mockGate'
 import type {
   ProjectFirmUserDetail,
   ProjectFirmUserRow,
@@ -28,16 +27,11 @@ export function buildRow(overrides: Partial<ProjectFirmUserRow> = {}): ProjectFi
   }
 }
 
-/** Liste `Sourced` zarfıyla dönüyor: sahte veri yalnız geliştirmede üretilir
-    (K51). Testler geliştirme derlemesinde koştuğu için `mock` kolu. */
 export function buildPage(
   rows: ProjectFirmUserRow[],
   overrides: Partial<PagedResult<ProjectFirmUserRow>> = {},
-): Sourced<PagedResult<ProjectFirmUserRow>> {
-  return {
-    source: 'mock',
-    data: { items: rows, totalCount: rows.length, page: 1, pageSize: 30, ...overrides },
-  }
+): PagedResult<ProjectFirmUserRow> {
+  return { items: rows, totalCount: rows.length, page: 1, pageSize: 30, ...overrides }
 }
 
 export const MOCK_GAS_FIRMS = [

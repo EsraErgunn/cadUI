@@ -1,6 +1,5 @@
 import { policyFieldId, type PolicyErrors, type PolicyFormValues } from './policySchema'
 import type { InsuranceCompany } from '../../../api/policies'
-import { MissingSourceNotice } from '../MissingSourceNotice'
 import { SelectField } from '../form/SelectField'
 
 const PLACEHOLDER = 'Seçiniz'
@@ -19,13 +18,8 @@ export function PolicyFirmStep({
   values,
   errors,
   companies,
-  hasCompanySource,
   onCompanyChange,
 }: PolicyFirmStepProps) {
-  if (!hasCompanySource) {
-    return <MissingSourceNotice endpointHint="GET /api/insurance-companies" />
-  }
-
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <SelectField
@@ -57,7 +51,5 @@ interface PolicyFirmStepProps {
   values: PolicyFormValues
   errors: PolicyErrors
   companies: InsuranceCompany[]
-  /** Şirket listesinin kaynağı var mı; uç yanıt vermezse boş kalır. */
-  hasCompanySource: boolean
   onCompanyChange: (id: number | null) => void
 }

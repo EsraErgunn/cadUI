@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { asMock, buildDetail, buildHistory, buildUnits, renderDetail } from './projectDetailFixture'
+import { buildDetail, buildHistory, buildUnits, renderDetail } from './projectDetailFixture'
 import { setAuthSession } from '../../api/authToken'
 import { ROLE_CODES } from '../../api/roles'
 
@@ -35,10 +35,10 @@ vi.mock('../../ui/admin/useCanApproveProject', () => ({ useCanApproveProject: ca
 
 beforeEach(() => {
   detailApi.getProjectDetail.mockResolvedValue(buildDetail())
-  detailApi.getProjectUnits.mockResolvedValue(asMock(buildUnits()))
-  detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
-  detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
-  detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  detailApi.getProjectUnits.mockResolvedValue(buildUnits())
+  detailApi.getProjectHistory.mockResolvedValue(buildHistory())
+  detailApi.getProjectDocuments.mockResolvedValue([])
+  detailApi.getProjectPolicies.mockResolvedValue([])
   // Firma künyesi ayrı bir uçtan: mock'lanmazsa gerçek istek denenir ve
   // yeniden denemeler yönlendirme testlerini zaman aşımına uğratır.
   detailApi.getProjectFirmInfo.mockResolvedValue(null)
@@ -66,20 +66,18 @@ describe('evrak sekmesi (KK-9)', () => {
   })
 
   it('evrak varsa liste hâlinde gösterir', async () => {
-    detailApi.getProjectDocuments.mockResolvedValue(
-      asMock([
-        {
-          id: 7,
-          fileName: 'ruhsat.pdf',
-          docType: 'Ruhsat',
-          sizeBytes: 2048,
-          uploadedByName: 'AHMET AKBAYIR',
-          receivedAt: '2026-07-10T11:28:28.000Z',
-          unitIds: [71],
-          unitNames: ['D20'],
-        },
-      ]),
-    )
+    detailApi.getProjectDocuments.mockResolvedValue([
+      {
+        id: 7,
+        fileName: 'ruhsat.pdf',
+        docType: 'Ruhsat',
+        sizeBytes: 2048,
+        uploadedByName: 'AHMET AKBAYIR',
+        receivedAt: '2026-07-10T11:28:28.000Z',
+        unitIds: [71],
+        unitNames: ['D20'],
+      },
+    ])
 
     const user = userEvent.setup()
     renderDetail()
@@ -106,20 +104,18 @@ describe('evrak sekmesi (KK-9)', () => {
   })
 
   it('satırda silme ve birim değiştirme eylemleri bulunur', async () => {
-    detailApi.getProjectDocuments.mockResolvedValue(
-      asMock([
-        {
-          id: 7,
-          fileName: 'ruhsat.pdf',
-          docType: 'Ruhsat',
-          sizeBytes: 2048,
-          uploadedByName: 'AHMET AKBAYIR',
-          receivedAt: '2026-07-10T11:28:28.000Z',
-          unitIds: [71],
-          unitNames: ['D20'],
-        },
-      ]),
-    )
+    detailApi.getProjectDocuments.mockResolvedValue([
+      {
+        id: 7,
+        fileName: 'ruhsat.pdf',
+        docType: 'Ruhsat',
+        sizeBytes: 2048,
+        uploadedByName: 'AHMET AKBAYIR',
+        receivedAt: '2026-07-10T11:28:28.000Z',
+        unitIds: [71],
+        unitNames: ['D20'],
+      },
+    ])
 
     const user = userEvent.setup()
     renderDetail()
@@ -135,20 +131,18 @@ describe('evrak sekmesi (KK-9)', () => {
   })
 
   it('"Sil" önce onay sorar', async () => {
-    detailApi.getProjectDocuments.mockResolvedValue(
-      asMock([
-        {
-          id: 7,
-          fileName: 'ruhsat.pdf',
-          docType: 'Ruhsat',
-          sizeBytes: 2048,
-          uploadedByName: 'AHMET AKBAYIR',
-          receivedAt: '2026-07-10T11:28:28.000Z',
-          unitIds: [71],
-          unitNames: ['D20'],
-        },
-      ]),
-    )
+    detailApi.getProjectDocuments.mockResolvedValue([
+      {
+        id: 7,
+        fileName: 'ruhsat.pdf',
+        docType: 'Ruhsat',
+        sizeBytes: 2048,
+        uploadedByName: 'AHMET AKBAYIR',
+        receivedAt: '2026-07-10T11:28:28.000Z',
+        unitIds: [71],
+        unitNames: ['D20'],
+      },
+    ])
 
     const user = userEvent.setup()
     renderDetail()
@@ -175,19 +169,17 @@ describe('poliçe sekmesi (KK-9)', () => {
   })
 
   it('poliçe varsa liste hâlinde gösterir', async () => {
-    detailApi.getProjectPolicies.mockResolvedValue(
-      asMock([
-        {
-          id: 3,
-          policyNumber: 'PLC-1',
-          insuranceCompanyName: 'Test Sigorta',
-          unitNumber: 'D20',
-          amount: 1500,
-          startDate: '2026-01-01',
-          endDate: '2027-01-01',
-        },
-      ]),
-    )
+    detailApi.getProjectPolicies.mockResolvedValue([
+      {
+        id: 3,
+        policyNumber: 'PLC-1',
+        insuranceCompanyName: 'Test Sigorta',
+        unitNumber: 'D20',
+        amount: 1500,
+        startDate: '2026-01-01',
+        endDate: '2027-01-01',
+      },
+    ])
 
     const user = userEvent.setup()
     renderDetail()

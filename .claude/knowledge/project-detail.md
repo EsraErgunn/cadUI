@@ -15,9 +15,11 @@ birim/cihaz, işlem geçmişi, evrak, poliçe, onay/ret/revizyon ve
 `.zpd`/DWG/PDF indirme **yok**. Liste: `docs/api-eksikleri-proje-detayi.md`.
 
 **Gerçek ile uydurma TİPTE ayrı.** `ProjectDetail = { server, extras }`.
-`extras` üretim derlemesinde `null` — `mockGate.ts` sahte veriyi yalnız
-`import.meta.env.DEV` altında üretir. Bu iki parçayı düz bir nesnede
-birleştirirsen mock işareti (`MockValue`) konulamaz hâle gelir ve K51 bozulur.
+`extras` ucu olmayan alanları taşır ve üretimde `null` olabilir; bu iki parçayı
+düz bir nesnede birleştirirsen ayrım kaybolur.
+
+⚠️ `mockGate.ts` ve `Sourced<T>` zarfı SİLİNDİ (K160): sekme verisi düz `T`
+gelir ve `undefined` "yükleniyor" demektir, "kaynağı yok" değil.
 
 **Uç bayrakları `unimplementedEndpoints.ts`'te ve mekanizma sınandı:** bir
 anahtar silinince çağıran dosya TS2345 verir (ölçüldü). Tek boşluk, hiç çağrısı

@@ -1,7 +1,6 @@
 import { fetchAllFirms } from './adminFirms'
 import { requestJson } from './http'
 import { pagedResultSchema, type PagedResult } from './listQuery'
-import { serverData, type Sourced } from './mockGate'
 import {
   toProjectFirmUserRow,
   userListItemSchema,
@@ -64,32 +63,29 @@ function buildListQuery(query: ProjectFirmUserQuery): string {
   return search.toString()
 }
 
-/**
- * Liste — GERÇEK uç. `Sourced` zarfı duruyor çünkü çağıran kaynağa göre farklı
- * yüzey çiziyor; artık her zaman `server`.
- */
+/** Liste — `GET /api/users?RoleCode=ProjectFirmUser&…`. */
 export async function getProjectFirmUserList(
   query: ProjectFirmUserQuery,
   signal?: AbortSignal,
-): Promise<Sourced<PagedResult<ProjectFirmUserRow>>> {
+): Promise<PagedResult<ProjectFirmUserRow>> {
   const page = await requestJson(
     { method: 'GET', path: `/api/users?${buildListQuery(query)}`, signal },
     userPageSchema,
   )
 
-  return serverData({
+  return {
     items: page.items.map(toProjectFirmUserRow),
     totalCount: page.totalCount,
     page: page.page,
     pageSize: page.pageSize,
-  })
+  }
 }
 
 /** Güncelleme ekranının kaydı — `GET /api/users/{id}`. */
 export async function getProjectFirmUser(
   userId: number,
   signal?: AbortSignal,
-): Promise<Sourced<ProjectFirmUserDetail>> {
+): Promise<ProjectFirmUserDetail> {
   const dto = await requestJson(
     { method: 'GET', path: `/api/users/${userId}`, signal },
     userListItemSchema,
@@ -97,12 +93,12 @@ export async function getProjectFirmUser(
 
   const row = toProjectFirmUserRow(dto)
 
-  return serverData({
+  return {
     id: row.id,
     fullName: row.fullName,
     username: row.username,
     email: row.email,
     phone: row.phone,
     projectFirmId: dto.projectFirmId ?? null,
-  })
+  }
 }
