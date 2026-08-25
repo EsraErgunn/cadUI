@@ -189,6 +189,17 @@ export interface PolicyRow {
   projectId: number
   /** Sunucudan geliyor (`PolicyDto.ProjectName`); çözülemezse `null`. */
   projectName: string | null
+  /** Poliçenin bağlı olduğu birim; güncelleme formunda SALT OKUNUR gösterilir. */
+  unitNumber: string | null
+  /**
+   * Birim çizimden silindi mi (`PolicyDto.IsUnitDeleted`).
+   *
+   * Poliçe bu durumda İPTAL EDİLMİYOR: `IsActive` `true` kalıyor ve kayıt
+   * listede görünmeye devam ediyor, yalnız birim bağı kopuyor
+   * (`ProjectUnitId` null'a çekiliyor). Satır bu yüzden uyarıyla işaretleniyor
+   * — sessizce birimsiz görünen bir poliçe, veri kaybı gibi okunurdu.
+   */
+  isUnitDeleted: boolean
 }
 
 export interface PolicyListQuery {
@@ -215,6 +226,8 @@ function toPolicyRow(dto: PolicyDto): PolicyRow {
     endDate: dto.endDate ?? null,
     projectId: dto.projectId,
     projectName: dto.projectName ?? null,
+    unitNumber: dto.unitNumber ?? null,
+    isUnitDeleted: dto.isUnitDeleted ?? false,
   }
 }
 

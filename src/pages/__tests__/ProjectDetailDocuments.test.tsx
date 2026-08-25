@@ -195,7 +195,8 @@ describe('poliçe sekmesi (KK-9)', () => {
 
     const table = await screen.findByRole('table', { name: /Projeye bağlı poliçeler/ })
     expect(within(table).getByText('PLC-1')).toBeInTheDocument()
-    expect(within(table).getByText('Onaylandı')).toBeInTheDocument()
+    // Sabit "Onaylandı" rozeti KALKTI: sunucuda poliçe durumu diye bir alan yok.
+    expect(within(table).queryByText('Onaylandı')).not.toBeInTheDocument()
   })
 
   it('Poliçelendir düğmesi ilgili ekrana yönlendirir', async () => {

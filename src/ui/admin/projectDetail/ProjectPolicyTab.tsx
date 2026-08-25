@@ -15,8 +15,9 @@ import { detailBadgeVariants } from './projectDetailVariants'
 
 const EMPTY_MESSAGE = 'Proje Poliçe Kaydı Bulunamamıştır.'
 
-/** Poliçenin durumu tek değerli: kayıt oluştuğu anda onaylanmış sayılıyor. */
-const POLICY_STATUS_LABEL = 'Onaylandı'
+const DELETED_UNIT_LABEL = 'Silinmiş Birim'
+const DELETED_UNIT_TITLE =
+  'Poliçenin bağlı olduğu bağımsız bölüm çizimden silindi. Poliçe iptal edilmedi, kaydı duruyor.'
 
 const TABLE_CAPTION = 'Projeye bağlı poliçeler.'
 
@@ -34,7 +35,19 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
   {
     key: 'unit',
     label: 'Birim',
-    cell: (row) => (row.unitNumber === null ? <EmptyValue /> : row.unitNumber),
+    // Birim silinince sunucu bağı koparıyor (`ProjectUnitId` null) ama poliçeyi
+    // İPTAL ETMİYOR. Hücre boş kalsaydı kayıt eksik veriymiş gibi okunurdu;
+    // rozet sebebini söylüyor.
+    cell: (row) =>
+      row.isUnitDeleted ? (
+        <span className={detailBadgeVariants({ tone: 'warning' })} title={DELETED_UNIT_TITLE}>
+          {DELETED_UNIT_LABEL}
+        </span>
+      ) : row.unitNumber === null ? (
+        <EmptyValue />
+      ) : (
+        row.unitNumber
+      ),
   },
   {
     key: 'amount',
@@ -51,15 +64,6 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
     key: 'endDate',
     label: 'Bitiş',
     cell: (row) => formatPlainDate(row.endDate) ?? <EmptyValue />,
-  },
-  {
-    key: 'status',
-    label: 'Durum',
-    // Ödeme akışı yok: poliçe oluşturulduğu anda onaylı sayılıyor, o yüzden
-    // satır başına değişen bir durum alanı da yok.
-    cell: () => (
-      <span className={detailBadgeVariants({ tone: 'success' })}>{POLICY_STATUS_LABEL}</span>
-    ),
   },
 ]
 
