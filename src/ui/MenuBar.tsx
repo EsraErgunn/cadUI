@@ -17,6 +17,7 @@ import {
 } from './menu/menuDefinitions'
 import { MENU_ICONS } from './menu/menuIcons'
 import { useToolsMenuActions } from './menu/useToolsMenuActions'
+import type { EditorSubmit } from '../pages/useEditorSubmit'
 import { useUiStore } from '../store/uiStore'
 import type { VersionHistorySource } from './versions/VersionHistoryMenu'
 
@@ -33,6 +34,8 @@ type MenuBarProps = {
   onImport: () => void
   onExport: () => void
   isSaving: boolean
+  /** "Gönder"/"Onayla" düğmesinin kaynağı; bar yalnız TAŞIR, kendisi kullanmaz. */
+  submit: EditorSubmit
   /** Kayıt geçmişi listesinin kaynağı; bar yalnız TAŞIR, kendisi kullanmaz. */
   versionHistory: VersionHistorySource
 }
@@ -58,6 +61,7 @@ export function MenuBar({
   onImport,
   onExport,
   isSaving,
+  submit,
   versionHistory,
 }: MenuBarProps) {
   const isReadOnly = useUiStore((state) => state.isEditorReadOnly)
@@ -92,10 +96,15 @@ export function MenuBar({
    * `unavailableItemIds` prop'u kullanılıyor — menü için ikinci bir pasiflik
    * mekanizması yazılmadı.
    *
-   * "Dışa Aktar" ve "Proje Dosyasını İndir" LİSTEDE YOK: ikisi de dosyayı
-   * dışarı yazıyor, çizime dokunmuyor — okuma işlemi. Kapatılanların hepsi
-   * çizime yazar (Kaydet ve Farklı Kaydet sunucuya; İçe Aktar, Proje Dosyasını
-   * Aç ve Projeyi Temizle doğrudan store'a).
+   * "Proje Dosyasını İndir" LİSTEDE YOK: dosyayı dışarı yazıyor, çizime
+   * dokunmuyor. Kapatılanların çoğu çizime yazar (Kaydet ve Farklı Kaydet
+   * sunucuya; İçe Aktar, Proje Dosyasını Aç ve Projeyi Temizle doğrudan
+   * store'a).
+   *
+   * "Dışa Aktar" (JSON) İSTİSNA: o da yalnız OKUYOR ama gaz dağıtım
+   * kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı (K176) —
+   * çizimin ham JSON'u başka bir projeye içe aktarılabilir bir kopya, kâğıt
+   * çıktı değil.
    */
   const unavailableItemIds = useMemo(() => {
     const unavailable = new Set<string>(toolsActions.unavailableItemIds)
@@ -105,6 +114,7 @@ export function MenuBar({
       unavailable.add(IMPORT_ITEM_ID)
       unavailable.add(OPEN_PROJECT_FILE_ITEM_ID)
       unavailable.add(CLEAR_PROJECT_ITEM_ID)
+      unavailable.add(EXPORT_ITEM_ID)
     }
     return unavailable.size === 0 ? undefined : unavailable
     // Araçlar maddelerinin görünüm/çizim koşulları hook'ta (useToolsMenuActions).
@@ -195,6 +205,7 @@ export function MenuBar({
         onSave={onSave}
         isSaving={isSaving}
         isReadOnly={isReadOnly}
+        submit={submit}
         versionHistory={versionHistory}
       />
     </header>

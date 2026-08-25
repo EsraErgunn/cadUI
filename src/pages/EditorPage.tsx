@@ -5,6 +5,7 @@ import { useCloseEditor } from './useCloseEditor'
 import { useEditorExit } from './useEditorExit'
 import { useEditorReadOnlyMode } from './useEditorReadOnlyMode'
 import { useEditorShortcuts } from './useEditorShortcuts'
+import { useEditorSubmit } from './useEditorSubmit'
 import { useProjectExport } from './useProjectExport'
 import { PROJECT_FILE_ACCEPT, useProjectFileOpen } from './useProjectFileOpen'
 import { useProjectImport } from './useProjectImport'
@@ -23,11 +24,13 @@ import { SceneRoot } from '../scene/SceneRoot'
 import { selectIsProjectDirty, useCadStore } from '../store/cadStore'
 import { useUiStore } from '../store/uiStore'
 import { ClearProjectDialog } from '../ui/ClearProjectDialog'
+import { EditorNoticeBar } from '../ui/EditorNoticeBar'
 import { EditorSidebar } from '../ui/EditorSidebar'
 import { FloorManagementDialog } from '../ui/FloorManagementDialog'
 import { MenuBar } from '../ui/MenuBar'
 import { OpeningToolOptions } from '../ui/OpeningToolOptions'
 import { PropertyPanel } from '../ui/PropertyPanel'
+import { SubmitProjectDialog } from '../ui/SubmitProjectDialog'
 import { UnsavedChangesDialog } from '../ui/UnsavedChangesDialog'
 import { FloatingToolbar } from '../ui/canvas/FloatingToolbar'
 import { FloorRail } from '../ui/canvas/FloorRail'
@@ -43,6 +46,7 @@ export function EditorPage() {
   const isReadOnly = useEditorReadOnlyMode()
   const { projectId, isSaving, currentVersionId, error, save, loadVersion } =
     useProjectPersistence()
+  const submit = useEditorSubmit(projectId)
   const exportProject = useProjectExport()
   const { inputRef: importInputRef, error: importError, triggerImport, handleFileSelected } =
     useProjectImport()
@@ -139,8 +143,15 @@ export function EditorPage() {
           onImport={triggerImport}
           onExport={exportProject}
           isSaving={isSaving}
+          submit={submit}
           versionHistory={{ projectId, currentVersionId, onLoadVersion: loadVersion }}
         />
+
+        {/* Gönderim/onay sonucu. Öteki şeritlerden ayrı: kapatılabiliyor ve
+            eksik evrakları liste hâlinde taşıyor. */}
+        {submit.notice !== null && (
+          <EditorNoticeBar notice={submit.notice} onDismiss={submit.dismissNotice} />
+        )}
 
         {/* Menüden tetiklenir (Dosya > İçe Aktar); görünür bir seçici yerine
             gizli input kullanmak tarayıcının kendi dosya diyaloğunu verir. */}
@@ -277,6 +288,16 @@ export function EditorPage() {
             useCadStore.getState().clearProjectDrawing()
             setIsClearProjectOpen(false)
           }}
+        />
+      )}
+
+      {submit.confirmIssueCount !== null && (
+        <SubmitProjectDialog
+          kind={submit.kind}
+          issueCount={submit.confirmIssueCount}
+          isPending={submit.isPending}
+          onCancel={submit.cancel}
+          onConfirm={submit.confirm}
         />
       )}
 

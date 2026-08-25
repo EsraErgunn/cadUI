@@ -1,9 +1,25 @@
-import { Save, Send } from 'lucide-react'
+import { Check, Save, Send } from 'lucide-react'
 
 import { editorBarButtonVariants, editorBarPrimaryVariants } from './editorBarVariants'
+import type { EditorSubmit, EditorSubmitKind } from '../../pages/useEditorSubmit'
 import { selectIsProjectDirty, useCadStore } from '../../store/cadStore'
 import { ValidationMenu } from '../validation/ValidationMenu'
 import { VersionHistoryMenu, type VersionHistorySource } from '../versions/VersionHistoryMenu'
+
+const SUBMIT_LABELS: Record<EditorSubmitKind, string> = {
+  submit: 'Gönder',
+  approve: 'Onayla',
+}
+
+const SUBMIT_TITLES: Record<EditorSubmitKind, string> = {
+  submit: 'Projeyi onaya gönder',
+  approve: 'Projeyi onayla',
+}
+
+const SUBMIT_ICONS: Record<EditorSubmitKind, typeof Send> = {
+  submit: Send,
+  approve: Check,
+}
 
 type EditorActionsProps = {
   onSave: () => void
@@ -13,12 +29,15 @@ type EditorActionsProps = {
    * (`POST /api/projects/{id}/newversion` → Admin, ProjectFirmUser); düğmeyi
    * bırakmak kullanıcıyı anlamsız bir 403'e götürürdü.
    *
-   * "Gönder", "Hata Kontrolleri" ve "Kayıt Geçmişi" KALIR: ilki zaten pasif,
-   * diğer ikisi yalnız OKUR — sürüm listesini görmek ve seçmek bir görüntüleme
+   * "Gönder"/"Onayla", "Hata Kontrolleri" ve "Kayıt Geçmişi" KALIR: ilki bu
+   * rolde zaten ONAY düğmesi (gaz dağıtım kullanıcısının asıl işi), diğer ikisi
+   * yalnız OKUR — sürüm listesini görmek ve seçmek bir görüntüleme
    * işlemi. (Sürüm YÜKLEME çizimi `loadProject` ile değiştirir ama
    * bu bir düzenleme değil, başka bir kaydın görüntülenmesidir.)
    */
   isReadOnly: boolean
+  /** "Gönder"/"Onayla" düğmesinin arkası; bar yalnız TAŞIR, kendisi kurmaz. */
+  submit: EditorSubmit
   versionHistory: VersionHistorySource
 }
 
@@ -35,30 +54,34 @@ type EditorActionsProps = {
  * olmayan pasif bir düğme, kullanıcıya bir şey vaat edip vermiyordu (K79 ile
  * aynı çizgi, bu kez kaldırma yönünde).
  *
- * "Gönder" de pasif ama artık SEBEBİ VAR: hatalar giderilmeden proje onaya
- * gidemez (doküman, Kapsam). Denetim temiz çıksa bile düğme açılmıyor — onaya
- * gönderme akışı (eksik evrak yanıtı dahil) proje listesi ekranında yaşıyor ve
- * editöre taşınması ayrı bir adım.
+ * "Gönder" ARTIK BAĞLI (K176) ve rolden iki yüzü var: gaz dağıtım kullanıcısı
+ * "Onayla" görür, kalanlar "Gönder". Pasif hâli kalktı — hata kontrolü engel
+ * değil uyarı, denetim hata bulursa araya onay penceresi giriyor. Mantığın
+ * tamamı `useEditorSubmit`'te; bu bileşen yalnız etiketi ve ikonu seçiyor.
  */
 export function EditorActions({
   onSave,
   isSaving,
   isReadOnly,
+  submit,
   versionHistory,
 }: EditorActionsProps) {
   const isDirty = useCadStore(selectIsProjectDirty)
+  const SubmitIcon = SUBMIT_ICONS[submit.kind]
 
   return (
     <div className="flex items-center gap-2">
       <ValidationMenu />
       <button
         type="button"
-        disabled
-        title="Gönder (önce hata kontrolleri giderilmeli)"
+        onClick={submit.request}
+        disabled={submit.isPending}
+        aria-busy={submit.isPending}
+        title={SUBMIT_TITLES[submit.kind]}
         className={editorBarButtonVariants({ tone: 'card' })}
       >
-        <Send size={16} strokeWidth={1.8} aria-hidden />
-        Gönder
+        <SubmitIcon size={16} strokeWidth={1.8} aria-hidden />
+        {SUBMIT_LABELS[submit.kind]}
       </button>
 
       {/* Kirliyken de basılabilir kalır: kullanıcı istediği an sürüm alabilmeli. */}

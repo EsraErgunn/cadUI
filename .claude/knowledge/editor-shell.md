@@ -114,8 +114,50 @@ yakalanmıyor — üstlenmediğimiz kısayolu `preventDefault` ile yutmuyoruz.
 onun üstünde çalışıyor, kaldırılan şey arayüz.
 
 ⚠️ "Test Et" üst bardan kalktı — hiç bağlanmamıştı, aynı işi çalışan "Hata
-Kontrolleri" düğmesi yapıyor. "Gönder" pasif KALIYOR: pasifliğinin yazılı bir
-sebebi var (hatalar giderilmeden onaya gidilemez).
+Kontrolleri" düğmesi yapıyor. "Gönder" o gün pasif KALDI ama K176'te bağlandı
+(aşağı bak) — pasiflik gerekçesi ("hatalar giderilmeden onaya gidilemez")
+uyarıya dönüştü.
 
 ⚠️ Araçlar menüsü dört maddeye indi: Mahalleri Tanımla, Kolon Hattını Sil,
 Tesisat Sil, Malzeme Listesi. Hepsi hâlâ pasif (K79 deseni).
+
+
+## "Gönder" bağlandı, gaz dağıtım kullanıcısında "Onayla" (K176)
+
+Üst bardaki tek düğmenin ROLDEN iki yüzü var:
+
+| Rol | Etiket | Uç |
+| --- | --- | --- |
+| Admin, ProjectFirmUser | **Gönder** | `POST /api/projects/{id}/submit` |
+| GasDistributionUser | **Onayla** | `POST /api/projects/{id}/approve` |
+
+Rol `useIsGasDistributionUser()` ile, yani login yanıtındaki `roleCode`'dan
+okunuyor — `GET /api/auth/me` çağrılmıyor. Mantığın tamamı
+`pages/useEditorSubmit.ts`'te; `EditorActions` yalnız etiketi ve ikonu seçiyor,
+`MenuBar` yalnız taşıyor.
+
+⚠️ **Düğme HİÇ pasifleşmez.** Proje DURUMU sorulmuyor: editör o veriyi
+taşımıyor ve çekmek için ayrı bir istek gerekirdi. Yanlış durumdaki isteği
+sunucu reddediyor, cevap şerit olarak görünüyor.
+
+⚠️ **Hata kontrolü ENGEL değil UYARI.** Basınca `runProjectValidation()`
+çalışıyor; temizse istek DOĞRUDAN gidiyor (tek tıkla biten işe ikinci tık
+eklenmedi), hata varsa `SubmitProjectDialog` sayıyı gösterip "Yine de
+Gönder/Onayla" diyor.
+
+⚠️ **Editörde RET YOK.** Ret gerekçe istiyor (`requiresReason`) ve o pencere
+proje listesinde/detayında yaşıyor — buradaki çağrı
+`submitProjectDecision(id, 'approve', null)`.
+
+⚠️ `runProjectValidation` `ui/validation/useProjectValidation.ts`'ten dışa
+açıldı; ikinci bir kopya, doğrulamanın okuduğu alan listesini iki dosyaya
+bölerdi.
+
+⚠️ Sonuç şeridi (`ui/EditorNoticeBar.tsx`) kendi kendine KAYBOLMAZ: eksik evrak
+yanıtı (`{ ok: false, missingDocuments }`) satır satır okunacak bir liste.
+`role` tona bağlı — hata `alert`, başarı `status`.
+
+⚠️ Salt görüntülemede "Dışa Aktar" (JSON) DA kapandı (gaz dağıtım
+kullanıcısının erişimi PDF indirme olarak tanımlandı); "Proje Dosyasını İndir"
+açık. Gönderim düğmesinin kendisi salt görüntülemede DURUR — onay o rolün asıl
+işi.

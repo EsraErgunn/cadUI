@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { EditorSubmit } from '../../pages/useEditorSubmit'
 import { useCadStore } from '../../store/cadStore'
 import { useUiStore } from '../../store/uiStore'
 import { MenuBar } from '../MenuBar'
@@ -30,6 +32,16 @@ const MENU_BAR_PROPS = {
   onImport: vi.fn(),
   onExport: vi.fn(),
   isSaving: false,
+  submit: {
+    kind: 'submit',
+    isPending: false,
+    notice: null,
+    request: vi.fn(),
+    confirmIssueCount: null,
+    confirm: vi.fn(),
+    cancel: vi.fn(),
+    dismissNotice: vi.fn(),
+  } satisfies EditorSubmit,
   versionHistory: { projectId: 1, currentVersionId: undefined, onLoadVersion: vi.fn() },
 }
 
@@ -70,6 +82,29 @@ describe('üst bar', () => {
     render(<MenuBar {...MENU_BAR_PROPS} />)
 
     expect(screen.getByRole('button', { name: /Kaydet/ })).toBeInTheDocument()
+  })
+
+  /**
+   * Gaz dağıtım kullanıcısına verilen erişim "PDF indirme" (K176); çizimin ham
+   * JSON'u içe aktarılabilir bir kopya, kâğıt çıktı değil.
+   */
+  it('salt görüntülemede Dışa Aktar (JSON) kapalı, PDF indirme açık', async () => {
+    const user = userEvent.setup()
+    setReadOnly(true)
+    render(<MenuBar {...MENU_BAR_PROPS} />)
+
+    await user.click(screen.getByRole('button', { name: /^Dosya/ }))
+
+    expect(screen.getByRole('menuitem', { name: 'Dışa Aktar (JSON)' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Proje Dosyasını İndir' })).toBeEnabled()
+  })
+
+  /** Gönderim/onay düğmesi salt görüntülemede de DURUR: onay o rolün asıl işi. */
+  it('salt görüntülemede gönderim düğmesi kalır', () => {
+    setReadOnly(true)
+    render(<MenuBar {...MENU_BAR_PROPS} submit={{ ...MENU_BAR_PROPS.submit, kind: 'approve' }} />)
+
+    expect(screen.getByRole('button', { name: 'Onayla' })).toBeEnabled()
   })
 })
 
