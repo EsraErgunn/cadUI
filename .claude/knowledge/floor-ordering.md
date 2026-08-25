@@ -15,18 +15,28 @@ En alt katın altı yoktur, `undefined` döner.
 
 - **"Katlar" penceresi** listeyi EN ÜST kat başta gösterir (`reverse()`):
   kullanıcı binayı kesitten okuyor.
-- **Kat seçici** (`ui/canvas/FloorSelect.tsx`, tuvalin alt-orta çubuğunda)
-  AŞAĞIDAN YUKARIYA dizer, yani dizinin KENDİ sırası — çevirmez.
+- **Kat şeridi** (`ui/canvas/FloorRail.tsx`, sahnenin sol üstü) da EN ÜST kat
+  başta dizer — aynı kesit okuması.
 
-Yani seçici ile pencere birbirinin tersidir; pencerede en üstteki kat listenin
-başında, seçicide listenin sonundadır. Veri yapısı hiçbiri için çevrilmez.
+Veri yapısı hiçbiri için çevrilmez; `reverse()` yalnız çizim anında.
 
-⚠️ Bu iki yön KALDIRILAN kat şeridinden devralındı. Şerit (çizim alanının sol
-üstü, KK-21…KK-23) K55 ile silindi ve taşıdığı iki bilgi seçiciye geçti: aktif
-kat düğmenin üstünde yazıyor, çizimi olmayan kat açılır listede içi BOŞ halka
-işaretiyle ayrılıyor (işaret renkten bağımsız okunsun diye). Kat sayısı
-sığmadığında artık yatay kayan bir şerit yok — açılır listenin kendisi
-kaydırılıyor (`max-h-64 overflow-y-auto`), `scrollIntoView` gerekmiyor.
+⚠️ **Kat ŞERİDİ K166 ile GERİ GELDİ** (K55te silinmişti) ama bu sefer DİKEY ve
+sahnenin sol üstünde, sol paletin hemen yanında. Kat geçişinin ana yolu burası;
+`FloorSelect` açılırındaki kat LİSTESİ bu yüzden kalktı, orada yalnız "Kat
+Yönetimi" ve "Kat Kopyalama" maddeleri var. Aynı listenin iki yerde durması
+gereksizdi ve geçiş için önce menü açtırmak her değişime bir tıklama ekliyordu.
+`FloorSelect` düğmesinin kendisi duruyor: şerit kısa etiket gösteriyor, TAM ad
+orada okunuyor.
+
+⚠️ Şeridin etiketi kat ADINDAN değil SIRADAN türer (`getFloorShortLabels`):
+bodrum `B`, zemin `Z`, üstü `1`/`2`/`3`. Daire dar, ad serbest metin ve "Asma
+Kat" sıradaki yerini söylemiyor; tam ad ipucunda ve erişilebilir adda. Çok
+bodrumda numara eklenir ve AŞAĞI indikçe artar (`B1` zeminin hemen altı).
+
+⚠️ Kaydırma çubuğu GİZLİ (`styles/floorRail.css`, kullanıcı kararı) ama
+kaydırmanın kendisi çalışıyor; aktif kat `scrollIntoView` ile görünür tutulur.
+⚠️ Sarmalayıcı `pointer-events-none`: şeridin boş dikey alanı tuvalin
+tıklamasını yutmamalı. Şerit açılır/kapanır, kat ikonlu düğme sol üstte SABİT.
 
 Geçiş ANINDA uygulanır (seçici, menü, Page Up/Down); yalnız "Katlar" penceresi
 içindeki aktif kat değişikliği "Uygula"yı bekler — pencere taslak üzerinde

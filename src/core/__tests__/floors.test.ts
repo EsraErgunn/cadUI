@@ -5,6 +5,7 @@ import {
   MAX_FLOOR_COUNT,
   canAddBasement,
   canAddFloor,
+  canAssignFloorType,
   canRemoveFloor,
   createGroundFloor,
   getBasementCount,
@@ -17,10 +18,15 @@ import {
   getFloorIndex,
   getFloorIdInDirection,
   getFloorInsertIndex,
+  getFloorShortLabels,
+  getFloorType,
+  getPositionalFloorNames,
   getNextFloorName,
   isFloorNameTaken,
   isFloorNameValid,
   moveFloorInList,
+  withFloorType,
+  withPositionalNames,
 } from '../floors'
 import type { Floor } from '../model'
 
@@ -237,5 +243,201 @@ describe('reorderFloorInList', () => {
     expect(reorderFloorInList(floors, first.id, 2)).toBe(floors)
     expect(reorderFloorInList(floors, first.id, 9)).toBe(floors)
     expect(reorderFloorInList(floors, 404, 0)).toBe(floors)
+  })
+})
+
+describe('getFloorShortLabels — kat şeridi etiketleri (K166)', () => {
+  const at = (id: number, name: string, isBasement = false): Floor => ({
+    id,
+    name,
+    heightCm: 300,
+    isBasement,
+  })
+
+  it('zemin Z, üstü sırayla sayı', () => {
+    expect(
+      getFloorShortLabels([at(1, 'Zemin Kat'), at(2, '1. Kat'), at(3, '2. Kat')]),
+    ).toEqual(['Z', '1', '2'])
+  })
+
+  it('tek bodrum sade B', () => {
+    expect(getFloorShortLabels([at(1, 'Bodrum Kat', true), at(2, 'Zemin Kat')])).toEqual([
+      'B',
+      'Z',
+    ])
+  })
+
+  it('çok bodrumda B1 zeminin hemen altı, aşağı indikçe artar', () => {
+    expect(
+      getFloorShortLabels([
+        at(1, '3. Bodrum', true),
+        at(2, '2. Bodrum', true),
+        at(3, 'Bodrum Kat', true),
+        at(4, 'Zemin Kat'),
+      ]),
+    ).toEqual(['B3', 'B2', 'B1', 'Z'])
+  })
+
+  it('etiket kat ADINI okumaz — serbest metin sırayı söylemiyor', () => {
+    // TİP adları ayrı (K168): burada ikisi de tip değil, konumsal etiket çıkar.
+    expect(getFloorShortLabels([at(1, 'Giriş'), at(2, 'Teras')])).toEqual(['Z', '1'])
+  })
+})
+
+describe('getPositionalFloorNames — ad konumdan türer (K167)', () => {
+  const at = (id: number, name: string, isBasement = false): Floor => ({
+    id,
+    name,
+    heightCm: 300,
+    isBasement,
+  })
+
+  it('zemin, sonra sırayla numaralı katlar', () => {
+    expect(
+      getPositionalFloorNames([at(1, 'x'), at(2, 'y'), at(3, 'z')]),
+    ).toEqual(['Zemin Kat', '1. Kat', '2. Kat'])
+  })
+
+  it('tek bodrum sade, derinleşen bodrum numaralı', () => {
+    expect(
+      getPositionalFloorNames([at(1, 'a', true), at(2, 'b', true), at(3, 'c')]),
+    ).toEqual(['2. Bodrum Kat', 'Bodrum Kat', 'Zemin Kat'])
+  })
+
+  it('kullanıcının yazdığı adı EZER — ad artık serbest metin değil', () => {
+    expect(getPositionalFloorNames([at(1, 'Giriş Katı'), at(2, 'Teras')])).toEqual([
+      'Zemin Kat',
+      '1. Kat',
+    ])
+  })
+
+  it('withPositionalNames değişen yoksa AYNI diziyi döndürür', () => {
+    const floors = [at(1, 'Zemin Kat'), at(2, '1. Kat')]
+
+    expect(withPositionalNames(floors)).toBe(floors)
+  })
+})
+
+describe('kat tipleri (K168)', () => {
+  const at = (id: number, name: string, isBasement = false): Floor => ({
+    id,
+    name,
+    heightCm: 300,
+    isBasement,
+  })
+
+  /** Bodrum · Zemin · 1 · 2 — en üst kat id 4. */
+  const stack = [
+    at(1, 'Bodrum Kat', true),
+    at(2, 'Zemin Kat'),
+    at(3, '1. Kat'),
+    at(4, '2. Kat'),
+  ]
+
+  it('dubleks ve çatı katı YALNIZ en üst kata verilir', () => {
+    expect(canAssignFloorType(stack, 4, 'duplex')).toBe(true)
+    expect(canAssignFloorType(stack, 4, 'penthouse')).toBe(true)
+    expect(canAssignFloorType(stack, 3, 'duplex')).toBe(false)
+    expect(canAssignFloorType(stack, 2, 'penthouse')).toBe(false)
+  })
+
+  it('asma kat zemin ve bodrum DIŞINDA her kata verilir', () => {
+    expect(canAssignFloorType(stack, 1, 'mezzanine')).toBe(false)
+    expect(canAssignFloorType(stack, 2, 'mezzanine')).toBe(false)
+    expect(canAssignFloorType(stack, 3, 'mezzanine')).toBe(true)
+    expect(canAssignFloorType(stack, 4, 'mezzanine')).toBe(true)
+  })
+
+  it('asma kat adı ALTINDAKİ katı taşır', () => {
+    expect(withFloorType(stack, 3, 'mezzanine')[2].name).toBe('Asma Kat (Zemin)')
+    expect(withFloorType(stack, 4, 'mezzanine')[3].name).toBe('Asma Kat (1)')
+  })
+
+  it('asma kat aşağı taşınıp zemine gelirse tipini KAYBEDER', () => {
+    const typed = withFloorType(stack, 3, 'mezzanine')
+    // Zemin katı silinince asma kat ilk yer üstü kat olur: kural düşer.
+    const withoutGround = withPositionalNames(typed.filter((floor) => floor.id !== 2))
+
+    expect(withoutGround.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      '1. Kat',
+    ])
+  })
+
+  it('asma kat NUMARA TÜKETMEZ: üstündeki kat numarayı devralır', () => {
+    // "1. Kat"ı asma kata çevirmek katı yok etmez; "1. Kat" bir üste kayar.
+    expect(withFloorType(stack, 3, 'mezzanine').map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      'Asma Kat (Zemin)',
+      '1. Kat',
+    ])
+  })
+
+  it('binada birden çok asma kat olabilir — farklı katların üstünde', () => {
+    const tall = [...stack, at(5, '3. Kat')]
+    const twice = withFloorType(withFloorType(tall, 3, 'mezzanine'), 5, 'mezzanine')
+
+    expect(twice.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      'Asma Kat (Zemin)',
+      '1. Kat',
+      'Asma Kat (1)',
+    ])
+  })
+
+  it('asma kat asma katın ÜSTÜNE gelebilir — üst üste olanlar numaralanır', () => {
+    const once = withFloorType(stack, 3, 'mezzanine')
+
+    expect(canAssignFloorType(once, 4, 'mezzanine')).toBe(true)
+    expect(withFloorType(once, 4, 'mezzanine').map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      'Asma Kat (Zemin)',
+      '2. Asma Kat (Zemin)',
+    ])
+  })
+
+  it('tip kaldırılınca konumsal ada döner', () => {
+    const typed = withFloorType(stack, 4, 'duplex')
+    expect(typed[3].name).toBe('Dubleks')
+
+    expect(withFloorType(typed, 4, null)[3].name).toBe('2. Kat')
+  })
+
+  it('geçersiz tip sessizce REDDEDİLİR: aynı dizi döner', () => {
+    expect(withFloorType(stack, 2, 'duplex')).toBe(stack)
+    expect(withFloorType(stack, 1, 'mezzanine')).toBe(stack)
+  })
+
+  it('çatı katı en üstten inince tipini KAYBEDER', () => {
+    const typed = withFloorType(stack, 4, 'penthouse')
+    // Üstüne yeni bir kat eklenince artık en üst kat değil.
+    const grown = withPositionalNames([...typed, at(5, 'x')])
+
+    expect(grown[3].name).toBe('2. Kat')
+    expect(grown[4].name).toBe('3. Kat')
+  })
+
+  it('şerit etiketi tipi D / Ç / A ile gösterir', () => {
+    const typed = withFloorType(withFloorType(stack, 4, 'duplex'), 3, 'mezzanine')
+
+    // Asma kat sayacı ilerletmediği için en üst kat "1" sırasında; adı "Dubleks".
+    expect(getFloorShortLabels(typed)).toEqual(['B', 'Z', 'A', 'D'])
+    expect(typed.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      'Asma Kat (Zemin)',
+      'Dubleks',
+    ])
+  })
+
+  it('getFloorType adı okur', () => {
+    expect(getFloorType(at(9, 'Dubleks'))).toBe('duplex')
+    expect(getFloorType(at(9, 'Çatı Katı'))).toBe('penthouse')
+    expect(getFloorType(at(9, 'Asma Kat (1)'))).toBe('mezzanine')
+    expect(getFloorType(at(9, '2. Kat'))).toBeNull()
   })
 })

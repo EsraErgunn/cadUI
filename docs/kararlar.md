@@ -7695,7 +7695,7 @@ tümüyle bağımsız ve sabit.
 
 | Model ekseni | Kâğıttaki yön |
 |---|---|
-| plan x | TAM YATAY (0°) |
+| plan x | TAM YATAY (0°) — ⚠️ K165'te 180°'ye çevrildi |
 | plan y | 30° EĞİK (sol-aşağı, −150°) |
 | kot | TAM DİKEY (90°) |
 
@@ -8253,7 +8253,311 @@ projede proje geçmişi boş olur ve düğme pasif görünürdü.
 Tesisat/izometrik görünümde kroki yığınına HİÇ bakılmıyor — orada geri alma
 tesisat aynasına gidiyor (K123), kroki mimarinin işi.
 
-### K165 — Mimari hayalet KÂĞITTAKİ pafta gibi çizilir: içi boş, iki kademeli
+### K165 — İzometrik pafta plana göre AYNALANMIŞTI; plan x ekseni çevrildi
+
+Kullanıcı: "izometride solda servis kutusu ve boru sağa doğru gidiyor ise bu
+matematik yanlış. olması gereken servis kutusunun sağda olup borusunun sola
+gelmesi. sadece x ekseninin yatayda simetrisi alınmış hali olmalı."
+
+K155'in oblik izdüşümünde eğik eksenin açısı ve kotun dikeyliği DOĞRUYDU,
+yanlış olan plan x'in işaretiydi.
+
+| Model ekseni | K155 | K165 |
+|---|---|---|
+| plan x | 0° (sağa) | **180° (sola)** |
+| plan y | −150° (sol-aşağı) | −150° — değişmedi |
+| kot | 90° (dikey) | 90° — değişmedi |
+
+```
+ekran_x = −planX − planY·cos30°      ← tek değişiklik: baştaki eksi
+ekran_y =   kot  − planY·sin30°
+```
+
+**⚠️ Bu bir yön tercihi değil, ÖLÇÜLEBİLİR bir hata.** Ölçüt plan ayak izinin
+izdüşüm determinantı — yönelimin korunup korunmadığını söyleyen sayı:
+
+| Pafta | planX → | planY → | determinant |
+|---|---|---|---|
+| kat planı | (1, 0) | (0, 1) | **+1** |
+| izometrik, K155 | (1, 0) | (−cos30, −sin30) | **−0,5** |
+| izometrik, K165 | (−1, 0) | (−cos30, −sin30) | **+0,5** |
+
+Negatif determinant demek, çizim plana göre AYNALANMIŞ demek: o görüntü hiçbir
+gerçek bakış açısından elde edilemez. K165 işareti artıya çekiyor ve iki pafta
+aynı ele oturuyor.
+
+**⚠️ `offsetToWorld` da değişmek ZORUNDAYDI.** `project(offsetToWorld(o)) === o`
+sözleşmesi (K155) yalnız `project` çevrilseydi bozulur, gidiş dönüş `{−o.x, o.y}`
+verirdi ve elle ayrılmış bütün etiket/dal kaymaları (`isometricOffsetCm`, K121)
+kâğıtta yatayda ters düşerdi. Doğrusu `[-offsetCm.x, offsetCm.y, 0]`. İki satır
+birlikte gider; birini çevirip ötekini bırakma.
+
+**⚠️ K155'in eğik eksen gerekçesi YANLIŞTI, düzeltildi.** Orada "sağ-yukarı
+alınsa plan x ile yalnız 30° ayrılır ve dikdörtgen kat ince bir dilime çöker"
+yazıyordu. Geometrik olarak yanlış: `(1,0)` ile `±(cos30, sin30)` tarafından
+gerilen iki paralelkenar birbirinin ayna eşi, alanları da eşit (`|sin30| = 0,5`)
+ve iç açıları ikisinde de 30° *ile* 150°. Ayak izinin ŞEKLİ iki seçimde de aynı.
+Sol-aşağının gerçek gerekçesi başka ve daha güçlü: **derinlik, kotun TERSİ yöne
+gitmek zorunda** — sağ-yukarı alınsaydı hem "daha uzak oda" hem "üst kat" ekranda
+yukarı giderdi ve çok katlı bir kolon şemasında uzak odalar üst kata binerdi.
+Sonuç aynı kaldı, gerekçe düzeltildi; yanlış gerekçe bir sonrakinin "bunu
+çevirsem ne olur" demesini kolaylaştırıyordu.
+
+**⚠️ Kapsam yalnız KÂĞIT.** `getObliqueProjection`ın tek çağıranı
+`ui/pdf/useExportPdf.ts`; ekran kendi `getCameraProjection(angles)`ını
+kullanıyor ve DEĞİŞMEDİ (K155'in ekran/kâğıt ayrımı yerinde). Katı model ve plan
+paftası da etkilenmiyor.
+
+Yönelim `isometricPaperAxes.test.ts`'te iki testle kilitli: determinantın
+POZİTİF ve 0,5 olması, bir de kullanıcının tarif ettiği durumun kendisi —
+planda soldaki servis kutusunun kâğıtta sağda kalması. Determinant testi asıl
+koruma: biri işareti geri alırsa 12 yön vakasından önce burası kırılır ve
+sebebini de söyler.
+
+**Değişmeyen bilinen sınırlar** (bu kararın konusu değil, tartışıldı ve
+bırakıldı): izdüşüm hâlâ CAVALIER, yani derinlik ekseni ölçek 1,0 ve kâğıdı
+yatayda şişiriyor (cabinet 0,5 seçenek olarak duruyor); ve her paralel
+izdüşümde olduğu gibi bir çekirdek yön var — plan (−0,866, −1) doğrultusunda
+~21° eğimle inen bir hat noktaya çöker. Gaz tesisatı yatay+düşey ağırlıklı
+olduğu için pratikte erişilmiyor: Δkot = 0 olan hiçbir yatay hat, hiçbir düşey
+hat çökmüyor.
+
+### K166 — Kat yönetimi ve kopyalama tek pencerede yeniden tasarlandı; kat şeridi sahneye taşındı
+
+Kullanıcı: "kat yönetimi ve kat kopyalama kısımları aşırı kalabalık geldi",
+"sayfalardaki gereksiz açıklamaları da sil", "en sade ve işlevsel tasarımı
+oluştur".
+
+Ölçüldü: iki pencere, 16 dosya, ~1900 satır. Kat satırı başına DOKUZ öge
+(tutamak, onay kutusu, ad kutusu, yükseklik kutusu, kot, iki rozet, "Aktif Yap"
+düğmesi, iki ikon). Beş katlı projede ekranda 45 kontrol.
+
+**Beş yapısal sorun vardı, kalabalık bunların belirtisiydi:**
+
+1. **Pencere içinden pencere ve GİZLİ yazım.** `openCopyDialog` bekleyen
+   taslağı sessizce store'a uyguluyor, sonra ikinci bir modal açıyordu. "İptal"
+   o noktadan sonra hiçbir şeyi iptal etmiyordu.
+2. **Aynı liste iki kez yazılmıştı** (`FloorTable`+`FloorRow` 273 satır,
+   `FloorCopyTargetList` 161 satır) — aynı ters sıra, aynı kot, aynı rozet.
+3. **Aynı bilgi üç yerde**: "boş kat" hem özet sayısı, hem satır rozeti, hem
+   alttaki uyarı. "Aktif kat" hem özet hücresi hem satır rozeti.
+4. **Açıklama paragrafları tasarımın kendini savunmasıydı**: üç cümle `SEÇ`
+   sütununu, `AKTİF KAT` sütununu ve sürüklemeyi anlatıyordu.
+5. **`AKTİF KAT` sütunu yanlış yerdeydi**: her gün yapılan bir iş, taslak
+   üzerinde çalıştığı için Uygula'ya kadar yürürlüğe de girmiyordu.
+
+**Kopyalama artık bir KİP, ayrı pencere değil.** Aynı liste hedef seçmeye
+geçiyor; kaynak elle seçiliyor (aktif kat VARSAYILMAZ — kullanıcı çoğu zaman
+baktığı katı değil başkasını çoğaltıyor), alttaki ince şerit iki içerik
+anahtarını ve üzerine-yaz/atla kararını taşıyor.
+
+**Kopyalama TASLAKTA bekliyor** (kullanıcı kararı: iki seçenek sunuldu, (b)
+seçildi). `DraftFloor.copyFromFloorId` → `DraftFloor.pendingCopy`
+(`{sourceFloorId, isArchitectureIncluded, isInstallationIncluded}`); alan hem
+YENİ kat "X'tan kopyalayarak" eklendiğinde hem MEVCUT kat hedef seçildiğinde
+kullanılıyor — iki yol tek kavrama indi. Mekanizma sıfırdan yazılmadı, alan
+zaten vardı, yalnız kapsamı genişledi.
+
+⚠️ **"Üzerine yaz / atla" kipi taslakta SAKLANMAZ.** Kip hedef listesini süzen
+bir karar; taslakta duran şey kipin SONUCU, yani gerçekten kopyalanacak katlar.
+
+⚠️ **`copyFloorToTargets` action'ı SİLİNDİ** — bu adla kod yazma. Tek yazım
+`applyFloorPlan`; ayrı action iki `set` çağrısı, dolayısıyla iki Ctrl+Z
+demekti.
+
+⚠️ **Kopyalama fazı ÜÇ ADIM: önce hepsini OKU, sonra SİL, sonra YAZ**
+(`applyFloorCopiesInDraft`). Bir kat aynı Uygula içinde hem kaynak hem hedef
+olabiliyor; hedef başına "sil sonra klonla" döngüsü kurulsaydı sonuç katların
+LİSTE SIRASINA bağlı çıkardı. Klonlama saf okuma (yeni diziler döndürür,
+store'a dokunmaz), bu yüzden fazlara ayrılabiliyor. Teste bağlı.
+
+⚠️ **`planFloorCopy` artık ham store dizisi değil FONKSİYON alıyor**
+(`FloorContentLookup`): pencere taslak üzerinde çalışıyor ve bir katın içeriği
+"store'da ne var"dan ibaret değil. Store tarafı için köprü
+`toFloorContentLookup`.
+
+**Silme ONAY SORMUYOR** (kullanıcı kararı). Dokunulan şey store değil taslak;
+Uygula'ya kadar hiçbir şey yazılmıyor, "İptal" hepsini atıyor. Yerine pencerenin
+KENDİ geri al/yinele yığını geldi (`useFloorPlanDraft`, zundo DEĞİL — o store'un
+geçmişi, pencere store'a hiç yazmıyor). ⚠️ SEÇİM geçmişe yazılmaz: bir düzenleme
+değil, neye bakıldığı; yığına girseydi Ctrl+Z önce seçim adımlarını geri sarardı.
+⚠️ Ctrl+Z/Ctrl+Y dinleyicisi YAKALAMA fazında — editörün kısayolu da window'da ve
+baloncuk fazında, durdurulmasaydı aynı tuş iki geçmişi birden oynatırdı.
+`core/floorDeletion.ts`, `FloorDeleteDialog` ve `floorCountText` SİLİNDİ.
+
+**Satır artık 4 duran öge.** Yükseklik TIKLAYINCA düzenlenen alan (ad da
+öyleydi, K167 ile ad DÜZENLENEMEZ oldu)
+(`FloorInlineField`) — dinlenme hâlinde çerçevesiz, ama yine gerçek `<input>`,
+klavye ve ekran okuyucu için değişen bir şey yok. İçerik üç rozet yerine TEK
+glif (dolu/yarım/boş halka); boş halka sözlüğü kat seçicisinden geliyor.
+⚠️ Satır işlemleri açılır menüde DEĞİL, hepsi ikon (kullanıcı kararı): aktif yap
+(aktif katta DOLU halka, radyo okunuşu), kopyala, sil. Onay kutusu görünür ve
+başlıkta "tümünü seç" var. ⚠️ Tıklama seçimi BİRİKTİRİR, değiştirmez — onay
+kutusunun sözleşmesi bu; önceki davranış bir kattan diğerine geçerken öncekini
+düşürüyordu (kullanıcı bildirimi). Shift aralık seçer.
+
+**"Yeni kat yüksekliği" alanı SİLİNDİ.** Yeni kat ALTINDAKİ katın yüksekliğini
+devralıyor; alan da gitti, "mevcut katları değiştirmez" feragatnamesi de.
+
+**Sayıyla toplu ekleme** (kullanıcı isteği): `+ [3] kat [kaynak ▾] Ekle` — adet,
+kaynak ve eylem tek cümlede. ⚠️ KISMİ ekleme YOK: istenen sayı tavana sığmıyorsa
+hiçbiri eklenmez (`addDraftFloors`), sessizce 10 yerine 4 kat eklemek
+kullanıcının saymadığı bir sonuç doğururdu; kalan kapasite alanın yanında yazar.
+`3 kat · Zemin Kat'tan kopyalayarak` tipik bir apartmanı tek işlemde kuruyor.
+
+**Kat şeridi sahnenin sol üstüne taşındı** (`ui/canvas/FloorRail.tsx`). Yüzen
+çubuktaki kat LİSTESİ kalktı, orada yalnız iki pencere maddesi kaldı — aynı
+listenin iki yerde durması gereksizdi ve geçiş için menü açtırmak her kat
+değişimine bir tıklama ekliyordu. Yuvarlak, sade, YUKARIDAN AŞAĞI en üst kattan
+en alta. ⚠️ Etiket kat ADINDAN değil SIRADAN türer (`getFloorShortLabels`): B /
+Z / 1 / 2 — daire dar, ad serbest metin ve "Asma Kat" sıradaki yerini söylemiyor;
+tam ad ipucunda. Çok bodrumda numara eklenir ve AŞAĞI indikçe artar (`B1` zeminin
+hemen altı). ⚠️ Kaydırma çubuğu GİZLİ (`styles/floorRail.css`, kullanıcı kararı:
+"scroll işareti kirliliği istemiyorum") ama kaydırmanın kendisi çalışıyor.
+⚠️ Sarmalayıcı `pointer-events-none`: şeridin boş dikey alanı tuvalin tıklamasını
+yutmamalı. Şerit AÇILIR/KAPANIR; kat ikonlu yuvarlak düğme sol üstte SABİT kalır.
+Varsayılan AÇIK — varlık sebebi tek tıklamayla kat değiştirmek.
+
+**Silinen dosyalar** — bu adlarla kod yazma: `FloorCopyDialog`, `FloorTable`,
+`FloorSummary`, `FloorPlanActionBar`, `NewFloorHeightField`, `AddFloorMenu`,
+`FloorCopyOptions`, `FloorCopySourceSection`, `FloorCopyTargetList`,
+`FloorHeightField`, `FloorDeleteDialog`, `floorCountText`, `core/floorDeletion`.
+
+⚠️ Test tuzağı: `floorCopy.test.ts`'in `resetState`i `installationLines` ve
+`installationConnections` dizilerini SIFIRLAMIYORDU; `setState` birleştirdiği
+için başka bir describe blogunun seedlediği hat sonraki testlere sızıyor ve
+klonlamada "id remap eksik" hatası veriyordu.
+
+### K167 — Kat adı KONUMDAN türer; yeniden adlandırma kalktı
+
+Kullanıcı: "katların isim değiştirilme özelliği kalkmalı. katlar yer değiştirse
+isimleri de değişir. kim hangi kattaysa o ismi alır."
+
+Kat adı artık kullanıcının yazdığı bir şey değil, bulunduğu SIRANIN karşılığı.
+Katlar yer değiştirince adlar yerinde kalır, içerik taşınır.
+
+| Konum | Ad |
+|---|---|
+| en derin bodrum | `2. Bodrum Kat`, `3. Bodrum Kat`… |
+| zeminin hemen altı | `Bodrum Kat` |
+| ilk yer üstü kat | `Zemin Kat` |
+| üstündekiler | `1. Kat`, `2. Kat`, … |
+
+Kural `getPositionalFloorNames`te; `withPositionalNames` listeyi baştan
+adlandırır ve değişen yoksa AYNI diziyi döndürür (taslak sözleşmesi).
+
+⚠️ **`renameDraftFloor` SİLİNDİ** — bu adla kod yazma. Satırdaki ad alanı da
+kalktı, ad artık düz yazı; satırın tek düzenlenebilir alanı yükseklik.
+
+⚠️ **Adlar yalnız YAPISAL değişimden sonra tazelenir**: ekleme, silme, sıralama
+(`withRenumberedFloors`, ayrıca `moveByKey`). Yükseklik ve aktif kat değişimi
+sırayı bozmadığı için oralarda çağrılmıyor.
+
+⚠️ **`createFloorPlanDraft` de normalleştirir.** Eski projelerde elle konmuş ad
+olabilir ("Asma Kat"); pencere yürürlükteki kuralı göstermeli, yoksa kullanıcı
+listede kuralın geçerli olmadığını sanır. Store'a yazan yine yalnız "Uygula",
+yani pencereyi açıp İptal demek hiçbir şeyi değiştirmez.
+
+⚠️ **JSON DEĞİŞMEDİ**: `Floor.name` modelde duruyor ve kaydedilmeye devam
+ediyor, yalnız değeri artık türetiliyor. `core/model.ts` ve `core/serialize.ts`
+ele alınmadı; gidiş-dönüş kabul testleri yerinde.
+
+⚠️ Kısa etiketlerle (`getFloorShortLabels`, kat şeridi) tek kaynaktan
+çıkmıyorlar: kural aynı, biçim ayrı — biri tam ad (`2. Kat`), öteki dar bir
+daireye sığan işaret (`2`).
+
+**Aynı oturumda düzeltilen iki kusur:**
+
+⚠️ Toplu **Kopyala** düğmesi yalnız TEK seçimde çıkıyor. Çok seçimde
+`selectedIds[0]`ı kaynak alıp gerisini sessizce yutuyordu (kullanıcı
+bildirimi) — kaynak tanımı gereği tek bir kat, düğmeyi gizlemek yanlış katı
+kopyalamaktan iyi. Toplu **Sil** her seçim sayısında çalışmaya devam ediyor.
+
+⚠️ Dolu kat silinirken SATIR İÇİNDE küçük bir onay çıkıyor ("Çizim silinecek /
+Vazgeç / Sil"). K166 silmeyi tümüyle onaysız yapmıştı; kullanıcı "uygula demeden
+uygulanmasa da yanlış bir şey yapıyormuş gibi hissettim" dedi. Onay YALNIZ dolu
+katta — boş katta soracak bir şey yok. Ayrı bir onay PENCERESİ yine yok.
+⚠️ Satırdaki iptal düğmesi "Vazgeç": alt bardaki "İptal" bütün oturumu atıyor,
+iki farklı anlam aynı kelimeyi taşımamalı.
+⚠️ Onaydaki "Sil" `chromeButtonVariants` KULLANMAZ: onun `plain` tonundaki
+`hover:bg-surface-sunken` kırmızı dolgunun üstüne binip düğmeyi koyu temada
+yüzeye gömüyordu. Hover için yeni token `--color-danger-strong` (açık `#c23a2f`,
+koyu `#d95d51`) — tehlike düğmesinin hover'ı kırmızının KOYUSU olmalı, nötr bir
+gri değil.
+
+### K168 — Kat TİPİ: dubleks, çatı katı, asma kat
+
+Kullanıcı: "3 adet kat tipimiz olmalı, ama sadece isim olarak: dubleks, çatı
+katı, asma kat."
+
+Üçü de YALNIZ BİR AD. Kat davranışını, yüksekliğini, çizimini ya da kotu
+etkilemiyor — kullanıcının kararı bu yönde.
+
+| Tip | Nereye verilebilir | Ad | Şerit |
+|---|---|---|---|
+| Dubleks | yalnız EN ÜST kat | `Dubleks` | `D` |
+| Çatı Katı | yalnız EN ÜST kat | `Çatı Katı` | `Ç` |
+| Asma Kat | zemin ve bodrum DIŞINDA her kat | `Asma Kat (Zemin)`, `Asma Kat (1)` | `A` |
+
+⚠️ **Tip AYRI BİR ALANDA saklanmıyor, `Floor.name`in kendisi.** Modele alan
+eklemek kaydedilen JSON'un şemasını değiştirirdi (`core/model.ts` sözleşme, K167
+de aynı gerekçeyle adı türetilmiş bırakmıştı). `name` zaten kaydediliyor ve tip
+adlarıyla konumsal adlar çakışmıyor, bu yüzden tip ADDAN OKUNUYOR
+(`getFloorType`). Yeni bir tip adı eklenecekse konumsal adlarla (`Zemin Kat`,
+`Bodrum Kat`, `N. Bodrum Kat`, `N. Kat`) çakışmadığı doğrulanmalı.
+
+⚠️ **Asma kat adı ALTINDAKİ katı taşır** (kullanıcı kararı): `Asma Kat (Zemin)`,
+`Asma Kat (1)`. Sabit bir dize değil, bu yüzden `getFloorType` onu ÖNEKLE tanır.
+
+⚠️ **Asma kat NUMARA TÜKETMEZ.** Sayaç asma katta ilerlemiyor; üstündeki katlar
+numaralarını korur.
+
+⚠️ **Asma kat yapmak kat SAYISINI BİR ARTIRIR** (`setDraftFloorType`). Kullanıcı:
+"1. katı asma kat yaptığımda 1. kat yok olmaz, üstüne kopyalanır… en üstteki kat
+silinmemeli". Dönüştürülen kat çizimiyle birlikte kendini korur ve asma kata
+dönüşür; üstüne, onun adını devralan YENİ ve BOŞ bir kat girer. Böylece
+`Zemin / 1. Kat / 2. Kat` → `Zemin / Asma Kat (Zemin) / 1. Kat / 2. Kat`.
+Dubleks ve çatı katı kat EKLEMEZ, yalnız adlandırır.
+
+⚠️ Bu yüzden `withFloorType` (core/floors.ts, saf ADLANDIRMA) ile
+`setDraftFloorType` (core/floorPlan.ts, kat EKLEYEBİLİR) ayrı: id üretmek
+taslağın işi, `core/floors.ts` id mintleyemez.
+
+⚠️ **Asma kat SINIRSIZ ve üst üste gelebilir** (kullanıcı düzeltmesi). Üst üste
+gelenler numaralanır — `Asma Kat (Zemin)`, `2. Asma Kat (Zemin)` — yani hepsi
+altlarındaki ilk GERÇEK katın adını taşır, sıra numarasıyla ayrılırlar. Düzen
+`Bodrum Kat / 2. Bodrum Kat` ile aynı; adlar benzersiz kalıyor (`isPlanValid`).
+
+⚠️ **Tip yalnız o konumda GEÇERLİYSE korunur.** Çatı katı aşağı taşınırsa adını
+kaybedip konumsal adına döner: kural "en üst kat" diyor ve kat artık orada
+değil. Sessizce yanlış adı taşımaktansa düşürmek doğrusu; kullanıcı yeniden
+verebilir. Tip KALDIRMAK kat silmez, yalnız adı konumsala döndürür — asma kat
+yapılırken eklenen kat yerinde kalır (silmek, o kata bu arada çizim yapılmışsa
+veri kaybı olurdu).
+
+⚠️ Adların TEK kaynağı `resolveFloorNames`: aşağıdan yukarı tek geçiş. Asma katın
+adı alt komşusundan okunduğu için sıra ZORUNLU — alttan gidildiğinde komşunun
+adı o noktada zaten çözülmüş oluyor. `getPositionalFloorNames` bu fonksiyonun
+tipsiz hâli.
+
+**Arayüz:** tip satırdaki `⋯` menüsünde (kullanıcı isteği) — üç seçenekli ve çoğu
+katta hiçbiri geçerli değil, satırda sürekli duran bir kontrolü hak etmiyor.
+Menü yalnız verilebilir tipleri listeler; hiçbiri yoksa ve katın tipi de yoksa
+menü hiç çizilmez.
+
+**Aynı oturumdaki düzeltmeler:**
+
+- Aktif kat düğmesi kat ADININ hemen SOLUNA alındı (`FloorActiveDot`): "hangi
+  kattayım" sorusu adla birlikte okunuyor. Aktifken ve hover'da içi dolup BÜYÜR
+  — sabit boyutlu bir halka tıklanabilir olduğunu söylemiyordu.
+- Yüzen çubuktaki kat düğmesinden aşağı ok KALKTI; aktif kat adı ile kat sayısı
+  arasına `CANVAS_BAR_DIVIDER` girdi.
+- Pencere başlığı kipi söylüyor: **Kat Yönetimi** ↔ **Kat Kopyalama**.
+- Kopyalama kipinin başlık satırı çerçeveli, kaynak kat açılırı da çerçeveli
+  (düz bir etiketten ayırt edilmiyordu); "hedef katları seçin" başlık satırından
+  çıkıp LİSTENİN ÜSTÜNE "Hedef katlar" başlığı olarak taşındı.
+
+### K169 — Mimari hayalet KÂĞITTAKİ pafta gibi çizilir: içi boş, iki kademeli
 
 Tesisat görünümündeki mimari hayalet (`plumbing/scene/Ghosts.tsx` →
 `ArchitectureGhost`) tek soluk renge boyanmış **dolu** bir kopyaydı. Kat planı
@@ -8293,7 +8597,7 @@ tesisat görünümünde konu gaz hattı, altından geçen boru mimari yüzeyin a
 kalmamalı.
 
 ⚠️ **Oda dolgusu gidince mahali gösteren tek işaret ETİKET kaldı**, bu yüzden
-kâğıttaki gibi ad + m² yazılıyor (K165 öncesi yalnız ad vardı, m² "bilerek yok"
+kâğıttaki gibi ad + m² yazılıyor (K169 öncesi yalnız ad vardı, m² "bilerek yok"
 diye işaretliydi — dolgu varken ikinci satır fazlalıktı). Rozet YOK: hayalet
 bağlam, düz basılır. Etiket hayalet bandın en üstünde
 (`architectureGhostRoomLabel`), kâğıtta da yazılar en son basılıyor.
@@ -8309,7 +8613,7 @@ kod yazma.
 
 ⚠️ Kâğıt DEĞİŞMEDİ: bu karar tek yönlü, ekran kâğıda uyduruldu.
 
-### K166 — Boru bilgisi ÇİZİM ekranlarına taşındı; izometrik açıklama yalnız renk
+### K170 — Boru bilgisi ÇİZİM ekranlarına taşındı; izometrik açıklama yalnız renk
 
 Kullanıcı isteği (iki turda): "boruların çapına göre bilgilerinin yazması" →
 "boruların açıklamaları eleman adları ile gelsin, hangi boru olduğu da yazılsın
@@ -8363,7 +8667,7 @@ Kaldırma isteği "sol alt" içindi; künye izometriğin kendi tüketim etiketi 
 PDF ile ortak (`getIsometricLineLabelLines`). `formatPipeOuterDiameter` orada
 kullanılıyor, tek yer.
 
-### K167 — İzometrik etiketler nesnelerinin yanında; vurgu ETİKETLERİ de soluklaştırır
+### K171 — İzometrik etiketler nesnelerinin yanında; vurgu ETİKETLERİ de soluklaştırır
 
 Kullanıcı: "izometride etiketler daha toplu dursun, üst üste gelmesin; ayrıca
 bir şeye tıklarsak onun etiketleri hariç her şey soluk halde gözüksün".
@@ -8410,7 +8714,7 @@ ayrışırdı.
 vurgu açılmıyor. Vurgu modeli tek kimlik taşıyor, elemanı da hedef yapmak
 ayrık birleşime geçmeyi gerektirir — istenirse ayrı adım.
 
-### K168 — İzometride yükseklik etiketi (`h=`), tıklanan boru künyesini açar, yazı borunun renginde
+### K172 — İzometride yükseklik etiketi (`h=`), tıklanan boru künyesini açar, yazı borunun renginde
 
 Kullanıcı, sırayla: "izometride yükseklik olan yerlere h yüksekliğini belirt",
 "borunun bir tüketimi olmasa da üzerine tıklanınca bilgileri gelsin",
@@ -8482,7 +8786,7 @@ katmanı mimariyle ORTAK okunuyor, çap rengine bağlanırsa duvar ölçüsüyle
 tesisat tarafında renk doğrudan çaptan çözülüyor — kol/deşarj ayrımına gerek
 kalmadı.
 
-### K169 — İzometrik sürükleme EKSENE kilitli, bağlı ağı da çeker; düğme "Sıfırla"
+### K173 — İzometrik sürükleme EKSENE kilitli, bağlı ağı da çeker; düğme "Sıfırla"
 
 Kullanıcı: "izometride borular 2D olarak hareket etsin kafasına göre değil,
 hangi eksendeyse o tarafa çekebilelim; çekerken bağlı olduklarını da çekelim ki
@@ -8537,7 +8841,7 @@ baştan engelliyor.
 düğme boruların UZATILMIŞ kısımlarını yerine koyuyor. Davranış aynı — kaymalar,
 etiket konumları, açı ve kamera kilidi birlikte sıfırlanır.
 
-**5. Etiket ayırma kısıtı DÜZELTİLDİ**: K168'in `MAX_PUSH_RATIO` kısıtı turun
+**5. Etiket ayırma kısıtı DÜZELTİLDİ**: K172'in `MAX_PUSH_RATIO` kısıtı turun
 SONUNA konmuştu ve ayrılan kutuları geri bindiriyordu — dosyanın kendi
 yazılı dersinin (geri çekme ayırmadan ÖNCE) tam olarak ihlali, sonuç "ayırma
 hiç çalışmıyor" oldu. Kısıt artık geri çekmeyle aynı yerde ve yalnız turların
@@ -8545,18 +8849,18 @@ hiç çalışmıyor" oldu. Kısıt artık geri çekmeyle aynı yerde ve yalnız 
 turlar serbest kalıp çakışmayı bitiriyor. Sıkışık öbekte etiket payı aşabilir —
 çakışmamak paya sığmaktan önce gelir.
 
-### K170 — Ekranda künye HALKASI geri geldi (küçük yarıçapla); vana etiketi ekranda da sustu
+### K174 — Ekranda künye HALKASI geri geldi (küçük yarıçapla); vana etiketi ekranda da sustu
 
 Kullanıcı: "etiketler hâlâ karışık gözüküyor, güzel dağıt onları önceki gibi
 sadece daha yakın olsunlar yani daha küçük olsun oluşturdukları yuvarlak",
 "vana etiketi de olmasın".
 
 **1. Halka geri geldi — ama YALNIZ EKRANDA.** `isometricLabelLayout.ts` ve
-`layoutIsometricLabels` yeniden var (K167'de silinmişlerdi). Künyeler çizimin
+`layoutIsometricLabels` yeniden var (K171'de silinmişlerdi). Künyeler çizimin
 çevresinde iki halkaya diziliyor: hat etiketleri içte
 (`LINE_LABEL_DISTANCE_FACTOR = 1`), eleman künyeleri dışta (`= 1.7`).
 
-⚠️ K167 kısmen GERİ ALINDI. O kararın teşhisi yanlıştı: kusur halkanın kendisi
+⚠️ K171 kısmen GERİ ALINDI. O kararın teşhisi yanlıştı: kusur halkanın kendisi
 değil YARIÇAPIYDI. Eski değerler halkayı çizim boyunun yarısı kadar dışarı
 itiyordu (`LABEL_DISTANCE_RATIO = 0.50`, eleman çarpanı 2) ve kadraja sığmak
 için çizim ortada küçülüyordu. Yeni değerler: oran **0,12**, alt sınır **120
@@ -8569,7 +8873,7 @@ ediyor (K156, ölçülmüş karar — halka orada 10 kılavuz çizgisini çizimi
 üstünden geçiriyordu). Ekran ile kâğıt yine bilerek ayrı: ekranda etiket
 sürüklenebiliyor ve gezinmeye yarıyor, kâğıtta yalnız okunuyor.
 
-⚠️ YÜKSEKLİK etiketleri (K168) halkaya GİRMEZ (`distanceFactor === null`):
+⚠️ YÜKSEKLİK etiketleri (K172) halkaya GİRMEZ (`distanceFactor === null`):
 onlar künye değil ÖLÇÜ ve ölçtükleri parçanın yanında kalmak zorundalar —
 halkaya alınsalardı bir kolonun `h=2,75 m`'si binanın kenarına düşerdi.
 Kendi aralarında yine itmeli yerleşimden geçiyorlar.

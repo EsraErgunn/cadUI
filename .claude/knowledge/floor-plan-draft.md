@@ -88,3 +88,138 @@ kapanmamış bir çizimi "boş" gösterirdi.
 
 **Dosya:** core/floorPlan.ts + core/floorContent.ts (saf) · store/floorPlanOps.ts
 (action) · ui/FloorManagementDialog.tsx · ui/floors/
+
+## K166: kopyalama da taslakta bekler, silme onay sormaz
+
+Pencere ikiye bölünmüştü ve kopyalama AYRI bir modaldı; açılırken bekleyen
+taslağı sessizce store'a uyguluyordu (`openCopyDialog`), yani "İptal" o noktadan
+sonra hiçbir şeyi iptal etmiyordu. Kopyalama artık aynı pencerenin bir KİPİ.
+
+`DraftFloor.copyFromFloorId` → **`DraftFloor.pendingCopy`**:
+
+```ts
+type DraftFloorCopy = {
+  sourceFloorId: Id
+  isArchitectureIncluded: boolean
+  isInstallationIncluded: boolean
+}
+```
+
+Alan hem YENİ kat "X'tan kopyalayarak" eklendiğinde hem MEVCUT bir kat hedef
+seçildiğinde kullanılıyor — iki yol tek kavrama indi. Mekanizma yeni değil,
+ertelenmiş kopyalama zaten vardı; yalnız kapsamı genişledi.
+
+⚠️ **Kip (`overwrite`/`skip`) taslakta SAKLANMAZ.** Kip hedef listesini süzen bir
+karar; taslakta duran şey kipin SONUCU, yani gerçekten kopyalanacak katlar.
+
+⚠️ **`copyFloorToTargets` action'ı SİLİNDİ** — bu adla kod yazma. Ayrı bir action
+iki `set` çağrısı, dolayısıyla iki Ctrl+Z demekti; tek yazım `applyFloorPlan`.
+
+⚠️ **Kopyalama fazı ÜÇ ADIM** (`applyFloorCopiesInDraft`): önce bütün kaynaklar
+OKUNUR, sonra hedefler SİLİNİR, sonra YAZILIR. Aynı Uygula içinde bir kat hem
+kaynak hem hedef olabiliyor; hedef başına "sil sonra klonla" döngüsü kurulsaydı
+sonuç katların LİSTE SIRASINA bağlı çıkardı. Klonlama saf okuma olduğu için
+fazlara ayrılabiliyor.
+
+⚠️ **`planFloorCopy` ham store dizisi değil FONKSİYON alır** (`FloorContentLookup`):
+pencere taslak üzerinde çalışıyor ve bir katın içeriği "store'da ne var"dan
+ibaret değil — aynı oturumda eklenmiş ya da kopyalama hedefi yapılmış olabilir.
+Store tarafı için köprü `toFloorContentLookup`.
+
+### Silme ONAY SORMAZ, geri alınır
+
+Onay penceresi kalktı: dokunulan şey store değil taslak, Uygula'ya kadar hiçbir
+şey yazılmıyor ve "İptal" zaten hepsini atıyor. Yerine pencerenin **kendi geri
+al/yinele yığını** geldi (`useFloorPlanDraft`).
+
+- Zundo KULLANILMAZ: o store'un geçmişi, pencere store'a hiç yazmıyor. Taslak
+  zaten değişmez bir nesne, `{past, present, future}` yeterli.
+- ⚠️ **Seçim geçmişe yazılmaz** (`setDraftQuietly`): bir düzenleme değil, neye
+  bakıldığı. Yığına girseydi Ctrl+Z önce seçim adımlarını geri sarardı.
+- ⚠️ Ctrl+Z/Ctrl+Y dinleyicisi **yakalama fazında**: editörün kısayolu da
+  window'da ve baloncuk fazında, durdurulmasaydı aynı tuş iki geçmişi birden
+  oynatırdı.
+- `core/floorDeletion.ts`, `FloorDeleteDialog`, `floorCountText` SİLİNDİ.
+
+### Toplu ekleme kısmi UYGULANMAZ
+
+`addDraftFloors(draft, input, count)` istenen sayı tavana sığmıyorsa taslağı
+AYNEN döndürür. Sessizce 10 yerine 4 kat eklemek kullanıcının saymadığı bir
+sonuç doğururdu; kalan kapasiteyi `getAddableFloorCount` söylüyor ve arayüz
+alanın yanında yazıyor.
+
+Yeni kat yüksekliği ALTINDAKİ kattan devralınır; ayrı "yeni kat yüksekliği"
+alanı ve onun feragat cümlesi kalktı.
+
+## K167: kat adı KONUMDAN türer
+
+Ad kullanıcının yazdığı bir şey değil, bulunduğu sıranın karşılığı
+(`getPositionalFloorNames`). Katlar yer değiştirince adlar YERİNDE kalır,
+taşınan şey içeriktir — "kim hangi kattaysa o ismi alır".
+
+⚠️ `renameDraftFloor` SİLİNDİ, bu adla kod yazma. Satırdaki ad alanı da kalktı.
+
+⚠️ Adlar yalnız YAPISAL değişimden sonra tazelenir (`withRenumberedFloors`:
+ekleme, silme, sıralama; ayrıca hook'taki `moveByKey`). Yükseklik ve aktif kat
+sırayı bozmadığı için oralarda çağrılmaz.
+
+⚠️ `createFloorPlanDraft` de normalleştirir: eski projede elle konmuş bir ad
+olabilir ve pencere yürürlükteki kuralı göstermeli. Store'a yazan yine yalnız
+"Uygula" — pencereyi açıp İptal demek hiçbir şeyi değiştirmez.
+
+⚠️ **JSON DEĞİŞMEDİ.** `Floor.name` modelde ve kayıtta duruyor, yalnız değeri
+türetiliyor.
+
+## Silme onayı: yalnız DOLU katta, satırın içinde
+
+K166 silmeyi tümüyle onaysız yapmıştı; kullanıcı "uygula demeden uygulanmasa da
+yanlış bir şey yapıyormuş gibi hissettim" dedi. Onay geri geldi ama YALNIZ
+çizimi olan katta ve ayrı bir pencere olarak değil, satırın içinde
+(`FloorRowActions`). Boş katta soracak bir şey yok.
+
+⚠️ Satırdaki iptal düğmesi **"Vazgeç"**: alt bardaki "İptal" bütün oturumu
+atıyor, iki farklı anlam aynı kelimeyi taşımamalı.
+
+⚠️ Onaydaki "Sil" `chromeButtonVariants` KULLANMAZ: `plain` tonundaki
+`hover:bg-surface-sunken` kırmızı dolgunun üstüne binip düğmeyi koyu temada
+yüzeye gömüyordu. Hover için `--color-danger-strong` token'ı eklendi.
+
+## Toplu kopyalama yalnız TEK seçimde
+
+Kaynak tanımı gereği tek bir kat. Çok seçimde `selectedIds[0]` alınıp gerisi
+sessizce yutuluyordu; düğme artık `selectedIds.length === 1` iken çiziliyor.
+Toplu silme her seçim sayısında çalışır.
+
+## K168: kat tipleri — dubleks / çatı katı / asma kat
+
+Üçü de YALNIZ BİR AD; davranış, yükseklik, çizim değişmiyor.
+
+⚠️ Tip AYRI ALANDA saklanmaz, `Floor.name`in kendisidir (`getFloorType` addan
+okur). Modele alan eklemek JSON şemasını değiştirirdi. Yeni bir tip adı
+eklenecekse konumsal adlarla çakışmadığı doğrulanmalı.
+
+| Tip | Nereye | Ad | Şerit |
+|---|---|---|---|
+| duplex | en üst kat | `Dubleks` | `D` |
+| penthouse | en üst kat | `Çatı Katı` | `Ç` |
+| mezzanine | zemin/bodrum dışı her kat | `Asma Kat (Zemin)` | `A` |
+
+⚠️ **Asma kat numara TÜKETMEZ** ve **kat sayısını BİR ARTIRIR**: dönüştürülen kat
+çizimiyle kendini korur, üstüne onun adını devralan YENİ boş kat girer.
+`Zemin / 1. Kat / 2. Kat` → `Zemin / Asma Kat (Zemin) / 1. Kat / 2. Kat`.
+Dubleks/çatı katı kat eklemez.
+
+⚠️ Bu yüzden `withFloorType` (saf adlandırma, core/floors.ts) ile
+`setDraftFloorType` (kat EKLEYEBİLİR, core/floorPlan.ts) ayrı: id üretmek
+taslağın işi.
+
+⚠️ Asma kat SINIRSIZ ve üst üste gelebilir; üst üste olanlar numaralanır
+(`Asma Kat (Zemin)`, `2. Asma Kat (Zemin)`) — `Bodrum Kat / 2. Bodrum Kat`
+düzeninin aynısı, adlar benzersiz kalır.
+
+⚠️ Tip yalnız o konumda GEÇERLİYSE korunur; çatı katı aşağı taşınırsa konumsal
+adına döner. Tip kaldırmak kat SİLMEZ — eklenen kata bu arada çizim yapılmış
+olabilir.
+
+⚠️ Adların TEK kaynağı `resolveFloorNames`, aşağıdan yukarı tek geçiş: asma
+katın adı alt komşusundan okunduğu için sıra zorunlu.

@@ -2,18 +2,24 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addDraftFloor,
+  addDraftFloors,
+  clearDraftFloorCopy,
   clearDraftFloorSelection,
   createFloorPlanDraft,
+  getAddableFloorCount,
   getSelectedDraftFloors,
+  hasPendingCopies,
   isDraftFloorId,
   removeDraftFloors,
-  renameDraftFloor,
   reorderDraftFloor,
   setDraftActiveFloor,
+  setDraftFloorCopies,
   setDraftFloorHeight,
+  setDraftFloorSelection,
+  setDraftFloorType,
   toggleDraftFloorSelection,
 } from '../floorPlan'
-import { MAX_BASEMENT_COUNT } from '../floors'
+import { MAX_BASEMENT_COUNT, MAX_FLOOR_COUNT } from '../floors'
 import type { Floor } from '../model'
 
 function makeFloor(id: number, name: string, isBasement = false, heightCm = 300): Floor {
@@ -34,7 +40,7 @@ describe('createFloorPlanDraft', () => {
     const draft = makeDraft()
 
     expect(draft.floors.map((floor) => floor.id)).toEqual([1, 2, 3])
-    expect(draft.floors.every((floor) => floor.copyFromFloorId === null)).toBe(true)
+    expect(draft.floors.every((floor) => floor.pendingCopy === null)).toBe(true)
     expect(draft.selectedFloorIds).toEqual([])
   })
 
@@ -71,7 +77,7 @@ describe('addDraftFloor', () => {
   it('kopya kaynağını taşır — kopyalama Uygula"da yapılacak', () => {
     const draft = addDraftFloor(makeDraft(), { copyFromFloorId: ground.id })
 
-    expect(draft.floors.at(-1)?.copyFromFloorId).toBe(ground.id)
+    expect(draft.floors.at(-1)?.pendingCopy?.sourceFloorId).toBe(ground.id)
   })
 
   it('"Yeni kat yüksekliği" yalnız EKLENEN kata uygulanır (madde 3)', () => {
@@ -128,27 +134,6 @@ describe('removeDraftFloors', () => {
   it('tanınmayan id değişiklik saymaz', () => {
     const draft = makeDraft()
     expect(removeDraftFloors(draft, [404])).toBe(draft)
-  })
-})
-
-describe('renameDraftFloor', () => {
-  it('adı kırpar', () => {
-    const draft = renameDraftFloor(makeDraft(), first.id, '  Çatı  ')
-
-    expect(draft.floors.at(-1)?.name).toBe('Çatı')
-  })
-
-  it('boş ve çakışan adı reddeder (KK-5)', () => {
-    const draft = makeDraft()
-
-    expect(renameDraftFloor(draft, first.id, '   ')).toBe(draft)
-    expect(renameDraftFloor(draft, first.id, 'Zemin Kat')).toBe(draft)
-  })
-
-  it('katın kendi adını yazmak çakışma sayılmaz ama değişiklik de değildir', () => {
-    const draft = makeDraft()
-
-    expect(renameDraftFloor(draft, first.id, '1. Kat')).toBe(draft)
   })
 })
 
@@ -209,5 +194,193 @@ describe('seçim ve aktif kat', () => {
     const draft = makeDraft()
 
     expect(clearDraftFloorSelection(draft)).toBe(draft)
+  })
+})
+
+describe('addDraftFloors — sayıyla toplu ekleme (K166)', () => {
+  it('istenen sayıda kat ekler ve adları SIRAYLA üretir', () => {
+    const draft = addDraftFloors(makeDraft(), {}, 3)
+
+    expect(draft.floors).toHaveLength(stored.length + 3)
+    expect(draft.floors.slice(-3).map((floor) => floor.name)).toEqual([
+      '2. Kat',
+      '3. Kat',
+      '4. Kat',
+    ])
+  })
+
+  it('her kat ALTINDAKİ katın yüksekliğini devralır', () => {
+    // Yeni kat yüksekliği artık ayrı bir alandan değil listeden geliyor.
+    const tall = setDraftFloorHeight(makeDraft(), first.id, 420)
+    const draft = addDraftFloors(tall, {}, 2)
+
+    expect(draft.floors.slice(-2).map((floor) => floor.heightCm)).toEqual([420, 420])
+  })
+
+  it('kaynak verilirse HEPSİ o kattan kopyalanır', () => {
+    const draft = addDraftFloors(makeDraft(), { copyFromFloorId: ground.id }, 2)
+
+    expect(draft.floors.slice(-2).map((floor) => floor.pendingCopy?.sourceFloorId)).toEqual([
+      ground.id,
+      ground.id,
+    ])
+  })
+
+  it('tavana sığmayan istek KISMEN uygulanmaz — hiçbiri eklenmez', () => {
+    const draft = makeDraft()
+    const room = MAX_FLOOR_COUNT - draft.floors.length
+
+    expect(addDraftFloors(draft, {}, room + 1)).toBe(draft)
+    expect(addDraftFloors(draft, {}, room).floors).toHaveLength(MAX_FLOOR_COUNT)
+  })
+
+  it('sıfır ve negatif sayı taslağı değiştirmez', () => {
+    const draft = makeDraft()
+
+    expect(addDraftFloors(draft, {}, 0)).toBe(draft)
+    expect(addDraftFloors(draft, {}, -2)).toBe(draft)
+    expect(addDraftFloors(draft, {}, 1.5)).toBe(draft)
+  })
+})
+
+describe('getAddableFloorCount', () => {
+  it('normal ve bodrum tavanlarını AYRI sayar', () => {
+    const draft = makeDraft()
+
+    expect(getAddableFloorCount(draft.floors, false)).toBe(MAX_FLOOR_COUNT - 3)
+    expect(getAddableFloorCount(draft.floors, true)).toBe(MAX_BASEMENT_COUNT - 1)
+  })
+})
+
+describe('setDraftFloorCopies — kopyalama taslakta bekler (K166)', () => {
+  const copy = {
+    sourceFloorId: ground.id,
+    isArchitectureIncluded: true,
+    isInstallationIncluded: false,
+  }
+
+  it('hedeflere bekleyen kopyalama yazar', () => {
+    const draft = setDraftFloorCopies(makeDraft(), [first.id], copy)
+
+    expect(draft.floors.find((floor) => floor.id === first.id)?.pendingCopy).toEqual(copy)
+    expect(hasPendingCopies(draft)).toBe(true)
+  })
+
+  it('MEVCUT katlara da yazılır — yalnız yeni katlara değil', () => {
+    const draft = setDraftFloorCopies(makeDraft(), [basement.id, first.id], copy)
+
+    expect(draft.floors.filter((floor) => floor.pendingCopy !== null)).toHaveLength(2)
+  })
+
+  it('kaynak kat kendine hedef OLAMAZ, sessizce süzülür', () => {
+    const draft = makeDraft()
+
+    // Tek hedef kaynağın kendisiyse geriye hedef kalmaz: taslak aynen döner.
+    expect(setDraftFloorCopies(draft, [ground.id], copy)).toBe(draft)
+    expect(
+      setDraftFloorCopies(draft, [ground.id, first.id], copy).floors.filter(
+        (floor) => floor.pendingCopy !== null,
+      ),
+    ).toHaveLength(1)
+  })
+
+  it('tanınmayan kaynak reddedilir', () => {
+    const draft = makeDraft()
+
+    expect(setDraftFloorCopies(draft, [first.id], { ...copy, sourceFloorId: 404 })).toBe(draft)
+  })
+
+  it('clearDraftFloorCopy bekleyen kopyalamayı geri alır', () => {
+    const withCopy = setDraftFloorCopies(makeDraft(), [first.id], copy)
+    const cleared = clearDraftFloorCopy(withCopy, first.id)
+
+    expect(hasPendingCopies(cleared)).toBe(false)
+    expect(clearDraftFloorCopy(cleared, first.id)).toBe(cleared)
+  })
+})
+
+describe('setDraftFloorSelection', () => {
+  it('seçimi topluca yazar ve tanınmayan id"leri süzer', () => {
+    const draft = setDraftFloorSelection(makeDraft(), [first.id, 404, first.id])
+
+    expect(draft.selectedFloorIds).toEqual([first.id])
+  })
+
+  it('aynı seçim AYNI taslağı döndürür', () => {
+    const draft = setDraftFloorSelection(makeDraft(), [first.id])
+
+    expect(setDraftFloorSelection(draft, [first.id])).toBe(draft)
+  })
+})
+
+describe('setDraftFloorType — kat tipi (K168)', () => {
+  /** Bodrum · Zemin · 1. Kat */
+  const typeDraft = () => makeDraft()
+
+  it('ASMA KAT kat sayısını BİR ARTIRIR: dönüştürülen kat üste kopyalanır', () => {
+    const draft = setDraftFloorType(typeDraft(), first.id, 'mezzanine')
+
+    expect(draft.floors).toHaveLength(4)
+    expect(draft.floors.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      'Asma Kat (Zemin)',
+      '1. Kat',
+    ])
+  })
+
+  it('üstteki katların adları HİÇ değişmez', () => {
+    const tall = addDraftFloor(typeDraft())
+    expect(tall.floors.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      '1. Kat',
+      '2. Kat',
+    ])
+
+    const draft = setDraftFloorType(tall, first.id, 'mezzanine')
+    expect(draft.floors.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      'Asma Kat (Zemin)',
+      '1. Kat',
+      '2. Kat',
+    ])
+  })
+
+  it('eklenen kat BOŞ ve dönüştürülen katın yüksekliğini alır', () => {
+    const tall = setDraftFloorHeight(typeDraft(), first.id, 420)
+    const draft = setDraftFloorType(tall, first.id, 'mezzanine')
+
+    expect(draft.floors[3].heightCm).toBe(420)
+    expect(draft.floors[3].pendingCopy).toBeNull()
+    expect(isDraftFloorId(draft.floors[3].id)).toBe(true)
+  })
+
+  it('dubleks ve çatı katı kat EKLEMEZ, yalnız adlandırır', () => {
+    const draft = setDraftFloorType(typeDraft(), first.id, 'duplex')
+
+    expect(draft.floors).toHaveLength(3)
+    expect(draft.floors.at(-1)?.name).toBe('Dubleks')
+  })
+
+  it('zemin ve bodrum asma kat OLAMAZ', () => {
+    const draft = typeDraft()
+
+    expect(setDraftFloorType(draft, ground.id, 'mezzanine')).toBe(draft)
+    expect(setDraftFloorType(draft, basement.id, 'mezzanine')).toBe(draft)
+  })
+
+  it('tip kaldırmak kat SİLMEZ, yalnız adı konumsala döndürür', () => {
+    const withMezzanine = setDraftFloorType(typeDraft(), first.id, 'mezzanine')
+    const cleared = setDraftFloorType(withMezzanine, first.id, null)
+
+    expect(cleared.floors).toHaveLength(4)
+    expect(cleared.floors.map((floor) => floor.name)).toEqual([
+      'Bodrum Kat',
+      'Zemin Kat',
+      '1. Kat',
+      '2. Kat',
+    ])
   })
 })

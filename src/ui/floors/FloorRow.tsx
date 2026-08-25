@@ -1,29 +1,39 @@
-import { Copy, GripVertical, Trash2 } from 'lucide-react'
+import { GripVertical } from 'lucide-react'
+import type { MouseEvent } from 'react'
 
-import { FloorHeightField } from './FloorHeightField'
-import { FLOOR_FOCUS_RING, floorBadgeVariants, floorRowVariants } from './floorVariants'
-import type { FloorContent } from '../../core/floorContent'
-import { isFloorContentEmpty } from '../../core/floorContent'
+import { FloorActiveDot } from './FloorActiveDot'
+import { FloorContentDot } from './FloorContentDot'
+import { FloorInlineField } from './FloorInlineField'
+import { FloorRowActions } from './FloorRowActions'
+import { FLOOR_FOCUS_RING, floorRowVariants } from './floorVariants'
+import { isFloorContentEmpty, type FloorContent } from '../../core/floorContent'
 import { formatElevationM } from '../../core/floorElevation'
 import type { DraftFloor } from '../../core/floorPlan'
-import { chromeButtonVariants } from '../controls/buttonVariants'
+import type { FloorType } from '../../core/floors'
+import type { Floor } from '../../core/model'
+
+export type FloorRowMode = 'manage' | 'copy'
 
 type FloorRowProps = {
   floor: DraftFloor
+  /** Tip kuralı konuma bakıyor, yani tüm listeye. */
+  floors: readonly Floor[]
   elevationCm: number
   content: FloorContent
+  mode: FloorRowMode
   isActive: boolean
   isSelected: boolean
   isRemovable: boolean
   isDragging: boolean
-  nameText: string
-  nameError?: string
-  onNameChange: (name: string) => void
-  onNameCommit: () => void
-  onHeightCommit: (heightCm: number) => boolean
-  onToggleSelected: () => void
+  /** Kopyalama kipinde kaynak satır: işaretlenir ama seçilemez. */
+  isCopySource: boolean
+  isCopyTarget: boolean
+  onSelect: (event: MouseEvent) => void
+  onSetHeight: (heightCm: number) => boolean
   onMakeActive: () => void
-  onCopy: () => void
+  onSetType: (type: FloorType | null) => void
+  onCopyFrom: () => void
+  onClearCopy: () => void
   onRemove: () => void
   onDragStart: () => void
   onDragEnd: () => void
@@ -31,63 +41,69 @@ type FloorRowProps = {
   onMoveByKey: (direction: 'up' | 'down') => void
 }
 
-function ContentBadges({ content }: { content: FloorContent }) {
-  if (isFloorContentEmpty(content)) {
-    return <span className={floorBadgeVariants({ tone: 'empty' })}>Boş</span>
-  }
-
-  return (
-    <span className="inline-flex gap-1">
-      {content.hasArchitecture && <span className={floorBadgeVariants()}>Mimari</span>}
-      {content.hasInstallation && <span className={floorBadgeVariants()}>Tesisat</span>}
-    </span>
-  )
-}
-
 export function FloorRow({
   floor,
+  floors,
   elevationCm,
   content,
+  mode,
   isActive,
   isSelected,
   isRemovable,
   isDragging,
-  nameText,
-  nameError,
-  onNameChange,
-  onNameCommit,
-  onHeightCommit,
-  onToggleSelected,
+  isCopySource,
+  isCopyTarget,
+  onSelect,
+  onSetHeight,
   onMakeActive,
-  onCopy,
+  onSetType,
+  onCopyFrom,
+  onClearCopy,
   onRemove,
   onDragStart,
   onDragEnd,
   onDropBefore,
   onMoveByKey,
 }: FloorRowProps) {
+  const isCopyMode = mode === 'copy'
+
   return (
-    <tr
+    <li
       // Bırakma hedefi SATIRIN kendisi: yalnız tutamak hedef olsaydı kullanıcı
       // 20 piksellik bir alana nişan almak zorunda kalırdı.
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDropBefore}
+      onClick={isCopySource ? undefined : onSelect}
       className={floorRowVariants({
         tone: floor.isBasement ? 'basement' : 'plain',
-        isActive,
+        isActive: isActive && !isCopyMode,
+        isSelected: isCopyMode ? isCopyTarget : isSelected,
         isDragging,
       })}
     >
-      <td className="px-1 py-1.5">
-        {/*
+      {/* Onay kutusu HER İKİ kipte de duruyor: kullanıcı neyi seçtiğini
+          satırdan okuyabilmeli, yalnız satır zeminine bakarak değil. */}
+      <input
+        type="checkbox"
+        checked={isCopyMode ? isCopyTarget : isSelected}
+        disabled={isCopySource}
+        onChange={() => undefined}
+        onClick={onSelect}
+        aria-label={isCopyMode ? `${floor.name} hedef` : `${floor.name} seç`}
+        className={FLOOR_FOCUS_RING}
+      />
+
+      {!isCopyMode && (
+        /*
           Sürükleme tutamağı ayrıca KLAVYEYLE de çalışır: sürükle-bırak tek
           başına klavye kullanıcısına sırayı değiştirme yolu bırakmaz.
-        */}
+        */
         <button
           type="button"
           draggable
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
+          onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => {
             if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
             event.preventDefault()
@@ -96,84 +112,70 @@ export function FloorRow({
           aria-label={`${floor.name} sırasını değiştir`}
           className={`cursor-grab text-ink-disabled hover:text-ink-muted ${FLOOR_FOCUS_RING}`}
         >
-          <GripVertical size={16} strokeWidth={1.8} aria-hidden />
+          <GripVertical size={15} strokeWidth={1.8} aria-hidden />
         </button>
-      </td>
+      )}
 
-      <td className="px-2 py-1.5">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelected}
-          aria-label={`${floor.name} seç`}
-          className={FLOOR_FOCUS_RING}
-        />
-      </td>
+      {/* Aktif kat düğmesi adın hemen SOLUNDA (K168): "hangi kattayım" sorusu
+          adla birlikte okunuyor. Kopyalama kipinde yok — orada aktif kat
+          değiştirilmiyor, hedef seçiliyor. */}
+      {!isCopyMode && (
+        <span onClick={(event) => event.stopPropagation()}>
+          <FloorActiveDot
+            floorName={floor.name}
+            isActive={isActive}
+            onMakeActive={onMakeActive}
+          />
+        </span>
+      )}
 
-      <td className="px-2 py-1.5">
-        <input
-          value={nameText}
-          onChange={(event) => onNameChange(event.target.value)}
-          onBlur={onNameCommit}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur()
-          }}
-          aria-label={`${floor.name} adı`}
-          aria-invalid={nameError !== undefined}
-          className={`w-36 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-ink hover:border-edge aria-[invalid=true]:border-danger ${FLOOR_FOCUS_RING}`}
-        />
-        {nameError && (
-          <p role="alert" className="text-xs text-danger">
-            {nameError}
-          </p>
-        )}
-      </td>
+      {/* Ad DÜZENLENMEZ (K167): konumun ya da kat TİPİNİN karşılığı (K168),
+          kullanıcının yazdığı bir şey değil. */}
+      <span className={`min-w-0 flex-1 ${isCopySource ? 'text-ink-disabled' : 'text-ink'}`}>
+        {floor.name}
+      </span>
 
-      <td className="px-2 py-1.5">
-        <FloorHeightField
-          label={floor.name}
-          heightCm={floor.heightCm}
-          onCommit={onHeightCommit}
-        />
-      </td>
+      {!isCopyMode && (
+        <span onClick={(event) => event.stopPropagation()}>
+          <FloorInlineField
+            value={String(floor.heightCm)}
+            label={`${floor.name} yüksekliği`}
+            align="right"
+            widthClass="w-14"
+            suffix="cm"
+            onCommit={(text) => {
+              const parsed = Number.parseInt(text, 10)
+              return Number.isFinite(parsed) && onSetHeight(parsed)
+            }}
+          />
+        </span>
+      )}
 
       {/* Kot salt okunur: kat yüksekliklerinden türer, düzenlenmez (madde 6). */}
-      <td className="px-2 py-1.5 tabular-nums text-ink-muted">{formatElevationM(elevationCm)}</td>
+      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-ink-muted">
+        {formatElevationM(elevationCm)}
+      </span>
 
-      <td className="px-2 py-1.5">
-        <ContentBadges content={content} />
-      </td>
+      <span className="flex w-8 shrink-0 justify-center">
+        <FloorContentDot content={content} />
+      </span>
 
-      <td className="px-2 py-1.5">
-        {isActive ? (
-          <span className={floorBadgeVariants({ tone: 'active' })}>AKTİF</span>
-        ) : (
-          <button type="button" onClick={onMakeActive} className={chromeButtonVariants()}>
-            Aktif Yap
-          </button>
-        )}
-      </td>
-
-      <td className="px-1 py-1.5 text-right">
-        <button
-          type="button"
-          onClick={onCopy}
-          aria-label={`${floor.name} kopyala`}
-          className={chromeButtonVariants({ shape: 'icon' })}
-        >
-          <Copy size={16} strokeWidth={1.8} aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={!isRemovable}
-          title={isRemovable ? undefined : 'Projede en az bir kat kalmalı'}
-          aria-label={`${floor.name} sil`}
-          className={chromeButtonVariants({ shape: 'icon' })}
-        >
-          <Trash2 size={16} strokeWidth={1.8} aria-hidden />
-        </button>
-      </td>
-    </tr>
+      {isCopyMode ? (
+        <span className="w-8 shrink-0 text-right text-[11px] text-ink-disabled">
+          {isCopySource ? 'kaynak' : ''}
+        </span>
+      ) : (
+        <FloorRowActions
+          floor={floor}
+          floors={floors}
+          isRemovable={isRemovable}
+          hasContent={!isFloorContentEmpty(content)}
+          onCopyFrom={onCopyFrom}
+          onClearCopy={onClearCopy}
+          onSetType={onSetType}
+          onRemove={onRemove}
+        />
+      )}
+    </li>
   )
 }

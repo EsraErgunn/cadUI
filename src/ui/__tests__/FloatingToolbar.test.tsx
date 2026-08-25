@@ -166,13 +166,14 @@ describe('FloatingToolbar — kat seçici', () => {
   // artık aktif kat adı + sayı (ör. "Zemin Kat 2"), hangi kattayız her an okunsun diye.
   const floorButtonName = /^Katlar, aktif kat/
 
-  it('açılır tüm katları listeler ve seçim aktif katı değiştirir', async () => {
+  it('açılırda kat LİSTESİ yok — geçiş sol şeritten yapılıyor (K166)', async () => {
     renderToolbar()
 
     await userEvent.click(screen.getByRole('button', { name: floorButtonName }))
-    await userEvent.click(screen.getByRole('menuitemradio', { name: /1\. Kat/ }))
 
-    expect(useCadStore.getState().activeFloorId).toBe(UPPER_FLOOR_ID)
+    expect(screen.queryAllByRole('menuitemradio')).toHaveLength(0)
+    expect(screen.getByRole('menuitem', { name: /Kat Yönetimi/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Kat Kopyalama/ })).toBeInTheDocument()
   })
 
   it('oklar komşu kata götürür, uçtaki yön pasif', async () => {

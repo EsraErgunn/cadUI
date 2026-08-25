@@ -1,0 +1,18 @@
+/*
+ * Kat şeridi kaydırılabilir ama ÇUBUK GÖSTERMEZ (K166, kullanıcı kararı:
+ * "herhangi bir scroll işareti kirliliği istemiyorum"). Şerit tuvalin üstünde
+ * duruyor; orada beliren bir kaydırma çubuğu çizimin önünde gri bir şerit
+ * bırakıyor. Tailwind'in karşılığı yok, bu yüzden ayrı dosyada.
+ *
+ * İki satır iki motor için: `scrollbar-width` Firefox, `::-webkit-scrollbar`
+ * Chrome/Safari. Kaydırma ERİŞİLEBİLİR kalır — tekerlek, dokunma ve klavye
+ * çalışır, yalnız çubuk çizilmez.
+ */
+.floor-rail-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.floor-rail-scroll::-webkit-scrollbar {
+  display: none;
+}

@@ -7,17 +7,21 @@ import { getObliqueProjection, ISOMETRIC_ANGLES_DEFAULT } from '../isometricProj
  * PAFTANIN eksen sözleşmesi (K155). Kullanıcının elindeki gerçek gaz paftası ve
  * ona ait kat planları ölçülerek belirlendi; iki belge de aynı şeyi söylüyor:
  *
- *              +Z (kot)
- *               |
- *               |
- *               ●──────── +X (plan x, TAM YATAY)
- *              /
- *             /  30°
- *           +Y (plan y)
+ *                     +Z (kot)
+ *                      |
+ *                      |
+ *  +X (plan x) ────────●
+ *                     /
+ *                    /  30°
+ *                  +Y (plan y)
  *
  * ⚠️ Bu bir izometri DEĞİL, oblik izdüşüm. İzometride üç eksen eşit kısalır ve
  * kot dikeyken bu, kalan iki ekseni ±30°'ye zorlar — yani hiçbir eksen yatay
  * OLAMAZ. Referans paftada yatay segmentler var; kâğıt referansa uyuyor.
+ *
+ * ⚠️ +X SOLA bakar (K165). Eskiden sağa bakıyordu ve pafta plana göre
+ * aynalanmış çıkıyordu: soldaki servis kutusu kâğıtta solda kalıp borusunu
+ * sağa uzatıyordu. Doğrusu kutunun sağda, borunun sola gelmesi.
  */
 const projection = getObliqueProjection()
 const STEP_CM = 100
@@ -42,8 +46,8 @@ describe('kâğıt oblik izdüşümü: eksen yönleri', () => {
   // Kullanıcının saydığı 12 durum. Her biri iki ucun MATEMATİKSEL izdüşümünden
   // çıkıyor; kodda "xPipe/yPipe" gibi bir sınıflandırma yok, olmamalı da.
   const cases: ReadonlyArray<[name: string, d: readonly [number, number, number], deg: number]> = [
-    ['+X', [STEP_CM, 0, 0], 0],
-    ['-X', [-STEP_CM, 0, 0], 180],
+    ['+X', [STEP_CM, 0, 0], 180],
+    ['-X', [-STEP_CM, 0, 0], 0],
     ['+Y', [0, STEP_CM, 0], -150],
     ['-Y', [0, -STEP_CM, 0], 30],
     ['+Z', [0, 0, STEP_CM], 90],
@@ -70,6 +74,29 @@ describe('kâğıt oblik izdüşümü: eksen yönleri', () => {
   })
 })
 
+describe('kâğıt oblik izdüşümü: yönelim plana uyar (K165)', () => {
+  it('plan ayak izinin determinantı POZİTİF: pafta aynalanmış değil', () => {
+    // Yönelimi söyleyen sayı bu. Kat planı paftasında +1 (plan x sağa, plan y
+    // yukarı); oblikte işaret AYNI kalmalı, yoksa iki pafta ters ele oturur.
+    // Eski izdüşümde −0,5 idi ve hata tam olarak buydu.
+    const ex = end(STEP_CM, 0, 0)
+    const ey = end(0, STEP_CM, 0)
+    const determinant = (ex.x * ey.y - ex.y * ey.x) / (STEP_CM * STEP_CM)
+
+    expect(determinant).toBeGreaterThan(0)
+    expect(determinant).toBeCloseTo(0.5, 6)
+  })
+
+  it('planda SOLDAKİ servis kutusu kâğıtta SAĞDA kalır', () => {
+    // Kullanıcının tarif ettiği durum: kutu solda, borusu sağa gidiyorsa
+    // izdüşüm yanlış. Kâğıtta kutu sağda olmalı, boru sola gelmeli.
+    const serviceBox = end(0, 0, 0)
+    const pipeEndRightInPlan = end(STEP_CM, 0, 0)
+
+    expect(pipeEndRightInPlan.x).toBeLessThan(serviceBox.x)
+  })
+})
+
 describe('kâğıt oblik izdüşümü: bileşik yönler', () => {
   // Kullanıcının 7–10. durumları. Açı ELLE seçilmiyor, iki ucun izdüşümünden
   // kendiliğinden çıkıyor — bu yüzden beklenen değer de türetiliyor.
@@ -77,7 +104,7 @@ describe('kâğıt oblik izdüşümü: bileşik yönler', () => {
   const sin30 = 0.5
 
   const expected = (dx: number, dy: number, dz: number) =>
-    (Math.atan2(dz + -dy * sin30, dx + -dy * cos30) * 180) / Math.PI
+    (Math.atan2(dz + -dy * sin30, -dx + -dy * cos30) * 180) / Math.PI
 
   const cases: ReadonlyArray<[string, readonly [number, number, number]]> = [
     ['+X +Y', [STEP_CM, STEP_CM, 0]],
@@ -128,7 +155,7 @@ describe('kâğıt oblik izdüşümü: ölçü ve doğrusallık', () => {
       project(planToThree({ x: 500 + dx, y: 700 + dy }, 250 + dz))
 
     const base = shifted(0, 0, 0)
-    expect(screenAngleDeg(base, shifted(STEP_CM, 0, 0))).toBeCloseTo(0, 6)
+    expect(screenAngleDeg(base, shifted(STEP_CM, 0, 0))).toBeCloseTo(180, 6)
     expect(screenLength(base, shifted(0, STEP_CM, 0))).toBeCloseTo(
       screenLength(origin, end(0, STEP_CM, 0)),
       6,

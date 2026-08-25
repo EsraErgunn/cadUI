@@ -2,6 +2,7 @@
 /* Tailwind'in karşılamadığı özel CSS ayrı dosyada (CLAUDE.md → Stil). */
 @import "./dashboardBar.css";
 @import "./authGrid.css";
+@import "./floorRail.css";
 
 /* Koyu tema class ile açılır (<html class="dark">), işletim sistemi tercihiyle değil:
    tema seçimi kullanıcıya ait ve localStorage'da saklanıyor. */
@@ -26,6 +27,10 @@
      beyaz zeminde 3.6:1 kalıyor, buton yazısına yetmiyor. Dolgu/ikon `danger`,
      yazı `danger-ink`. */
   --color-danger-ink: #b3251a;
+  /* Tehlike dolgusunun HOVER hâli. Kırmızı bir düğmeye genel `hover:bg-surface-sunken`
+     uygulanınca düğme koyu temada yüzeye gömülüp yok oluyordu; hover kırmızının
+     KOYUSU olmalı, nötr bir gri değil. */
+  --color-danger-strong: #c23a2f;
   /* Olumlu durum: evrak ikonu ve "Gönder" eylemi. `success` hem dolgu (buton
      zemini) hem de yüzey üstündeki ikon rengi olarak kullanılır; `success-ink`
      o dolgunun üstüne gelen metindir (admin-primary/admin-primary-ink deseni). */
@@ -117,6 +122,8 @@
   --color-selection: #6fa8ff;
   --color-danger: #f4796d;
   --color-danger-ink: #f4796d;
+  /* Koyu temada dolgu zaten açık kırmızı; hover onun bir tık KOYUSU. */
+  --color-danger-strong: #d95d51;
   --color-accent-ink: #2BC8D4;
   /* Koyu zeminde #157347 neredeyse yüzeye gömülüyor (kontrast ~1.3:1), yeşil
      açılıyor; açılan yeşilin üstünde beyaz metin okunmadığı için ink koyulaşır. */

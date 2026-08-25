@@ -79,10 +79,23 @@ const OBLIQUE_AXIS_DEG = 30
  * bakış değil, bir KESME (shear) dönüşümü; bu yüzden ekrandaki 3B görünüm onu
  * gösteremez ve kâğıt ile ekran bilerek ayrışıyor.
  *
- * ⚠️ Eğik eksenin YÖNÜ (sağ-yukarı değil sol-aşağı) okunabilirlik için: plan x
- * yatay olduğundan, eğik ekseni sağ-yukarı almak ikisini yalnız 30° ayırır ve
- * dikdörtgen bir kat ince bir dilime çöker. Sol-aşağıda ayrım 150° olur, plan
- * geniş bir paralelkenar gibi okunur.
+ * ⚠️ Eğik eksenin YÖNÜ sol-aşağı çünkü derinlik, kotun TERSİ yöne gitmek
+ * zorunda: sağ-yukarı alınsaydı hem "daha uzak oda" hem "üst kat" ekranda
+ * yukarı giderdi ve çok katlı bir kolon şemasında uzak odalar üst kata binerdi.
+ * Sol-aşağıda üç eksen 0° / 90° / 210° ile üç ayrı bölgeye dağılıyor.
+ *
+ * ⚠️ Buradaki gerekçe "sağ-yukarıda kat ince bir dilime çöker" DEĞİL (K155'te
+ * öyle yazılmıştı, yanlıştı): `(1,0)` ile `±(cos30, sin30)` tarafından gerilen
+ * iki paralelkenar birbirinin ayna eşi, alanları da eşit (`|sin30| = 0,5`).
+ * Ayak izinin ŞEKLİ iki seçimde de aynı; değişen yalnız derinliğin hangi yöne
+ * aktığı.
+ *
+ * ⚠️ plan x TERS işaretli (K165) ve bu bir yön tercihi değil, DÜZELTME. Plan
+ * ayak izinin izdüşüm determinantı yönelimi söyler: kat planı paftasında +1,
+ * eski oblikte (`+planX`) −0,5 yani AYNALANMIŞ, şimdiki hâlinde +0,5. Negatif
+ * determinant binayı ters elden gösteriyordu — soldaki servis kutusu kâğıtta
+ * solda kalıp borusunu sağa uzatıyordu, oysa iki belge aynı ele oturmalı.
+ * İşareti "sadeleştirme" niyetiyle geri alma.
  */
 export function getObliqueProjection(): IsometricProjection {
   const cos = Math.cos(toRadians(OBLIQUE_AXIS_DEG))
@@ -92,11 +105,13 @@ export function getObliqueProjection(): IsometricProjection {
     // three = (plan x, kot, −plan y) olduğu için plan y = −z. Eğik eksenin
     // katkısı bu yüzden +z ile yazılıyor; ayrı bir koordinat dönüşümü değil,
     // `coords.ts`'in kuralının burada okunması.
-    project: ([x, y, z]) => ({ x: x + z * cos, y: y + z * sin }),
+    project: ([x, y, z]) => ({ x: -x + z * cos, y: y + z * sin }),
     // project(offsetToWorld(o)) = o: yatay kayma three x'e, düşey kayma three
     // y'ye (kota) gider; ikisinin de z bileşeni sıfır olduğu için eğik eksen
-    // hiç karışmıyor.
-    offsetToWorld: (offsetCm) => [offsetCm.x, offsetCm.y, 0],
+    // hiç karışmıyor. ⚠️ Yatay bileşen `project`teki aynalamayı GÖTÜRMEK
+    // zorunda (eksi), yoksa gidiş dönüş `{−o.x, o.y}` verir ve elle ayrılmış
+    // etiketler kâğıtta yatayda ters düşer.
+    offsetToWorld: (offsetCm) => [-offsetCm.x, offsetCm.y, 0],
   }
 }
 
