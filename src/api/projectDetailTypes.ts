@@ -76,15 +76,11 @@ export interface ProjectServerFields {
   areaSquareMeters: number | null
   buildingCode: string | null
   projectFirmId: number | null
-  gasDistributionFirmId: number | null
   projectType: string | null
   heatingType: string | null
   buildingUsageType: string | null
   /** Yapı ruhsatına bağlı proje mi. */
   isPermitProject: boolean
-  apartmentCount: number | null
-  workplaceCount: number | null
-  areaSquareMeters: number | null
   capacityCubicMeterPerHour: number | null
   serviceBoxPressureMbar: number | null
   createdAt: string
