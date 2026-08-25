@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 
 import { partitionDocumentFiles, type RejectedFile } from './documentFiles'
-import type { DocumentRow, DocumentUpload, DocumentUploadSource } from '../../../api/documents'
+import type { DocumentUpload, DocumentUploadSource } from '../../../api/documents'
 
 export const MISSING_TYPE_MESSAGE = 'Evrak tipi seçilmeden kayıt tamamlanamaz.'
 export const MISSING_UNIT_MESSAGE = 'En az bir birim seçilmelidir.'
@@ -28,9 +28,7 @@ export interface DocumentUploadState {
   errors: Map<number, UploadRowErrors>
   addFiles: (files: File[]) => void
   /** "Proje Evrakları" sekmesinden yeniden ilişkilendirme (gereksinim 7). */
-  addExistingDocument: (document: DocumentRow) => void
   /** Aynı evrağın iki kez eklenmesini engellemek için: sekme düğmesi pasifleşir. */
-  hasExistingDocument: (documentId: number) => boolean
   removeRow: (key: number) => void
   setRowType: (key: number, docTypeCodeId: number | null) => void
   setRowUnits: (key: number, unitIds: number[]) => void
@@ -79,33 +77,6 @@ export function useDocumentUpload(): DocumentUploadState {
       }),
     ])
   }, [])
-
-  const addExistingDocument = useCallback((document: DocumentRow) => {
-    setRows((current) => {
-      const isAlreadyAdded = current.some(
-        (row) => row.source.kind === 'existing' && row.source.documentId === document.id,
-      )
-      if (isAlreadyAdded) return current
-
-      const row: UploadRow = {
-        key: nextKey.current,
-        source: { kind: 'existing', documentId: document.id },
-        fileName: document.fileName,
-        // Tip kaynağından geliyor ama DEĞİŞTİRİLEBİLİR kalıyor: aynı dosya
-        // başka bir tiple yeniden ilişkilendirilebilmeli.
-        docTypeCodeId: document.docTypeCodeId,
-        unitIds: [],
-      }
-      nextKey.current += 1
-      return [...current, row]
-    })
-  }, [])
-
-  const hasExistingDocument = useCallback(
-    (documentId: number) =>
-      rows.some((row) => row.source.kind === 'existing' && row.source.documentId === documentId),
-    [rows],
-  )
 
   const removeRow = useCallback((key: number) => {
     setRows((current) => current.filter((row) => row.key !== key))
@@ -156,8 +127,6 @@ export function useDocumentUpload(): DocumentUploadState {
     rejected,
     errors,
     addFiles,
-    addExistingDocument,
-    hasExistingDocument,
     removeRow,
     setRowType,
     setRowUnits,

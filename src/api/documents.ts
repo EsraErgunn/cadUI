@@ -111,9 +111,13 @@ export interface DocumentListQuery {
  * yüklenmiş bir evrağın yeniden ilişkilendirilmesi. Ayrım TİPTE duruyor çünkü
  * ikisi uca farklı gövdeyle gidiyor — birinde dosya, öbüründe yalnız kimlik.
  */
-export type DocumentUploadSource =
-  | { kind: 'file'; file: File }
-  | { kind: 'existing'; documentId: number }
+/**
+ * Yükleme satırının kaynağı. Bir süre ikinci bir varyant vardı
+ * (`{ kind: 'existing' }`): "Proje Evrakları" sekmesi var olan evrağı listeye
+ * ekleyip başka birimlerle yeniden ilişkilendiriyordu. O akış kalktı — sekme
+ * artık yalnız siliyor ve birim değiştiriyor — varyant da onunla birlikte.
+ */
+export type DocumentUploadSource = { kind: 'file'; file: File }
 
 /** Evrak Ekle ekranının tek satırı: kaynak + tipi + işaretlenen birimler. */
 export interface DocumentUpload {
@@ -306,12 +310,9 @@ export interface DocumentSaveResult {
 }
 
 /**
- * "Kaydet". Her satır ayrı bir istek:
- *
- * - yeni dosya → `POST /api/docs` (multipart); ilk birim gövdede gidiyor,
- *   kalanlar `POST /api/docs/{id}/units/{unitId}` ile ekleniyor (uç yüklemede
- *   tek birim bağı kuruyor).
- * - var olan evrak → dosya yeniden yüklenmiyor, yalnız birim bağları ekleniyor.
+ * "Kaydet". Her satır ayrı bir istek: `POST /api/docs` (multipart). İlk birim
+ * gövdede gidiyor, kalanlar `POST /api/docs/{id}/units/{unitId}` ile ekleniyor —
+ * uç yüklemede tek birim bağı kuruyor.
  *
  * Sıralı gönderiliyor: paralel istekte aynı evrağa aynı anda birim bağlanması
  * sunucuda çakışabilir ve hangisinin geçtiği belirsiz kalırdı.
@@ -322,30 +323,21 @@ export async function saveProjectDocuments(
   signal?: AbortSignal,
 ): Promise<DocumentSaveResult> {
   for (const upload of uploads) {
-    const [firstUnitId, ...restUnitIds] =
-      upload.source.kind === 'file' ? upload.unitIds : [undefined, ...upload.unitIds]
+    const [firstUnitId, ...restUnitIds] = upload.unitIds
 
-    let documentId: number
+    const form = new FormData()
+    form.append('File', upload.source.file)
+    form.append('ProjectId', String(projectId))
+    form.append('DocTypeCodeId', String(upload.docTypeCodeId))
+    if (firstUnitId !== undefined) form.append('ProjectUnitId', String(firstUnitId))
 
-    if (upload.source.kind === 'file') {
-      const form = new FormData()
-      form.append('File', upload.source.file)
-      form.append('ProjectId', String(projectId))
-      form.append('DocTypeCodeId', String(upload.docTypeCodeId))
-      if (firstUnitId !== undefined) form.append('ProjectUnitId', String(firstUnitId))
-
-      const created = await uploadForm(
-        { path: '/api/docs', form, signal },
-        z.object({ id: z.number().int().positive() }),
-      )
-      documentId = created.id
-    } else {
-      documentId = upload.source.documentId
-    }
+    const created = await uploadForm(
+      { path: '/api/docs', form, signal },
+      z.object({ id: z.number().int().positive() }),
+    )
 
     for (const unitId of restUnitIds) {
-      if (unitId === undefined) continue
-      await linkDocumentToUnit(documentId, unitId, signal)
+      await linkDocumentToUnit(created.id, unitId, signal)
     }
   }
 

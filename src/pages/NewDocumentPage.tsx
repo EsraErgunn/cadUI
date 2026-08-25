@@ -23,6 +23,8 @@ import { ProjectDocumentPicker } from '../ui/admin/documents/ProjectDocumentPick
 import { UploadedDocumentRow } from '../ui/admin/documents/UploadedDocumentRow'
 import type { DocumentSource } from '../ui/admin/documents/documentSources'
 import { useDocumentUpload } from '../ui/admin/documents/useDocumentUpload'
+import { ProjectDocumentActionDialogs } from '../ui/admin/projectDetail/ProjectDocumentActionDialogs'
+import { useProjectDocumentActions } from '../ui/admin/projectDetail/useProjectDocumentActions'
 import { useHomePath } from '../ui/admin/useHomePath'
 
 /** Kod grubu nadiren değişiyor; ekranlar arası gezinmede yeniden istenmesin. */
@@ -96,6 +98,10 @@ export function NewDocumentPage() {
     queryFn: ({ signal }) => getDocumentTypes(signal),
     staleTime: DOCUMENT_TYPE_STALE_MS,
   })
+
+  // "Proje Evrakları" sekmesindeki silme ve birim değiştirme — proje detayının
+  // evrak sekmesiyle AYNI hook, ikinci bir kopya yazılmıyor.
+  const documentActions = useProjectDocumentActions(projectId ?? 0)
 
   // Evrak birime KİMLİKLE bağlanıyor; etiket yalnız kutuda görünüyor. Birim
   // numarası boş olabildiği için (çizimden senkron) abone adı yedek.
@@ -189,11 +195,7 @@ export function NewDocumentPage() {
           {source === 'computer' ? (
             <DocumentDropzone onFilesSelected={upload.addFiles} />
           ) : (
-            <ProjectDocumentPicker
-              documents={pickerRows}
-              isAdded={upload.hasExistingDocument}
-              onAdd={upload.addExistingDocument}
-            />
+            <ProjectDocumentPicker documents={pickerRows} actions={documentActions} />
           )}
         </div>
 
@@ -244,6 +246,10 @@ export function NewDocumentPage() {
           </button>
         </div>
       </div>
+
+      {/* "Proje Evrakları" sekmesindeki eylemlerin diyalogları; proje detayının
+          evrak sekmesiyle AYNI bileşen. */}
+      <ProjectDocumentActionDialogs units={unitOptions} actions={documentActions} />
     </div>
   )
 }

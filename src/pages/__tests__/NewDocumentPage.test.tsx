@@ -40,7 +40,8 @@ const EXISTING_DOCUMENT = {
   docTypeCodeId: 5019,
   docTypeName: 'Ruhsat',
   receivedAt: '2026-07-01T09:00:00.000Z',
-  unitNames: [],
+  unitNames: ['D20'],
+  unitIds: [71],
   projectId: 1,
   projectName: 'Demo Doğalgaz Projesi',
   projectPId: null,
@@ -244,7 +245,12 @@ describe('NewDocumentPage', () => {
     expect(screen.getByText('police.pdf')).toBeInTheDocument()
   })
 
-  it('"Proje Evrakları" sekmesinden mevcut evrak yeniden ilişkilendirilebilir', async () => {
+  /**
+   * Sekme bir süre SEÇİCİYDİ: var olan evrağı yükleme listesine ekleyip başka
+   * birimlerle yeniden ilişkilendiriyordu. O akış kalktı — burada yalnız
+   * DÜZENLEME var.
+   */
+  it('"Proje Evrakları" sekmesi projenin evraklarını birim ve eylemlerle listeler', async () => {
     const user = userEvent.setup()
     listProjectDocuments.mockResolvedValue({
       source: 'server',
@@ -254,10 +260,27 @@ describe('NewDocumentPage', () => {
 
     await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
 
-    const addButtons = await screen.findAllByRole('button', { name: /dosyasını listeye ekle/ })
-    await user.click(addButtons[0])
+    const table = await screen.findByRole('table', { name: /birimini değiştirebilir/ })
+    expect(within(table).getByText('onceki-ruhsat.pdf')).toBeInTheDocument()
+    expect(within(table).getByText('D20')).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Birim Değiştir' })).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+    // "Listeye ekle" akışı KALKTI.
+    expect(screen.queryByRole('button', { name: /listeye ekle/ })).not.toBeInTheDocument()
+  })
 
-    const uploaded = screen.getByRole('region', { name: 'Yüklenen Evraklar' })
-    expect(within(uploaded).getAllByRole('combobox')).toHaveLength(1)
+  it('"Sil" önce onay sorar', async () => {
+    const user = userEvent.setup()
+    listProjectDocuments.mockResolvedValue({
+      source: 'server',
+      data: [EXISTING_DOCUMENT],
+    })
+    renderPage()
+
+    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
+    const table = await screen.findByRole('table', { name: /birimini değiştirebilir/ })
+    await user.click(within(table).getByRole('button', { name: 'Sil' }))
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Evrak silinsin mi?')
   })
 })
