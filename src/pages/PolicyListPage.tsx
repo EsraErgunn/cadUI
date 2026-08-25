@@ -10,6 +10,7 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
+import { PolicyEditDialog } from '../ui/admin/policies/PolicyEditDialog'
 import { PolicyFilterBar } from '../ui/admin/policies/PolicyFilterBar'
 import {
   POLICY_TABLE_CAPTION,
@@ -17,6 +18,7 @@ import {
   buildPolicyColumns,
 } from '../ui/admin/policies/policyColumns'
 import { buildPolicyFilterChips } from '../ui/admin/policies/policyFilterChips'
+import { usePolicyActions } from '../ui/admin/policies/usePolicyActions'
 import { usePolicyListParams } from '../ui/admin/policies/usePolicyListParams'
 import { useHomePath } from '../ui/admin/useHomePath'
 import { useCanWriteProjectContent } from '../ui/admin/useRole'
@@ -73,6 +75,10 @@ export function PolicyListPage() {
     void queryClient.invalidateQueries({ queryKey: ['projectPolicies'] })
   }, [queryClient])
 
+  // Güncelleme: yalnız tutar ve tarih. Liste proje BAĞIMSIZ olduğu için
+  // geçersizleştirme proje kimliği olmadan yapılıyor (kök anahtar).
+  const policyActions = usePolicyActions(null)
+
   const deletion = useRowDelete({
     remove: async (policyId) => {
       await deletePolicy(policyId)
@@ -89,8 +95,16 @@ export function PolicyListPage() {
         pendingPolicyId: deletion.pendingId,
         canDelete: canWriteContent,
         onDelete: deletion.request,
+        onEdit: policyActions.requestEdit,
       }),
-    [query.page, query.pageSize, deletion.pendingId, canWriteContent, deletion.request],
+    [
+      query.page,
+      query.pageSize,
+      deletion.pendingId,
+      canWriteContent,
+      deletion.request,
+      policyActions.requestEdit,
+    ],
   )
 
   const hasActiveFilters = query.search !== '' || query.insuranceCompanyId !== null
@@ -110,6 +124,14 @@ export function PolicyListPage() {
         title={PAGE_TITLE}
         countLabel={formatCountLabel(data?.totalCount)}
       />
+
+      {policyActions.notice !== null && (
+        <NoticeBar
+          tone={policyActions.notice.tone}
+          message={policyActions.notice.message}
+          onDismiss={policyActions.dismissNotice}
+        />
+      )}
 
       {deletion.notice !== null && (
         <NoticeBar
@@ -159,6 +181,17 @@ export function PolicyListPage() {
             />
           )}
         </StaleContent>
+      )}
+
+      {policyActions.editTarget !== null && (
+        <PolicyEditDialog
+          policy={policyActions.editTarget}
+          isSaving={policyActions.isSaving}
+          error={policyActions.editError}
+          onDismissError={policyActions.dismissEditError}
+          onSave={policyActions.confirmEdit}
+          onClose={policyActions.cancelEdit}
+        />
       )}
 
       {deletion.targetId !== null && (
