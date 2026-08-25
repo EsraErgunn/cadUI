@@ -2,7 +2,7 @@ import { ChevronDown, Redo2, Trash2, Undo2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { DialogShell } from './controls/DialogShell'
-import { chromeButtonVariants } from './controls/buttonVariants'
+import { chromeButtonVariants, dialogActionVariants } from './controls/buttonVariants'
 import { FloorAddBar } from './floors/FloorAddBar'
 import { FloorCopyBar, type FloorCopyIncludes } from './floors/FloorCopyBar'
 import { FloorList } from './floors/FloorList'
@@ -304,14 +304,14 @@ export function FloorManagementDialog({
         <button
           type="button"
           onClick={onClose}
-          className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'cancel' })} ${FLOOR_FOCUS_RING}`}
         >
           İptal
         </button>
         <button
           type="button"
           onClick={handleApply}
-          className={`${chromeButtonVariants({ tone: 'active' })} ${FLOOR_FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'primary' })} ${FLOOR_FOCUS_RING}`}
         >
           Uygula
         </button>

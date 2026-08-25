@@ -77,3 +77,27 @@ zemin varsayan yeni sınıf yazma.
 Her bileşen kendi `useState`'ini tutsaydı iki tüketici ayrışırdı. Tema kalıcı
 proje verisi olmadığı için `cadStore`'a girmez; `uiStore`'a da konmadı (o dosya
 başka sahibin ve tema `localStorage`'a yazıyor).
+
+## Onay penceresi düğmeleri (K177)
+
+`dialogActionVariants` (`ui/controls/buttonVariants.ts`) — dört ton:
+`cancel` (çerçeveli), `primary` (mavi dolgu), `danger` (kırmızı dolgu), `keep`
+(rengi değişmeyenler). Yazı hepsinde KALIN.
+
+⚠️ Yeni token: `--color-selection-hover`, `--color-danger-hover`. Dolgulu
+düğmede hover **AÇILIR**. Satır içi tehlike düğmesinin hover'ı bunun TERSİ
+(`--color-danger-strong`, K175) — orada düğme koyu temada yüzeye gömülüyordu.
+İkisini birbirine çevirme.
+
+⚠️ Dolgulu tonlarda yazı `text-surface`: yüzey açık temada beyaz, koyu temada
+koyu; dolgu ters yönde değiştiği için kontrast iki temada da kendiliğinden
+doğru çıkıyor — ayrı bir `-ink` token'ı gerekmedi.
+
+## İmleç (K177)
+
+Sahne imleçleri (`cursor-normal` / `cursor-grab` / `cursor-grabbing`) tuvale
+DEĞİL `[data-editor-root]`a yazılır: imleç miras alındığı için palet, üst bar ve
+yüzen çubuk da aynı imleci görür. Temizlik de kökten siler.
+
+Tıklanabilir editör düğmelerinin tamamında `cursor-pointer` (dört varyant
+dosyası); pasif hâli `disabled:cursor-not-allowed` ezer.

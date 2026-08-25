@@ -12,7 +12,7 @@ export const editorBarButtonVariants = cva(
   // aynı `disabled:` rengini verirse hangisinin kazandığı stil sırasına kalırdı.
   // whitespace-nowrap: dar ekranda "Hata Kontrolleri" iki satıra kırılıp
   // düğmenin yüksekliğini bozuyordu; bar sıkışırsa metin kırpılsın, sarmasın.
-  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg ' +
+  'cursor-pointer inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg ' +
     'text-sm transition-colors disabled:cursor-not-allowed disabled:hover:bg-transparent',
   {
     variants: {
@@ -53,7 +53,7 @@ export const editorBarButtonVariants = cva(
  * zeminde de doğru duruyor.
  */
 export const editorBarPrimaryVariants = cva(
-  'inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-admin-primary px-4 ' +
+  'cursor-pointer inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-admin-primary px-4 ' +
     'text-sm font-medium text-admin-primary-ink transition-opacity ' +
     'hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60',
 )
@@ -67,7 +67,7 @@ export const EDITOR_BAR_PANEL = 'border border-canvas-overlay-edge bg-canvas-ove
 
 /** Açılır menü maddeleri. */
 export const editorBarMenuItemVariants = cva(
-  'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-canvas-overlay-ink ' +
+  'cursor-pointer flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-canvas-overlay-ink ' +
     'enabled:hover:bg-canvas-overlay-edge/25 disabled:cursor-not-allowed ' +
     'disabled:text-canvas-overlay-ink-muted',
 )

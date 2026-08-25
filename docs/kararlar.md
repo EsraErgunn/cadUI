@@ -9099,3 +9099,110 @@ veri kaynağı yok" yazmak yanlış bir şey söylüyordu. Dördü de (`ProjectI
 `adminFirmForm`, `adminDashboard` ve `projects` içindeki mock'lar `VITE_API_URL`
 tanımsızken devreye giren ayrı ve BİLİNÇLİ bir düzen (K27); onlara
 dokunulmadı. Silinen üç dosya o zincire bağlı değildi.
+
+### K177 — Duvar cihazları bölmede yerinde kalır, sürüklerken duvara yapışık; imleçler editörün tamamında
+
+Kullanıcının dört ayrı bildirimi; hepsi aynı turda giderildi.
+
+#### 1. Bölmede cihaz ışınlanıyordu
+
+Üzerinde mimari cihaz bulunan duvar çift tıkla bölününce cihazlar **bölme
+noktasına sıçrıyordu**.
+
+Sebep: `applyWallSplit` açıklıkları parçalara yeniden dağıtıyordu ama
+SEMBOLLERİ dağıtmıyordu. Duvara bağlı sembol de açıklıkla aynı modelde duruyor
+(`wallId` + `offsetCm`, K9); ilk parça kısalınca sembolün eski offset'i onun
+boyunu aşıyor ve `getWallFrameAtOffsetCm`'in "bayat offset duvarın ucuna düşsün"
+kırpması cihazı tam da bölme noktasına oturtuyordu.
+
+⚠️ Artık dağıtım **dört** şeyi birlikte yapıyor: parçalar, oda duvar kümesi,
+açıklıklar, semboller. Dördü AYRILAMAZ — biri atlanırsa o nesne artık var
+olmayan ya da kısalmış bir parçaya bağlı kalır.
+
+Test kırmızıdan yeşile doğrulandı: düzeltme geri alınınca
+`bölmenin ÖTESİNDEKİ sembol ikinci parçaya geçer` testi düşüyor.
+
+#### 2. Sürüklerken cihaz duvardan kopuyordu
+
+Duvara bağlanabilen cihaz (aydınlatma dışında hepsi) sürüklenirken havada
+serbest gidiyor, ancak fare bırakılınca duvara geri sıçrıyordu. Bağlanma yalnız
+BIRAKMA anında çözülüyordu.
+
+⚠️ `SymbolDrag` artık ÖTELEME (`dxCm`/`dyCm`) değil HEDEF NOKTA (`targetCm`)
+taşıyor. Hem önizleme hem yazım aynı noktadan `resolveSymbolAttachment` geçiyor,
+yani cihaz duvar boyunca KAYARAK sürükleniyor.
+
+⚠️ Aynı değişiklik ikinci bir sapmayı da kapattı: önizleme ızgaraya yapıştırılmış
+noktayı kullanıyor, yazım ise ham `event.planPoint`i kullanıyordu — görülen yer
+ile yazılan yer ayrışıyordu. Artık ikisi de `drag.targetCm`.
+
+#### 3. Özel imleçler yalnız tuvalde aktifti
+
+`useViewportControls` imleç sınıflarını tuvalin kendi elemanına yazıyordu; imleç
+çizim alanının dışına çıkar çıkmaz işletim sisteminin oku geri geliyordu.
+
+⚠️ Sınıf artık `[data-editor-root]`a yazılıyor (EditorPage kökü). İmleç miras
+alındığı için palet, üst bar ve yüzen çubuk da aynı imleci görüyor. Temizlik de
+kökten siliyor — yoksa editörden çıkıldığında özel imleç sayfada asılı kalırdı.
+
+#### 4. Tıklanabilir düğmelerde el imleci
+
+`cursor-pointer` editörün BÜTÜN düğme varyantlarına eklendi: üst bar
+(`editorBarVariants`), sol palet ve pencereler (`buttonVariants`), yüzen çubuk
+(`canvasBarVariants`), kat şeridi (`floorRailVariants`). Pasif düğmeler
+`disabled:cursor-not-allowed` ile kalıyor — pseudo-class daha yüksek özgüllükte.
+
+#### 5. Onay pencerelerinin düğme dili
+
+Asıl eylem ile geri çekilme aynı yerde duruyor ve ikisi de düz metin düğmesiydi;
+hangisinin ne yaptığı ancak okunarak anlaşılıyordu. Ortak varyant:
+`dialogActionVariants`.
+
+| Ton | Görünüm | Nerede |
+|---|---|---|
+| `cancel` | çerçeveli, dolgusuz | Vazgeç · İptal |
+| `primary` | mavi dolgu, hover AÇILIR | Kaydet · İndir · Uygula |
+| `danger` | kırmızı dolgu, hover açılır | Temizle |
+| `keep` | rengi değişmez | toplu silme onayları · "N kata kopyala" |
+
+Yazı hepsinde KALIN — üst bardaki "Kaydet" ile aynı ağırlık (kullanıcı kararı).
+
+⚠️ İki yeni token: `--color-selection-hover`, `--color-danger-hover`. Hover
+AÇILIYOR, koyulaşmıyor. Satır İÇİ tehlike düğmesinin hover'ı bunun tersi
+(`danger-strong`, K175) — orada düğme koyu temada yüzeye gömülüyordu, sorun
+farklıydı; ikisini birbirine çevirme.
+
+⚠️ Dolgulu tonlarda yazı `text-surface`: açık temada yüzey beyaz, koyu temada
+koyu; dolgu da ters yönde değiştiği için kontrast iki temada da kendiliğinden
+doğru çıkıyor. `success`/`success-ink` deseninin token eklemeden çalışan hâli.
+
+### K178 — Duvar BİRLEŞTİRİLİNCE de cihaz yerinde kalır
+
+Kullanıcı: "çift tık ile birleştirdiğimiz duvarlardaki mimari cihazlar yok
+oluyor."
+
+K177'nin aynadaki hâli. Bölme sembolleri dağıtmıyordu; **birleşme de
+taşımıyordu**. `mergeWallsAtJoint` açıklıkların `wallId`/`offsetCm` değerlerini
+kazanan duvara çeviriyor ama sembollere hiç bakmıyordu.
+
+Sonuç iki türlü bozuluyordu:
+
+- **Kaybeden duvardaki cihaz**: duvar siliniyor, sembolün `wallId`'si ölü bir
+  id'ye bakıyor, `getSymbolPose` `undefined` dönüyor ve `ArchitectureLayer` onu
+  ÇİZMİYOR. Cihaz ekrandan kayboluyor ama kaydedilen JSON'da sahipsiz duruyor.
+- **Kazanan duvardaki cihaz**: kazananın p1'i eklemdeyse birleşmeyle p1
+  değişiyor; offset kaymadığı için cihaz duvar üzerinde sessizce yer
+  değiştiriyordu.
+
+⚠️ Dönüşüm artık TEK yerde: `remapToWinner`. Açıklık ve duvara bağlı sembol aynı
+modelde duruyor (wallId + offsetCm, K9), dolayısıyla aynı fonksiyondan geçmek
+zorundalar. İki ayrı kopya yazılsaydı biri zamanla yine ayrışırdı — K177'de
+bölmede tam bu olmuştu.
+
+Serbest sembol (aydınlatma) döngüye girmiyor: duvarı yok, birleşme onu
+ilgilendirmiyor.
+
+⚠️ Test tuzağı: `mergeCollinearWallsInDraft`i elle kurulmuş taslakla çağıran üç
+test `symbols` dizisini hiç vermiyordu ve döngü `undefined` üzerinde patladı.
+Üretimde dizi her zaman var (`CadState` başlangıç durumu); eksik olan test
+verisiydi, üretim koduna savunma eklenmedi.

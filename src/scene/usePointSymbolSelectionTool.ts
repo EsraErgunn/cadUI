@@ -138,28 +138,29 @@ export function usePointSymbolSelectionTool(): void {
 
       useArchitectureUiStore.getState().setDraggingSymbols({
         symbolIds: grab.symbolIds,
-        dxCm: next.x - grab.origin.x,
-        dyCm: next.y - grab.origin.y,
+        targetCm: next,
       })
     }
 
     const handlePointerUp = (event: DrawSurfacePointerEvent) => {
       if (!grab || event.button !== PRIMARY_BUTTON) return
 
-      const { symbolIds } = grab
+      const { symbolIds, origin } = grab
       const drag = useArchitectureUiStore.getState().draggingSymbols
       endDrag()
 
       // Yer değişmediyse (yalnız seçmek için tıklama) store'a hiç yazılmaz.
-      if (!drag || (drag.dxCm === 0 && drag.dyCm === 0)) return
+      if (!drag) return
+      if (drag.targetCm.x === origin.x && drag.targetCm.y === origin.y) return
 
-      // Bırakma noktasında yeniden bağlanma çözülür: sembol duvara girmiş,
-      // duvardan çıkmış ya da başka duvara geçmiş olabilir.
       const cad = useCadStore.getState()
       const symbol = cad.symbols.find((candidate) => candidate.id === symbolIds[0])
       if (!symbol) return
 
-      const attachment = resolveSymbolAttachment(event.planPoint, symbol.type, {
+      // ⚠️ Yazım ÖNİZLEMENİN noktasından çözülür, ham event.planPoint-ten
+      // değil; ızgara yapışması yalnız önizlemeye uygulansaydı cihaz gördüğü
+      // yere değil imlecin ham yerine otururdu (K177).
+      const attachment = resolveSymbolAttachment(drag.targetCm, symbol.type, {
         walls: cad.walls,
         points: cad.points,
         floorId: cad.activeFloorId,

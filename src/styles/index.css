@@ -22,6 +22,11 @@
   --color-ink-disabled: #a3adba;
   --color-brand: #ffc107;
   --color-selection: #2d7ff9;
+  /* Onay penceresindeki ASIL eylem düğmesinin hover'ı (K177). Kullanıcı kararı:
+     hover AÇILIR, koyulaşmaz — dolgulu düğmede açılma "basılabilir" okunuyor.
+     Tehlike düğmesinin satır İÇİ hover'ı bunun tersi (danger-strong): orada
+     düğme koyu temada yüzeye gömülüyordu, sorun farklıydı. */
+  --color-selection-hover: #5a9bfb;
   --color-danger: #e5564a;
   /* Tehlike METNİ için ayrı token (accent/accent-ink ile aynı gerekçe): #e5564a
      beyaz zeminde 3.6:1 kalıyor, buton yazısına yetmiyor. Dolgu/ikon `danger`,
@@ -31,6 +36,8 @@
      uygulanınca düğme koyu temada yüzeye gömülüp yok oluyordu; hover kırmızının
      KOYUSU olmalı, nötr bir gri değil. */
   --color-danger-strong: #c23a2f;
+  /* Dolgulu tehlike düğmesinin hover'ı — selection-hover ile aynı yön. */
+  --color-danger-hover: #ec7c72;
   /* Olumlu durum: evrak ikonu ve "Gönder" eylemi. `success` hem dolgu (buton
      zemini) hem de yüzey üstündeki ikon rengi olarak kullanılır; `success-ink`
      o dolgunun üstüne gelen metindir (admin-primary/admin-primary-ink deseni). */
@@ -121,10 +128,12 @@
   --color-ink-muted: #9aa6b8;
   --color-ink-disabled: #6b7688;
   --color-selection: #6fa8ff;
+  --color-selection-hover: #93c0ff;
   --color-danger: #f4796d;
   --color-danger-ink: #f4796d;
   /* Koyu temada dolgu zaten açık kırmızı; hover onun bir tık KOYUSU. */
   --color-danger-strong: #d95d51;
+  --color-danger-hover: #f79b92;
   --color-accent-ink: #2BC8D4;
   /* Koyu zeminde #157347 neredeyse yüzeye gömülüyor (kontrast ~1.3:1), yeşil
      açılıyor; açılan yeşilin üstünde beyaz metin okunmadığı için ink koyulaşır. */

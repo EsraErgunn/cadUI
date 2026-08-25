@@ -106,14 +106,17 @@ function splitWall(
 }
 
 /**
- * Duvarı böler VE bölmenin iki yan etkisini birlikte uygular: odaların duvar
- * kümesini genişletmek, açıklıkları doğru parçaya taşımak.
+ * Duvarı böler VE bölmenin yan etkilerini birlikte uygular: odaların duvar
+ * kümesini genişletmek, açıklıkları ve duvara bağlı sembolleri doğru parçaya
+ * taşımak (K177).
  *
- * Üçü AYRILAMAZ: parçalar yazılıp odalar güncellenmezse duvar kümesi yüzünkiyle
- * tutmaz, eşleşme kaçar ve kullanıcının verdiği ad — kullanıcı odaya hiç
- * dokunmamışken — kaybolur (K31). Açıklık taşınmazsa silinmiş duvara bağlı
- * kalır. Bu yüzden tek kapıdan geçiyorlar; kesişim bölmesi de çift tıkla açılan
- * düğüm de (K161) burayı çağırır.
+ * Dördü AYRILAMAZ: parçalar yazılıp odalar güncellenmezse duvar kümesi
+ * yüzünkiyle tutmaz, eşleşme kaçar ve kullanıcının verdiği ad — kullanıcı
+ * odaya hiç dokunmamışken — kaybolur (K31). Açıklık ya da sembol taşınmazsa
+ * eski (artık kısalmış) parçaya bağlı kalır ve `getWallFrameAtOffsetCm`
+ * "bayat offset duvarın ucuna düşsün" kuralıyla onu bölme noktasına ışınlar.
+ * Bu yüzden tek kapıdan geçiyorlar; kesişim bölmesi de çift tıkla açılan düğüm
+ * de (K161) burayı çağırır.
  */
 export function applyWallSplit(
   draft: CadState,
@@ -142,6 +145,24 @@ export function applyWallSplit(
 
     opening.wallId = piece.wallId
     opening.offsetCm = opening.offsetCm - piece.startCm
+  }
+
+  // Sembol de aynı yeniden dağıtımı görmek ZORUNDA (K177): duvara bağlı sembol
+  // wallId + offsetCm ile duruyor (opening ile aynı model, K9). Bu geçmeseydi
+  // ilk parça kısalır, sembolün eski offset'i onun uzunluğunu aşar ve
+  // `getWallFrameAtOffsetCm` "bayat offset duvarın ucuna düşsün" kuralıyla
+  // sembolü bölme NOKTASINA ışınlardı — kullanıcı bunu "cihaz sıçrıyor" diye
+  // bildirdi.
+  for (const symbol of draft.symbols) {
+    if (symbol.attachment !== 'wall' || symbol.wallId !== wallId) continue
+
+    const piece = pieces.find(
+      (candidate) => symbol.offsetCm >= candidate.startCm && symbol.offsetCm <= candidate.endCm,
+    )
+    if (!piece) continue
+
+    symbol.wallId = piece.wallId
+    symbol.offsetCm = symbol.offsetCm - piece.startCm
   }
 
   return pieces

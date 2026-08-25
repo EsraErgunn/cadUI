@@ -29,19 +29,25 @@ export function useViewportControls(): void {
     let lastClientX = 0
     let lastClientY = 0
 
+    // İmleç EDİTÖRÜN KÖKÜNE yazılır, tuvale değil (K177): imleç miras
+    // alındığı için palet, üst bar ve yüzen çubuk da aynı imleci görür.
+    // Tuvale yazıldığında imleç çizim alanının dışına çıkar çıkmaz işletim
+    // sisteminin okuna dönüyordu (kullanıcı bildirimi).
+    const cursorHost = domElement.closest('[data-editor-root]') ?? domElement
+
     // Aynı anda tek imleç sınıfı dursun; ikisi birden olursa hangisinin kazandığı
     // Tailwind'in çıktı sırasına kalır.
     const updateCursor = () => {
-      domElement.classList.remove(...CURSOR_CLASSES)
+      cursorHost.classList.remove(...CURSOR_CLASSES)
       if (panPointerId !== null) {
-        domElement.classList.add('cursor-grabbing')
+        cursorHost.classList.add('cursor-grabbing')
         return
       }
       if (isSpaceHeld || useUiStore.getState().isPanModeActive) {
-        domElement.classList.add('cursor-grab')
+        cursorHost.classList.add('cursor-grab')
         return
       }
-      domElement.classList.add('cursor-normal')
+      cursorHost.classList.add('cursor-normal')
     }
     updateCursor()
 
@@ -147,7 +153,9 @@ export function useViewportControls(): void {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleBlur)
-      domElement.classList.remove(...CURSOR_CLASSES)
+      // Sınıf artık kökte: temizlik de oradan silmeli, yoksa editörden çıkıldığında
+      // özel imleç sayfada asılı kalır.
+      cursorHost.classList.remove(...CURSOR_CLASSES)
     }
   }, [camera, domElement])
 }

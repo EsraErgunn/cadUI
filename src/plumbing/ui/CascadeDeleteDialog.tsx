@@ -1,7 +1,7 @@
 import { formatLengthMeters } from '../../core/lengthFormat'
 import { useCadStore } from '../../store/cadStore'
 import { DialogShell } from '../../ui/controls/DialogShell'
-import { chromeButtonVariants } from '../../ui/controls/buttonVariants'
+import { dialogActionVariants } from '../../ui/controls/buttonVariants'
 import { usePlumbingUiStore, type PendingCascadeDeletion } from '../store/plumbingUiStore'
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70'
@@ -124,14 +124,14 @@ export function CascadeDeleteDialog() {
         <button
           type="button"
           onClick={cancel}
-          className={`${chromeButtonVariants()} ${FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'cancel' })} ${FOCUS_RING}`}
         >
           Vazgeç
         </button>
         <button
           type="button"
           onClick={handleConfirm}
-          className={`${chromeButtonVariants()} bg-danger text-surface ${FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'keep' })} bg-danger text-surface ${FOCUS_RING}`}
         >
           {text.confirmLabel}
         </button>

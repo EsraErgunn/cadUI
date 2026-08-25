@@ -176,3 +176,24 @@ kopyası — fay sınırı yüzünden değil, dokunulmadığı için; oraya el a
 buraya bağlanmalı.
 
 **Yeni dosyalar:** core/pointSymbolLabel.ts · scene/PointSymbolNameLabels.tsx
+
+## K177–K178: bölme, birleşme ve sürükleme
+
+⚠️ **Duvar bölününce sembol de yeniden dağıtılır** (`applyWallSplit`). Sembol
+açıklıkla aynı modelde duruyor (`wallId` + `offsetCm`); dağıtılmazsa kısalmış
+parçada kalır ve `getWallFrameAtOffsetCm`'in offset kırpması onu bölme
+NOKTASINA ışınlar. Dağıtım dört şeyi birlikte yapar: parçalar, oda duvar
+kümesi, açıklıklar, semboller.
+
+⚠️ **Bağlanma sürükleme SIRASINDA çözülür.** `SymbolDrag` öteleme değil HEDEF
+NOKTA taşır (`targetCm`); önizleme de yazım da aynı noktadan
+`resolveSymbolAttachment` geçer. Öteleme taşındığında cihaz sürüklenirken
+duvardan kopup havada duruyor, ancak bırakılınca geri sıçrıyordu — ayrıca
+önizleme ızgaraya yapışık noktayı, yazım ham imleç noktasını kullandığı için
+görülen yer ile yazılan yer ayrışıyordu.
+
+⚠️ **Duvar BİRLEŞİNCE de sembol taşınır** (`mergeWallsAtJoint`, K178). Açıklık ve
+sembol aynı `remapToWinner` fonksiyonundan geçiyor — tek dönüşüm, iki tüketici.
+Taşınmadığında kaybeden duvardaki cihaz ölü bir `wallId`'ye bakıp çizilemez
+oluyor (ekrandan kayboluyor ama JSON'da sahipsiz kalıyor), kazanandaki cihaz ise
+p1 değiştiği için sessizce yer değiştiriyordu.

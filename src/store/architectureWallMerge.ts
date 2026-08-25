@@ -135,25 +135,41 @@ export function mergeWallsAtJoint(
   const isWinnerP1AtJoint = winner.p1Id === joint.id
   const isLoserP1AtJoint = loser.p1Id === joint.id
 
-  for (const opening of draft.openings) {
-    if (opening.wallId === loser.id) {
+  /**
+   * Duvara bağlı bir nesnenin birleşme sonrası yeni duvarı ve offset'i.
+   *
+   * ⚠️ Açıklık ile duvara bağlı SEMBOL aynı modelde duruyor (wallId + offsetCm,
+   * K9), dolayısıyla aynı dönüşümden geçmek ZORUNDALAR. Yalnız açıklık
+   * taşınıyordu ve kaybeden duvardaki cihaz sahipsiz kalıp çizilemez oluyordu
+   * (K178, kullanıcı bildirimi: "birleştirdiğim duvarlardaki cihazlar yok
+   * oluyor"). İki ayrı kopya yazılsaydı biri zamanla yine ayrışırdı — bölmede
+   * tam bu olmuştu (K177).
+   */
+  const remapToWinner = (attached: { wallId: Id; offsetCm: number }) => {
+    if (attached.wallId === loser.id) {
       // Kaybendeki offset kendi p1'inden; önce EKLEME olan uzaklığa çevir.
       const fromJointCm = isLoserP1AtJoint
-        ? opening.offsetCm
-        : loserLengthCm - opening.offsetCm
-      opening.wallId = winner.id
+        ? attached.offsetCm
+        : loserLengthCm - attached.offsetCm
+      attached.wallId = winner.id
       // Birleşik duvarın p1'i: kazananın ucu eklemdeyse kaybedenin uzak ucu,
       // değilse kazananın kendi uzak ucu.
-      opening.offsetCm = isWinnerP1AtJoint
+      attached.offsetCm = isWinnerP1AtJoint
         ? loserLengthCm - fromJointCm
         : winnerLengthCm + fromJointCm
-      continue
+      return
     }
 
-    // Kazananın p1'i eklemdeyse birleşmeyle p1 değişiyor: kendi açıklıkları da kayar.
-    if (opening.wallId === winner.id && isWinnerP1AtJoint) {
-      opening.offsetCm = loserLengthCm + opening.offsetCm
+    // Kazananın p1'i eklemdeyse birleşmeyle p1 değişiyor: kendi nesneleri de kayar.
+    if (attached.wallId === winner.id && isWinnerP1AtJoint) {
+      attached.offsetCm = loserLengthCm + attached.offsetCm
     }
+  }
+
+  for (const opening of draft.openings) remapToWinner(opening)
+  for (const symbol of draft.symbols) {
+    // Serbest sembolün duvarı yok; birleşme onu ilgilendirmiyor.
+    if (symbol.attachment === 'wall') remapToWinner(symbol)
   }
 
   // Kazananın EKLEMDEKİ ucu, kaybedenin uzak ucuna uzatılır.

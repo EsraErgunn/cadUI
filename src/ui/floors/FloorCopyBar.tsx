@@ -4,7 +4,7 @@ import {
   type FloorCopyMode,
   type FloorCopyPlan,
 } from '../../core/floorCopyPlan'
-import { chromeButtonVariants } from '../controls/buttonVariants'
+import { chromeButtonVariants, dialogActionVariants } from '../controls/buttonVariants'
 
 export type FloorCopyIncludes = {
   isArchitectureIncluded: boolean
@@ -109,7 +109,7 @@ export function FloorCopyBar({
         <button
           type="button"
           onClick={onCancel}
-          className={`${chromeButtonVariants()} ${FLOOR_FOCUS_RING}`}
+          className={`${dialogActionVariants({ tone: 'cancel' })} ${FLOOR_FOCUS_RING}`}
         >
           Vazgeç
         </button>
@@ -117,7 +117,8 @@ export function FloorCopyBar({
           type="button"
           onClick={onConfirm}
           disabled={!plan.isRunnable}
-          className={`${chromeButtonVariants({ tone: 'active' })} ${FLOOR_FOCUS_RING}`}
+          // Rengi kullanıcı kararıyla AYNI kaldı; değişen yalnız kalın yazı.
+          className={`${chromeButtonVariants({ tone: 'active' })} font-semibold ${FLOOR_FOCUS_RING}`}
         >
           {plan.targetFloorIds.length} kata kopyala
         </button>
