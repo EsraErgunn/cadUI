@@ -8960,3 +8960,39 @@ kullanıcısına verilen erişim "PDF indirme" olarak tanımlandı; JSON çizimi
 aktarılabilir bir kopyası, kâğıt çıktı değil. "Proje Dosyasını İndir" (PDF)
 açık kaldı. Düğmenin kendisi salt görüntülemede de duruyor — onay o rolün asıl
 işi.
+
+### K158 — Evrak yüklemede desteklenen biçim YALNIZ PDF
+
+Gereksinim 8 yedi biçim sayıyordu (`.jpg .jpeg .png .gif .bmp .pdf .alp`) ve
+Evrak Ekle ekranı yedisini de kabul ediyordu. Sunucu ise yalnız PDF alıyor:
+
+```csharp
+// StarCAD.Business/Validators/DocValidators.cs
+public static readonly string[] AllowedContentTypes = ["application/pdf"];
+// "Desteklenmeyen dosya türü. Yalnızca PDF yüklenebilir."
+```
+
+Sonuç: kullanıcı PNG seçebiliyor, satır listeye giriyor, "Kaydet"e basınca
+sunucudan hata dönüyordu. Seçim en baştan boşunaydı ve hata ancak formun sonunda
+görünüyordu.
+
+**Karar: istemci listesi SUNUCUYA daraltıldı.** `ACCEPTED_DOCUMENT_EXTENSIONS`
+tek elemanlı (`.pdf`), `<input accept>` hem MIME hem uzantı yazıyor
+(`application/pdf,.pdf` — bazı işletim sistemlerinde seçici yalnız birini
+dikkate alıyor), reddetme metni sunucununkiyle BİREBİR aynı:
+"Yalnızca PDF yüklenebilir."
+
+⚠️ **Gereksinim 8 artık KARŞILANMIYOR** ve bu bilinçli. Alternatif, ekranda
+kabul edilip sunucuda reddedilen dosyalar bırakmaktı; kullanıcıya yapabileceğini
+sandığı bir şeyi vaat etmek, yapamayacağını baştan söylemekten kötü. Biçim
+desteği iş tarafından isteniyorsa BACKEND'e eklenmeli — o gün yalnız bu dizi
+büyür, `accept`, ipucu metni ve doğrulama ondan türüyor.
+
+⚠️ Boyut sınırı 10 MB KALDI. Sunucu 20 MB'a izin veriyor (`MaxSizeBytes`); iki
+sınırın farklı olması sorun değil, istemcinin daha sıkı olması yalnız erken
+uyarı demek. Gereksinimdeki sayı 10.
+
+⚠️ Denetim UZANTIDAN yapılıyor, MIME'dan değil: tarayıcı `File.type`'ı bazı
+dosyalarda boş bırakıyor ve MIME'a bakan bir kontrol geçerli bir PDF'i
+reddedebilirdi. Sunucu kendi denetimini `ContentType` üzerinden yapıyor —
+istemcideki kontrol onun yerine geçmiyor, erken haber veriyor.
