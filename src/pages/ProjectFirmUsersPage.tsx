@@ -1,8 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus } from 'lucide-react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 
 import { getProjectFirmUserList } from '../api/projectFirmUsers'
+import { deleteUser } from '../api/users'
+import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { EmptyState } from '../ui/admin/EmptyState'
 import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
@@ -15,13 +18,14 @@ import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH, PROJECT_FIRM_USER_CREATE_PATH } from '../ui/admin/adminNavItems'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import {
-  PROJECT_FIRM_USER_COLUMNS,
   PROJECT_FIRM_USER_TABLE_CAPTION,
   PROJECT_FIRM_USER_TABLE_MIN_WIDTH,
+  buildProjectFirmUserColumns,
 } from '../ui/admin/projectFirmUsers/projectFirmUserColumns'
 import { useProjectFirmUserListParams } from '../ui/admin/projectFirmUsers/useProjectFirmUserListParams'
 import { useSavedProjectFirmUserNotice } from '../ui/admin/projectFirmUsers/useSavedProjectFirmUserNotice'
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
+import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Proje Firması Kullanıcıları'
 
@@ -35,6 +39,21 @@ const BREADCRUMB = [
 
 /** Belge KK-7, birebir. */
 const NO_RESULT_MESSAGE = 'Arama kriterlerine uygun kayıt bulunamadı.'
+
+const DELETE_MESSAGES = {
+  success: 'Kullanıcı silindi.',
+  // Uç YOK: "hata" değil, "burada yapılamaz". Sunucu tarafı açılınca bu kol
+  // hiç çalışmayacak.
+  unavailable: 'Kullanıcı silme ucu sunucuda henüz yok; kayıt silinmedi.',
+  error: 'Kullanıcı silinemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+} as const
+
+const DELETE_DIALOG = {
+  title: 'Kullanıcı silinsin mi?',
+  description: 'Kullanıcı listeden kaldırılacak ve erişimi sonlanacak.',
+  confirmLabel: 'Sil',
+} as const
+
 
 /**
  * Şeritte sayılan bölüm. Satırların FİRMA sütunları gerçek uçlardan geliyor,
@@ -53,6 +72,7 @@ export function ProjectFirmUsersPage() {
   // Yalnız GÖRÜNÜRLÜK: kullanıcı oluşturma `POST /api/auth/register` ile
   // yapılıyor ve o uç sunucuda `[Authorize(Roles = Admin)]`.
   const isAdmin = useIsAdmin()
+  const queryClient = useQueryClient()
 
   // Sorgu `queryKey`'in PARÇASI: sayfalama ve süzme sunucuda, her kriter
   // değişimi yeni bir sayfa isteği demek (KK-12). Kriterler "Filtrele" ile
@@ -61,6 +81,24 @@ export function ProjectFirmUsersPage() {
     queryKey: ['projectFirmUserList', query],
     queryFn: ({ signal }) => getProjectFirmUserList(query, signal),
   })
+
+  const deletion = useRowDelete({
+    remove: (userId) => deleteUser(userId),
+    messages: DELETE_MESSAGES,
+    onDeleted: () => {
+      void queryClient.invalidateQueries({ queryKey: ['projectFirmUserList'] })
+    },
+  })
+
+  const columns = useMemo(
+    () =>
+      buildProjectFirmUserColumns({
+        canDelete: isAdmin,
+        pendingUserId: deletion.pendingId,
+        onDelete: deletion.request,
+      }),
+    [isAdmin, deletion.pendingId, deletion.request],
+  )
 
   // Üretim derlemesinde sahte kullanıcı HİÇ üretilmiyor (K51): tablo yerine
   // bölümün sunucuya bağlı olmadığını söyleyen kutu çıkar.
@@ -71,6 +109,14 @@ export function ProjectFirmUsersPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+      {deletion.notice !== null && (
+        <NoticeBar
+          tone={deletion.notice.tone}
+          message={deletion.notice.message}
+          onDismiss={deletion.dismissNotice}
+        />
+      )}
+
       {savedNotice !== null && (
         <NoticeBar
           tone={savedNotice.tone}
@@ -126,7 +172,7 @@ export function ProjectFirmUsersPage() {
             <>
               <DataTable
                 rows={data.items}
-                columns={PROJECT_FIRM_USER_COLUMNS}
+                columns={columns}
                 rowKey={(row) => row.id}
                 caption={PROJECT_FIRM_USER_TABLE_CAPTION}
                 minWidthClassName={PROJECT_FIRM_USER_TABLE_MIN_WIDTH}
@@ -141,6 +187,18 @@ export function ProjectFirmUsersPage() {
             </>
           )}
         </>
+      )}
+
+      {deletion.targetId !== null && (
+        <ConfirmDialog
+          title={DELETE_DIALOG.title}
+          description={DELETE_DIALOG.description}
+          confirmLabel={DELETE_DIALOG.confirmLabel}
+          confirmTone="danger"
+          isPending={deletion.pendingId !== null}
+          onConfirm={() => void deletion.confirm()}
+          onCancel={deletion.cancel}
+        />
       )}
     </div>
   )

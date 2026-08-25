@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -8,8 +8,11 @@ import {
   listGasDistributionUsers,
   type GasDistributionUserQuery,
 } from '../api/gasDistributionUsers'
+import { deleteUser } from '../api/users'
+import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { MissingSourceNotice } from '../ui/admin/MissingSourceNotice'
+import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
@@ -18,11 +21,12 @@ import { ADMIN_HOME_PATH, GAS_DISTRIBUTION_USER_CREATE_PATH } from '../ui/admin/
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../ui/admin/adminUrlParams'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import {
-  GAS_DISTRIBUTION_USER_COLUMNS,
+  buildGasDistributionUserColumns,
   GAS_DISTRIBUTION_USER_TABLE_CAPTION,
   GAS_DISTRIBUTION_USER_TABLE_MIN_WIDTH,
 } from '../ui/admin/gasDistributionUsers/gasDistributionUserColumns'
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
+import { useRowDelete } from '../ui/admin/useRowDelete'
 
 const PAGE_TITLE = 'Gaz Dağıtım Kullanıcıları'
 
@@ -60,11 +64,25 @@ function useGasDistributionUserListParams() {
   return { query, setPage }
 }
 
+const DELETE_MESSAGES = {
+  success: 'Kullanıcı silindi.',
+  // Uç YOK: "hata" değil, "burada yapılamaz".
+  unavailable: 'Kullanıcı silme ucu sunucuda henüz yok; kayıt silinmedi.',
+  error: 'Kullanıcı silinemedi. Bağlantınızı kontrol edip tekrar deneyin.',
+} as const
+
+const DELETE_DIALOG = {
+  title: 'Kullanıcı silinsin mi?',
+  description: 'Kullanıcı listeden kaldırılacak ve erişimi sonlanacak.',
+  confirmLabel: 'Sil',
+} as const
+
 export function GasDistributionUsersPage() {
   const { query, setPage } = useGasDistributionUserListParams()
   // Yalnız GÖRÜNÜRLÜK kararı: `POST /api/auth/register` zaten Admin rolüne açık
   // ve denetim sunucuda (useIsAdmin).
   const isAdmin = useIsAdmin()
+  const queryClient = useQueryClient()
 
   const { data: sourced, isPending, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['gasDistributionUsers', query],
@@ -77,6 +95,24 @@ export function GasDistributionUsersPage() {
   // çıkar (K51): sahte satır üretmek, bir demoda gerçek sanılırdı.
   const isSourceMissing = sourced?.source === 'unavailable'
   const data = isSourceMissing ? undefined : sourced?.data
+
+  const deletion = useRowDelete({
+    remove: (userId) => deleteUser(userId),
+    messages: DELETE_MESSAGES,
+    onDeleted: () => {
+      void queryClient.invalidateQueries({ queryKey: ['gasDistributionUsers'] })
+    },
+  })
+
+  const columns = useMemo(
+    () =>
+      buildGasDistributionUserColumns({
+        canDelete: isAdmin,
+        pendingUserId: deletion.pendingId,
+        onDelete: deletion.request,
+      }),
+    [isAdmin, deletion.pendingId, deletion.request],
+  )
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
@@ -98,6 +134,14 @@ export function GasDistributionUsersPage() {
         )}
       </div>
 
+      {deletion.notice !== null && (
+        <NoticeBar
+          tone={deletion.notice.tone}
+          message={deletion.notice.message}
+          onDismiss={deletion.dismissNotice}
+        />
+      )}
+
       {isPending && <QueryLoading message="Kullanıcılar yükleniyor…" />}
 
       {isError && (
@@ -110,7 +154,7 @@ export function GasDistributionUsersPage() {
         <StaleContent isStale={isPlaceholderData}>
           <DataTable
             rows={data.items}
-            columns={GAS_DISTRIBUTION_USER_COLUMNS}
+            columns={columns}
             rowKey={(row) => row.id}
             caption={GAS_DISTRIBUTION_USER_TABLE_CAPTION}
             minWidthClassName={GAS_DISTRIBUTION_USER_TABLE_MIN_WIDTH}
@@ -126,6 +170,18 @@ export function GasDistributionUsersPage() {
             />
           )}
         </StaleContent>
+      )}
+
+      {deletion.targetId !== null && (
+        <ConfirmDialog
+          title={DELETE_DIALOG.title}
+          description={DELETE_DIALOG.description}
+          confirmLabel={DELETE_DIALOG.confirmLabel}
+          confirmTone="danger"
+          isPending={deletion.pendingId !== null}
+          onConfirm={() => void deletion.confirm()}
+          onCancel={deletion.cancel}
+        />
       )}
     </div>
   )

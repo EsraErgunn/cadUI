@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -140,5 +141,36 @@ describe('yeni kullanıcı girişi', () => {
 
     await screen.findByRole('table')
     expect(screen.queryByRole('link', { name: /Yeni Kullanıcı/ })).not.toBeInTheDocument()
+  })
+})
+
+/** Silme ucu HENÜZ YOK; sahte başarı yerine sebebi söyleniyor (gaz dağıtım
+    kullanıcıları ekranındaki desenin aynısı). */
+describe('kullanıcı silme', () => {
+  it('yöneticiye satır başına "Sil" gösterir', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getAllByRole('button', { name: 'Sil' }).length).toBeGreaterThan(0)
+  })
+
+  it('yönetici olmayanda eylem sütunu hiç üretilmez', async () => {
+    renderPage({ isAdmin: false })
+
+    const table = await screen.findByRole('table')
+    expect(within(table).queryByRole('button', { name: 'Sil' })).not.toBeInTheDocument()
+  })
+
+  it('onaylanınca ucun olmadığını söyler', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getAllByRole('button', { name: 'Sil' })[0])
+
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Sil' }))
+
+    expect(await screen.findByText(/silme ucu sunucuda henüz yok/)).toBeInTheDocument()
   })
 })
