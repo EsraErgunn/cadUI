@@ -370,6 +370,8 @@ export async function getProjectDocuments(
       sizeBytes: document.sizeBytes,
       uploadedByName: document.uploadedByName,
       receivedAt: document.receivedAt,
+      unitIds: document.unitIds,
+      unitNames: document.unitNames,
     })),
   )
 }

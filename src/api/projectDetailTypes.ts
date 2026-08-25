@@ -233,6 +233,13 @@ export interface ProjectDocumentRow {
   sizeBytes: number | null
   uploadedByName: string | null
   receivedAt: string | null
+  /**
+   * Evrağın bağlı olduğu birimler. Proje detayındaki sekme bağı
+   * DEĞİŞTİREBİLİYOR; eski bağı koparmak için kimlik, hücreyi yazmak için ad
+   * gerekiyor.
+   */
+  unitIds: number[]
+  unitNames: string[]
 }
 
 /**

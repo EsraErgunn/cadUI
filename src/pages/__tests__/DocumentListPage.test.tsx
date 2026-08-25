@@ -42,6 +42,7 @@ function buildDocument(overrides: Partial<DocumentRow> = {}): DocumentRow {
     docTypeName: 'Müşteri Sözleşmesi',
     receivedAt: TODAY,
     unitNames: ['Kolon', 'DMUST'],
+    unitIds: [71, 72],
     projectId: 4,
     projectName: 'Çınar Sitesi',
     projectPId: '200011555',

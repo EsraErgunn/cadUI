@@ -13,11 +13,21 @@ const detailApi = vi.hoisted(() => ({
   getProjectDocuments: vi.fn(),
   getProjectPolicies: vi.fn(),
 }))
+const documentsApi = vi.hoisted(() => ({
+  deleteDocument: vi.fn(),
+  linkDocumentToUnit: vi.fn(),
+  unlinkDocumentFromUnit: vi.fn(),
+}))
 const canApprove = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/projectDetail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/projectDetail')>()),
   ...detailApi,
+}))
+
+vi.mock('../../api/documents', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/documents')>()),
+  ...documentsApi,
 }))
 
 vi.mock('../../ui/admin/useCanApproveProject', () => ({ useCanApproveProject: canApprove }))
@@ -61,6 +71,8 @@ describe('evrak sekmesi (KK-9)', () => {
           sizeBytes: 2048,
           uploadedByName: 'AHMET AKBAYIR',
           receivedAt: '2026-07-10T11:28:28.000Z',
+          unitIds: [71],
+          unitNames: ['D20'],
         },
       ]),
     )
@@ -75,14 +87,86 @@ describe('evrak sekmesi (KK-9)', () => {
     expect(screen.queryByText(/Projeye ait döküman bulunamamıştır\./)).not.toBeInTheDocument()
   })
 
-  it('Evrak Ekle düğmesi ilgili ekrana yönlendirir', async () => {
+  /**
+   * Sekme SALT DÜZENLEME: yükleme kendi ekranında, çünkü orada evrak tipi ve
+   * birim birlikte alınıyor. Buradan yeni evrak eklenemez.
+   */
+  it('yükleme kısayolu ÇİZİLMEZ', async () => {
+    detailApi.getProjectDocuments.mockResolvedValue(
+      asMock([
+        {
+          id: 7,
+          fileName: 'ruhsat.pdf',
+          docType: 'Ruhsat',
+          sizeBytes: 2048,
+          uploadedByName: 'AHMET AKBAYIR',
+          receivedAt: '2026-07-10T11:28:28.000Z',
+          unitIds: [71],
+          unitNames: ['D20'],
+        },
+      ]),
+    )
+
     const user = userEvent.setup()
     renderDetail()
-
     await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
-    await user.click(await screen.findByRole('link', { name: /Evrak Ekle/ }))
+    await screen.findByRole('table', { name: /yüklenmiş evraklar/ })
 
-    expect(await screen.findByRole('heading', { name: 'Evrak Ekle' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Evrak Ekle/ })).not.toBeInTheDocument()
+  })
+
+  it('satırda silme ve birim değiştirme eylemleri bulunur', async () => {
+    detailApi.getProjectDocuments.mockResolvedValue(
+      asMock([
+        {
+          id: 7,
+          fileName: 'ruhsat.pdf',
+          docType: 'Ruhsat',
+          sizeBytes: 2048,
+          uploadedByName: 'AHMET AKBAYIR',
+          receivedAt: '2026-07-10T11:28:28.000Z',
+          unitIds: [71],
+          unitNames: ['D20'],
+        },
+      ]),
+    )
+
+    const user = userEvent.setup()
+    renderDetail()
+    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
+
+    const table = await screen.findByRole('table', { name: /yüklenmiş evraklar/ })
+    // Bağlı birim hücrede görünüyor.
+    expect(within(table).getByText('D20')).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Sil' })).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Birim Değiştir' })).toBeInTheDocument()
+  })
+
+  it('"Sil" önce onay sorar', async () => {
+    detailApi.getProjectDocuments.mockResolvedValue(
+      asMock([
+        {
+          id: 7,
+          fileName: 'ruhsat.pdf',
+          docType: 'Ruhsat',
+          sizeBytes: 2048,
+          uploadedByName: 'AHMET AKBAYIR',
+          receivedAt: '2026-07-10T11:28:28.000Z',
+          unitIds: [71],
+          unitNames: ['D20'],
+        },
+      ]),
+    )
+
+    const user = userEvent.setup()
+    renderDetail()
+    await user.click(await screen.findByRole('tab', { name: 'Proje Evrakları' }))
+
+    const table = await screen.findByRole('table', { name: /yüklenmiş evraklar/ })
+    await user.click(within(table).getByRole('button', { name: 'Sil' }))
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Evrak silinsin mi?')
+    expect(documentsApi.deleteDocument).not.toHaveBeenCalled()
   })
 })
 
@@ -139,7 +223,7 @@ describe('poliçe sekmesi (KK-9)', () => {
  * `Authorize(Roles = Admin, ProjectFirmUser)`.
  */
 describe('proje detayı — gaz dağıtım kullanıcısı', () => {
-  it('evrak sekmesinde "Evrak Ekle" kısayolunu göstermez', async () => {
+  it('evrak sekmesinde düzenleme eylemlerini göstermez', async () => {
     const user = userEvent.setup()
     renderDetail(undefined, ROLE_CODES.gasDistributionUser)
 
