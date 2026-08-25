@@ -58,10 +58,15 @@ describe('buildScopeOptionGroups', () => {
     expect(enerya?.firmOptions.map((option) => option.label)).toEqual(['ENERYA-Aydın'])
   })
 
-  it('grubun kendisi de seçilebilir bir satır üretir', () => {
+  /**
+   * Etiket YALIN ad. Bir süre "(tümü)" ekleniyordu ve satır `<optgroup>`
+   * başlığının hemen altında duruyordu: kullanıcı aynı şeyin iki kez yazıldığını
+   * sanıyordu. Başlık kalktı, grup kendi satırıyla temsil ediliyor.
+   */
+  it('grubun kendisi seçilebilir bir satır üretir, etiketi yalın addır', () => {
     const aksa = buildScopeOptionGroups(GROUPS, FIRMS)[0]
 
-    expect(aksa.groupOption).toEqual({ value: 'group:1', label: 'AKSA (tümü)' })
+    expect(aksa.groupOption).toEqual({ value: 'group:1', label: 'AKSA' })
   })
 
   /** Elenselerdi o firmaların kapsamı arayüzden HİÇ seçilemezdi. */

@@ -59,9 +59,13 @@ describe('AdminSidebar', () => {
   it('her madde bağlantıdır, pasif düğme kalmadı', () => {
     renderSidebar()
 
+    // Alt maddeler de sayılıyor: "Gaz Dağıtım Kullanıcıları" artık firmaların
+    // ALTINDA çiziliyor ama yine bir bağlantı.
+    const allItems = ADMIN_NAV_ITEMS.flatMap((item) => [item, ...(item.children ?? [])])
+
     // +1: StarCAD logosu da artık rolün anasayfasına giden bir bağlantı.
-    expect(screen.getAllByRole('link')).toHaveLength(ADMIN_NAV_ITEMS.length + 1)
-    for (const item of ADMIN_NAV_ITEMS) {
+    expect(screen.getAllByRole('link')).toHaveLength(allItems.length + 1)
+    for (const item of allItems) {
       expect(screen.getByRole('link', { name: new RegExp(item.label) })).toBeInTheDocument()
     }
   })
