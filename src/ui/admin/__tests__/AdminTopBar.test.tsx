@@ -90,46 +90,65 @@ afterEach(() => {
   localStorage.clear()
 })
 
+/** Seçenekleri DOM sırasıyla `[etiket, değer]` olarak okur; girinti kırpılır. */
+function readScopeOptions(): [string, string][] {
+  return [...document.querySelectorAll('#admin-scope option')].map((node) => [
+    (node.textContent ?? '').trim(),
+    node.getAttribute('value') ?? '',
+  ])
+}
+
 describe('AdminTopBar kapsam seçicisi', () => {
   it('grupları ve firmalarını hiyerarşik listeler', async () => {
     renderTopBar(GAS_DISTRIBUTION_FIRMS_PATH)
 
-    expect(await screen.findByRole('option', { name: 'AKSA (tümü)' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'AKSA' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AKSA-Ankara' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Sistem geneli' })).toBeInTheDocument()
+  })
+
+  /**
+   * Grup için AYRI bir "(tümü)" satırı YOK. Bir süre `<optgroup>` başlığı ile
+   * onun hemen altındaki "AKSA (tümü)" satırı yan yana duruyordu ve aynı şeyin
+   * iki kez yazıldığı izlenimi veriyordu. Grup artık tek satır ve o satır
+   * grubun tamamını seçiyor.
+   */
+  it('grup için ayrı bir "(tümü)" satırı çizmez', async () => {
+    renderTopBar(GAS_DISTRIBUTION_FIRMS_PATH)
+    await screen.findByRole('option', { name: 'AKSA' })
+
+    expect(readScopeOptions().some(([label]) => label.includes('tümü'))).toBe(false)
+    // Grup satırı hâlâ SEÇİLEBİLİR: kapsamın tamamı erişilebilir kalmalı.
+    expect(screen.getByRole('option', { name: 'AKSA' })).toHaveValue('group:1')
   })
 
   // Firma KENDİ grubunun altında görünmeli; başka grubun altına düşerse kapsam
   // seçimi kullanıcıya yanlış hiyerarşi gösterir.
   it('firmayı kendi grubunun altına koyar', async () => {
     renderTopBar(GAS_DISTRIBUTION_FIRMS_PATH)
-    const firmOption = await screen.findByRole('option', { name: 'ENERYA-Aydın' })
+    await screen.findByRole('option', { name: 'ENERYA' })
 
-    expect(firmOption.closest('optgroup')).toHaveAttribute('label', 'ENERYA')
+    const labels = readScopeOptions().map(([label]) => label)
+    expect(labels.indexOf('ENERYA-Aydın')).toBe(labels.indexOf('ENERYA') + 1)
   })
 
   // Sunucu Türkçe sıralamıyor: hem gruplar hem her grubun firmaları istemcide sıralanır.
   it('grupları ve firmaları Türkçe alfabeye göre sıralar', async () => {
     renderTopBar(GAS_DISTRIBUTION_FIRMS_PATH)
-    await screen.findByRole('option', { name: 'AKSA (tümü)' })
+    await screen.findByRole('option', { name: 'AKSA' })
 
-    const groupLabels = [...document.querySelectorAll('optgroup')].map((node) =>
-      node.getAttribute('label'),
-    )
-    expect(groupLabels).toEqual(['AKSA', 'ÇEDAŞ', 'ENERYA', 'Grubu olmayan firmalar'])
-
-    const aksaFirms = [...(document.querySelector('optgroup[label="AKSA"]')?.children ?? [])]
-      .map((node) => node.textContent)
-      .slice(1)
-    expect(aksaFirms).toEqual(['AKSA-Ankara', 'AKSA-Denizli'])
+    const labels = readScopeOptions().map(([label]) => label)
+    expect(labels.slice(0, 4)).toEqual(['Sistem geneli', 'AKSA', 'AKSA-Ankara', 'AKSA-Denizli'])
+    expect(labels.indexOf('AKSA')).toBeLessThan(labels.indexOf('ÇEDAŞ'))
+    expect(labels.indexOf('ÇEDAŞ')).toBeLessThan(labels.indexOf('ENERYA'))
   })
 
   // Kapsamın sahibi URL: bağlantı paylaşılınca seçim de gitsin.
   it('grup seçimini group anahtarına yazar', async () => {
     renderTopBar(GAS_DISTRIBUTION_FIRMS_PATH)
-    await screen.findByRole('option', { name: 'ENERYA (tümü)' })
+    await screen.findByRole('option', { name: 'ENERYA' })
 
-    await userEvent.selectOptions(screen.getByLabelText('Kapsam'), 'ENERYA (tümü)')
+    await userEvent.selectOptions(screen.getByLabelText('Kapsam'), 'group:2')
 
     expect(screen.getByTestId('search')).toHaveTextContent('group=2')
     expect(screen.getByTestId('search')).not.toHaveTextContent('gdfirm=')
@@ -140,7 +159,7 @@ describe('AdminTopBar kapsam seçicisi', () => {
     renderTopBar(`${GAS_DISTRIBUTION_FIRMS_PATH}?group=1`)
     await screen.findByRole('option', { name: 'AKSA-Ankara' })
 
-    await userEvent.selectOptions(screen.getByLabelText('Kapsam'), 'AKSA-Ankara')
+    await userEvent.selectOptions(screen.getByLabelText('Kapsam'), 'firm:20')
 
     expect(screen.getByTestId('search')).toHaveTextContent('gdfirm=20')
     expect(screen.getByTestId('search')).not.toHaveTextContent('group=')
@@ -150,13 +169,14 @@ describe('AdminTopBar kapsam seçicisi', () => {
     renderTopBar(`${GAS_DISTRIBUTION_FIRMS_PATH}?gdfirm=20`)
     await screen.findByRole('option', { name: 'AKSA-Ankara' })
 
-    await userEvent.selectOptions(screen.getByLabelText('Kapsam'), 'Sistem geneli')
+    await userEvent.selectOptions(screen.getByLabelText('Kapsam'), '')
 
     expect(screen.getByTestId('search')).not.toHaveTextContent('gdfirm=')
     expect(screen.getByTestId('search')).not.toHaveTextContent('group=')
   })
 
-  // Grubu olmayan firma elenirse kapsamı arayüzden hiç seçilemez.
+  // Grubu olmayan firma elenirse kapsamı arayüzden hiç seçilemez. Onun başlığı
+  // `<optgroup>` olarak KALIYOR: seçilebilecek bir grup kapsamı yok.
   it('grubu olmayan firmayı ayrı başlık altında gösterir', async () => {
     renderTopBar(GAS_DISTRIBUTION_FIRMS_PATH)
     const firmOption = await screen.findByRole('option', { name: 'Bağımsız Gaz' })
@@ -169,16 +189,11 @@ describe('AdminTopBar kapsam seçicisi', () => {
     renderTopBar(PROJECT_FIRMS_PATH)
 
     expect(screen.getByLabelText('Kapsam')).toBeEnabled()
-    expect(await screen.findByRole('option', { name: 'AKSA (tümü)' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'AKSA' })).toBeInTheDocument()
   })
 
 })
 
-/**
- * Çıkış eylemi. Yönlendirme burada elle YAPILMIYOR: oturum düşünce
- * `RequireAuth` girişe götürüyor (`app/RequireAuth.tsx`) — bu testler o zinciri
- * uçtan uca sınıyor, yalnız düğmenin tıklanabilirliğini değil.
- */
 describe('AdminTopBar oturum sonlandırma', () => {
   /** Üst barı gerçek koruma zinciriyle basar; adres çubuğu `LocationProbe`'ta. */
   function renderProtectedTopBar(session = ADMIN_SESSION) {
