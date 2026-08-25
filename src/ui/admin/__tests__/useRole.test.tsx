@@ -71,19 +71,22 @@ describe('getNavItemsForRole', () => {
     expect(keys).toEqual(['firmHome', 'projects', 'documents', 'policies'])
   })
 
-  it('yöneticiye sekiz maddenin hepsini verir', () => {
-    const keys = getNavItemsForRole(ROLE_CODES.admin).map((item) => item.key)
+  /** "Gaz Dağıtım Kullanıcıları" ÜST SEVİYEDE değil, firmaların ALTINDA. */
+  it('yöneticiye yedi üst seviye madde ve bir alt madde verir', () => {
+    const items = getNavItemsForRole(ROLE_CODES.admin)
 
-    expect(keys).toEqual([
+    expect(items.map((item) => item.key)).toEqual([
       'home',
       'projects',
       'gasDistributionFirms',
       'projectFirms',
       'projectFirmUsers',
-      'gasDistributionUsers',
       'documents',
       'policies',
     ])
+    expect(
+      items.find((item) => item.key === 'gasDistributionFirms')?.children?.map((c) => c.key),
+    ).toEqual(['gasDistributionUsers'])
   })
 
   /**
