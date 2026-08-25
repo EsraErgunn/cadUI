@@ -79,6 +79,16 @@ gösteriliyor.
 **Yöntem adımı** arayüzde duruyor (gereksinim 15, tek seçenek) ama değeri
 gövdeye GİRMİYOR ve API tipinde yeri yok — UI-only bilgi.
 
+### Dolu birim sihirbazda seçilemez
+
+Sunucu ihlali ancak `POST` sırasında söyleyebildiği için sihirbaz projenin
+mevcut poliçelerini önden okuyor (`GET /api/policies?ProjectId=`, proje
+detayının sekmesiyle ORTAK önbellek anahtarı) ve poliçesi olan birimi
+**seçilemez** hâlde listeliyor. Birim gizlenmiyor: kullanıcı onu görüp neden
+seçemediğini okuyor. Üç ayrı ipucu var — birim yok / hepsi dolu / bir kısmı
+dolu. Bu, 400'ün yerine geçmiyor; yarış hâlinde sunucu yine reddediyor ve
+mesajı gösteriliyor.
+
 Yetki: `POST`/`PUT`/`DELETE` yalnız `Admin` + `ProjectFirmUser`.
 
 ### Kayıt davranışı (koddan doğrulandı)
