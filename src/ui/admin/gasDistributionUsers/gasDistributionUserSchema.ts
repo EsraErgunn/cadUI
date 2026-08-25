@@ -66,7 +66,7 @@ function requiredText(message: string) {
   return z.string().refine((value) => value.trim() !== '', { message })
 }
 
-const gasDistributionUserSchema = z.object({
+const baseFields = {
   email: requiredText(GAS_DISTRIBUTION_USER_ERRORS.email).refine(
     (value) => EMAIL_PATTERN.test(value.trim()),
     { message: GAS_DISTRIBUTION_USER_ERRORS.emailInvalid },
@@ -77,11 +77,27 @@ const gasDistributionUserSchema = z.object({
     message: GAS_DISTRIBUTION_USER_ERRORS.phoneInvalid,
   }),
   fullName: requiredText(GAS_DISTRIBUTION_USER_ERRORS.fullName),
+  gasFirmId: requiredText(GAS_DISTRIBUTION_USER_ERRORS.gasFirm),
+}
+
+const gasDistributionUserSchema = z.object({
+  ...baseFields,
   username: requiredText(GAS_DISTRIBUTION_USER_ERRORS.username),
   password: requiredText(GAS_DISTRIBUTION_USER_ERRORS.password).refine(isStrongPassword, {
     message: GAS_DISTRIBUTION_USER_ERRORS.passwordRule,
   }),
-  gasFirmId: requiredText(GAS_DISTRIBUTION_USER_ERRORS.gasFirm),
+})
+
+/**
+ * GÜNCELLEME şeması: kullanıcı adı ve şifre DENETLENMEZ çünkü sunucu ikisini de
+ * güncellemiyor (`UserUpdateDto`) ve alanlar formda çizilmiyor. Zorunlu
+ * tutulsalardı, kullanıcının dokunamadığı boş bir şifre alanı kaydı
+ * engellerdi.
+ */
+const gasDistributionUserUpdateSchema = z.object({
+  ...baseFields,
+  username: z.string(),
+  password: z.string(),
 })
 
 /** Yapısal tip: zod sürümleri arasında değişen `ZodIssue` adına bağlanmamak için. */
@@ -120,8 +136,11 @@ export interface GasDistributionUserValidation {
 
 export function validateGasDistributionUser(
   values: GasDistributionUserFormValues,
+  options: { isUpdate?: boolean } = {},
 ): GasDistributionUserValidation {
-  const result = gasDistributionUserSchema.safeParse(values)
+  const schema =
+    options.isUpdate === true ? gasDistributionUserUpdateSchema : gasDistributionUserSchema
+  const result = schema.safeParse(values)
   if (result.success) return { errors: {}, data: result.data }
 
   return { errors: collectErrors(result.error.issues), data: null }

@@ -105,8 +105,21 @@ export function projectFirmUserUpdatePath(userId: number): string {
  */
 export const GAS_DISTRIBUTION_USERS_PATH = `${ADMIN_HOME_PATH}/gas-distribution-users`
 
-/** Yeni gaz dağıtım kullanıcısı ekranı; güncelleme rotası YOK (uç yetmiyor). */
 export const GAS_DISTRIBUTION_USER_CREATE_PATH = `${GAS_DISTRIBUTION_USERS_PATH}/new`
+
+/**
+ * Oluşturma ile AYNI ekran; kimlik varsa form güncelleme modunda açılır —
+ * proje firması kullanıcılarındaki desen (KK-25).
+ *
+ * Bir süre güncelleme rotası YOKTU: gerekçe "liste satırı rol/firma bağını
+ * taşımıyor, yarım bir form sunucudaki dolu alanları silerdi" idi. O engel
+ * kalktı — kayıt `GET /api/users/{id}` ile TAM okunuyor ve gövde
+ * `toUserPayload` ile okunan kayıttan türetiliyor, yani düzenlenmeyen alanlar
+ * olduğu gibi geri gidiyor.
+ */
+export function gasDistributionUserUpdatePath(userId: number): string {
+  return `${GAS_DISTRIBUTION_USERS_PATH}/${userId}`
+}
 
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`

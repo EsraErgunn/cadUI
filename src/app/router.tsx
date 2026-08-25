@@ -300,6 +300,12 @@ const router = createBrowserRouter(
             path={GAS_DISTRIBUTION_USER_CREATE_PATH}
             element={<GasDistributionUserFormPage />}
           />
+          {/* Statik `/new` dinamik kardeşinden ÖNCE yazılı: react-router statik
+              parçayı zaten önceliyor ama sıra okunurluğu koruyor. */}
+          <Route
+            path={`${GAS_DISTRIBUTION_USERS_PATH}/:userId`}
+            element={<GasDistributionUserFormPage />}
+          />
         </Route>
 
         {/* Buradan aşağısı rol kapısının DIŞINDA: üç kullanıcı tipinin de
