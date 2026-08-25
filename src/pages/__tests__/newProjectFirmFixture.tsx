@@ -73,7 +73,12 @@ export interface RenderOptions {
 }
 
 export function renderNewProjectFirmPage(
-  mocks: { form: ProjectFirmFormMocks; lookups: ProjectFirmLookupMocks },
+  mocks: {
+    form: ProjectFirmFormMocks
+    lookups: ProjectFirmLookupMocks
+    /** Verilmezse test kendi istemcisini kurar; verilirse çağıran gözlemleyebilir. */
+    client?: QueryClient
+  },
   { existingFirms = [EXISTING_PROJECT_FIRM] }: RenderOptions = {},
 ) {
   mocks.form.createProjectFirm.mockResolvedValue(NEW_FIRM_ID)
@@ -85,7 +90,10 @@ export function renderNewProjectFirmPage(
     Promise.resolve(groupId === 1 ? AKSA_GAS_FIRMS : ENERYA_GAS_FIRMS),
   )
 
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // Sorgu istemcisi DIŞARIDAN verilebiliyor: kayıttan sonra hangi anahtarların
+  // geçersizleştiğini doğrulayan test ona ihtiyaç duyuyor.
+  const client =
+    mocks.client ?? new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   return render(
     <QueryClientProvider client={client}>

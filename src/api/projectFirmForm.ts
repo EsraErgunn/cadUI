@@ -31,14 +31,14 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
  * zorunlu, `taxNumber` boş. Aynı T.C. numarasıyla ikinci kayıt 409 döner ve
  * SİLİNMİŞ firma da numarayı rezerve tutar.
  *
- * SUNUCUDA KARŞILIĞI OLMAYANLAR — hiçbiri uydurulmadı, arayüzde duruyor:
+ * **Yetkilendirme kayıtları ARTIK GERÇEK uca yazılıyor**
+ * (`POST /api/project-firm-authorizations`, satır başına bir istek). Bu blok bir
+ * süre "her zaman mock" diyordu; uç açıldı, gövde bağlandı ve not güncellenmeden
+ * kalmıştı. GÜNCELLEME ekranı yetkilendirme bölümünü yine de göstermiyor
+ * (bkz. `ProjectFirmUpdateForm`).
  *
- * - **Yetkilendirme kayıtları**: `ProjectFirmAuthorization` tablosu VAR ama onu
- *   yazan bir uç yok; `ProjectFirmCreateDto` yetki alanı taşımıyor.
- *   `saveProjectFirmAuthorizations` bu yüzden HER ZAMAN mock (aynı durumdaki
- *   `getNextDfirmNo` deseni) — uç açılınca yalnız bu gövde `requestJson`'a
- *   döner, imza değişmez. GÜNCELLEME ekranı bu yüzden yetkilendirme bölümünü
- *   HİÇ göstermiyor (bkz. `ProjectFirmUpdateForm`).
+ * SUNUCUDA KARŞILIĞI OLMAYAN:
+ *
  * - **Benzersizlik**: sunucu VERGİ numarasını denetlemiyor (409 yok); ön
  *   kontrol istemcide, liste ucundan gelen kayıtlar üzerinde
  *   (`projectFirmUniqueness.ts`). Yarış durumunu kapatmaz; sunucu kuralı gelince
@@ -46,10 +46,9 @@ export { PROJECT_FIRM_COMPANY_TYPES } from './projectFirmDto'
  *   orada sunucu 409 döndürüyor ve silinmiş firma bile numarayı rezerve
  *   tutuyor, yani istemcide ön kontrol yapılamaz.
  *
- * MOCK GÖVDE YOK. Firma uçlarının hepsi sözleşmede var, bu yüzden `VITE_API_URL`
- * tanımsızken sahte gövdeye düşmüyorlar: API kökü yoksa `http.ts` anlaşılır bir
- * `NetworkError` fırlatır. Tek istisna `saveProjectFirmAuthorizations` — o ucun
- * sözleşmede karşılığı YOK (aşağıdaki nota bakın).
+ * MOCK GÖVDE YOK — istisnasız. Firma uçlarının hepsi sözleşmede var, bu yüzden
+ * `VITE_API_URL` tanımsızken sahte gövdeye düşmüyorlar: API kökü yoksa `http.ts`
+ * anlaşılır bir `NetworkError` fırlatır.
  */
 
 const PROJECT_FIRMS_PATH = '/api/projectfirms'
