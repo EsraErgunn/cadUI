@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   asMock,
   asUnavailable,
-  buildApprovalInfo,
   buildDetail,
   buildExtras,
   buildHistory,
@@ -21,8 +20,21 @@ const detailApi = vi.hoisted(() => ({
   getProjectHistory: vi.fn(),
   getProjectDocuments: vi.fn(),
   getProjectPolicies: vi.fn(),
+  getProjectFirmInfo: vi.fn(),
   requestProjectFile: vi.fn(),
 }))
+
+/** `GET /api/projectfirms/{id}` karşılığı; kartın DOLU alanları buradan. */
+const FIRM_INFO = {
+  engineerName: null,
+  engineerRegistrationNo: null,
+  title: 'ADANA MÜHENDİSLİK LTD. ŞTİ.',
+  address: 'Ziyapaşa Mah. 1. Sk. No:5 Seyhan/Adana',
+  phone: '03221234567',
+  competencyNo: null,
+  taxOffice: null,
+  taxNumber: '2222222222',
+}
 const canApprove = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api/projectDetail', async (importOriginal) => ({
@@ -38,6 +50,7 @@ beforeEach(() => {
   detailApi.getProjectHistory.mockResolvedValue(asMock(buildHistory()))
   detailApi.getProjectDocuments.mockResolvedValue(asMock([]))
   detailApi.getProjectPolicies.mockResolvedValue(asMock([]))
+  detailApi.getProjectFirmInfo.mockResolvedValue(FIRM_INFO)
   detailApi.requestProjectFile.mockResolvedValue({ ok: false, reason: 'unimplemented' })
   canApprove.mockReturnValue(true)
 })
@@ -58,10 +71,12 @@ describe('Proje Bilgileri kartları (KK-4)', () => {
     expect(within(general).getByText('İLAVE')).toBeInTheDocument()
     expect(within(general).getByText('Kütahya / Merkez')).toBeInTheDocument()
 
-    const firm = screen.getByRole('region', { name: 'Proje Firma Bilgileri' })
-    expect(within(firm).getByText('AHMET AKBAYIR')).toBeInTheDocument()
-    expect(within(firm).getByText('118')).toBeInTheDocument()
-    expect(within(firm).getByText('30 Ağustos • 2222222222')).toBeInTheDocument()
+    // Firma künyesi GERÇEK uçtan (`GET /api/projectfirms/{id}`); kart bir süre
+    // tümüyle boştu. Dolan dört alandan üçü burada.
+    const firm = await screen.findByRole('region', { name: 'Proje Firma Bilgileri' })
+    expect(within(firm).getByText(FIRM_INFO.title)).toBeInTheDocument()
+    expect(within(firm).getByText(FIRM_INFO.address)).toBeInTheDocument()
+    expect(within(firm).getByText(FIRM_INFO.taxNumber)).toBeInTheDocument()
 
     expect(screen.getByRole('region', { name: 'Proje Onay Bilgileri' })).toBeInTheDocument()
 
@@ -100,26 +115,33 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
     expect(within(approval).getAllByText('Değer yok')).toHaveLength(4)
   })
 
-  it('onaylanmış projede onay alanları dolu gelir', async () => {
-    detailApi.getProjectDetail.mockResolvedValue(
-      buildDetail({
-        extras: buildExtras({
-          approval: buildApprovalInfo({
-            approvedAt: '2026-07-14T09:12:00.000Z',
-            approverName: 'KONTROL MÜHENDİSİ',
-            approvalCode: 'ONY-42',
-            note: 'Proje uygundur.',
-          }),
-        }),
-      }),
+  /**
+   * Onay künyesi İŞLEM GEÇMİŞİNDEN türetiliyor: sunucuda ayrı bir "onay
+   * bilgileri" alanı yok, onay geçmişe düşen bir satır.
+   */
+  it('onaylanmış projede onay alanları geçmişten dolar', async () => {
+    detailApi.getProjectHistory.mockResolvedValue(
+      asMock([
+        {
+          id: 'onay-1',
+          fileType: null,
+          createdAt: '2026-07-14T09:12:00.000Z',
+          userName: 'KONTROL MÜHENDİSİ',
+          roleSnapshot: 'Gaz Dağıtım',
+          operation: 'projeOnay',
+          operationName: 'Proje Onay',
+          description: 'Proje uygundur.',
+        },
+      ]),
     )
 
     renderDetail()
 
     const approval = await screen.findByRole('region', { name: 'Proje Onay Bilgileri' })
-    expect(within(approval).getByText('ONY-42')).toBeInTheDocument()
     expect(within(approval).getByText('KONTROL MÜHENDİSİ')).toBeInTheDocument()
-    expect(within(approval).queryByText('Değer yok')).not.toBeInTheDocument()
+    expect(within(approval).getByText('Proje uygundur.')).toBeInTheDocument()
+    // Onay KODU sunucuda saklanmıyor; uydurulmuyor, boş kalıyor.
+    expect(within(approval).getAllByText('Değer yok')).toHaveLength(1)
   })
 
   it('basınç mbar, alan m² birimiyle gösterilir', async () => {
@@ -151,22 +173,23 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
   })
 })
 
-// Mock veri uyarısı KAPATILAMAZ ve bölümleri sayar.
-describe('mock veri uyarısı', () => {
-  it('hangi bölümlerin örnek veri olduğunu sayar', async () => {
+/**
+ * "Bu ekrandaki bazı veriler sunucudan gelmiyor" uyarısı KALKTI: kartların
+ * dördü de gerçek uçlardan besleniyor. Kaynağı olmayan ALAN uydurulmuyor, boş
+ * değer işaretiyle çiziliyor; kaynağı olmayan BÖLÜM ise eksiklik kutusu
+ * gösteriyor.
+ */
+describe('veri kaynağı', () => {
+  it('artık örnek veri uyarısı çizilmez', async () => {
     renderDetail()
 
-    const notice = await screen.findByText(/Bu ekrandaki bazı veriler sunucudan gelmiyor/)
-    const box = notice.closest('div') as HTMLElement
-
-    expect(within(box).getByText(/Proje Firma Bilgileri/)).toBeInTheDocument()
-    expect(within(box).getByText(/Detay Bilgileri/)).toBeInTheDocument()
-    expect(within(box).getByText(/Birim \/ Cihaz Bilgileri tablosu/)).toBeInTheDocument()
-    // Kapatma düğmesi YOK: uyarı sessizce kaybolamaz.
-    expect(within(box).queryByRole('button', { name: 'Bildirimi kapat' })).not.toBeInTheDocument()
+    await screen.findByRole('region', { name: 'Proje Genel Bilgileri' })
+    expect(
+      screen.queryByText(/Bu ekrandaki bazı veriler sunucudan gelmiyor/),
+    ).not.toBeInTheDocument()
   })
 
-  it('kaynağı olmayan bölümde örnek veri yerine eksiklik kutusu çıkar', async () => {
+  it('kaynağı olmayan bölümde eksiklik kutusu çıkar', async () => {
     detailApi.getProjectDetail.mockResolvedValue(buildDetail({ extras: null }))
     detailApi.getProjectUnits.mockResolvedValue(asUnavailable())
 

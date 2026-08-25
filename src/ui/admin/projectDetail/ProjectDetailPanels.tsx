@@ -7,10 +7,12 @@ import { ProjectPolicyTab } from './ProjectPolicyTab'
 import type { ProjectDetailTabKey } from './tabItems'
 import type { Sourced } from '../../../api/mockGate'
 import type {
+  ProjectApprovalInfo,
   ProjectDecision,
   ProjectDetail,
   ProjectDocumentRow,
   ProjectFileKind,
+  ProjectFirmInfo,
   ProjectHistoryRow,
   ProjectPolicyRow,
   ProjectUnitRow,
@@ -24,6 +26,8 @@ interface ProjectDetailPanelsProps {
   historyRows: ProjectHistoryRow[]
   documents: Sourced<ProjectDocumentRow[]> | undefined
   /** Evrak sekmesindeki "Birim Değiştir" kutusunun kaynağı. */
+  firm: ProjectFirmInfo | null
+  approval: ProjectApprovalInfo | null
   documentUnitOptions: ProjectDocumentUnitOption[]
   documentActions: ProjectDocumentActions
   policies: Sourced<ProjectPolicyRow[]> | undefined
@@ -48,6 +52,8 @@ export function ProjectDetailPanels({
   history,
   historyRows,
   documents,
+  firm,
+  approval,
   documentUnitOptions,
   documentActions,
   policies,
@@ -62,6 +68,8 @@ export function ProjectDetailPanels({
       <ProjectInfoTab
         detail={detail}
         units={units}
+        firm={firm}
+        approval={approval}
         onDownloadZpd={() => onDownload('zpd')}
       />
     )
