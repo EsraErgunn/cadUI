@@ -411,6 +411,7 @@ export async function getProjectPolicies(
       insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
       projectUnitId: policy.projectUnitId ?? null,
       unitNumber: toNullable(policy.unitNumber),
+      isUnitDeleted: policy.isUnitDeleted ?? false,
       amount: policy.amount ?? null,
       startDate: toNullable(policy.startDate),
       endDate: toNullable(policy.endDate),

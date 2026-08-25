@@ -22,6 +22,7 @@ const ADMIN_SESSION: AuthSession = {
 
 const listPolicies = vi.hoisted(() => vi.fn())
 const deletePolicy = vi.hoisted(() => vi.fn())
+const updatePolicy = vi.hoisted(() => vi.fn())
 
 /** `GET /api/insurance-companies` yanıtı; süzgeçteki şirket kutusunun kaynağı. */
 const insuranceCompanies = vi.hoisted(() => [
@@ -32,6 +33,7 @@ vi.mock('../../api/policies', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/policies')>()),
   listPolicies,
   deletePolicy,
+  updatePolicy,
   listInsuranceCompanies: () => Promise.resolve(insuranceCompanies[0]),
 }))
 
@@ -46,6 +48,8 @@ function buildPolicy(overrides: Partial<PolicyRow> = {}): PolicyRow {
     endDate: '2027-05-10',
     projectId: 4,
     projectName: 'Çınar Sitesi',
+    unitNumber: 'D20',
+    isUnitDeleted: false,
     ...overrides,
   }
 }
@@ -87,6 +91,7 @@ function asPage(items: PolicyRow[]) {
 beforeEach(() => {
   listPolicies.mockResolvedValue(asPage([buildPolicy()]))
   deletePolicy.mockResolvedValue({ ok: true })
+  updatePolicy.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -149,6 +154,7 @@ describe('PolicyListPage', () => {
       'No',
       'Poliçe No',
       'Sigorta Şirketi / Poliçe Firması',
+      'Birim',
       'Proje Adı',
       'Teminat Tutarı',
       'Başlangıç',
@@ -261,5 +267,71 @@ describe('PolicyListPage (gaz dağıtım kullanıcısı)', () => {
 
     expect(screen.getByRole('button', { name: 'Sil' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Aksiyonlar' })).toBeInTheDocument()
+  })
+})
+
+/**
+ * Birim çizimden silinince sunucu poliçeyi İPTAL ETMİYOR: `IsActive` true
+ * kalıyor, yalnız `IsUnitDeleted` true dönüyor ve birim bağı kopuyor. Satır
+ * sessizce birimsiz görünseydi veri kaybı gibi okunurdu.
+ */
+describe('silinmiş birim', () => {
+  it('bayrak dolu satırda uyarı rozeti gösterir', async () => {
+    listPolicies.mockResolvedValue(
+      asPage([buildPolicy({ unitNumber: null, isUnitDeleted: true })]),
+    )
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Silinmiş Birim')).toBeInTheDocument()
+  })
+
+  it('bayrak boşken birim numarası yazılır', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('D20')).toBeInTheDocument()
+    expect(within(table).queryByText('Silinmiş Birim')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Güncelleme kapsamı TUTAR ve TARİH. Birim değiştirme sunucuda desteklenmiyor,
+ * o yüzden alan salt okunur. Poliçe no ve şirket gövdeye GERİ gönderiliyor:
+ * `UpdateAsync` beş alanı da koşulsuz yazıyor, gönderilmeseler silinirlerdi.
+ */
+describe('poliçe güncelleme', () => {
+  it('düzenleme diyaloğunda birim salt okunur, tutar ve tarih düzenlenebilir', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Düzenle' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('D20')
+    // Birim için bir girdi YOK; yalnız okunuyor.
+    expect(within(dialog).queryByLabelText('Birim')).not.toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/Teminat Tutarı/)).toBeEnabled()
+    expect(within(dialog).getByLabelText(/Başlangıç Tarihi/)).toBeEnabled()
+    expect(within(dialog).getByLabelText(/Bitiş Tarihi/)).toBeEnabled()
+  })
+
+  it('kaydederken değişmeyen alanları da geri gönderir', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Düzenle' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Kaydet' }))
+
+    await waitFor(() => expect(updatePolicy).toHaveBeenCalled())
+    const [policyId, payload] = updatePolicy.mock.calls[0]
+
+    expect(policyId).toBe(1)
+    // Değişmeyen ikisi gövdede: gönderilmeseler sunucuda null'a düşerlerdi.
+    expect(payload.policyNumber).toBe('ORNEK-POL-0001')
+    expect(payload.insuranceCompanyId).toBe(1)
   })
 })

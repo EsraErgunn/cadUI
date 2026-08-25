@@ -6,6 +6,7 @@ import { EmptyValue } from '../EmptyValue'
 import { formatCurrency, formatPlainDate } from '../adminFormat'
 import { projectDetailPath } from '../adminNavItems'
 import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
+import { detailBadgeVariants } from '../projectDetail/projectDetailVariants'
 
 /** Sıralamadan söz ETMİYOR: uç `SortBy`/`SortDir` almıyor, sıra sunucuda sabit
     (başlangıç tarihi azalan). */
@@ -16,6 +17,10 @@ export const POLICY_TABLE_MIN_WIDTH_CLASS = 'min-w-240'
 
 /** Eylem sütunu içeriği kadar dursun (proje listesiyle aynı gerekçe). */
 const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
+
+const DELETED_UNIT_LABEL = 'Silinmiş Birim'
+const DELETED_UNIT_TITLE =
+  'Poliçenin bağlı olduğu bağımsız bölüm çizimden silindi. Poliçe iptal edilmedi, kaydı duruyor.'
 
 interface PolicyColumnsOptions {
   /** Sayfa başlangıcı; "No" sütunu sayfa 2'de 31'den devam etsin diye. */
@@ -30,6 +35,8 @@ interface PolicyColumnsOptions {
    */
   canDelete: boolean
   onDelete: (policyId: number) => void
+  /** Güncelleme YALNIZ tutar ve tarih; sunucu birim taşımaya izin vermiyor. */
+  onEdit: (policy: PolicyRow) => void
 }
 
 /**
@@ -47,6 +54,7 @@ export function buildPolicyColumns({
   pendingPolicyId,
   canDelete,
   onDelete,
+  onEdit,
 }: PolicyColumnsOptions): DataTableColumn<PolicyRow>[] {
   const columns: DataTableColumn<PolicyRow>[] = [
     {
@@ -65,6 +73,20 @@ export function buildPolicyColumns({
       key: 'insuranceCompany',
       label: 'Sigorta Şirketi / Poliçe Firması',
       cell: (policy) => policy.insuranceCompanyName ?? <EmptyValue />,
+    },
+    {
+      key: 'unit',
+      label: 'Birim',
+      // Birim silinince sunucu bağı koparıyor ama poliçeyi İPTAL ETMİYOR;
+      // rozet satırın neden birimsiz göründüğünü söylüyor.
+      cell: (policy) =>
+        policy.isUnitDeleted ? (
+          <span className={detailBadgeVariants({ tone: 'warning' })} title={DELETED_UNIT_TITLE}>
+            {DELETED_UNIT_LABEL}
+          </span>
+        ) : (
+          (policy.unitNumber ?? <EmptyValue />)
+        ),
     },
     {
       key: 'projectName',
@@ -103,15 +125,25 @@ export function buildPolicyColumns({
       cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
       headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
       cell: (policy) => (
-        <button
-          type="button"
-          onClick={() => onDelete(policy.id)}
-          disabled={pendingPolicyId === policy.id}
-          aria-busy={pendingPolicyId === policy.id}
-          className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
-        >
-          Sil
-        </button>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(policy)}
+            disabled={pendingPolicyId === policy.id}
+            className={adminButtonVariants({ tone: 'secondary', size: 'sm' })}
+          >
+            Düzenle
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(policy.id)}
+            disabled={pendingPolicyId === policy.id}
+            aria-busy={pendingPolicyId === policy.id}
+            className={adminButtonVariants({ tone: 'danger', size: 'sm' })}
+          >
+            Sil
+          </button>
+        </div>
       ),
     })
   }

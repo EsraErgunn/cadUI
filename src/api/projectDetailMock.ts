@@ -133,6 +133,7 @@ export function buildMockProjectPolicies(projectId: number): ProjectPolicyRow[] 
       insuranceCompanyName: policy.insuranceCompanyName,
       projectUnitId: null,
       unitNumber: null,
+      isUnitDeleted: false,
       amount: policy.amount,
       startDate: policy.startDate,
       endDate: policy.endDate,

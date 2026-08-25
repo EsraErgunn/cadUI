@@ -276,6 +276,11 @@ export interface ProjectPolicyRow {
    */
   projectUnitId: number | null
   unitNumber: string | null
+  /**
+   * Birim çizimden silindi mi. Poliçe İPTAL EDİLMİYOR, listede kalıyor; satır
+   * uyarıyla işaretleniyor (`PolicyDto.IsUnitDeleted`).
+   */
+  isUnitDeleted: boolean
   amount: number | null
   startDate: string | null
   endDate: string | null
