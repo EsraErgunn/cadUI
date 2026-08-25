@@ -1,5 +1,6 @@
 import { INSTALLATION_TOOL_ICONS } from './plumbingToolIcons'
 import { useUiStore } from '../../store/uiStore'
+import { EditorThemeToggle } from '../../ui/EditorThemeToggle'
 import { ShortcutHint } from '../../ui/ShortcutHint'
 import { ToolButton } from '../../ui/Toolbar'
 import { TOOL_GROUP_DIVIDER } from '../../ui/controls/buttonVariants'
@@ -66,8 +67,10 @@ export function PlumbingToolbar() {
           işlev panelinde olacak. Katalog ve store tarafı hazır: hepsi renkli
           (core/pipeTypes.ts), uygulama plumbingSlice.setLinesPipeType ile. */}
 
-      <div className="mt-auto border-t border-edge p-1.5">
+      {/* Kısayol ipucu + tema düğmesi yan yana: bkz. Toolbar.tsx aynı gerekçe. */}
+      <div className="mt-auto flex items-center gap-1 border-t border-edge p-1.5">
         <ShortcutHint title="Tesisat kısayolları" shortcuts={PLUMBING_SHORTCUTS} />
+        <EditorThemeToggle />
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import { CircleAlert, Lock, User } from 'lucide-react'
 
 import { useLoginForm } from './useLoginForm'
-import logo from '../assets/brand/logo3.png'
+import logo from '../assets/brand/logo.st.png'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import { PasswordField } from '../ui/admin/form/PasswordField'
 import { TextField } from '../ui/admin/form/TextField'
@@ -38,11 +38,6 @@ function BrandPanel() {
       <div aria-hidden className="auth-grid absolute inset-0" />
 
       <div className="relative flex max-w-md flex-col items-center gap-6 px-10 text-center">
-        {/* `logo3.png` ALFA KANALI TAŞIMIYOR (colortype 2): beyaz zemin görselin
-            içine gömülü ve koyu temada beyaz bir dikdörtgen olarak çıkıyor.
-            Görseli değiştirmek yerine o beyaz alan KARO'nun kendisi sayılıyor:
-            yuvarlatılmış köşe + ince çerçeve ile bilinçli bir ürün rozetine
-            dönüşüyor, iki temada da doğru duruyor. */}
         <img
           src={logo}
           alt=""

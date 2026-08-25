@@ -4,7 +4,7 @@ import ReactDOM from "react-dom/client";
 
 import App from "./App";
 import { shouldRetryQuery } from "./queryRetry";
-import { initTheme } from "../ui/admin/useTheme";
+import { initTheme } from "../ui/useTheme";
 import "../styles/index.css";
 
 const queryClient = new QueryClient({
