@@ -145,14 +145,14 @@ describe('NewDocumentPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await addFiles(user, [buildFile('ruhsat.pdf'), buildFile('buyuk.png', 11 * 1024 * 1024)])
+    await addFiles(user, [buildFile('ruhsat.pdf'), buildFile('buyuk.pdf', 11 * 1024 * 1024)])
 
     const notice = await screen.findByRole('alert')
-    expect(notice).toHaveTextContent("buyuk.png: Dosya boyutu 10MB'ı aşamaz.")
+    expect(notice).toHaveTextContent("buyuk.pdf: Dosya boyutu 10MB'ı aşamaz.")
 
     const uploaded = screen.getByRole('region', { name: 'Yüklenen Evraklar' })
     expect(within(uploaded).getByText('ruhsat.pdf')).toBeInTheDocument()
-    expect(within(uploaded).queryByText('buyuk.png')).not.toBeInTheDocument()
+    expect(within(uploaded).queryByText('buyuk.pdf')).not.toBeInTheDocument()
   })
 
   /**
@@ -172,7 +172,7 @@ describe('NewDocumentPage', () => {
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'kolon.dwg: Desteklenmeyen dosya formatı.',
+      'kolon.dwg: Yalnızca PDF yüklenebilir.',
     )
     const uploaded = screen.getByRole('region', { name: 'Yüklenen Evraklar' })
     expect(within(uploaded).queryByText('kolon.dwg')).not.toBeInTheDocument()

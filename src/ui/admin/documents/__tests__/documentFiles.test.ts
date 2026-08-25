@@ -19,14 +19,17 @@ function buildFile(name: string, sizeBytes = 1024): File {
 describe('validateDocumentFile', () => {
   it('desteklenen biçimleri kabul eder', () => {
     expect(validateDocumentFile(buildFile('ruhsat.pdf'))).toBeNull()
-    expect(validateDocumentFile(buildFile('plan.ALP'))).toBeNull()
-    expect(validateDocumentFile(buildFile('foto.JPEG'))).toBeNull()
+    // Uzantı büyük harfle de kabul edilir.
+    expect(validateDocumentFile(buildFile('RUHSAT.PDF'))).toBeNull()
   })
 
   it('desteklenmeyen biçimi reddeder', () => {
     // .dwg listede görünebiliyor ama YÜKLENEMİYOR (karar 2).
     expect(validateDocumentFile(buildFile('kolon.dwg'))).toBe(UNSUPPORTED_FORMAT_MESSAGE)
     expect(validateDocumentFile(buildFile('uzantisiz'))).toBe(UNSUPPORTED_FORMAT_MESSAGE)
+    // Sunucu YALNIZ PDF alıyor; gereksinim 8'deki diğer altı biçim de reddedilir.
+    expect(validateDocumentFile(buildFile('foto.jpeg'))).toBe(UNSUPPORTED_FORMAT_MESSAGE)
+    expect(validateDocumentFile(buildFile('plan.alp'))).toBe(UNSUPPORTED_FORMAT_MESSAGE)
   })
 
   it('10 MB sınırını aşan dosyayı reddeder, sınırdakini kabul eder', () => {
@@ -42,16 +45,16 @@ describe('partitionDocumentFiles', () => {
     const files = [
       buildFile('ruhsat.pdf'),
       buildFile('kolon.dwg'),
-      buildFile('buyuk.png', MAX_DOCUMENT_SIZE_BYTES + 1),
-      buildFile('foto.jpg'),
+      buildFile('buyuk.pdf', MAX_DOCUMENT_SIZE_BYTES + 1),
+      buildFile('plan.pdf'),
     ]
 
     const { accepted, rejected } = partitionDocumentFiles(files)
 
-    expect(accepted.map((file) => file.name)).toEqual(['ruhsat.pdf', 'foto.jpg'])
+    expect(accepted.map((file) => file.name)).toEqual(['ruhsat.pdf', 'plan.pdf'])
     expect(rejected).toEqual([
       { fileName: 'kolon.dwg', message: UNSUPPORTED_FORMAT_MESSAGE },
-      { fileName: 'buyuk.png', message: OVERSIZE_FILE_MESSAGE },
+      { fileName: 'buyuk.pdf', message: OVERSIZE_FILE_MESSAGE },
     ])
   })
 })
