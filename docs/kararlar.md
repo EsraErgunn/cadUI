@@ -8886,3 +8886,32 @@ süzme sayaç ve izolasyon etiket yazmıyor (kâğıt bunu K156'dan beri yapıyo
 gerekçesi kullanıcı karşısında tutmadı. Kullanıcı yalnız VANAYI söyledi ama
 kural aynı: bu yedi tür etiket olarak yalnız KENDİ ADINI yazıyor, yani sembolün
 zaten söylediği şeyi. Sayaç, yakıcı cihaz ve servis kutusu künyeleri duruyor.
+
+### K175 — Mimari cihaz paneli yalnız etiket ve nota indi
+
+Kullanıcı: "mimari cihazların özellik panelinde yalnızca etiket ve not kısmı
+kalsın. tür, bağlantı, ve açı değerlerini kaldır."
+
+`PointSymbolProperties` beş satırdı: Tür · Etiket · Bağlantı · Açı · Not. İkisi
+kaldı.
+
+⚠️ **Tür ve bağlantı SALT OKUNURDU.** Panelde yer kaplayıp hiçbir karar
+sunmuyorlardı; üstelik tür zaten panelin BAŞLIĞINDA yazıyor ("Pano Özellikleri")
+ve bağlantı sembolün duvara oturup oturmadığına bakınca görülüyor. Aynı bilgiyi
+ikinci kez, düzenlenemez bir satır olarak göstermek panelin işi değil.
+
+⚠️ **Açı bu cihazlar için anlamsız** (kullanıcı: "mimari cihazları döndürmeye
+gerek yok zaten duvara yapışıklar. aydınlatmanın da döndürülmeye ihtiyacı yok").
+Duvara bağlı sembolün yönü zaten duvarından türüyor — alan orada salt okunurdu.
+Serbest olan tek tür aydınlatma ve o da tavana takıldığı için yönsüz. Yani alan
+ya hiç yazılamıyordu ya da yazılan değerin bir karşılığı yoktu.
+
+⚠️ Bu adlarla panele geri ekleme: `Tür`, `Bağlantı`, `Açı (°)`.
+
+**Ne KALDI:** seçim dönüşümü (`SelectionActions` — 90° döndürme ve aynalama)
+sembolü çevirmeye devam ediyor; kaldırılan yalnız panelden SERBEST AÇI yazma
+yolu. Duvar döndüğünde sembolün onunla gelmesi de değişmedi.
+
+⚠️ `rotatePointSymbol` store action'ının üretimde çağıranı KALMADI (yalnız
+testler). Silinmedi: kapsam paneldi ve store'dan bir yetenek çıkarmak ayrı bir
+karar. Bir sonraki dokunan ya bağlar ya siler — arada bırakmasın.

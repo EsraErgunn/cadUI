@@ -1,22 +1,26 @@
 import { useState } from 'react'
 
-import { PropertyNumberField } from './PropertyNumberField'
 import type { Id } from '../../core/model'
-import { isSymbolLabelTaken, isSymbolLabelValid, SYMBOL_TYPE_LABELS } from '../../core/pointSymbol'
-import { getCommonNumber } from '../../core/propertyFields'
-import { getSymbolFloorId, getSymbolPose } from '../../core/symbolPlacement'
-import { ROTATION_STEP_DEG } from '../../core/transform'
+import { isSymbolLabelTaken, isSymbolLabelValid } from '../../core/pointSymbol'
+import { getSymbolFloorId } from '../../core/symbolPlacement'
 import { useCadStore } from '../../store/cadStore'
 
 type PointSymbolPropertiesProps = {
   symbolIds: readonly Id[]
 }
 
+/**
+ * Mimari cihaz paneli: YALNIZ etiket ve not (K175).
+ *
+ * ⚠️ Tür, bağlantı ve açı alanları KALDIRILDI — bu adlarla geri ekleme. Tür ve
+ * bağlantı salt okunurdu, yani panelde yer kaplayıp hiçbir karar sunmuyordu;
+ * ikisi de sembolün kendisine bakınca zaten görülüyor. Açı ise bu cihazlar için
+ * anlamsız (kullanıcı kararı): duvara bağlı olanların yönü duvarından türüyor,
+ * aydınlatma da tavana takıldığı için yönsüz.
+ */
 export function PointSymbolProperties({ symbolIds }: PointSymbolPropertiesProps) {
   const symbols = useCadStore((state) => state.symbols)
   const walls = useCadStore((state) => state.walls)
-  const points = useCadStore((state) => state.points)
-  const rotatePointSymbol = useCadStore((state) => state.rotatePointSymbol)
   const setPointSymbolLabel = useCadStore((state) => state.setPointSymbolLabel)
   const setPointSymbolNote = useCadStore((state) => state.setPointSymbolNote)
 
@@ -25,7 +29,6 @@ export function PointSymbolProperties({ symbolIds }: PointSymbolPropertiesProps)
 
   if (selected.length === 0) return null
 
-  const targetKey = `symbols-${symbolIds.join(',')}`
   const [sole] = selected
   const isSingle = selected.length === 1
 
@@ -47,13 +50,6 @@ export function PointSymbolProperties({ symbolIds }: PointSymbolPropertiesProps)
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 py-1">
-        <span className="text-xs text-ink-muted">Tür</span>
-        <span className="text-sm text-ink">
-          {isSingle ? SYMBOL_TYPE_LABELS[sole.type] : 'Karışık'}
-        </span>
-      </div>
-
       {/* Etiket yalnız TEK sembolde düzenlenir: aynı adı iki nesneye vermek zaten
           reddedilir (KK-10), toplu yazım ikincisinde sessizce başarısız olurdu. */}
       <div className="flex items-center justify-between gap-3 py-1">
@@ -81,38 +77,6 @@ export function PointSymbolProperties({ symbolIds }: PointSymbolPropertiesProps)
           )}
         </div>
       </div>
-
-      <div className="flex items-center justify-between gap-3 py-1">
-        <span className="text-xs text-ink-muted">Bağlantı</span>
-        <span className="text-sm text-ink">
-          {isSingle ? (sole.attachment === 'wall' ? 'Duvara bağlı' : 'Serbest') : 'Karışık'}
-        </span>
-      </div>
-
-      {/*
-       * Açı YALNIZ serbest sembolde düzenlenir: duvara bağlı sembolün yönü
-       * duvarından türüyor, panelden ayrı bir değer yazmak ikinci bir doğruluk
-       * kaynağı olurdu. Alan gizlenmiyor, salt okunur gösteriliyor — kullanıcı
-       * açının nereden geldiğini görebilsin.
-       */}
-      <PropertyNumberField
-        label="Açı (°)"
-        valueCm={getCommonNumber(
-          selected.map(
-            (symbol) => getSymbolPose(symbol, walls, points)?.rotationDeg ?? 0,
-          ),
-        )}
-        targetKey={targetKey}
-        stepCm={ROTATION_STEP_DEG}
-        isReadOnly={!isSingle || sole.attachment === 'wall'}
-        // Açı KK-3'ün 15° adımına store'da yakalanıyor; panel ham değeri gönderir.
-        onCommit={
-          isSingle && sole.attachment === 'free'
-            ? (angleDeg) => rotatePointSymbol(sole.id, angleDeg)
-            : undefined
-        }
-        rejectionMessage="Açı uygulanamadı."
-      />
 
       <div className="flex items-start justify-between gap-3 py-1">
         <label className="pt-1 text-xs text-ink-muted" htmlFor="symbol-note">
