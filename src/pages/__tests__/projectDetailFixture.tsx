@@ -40,6 +40,9 @@ export function buildServerFields(
     buildingCode: '30006185',
     projectFirmId: 11,
     gasDistributionFirmId: 101,
+    gasDistributionFirmName: 'TOROSGAZ-KÜTAHYA',
+    floorCount: 7,
+    basementCount: 1,
     projectType: 'İlave',
     heatingType: 'Bireysel',
     buildingUsageType: 'Konut',
@@ -57,13 +60,9 @@ export function buildServerFields(
 
 export function buildFirmInfo(overrides: Partial<ProjectFirmInfo> = {}): ProjectFirmInfo {
   return {
-    engineerName: 'AHMET AKBAYIR',
-    engineerRegistrationNo: '880',
     title: 'Kütahya Test Firması',
     address: 'Altunizade Mahir İz Suat Sümer İş Merkezi',
     phone: '2164021000',
-    competencyNo: '118',
-    taxOffice: '30 Ağustos',
     taxNumber: '2222222222',
     ...overrides,
   }
@@ -76,7 +75,6 @@ export function buildApprovalInfo(
   return {
     approvedAt: null,
     approverName: null,
-    approvalCode: null,
     note: null,
     ...overrides,
   }
@@ -84,20 +82,13 @@ export function buildApprovalInfo(
 
 export function buildSpecs(overrides: Partial<ProjectSpecs> = {}): ProjectSpecs {
   return {
-    meterCount: 1,
     floorCount: 7,
     residenceCount: 0,
     shopCount: 0,
     boxPressureMbar: 21,
-    usagePressureMbar: 21,
-    meterType: 'G4',
-    floorPattern: '1+1+5',
-    residenceShopPattern: '0 + 0',
     totalAreaSquareMeters: 2015,
     totalCapacity: 53.2,
-    gasAreas: 'D20',
     renovationNote: null,
-    orderNumber: null,
     connectionObject: null,
     ...overrides,
   }
@@ -106,15 +97,10 @@ export function buildSpecs(overrides: Partial<ProjectSpecs> = {}): ProjectSpecs 
 export function buildExtras(overrides: Partial<ProjectDetailExtras> = {}): ProjectDetailExtras {
   return {
     general: {
-      zpdFileName: '30006185.zpd',
       status: 'onayBekleyen',
       gasFirmName: 'TOROSGAZ-KÜTAHYA',
-      installationNo: '115736',
-      neighborhood: null,
-      streetDoorNo: null,
       projectType: 'İLAVE',
       heatingType: 'Bireysel',
-      isDetached: false,
       hasLicense: null,
     },
     firm: buildFirmInfo(),

@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { getCities, getCityDistricts, type Lookup } from '../../../api/projects'
 import { FilterSelect, type FilterSelectOption } from '../FilterSelect'
 import { adminFieldVariants } from '../adminVariants'
 import type { ProjectFilters } from './useProjectListParams'
 
-const SEARCH_FIELD = 'projectSearch'
-const SEARCH_PLACEHOLDER = 'Proje Ara...'
-const SEARCH_LABEL = 'Proje adı, P_ID veya tesisat numarasında ara'
 const ANY_OPTION_LABEL = 'Tümü'
 /** İl seçilmeden ilçe listesi ÇEKİLEMİYOR: uç il kimliği istiyor. */
 const NO_CITY_LABEL = 'Önce il seçiniz'
@@ -47,9 +44,8 @@ interface ProjectFilterBarProps {
  * değiştiği anda sorgu gider — "Filtrele" düğmesi KALKTI. Kullanıcı seçtiği
  * kriterin sonucunu görmek için ikinci bir tıklama yapmıyor.
  *
- * ARAMA kutusu ayrı: her tuş vuruşunda istek atmamak için Enter'da uygulanıyor
- * (debounce EKLENMEDİ — uçta arama parametresi zaten yok, gelen sayfa istemcide
- * süzülüyor).
+ * ARAMA kutusu YOK: "Proje Ara" kaldırıldı ve arama üst bardaki genel arama
+ * alanına taşındı — o da buraya `q` olarak geliyor (`useProjectListParams`).
  *
  * İl ve ilçe listeleri BURADA çekiliyor, sayfadan prop olarak gelmiyor: ilçe
  * listesi TASLAK ildeki seçime bağlı (kullanıcı ili değiştirip henüz
@@ -57,8 +53,7 @@ interface ProjectFilterBarProps {
  *
  * Taslak durum prop değişince kendiliğinden tazelenmez — dışarıdan gelen değişimi
  * (geri tuşu, filtre etiketi kaldırma) yansıtmak için sayfa bu bileşeni uygulanmış
- * filtrelerden türetilen bir `key` ile kurar. Arama kutusu ayrıca `defaultValue` +
- * `key` deseniyle çalışıyor (bkz. FirmTableToolbar).
+ * filtrelerden türetilen bir `key` ile kurar.
  */
 export function ProjectFilterBar({
   filters,
@@ -72,9 +67,6 @@ export function ProjectFilterBar({
   const [cityId, setCityId] = useState(filters.cityId)
   const [districtId, setDistrictId] = useState(filters.districtId)
   const [projectFirmId, setProjectFirmId] = useState(filters.projectFirmId)
-  // Arama kutusu KONTROLSÜZ kalıyor (her harfte render yok); değeri uygulama
-  // anında ref'ten okunuyor ki seçim değişince yazılmış metin kaybolmasın.
-  const searchRef = useRef<HTMLInputElement>(null)
 
   const applyNow = (changed: Partial<ProjectFilters>) => {
     onApply({
@@ -83,7 +75,9 @@ export function ProjectFilterBar({
       cityId,
       districtId,
       projectFirmId,
-      search: searchRef.current?.value.trim() ?? filters.search,
+      // Arama kutusu bu çubukta YOK; adresteki `q` olduğu gibi korunuyor ki
+      // filtre değiştirmek üst bardan yapılmış aramayı silmesin.
+      search: filters.search,
       ...changed,
     })
   }
@@ -192,29 +186,6 @@ export function ProjectFilterBar({
           }}
         />
       )}
-
-      <div className="flex min-w-56 flex-1 flex-col gap-1">
-        <label htmlFor="project-filter-search" className="text-xs font-medium text-ink-muted">
-          Proje Ara
-        </label>
-        <input
-          ref={searchRef}
-          id="project-filter-search"
-          type="search"
-          name={SEARCH_FIELD}
-          defaultValue={filters.search}
-          aria-label={SEARCH_LABEL}
-          placeholder={SEARCH_PLACEHOLDER}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            // Form KALMADI (submit düğmesi kalkınca örtük gönderim de gitti);
-            // arama Enter'da açıkça uygulanıyor.
-            event.preventDefault()
-            applyNow({ search: event.currentTarget.value.trim() })
-          }}
-          className={adminFieldVariants()}
-        />
-      </div>
     </div>
   )
 }

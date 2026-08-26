@@ -20,6 +20,13 @@ import type { CreateProjectPayload } from '../../../api/projects'
  */
 export const MAX_CAPACITY_CUBIC_METER_PER_HOUR = 10_000
 
+/**
+ * Kat ve bodrum adedinin üst sınırı. Keyfi değil: sunucu iki alanı da `byte?`
+ * olarak saklıyor (`Building.FloorCount`/`BasementCount`), 256 ve üstü gövde
+ * 400 döner. Sınır burada da olsun ki hata kaydetmeden, alanın yanında çıksın.
+ */
+export const MAX_FLOOR_COUNT = 255
+
 const capacityLimitLabel = new Intl.NumberFormat('tr-TR').format(
   MAX_CAPACITY_CUBIC_METER_PER_HOUR,
 )
@@ -35,6 +42,7 @@ export const NEW_PROJECT_ERRORS = {
   negative: 'Negatif değer girilemez.',
   integer: 'Tam sayı giriniz.',
   maxCapacity: `Kapasite en çok ${capacityLimitLabel} m³/h olabilir.`,
+  maxFloorCount: `En çok ${MAX_FLOOR_COUNT} girilebilir.`,
   projectType: 'Proje tipi zorunludur.',
   heatingType: 'Isınma tipi zorunludur.',
   buildingUsageType: 'Bina kullanımı tipi zorunludur.',
@@ -52,6 +60,10 @@ export interface NewProjectFormValues {
   cityId: number | null
   districtId: number | null
   address: string
+  /** Bina kat adedi — uca `floorCount` olarak gider (`Building.FloorCount`). */
+  floorCount: number
+  /** Bodrum adedi — uca `basementCount` olarak gider. */
+  basementCount: number
   apartmentCount: number
   workplaceCount: number
   areaSquareMeters: number
@@ -88,6 +100,8 @@ export const NEW_PROJECT_FIELD_ORDER: NewProjectField[] = [
   'cityId',
   'districtId',
   'address',
+  'floorCount',
+  'basementCount',
   'apartmentCount',
   'workplaceCount',
   'areaSquareMeters',
@@ -124,6 +138,12 @@ const nonNegativeInteger = nonNegativeNumber.refine((value) => Number.isInteger(
 const boundedCapacity = nonNegativeInteger.refine(
   (value) => value <= MAX_CAPACITY_CUBIC_METER_PER_HOUR,
   { message: NEW_PROJECT_ERRORS.maxCapacity },
+)
+
+/** Kat/bodrum adedi; sunucudaki `byte?` sınırı (bkz. `MAX_FLOOR_COUNT`). */
+const boundedFloorCount = nonNegativeInteger.refine(
+  (value) => value <= MAX_FLOOR_COUNT,
+  { message: NEW_PROJECT_ERRORS.maxFloorCount },
 )
 
 /** Tip daraltan `refine`: doğrulama geçince alan artık `number`, `null` değil —
@@ -165,6 +185,8 @@ export function createNewProjectSchema({ isAdmin }: NewProjectSchemaOptions) {
       cityId: requiredId(NEW_PROJECT_ERRORS.city),
       districtId: requiredId(NEW_PROJECT_ERRORS.district),
       address: requiredText(NEW_PROJECT_ERRORS.address),
+      floorCount: boundedFloorCount,
+      basementCount: boundedFloorCount,
       apartmentCount: nonNegativeInteger,
       workplaceCount: nonNegativeInteger,
       areaSquareMeters: nonNegativeInteger,
@@ -253,6 +275,8 @@ export function toCreateProjectPayload(
     cityId: values.cityId,
     districtId: values.districtId,
     address: values.address.trim(),
+    floorCount: values.floorCount,
+    basementCount: values.basementCount,
     apartmentCount: values.apartmentCount,
     workplaceCount: values.workplaceCount,
     areaSquareMeters: values.areaSquareMeters,

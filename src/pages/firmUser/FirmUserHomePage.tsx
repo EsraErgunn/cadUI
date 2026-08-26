@@ -1,7 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { FileClock, PencilRuler, Plus } from 'lucide-react'
+import { FileClock, PencilRuler } from 'lucide-react'
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
 
 import { GLOBAL_SCOPE } from '../../api/adminDashboard'
 import {
@@ -17,8 +16,8 @@ import { PageHeader } from '../../ui/admin/PageHeader'
 import { ProjectStatusCards } from '../../ui/admin/ProjectStatusCards'
 import { RecentProjectsCard } from '../../ui/admin/RecentProjectsCard'
 import { lastMonthRange } from '../../ui/admin/adminDateRange'
-import { FIRM_HOME_PATH, PROJECT_CREATE_PATH } from '../../ui/admin/adminNavItems'
-import { adminButtonVariants } from '../../ui/admin/adminVariants'
+import { FIRM_HOME_PATH } from '../../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../../ui/admin/adminPageWidth'
 
 const PAGE_TITLE = 'Anasayfa'
 
@@ -76,18 +75,11 @@ export function FirmUserHomePage() {
   const pending = useRecentProjects('onayBekleyen', countsQuery)
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeader
-          breadcrumb={[{ label: 'Anasayfa', to: FIRM_HOME_PATH }]}
-          title={PAGE_TITLE}
-        />
-
-        <Link to={PROJECT_CREATE_PATH} className={adminButtonVariants({ tone: 'primary' })}>
-          <Plus aria-hidden className="size-4" />
-          Yeni Proje
-        </Link>
-      </div>
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
+      {/* Proje oluşturma kısayolu KALDIRILDI: proje açma yolu Projeler
+          ekranındaki düğme. Rota (`PROJECT_CREATE_PATH`) ve yetki kapısı
+          değişmedi. */}
+      <PageHeader breadcrumb={[{ label: 'Anasayfa', to: FIRM_HOME_PATH }]} title={PAGE_TITLE} />
 
       <ProjectStatusCards counts={statusCounts} rangeLabel="Son bir ay" />
 

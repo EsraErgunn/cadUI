@@ -60,6 +60,11 @@ export interface ProjectFirmUserQuery {
    * O durumda liste daraltılmadan gösteriliyor.
    */
   gasFirmGroupId: number | null
+  /**
+   * Metin araması. Ekranın kendi kutusu YOK; değer üst bardaki genel aramadan
+   * geliyor ve uca `q` olarak gidiyor (Elastic, `UserManager`).
+   */
+  nameQuery: string
   page: number
   pageSize: number
 }

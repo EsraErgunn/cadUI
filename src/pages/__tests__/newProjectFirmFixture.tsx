@@ -83,7 +83,10 @@ export function renderNewProjectFirmPage(
 ) {
   mocks.form.createProjectFirm.mockResolvedValue(NEW_FIRM_ID)
   // Varsayılan: mock mod — firma da yetkilendirme de aynı gövdeye yazılıyor.
-  mocks.form.saveProjectFirmAuthorizations.mockResolvedValue({ arePersisted: true })
+  mocks.form.saveProjectFirmAuthorizations.mockResolvedValue({
+    arePersisted: true,
+    failedGasFirmNames: [],
+  })
   mocks.lookups.getFirmGroups.mockResolvedValue(GROUPS)
   mocks.lookups.getProjectFirmList.mockResolvedValue(existingFirms)
   mocks.lookups.getGasDistributionFirmsByGroup.mockImplementation((groupId: number) =>
@@ -123,6 +126,7 @@ function setupUser() {
  * etiketleri birbirinin öneki.
  */
 export async function selectGroup(name: string) {
+  await openAuthorizationDraft()
   // Seçenekler sunucudan geliyor; gelmeden seçim yapılamaz.
   await screen.findByRole('option', { name })
   await setupUser().selectOptions(screen.getByRole('combobox'), name)
@@ -149,6 +153,19 @@ export async function fillFirmInfo(overrides: Record<string, string> = {}) {
 }
 
 /**
+ * Yetkilendirme panelini açar.
+ *
+ * Panel liste BOŞKEN zaten açık; bir kayıt eklendikten sonra kapanıyor ve
+ * ikinci firma "+ G.D. Firması Ekle" ile açılıyor (çoklu seçim çipleri).
+ */
+export async function openAuthorizationDraft() {
+  const toggle = screen.getByRole('button', { name: /G\.D\. Firması Ekle|Kapat/ })
+  if (toggle.getAttribute('aria-expanded') === 'true') return
+
+  await setupUser().click(toggle)
+}
+
+/**
  * Bir yetkilendirme kaydı ekler (Kaydet'in ön koşulu).
  *
  * Sertifika numarası ve geçerlilik başlangıcı ZORUNLU: uç ikisini de istiyor
@@ -157,6 +174,7 @@ export async function fillFirmInfo(overrides: Record<string, string> = {}) {
 export async function addAuthorization(gasFirmName = 'AKSA-GEMLİK') {
   const user = setupUser()
 
+  await openAuthorizationDraft()
   await user.click(screen.getByRole('radio', { name: gasFirmName }))
   await user.type(screen.getByLabelText(/^Sertifika No/), 'ST-1')
   fireEvent.change(screen.getByLabelText(/^Geçerlilik Başlangıcı/), {

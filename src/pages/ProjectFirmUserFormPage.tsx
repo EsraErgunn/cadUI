@@ -5,6 +5,7 @@ import { getProjectFirmUser } from '../api/projectFirmUsers'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, PROJECT_FIRM_USERS_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ProjectFirmUserForm } from '../ui/admin/projectFirmUsers/ProjectFirmUserForm'
 
 const CREATE_TITLE = 'Yeni Proje Firma Kullanıcısı Oluşturma'
@@ -46,7 +47,7 @@ export function ProjectFirmUserFormPage() {
   const title = userId === null ? CREATE_TITLE : UPDATE_TITLE
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'formWide', className: 'flex flex-col gap-5' })}>
       <PageHeader breadcrumb={buildBreadcrumb(title)} title={title} />
 
       {userId !== null && isPending && <QueryLoading message="Kullanıcı yükleniyor…" />}

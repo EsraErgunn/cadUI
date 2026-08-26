@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  AUTHORIZATIONS_PENDING_MESSAGE,
   FIRM_SAVED_MESSAGE,
+  buildFailedAuthorizationsMessage,
 } from '../../ui/admin/useSavedFirmNotice'
 import { ProjectFirmsPage } from '../ProjectFirmsPage'
 
@@ -24,8 +24,12 @@ const LIST_PATH = '/admin/project-firms'
 
 interface SavedState {
   savedFirmId: number
-  hasPendingAuthorizations?: boolean
+  failedAuthorizationFirms?: string[]
 }
+
+/** Kısmi başarı senaryosu: iki bağdan biri kurulamadı. */
+const FAILED_FIRMS = ['Başkentgaz', 'Doğugaz']
+const FAILED_MESSAGE = buildFailedAuthorizationsMessage(FAILED_FIRMS)
 
 function renderList(state?: SavedState) {
   listApi.getProjectFirmList.mockResolvedValue([])
@@ -54,35 +58,34 @@ describe('kayıt sonrası bildirim (KK-8)', () => {
   })
 
   /**
-   * Yetkilendirme yazan uç yok: firma sunucuya gitti, yetkiler gitmedi.
-   * Başarı mesajı YERİNE uyarı gösterilir — iki şerit üst üste binseydi
-   * kullanıcı olumlu olanı okuyup uyarıyı atlardı.
+   * Kısmi başarı: firma sunucuya gitti, bazı yetkilendirmeler gitmedi ve geri
+   * ALINMADI. Başarı mesajı YERİNE uyarı gösterilir — iki şerit üst üste
+   * binseydi kullanıcı olumlu olanı okuyup uyarıyı atlardı.
    */
-  it('yetkilendirmeler kaydedilmediyse uyarı mesajı çıkar', async () => {
-    renderList({ savedFirmId: 900, hasPendingAuthorizations: true })
+  it('kurulamayan yetkilendirmeleri ADIYLA sayar', async () => {
+    renderList({ savedFirmId: 900, failedAuthorizationFirms: FAILED_FIRMS })
 
-    expect(await screen.findByText(AUTHORIZATIONS_PENDING_MESSAGE)).toBeInTheDocument()
+    expect(await screen.findByText(FAILED_MESSAGE)).toBeInTheDocument()
     expect(screen.queryByText(FIRM_SAVED_MESSAGE)).not.toBeInTheDocument()
   })
 
   // Hata DEĞİL: kayıt gerçekleşti, yarısı beklemede. `alert` kullanıcının
   // işini böler, `status` bölmeden duyurur.
   it('uyarı role="status" ile duyurulur, alert değil', async () => {
-    renderList({ savedFirmId: 900, hasPendingAuthorizations: true })
+    renderList({ savedFirmId: 900, failedAuthorizationFirms: FAILED_FIRMS })
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      AUTHORIZATIONS_PENDING_MESSAGE,
-    )
+      FAILED_MESSAGE)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('uyarı kapatılabilir', async () => {
-    renderList({ savedFirmId: 900, hasPendingAuthorizations: true })
-    await screen.findByText(AUTHORIZATIONS_PENDING_MESSAGE)
+    renderList({ savedFirmId: 900, failedAuthorizationFirms: FAILED_FIRMS })
+    await screen.findByText(FAILED_MESSAGE)
 
     await userEvent.click(screen.getByRole('button', { name: 'Bildirimi kapat' }))
 
-    expect(screen.queryByText(AUTHORIZATIONS_PENDING_MESSAGE)).not.toBeInTheDocument()
+    expect(screen.queryByText(FAILED_MESSAGE)).not.toBeInTheDocument()
   })
 
   it('doğrudan gelindiğinde bildirim çıkmaz', async () => {
@@ -90,6 +93,6 @@ describe('kayıt sonrası bildirim (KK-8)', () => {
     await screen.findByRole('heading', { name: /Proje Firmaları/ })
 
     expect(screen.queryByText(FIRM_SAVED_MESSAGE)).not.toBeInTheDocument()
-    expect(screen.queryByText(AUTHORIZATIONS_PENDING_MESSAGE)).not.toBeInTheDocument()
+    expect(screen.queryByText(FAILED_MESSAGE)).not.toBeInTheDocument()
   })
 })

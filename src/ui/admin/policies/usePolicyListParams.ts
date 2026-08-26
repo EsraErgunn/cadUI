@@ -10,7 +10,6 @@ function parseLookupId(raw: string | null): number | null {
 }
 
 export interface PolicyFilters {
-  search: string
   insuranceCompanyId: number | null
 }
 
@@ -35,7 +34,6 @@ export function usePolicyListParams(): PolicyListControls {
 
   const query = useMemo<PolicyListQuery>(
     () => ({
-      search: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       insuranceCompanyId: parseLookupId(searchParams.get(ADMIN_PARAM_KEYS.insuranceCompany)),
       // Bu ekran proje BAĞIMSIZ: uca `ProjectId` gitmiyor, kullanıcının
       // görünürlük kapsamındaki tüm poliçeler listeleniyor.
@@ -50,7 +48,6 @@ export function usePolicyListParams(): PolicyListControls {
     (filters: PolicyFilters) => {
       updateParams(
         {
-          nameQuery: filters.search,
           insuranceCompany:
             filters.insuranceCompanyId === null ? null : String(filters.insuranceCompanyId),
         },

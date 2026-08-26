@@ -44,9 +44,9 @@ function renderPhone(value: string | null | undefined) {
  * şemada opsiyonel olarak duruyor — uç bir gün doldurursa sütun geri gelebilir.
  */
 export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserRow>[] = [
-  // Kullanıcı adı ve ad soyad güncelleme ekranına GÖTÜRÜR — proje firması
-  // kullanıcıları tablosundaki desen: satırın kimliğini taşıyan iki hücre
-  // düzenlemenin girişi, ayrı bir "Düzenle" sütunu açılmıyor.
+  // Düzenlemenin TEK girişi kullanıcı adı; ayrı bir "Düzenle" sütunu açılmıyor.
+  // Ad soyad da bağlantıydı: aynı kaydın aynı formuna giden iki hücre satırda
+  // iki ayrı hedef varmış gibi okunuyordu.
   {
     key: 'username',
     label: 'Kullanıcı Adı',
@@ -59,11 +59,7 @@ export const GAS_DISTRIBUTION_USER_COLUMNS: DataTableColumn<GasDistributionUserR
   {
     key: 'fullName',
     label: 'Adı Soyadı',
-    cell: (row) => (
-      <Link to={gasDistributionUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
-        {row.fullName}
-      </Link>
-    ),
+    cell: (row) => renderText(row.fullName),
   },
   {
     key: 'email',

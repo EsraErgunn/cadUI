@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAuthSession } from '../../api/authToken'
+import { ApiError } from '../../api/http'
 import { submitProjectDecision } from '../../api/projectDetail'
 import { submitProject } from '../../api/projects'
 import { ROLE_CODES, type RoleCode } from '../../api/roles'
@@ -157,7 +158,29 @@ describe('useEditorSubmit', () => {
     expect(submitProjectMock).not.toHaveBeenCalled()
   })
 
-  it('istek düşerse hata şeridi yazar', async () => {
+  /**
+   * Uç "onaya gönder"i birkaç İŞ KURALIYLA reddedebiliyor (eksik müşteri
+   * sözleşmesi, poliçesiz proje, uygun olmayan durum). Sebep genel bir
+   * "gönderilemedi" cümlesine indirgenirse kullanıcı düğmenin neden işe
+   * yaramadığını göremez.
+   */
+  it('sunucunun reddetme gerekçesini olduğu gibi yazar', async () => {
+    submitProjectMock.mockRejectedValue(
+      new ApiError(400, 'Projenin en az bir biriminde poliçe olmalı.'),
+    )
+    const { result } = renderHook(() => useEditorSubmit(PROJECT_ID))
+
+    act(() => result.current.request())
+
+    await waitFor(() =>
+      expect(result.current.notice).toEqual({
+        tone: 'error',
+        message: 'Projenin en az bir biriminde poliçe olmalı.',
+      }),
+    )
+  })
+
+  it('ağ hatasında genel mesajı yazar', async () => {
     submitProjectMock.mockRejectedValue(new Error('ağ'))
     const { result } = renderHook(() => useEditorSubmit(PROJECT_ID))
 

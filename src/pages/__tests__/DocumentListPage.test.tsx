@@ -173,6 +173,8 @@ describe('DocumentListPage', () => {
       .getAllByRole('columnheader')
       .map((header) => header.textContent?.trim())
 
+    // "ProjeId", "Tesisat No" ve "G.D Firması" KALDIRILDI; bu adlarla sütun
+    // beklenmiyor.
     expect(headers).toEqual([
       'No',
       'Evrak Adı',
@@ -180,10 +182,7 @@ describe('DocumentListPage', () => {
       'Geliş Tarihi',
       'Birim',
       'Proje Adı',
-      'ProjeId',
-      'Tesisat No',
       'Firma Adı',
-      'G.D Firması',
       'Aksiyonlar',
     ])
     expect(within(table).getByText('Müşteri Sözleşmesi')).toBeInTheDocument()
@@ -191,15 +190,13 @@ describe('DocumentListPage', () => {
     expect(within(table).queryByText('PDF')).not.toBeInTheDocument()
   })
 
-  it('yalnız proje adı bağlantılı; firma sütunları düz metin', async () => {
+  it('satırda bağlantı YOK; proje adı da düz metin', async () => {
     renderPage()
 
     const table = await screen.findByRole('table')
-    const links = within(table).getAllByRole('link')
 
-    expect(links).toHaveLength(1)
-    expect(links[0]).toHaveTextContent('Çınar Sitesi')
-    expect(links[0]).toHaveAttribute('href', '/projects/4')
+    expect(within(table).queryAllByRole('link')).toHaveLength(0)
+    expect(within(table).getByText('Çınar Sitesi')).toBeInTheDocument()
   })
 
   it('kaynağı olmayan evrağın adı bağlantı DEĞİL', async () => {
@@ -274,7 +271,6 @@ describe('DocumentListPage (proje firması kullanıcısı)', () => {
     await screen.findByRole('table')
 
     expect(screen.queryByRole('columnheader', { name: 'Firma Adı' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('columnheader', { name: 'G.D Firması' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Proje Firması')).not.toBeInTheDocument()
 
     // Evrakın kendi alanları duruyor.
@@ -282,12 +278,11 @@ describe('DocumentListPage (proje firması kullanıcısı)', () => {
     expect(screen.getByRole('columnheader', { name: 'Evrak Tipi' })).toBeInTheDocument()
   })
 
-  it('yönetici aynı ekranda firma sütunlarını görmeye devam eder', async () => {
+  it('yönetici aynı ekranda firma sütununu görmeye devam eder', async () => {
     renderPage()
     await screen.findByRole('table')
 
     expect(screen.getByRole('columnheader', { name: 'Firma Adı' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'G.D Firması' })).toBeInTheDocument()
     expect(screen.getByLabelText('Proje Firması')).toBeInTheDocument()
   })
 

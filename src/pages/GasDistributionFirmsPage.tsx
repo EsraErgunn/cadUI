@@ -15,6 +15,7 @@ import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { FirmFilterPanel } from '../ui/admin/firms/FirmFilterPanel'
 import { FirmTableToolbar } from '../ui/admin/firms/FirmTableToolbar'
 import { FIRM_TABLE_CAPTION, buildFirmColumns } from '../ui/admin/firms/firmColumns'
@@ -36,7 +37,7 @@ const BREADCRUMB = [
 ]
 
 export function GasDistributionFirmsPage() {
-  const { query, setNameQuery, setGroupId, toggleSort, setPage } = useFirmListParams()
+  const { query, setGroupId, toggleSort, setPage } = useFirmListParams()
   const savedNotice = useSavedFirmNotice()
   const queryClient = useQueryClient()
   const canManage = useIsAdmin()
@@ -76,10 +77,10 @@ export function GasDistributionFirmsPage() {
     [pendingFirmId, canManage, requestDeactivate],
   )
 
-  const hasActiveFilters = query.nameQuery !== '' || query.groupId !== null
+  const hasActiveFilters = query.groupId !== null
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       {savedNotice !== null && (
         <NoticeBar
           tone={savedNotice.tone}
@@ -102,11 +103,7 @@ export function GasDistributionFirmsPage() {
           title={PAGE_TITLE}
           countLabel={formatCountLabel(data?.totalCount)}
         />
-        <FirmTableToolbar
-          nameQuery={query.nameQuery}
-          onApplyNameQuery={setNameQuery}
-          onOpenFilterPanel={() => setIsFilterPanelOpen(true)}
-        />
+        <FirmTableToolbar onOpenFilterPanel={() => setIsFilterPanelOpen(true)} />
       </div>
 
       {isFilterPanelOpen && (
@@ -119,9 +116,7 @@ export function GasDistributionFirmsPage() {
 
       <FilterChips
         filters={buildFirmFilterChips({
-          nameQuery: query.nameQuery,
           groupLabel: selectedGroupLabel,
-          onRemoveNameQuery: () => setNameQuery(''),
           onRemoveGroupId: () => setGroupId(null),
         })}
       />
@@ -144,7 +139,7 @@ export function GasDistributionFirmsPage() {
             onToggleSort={toggleSort}
             emptyMessage={
               hasActiveFilters
-                ? 'Arama ve filtre kriterlerine uyan firma bulunamadı. Kriterleri değiştirip tekrar deneyin.'
+                ? 'Filtre kriterlerine uyan firma bulunamadı. Kriterleri değiştirip tekrar deneyin.'
                 : 'Sisteme kayıtlı gaz dağıtım firması yok.'
             }
           />

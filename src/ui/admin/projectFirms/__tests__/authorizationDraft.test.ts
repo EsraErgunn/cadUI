@@ -136,12 +136,18 @@ describe('removeAuthorization', () => {
 })
 
 describe('toAuthorizationPayloads', () => {
-  it('istek gövdesine yalnız sunucunun alanlarını taşır', () => {
+  /**
+   * Ad gövdeye GİTMİYOR (`saveProjectFirmAuthorizations` onu `JSON.stringify`
+   * dışında bırakıyor); yükte taşınmasının tek sebebi kısmi başarıda
+   * başarısız satırı kullanıcıya ADIYLA söyleyebilmek.
+   */
+  it('sunucunun alanlarını ve hata mesajı için firma adını taşır', () => {
     const list = buildProjectFirmAuthorizations(buildDraft([GEMLIK]))
 
     expect(toAuthorizationPayloads(list)).toEqual([
       {
         gasDistributionFirmId: GEMLIK.id,
+        gasDistributionFirmName: GEMLIK.name,
         certificateNumber: 'ST-1',
         validFrom: '2026-01-01',
         validTo: null,

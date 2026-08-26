@@ -5,7 +5,6 @@ import {
   getProjectApproverName,
   splitStreetDoorNo,
 } from './projectSummaryFields'
-import { getGasDistributionFirm } from '../api/adminFirmForm'
 import { getProjectDetail, getProjectHistory } from '../api/projectDetail'
 import { getProjectFirmAuthorizations } from '../api/projectFirmAuthorizations'
 import { getProjectFirm } from '../api/projectFirmForm'
@@ -137,13 +136,6 @@ export function useProjectSummary(projectId: number | undefined): ProjectSummary
     enabled: projectFirmId !== undefined,
   })
 
-  const gasFirmId = server?.gasDistributionFirmId ?? undefined
-  const { data: gasFirm } = useQuery({
-    queryKey: ['project-summary-gas-firm', gasFirmId],
-    queryFn: ({ signal }) => getGasDistributionFirm(gasFirmId ?? 0, signal),
-    enabled: gasFirmId !== undefined,
-  })
-
   if (!server) {
     return { ...EMPTY_SUMMARY, number: projectId === undefined ? '' : String(projectId) }
   }
@@ -178,9 +170,16 @@ export function useProjectSummary(projectId: number | undefined): ProjectSummary
       taxNumber: toText(projectFirm?.taxNumber),
     },
     approval: {
-      gasFirmName: toText(gasFirm?.name),
+      // Ad projenin KENDİ gövdesinden (`ProjectDetailDto.GasDistributionFirmName`):
+      // ikinci bir istek gerekmiyor ve `GET /api/gasdistributionfirms/{id}`
+      // sunucuda `[Authorize(Roles = Admin)]` olduğu için proje firması
+      // kullanıcısında 403 dönüyordu.
+      gasFirmName: toText(server.gasDistributionFirmName),
       approverName: getProjectApproverName(historyRows),
-      gasFirmContactPerson: toText(gasFirm?.contactPerson),
+      // Dağıtım yetkilisi YALNIZ admin-only tekil uçta var; istek kalktığı için
+      // boş bırakılıyor. Kaşe kutusu zaten onaylayanın adına düşüyor
+      // (`coverPageFields`) ve o ad artık gerçek geçmişten geliyor.
+      gasFirmContactPerson: '',
     },
     streetName,
     doorNumber,

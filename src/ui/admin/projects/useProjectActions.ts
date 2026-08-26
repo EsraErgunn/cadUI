@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 
+import { ApiError } from '../../../api/http'
 import {
   requiresReason,
   submitProjectDecision,
@@ -106,8 +107,17 @@ export function useProjectActions({ onChanged }: UseProjectActionsOptions): Proj
 
         setNotice({ tone: 'success', message: SUBMIT_SUCCESS_MESSAGE })
         onChanged()
-      } catch {
-        setNotice({ tone: 'error', message: SUBMIT_ERROR_MESSAGE })
+      } catch (cause: unknown) {
+        // Sunucunun KENDİ Türkçe gerekçesi korunuyor. "Onaya gönder" durum
+        // geçişinden ÖNCE iş kurallarını denetliyor ("… birimde müşteri
+        // sözleşmesi eksik", "Projenin en az bir biriminde poliçe olmalı",
+        // "Bu işlem '…' durumundaki bir projede yapılamaz") ve hepsi genel bir
+        // cümleye indirgeniyordu — kullanıcı düğmenin neden işe yaramadığını
+        // göremiyordu. Genel metin yalnız AĞ hatasında.
+        setNotice({
+          tone: 'error',
+          message: cause instanceof ApiError ? cause.message : SUBMIT_ERROR_MESSAGE,
+        })
       } finally {
         setPendingProjectId(null)
       }
@@ -135,8 +145,13 @@ export function useProjectActions({ onChanged }: UseProjectActionsOptions): Proj
 
         setNotice({ tone: 'success', message: `${DECISION_SUCCESS_MESSAGES[decision]}${approvalNote}` })
         onChanged()
-      } catch {
-        setNotice({ tone: 'error', message: DECISION_ERROR_MESSAGE })
+      } catch (cause: unknown) {
+        // Karar ucu da gerekçeli reddediyor (ör. "Bu işlem 'Taslak' durumundaki
+        // bir projede yapılamaz"); sebep gönderimdeki gibi korunuyor.
+        setNotice({
+          tone: 'error',
+          message: cause instanceof ApiError ? cause.message : DECISION_ERROR_MESSAGE,
+        })
       } finally {
         setPendingProjectId(null)
         setRejectTargetId(null)

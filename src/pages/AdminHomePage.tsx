@@ -5,6 +5,7 @@ import { fetchAllFirms, getFirmGroups } from '../api/adminFirms'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { findScopeName } from '../ui/admin/adminScopeOptions'
 import { DensityCard } from '../ui/admin/dashboard/DensityCard'
 import { QuickActionsCard } from '../ui/admin/dashboard/QuickActionsCard'
@@ -52,7 +53,7 @@ export function AdminHomePage() {
   })
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} />
 
       {isPending && <QueryLoading message="Genel bakış yükleniyor…" />}

@@ -47,6 +47,8 @@ const VALID_PAYLOAD: CreateProjectPayload = {
   cityId: 6,
   districtId: 64,
   address: 'Test Mahallesi 1. Sokak No 2',
+  floorCount: 7,
+  basementCount: 1,
   apartmentCount: 4,
   workplaceCount: 0,
   areaSquareMeters: 120,
@@ -215,6 +217,8 @@ describe('createProject', () => {
       addressLine: VALID_PAYLOAD.address,
       blockLotParcel: VALID_PAYLOAD.parcelInfo,
       buildingCode: null,
+      floorCount: 7,
+      basementCount: 1,
       projectTypeCodeId: 3,
       heatingTypeCodeId: 8,
       buildingUsageTypeCodeId: 12,
@@ -327,7 +331,54 @@ describe('createProject', () => {
     expect(sentBody(fetchMock).projectFirmAuthorizationId).toBe(AUTHORIZATION_ROW.id)
   })
 
-  it('oturumda firma bağı yoksa projeyi göndermez', async () => {
+  /**
+   * Kat ve bodrum adedi `Building` üzerinde saklanıyor ve proje detayındaki
+   * "Kat Adedi" satırını besliyor.
+   */
+  it('kat ve bodrum adedini gövdeye yazar', async () => {
+    const fetchMock = stubFetch(apiCreatedResponse(8, VALID_PAYLOAD.name))
+
+    await createProject(VALID_PAYLOAD)
+
+    expect(sentBody(fetchMock)).toMatchObject({ floorCount: 7, basementCount: 1 })
+  })
+
+  /**
+   * PROJE FİRMASI KULLANICISI: sunucu bu rolü tanım gereği yalnız proje
+   * firmasına bağlıyor, `gasDistributionFirmId` HER ZAMAN null geliyor
+   * (`RegisterRequestValidator`). Gaz dağıtım bağı firmanın yürürlükteki YETKİ
+   * kaydından çözülüyor — bir süre iki alan da zorunlu tutuluyordu ve proje
+   * açma o rolde hiç çalışmıyordu.
+   */
+  it('oturumda gaz dağıtım bağı yoksa yetkiyi proje firmasından çözer', async () => {
+    const payload: CreateProjectPayload = { ...VALID_PAYLOAD }
+    delete payload.projectFirmId
+    delete payload.gasDistributionFirmId
+    const fetchMock = stubFetch(apiCreatedResponse(8, payload.name), {
+      currentUser: { ...CURRENT_USER, gasDistributionFirmId: null },
+    })
+
+    await createProject(payload)
+
+    expect(sentBody(fetchMock).projectFirmAuthorizationId).toBe(AUTHORIZATION_ROW.id)
+  })
+
+  /** Yürürlükte yetki yoksa kayıt HİÇ gitmemeli. */
+  it('proje firmasının yürürlükte yetkisi yoksa projeyi göndermez', async () => {
+    const payload: CreateProjectPayload = { ...VALID_PAYLOAD }
+    delete payload.projectFirmId
+    delete payload.gasDistributionFirmId
+    const fetchMock = stubFetch(apiCreatedResponse(8, payload.name), {
+      currentUser: { ...CURRENT_USER, gasDistributionFirmId: null },
+      authorizationRows: [],
+    })
+
+    await expect(createProject(payload)).rejects.toThrow(ProjectFirmAuthorizationError)
+
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  })
+
+  it('oturumda proje firması bağı yoksa projeyi göndermez', async () => {
     const payload: CreateProjectPayload = { ...VALID_PAYLOAD }
     delete payload.projectFirmId
     delete payload.gasDistributionFirmId
@@ -465,10 +516,10 @@ describe('listProjects — sunucu taraflı süzme ve sayfalama', () => {
   })
 
   /**
-   * Uçta ARAMA parametresi yok; kutu gelen sayfayı süzüyor. Kapsamın sayfa
-   * ile sınırlı olduğu bilinen sınır (uca `Search` eklenince kalkacak).
+   * Arama SUNUCUDA: uç `q` ile arıyor ve istemci gelen sayfayı süzmüyor —
+   * süzseydi `totalCount` ile satır adedi birbirini tutmazdı.
    */
-  it('aramayı gelen sayfa üzerinde Türkçe duyarsız uygular', async () => {
+  it('aramayı uca `q` olarak gönderir, gelen sayfayı süzmez', async () => {
     const fetchMock = stubFetch(
       apiPage([
         apiListItem(1, 'Gülbahar Apartmanı', '2026-08-03T18:20:47'),
@@ -478,9 +529,16 @@ describe('listProjects — sunucu taraflı süzme ve sayfalama', () => {
 
     const page = await listProjects({ ...TASLAK_QUERY, search: 'gulbahar' })
 
-    expect(page.items.map((project) => project.id)).toEqual([1])
-    // Arama uca GİTMEZ: sözleşmede karşılığı yok.
-    expect(sentUrl(fetchMock).search).not.toContain('gulbahar')
+    expect(sentUrl(fetchMock).searchParams.get('q')).toBe('gulbahar')
+    expect(page.items.map((project) => project.id)).toEqual([1, 2])
+  })
+
+  it('arama boşken `q` anahtarını hiç yazmaz', async () => {
+    const fetchMock = stubFetch(apiPage([]))
+
+    await listProjects({ ...TASLAK_QUERY, search: '' })
+
+    expect(sentUrl(fetchMock).searchParams.has('q')).toBe(false)
   })
 
   it('proje ve ısınma tipini uçtan gelen ADLA doldurur', async () => {

@@ -29,14 +29,5 @@ export function buildPolicyFilterChips({
     })
   }
 
-  if (filters.search !== '') {
-    applied.push({
-      key: 'q',
-      label: 'Arama',
-      value: filters.search,
-      onRemove: () => onApply({ ...filters, search: '' }),
-    })
-  }
-
   return applied
 }

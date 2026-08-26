@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  PROJECT_ID,
   buildDetail,
   buildHistory,
   buildUnits,
@@ -58,10 +59,11 @@ describe('ekranın açılması (KK-1)', () => {
     const titleRow = heading.parentElement as HTMLElement
     expect(within(titleRow).getByText('Onay Bekleyen')).toBeInTheDocument()
 
-    // Künye tek paragraf: eşleşen span'dan kabına çıkılıyor.
+    // Künye tek paragraf: eşleşen span'dan kabına çıkılıyor. "Proje ID"
+    // sunucunun gerçek `Id`si; "Tesisat No" künyeden KALDIRILDI.
     const identity = screen.getByText(/^Proje ID:/).closest('p') as HTMLElement
-    expect(identity).toHaveTextContent('30006185')
-    expect(identity).toHaveTextContent('115736')
+    expect(identity).toHaveTextContent(String(PROJECT_ID))
+    expect(identity).not.toHaveTextContent('115736')
     expect(identity).toHaveTextContent('TOROSGAZ-KÜTAHYA')
   })
 

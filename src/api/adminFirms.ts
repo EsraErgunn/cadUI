@@ -81,6 +81,11 @@ export type GasDistributionFirm = z.infer<typeof gasDistributionFirmSchema>
 export type GasDistributionFirmPage = PagedResult<GasDistributionFirm>
 
 export interface GasDistributionFirmQuery {
+  /**
+   * Ad süzgeci. Liste ekranında ARAMA KUTUSU YOK; bu alanın tek okuyucusu
+   * firma formundaki "aynı adda kayıt var mı" uyarısı
+   * (`useGasFirmNameWarning`). Liste her zaman boş dize gönderir.
+   */
   nameQuery: string
   /** Grup artık ADLA değil KİMLİKLE süzülüyor — gerçek veri kimlik taşıyor. */
   groupId: number | null
@@ -112,20 +117,20 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * Arama, sıralama ve sayfalama İSTEMCİDE: uç ünvan araması (`Search`) ve tek
- * firma daraltması (`Id`) almıyor, yalnız `GasDistributionGroupId` ve sayfalama
- * parametreleri var. İkisi olmadan sunucuya taşımak arama kutusunu ve üst
- * bardaki firma kapsamını sessizce işlevsiz bırakırdı.
+ * ARAMA sunucuda: uç `q` parametresini alıp Elastic üzerinden arıyor
+ * (`GasDistributionFirmManager`). Sıralama ve sayfalama İSTEMCİDE kalıyor —
+ * uç tek firma daraltması (`Id`) almıyor ve üst bardaki firma kapsamı onsuz
+ * sessizce işlevsiz kalırdı.
  *
  * CLAUDE.md "sayfalama sunucu taraflı" kuralının bilinçli, GEÇİCİ istisnası
- * (K27). TODO(esra): uca `Search` + tek firma süzgeci eklenince gövde tek
- * isteğe iner ve `queryFirmList` silinir.
+ * (K27). TODO(esra): uca tek firma süzgeci eklenince gövde tek isteğe iner ve
+ * `queryFirmList` silinir.
  */
 export async function getGasDistributionFirms(
   query: GasDistributionFirmQuery,
   signal?: AbortSignal,
 ): Promise<GasDistributionFirmPage> {
-  const firms = await fetchAllFirms(signal)
+  const firms = await fetchAllFirms(signal, query.nameQuery)
   const { items, totalCount } = queryFirmList(firms, query)
 
   // Şemadan geçiyor: sözleşme kayması bileşenin içinde değil sınırda patlasın.
@@ -146,17 +151,28 @@ export async function getGasDistributionFirms(
  * kaydı veriyor. Fonksiyonun sözleşmesi ("hepsi") değişmesin diye sayfalar
  * `fetchAllPages` ile toplanıyor; çağıranların hiçbiri değişmedi.
  */
-export async function fetchAllFirms(signal?: AbortSignal): Promise<GasDistributionFirm[]> {
+export async function fetchAllFirms(
+  signal?: AbortSignal,
+  /**
+   * Metin araması. Doluysa uca `q` olarak gider (Elastic); mock gövdede
+   * süzme `queryFirmList`'e kalır. Varsayılan boş: kapsam seçicisi ve öteki
+   * çağıranlar listenin TAMAMINI istiyor.
+   */
+  nameQuery = '',
+): Promise<GasDistributionFirm[]> {
   if (!hasApiBaseUrl()) {
     await delay(MOCK_LATENCY_MS, signal)
     return allMockFirms()
   }
 
+  const trimmed = nameQuery.trim()
+  const searchParam = trimmed === '' ? '' : `&q=${encodeURIComponent(trimmed)}`
+
   const dtos = await fetchAllPages(({ page, pageSize }) =>
     requestJson(
       {
         method: 'GET',
-        path: `/api/gasdistributionfirms?Page=${page}&PageSize=${pageSize}`,
+        path: `/api/gasdistributionfirms?Page=${page}&PageSize=${pageSize}${searchParam}`,
         signal,
       },
       firmListPageSchema,

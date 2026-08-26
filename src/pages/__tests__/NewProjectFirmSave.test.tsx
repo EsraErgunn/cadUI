@@ -232,6 +232,8 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
     expect(formApi.saveProjectFirmAuthorizations).toHaveBeenCalledWith(NEW_FIRM_ID, [
       {
         gasDistributionFirmId: 11,
+        // Ad gövdeye GİTMİYOR; başarısız satırı kullanıcıya adıyla söylemek için taşınıyor.
+        gasDistributionFirmName: 'AKSA-GEMLİK',
         certificateNumber: 'ST-1',
         validFrom: '2026-01-01',
         validTo: null,

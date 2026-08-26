@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { QueryError, QueryLoading } from './QueryStates'
+import { adminPageWidthVariants } from './adminPageWidth'
 import { adminButtonVariants } from './adminVariants'
 import { PROJECT_LIST_PATH } from '../../pages/useCloseEditor'
 
@@ -32,7 +33,7 @@ export function ProjectContextNotice({
 }: ProjectContextNoticeProps) {
   if (state === 'loading') {
     return (
-      <div className="mx-auto flex w-full max-w-400 flex-col gap-4">
+      <div className={adminPageWidthVariants({ className: 'flex flex-col gap-4' })}>
         <QueryLoading message={LOADING_MESSAGE} />
       </div>
     )
@@ -44,7 +45,7 @@ export function ProjectContextNotice({
       : `${screenName} ekranı bir projeye bağlı açılır; adreste geçerli bir proje yok.`
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-4">
+    <div className={adminPageWidthVariants({ className: 'flex flex-col gap-4' })}>
       <QueryError message={message} onRetry={onRetry} />
       <Link to={PROJECT_LIST_PATH} className={adminButtonVariants({ tone: 'secondary' })}>
         Projelere dön

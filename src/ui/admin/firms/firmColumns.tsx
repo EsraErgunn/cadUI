@@ -39,13 +39,15 @@ const DATA_COLUMNS: FirmColumn[] = [
     key: 'name',
     label: 'Firma',
     sortKey: 'name',
-    cell: (firm) => (
-      <Link to={gasFirmUpdatePath(firm.id)} className={ADMIN_CELL_LINK}>
-        {firm.name}
-      </Link>
-    ),
+    // Güncelleme ekranının TEK girişi Grup Adı hücresi: firma adı düz metin.
+    // Bağlantıydı, ama aynı kaydın aynı formuna giden iki hücre kullanıcıya iki
+    // ayrı hedef varmış gibi okunuyordu.
+    cell: (firm) => firm.name,
   },
 ]
+
+/** Eylem sütunu içeriği kadar dursun; geniş ekranda düğme başlığın altında kalır. */
+const ACTIONS_COLUMN_CLASS = 'w-px whitespace-nowrap text-right'
 
 interface FirmColumnsOptions {
   /** İstek süren satır; o satırın düğmesi kilitlenir. */
@@ -71,7 +73,8 @@ export function buildFirmColumns({
     {
       key: 'actions',
       label: 'İşlemler',
-      cellClassName: 'text-right',
+      cellClassName: ACTIONS_COLUMN_CLASS,
+      headerClassName: ACTIONS_COLUMN_CLASS,
       cell: (firm) => (
         <FirmRowActions
           firm={firm}

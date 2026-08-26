@@ -1,7 +1,6 @@
 import type { ProjectFirmAuthorizationRef } from './projectFirmAuthorizations'
 import type { ProjectFirmGasFirm } from './projectFirmDto'
 import type { ProjectFirm, ProjectFirmQuery } from './projectFirms'
-import { includesTr } from './turkishText'
 
 /**
  * Tabloya giren satır: firma alanları + yetki ucundan gelen G.D. firmaları.
@@ -91,20 +90,13 @@ export function queryProjectFirmList<TFirm extends ProjectFirm>(
   firms: TFirm[],
   query: ProjectFirmQuery,
 ): { items: TFirm[]; totalCount: number } {
-  const matched = firms.filter((firm) => matchesQuery(firm, query))
-  const sorted = [...matched].sort((left, right) => compareFirms(left, right, query))
+  const sorted = [...firms].sort((left, right) => compareFirms(left, right, query))
   const offset = (query.page - 1) * query.pageSize
 
   return {
     items: sorted.slice(offset, offset + query.pageSize),
-    totalCount: matched.length,
+    totalCount: firms.length,
   }
-}
-
-/** Arama YALNIZ firma ünvanı üzerinde (gereksinim 4.2), içerik bazlı. */
-function matchesQuery(firm: ProjectFirm, query: ProjectFirmQuery): boolean {
-  if (query.nameQuery === '') return true
-  return includesTr(firm.name, query.nameQuery)
 }
 
 function compareFirms(

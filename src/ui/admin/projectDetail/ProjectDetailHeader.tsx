@@ -2,7 +2,6 @@ import { Check, FileDown, PencilRuler, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-import { MockValue } from '../MockValue'
 import { ProjectStatusChip } from './ProjectStatusChip'
 import type { ProjectDetail, ProjectDetailStatus } from '../../../api/projectDetail'
 import { prefetchEditorPage } from '../../../app/editorChunk'
@@ -67,30 +66,16 @@ export function ProjectDetailHeader({
           {status !== null && <ProjectStatusChip status={status} />}
         </div>
 
-        {/* Künye: Proje ID, Tesisat No, gaz dağıtım firması (KK-1). */}
+        {/* Künye: Proje ID, gaz dağıtım firması (KK-1). "Tesisat No" KALDIRILDI
+            — ucun gövdesinde karşılığı yok. */}
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
           <span>
-            Proje ID: <span className="text-ink">{server.pId}</span>
+            Proje ID: <span className="text-ink">{server.id}</span>
           </span>
           <span aria-hidden>•</span>
-          <span>
-            Tesisat No:{' '}
-            {extras === null ? (
-              <span className="text-ink">—</span>
-            ) : (
-              <MockValue>
-                <span className="text-ink">{extras.general.installationNo}</span>
-              </MockValue>
-            )}
-          </span>
-          <span aria-hidden>•</span>
-          {extras === null ? (
-            <span className="text-ink">—</span>
-          ) : (
-            <MockValue>
-              <span className="text-ink">{extras.general.gasFirmName}</span>
-            </MockValue>
-          )}
+          {/* Gaz dağıtım firması artık GERÇEK: uç ünvanı gövdede taşıyor,
+              mock işareti kalktı. */}
+          <span className="text-ink">{extras?.general.gasFirmName ?? '—'}</span>
         </p>
       </div>
 

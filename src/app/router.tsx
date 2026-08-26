@@ -27,6 +27,8 @@ import {
   GAS_DISTRIBUTION_USERS_PATH,
   GAS_DISTRIBUTION_USER_CREATE_PATH,
   MANAGEMENT_SCREEN_ROLES,
+  MY_GAS_DISTRIBUTION_FIRMS_PATH,
+  OWN_GAS_FIRM_VIEWER_ROLES,
   POLICIES_PATH,
   PROJECT_CONTENT_WRITER_ROLES,
   POLICY_CREATE_ROUTE,
@@ -104,6 +106,9 @@ const ProjectFirmsPage = lazy(async () => ({
 }))
 const ProjectListPage = lazy(async () => ({
   default: (await import('../pages/ProjectListPage')).ProjectListPage,
+}))
+const MyGasDistributionFirmsPage = lazy(async () => ({
+  default: (await import('../pages/MyGasDistributionFirmsPage')).MyGasDistributionFirmsPage,
 }))
 const ProfilePage = lazy(async () => ({
   default: (await import('../pages/ProfilePage')).ProfilePage,
@@ -327,6 +332,22 @@ const router = createBrowserRouter(
           }
         >
           <Route path={GAS_DISTRIBUTION_GROUPS_PATH} element={<GasDistributionGroupsPage />} />
+        </Route>
+
+        {/* Kullanıcının BAĞLI OLDUĞU gaz dağıtım firmaları. Sol menüde maddesi
+            YOK: ekran kapsam seçimine bağlanacak. Yöneticiye kapalı — onun
+            karşılığı sistemin tam listesi (`gas-distribution-firms`). */}
+        <Route
+          element={
+            <RequireRole allowed={OWN_GAS_FIRM_VIEWER_ROLES}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route
+            path={MY_GAS_DISTRIBUTION_FIRMS_PATH}
+            element={<MyGasDistributionFirmsPage />}
+          />
         </Route>
 
         <Route path={DOCUMENTS_PATH} element={<DocumentListPage />} />

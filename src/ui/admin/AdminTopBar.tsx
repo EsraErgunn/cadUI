@@ -1,19 +1,33 @@
 import { useQuery } from '@tanstack/react-query'
 import { Menu, Search } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { UserMenu } from './UserMenu'
 import { MANAGEMENT_SCREEN_ROLES } from './adminNavItems'
 import { buildScopeOptionGroups, parseScopeValue, toScopeValue } from './adminScopeOptions'
+import { ADMIN_PARAM_KEYS, useAdminParamWriter } from './adminUrlParams'
 import { adminFieldVariants, adminIconButtonVariants } from './adminVariants'
+import { isInPlaceSearchPath } from './globalSearchTargets'
+import { useOwnGasFirms } from './ownGasFirms/useOwnGasFirms'
 import { useAdminScopeParam } from './useAdminScopeParam'
 import { hasAnyRole, useRoleCode } from './useRole'
 import { fetchAllFirms, getFirmGroups } from '../../api/adminFirms'
+import { PROJECT_LIST_PATH } from '../../pages/useCloseEditor'
 
 const SCOPE_SELECT_ID = 'admin-scope'
 
 /** Kapsam seçilmemiş hâl. Boş dize `<option>` değeri; global kapsamın DOM karşılığı. */
 const GLOBAL_SCOPE_VALUE = ''
+
+/**
+ * Kapsam seçilmemiş hâlin ETİKETİ role göre değişiyor. Yönetici gerçekten
+ * sistemin tamamına bakıyor; yönetim dışı roller ise yalnız kendi bağlı olduğu
+ * firmaları görüyor ve onlara "Sistem geneli" demek, göremedikleri bir kapsamı
+ * vaat ederdi.
+ */
+const GLOBAL_SCOPE_LABEL = 'Sistem geneli'
+const OWN_SCOPE_LABEL = 'Tümü'
 
 /**
  * Firma satırlarını grup satırından ayıran girinti. Bölünemez boşluk şart:
@@ -49,6 +63,9 @@ interface AdminTopBarProps {
 
 export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   const [globalQuery, setGlobalQuery] = useState('')
+  const navigate = useNavigate()
+  const location = useLocation()
+  const updateParams = useAdminParamWriter()
   const { scope, setScope } = useAdminScopeParam()
   // FİRMA seçenekleri yalnız yöneticide: `GET /api/gasdistributionfirms`
   // sunucuda `Authorize(Roles = Admin)` ile korunuyor, öteki rollerde istek
@@ -56,9 +73,20 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
   // seçici herkeste çiziliyor ve grup satırlarını gösteriyor.
   const canListGasFirms = hasAnyRole(useRoleCode(), MANAGEMENT_SCREEN_ROLES)
 
+  /**
+   * Yönetim DIŞINDAKİ roller kapsam olarak yalnız KENDİ bağlı oldukları gaz
+   * dağıtım firmalarını görüyor (`useOwnGasFirms`, gerçek uçlar): proje firması
+   * kullanıcısı firmasının yürürlükteki yetkilerinden, gaz dağıtım kullanıcısı
+   * kendi firmasının tekil kaydından. Grup listesi ve sistem geneli o rollerde
+   * hiç çizilmiyor — göremedikleri firmaları kapsam olarak sunmak, seçim
+   * yapılınca listeyi sessizce boşaltırdı.
+   */
+  const ownGasFirms = useOwnGasFirms()
+
   const { data: groups } = useQuery({
     queryKey: ['firmGroups'],
     queryFn: ({ signal }) => getFirmGroups(signal),
+    enabled: canListGasFirms,
   })
 
   // Anahtarın kökü firma listesiyle AYNI: bir firma pasifleştirilince o ekranın
@@ -73,6 +101,42 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
     () => buildScopeOptionGroups(groups ?? [], firms ?? []),
     [groups, firms],
   )
+
+  /** Yönetim dışı rolde seçenekler düz bir liste: grup hiyerarşisi yok. */
+  const ownFirmOptions = useMemo(
+    () =>
+      (ownGasFirms.rows ?? []).map((firm) => ({
+        value: toScopeValue({ type: 'firm', firmId: firm.id }),
+        label: firm.name,
+      })),
+    [ownGasFirms.rows],
+  )
+
+  /**
+   * Genel arama İKİ yoldan biriyle çalışır ve ayrımı `globalSearchTargets`
+   * yapar:
+   *
+   * - Ucu metin araması alan liste ekranlarında (proje, proje firması, gaz
+   *   dağıtım firması, kullanıcılar) arama YERİNDE: adrese yalnız `q` yazılır,
+   *   ekranın kendi süzgeçleri korunur ve sayfa 1'e döner. Böylece geri tuşu ve
+   *   yenileme mevcut rota sistemiyle aynı şekilde davranır.
+   * - Geri kalan her ekranda arama PROJE listesine taşınır. Adres SIFIRDAN
+   *   kuruluyor: bulunulan sayfanın süzgeçlerini taşımak aramayı bambaşka bir
+   *   kümede yapardı.
+   *
+   * Boş metinde hiçbir şey olmaz — kullanıcıyı sebepsiz sayfa değiştirmek.
+   */
+  const submitGlobalSearch = () => {
+    const term = globalQuery.trim()
+    if (term === '') return
+
+    if (isInPlaceSearchPath(location.pathname)) {
+      updateParams({ nameQuery: term }, true)
+      return
+    }
+
+    void navigate(`${PROJECT_LIST_PATH}?${ADMIN_PARAM_KEYS.nameQuery}=${encodeURIComponent(term)}`)
+  }
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b border-edge bg-surface px-3 sm:gap-4 sm:px-6">
@@ -98,8 +162,19 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
           onChange={(event) => setScope(parseScopeValue(event.target.value))}
           className={adminFieldVariants({ className: 'w-32 min-w-0 sm:w-44 lg:w-56' })}
         >
-          <option value={GLOBAL_SCOPE_VALUE}>Sistem geneli</option>
-          {optionGroups.map((optionGroup) =>
+          <option value={GLOBAL_SCOPE_VALUE}>
+            {canListGasFirms ? GLOBAL_SCOPE_LABEL : OWN_SCOPE_LABEL}
+          </option>
+
+          {!canListGasFirms &&
+            ownFirmOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+
+          {canListGasFirms &&
+            optionGroups.map((optionGroup) =>
             optionGroup.groupOption === null ? (
               /* Grubu olmayan firmalar: seçilebilecek bir GRUP kapsamı yok, bu
                  yüzden başlık `<optgroup>` olarak kalıyor. */
@@ -128,14 +203,14 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
                   </option>
                 ))}
               </Fragment>
-            ),
-          )}
+              ),
+            )}
         </select>
       </div>
 
-      {/* Genel arama sonuç ekranı kendi issue'sunda gelecek. Dar ekranda
-          GİZLENİYOR: 320 px'de kapsam seçici + arama + eylemler aynı satıra
-          sığmıyor ve üst bar yatay kayıyordu. */}
+      {/* Enter, aramayı PROJE listesine taşır (`submitGlobalSearch`). Dar
+          ekranda GİZLENİYOR: 320 px'de kapsam seçici + arama + eylemler aynı
+          satıra sığmıyor ve üst bar yatay kayıyordu. */}
       <div className="relative hidden min-w-0 flex-1 md:block">
         <Search
           aria-hidden
@@ -145,8 +220,13 @@ export function AdminTopBar({ onOpenMenu }: AdminTopBarProps) {
           type="search"
           value={globalQuery}
           onChange={(event) => setGlobalQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            submitGlobalSearch()
+          }}
           aria-label="Genel arama"
-          placeholder="Proje, firma, kullanıcı veya tesisat no ara..."
+          placeholder="Proje, firma veya kullanıcı ara..."
           className={adminFieldVariants({ className: 'w-full pl-9' })}
         />
       </div>

@@ -1,5 +1,6 @@
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ADMIN_HOME_PATH, PROJECT_FIRMS_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { NewProjectFirmForm } from '../ui/admin/projectFirms/NewProjectFirmForm'
 
 const PAGE_TITLE = 'Yeni Proje Firması Ekle'
@@ -20,7 +21,7 @@ const BREADCRUMB = [
  */
 export function NewProjectFirmPage() {
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'formMedium', className: 'flex flex-col gap-5' })}>
       <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} />
 
       <NewProjectFirmForm />

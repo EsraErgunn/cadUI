@@ -181,6 +181,7 @@ export function toAuthorizationPayloads(
 ): ProjectFirmAuthorizationPayload[] {
   return authorizations.map((authorization) => ({
     gasDistributionFirmId: authorization.gasDistributionFirmId,
+    gasDistributionFirmName: authorization.gasDistributionFirmName,
     certificateNumber: authorization.certificateNumber,
     validFrom: authorization.validFrom,
     validTo: authorization.validTo,

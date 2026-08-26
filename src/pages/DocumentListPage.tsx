@@ -16,6 +16,7 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { DocumentFilterBar } from '../ui/admin/documents/DocumentFilterBar'
 import {
   DOCUMENT_TABLE_CAPTION,
@@ -162,7 +163,7 @@ export function DocumentListPage() {
   const filterKey = Object.values(appliedFilters).join('|')
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, ...BREADCRUMB_TAIL]}
         title={PAGE_TITLE}

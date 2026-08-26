@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   addAuthorization,
+  openAuthorizationDraft,
   renderNewProjectFirmPage,
   selectGroup,
 } from './newProjectFirmFixture'
@@ -215,10 +216,19 @@ describe('KK-4 — yetkilendirme ekleme', () => {
 
   // Ekledikten sonra numaralar sıfırlanır, grup kalır: kullanıcı çoğunlukla
   // aynı grubun başka bölgesi için ikinci kaydı ekliyor.
-  it('ekledikten sonra bölge işaretleri ve numaralar sıfırlanır', async () => {
+  /**
+   * Panel eklemeden sonra KAPANIYOR (çip listesi öne çıksın); "+" ile yeniden
+   * açıldığında alanlar boş, grup seçimi ise korunmuş olmalı — kullanıcı
+   * çoğunlukla aynı grubun başka firmasını ekliyor.
+   */
+  it('ekledikten sonra panel kapanır, yeniden açılınca alanlar sıfırdır', async () => {
     openForm()
     await selectGroup('AKSA')
     await addAuthorization()
+
+    expect(screen.queryByLabelText(/^Sertifika No/)).not.toBeInTheDocument()
+
+    await openAuthorizationDraft()
 
     expect(screen.getByLabelText(/^Sertifika No/)).toHaveValue('')
     expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).not.toBeChecked()

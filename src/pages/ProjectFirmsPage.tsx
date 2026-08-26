@@ -13,13 +13,13 @@ import {
 import { getProjectFirmList, type ProjectFirm } from '../api/projectFirms'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
-import { FilterChips } from '../ui/admin/FilterChips'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ProjectFirmFilterPanel } from '../ui/admin/projectFirms/ProjectFirmFilterPanel'
 import { ProjectFirmTableToolbar } from '../ui/admin/projectFirms/ProjectFirmTableToolbar'
 import {
@@ -27,7 +27,6 @@ import {
   PROJECT_FIRM_TABLE_MIN_WIDTH,
   buildProjectFirmColumns,
 } from '../ui/admin/projectFirms/projectFirmColumns'
-import { buildProjectFirmFilterChips } from '../ui/admin/projectFirms/projectFirmFilterChips'
 import { useProjectFirmActions } from '../ui/admin/projectFirms/useProjectFirmActions'
 import { useProjectFirmListParams } from '../ui/admin/projectFirms/useProjectFirmListParams'
 import { useIsAdmin } from '../ui/admin/useIsAdmin'
@@ -65,7 +64,7 @@ const EMPTY_LIST: ProjectFirm[] = []
 const EMPTY_AUTHORIZATIONS: ProjectFirmAuthorizationRef[] = []
 
 export function ProjectFirmsPage() {
-  const { query, setNameQuery, toggleSort, setPage } = useProjectFirmListParams()
+  const { query, toggleSort, setPage } = useProjectFirmListParams()
   const savedNotice = useSavedFirmNotice()
   const queryClient = useQueryClient()
   const canManage = useIsAdmin()
@@ -76,9 +75,11 @@ export function ProjectFirmsPage() {
 
   // Sorgu `queryKey`'in parçası DEĞİL: uç filtre/sayfalama parametresi almıyor,
   // sorgu anahtara girseydi her tuş vuruşu listeyi baştan indirirdi.
+  // Arama anahtarın PARÇASI: uç `q` ile aradığı için her yeni terim yeni bir
+  // sunucu sonucu demek. Süzgeçsiz liste ise (boş `q`) tek anahtarda paylaşılıyor.
   const { data, isPending, isError, refetch } = useQuery({
-    queryKey: [PROJECT_FIRM_LIST_QUERY_KEY],
-    queryFn: ({ signal }) => getProjectFirmList(signal),
+    queryKey: [PROJECT_FIRM_LIST_QUERY_KEY, query.nameQuery],
+    queryFn: ({ signal }) => getProjectFirmList(signal, query.nameQuery),
     staleTime: PROJECT_FIRM_LIST_STALE_MS,
   })
 
@@ -124,7 +125,7 @@ export function ProjectFirmsPage() {
   )
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       {savedNotice !== null && (
         <NoticeBar
           tone={savedNotice.tone}
@@ -155,23 +156,12 @@ export function ProjectFirmsPage() {
           title={PAGE_TITLE}
           countLabel={formatCountLabel(data === undefined ? undefined : totalCount)}
         />
-        <ProjectFirmTableToolbar
-          nameQuery={query.nameQuery}
-          onApplyNameQuery={setNameQuery}
-          onOpenFilterPanel={() => setIsFilterPanelOpen(true)}
-        />
+        <ProjectFirmTableToolbar onOpenFilterPanel={() => setIsFilterPanelOpen(true)} />
       </div>
 
       {isFilterPanelOpen && (
         <ProjectFirmFilterPanel onClose={() => setIsFilterPanelOpen(false)} />
       )}
-
-      <FilterChips
-        filters={buildProjectFirmFilterChips({
-          nameQuery: query.nameQuery,
-          onRemoveNameQuery: () => setNameQuery(''),
-        })}
-      />
 
       {isPending && <QueryLoading message="Proje firmaları yükleniyor…" />}
 
@@ -196,7 +186,7 @@ export function ProjectFirmsPage() {
             emptyMessage={
               query.nameQuery === ''
                 ? 'Seçili kapsamda proje firması yok.'
-                : 'Arama kriterine uyan proje firması bulunamadı. Kriteri değiştirip tekrar deneyin.'
+                : 'Arama kriterine uyan proje firması bulunamadı.'
             }
           />
           {totalCount > 0 && (

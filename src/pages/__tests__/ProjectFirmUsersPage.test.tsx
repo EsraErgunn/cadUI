@@ -59,13 +59,14 @@ describe('ekran açılışı (KK-1)', () => {
     })
 
     expect(await screen.findByText('—')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'AA Mühendislik' })).toBeInTheDocument()
+    expect(screen.getByText('AA Mühendislik')).toBeInTheDocument()
   })
 })
 
-// KK-10: kullanıcı adı/ad soyad güncelleme ekranına, firmalar firma detayına gider.
-describe('tıklanabilir sütunlar (KK-10)', () => {
-  it('kullanıcı ve firma bağlantıları doğru hedefe gider', async () => {
+// Satırda tıklanabilir tek hücre Kullanıcı Adı; ad soyad ve proje firması
+// bağlantıydı, ikisi de düz metne çevrildi.
+describe('tıklanabilir sütunlar', () => {
+  it('kullanıcı adı güncelleme ekranına gider', async () => {
     renderPage()
     const table = await screen.findByRole('table')
 
@@ -73,14 +74,15 @@ describe('tıklanabilir sütunlar (KK-10)', () => {
       'href',
       '/admin/project-firm-users/1001',
     )
-    expect(within(table).getByRole('link', { name: 'Tolga Ertek' })).toHaveAttribute(
-      'href',
-      '/admin/project-firm-users/1001',
-    )
-    expect(within(table).getByRole('link', { name: 'AA Mühendislik' })).toHaveAttribute(
-      'href',
-      '/admin/project-firms/201',
-    )
+  })
+
+  it('satırdaki tek bağlantı kullanıcı adıdır', async () => {
+    renderPage()
+    const table = await screen.findByRole('table')
+
+    expect(within(table).getAllByRole('link')).toHaveLength(1)
+    expect(within(table).getByText('Tolga Ertek').closest('a')).toBeNull()
+    expect(within(table).getByText('AA Mühendislik').closest('a')).toBeNull()
   })
 })
 

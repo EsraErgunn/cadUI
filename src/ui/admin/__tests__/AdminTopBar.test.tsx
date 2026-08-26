@@ -75,6 +75,23 @@ function renderTopBar(pathname: string) {
   )
 }
 
+/**
+ * Kapsam seçicisi yönetim DIŞI rollerde kendi firmalarını `useOwnGasFirms`
+ * üzerinden çekiyor; o hook `GET /api/auth/me` çağırıyor. Bu dosya üst BARIN
+ * kendisini ölçüyor, ağ değil: gerçek istek burada çalışsaydı, çıkış
+ * testlerinin `fetch` sahtesine takılıp 401 dönebiliyor ve oturumu bir sonraki
+ * testin altından çekiyordu. Hook'un kendi testleri ayrı dosyada.
+ */
+vi.mock('../ownGasFirms/useOwnGasFirms', () => ({
+  useOwnGasFirms: () => ({
+    rows: [],
+    isPending: false,
+    isError: false,
+    hasNoFirmLink: false,
+    refetch: () => {},
+  }),
+}))
+
 beforeEach(() => {
   setAuthSession(ADMIN_SESSION)
   // Çağrı sayısı testler arasında taşınmasın: "hiç istek atılmadı" iddiası buna bakıyor.

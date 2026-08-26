@@ -12,7 +12,7 @@ interface FirmRowActionsProps {
  * Yalnız eylemi yayınlar; API'yi çağıran taraf `useGasFirmActions`
  * (`ProjectRowActions` deseni).
  *
- * "Düzenle" düğmesi YOK: aynı kaydın güncelleme ekranına firma adı sütunundaki
+ * "Düzenle" düğmesi YOK: aynı kaydın güncelleme ekranına Grup Adı sütunundaki
  * bağlantı zaten gidiyor (KK-11), ikinci bir yol açmak aynı hedefi iki kez
  * göstermek olurdu.
  *

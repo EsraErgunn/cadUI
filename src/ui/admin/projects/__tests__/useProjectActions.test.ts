@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '../../../../api/http'
 import { submitProjectDecision } from '../../../../api/projectDetail'
 import { deleteProject, submitProject } from '../../../../api/projects'
 import { useProjectActions } from '../useProjectActions'
@@ -98,7 +99,30 @@ describe('useProjectActions', () => {
     expect(result.current.notice?.tone).toBe('success')
   })
 
-  it('istek hata verirse anlaşılır Türkçe mesaj gösterir', async () => {
+  /**
+   * "Onaya gönder" durum geçişinden ÖNCE iş kurallarını denetliyor (eksik
+   * müşteri sözleşmesi, poliçesiz proje, uygun olmayan durum) ve her biri
+   * kendi Türkçe metniyle geliyor. Sebep genel bir cümleye indirgenirse
+   * kullanıcı düğmenin neden işe yaramadığını göremez.
+   */
+  it('sunucunun reddetme gerekçesini olduğu gibi gösterir', async () => {
+    const onChanged = vi.fn()
+    submitProjectMock.mockRejectedValue(
+      new ApiError(400, '2 birimde müşteri sözleşmesi eksik.'),
+    )
+    const { result } = renderHook(() => useProjectActions({ onChanged }))
+
+    await act(async () => {
+      await result.current.submit(PROJECT_ID)
+    })
+
+    await waitFor(() =>
+      expect(result.current.notice?.message).toBe('2 birimde müşteri sözleşmesi eksik.'),
+    )
+    expect(onChanged).not.toHaveBeenCalled()
+  })
+
+  it('ağ hatasında genel Türkçe mesaj gösterir', async () => {
     const onChanged = vi.fn()
     submitProjectMock.mockRejectedValue(new Error('network'))
     const { result } = renderHook(() => useProjectActions({ onChanged }))

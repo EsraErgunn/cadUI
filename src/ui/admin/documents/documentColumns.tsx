@@ -1,19 +1,16 @@
-import { Link } from 'react-router-dom'
-
 import type { DocumentRow, DocumentSortKey } from '../../../api/documents'
 import type { DataTableColumn } from '../DataTable'
 import { DateTimeCell } from '../DateTimeCell'
 import { EmptyValue } from '../EmptyValue'
-import { projectDetailPath } from '../adminNavItems'
-import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
+import { adminButtonVariants } from '../adminVariants'
 import { DocumentNameLink } from './DocumentNameLink'
 
 export const DOCUMENT_TABLE_CAPTION =
   'Evrak listesi. Evrak adı ve geliş tarihi başlıkları sıralamayı değiştirir.'
 
-/** On sütun dar ekrana sığmaz; bu eşiğin altında tablo yatay kaydırılır
+/** Sütunlar dar ekrana sığmaz; bu eşiğin altında tablo yatay kaydırılır
     (gereksinim 4). */
-export const DOCUMENT_TABLE_MIN_WIDTH_CLASS = 'min-w-320'
+export const DOCUMENT_TABLE_MIN_WIDTH_CLASS = 'min-w-240'
 
 /** Sıra numarası ve eylem sütunu içeriği kadar dursun (proje listesiyle aynı
     gerekçe). */
@@ -36,15 +33,14 @@ interface DocumentColumnsOptions {
   onDelete: (documentId: number) => void
 }
 
-/** Firma sütunlarının yeri: "Tesisat No"dan hemen sonra. */
-const FIRM_COLUMN_INDEX = 8
+/** Firma sütununun yeri: "Proje Adı"ndan hemen sonra. */
+const FIRM_COLUMN_INDEX = 6
 
 /**
- * "Firma Adı" ve "G.D Firması" DÜZ METİN: ikisinin de gidebileceği bir salt
- * okunur ekran repoda yok. Proje firmaları listesi kimlik filtresi okumuyor
- * (yalnız `q`), G.D. firmasının tek ekranı ise güncelleme FORMU — bir liste
- * hücresinden düzenleme formuna atmak yanlış hedef olurdu.
- * Eksik ekranlar: docs/api-eksikleri-evraklar.md
+ * Satırda tıklanabilir TEK hücre "Evrak Adı"; geri kalan her şey düz metin.
+ *
+ * "ProjeId", "Tesisat No" ve "G.D Firması" sütunları KALDIRILDI — bu adlarla
+ * yeni sütun yazma.
  */
 export function buildDocumentColumns({
   rowOffset,
@@ -97,46 +93,21 @@ export function buildDocumentColumns({
     {
       key: 'projectName',
       label: 'Proje Adı',
-      // Havuzdaki (projesiz) evrakta bağlantı YOK: hiçbir yere gitmeyen bir
-      // bağlantı düz metinden yanıltıcı olurdu.
+      // Proje detayına BAĞLANMIYOR: satırda tıklanabilir tek hücre Evrak Adı.
       cell: (document) =>
-        document.projectId === null || document.projectName === null ? (
-          <EmptyValue />
-        ) : (
-          <Link to={projectDetailPath(document.projectId)} className={ADMIN_CELL_LINK}>
-            {document.projectName}
-          </Link>
-        ),
-    },
-    {
-      key: 'projectPId',
-      label: 'ProjeId',
-      cellClassName: 'font-mono tabular-nums',
-      cell: (document) => document.projectPId,
-    },
-    {
-      key: 'installationNo',
-      label: 'Tesisat No',
-      cellClassName: 'font-mono tabular-nums text-ink-muted',
-      cell: (document) =>
-        document.installationNo === null ? <EmptyValue /> : document.installationNo,
+        document.projectName === null ? <EmptyValue /> : document.projectName,
     },
   ]
 
-  // Firma sütunları YÖNETİM görünümüne özel. Proje firması kullanıcısının
+  // Firma sütunu YÖNETİM görünümüne özel. Proje firması kullanıcısının
   // listesindeki her evrak zaten kendi firmasının: "Firma Adı" her satırda aynı
-  // değeri tekrar eder, "G.D Firması" ise onun yönetmediği bir firmayı anlatır.
-  // Gelen VERİ değişmiyor (`DocumentRow` aynı), yalnız iki sütun çizilmiyor.
+  // değeri tekrar ederdi. Gelen VERİ değişmiyor (`DocumentRow` aynı), yalnız
+  // sütun çizilmiyor.
   if (isManagementView) {
     columns.splice(FIRM_COLUMN_INDEX, 0, {
       key: 'firmName',
       label: 'Firma Adı',
       cell: (document) => (document.firmName === null ? <EmptyValue /> : document.firmName),
-    }, {
-      key: 'gasFirmName',
-      label: 'G.D Firması',
-      cell: (document) =>
-        document.gasFirmName === null ? <EmptyValue /> : document.gasFirmName,
     })
   }
 

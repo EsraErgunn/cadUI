@@ -29,16 +29,16 @@ function parseSortDir(raw: string | null): SortDirection {
 
 export interface FirmListControls {
   query: GasDistributionFirmQuery
-  setNameQuery: (value: string) => void
   setGroupId: (value: number | null) => void
   toggleSort: (key: GasFirmSortKey) => void
   setPage: (page: number) => void
 }
 
 /**
- * Arama/filtre/sıralama/sayfa durumunun TEK sahibi: URL. Bileşenlerde kopya state
+ * Filtre/sıralama/sayfa durumunun TEK sahibi: URL. Bileşenlerde kopya state
  * tutulmaz — böylece bağlantı paylaşılabilir ve tarayıcı geri tuşu doğru çalışır.
- * Varsayılan değerler URL'e yazılmaz, adres temiz kalır.
+ * Varsayılan değerler URL'e yazılmaz, adres temiz kalır. ARAMA anahtarı YOK:
+ * "Firma Adı" kutusu kaldırıldı.
  */
 export function useFirmListParams(): FirmListControls {
   const [searchParams] = useSearchParams()
@@ -46,6 +46,8 @@ export function useFirmListParams(): FirmListControls {
 
   const query = useMemo<GasDistributionFirmQuery>(
     () => ({
+      // Ekranın kendi arama kutusu yok; değer ÜST BARDAKİ genel aramadan
+      // geliyor ve adreste `q` olarak duruyor (`globalSearchTargets`).
       nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       groupId: parseScopeId(searchParams.get(ADMIN_PARAM_KEYS.groupName)),
       scopeFirmId: parseScopeId(searchParams.get(ADMIN_PARAM_KEYS.scopeFirm)),
@@ -73,10 +75,6 @@ export function useFirmListParams(): FirmListControls {
     [query.sortDir, query.sortKey, updateParams],
   )
 
-  const setNameQuery = useCallback(
-    (value: string) => updateParams({ nameQuery: value }, true),
-    [updateParams],
-  )
   // URL anahtarı `group` aynı kaldı, taşıdığı değer artık KİMLİK.
   const setGroupId = useCallback(
     (value: number | null) => updateParams({ groupName: value?.toString() ?? null }, true),
@@ -87,5 +85,5 @@ export function useFirmListParams(): FirmListControls {
     [updateParams],
   )
 
-  return { query, setNameQuery, setGroupId, toggleSort, setPage }
+  return { query, setGroupId, toggleSort, setPage }
 }

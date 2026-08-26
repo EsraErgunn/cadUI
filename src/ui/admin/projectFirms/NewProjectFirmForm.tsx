@@ -63,9 +63,9 @@ export function NewProjectFirmForm() {
           ? undefined
           : {
               savedFirmId: saved.firmId,
-              // Yetkilendirmeler sunucuya gitmediyse liste ekranı başarı yerine
-              // uyarı şeridi gösterir — sessiz yarım kayıt olmasın.
-              hasPendingAuthorizations: saved.arePendingAuthorizations,
+              // Yazılamayan bağlar liste ekranında ADLARIYLA uyarı şeridine
+              // dönüyor — sessiz yarım kayıt olmasın.
+              failedAuthorizationFirms: saved.failedAuthorizationFirms,
             },
     })
   }

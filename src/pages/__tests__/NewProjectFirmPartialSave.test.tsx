@@ -64,32 +64,35 @@ function expectOnList() {
 afterEach(() => vi.clearAllMocks())
 
 /**
- * Yetkilendirme yazan uç yok: gerçek uçta firma sunucuya gidiyor, yetkiler
- * mock'ta kalıyor. Kullanıcı bunu GÖRMELİ — sessiz yarım kayıt olmaz.
- * Şeridin kendisi liste ekranında (`ProjectFirmsNotice.test.tsx`); burada
- * bayrağın doğru üretilip taşındığı sınanıyor.
+ * Kısmi başarı: firma kaydı geçiyor, bazı yetkilendirme satırları geçmiyor ve
+ * geri ALINMIYOR. Kullanıcı bunu GÖRMELİ — sessiz yarım kayıt olmaz. Şeridin
+ * kendisi liste ekranında (`ProjectFirmsNotice.test.tsx`); burada başarısız
+ * firma ADLARININ doğru üretilip taşındığı sınanıyor.
  */
 describe('yarım kayıt görünürlüğü', () => {
-  it('yetkilendirmeler kalıcı değilse uyarı bayrağını listeye taşır', async () => {
-    formApi.saveProjectFirmAuthorizations.mockResolvedValueOnce({ arePersisted: false })
+  it('kurulamayan yetkilendirmelerin ADLARINI listeye taşır', async () => {
+    formApi.saveProjectFirmAuthorizations.mockResolvedValueOnce({
+      arePersisted: false,
+      failedGasFirmNames: ['AKSA-GEMLİK'],
+    })
     await fillReadyForm()
 
     await save()
     await expectOnList()
 
     expect(screen.getByTestId('list-state')).toHaveTextContent(
-      '"hasPendingAuthorizations":true',
+      '"failedAuthorizationFirms":["AKSA-GEMLİK"]',
     )
   })
 
-  it('mock modda uyarı bayrağı düşer', async () => {
+  it('hepsi yazıldıysa liste durumunda başarısız firma kalmaz', async () => {
     await fillReadyForm()
 
     await save()
     await expectOnList()
 
     expect(screen.getByTestId('list-state')).toHaveTextContent(
-      '"hasPendingAuthorizations":false',
+      '"failedAuthorizationFirms":[]',
     )
   })
 })

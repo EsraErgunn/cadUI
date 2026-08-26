@@ -48,11 +48,12 @@ type ProjectFirmTextField = Exclude<ProjectFirmField, 'isSoleProprietorship'>
 export interface ProjectFirmSaveResult {
   firmId: number
   /**
-   * Firma kaydedildi ama yetkilendirmeler sunucuya yazılamadı (uç yok).
-   * Liste ekranı bunu uyarı şeridine çeviriyor — kullanıcı "kaydedildi" deyip
-   * yarısı kaybolmuş bir kayıtla baş başa kalmasın.
+   * Firma kaydedildi ama bu gaz dağıtım firmalarının yetkilendirmesi
+   * yazılamadı. Liste ekranı bunu uyarı şeridine çeviriyor ve adları sayıyor —
+   * kullanıcı "kaydedildi" deyip yarısı kaybolmuş bir kayıtla baş başa
+   * kalmasın. Boş dizi = her şey yazıldı.
    */
-  arePendingAuthorizations: boolean
+  failedAuthorizationFirms: string[]
 }
 
 export interface UseProjectFirmFormOptions {
@@ -211,18 +212,18 @@ export function useProjectFirmForm({
         await updateProjectFirm(firmId, payload)
         // Güncellemede yetkilendirme gönderilmiyor (uç taşımıyor); "bekleyen"
         // uyarısı da çıkmaz, yoksa her kaydetmede yanlış uyarı görünürdü.
-        return { firmId, arePendingAuthorizations: false }
+        return { firmId, failedAuthorizationFirms: [] }
       }
 
       const createdId = await createProjectFirm(payload)
       // Firma kaydı BAŞARILI olduktan sonra çalışır; buradaki bir hata firmayı
       // geri almaz, bu yüzden kullanıcıyı listeye götürmeyi engellemiyor.
-      const { arePersisted } = await saveProjectFirmAuthorizations(
+      const { failedGasFirmNames } = await saveProjectFirmAuthorizations(
         createdId,
         toAuthorizationPayloads(authorizations),
       )
 
-      return { firmId: createdId, arePendingAuthorizations: !arePersisted }
+      return { firmId: createdId, failedAuthorizationFirms: failedGasFirmNames }
     } catch (error) {
       // 409 ALAN hatasına çevriliyor, şerit mesajına değil: çakışan şey belli
       // bir alan ve kullanıcı düzeltmeyi orada yapacak.

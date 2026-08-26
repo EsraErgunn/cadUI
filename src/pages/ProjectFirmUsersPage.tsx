@@ -14,6 +14,7 @@ import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH, PROJECT_FIRM_USER_CREATE_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import {
   PROJECT_FIRM_USER_TABLE_CAPTION,
@@ -89,7 +90,7 @@ export function ProjectFirmUsersPage() {
   const totalCount = data?.totalCount
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       {deletion.notice !== null && (
         <NoticeBar
           tone={deletion.notice.tone}

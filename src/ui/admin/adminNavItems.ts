@@ -121,6 +121,18 @@ export function gasDistributionUserUpdatePath(userId: number): string {
   return `${GAS_DISTRIBUTION_USERS_PATH}/${userId}`
 }
 
+/**
+ * Kullanıcının BAĞLI OLDUĞU gaz dağıtım firmaları — yönetimin gördüğü tam liste
+ * DEĞİL. İki rol iki ayrı uçtan çözülüyor (`useOwnGasFirms`): proje firması
+ * kullanıcısı yetki kayıtlarından, gaz dağıtım kullanıcısı kendi firmasının
+ * tekil kaydından. `GAS_DISTRIBUTION_FIRMS_PATH` bu iş için kullanılamazdı:
+ * `GET /api/gasdistributionfirms` sunucuda `Authorize(Roles = Admin)`.
+ *
+ * Sol menüde MADDESİ YOK (`ADMIN_NAV_ITEMS`): ekran kapsam seçimine bağlanacak,
+ * menüye ayrı bir satır olarak girmeyecek.
+ */
+export const MY_GAS_DISTRIBUTION_FIRMS_PATH = `${ADMIN_HOME_PATH}/my-gas-distribution-firms`
+
 export const DOCUMENTS_PATH = `${ADMIN_HOME_PATH}/documents`
 export const POLICIES_PATH = `${ADMIN_HOME_PATH}/policies`
 
@@ -198,9 +210,19 @@ export function projectEditorPath(projectId: number): string {
  * Yalnız `Admin`. Gaz dağıtım kullanıcısı bir süre burada GEÇİCİ olarak
  * duruyordu (ekran kümesi kararlaşmamıştı); kararlaştı ve çıkarıldı: o rol
  * firma/kullanıcı yönetmiyor, projeleri ONAYLIYOR. Kendi ekranları
- * `ALL_ROLES` maddeleri + `GAS_DISTRIBUTION_HOME_PATH`.
+ * `ALL_ROLES` maddeleri + `GAS_DISTRIBUTION_HOME_PATH` +
+ * `OWN_GAS_FIRM_VIEWER_ROLES`.
  */
 export const MANAGEMENT_SCREEN_ROLES: readonly RoleCode[] = [ROLE_CODES.admin]
+
+/**
+ * Kendi gaz dağıtım firmalarını GÖREN roller. Hem menünün süzgeci hem
+ * `RequireRole`'ün listesi buradan okur.
+ */
+export const OWN_GAS_FIRM_VIEWER_ROLES: readonly RoleCode[] = [
+  ROLE_CODES.gasDistributionUser,
+  ROLE_CODES.projectFirmUser,
+]
 
 /**
  * Proje İÇERİĞİNİ yazabilen roller: proje, evrak ve poliçe oluşturma /

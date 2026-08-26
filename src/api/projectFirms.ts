@@ -74,6 +74,10 @@ export const DEFAULT_PROJECT_FIRM_SORT_DIR: SortDirection = 'asc'
  * Filtre paneli bu yüzden pasif kutularla ve sebebini söyleyen ipuçlarıyla açılır.
  */
 export interface ProjectFirmQuery {
+  /**
+   * Metin araması. Ekranın kendi kutusu YOK; değer üst bardaki genel aramadan
+   * geliyor ve uca `q` olarak gidiyor (Elastic, `ProjectFirmManager`).
+   */
   nameQuery: string
   sortKey: ProjectFirmSortKey
   sortDir: SortDirection
@@ -92,10 +96,21 @@ export interface ProjectFirmQuery {
  * bir kayıt "vergi numarası boşta" sonucunu verir ve çift kayıt açtırır.
  * Sayfalar bu yüzden `fetchAllPages` ile toplanıyor.
  */
-export async function getProjectFirmList(signal?: AbortSignal): Promise<ProjectFirm[]> {
+export async function getProjectFirmList(
+  signal?: AbortSignal,
+  /** Doluysa uca `q` olarak gider; arama SUNUCUDA (Elastic). */
+  nameQuery = '',
+): Promise<ProjectFirm[]> {
+  const trimmed = nameQuery.trim()
+  const searchParam = trimmed === '' ? '' : `&q=${encodeURIComponent(trimmed)}`
+
   const dtos = await fetchAllPages(({ page, pageSize }) =>
     requestJson(
-      { method: 'GET', path: `/api/projectfirms?Page=${page}&PageSize=${pageSize}`, signal },
+      {
+        method: 'GET',
+        path: `/api/projectfirms?Page=${page}&PageSize=${pageSize}${searchParam}`,
+        signal,
+      },
       projectFirmListPageSchema,
     ),
   )

@@ -147,16 +147,14 @@ describe('ProjectListPage (duman)', () => {
     expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Taslak')
     expect(screen.getAllByRole('button', { name: 'Gönder' }).length).toBeGreaterThan(0)
 
-    // "Filtrele" düğmesi kalktı: arama Enter'da uygulanıyor.
-    await user.type(screen.getByPlaceholderText('Proje Ara...'), 'gül{Enter}')
-    await waitFor(() => expect(screen.getByTestId('search').textContent).toContain('q=g'))
+    // "Proje Ara" kutusu KALKTI; arama üst bardan `q` ile geliyor.
+    expect(screen.queryByPlaceholderText('Proje Ara...')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: /Onaylanan/ }))
 
     await waitFor(() =>
       expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Onaylanan'),
     )
-    expect(screen.getByTestId('search').textContent).toContain('q=g')
     // Onaylanan projede satır aksiyonu olmaz.
     await waitFor(() => expect(screen.queryAllByRole('button', { name: 'Sil' })).toHaveLength(0))
   })

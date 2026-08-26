@@ -60,6 +60,9 @@ function buildListQuery(query: ProjectFirmUserQuery): string {
     search.set('GasDistributionGroupId', String(query.gasFirmGroupId))
   }
 
+  const trimmed = query.nameQuery.trim()
+  if (trimmed !== '') search.set('q', trimmed)
+
   return search.toString()
 }
 

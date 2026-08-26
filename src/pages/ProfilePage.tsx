@@ -12,18 +12,14 @@ import { getUser } from '../api/users'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError } from '../ui/admin/QueryStates'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ProfileFormCard, ProfileFormSkeleton } from '../ui/admin/profile/ProfileFormCard'
 import { toProfileValues, useProfileForm } from '../ui/admin/profile/useProfileForm'
 import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Kişi Bilgileri'
 
-
-
 const SAVED_MESSAGE = 'Kişi bilgileriniz güncellendi.'
-
-const NO_FIRM_MESSAGE =
-  'Hesabınız bir proje firmasına bağlı değil; firma bilgileri bu yüzden boş görünüyor.'
 
 /**
  * Kişi Bilgileri ekranı.
@@ -85,7 +81,7 @@ export function ProfilePage() {
   const loadError = meQuery.isError || userQuery.isError
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'form', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}
@@ -120,10 +116,6 @@ export function ProfilePage() {
 
       {!loadError && !isPending && userQuery.data !== undefined && (
         <>
-          {projectFirmId === null && (
-            <NoticeBar tone="warning" message={NO_FIRM_MESSAGE} onDismiss={() => {}} />
-          )}
-
           {firmQuery.isError && (
             <QueryError
               message="Firma bilgileri yüklenemedi; yalnız kullanıcı bilgileri gösteriliyor."

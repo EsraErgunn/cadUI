@@ -212,11 +212,6 @@ export interface PolicyRow extends PolicyEditTarget {
 }
 
 export interface PolicyListQuery {
-  /**
-   * Sunucunun aradığı alanlar: poliçe numarası, birim numarası, abone numarası.
-   * PROJE ADI DAHİL DEĞİL — uç o alanda aramıyor.
-   */
-  search: string
   insuranceCompanyId: number | null
   /** `null` = proje bağımsız "tüm poliçeler"; uç `ProjectId` olmadan da çalışır. */
   projectId: number | null
@@ -263,8 +258,6 @@ export async function listPolicies(
   if (query.insuranceCompanyId !== null) {
     search.set('InsuranceCompanyId', String(query.insuranceCompanyId))
   }
-  if (query.search !== '') search.set('Search', query.search)
-
   const page = await requestJson(
     { method: 'GET', path: `/api/policies?${search.toString()}`, signal },
     policyPageSchema,
