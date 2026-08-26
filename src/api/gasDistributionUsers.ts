@@ -41,6 +41,11 @@ export type GasDistributionUserRow = z.infer<typeof gasDistributionUserRowSchema
 const pagedGasDistributionUserSchema = pagedResultSchema(gasDistributionUserRowSchema)
 
 export interface GasDistributionUserQuery {
+  /**
+   * Metin araması. Ekranın kendi kutusu YOK; değer üst bardaki genel aramadan
+   * geliyor ve uca `q` olarak gidiyor (Elastic, `UserManager`).
+   */
+  nameQuery: string
   page: number
   pageSize: number
 }
@@ -55,6 +60,11 @@ function buildQuery(query: GasDistributionUserQuery): string {
     Page: String(query.page),
     PageSize: String(query.pageSize),
   })
+
+  // Boş arama parametre olarak HİÇ yazılmaz; "tümü" demek için yokluğu kullanılır.
+  const trimmed = query.nameQuery.trim()
+  if (trimmed !== '') search.set('q', trimmed)
+
   return search.toString()
 }
 

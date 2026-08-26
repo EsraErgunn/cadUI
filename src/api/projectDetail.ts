@@ -54,6 +54,13 @@ const projectDetailDtoSchema = z.object({
   projectFirmId: z.number().int().nullish(),
   gasDistributionFirmId: z.number().int().nullish(),
   buildingCode: z.string().nullish(),
+  // Bina kat sayıları. Alan bir süre `ProjectDetailDto`'da YOKTU (yalnız
+  // `Building` tablosunda duruyordu) ve "Kat Adedi" hep boş görünüyordu;
+  // sunucu artık projeksiyonda taşıyor (`ProjectManager.GetByIdAsync`).
+  floorCount: z.number().int().nullish(),
+  basementCount: z.number().int().nullish(),
+  /** Yetki kaydından türetilen gaz dağıtım firmasının ünvanı. */
+  gasDistributionFirmName: z.string().nullish(),
   cityName: z.string().nullish(),
   districtName: z.string().nullish(),
   addressLine: z.string().nullish(),
@@ -127,15 +134,20 @@ export async function getProjectDetail(
     blockLotParcel: toNullable(dto.blockLotParcel),
     projectFirmAuthorizationId: dto.projectFirmAuthorizationId ?? null,
     gasDistributionFirmId: dto.gasDistributionFirmId ?? null,
+    gasDistributionFirmName: toNullable(dto.gasDistributionFirmName),
+    floorCount: dto.floorCount ?? null,
+    basementCount: dto.basementCount ?? null,
     projectTypeName: toNullable(dto.projectTypeName),
     heatingTypeName: toNullable(dto.heatingTypeName),
     apartmentCount: dto.apartmentCount ?? null,
     workplaceCount: dto.workplaceCount ?? null,
     areaSquareMeters: dto.areaSquareMeters ?? null,
     buildingCode: toNullable(dto.buildingCode ?? dto.code),
-    // Canlı yanıt bu alanı DÖNDÜRMÜYOR (K159); firma künyesi
-    // `projectFirmAuthorizationId` üzerinden çözülüyor, burada uydurulmuyor.
-    projectFirmId: null,
+    // Uç bu alanı DÖNDÜRÜYOR: `ProjectManager.GetByIdAsync` onu yetki kaydından
+    // türetip gövdeye yazıyor (`ProjectFirmId = p.ProjectFirmAuthorization
+    // .ProjectFirmId`). Bir süre burada sabit `null` duruyordu ve firma künyesi
+    // isteği hiç açılmıyordu — kart bu yüzden tümüyle boş görünüyordu.
+    projectFirmId: dto.projectFirmId ?? null,
     projectType: toNullable(dto.projectTypeName),
     heatingType: toNullable(dto.heatingTypeName),
     buildingUsageType: toNullable(dto.buildingUsageTypeName),
@@ -159,49 +171,28 @@ export async function getProjectDetail(
  * sanılırdı.
  *
  * Hâlâ kaynağı olmayanlar (ayrı bir uç isterler): firma mühendisi ve vergi
- * bilgileri, onay tarihi/onaylayan/onay kodu, tesisat numarası, mahalle ve
- * kapı numarası, sayaç/kat/daire desenleri, .zpd dosya adı.
+ * bilgileri, onay tarihi/onaylayan.
  */
 function buildExtras(server: ProjectServerFields): ProjectDetailExtras {
   return {
     general: {
-      zpdFileName: '',
       status: server.status,
-      gasFirmName: '',
-      installationNo: '',
-      neighborhood: null,
-      streetDoorNo: null,
+      // Uçtan GELİYOR; bir süre boş dize bırakılıp mock işaretiyle çiziliyordu.
+      gasFirmName: server.gasDistributionFirmName ?? '',
       projectType: server.projectType ?? '',
       heatingType: server.heatingType ?? '',
-      isDetached: null,
       hasLicense: server.isPermitProject,
     },
-    firm: {
-      engineerName: null,
-      engineerRegistrationNo: null,
-      title: null,
-      address: null,
-      phone: null,
-      competencyNo: null,
-      taxOffice: null,
-      taxNumber: null,
-    },
-    approval: { approvedAt: null, approverName: null, approvalCode: null, note: null },
+    firm: { title: null, address: null, phone: null, taxNumber: null },
+    approval: { approvedAt: null, approverName: null, note: null },
     specs: {
-      meterCount: null,
-      floorCount: null,
+      floorCount: server.floorCount,
       residenceCount: server.apartmentCount,
       shopCount: server.workplaceCount,
       boxPressureMbar: server.serviceBoxPressureMbar,
-      usagePressureMbar: null,
-      meterType: null,
-      floorPattern: null,
-      residenceShopPattern: null,
       totalAreaSquareMeters: server.areaSquareMeters,
       totalCapacity: server.capacityCubicMeterPerHour,
-      gasAreas: null,
       renovationNote: null,
-      orderNumber: null,
       // "Bağlantı Nesnesi" sunucuda bina kodunun kendisi (backend 91baf4c).
       connectionObject: server.buildingCode,
     },
@@ -274,12 +265,9 @@ const projectUnitDtoSchema = z.array(
  * kaydından türetiliyor). Kart bir süre TÜMÜYLE boştu: alanların hiçbirinin
  * kaynağı okunmuyordu.
  *
- * Dört alan dolduruluyor; kalan dördü sunucuda YOK ve uydurulmuyor:
- * - `engineerName` / `engineerRegistrationNo` — firma mühendisi kavramı
- *   `ProjectFirmDetailDto`'da yok. `ContactPerson` YETKİLİ KİŞİ, mühendis
- *   değil; eşitlemek uydurma olurdu.
- * - `competencyNo` — "Yeterlilik No" alanı K102'de kaldırıldı.
- * - `taxOffice` — vergi DAİRESİ yok, yalnız vergi NUMARASI var.
+ * Dört alanın dördü de gövdeden doluyor. Karşılığı olmayan alanlar (firma
+ * mühendisi, sicil numarası, Yeter No) tipten de ekrandan da KALDIRILDI —
+ * `ContactPerson` yetkili kişi, mühendis değil; eşitlemek uydurma olurdu.
  */
 export async function getProjectFirmInfo(
   projectFirmId: number,
@@ -288,13 +276,9 @@ export async function getProjectFirmInfo(
   const dto = await getProjectFirm(projectFirmId, { signal })
 
   return {
-    engineerName: null,
-    engineerRegistrationNo: null,
     title: toNullable(dto.title),
     address: toNullable(dto.address),
     phone: toNullable(dto.phone),
-    competencyNo: null,
-    taxOffice: null,
     taxNumber: toNullable(dto.taxNumber),
   }
 }
@@ -411,6 +395,9 @@ export async function getProjectPolicies(
   return policies.map((policy) => ({
     id: policy.id,
     policyNumber: toNullable(policy.policyNumber),
+    // Güncellemede gövdeye GERİ konuyor: gönderilmezse sunucu şirketi null'a
+    // düşürüyor (`PolicyEditTarget`).
+    insuranceCompanyId: policy.insuranceCompanyId ?? null,
     insuranceCompanyName: toNullable(policy.insuranceCompanyTitle),
     projectUnitId: policy.projectUnitId ?? null,
     unitNumber: toNullable(policy.unitNumber),

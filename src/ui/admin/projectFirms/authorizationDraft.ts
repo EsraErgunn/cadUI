@@ -14,7 +14,7 @@ import type { ProjectFirmAuthorizationPayload } from '../../../api/projectFirmFo
  */
 export interface AuthorizationGasFirm {
   id: number
-  /** Sunucunun ham ünvanı değil, `formatAuthorizationGasFirmName` etiketi. */
+  /** Sunucunun ünvanı, OLDUĞU GİBİ ("Çedaş Tekirdağ Doğal Gaz Dağıtım A.Ş."). */
   name: string
 }
 
@@ -24,47 +24,24 @@ export interface AuthorizationGroup {
 }
 
 /**
- * Adın ayırt eden İLK sözcüğü, Türkçe büyük harfle. Kalanı ("Doğalgaz Dağıtım
- * A.Ş.", "Enerji Grubu") her kayıtta tekrar eden tür eki, etikette bilgi taşımaz.
+ * Etiket TÜRETİLMİYOR: kutularda ve çiplerde sunucunun ünvanı olduğu gibi
+ * duruyor.
  *
- * Yerel ayar `tr` şart: `'i'.toUpperCase()` 'I' verir, "İzmir" → "IZMIR" yazardı.
+ * Bir süre "GRUP-BÖLGE" biçimine indirgeniyordu (belge madde 17: "AKSA-ADANA").
+ * Kural ünvanın ilk sözcüğünü alıyordu ve ünvan zaten grup adıyla başlayan
+ * firmalarda ayırt eden parçayı YİYORDU: "Çedaş Tekirdağ Doğal Gaz Dağıtım
+ * A.Ş." + grup "ÇEDAŞ" → yalnız "ÇEDAŞ". Aynı grubun iki firması kutuda
+ * birbirinden ayırt edilemiyordu.
  */
-function toLabelWord(value: string): string {
-  const [firstWord = ''] = value.trim().split(/\s+/)
-  return firstWord.toLocaleUpperCase('tr')
-}
-
-/**
- * Onay kutusunun etiketi belgedeki biçimde: "AKSA-ADANA" (grup + bölge,
- * belge madde 17).
- *
- * Sunucu ünvanı bölgeyi tek başına söylemiyor ("Adana Doğalgaz Dağıtım A.Ş.");
- * grup adı ("Aksa Enerji Grubu") ile birleşince belgenin örneklediği ada varıyor.
- * Ünvan ZATEN bu biçimdeyse grup öneki ikinci kez eklenmez — gerçek veride
- * kayıtlar "AKSA-GEMLİK" olarak duruyor, "AKSA-AKSA-GEMLİK" çıkardı.
- */
-export function formatAuthorizationGasFirmName(firm: {
-  name: string
-  groupName: string | null
-}): string {
-  const region = toLabelWord(firm.name)
-  const group = firm.groupName === null ? '' : toLabelWord(firm.groupName)
-
-  if (group === '' || region === '') return region === '' ? group : region
-  if (region === group || region.startsWith(`${group}-`)) return region
-
-  return `${group}-${region}`
-}
 
 /**
  * Eklenmiş bir yetkilendirme satırı.
  *
  * ASSUMPTION: Belge madde 20 "bir yetkilendirme kaydı" diyor ama gaz dağıtım
- * firması çoklu seçilebiliyor. Firma başına AYRI satır üretiliyor (tek "Ekle"
- * tıklaması N firma seçiliyse N satır doğurur): belge "aynı bölge ikinci kez
- * eklenemez" ve "kayıtlar tek tek kaldırılabilir" diyor — ikisi de firma bazlı
- * kimlik istiyor. Tek satırda liste tutulsaydı "şunu çıkar" satırı bölmek
- * zorunda kalırdı.
+ * firması çoklu seçilebiliyor. Firma başına AYRI satır üretiliyor: belge "aynı
+ * bölge ikinci kez eklenemez" ve "kayıtlar tek tek kaldırılabilir" diyor —
+ * ikisi de firma bazlı kimlik istiyor. Tek satırda liste tutulsaydı "şunu
+ * çıkar" satırı bölmek zorunda kalırdı.
  *
  * "Yeterlilik No" KALKTI (K102): kayıt iki ayrı numara taşıyordu (yeterlilik +
  * sertifika), sözleşmede karşılığı olan tek numara `certificateNumber` —
@@ -86,8 +63,10 @@ export interface ProjectFirmAuthorization {
 /** Yetkilendirme alt formunun hata metinleri (belgede yazmıyordu). */
 export const AUTHORIZATION_ERRORS = {
   group: 'Grup firması seçiniz.',
-  gasFirms: 'En az bir bölge seçiniz.',
+  gasFirms: 'Gaz dağıtım firması seçiniz.',
   certificateNumber: 'Sertifika numarası zorunludur.',
+  certificateNumberTaken:
+    'Bu sertifika numarası başka bir gaz dağıtım firmasında kullanıldı.',
   validFrom: 'Geçerlilik başlangıcı zorunludur.',
   validToBeforeFrom: 'Geçerlilik bitişi başlangıçtan sonra olmalıdır.',
 } as const
@@ -98,6 +77,25 @@ export interface AuthorizationDraft {
   certificateNumber: string
   validFrom: string
   validTo: string
+}
+
+/**
+ * Sertifika numarası EKLENEN kayıtlar arasında benzersiz olmalı: numara bir
+ * firma çiftinin yeterlilik belgesine ait, aynı numarayı iki bölgeye yazmak
+ * belgeyi kopyalamak olurdu. Karşılaştırma kırpılmış ve harf büyüklüğünden
+ * bağımsız — "st-1" ile "ST-1 " aynı belgedir.
+ */
+export function isCertificateNumberTaken(
+  authorizations: readonly ProjectFirmAuthorization[],
+  certificateNumber: string,
+): boolean {
+  const candidate = certificateNumber.trim().toLocaleUpperCase('tr')
+  if (candidate === '') return false
+
+  return authorizations.some(
+    (authorization) =>
+      authorization.certificateNumber.trim().toLocaleUpperCase('tr') === candidate,
+  )
 }
 
 /** Aynı gaz dağıtım firması için ikinci yetkilendirme engellenir (belge madde 20). */
@@ -120,7 +118,7 @@ export function buildDuplicateGasFirmMessage(
   gasFirms: readonly AuthorizationGasFirm[],
 ): string {
   const names = gasFirms.map((gasFirm) => gasFirm.name).join(', ')
-  return `Bu bölgeler için yetkilendirme zaten eklendi: ${names}`
+  return `Bu firmalar için yetkilendirme zaten eklendi: ${names}`
 }
 
 export function buildProjectFirmAuthorizations(
@@ -181,6 +179,7 @@ export function toAuthorizationPayloads(
 ): ProjectFirmAuthorizationPayload[] {
   return authorizations.map((authorization) => ({
     gasDistributionFirmId: authorization.gasDistributionFirmId,
+    gasDistributionFirmName: authorization.gasDistributionFirmName,
     certificateNumber: authorization.certificateNumber,
     validFrom: authorization.validFrom,
     validTo: authorization.validTo,

@@ -41,6 +41,28 @@ export function NewProjectBuildingCard({ form }: NewProjectBuildingCardProps) {
         onChange={(value) => setValue('address', value)}
       />
 
+      {/* Kat ve bodrum adedi bina künyesinin parçası: uç ikisini de
+          `Building` üzerinde saklıyor ve proje detayındaki "Kat Adedi" satırı
+          buradan doluyor. */}
+      <div className="grid gap-4 @md:grid-cols-2">
+        <NumberStepperField
+          id={newProjectFieldId('floorCount')}
+          label="Kat Adedi"
+          value={values.floorCount}
+          isInteger
+          error={errors.floorCount}
+          onChange={(value) => setValue('floorCount', value)}
+        />
+        <NumberStepperField
+          id={newProjectFieldId('basementCount')}
+          label="Bodrum Adedi"
+          value={values.basementCount}
+          isInteger
+          error={errors.basementCount}
+          onChange={(value) => setValue('basementCount', value)}
+        />
+      </div>
+
       <div className="grid gap-4 @md:grid-cols-2">
         <NumberStepperField
           id={newProjectFieldId('apartmentCount')}

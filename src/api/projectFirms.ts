@@ -52,6 +52,21 @@ export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
  * Ekle/güncelle/sil uçları `projectFirmForm.ts` içinde.
  */
 
+/**
+ * Proje firması LİSTESİNİ besleyen sorgu köklerinin tek kaynağı.
+ *
+ * Satır iki uçtan birleşiyor: firma kaydı (`/api/projectfirms`) ve gaz dağıtım
+ * bağı (`/api/project-firm-authorizations`). Kayıt sonrası yalnız ilki
+ * geçersizleştiriliyordu; yeni firma listede çıkıyor ama "G.D. Firması" sütunu
+ * BOŞ kalıyordu, çünkü yetki sorgusu 5 dakika taze sayılıyor ve kayıttan ÖNCE
+ * çekilmiş veriyle cevap veriyordu. İki kök burada duruyor ki mutasyon tarafı
+ * hangisinin unutulduğunu düşünmek zorunda kalmasın.
+ */
+export const PROJECT_FIRM_QUERY_ROOTS = [
+  'projectFirmList',
+  'projectFirmAuthorizations',
+] as const
+
 export const PROJECT_FIRM_PAGE_SIZE = 30
 
 /**
@@ -74,6 +89,10 @@ export const DEFAULT_PROJECT_FIRM_SORT_DIR: SortDirection = 'asc'
  * Filtre paneli bu yüzden pasif kutularla ve sebebini söyleyen ipuçlarıyla açılır.
  */
 export interface ProjectFirmQuery {
+  /**
+   * Metin araması. Ekranın kendi kutusu YOK; değer üst bardaki genel aramadan
+   * geliyor ve uca `q` olarak gidiyor (Elastic, `ProjectFirmManager`).
+   */
   nameQuery: string
   sortKey: ProjectFirmSortKey
   sortDir: SortDirection
@@ -92,10 +111,21 @@ export interface ProjectFirmQuery {
  * bir kayıt "vergi numarası boşta" sonucunu verir ve çift kayıt açtırır.
  * Sayfalar bu yüzden `fetchAllPages` ile toplanıyor.
  */
-export async function getProjectFirmList(signal?: AbortSignal): Promise<ProjectFirm[]> {
+export async function getProjectFirmList(
+  signal?: AbortSignal,
+  /** Doluysa uca `q` olarak gider; arama SUNUCUDA (Elastic). */
+  nameQuery = '',
+): Promise<ProjectFirm[]> {
+  const trimmed = nameQuery.trim()
+  const searchParam = trimmed === '' ? '' : `&q=${encodeURIComponent(trimmed)}`
+
   const dtos = await fetchAllPages(({ page, pageSize }) =>
     requestJson(
-      { method: 'GET', path: `/api/projectfirms?Page=${page}&PageSize=${pageSize}`, signal },
+      {
+        method: 'GET',
+        path: `/api/projectfirms?Page=${page}&PageSize=${pageSize}${searchParam}`,
+        signal,
+      },
       projectFirmListPageSchema,
     ),
   )

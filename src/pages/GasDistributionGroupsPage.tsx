@@ -6,6 +6,7 @@ import { DataTable, type DataTableColumn } from '../ui/admin/DataTable'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { useHomePath } from '../ui/admin/useHomePath'
 
 const PAGE_TITLE = 'Grup Firmaları'
@@ -34,7 +35,7 @@ export function GasDistributionGroupsPage() {
   })
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}

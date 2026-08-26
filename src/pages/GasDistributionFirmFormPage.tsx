@@ -3,6 +3,7 @@ import { Navigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, GAS_DISTRIBUTION_FIRMS_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { GasFirmFormCard } from '../ui/admin/firms/GasFirmFormCard'
 import { useGasFirmInitialValues } from '../ui/admin/firms/useGasFirmInitialValues'
 
@@ -41,7 +42,7 @@ function GasFirmFormScreen({ firmId }: { firmId: number | null }) {
   const title = firmId === null ? CREATE_TITLE : UPDATE_TITLE
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'form', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[
           { label: 'Anasayfa', to: ADMIN_HOME_PATH },

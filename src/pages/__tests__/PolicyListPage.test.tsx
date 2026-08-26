@@ -188,15 +188,21 @@ describe('PolicyListPage', () => {
       screen.getByLabelText('Sigorta Şirketi / Poliçe Firması'),
       await screen.findByRole('option', { name: 'Anadolu Sigorta' }),
     )
-    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı); arama Enter'da.
-    await user.type(screen.getByLabelText(/Poliçe no, birim no/), 'ORNEK{Enter}')
-
+    // Seçim ANINDA uygulanıyor ("Filtrele" kalktı). Arama kutusu YOK:
+    // "Poliçe Ara" kaldırıldı.
     await waitFor(() => {
       const search = screen.getByTestId('search').textContent ?? ''
       expect(search).toContain('company=1')
-      expect(search).toContain('q=ORNEK')
       expect(search).not.toContain('page=')
     })
+  })
+
+  it('"Poliçe Ara" alanı çizilmez', async () => {
+    renderPage()
+    await screen.findByRole('table')
+
+    expect(screen.queryByLabelText(/Poliçe no, birim no/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Poliçe Ara')).not.toBeInTheDocument()
   })
 
   it('poliçe yoksa nereden oluşturulacağını söyler', async () => {

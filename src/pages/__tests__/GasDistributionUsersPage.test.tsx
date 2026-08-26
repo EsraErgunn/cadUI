@@ -83,25 +83,29 @@ describe('gaz dağıtım kullanıcıları listesi', () => {
 })
 
 /**
- * Düzenleme, Proje Firması Kullanıcıları ekranındaki desenin aynısı: satırın
- * kimliğini taşıyan hücreler güncelleme ekranına GÖTÜRÜR, ayrı bir "Düzenle"
- * sütunu açılmaz.
+ * Düzenlemenin girişi TEK hücre: kullanıcı adı. Ayrı bir "Düzenle" sütunu
+ * açılmaz; ad soyad da bağlantıydı, aynı kaydın aynı formuna giden ikinci bir
+ * yol olduğu için düz metne çevrildi.
  */
 describe('gaz dağıtım kullanıcısı düzenleme girişi', () => {
-  it('kullanıcı adı ve ad soyad güncelleme ekranına bağlanır', async () => {
+  it('kullanıcı adı güncelleme ekranına bağlanır', async () => {
     renderPage()
 
     const table = await screen.findByRole('table')
-    const target = `${GAS_DISTRIBUTION_USERS_PATH}/${USER.id}`
 
     expect(within(table).getByRole('link', { name: USER.username })).toHaveAttribute(
       'href',
-      target,
+      `${GAS_DISTRIBUTION_USERS_PATH}/${USER.id}`,
     )
-    expect(within(table).getByRole('link', { name: USER.fullName })).toHaveAttribute(
-      'href',
-      target,
-    )
+  })
+
+  it('satırdaki tek bağlantı kullanıcı adıdır', async () => {
+    renderPage()
+
+    const table = await screen.findByRole('table')
+
+    expect(within(table).getAllByRole('link')).toHaveLength(1)
+    expect(within(table).getByText(USER.fullName).closest('a')).toBeNull()
   })
 })
 

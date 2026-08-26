@@ -25,9 +25,18 @@ describe('useProjectFirmUserListParams', () => {
 
     expect(result.current.query).toEqual({
       gasFirmGroupId: null,
+      nameQuery: '',
       page: 1,
       pageSize: PROJECT_FIRM_USER_PAGE_SIZE,
     })
+  })
+
+  // Arama kutusu ekranda YOK; `q` üst bardaki genel aramadan geliyor ve
+  // buradan uca aktarılıyor.
+  it('adresteki aramayı okur', () => {
+    const { result } = renderAt('?q=tolga')
+
+    expect(result.current.query.nameQuery).toBe('tolga')
   })
 
   it('adresteki sayfayı okur', () => {

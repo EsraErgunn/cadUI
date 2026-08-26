@@ -17,6 +17,7 @@ import { projectFirmQueryKey } from '../api/projectFirmForm'
 import { useAuthSession } from '../api/useAuthSession'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { useSavedDocumentNotice } from '../ui/admin/documents/useSavedDocumentNotice'
 import { useSavedPolicyNotice } from '../ui/admin/policies/useSavedPolicyNotice'
 import { ProjectDetailHeader } from '../ui/admin/projectDetail/ProjectDetailHeader'
@@ -167,7 +168,7 @@ export function ProjectDetailPage() {
   const reasonCopy = decisions.reasonPrompt === null ? null : REASON_DIALOG_COPY[decisions.reasonPrompt]
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <ProjectDetailHeader
         detail={detail}
         status={status}

@@ -69,7 +69,6 @@ export function ProjectDetailPanels({
         units={units}
         firm={firm}
         approval={approval}
-        onDownloadZpd={() => onDownload('zpd')}
       />
     )
   }

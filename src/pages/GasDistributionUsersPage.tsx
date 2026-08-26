@@ -17,6 +17,7 @@ import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
 import { ADMIN_HOME_PATH, GAS_DISTRIBUTION_USER_CREATE_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ADMIN_PARAM_KEYS, FIRST_PAGE, parsePage, useAdminParamWriter } from '../ui/admin/adminUrlParams'
 import { adminButtonVariants } from '../ui/admin/adminVariants'
 import {
@@ -36,11 +37,13 @@ const BREADCRUMB = [
 ]
 
 const EMPTY_MESSAGE = 'Kayıtlı gaz dağıtım kullanıcısı yok.'
+const NO_MATCH_MESSAGE = 'Arama kriterine uyan kullanıcı bulunamadı.'
 
 /**
- * Liste ekranı durumunun tek sahibi URL (`admin-list-state`). Bugün yalnız
- * sayfa numarası var: süzgeç sözleşmesi ucu olmadan yazılamaz, olmayan bir
- * parametreyi adrese koymak ileride yanlış anahtarla uyumluluk borcu doğururdu.
+ * Liste ekranı durumunun tek sahibi URL (`admin-list-state`): sayfa numarası ve
+ * üst bardaki genel aramadan gelen `q`. Başka süzgeç yok — sözleşmesi olmayan
+ * bir parametreyi adrese koymak ileride yanlış anahtarla uyumluluk borcu
+ * doğururdu.
  */
 function useGasDistributionUserListParams() {
   const [searchParams] = useSearchParams()
@@ -48,6 +51,8 @@ function useGasDistributionUserListParams() {
 
   const query = useMemo<GasDistributionUserQuery>(
     () => ({
+      // Ekranın kendi arama kutusu yok; `q` üst bardaki genel aramadan geliyor.
+      nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: GAS_DISTRIBUTION_USER_PAGE_SIZE,
     }),
@@ -106,7 +111,7 @@ export function GasDistributionUsersPage() {
   )
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={BREADCRUMB}
@@ -147,7 +152,7 @@ export function GasDistributionUsersPage() {
             rowKey={(row) => row.id}
             caption={GAS_DISTRIBUTION_USER_TABLE_CAPTION}
             minWidthClassName={GAS_DISTRIBUTION_USER_TABLE_MIN_WIDTH}
-            emptyMessage={EMPTY_MESSAGE}
+            emptyMessage={query.nameQuery === '' ? EMPTY_MESSAGE : NO_MATCH_MESSAGE}
           />
           {data.totalCount > 0 && (
             <Pagination

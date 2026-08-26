@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -119,11 +119,12 @@ describe('ekran açılışı', () => {
     expect(await readHeaders()).toEqual(DATA_COLUMN_LABELS)
   })
 
-  it('arama alanı ve iki düğme sağ üstte yer alır', async () => {
+  it('iki düğme sağ üstte yer alır, arama alanı çizilmez', async () => {
     renderPage()
     await findTable()
 
-    expect(screen.getByLabelText('Firma adında ara')).toHaveAttribute('placeholder', 'Firma Adı')
+    // "Firma Ara" KALDIRILDI; bu adla yeni alan eklenmez.
+    expect(screen.queryByLabelText('Firma adında ara')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Filtrele' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Yeni Proje Firması/ })).toBeInTheDocument()
   })
@@ -162,18 +163,21 @@ describe('satır içeriği', () => {
     )
   })
 
-  it('e-posta ve telefonu ilgili uygulamaya bağlar', async () => {
-    renderPage()
-    await findTable()
+  it('satırdaki tek bağlantı firma adıdır', async () => {
+    renderPage({ firms: [buildFirm({ id: 42 })] })
+    const table = await findTable()
 
-    expect(screen.getByRole('link', { name: 'bilgi@adana.com.tr' })).toHaveAttribute(
-      'href',
-      'mailto:bilgi@adana.com.tr',
-    )
-    expect(screen.getByRole('link', { name: '0532 100 00 00' })).toHaveAttribute(
-      'href',
-      'tel:05321000000',
-    )
+    expect(within(table).getAllByRole('link')).toHaveLength(1)
+  })
+
+  // Satırda tıklanabilir tek hücre Firma Adı: e-posta `mailto:`, telefon `tel:`
+  // bağlantısıydı, ikisi de düz metne çevrildi.
+  it('e-posta ve telefonu düz metin gösterir', async () => {
+    renderPage()
+    const table = await findTable()
+
+    expect(within(table).getByText('bilgi@adana.com.tr').closest('a')).toBeNull()
+    expect(within(table).getByText('0532 100 00 00').closest('a')).toBeNull()
   })
 
   /**
@@ -209,14 +213,11 @@ describe('satır içeriği', () => {
  * satır başına BİRDEN FAZLA olabiliyor.
  */
 describe('G.D. firması sütunu', () => {
-  it('yetkili olunan firmayı güncelleme ekranına bağlar', async () => {
+  it('yetkili olunan firmayı düz metin gösterir', async () => {
     renderPage({ authorizations: [buildAuthorization()] })
-    await findTable()
+    const table = await findTable()
 
-    expect(screen.getByRole('link', { name: 'Başkentgaz' })).toHaveAttribute(
-      'href',
-      '/admin/gas-distribution-firms/101',
-    )
+    expect(within(table).getByText('Başkentgaz').closest('a')).toBeNull()
   })
 
   it('birden fazla yetkinin firmasını alt alta listeler', async () => {
@@ -283,51 +284,6 @@ describe('G.D. firması sütunu', () => {
 })
 
 // KK-2: arama sunucu değil istemci tarafında ama davranış aynı görünmeli.
-describe('arama', () => {
-  it('yazılan ünvana göre süzer ve adedi günceller', async () => {
-    const user = userEvent.setup()
-    renderPage({
-      firms: [
-        buildFirm({ id: 1, name: 'ADANA MÜHENDİSLİK' }),
-        buildFirm({ id: 2, name: 'BOLU PROJE' }),
-      ],
-    })
-    await findTable()
-
-    await user.type(screen.getByLabelText('Firma adında ara'), 'bolu')
-
-    // Arama debounce'lu: eşleşmeyen satır hemen değil, yazım durulunca düşer.
-    await waitFor(() => {
-      expect(screen.queryByText('ADANA MÜHENDİSLİK')).not.toBeInTheDocument()
-    })
-    expect(screen.getByText('BOLU PROJE')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Proje Firmaları/ })).toHaveTextContent(
-      'Proje Firmaları (1)',
-    )
-  })
-
-  it('eşleşme yoksa kriteri değiştirmeyi öneren boş durum gösterir', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await findTable()
-
-    await user.type(screen.getByLabelText('Firma adında ara'), 'yok böyle bir firma')
-
-    expect(await screen.findByText(/kriteri değiştirip tekrar deneyin/i)).toBeInTheDocument()
-  })
-
-  it('arama listeyi yeniden ÇEKMEZ, yalnız yeniden süzer', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await findTable()
-
-    await user.type(screen.getByLabelText('Firma adında ara'), 'adana')
-    await screen.findByText('ADANA MÜHENDİSLİK LTD. ŞTİ.')
-
-    expect(listApi.getProjectFirmList).toHaveBeenCalledTimes(1)
-  })
-})
-
 // KK-6: sayfa başına 30 kayıt, alttaki bilgi metni güncellenir.
 describe('sayfalama', () => {
   const manyFirms = Array.from({ length: 65 }, (_unused, index) =>

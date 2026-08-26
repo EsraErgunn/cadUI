@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 
+import { ApiError } from '../api/http'
 import { submitProjectDecision } from '../api/projectDetail'
 import { submitProject } from '../api/projects'
 import type { Id } from '../core/model'
@@ -101,8 +102,17 @@ export function useEditorSubmit(projectId: Id | undefined): EditorSubmit {
       }
 
       setNotice({ tone: 'success', message: SUCCESS_MESSAGES.submit })
-    } catch {
-      setNotice({ tone: 'error', message: ERROR_MESSAGES[kind] })
+    } catch (cause: unknown) {
+      // Sunucunun KENDİ Türkçe gerekçesi korunuyor. Uç "onaya gönder"i birkaç
+      // iş kuralıyla reddedebiliyor ("… birimde müşteri sözleşmesi eksik",
+      // "Projenin en az bir biriminde poliçe olmalı", "Bu işlem '…'
+      // durumundaki bir projede yapılamaz") ve bunların hepsi genel bir
+      // "gönderilemedi" cümlesine indirgeniyordu — kullanıcı düğmenin neden
+      // işe yaramadığını göremiyordu. Genel metin yalnız AĞ hatasında.
+      setNotice({
+        tone: 'error',
+        message: cause instanceof ApiError ? cause.message : ERROR_MESSAGES[kind],
+      })
     } finally {
       setIsPending(false)
       setConfirmIssueCount(null)

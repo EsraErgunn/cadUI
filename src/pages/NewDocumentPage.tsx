@@ -16,6 +16,7 @@ import {
   parseProjectParam,
   projectDetailPath,
 } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../ui/admin/adminVariants'
 import { DocumentDropzone } from '../ui/admin/documents/DocumentDropzone'
 import { DocumentSourceTabs } from '../ui/admin/documents/DocumentSourceTabs'
@@ -157,7 +158,7 @@ export function NewDocumentPage() {
   const hasRows = upload.rows.length > 0
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, ...BREADCRUMB_TAIL]}
         title={PAGE_TITLE}

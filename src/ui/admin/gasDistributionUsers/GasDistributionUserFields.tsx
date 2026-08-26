@@ -34,6 +34,12 @@ interface GasDistributionUserFieldsProps {
 /**
  * Mockup'taki yerleşim: etiketler solda, girdiler sağda, girdinin İÇİNDE solda
  * alanı temsil eden ikon (`layout="horizontal"`).
+ *
+ * SIRA proje firması kullanıcısı formuyla AYNI — önce kim olduğu, sonra hangi
+ * firmaya bağlandığı, en sonda iletişim. İki ekran aynı işi yapıyor, alan
+ * sırasının ayrışması kullanıcıyı her geçişte yeniden okumaya zorlardı.
+ * Kullanıcı adı ve şifre ayrı ayrı koşullu: güncellemede ikisi de çizilmiyor
+ * ama aralarına e-posta giriyor.
  */
 export function GasDistributionUserFields({
   values,
@@ -44,6 +50,33 @@ export function GasDistributionUserFields({
 }: GasDistributionUserFieldsProps) {
   return (
     <FormCard title={SECTION_TITLE} icon={User}>
+      <TextField
+        id={gasDistributionUserFieldId('fullName')}
+        label="Adı Soyadı"
+        labelNote={REQUIRED_MARK}
+        layout="horizontal"
+        leftIcon={User}
+        placeholder="Ad Soyad"
+        value={values.fullName}
+        error={errors.fullName}
+        onChange={(value) => onChange('fullName', value)}
+      />
+
+      {/* Sunucu GÜNCELLEMİYOR (`UserUpdateDto`). */}
+      {!isUpdate && (
+        <TextField
+          id={gasDistributionUserFieldId('username')}
+          label="Kullanıcı Adı"
+          labelNote={REQUIRED_MARK}
+          layout="horizontal"
+          leftIcon={UserCircle}
+          placeholder="kullanici.adi"
+          value={values.username}
+          error={errors.username}
+          onChange={(value) => onChange('username', value)}
+        />
+      )}
+
       <TextField
         id={gasDistributionUserFieldId('email')}
         label="Email"
@@ -57,57 +90,20 @@ export function GasDistributionUserFields({
         onChange={(value) => onChange('email', value)}
       />
 
-      <PhoneField
-        id={gasDistributionUserFieldId('phoneDigits')}
-        label="Telefon"
-        layout="horizontal"
-        leftIcon={Phone}
-        placeholder={PHONE_PLACEHOLDER}
-        digits={values.phoneDigits}
-        error={errors.phoneDigits}
-        onChange={(digits) => onChange('phoneDigits', digits)}
-      />
-
-      <TextField
-        id={gasDistributionUserFieldId('fullName')}
-        label="Adı Soyadı"
-        labelNote={REQUIRED_MARK}
-        layout="horizontal"
-        leftIcon={User}
-        placeholder="Ad Soyad"
-        value={values.fullName}
-        error={errors.fullName}
-        onChange={(value) => onChange('fullName', value)}
-      />
-
-      {/* Sunucu ikisini de GÜNCELLEMİYOR (`UserUpdateDto`); şifre için ayrı bir
-          uç var (`POST /api/users/{id}/reset-password`) ve onun ekranı yok. */}
+      {/* Şifre için ayrı bir uç var (`POST /api/users/{id}/reset-password`) ve
+          onun ekranı yok; güncellemede alan hiç çizilmiyor. */}
       {!isUpdate && (
-        <>
-          <TextField
-            id={gasDistributionUserFieldId('username')}
-            label="Kullanıcı Adı"
-            labelNote={REQUIRED_MARK}
-            layout="horizontal"
-            leftIcon={UserCircle}
-            placeholder="kullanici.adi"
-            value={values.username}
-            error={errors.username}
-            onChange={(value) => onChange('username', value)}
-          />
-
-          <PasswordField
-            id={gasDistributionUserFieldId('password')}
-            label="Şifre"
-            labelNote={REQUIRED_MARK}
-            layout="horizontal"
-            leftIcon={KeyRound}
-            placeholder="••••••••"
-            value={values.password}
-            error={errors.password}
-            onChange={(value) => onChange('password', value)}
-          />
-        </>
+        <PasswordField
+          id={gasDistributionUserFieldId('password')}
+          label="Şifre"
+          labelNote={REQUIRED_MARK}
+          layout="horizontal"
+          leftIcon={KeyRound}
+          placeholder="••••••••"
+          value={values.password}
+          error={errors.password}
+          onChange={(value) => onChange('password', value)}
+        />
       )}
 
       <SelectField
@@ -121,6 +117,17 @@ export function GasDistributionUserFields({
         value={values.gasFirmId}
         error={errors.gasFirmId}
         onChange={(value) => onChange('gasFirmId', value)}
+      />
+
+      <PhoneField
+        id={gasDistributionUserFieldId('phoneDigits')}
+        label="Telefon"
+        layout="horizontal"
+        leftIcon={Phone}
+        placeholder={PHONE_PLACEHOLDER}
+        digits={values.phoneDigits}
+        error={errors.phoneDigits}
+        onChange={(digits) => onChange('phoneDigits', digits)}
       />
     </FormCard>
   )

@@ -10,6 +10,7 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { formatCountLabel } from '../ui/admin/adminFormat'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { PolicyEditDialog } from '../ui/admin/policies/PolicyEditDialog'
 import { PolicyFilterBar } from '../ui/admin/policies/PolicyFilterBar'
 import {
@@ -106,18 +107,15 @@ export function PolicyListPage() {
     ],
   )
 
-  const hasActiveFilters = query.search !== '' || query.insuranceCompanyId !== null
+  const hasActiveFilters = query.insuranceCompanyId !== null
 
   // Filtre çubuğu taslak durumunu kendi tutuyor; dışarıdan gelen değişim (geri
   // tuşu, etiket kaldırma) ancak bileşen yeni bir key ile kurulunca yansır.
-  const appliedFilters = {
-    search: query.search,
-    insuranceCompanyId: query.insuranceCompanyId,
-  }
+  const appliedFilters = { insuranceCompanyId: query.insuranceCompanyId }
   const filterKey = Object.values(appliedFilters).join('|')
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: homePath }, { label: PAGE_TITLE }]}
         title={PAGE_TITLE}

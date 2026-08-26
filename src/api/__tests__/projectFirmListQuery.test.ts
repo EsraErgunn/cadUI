@@ -101,48 +101,6 @@ describe('buildProjectFirmRows', () => {
  * Sunucu filtresiz/sayfalamasız düz dizi döndürdüğü için bu iş istemcide.
  * Geçici (docs/kararlar.md K29) ama davranışı mock'la gerçeğin ORTAK'ı.
  */
-describe('arama', () => {
-  const FIRMS = [
-    buildFirm({ id: 1, name: 'Adana Mühendislik Ltd. Şti.' }),
-    buildFirm({ id: 2, name: 'İstanbul Proje A.Ş.' }),
-    buildFirm({ id: 3, name: 'ÇORUM Tesisat Ltd. Şti.' }),
-  ]
-
-  it('ünvanın herhangi bir yerinde geçen kaydı bulur', () => {
-    const { items } = queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'ltd' }))
-
-    expect(items.map((firm) => firm.id)).toEqual([1, 3])
-  })
-
-  it('büyük/küçük harf ve Türkçe karakter gözetmez', () => {
-    expect(queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'çorum' })).items).toHaveLength(1)
-    expect(queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'ÇORUM' })).items).toHaveLength(1)
-  })
-
-  /**
-   * `toLocaleLowerCase('tr')` kullanılsaydı 'I' → 'ı' olur ve düz klavyeyle
-   * "ISTANBUL" yazan kullanıcı "İstanbul"u BULAMAZDI. `includesTr` üçünü de
-   * 'i'ye katladığı için iki yön de eşleşir.
-   */
-  it('I ile yazılan arama İ ile başlayan ünvanı bulur', () => {
-    expect(queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'ISTANBUL' })).items).toHaveLength(1)
-    expect(queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'istanbul' })).items).toHaveLength(1)
-  })
-
-  it('eşleşme yoksa boş liste ve sıfır adet verir', () => {
-    const { items, totalCount } = queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'yok' }))
-
-    expect(items).toEqual([])
-    expect(totalCount).toBe(0)
-  })
-
-  it('arama yalnız ünvana bakar, yetkiliye değil', () => {
-    const firms = [buildFirm({ id: 1, name: 'Adana', authorizedPerson: 'Zeynep Arslan' })]
-
-    expect(queryProjectFirmList(firms, buildQuery({ nameQuery: 'Zeynep' })).totalCount).toBe(0)
-  })
-})
-
 describe('sıralama', () => {
   const FIRMS = [
     buildFirm({ id: 1, name: 'Çorum', authorizedPerson: 'Ahmet' }),
@@ -208,12 +166,6 @@ describe('sayfalama', () => {
 
   it('aralık dışındaki sayfa boş gelir', () => {
     expect(queryProjectFirmList(FIRMS, buildQuery({ page: 99 })).items).toEqual([])
-  })
-
-  it('arama sonucunda toplam adet süzülmüş sayıdır', () => {
-    const { totalCount } = queryProjectFirmList(FIRMS, buildQuery({ nameQuery: 'Firma 01' }))
-
-    expect(totalCount).toBe(10)
   })
 
   it('gelen diziyi değiştirmez', () => {

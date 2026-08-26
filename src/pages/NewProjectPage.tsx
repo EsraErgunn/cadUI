@@ -7,6 +7,7 @@ import { PROJECT_LIST_PATH } from './useCloseEditor'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ADMIN_FORM_ACTION_WIDTH, adminButtonVariants } from '../ui/admin/adminVariants'
 import { NewProjectBuildingCard } from '../ui/admin/projects/NewProjectBuildingCard'
 import { NewProjectInfoCard } from '../ui/admin/projects/NewProjectInfoCard'
@@ -73,7 +74,7 @@ export function NewProjectPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[
           { label: 'Anasayfa', to: homePath },

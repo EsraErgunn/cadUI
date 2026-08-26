@@ -1,5 +1,4 @@
 import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -64,23 +63,27 @@ describe('Proje Bilgileri kartları (KK-4)', () => {
   it('dört kart da alanlarıyla görünür', async () => {
     renderDetail()
 
+    // "Zetacad Proje Dosyası" KALDIRILDI; kartın kalan alanları yerinde.
     const general = await screen.findByRole('region', { name: 'Proje Genel Bilgileri' })
-    expect(within(general).getByText('Zetacad Proje Dosyası')).toBeInTheDocument()
+    expect(within(general).queryByText('Zetacad Proje Dosyası')).not.toBeInTheDocument()
     expect(within(general).getByText('İLAVE')).toBeInTheDocument()
     expect(within(general).getByText('Kütahya / Merkez')).toBeInTheDocument()
 
     // Firma künyesi GERÇEK uçtan (`GET /api/projectfirms/{id}`); kart bir süre
-    // tümüyle boştu. Dolan dört alandan üçü burada.
+    // tümüyle boştu. Kalan üç satırın ikisi burada; "Vergi No" kaldırıldı.
     const firm = await screen.findByRole('region', { name: 'Proje Firma Bilgileri' })
     expect(within(firm).getByText(FIRM_INFO.title)).toBeInTheDocument()
     expect(within(firm).getByText(FIRM_INFO.address)).toBeInTheDocument()
-    expect(within(firm).getByText(FIRM_INFO.taxNumber)).toBeInTheDocument()
+    expect(within(firm).queryByText(FIRM_INFO.taxNumber)).not.toBeInTheDocument()
 
     expect(screen.getByRole('region', { name: 'Proje Onay Bilgileri' })).toBeInTheDocument()
 
+    // "Sayaç Tipi", "Kat Sayısı" (1+1+5) ve "Daire Dükkan Sayısı" (0 + 0)
+    // KALDIRILDI; kalan alanlar gerçek uçtan doluyor.
     const specs = screen.getByRole('region', { name: 'Detay Bilgileri' })
-    expect(within(specs).getByText('1+1+5')).toBeInTheDocument()
-    expect(within(specs).getByText('G4')).toBeInTheDocument()
+    expect(within(specs).queryByText('1+1+5')).not.toBeInTheDocument()
+    expect(within(specs).queryByText('0 + 0')).not.toBeInTheDocument()
+    expect(within(specs).getByText('2.015 m²')).toBeInTheDocument()
   })
 
   it('onay kartı amber sol kenarlıkla ayrılır', async () => {
@@ -90,17 +93,6 @@ describe('Proje Bilgileri kartları (KK-4)', () => {
     expect(approval).toHaveClass('border-l-4', 'border-l-warning')
   })
 
-  it('Zetacad Proje Dosyası tıklanabilir ve dosyayı ister', async () => {
-    const user = userEvent.setup()
-    renderDetail()
-
-    const zpdButton = await screen.findByRole('button', { name: '30006185.zpd' })
-    await user.click(zpdButton)
-
-    expect(detailApi.requestProjectFile).toHaveBeenCalledWith('zpd')
-    // Uç yok: eksiklik SÖYLENİYOR, sahte dosya indirilmiyor.
-    expect(await screen.findByRole('alert')).toHaveTextContent(/\.zpd.*uç sunucuda henüz yok/)
-  })
 })
 
 // KK-5: boş değer "—", birimler, salt okunurluk.
@@ -109,8 +101,9 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
     renderDetail()
 
     const approval = await screen.findByRole('region', { name: 'Proje Onay Bilgileri' })
-    // Dört alanın dördü de değer yerine okunabilir "Değer yok" taşır.
-    expect(within(approval).getAllByText('Değer yok')).toHaveLength(4)
+    // "Onay Kodu" KALDIRILDI; kalan üç alan da değer yerine okunabilir
+    // "Değer yok" taşır.
+    expect(within(approval).getAllByText('Değer yok')).toHaveLength(3)
   })
 
   /**
@@ -124,9 +117,11 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
         fileType: null,
         createdAt: '2026-07-14T09:12:00.000Z',
         userName: 'KONTROL MÜHENDİSİ',
+        // Sunucu geçmiş satırına hedef DURUM kodunu yazıyor (`CodeValues.Approved`);
+        // ayrı bir "projeOnay" işlem kodu YOK.
         roleSnapshot: 'Gaz Dağıtım',
-        operation: 'projeOnay',
-        operationName: 'Proje Onay',
+        operation: 'Approved',
+        operationName: 'Onaylanan',
         description: 'Proje uygundur.',
       },
     ])
@@ -136,15 +131,17 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
     const approval = await screen.findByRole('region', { name: 'Proje Onay Bilgileri' })
     expect(within(approval).getByText('KONTROL MÜHENDİSİ')).toBeInTheDocument()
     expect(within(approval).getByText('Proje uygundur.')).toBeInTheDocument()
-    // Onay KODU sunucuda saklanmıyor; uydurulmuyor, boş kalıyor.
-    expect(within(approval).getAllByText('Değer yok')).toHaveLength(1)
+    // Üç alanın üçü de geçmişten doluyor; boş kalan yok.
+    expect(within(approval).queryAllByText('Değer yok')).toHaveLength(0)
   })
 
   it('basınç mbar, alan m² birimiyle gösterilir', async () => {
     renderDetail()
 
+    // "Kullanım Basıncı" KALDIRILDI; mbar birimini taşıyan tek satır "Kutu
+    // Basıncı" kaldı.
     const specs = await screen.findByRole('region', { name: 'Detay Bilgileri' })
-    expect(within(specs).getAllByText('21 mbar')).toHaveLength(2)
+    expect(within(specs).getAllByText('21 mbar')).toHaveLength(1)
     expect(within(specs).getByText('2.015 m²')).toBeInTheDocument()
   })
 
@@ -152,8 +149,8 @@ describe('boş değer, birim ve salt okunurluk (KK-5)', () => {
     renderDetail()
 
     const specs = await screen.findByRole('region', { name: 'Detay Bilgileri' })
-    // Tadilat Açıklama / Sipariş Numarası / Bağlantı Nesnesi boş.
-    expect(within(specs).getAllByText('Değer yok').length).toBeGreaterThanOrEqual(3)
+    // Tadilat Açıklama ve Bağlantı Nesnesi boş ("Sipariş Numarası" kaldırıldı).
+    expect(within(specs).getAllByText('Değer yok').length).toBeGreaterThanOrEqual(2)
     expect(within(specs).getAllByText('—')[0]).toHaveClass('text-ink-disabled')
   })
 

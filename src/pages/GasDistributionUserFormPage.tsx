@@ -5,6 +5,7 @@ import { getUser } from '../api/users'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, GAS_DISTRIBUTION_USERS_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { GasDistributionUserForm } from '../ui/admin/gasDistributionUsers/GasDistributionUserForm'
 
 const LIST_TITLE = 'Gaz Dağıtım Kullanıcıları'
@@ -50,7 +51,7 @@ export function GasDistributionUserFormPage() {
   const title = userId === null ? CREATE_TITLE : UPDATE_TITLE
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'form', className: 'flex flex-col gap-5' })}>
       <PageHeader breadcrumb={buildBreadcrumb(title)} title={title} />
 
       {userId !== null && !isValidId && <QueryError message="Geçersiz kullanıcı adresi." />}

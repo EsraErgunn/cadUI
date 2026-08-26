@@ -3,10 +3,7 @@ import { Link } from 'react-router-dom'
 import type { ProjectFirmUserRow } from '../../../api/projectFirmUserDto'
 import { formatPhone, toNormalizedPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
-import {
-  projectFirmUpdatePath,
-  projectFirmUserUpdatePath,
-} from '../adminNavItems'
+import { projectFirmUserUpdatePath } from '../adminNavItems'
 import { ADMIN_CELL_LINK, adminButtonVariants } from '../adminVariants'
 
 export const PROJECT_FIRM_USER_TABLE_CAPTION =
@@ -60,11 +57,9 @@ export const PROJECT_FIRM_USER_COLUMNS: DataTableColumn<ProjectFirmUserRow>[] = 
   {
     key: 'fullName',
     label: 'Adı Soyadı',
-    cell: (row) => (
-      <Link to={projectFirmUserUpdatePath(row.id)} className={ADMIN_CELL_LINK}>
-        {row.fullName}
-      </Link>
-    ),
+    // Bağlantıydı: aynı kaydın aynı formuna giden iki hücre satırda iki ayrı
+    // hedef varmış gibi okunuyordu. Düzenlemenin girişi Kullanıcı Adı.
+    cell: (row) => (row.fullName === '' ? renderMissingValue() : row.fullName),
   },
   {
     key: 'email',
@@ -84,15 +79,9 @@ export const PROJECT_FIRM_USER_COLUMNS: DataTableColumn<ProjectFirmUserRow>[] = 
   {
     key: 'projectFirm',
     label: 'Proje Firması',
-    // Firma bağı opsiyonel: kimliksiz kayıtta bağlantı kurulmaz, boş işareti çizilir.
-    cell: (row) =>
-      row.projectFirm === null ? (
-        renderMissingValue()
-      ) : (
-        <Link to={projectFirmUpdatePath(row.projectFirm.id)} className={ADMIN_CELL_LINK}>
-          {row.projectFirm.name}
-        </Link>
-      ),
+    // Firma bağı opsiyonel: kimliksiz kayıtta boş işareti çizilir. Firmanın
+    // güncelleme ekranına BAĞLANIYORDU; `fullName` ile aynı gerekçeyle düz metin.
+    cell: (row) => (row.projectFirm === null ? renderMissingValue() : row.projectFirm.name),
   },
 ]
 

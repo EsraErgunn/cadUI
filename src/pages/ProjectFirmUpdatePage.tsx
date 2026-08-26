@@ -5,6 +5,7 @@ import { getProjectFirm, projectFirmQueryKey } from '../api/projectFirmForm'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { QueryError, QueryLoading } from '../ui/admin/QueryStates'
 import { ADMIN_HOME_PATH, PROJECT_FIRMS_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ProjectFirmUpdateForm } from '../ui/admin/projectFirms/ProjectFirmUpdateForm'
 
 const PAGE_TITLE = 'Proje Firması Güncelle'
@@ -39,7 +40,7 @@ export function ProjectFirmUpdatePage() {
   })
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'formMedium', className: 'flex flex-col gap-5' })}>
       <PageHeader breadcrumb={BREADCRUMB} title={PAGE_TITLE} />
 
       {!isValidId && <QueryError message="Geçersiz firma adresi." />}

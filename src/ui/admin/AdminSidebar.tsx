@@ -99,7 +99,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           gösterir; sığdığı sürece ikinci bir dikey çubuk oluşmaz. */}
       <nav
         aria-label="Yönetici menüsü"
-        className={`z-50 flex w-64 shrink-0 flex-col border-r border-edge bg-surface-sunken text-ink
+        className={`z-50 flex w-64 shrink-0 flex-col border-r border-edge bg-surface-sunken text-ink 3xl:w-72
           max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:overflow-y-auto max-lg:transition-transform
           lg:sticky lg:top-0 lg:h-screen lg:self-start lg:overflow-y-auto
           ${isOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}

@@ -20,6 +20,8 @@ export function buildDefaultValues(): NewProjectFormValues {
     cityId: null,
     districtId: null,
     address: '',
+    floorCount: DEFAULT_COUNT,
+    basementCount: DEFAULT_COUNT,
     apartmentCount: DEFAULT_COUNT,
     workplaceCount: DEFAULT_COUNT,
     areaSquareMeters: DEFAULT_COUNT,

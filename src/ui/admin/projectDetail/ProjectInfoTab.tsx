@@ -18,7 +18,6 @@ interface ProjectInfoTabProps {
   firm: ProjectFirmInfo | null
   /** İşlem geçmişinden türetiliyor; onay yoksa `null`. */
   approval: ProjectApprovalInfo | null
-  onDownloadZpd: () => void
 }
 
 /**
@@ -35,13 +34,12 @@ export function ProjectInfoTab({
   units,
   firm,
   approval,
-  onDownloadZpd,
 }: ProjectInfoTabProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-5">
-          <ProjectGeneralCard detail={detail} onDownloadZpd={onDownloadZpd} />
+          <ProjectGeneralCard detail={detail} />
           <ProjectFirmCard firm={firm} />
         </div>
 

@@ -5,10 +5,13 @@ import { InfoBanner } from './InfoBanner'
 import type { ProjectPolicyRow } from '../../../api/projectDetail'
 import { DataTable, type DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
+import { NoticeBar } from '../NoticeBar'
 import { QueryLoading } from '../QueryStates'
 import { formatCurrency, formatPlainDate } from '../adminFormat'
 import { policyCreatePath } from '../adminNavItems'
 import { adminButtonVariants } from '../adminVariants'
+import { PolicyEditDialog } from '../policies/PolicyEditDialog'
+import { usePolicyActions } from '../policies/usePolicyActions'
 import { useCanWriteProjectContent } from '../useRole'
 import { detailBadgeVariants } from './projectDetailVariants'
 
@@ -19,6 +22,9 @@ const DELETED_UNIT_TITLE =
   'Poliçenin bağlı olduğu bağımsız bölüm çizimden silindi. Poliçe iptal edilmedi, kaydı duruyor.'
 
 const TABLE_CAPTION = 'Projeye bağlı poliçeler.'
+
+/** Eylem sütunu içeriği kadar dursun (liste ekranlarıyla aynı gerekçe). */
+const NARROW_COLUMN_CLASS = 'w-px whitespace-nowrap'
 
 const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
   {
@@ -66,6 +72,47 @@ const COLUMNS: DataTableColumn<ProjectPolicyRow>[] = [
   },
 ]
 
+function buildColumns(
+  canWriteContent: boolean,
+  onEdit: (policy: ProjectPolicyRow) => void,
+): DataTableColumn<ProjectPolicyRow>[] {
+  // Yetkisizde sütun HİÇ üretilmez — boş bir "Aksiyonlar" başlığı eylem varmış
+  // gibi görünürdü (poliçe listesiyle aynı gerekçe).
+  if (!canWriteContent) return COLUMNS
+
+  return [
+    ...COLUMNS,
+    {
+      key: 'actions',
+      label: 'Aksiyonlar',
+      cellClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      headerClassName: `${NARROW_COLUMN_CLASS} text-right`,
+      cell: (row) => (
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(row)}
+            className={adminButtonVariants({ tone: 'secondary', size: 'sm' })}
+          >
+            Düzenle
+          </button>
+        </div>
+      ),
+    },
+  ]
+}
+
+/**
+ * Projeye bağlı poliçeler: listeleme + oluşturma + güncelleme.
+ *
+ * Güncelleme poliçe LİSTESİYLE aynı diyaloğu ve hook'u kullanıyor
+ * (`PolicyEditDialog` + `usePolicyActions`); satır tipleri farklı ama ikisi de
+ * `PolicyEditTarget` alanlarını taşıyor. İkinci bir diyalog, gövdeyi eksik
+ * gönderme riskini (K159) iki yerde birden taşımak demekti.
+ *
+ * SİLME burada YOK: sekmenin kapsamı proje bağlamındaki bakım, iptal poliçe
+ * listesinin işi.
+ */
 export function ProjectPolicyTab({
   projectId,
   policies,
@@ -75,9 +122,14 @@ export function ProjectPolicyTab({
   projectId: number
   policies: ProjectPolicyRow[] | undefined
 }) {
-  // Poliçe OLUŞTURMA sunucuda `Admin, ProjectFirmUser`'a açık
-  // (`POST /api/policies`); gaz dağıtım kullanıcısı poliçeleri görür, açamaz.
+  // Poliçe OLUŞTURMA ve GÜNCELLEME sunucuda `Admin, ProjectFirmUser`'a açık
+  // (`POST /api/policies`, `PUT /api/policies/{id}`); gaz dağıtım kullanıcısı
+  // poliçeleri görür, yazamaz.
   const canWriteContent = useCanWriteProjectContent()
+  // Kimlik veriliyor: kayıttan sonra bu projenin sekmesi de tazelensin.
+  const policyActions = usePolicyActions(projectId)
+
+  const columns = buildColumns(canWriteContent, policyActions.requestEdit)
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,6 +145,14 @@ export function ProjectPolicyTab({
         </div>
       )}
 
+      {policyActions.notice !== null && (
+        <NoticeBar
+          tone={policyActions.notice.tone}
+          message={policyActions.notice.message}
+          onDismiss={policyActions.dismissNotice}
+        />
+      )}
+
       {policies === undefined ? (
         <QueryLoading message="Poliçeler yükleniyor…" />
       ) : policies.length === 0 ? (
@@ -100,10 +160,21 @@ export function ProjectPolicyTab({
       ) : (
         <DataTable
           rows={policies}
-          columns={COLUMNS}
+          columns={columns}
           rowKey={(row) => row.id}
           caption={TABLE_CAPTION}
           emptyMessage={EMPTY_MESSAGE}
+        />
+      )}
+
+      {policyActions.editTarget !== null && (
+        <PolicyEditDialog
+          policy={policyActions.editTarget}
+          isSaving={policyActions.isSaving}
+          error={policyActions.editError}
+          onDismissError={policyActions.dismissEditError}
+          onSave={policyActions.confirmEdit}
+          onClose={policyActions.cancelEdit}
         />
       )}
     </div>

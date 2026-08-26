@@ -33,6 +33,8 @@ export function useProjectFirmUserListParams(): ProjectFirmUserListControls {
       // Tek firma kapsamında uçta gönderilecek parametre yok; yalnız grup
       // daraltması ifade edilebiliyor (bkz. `ProjectFirmUserQuery`).
       gasFirmGroupId: scope.type === 'group' ? scope.groupId : null,
+      // Ekranın kendi arama kutusu yok; `q` üst bardaki genel aramadan geliyor.
+      nameQuery: searchParams.get(ADMIN_PARAM_KEYS.nameQuery) ?? '',
       page: parsePage(searchParams.get(ADMIN_PARAM_KEYS.page)),
       pageSize: PROJECT_FIRM_USER_PAGE_SIZE,
     }),

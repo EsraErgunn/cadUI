@@ -15,6 +15,7 @@ import { NoticeBar } from '../ui/admin/NoticeBar'
 import { PageHeader } from '../ui/admin/PageHeader'
 import { ProjectContextNotice } from '../ui/admin/ProjectContextNotice'
 import { parseProjectParam, projectDetailPath } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ADMIN_PARAM_KEYS } from '../ui/admin/adminUrlParams'
 import { PolicyFirmStep } from '../ui/admin/policies/PolicyFirmStep'
 import { PolicyInfoStep } from '../ui/admin/policies/PolicyInfoStep'
@@ -206,7 +207,7 @@ export function NewPolicyPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={buildBreadcrumb(project, homePath)}
         title={PAGE_TITLE}

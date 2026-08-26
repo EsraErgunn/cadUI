@@ -7,7 +7,7 @@ import type { ProjectFirm, ProjectFirmSortKey } from '../../../api/projectFirms'
 import { formatPhone, isValidPhone, toPhoneDigits } from '../../../core/phone'
 import type { DataTableColumn } from '../DataTable'
 import { EmptyValue } from '../EmptyValue'
-import { gasFirmUpdatePath, projectFirmUpdatePath } from '../adminNavItems'
+import { projectFirmUpdatePath } from '../adminNavItems'
 import { ADMIN_CELL_LINK } from '../adminVariants'
 
 export const PROJECT_FIRM_TABLE_CAPTION =
@@ -42,33 +42,28 @@ function renderPhone(value: string | null) {
 
   const digits = toPhoneDigits(value)
   // Sunucudaki numara maskeye uymayabilir (dahili hat, eski kayıt): uymuyorsa
-  // ham metin gösterilir, uydurma bir biçim dayatılmaz ve bağlantı kurulmaz.
-  if (!isValidPhone(digits)) return <span>{value}</span>
-
-  return (
-    <a href={`tel:${digits}`} className={ADMIN_CELL_LINK}>
-      {formatPhone(digits)}
-    </a>
-  )
+  // ham metin gösterilir, uydurma bir biçim dayatılmaz.
+  // `tel:` bağlantısıydı; satırda tıklanabilir tek hücre Firma Adı kalsın diye
+  // düz metne çevrildi.
+  return <span>{isValidPhone(digits) ? formatPhone(digits) : value}</span>
 }
 
+/** `mailto:` bağlantısıydı; `renderPhone` ile aynı gerekçeyle düz metin. */
 function renderEmail(value: string | null) {
   if (value === null || value === '') return renderMissingValue()
 
-  return (
-    <a href={`mailto:${value}`} className={ADMIN_CELL_LINK}>
-      {value}
-    </a>
-  )
+  return <span>{value}</span>
 }
 
 /**
  * Bir firma birden fazla gaz dağıtım firmasında yetkili olabiliyor; hepsi ALT
  * ALTA listeleniyor.
  *
- * Virgülle yan yana dizilmedi: her ad ayrı bir bağlantı hedefi ve virgülle
- * ayrılmış bağlantılar hem gözle hem ekran okuyucuda tek bağlantıya benziyor.
- * `<ul>` ayrıca öğe sayısını okuyucuya duyuruyor.
+ * Virgülle yan yana dizilmedi: `<ul>` öğe sayısını ekran okuyucuya duyuruyor,
+ * virgülle ayrılmış tek metin ise kaç firma olduğunu gizliyordu.
+ *
+ * Adlar gaz dağıtım firmasının güncelleme ekranına BAĞLANIYORDU; satırda
+ * tıklanabilir tek hücre Firma Adı kalsın diye düz metne çevrildi.
  */
 function renderGasFirms(gasFirms: ProjectFirmGasFirm[]) {
   if (gasFirms.length === 0) return renderMissingValue()
@@ -76,11 +71,7 @@ function renderGasFirms(gasFirms: ProjectFirmGasFirm[]) {
   return (
     <ul className="flex flex-col gap-0.5">
       {gasFirms.map((gasFirm) => (
-        <li key={gasFirm.id}>
-          <Link to={gasFirmUpdatePath(gasFirm.id)} className={ADMIN_CELL_LINK}>
-            {gasFirm.name}
-          </Link>
-        </li>
+        <li key={gasFirm.id}>{gasFirm.name}</li>
       ))}
     </ul>
   )

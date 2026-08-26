@@ -12,12 +12,21 @@ import {
 import { setAuthSession } from '../../api/authToken'
 import type { ProjectDetailExtras } from '../../api/projectDetail'
 
+/**
+ * `getProjectFirmInfo` de burada: ekran onu firma kartı için çağırıyor ve
+ * mock'lanmadığında istek GERÇEKTEN çıkıyor (`VITE_API_URL` .env.local ile
+ * dolu). Sahte token'la giden istek 401 dönüyor, `http.ts` oturumu siliyor ve
+ * test kendi kurduğu oturumu kaybediyordu — "Evrak Ekle"/"Poliçelendir"
+ * kısayolları `useCanWriteProjectContent` false olduğu için kayboluyordu.
+ * Testler ayakta bir sunucuya bağlı olmamalı.
+ */
 const detailApi = vi.hoisted(() => ({
   getProjectDetail: vi.fn(),
   getProjectUnits: vi.fn(),
   getProjectHistory: vi.fn(),
   getProjectDocuments: vi.fn(),
   getProjectPolicies: vi.fn(),
+  getProjectFirmInfo: vi.fn(),
   submitProjectDecision: vi.fn(),
   requestProjectFile: vi.fn(),
 }))
@@ -41,6 +50,12 @@ beforeEach(() => {
   detailApi.getProjectHistory.mockResolvedValue(buildHistory())
   detailApi.getProjectDocuments.mockResolvedValue([])
   detailApi.getProjectPolicies.mockResolvedValue([])
+  detailApi.getProjectFirmInfo.mockResolvedValue({
+    title: 'Kütahya Test Firması',
+    address: null,
+    phone: null,
+    taxNumber: null,
+  })
   detailApi.requestProjectFile.mockResolvedValue({ ok: false, reason: 'unimplemented' })
   detailApi.submitProjectDecision.mockResolvedValue({
     status: 'onaylanan',

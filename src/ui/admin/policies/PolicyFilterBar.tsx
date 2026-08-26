@@ -1,18 +1,9 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 
 import type { InsuranceCompany } from '../../../api/policies'
 import { FilterSelect, type FilterSelectOption } from '../FilterSelect'
-import { adminFieldVariants } from '../adminVariants'
 import type { PolicyFilters } from './usePolicyListParams'
 
-const SEARCH_FIELD = 'policySearch'
-/**
- * Kapsam SUNUCUNUN aradığı alanlar: poliçe numarası, birim numarası, abone
- * numarası. Etiket bir süre "proje adında ara" diyordu ama uç proje adında
- * ARAMIYOR — kullanıcı proje adı yazıp boş sonuç alıyordu.
- */
-const SEARCH_LABEL = 'Poliçe no, birim no veya abone numarasında ara'
-const SEARCH_PLACEHOLDER = 'Poliçe No / Birim No / Abone No'
 const ANY_OPTION_LABEL = 'Tümü'
 
 function toCompanyOptions(companies: InsuranceCompany[]): FilterSelectOption[] {
@@ -32,8 +23,8 @@ interface PolicyFilterBarProps {
 }
 
 /**
- * Seçim yapılır yapılmaz uygulanır ("Filtrele" düğmesi KALKTI); arama Enter'da.
- * Evrak ve proje listeleriyle aynı desen.
+ * Seçim yapılır yapılmaz uygulanır ("Filtrele" düğmesi KALKTI). Arama kutusu
+ * YOK — "Poliçe Ara" kaldırıldı, bu adla yeni alan eklenmez.
  *
  * Taslak durum prop değişince kendiliğinden tazelenmez — dışarıdan gelen değişimi
  * (geri tuşu, filtre etiketi kaldırma) yansıtmak için sayfa bu bileşeni uygulanmış
@@ -41,14 +32,9 @@ interface PolicyFilterBarProps {
  */
 export function PolicyFilterBar({ filters, companies, onApply }: PolicyFilterBarProps) {
   const [insuranceCompanyId, setInsuranceCompanyId] = useState(filters.insuranceCompanyId)
-  const searchRef = useRef<HTMLInputElement>(null)
 
   const applyNow = (changed: Partial<PolicyFilters>) => {
-    onApply({
-      insuranceCompanyId,
-      search: searchRef.current?.value.trim() ?? filters.search,
-      ...changed,
-    })
+    onApply({ insuranceCompanyId, ...changed })
   }
 
   return (
@@ -70,27 +56,6 @@ export function PolicyFilterBar({ filters, companies, onApply }: PolicyFilterBar
           applyNow({ insuranceCompanyId: nextCompanyId })
         }}
       />
-
-      <div className="flex min-w-56 flex-1 flex-col gap-1">
-        <label htmlFor="policy-filter-search" className="text-xs font-medium text-ink-muted">
-          Poliçe Ara
-        </label>
-        <input
-          ref={searchRef}
-          id="policy-filter-search"
-          type="search"
-          name={SEARCH_FIELD}
-          defaultValue={filters.search}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            event.preventDefault()
-            applyNow({ search: event.currentTarget.value.trim() })
-          }}
-          aria-label={SEARCH_LABEL}
-          placeholder={SEARCH_PLACEHOLDER}
-          className={adminFieldVariants()}
-        />
-      </div>
     </div>
   )
 }

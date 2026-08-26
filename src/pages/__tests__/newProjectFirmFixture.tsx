@@ -35,11 +35,7 @@ export const GROUPS = [
   { id: 2, name: 'ENERYA' },
 ]
 
-/**
- * Sunucu ünvanı tam yazıyor ("Adana Doğalgaz Dağıtım A.Ş."); kutulardaki
- * "AKSA-ADANA" etiketini arayüz üretiyor (`formatAuthorizationGasFirmName`).
- * Kayıtlar bu yüzden HAM biçimde duruyor — testler etiketi de sınasın.
- */
+/** Kutularda ve çiplerde sunucunun ünvanı OLDUĞU GİBİ görünüyor. */
 function buildGasFirm(
   id: number,
   name: string,
@@ -83,7 +79,10 @@ export function renderNewProjectFirmPage(
 ) {
   mocks.form.createProjectFirm.mockResolvedValue(NEW_FIRM_ID)
   // Varsayılan: mock mod — firma da yetkilendirme de aynı gövdeye yazılıyor.
-  mocks.form.saveProjectFirmAuthorizations.mockResolvedValue({ arePersisted: true })
+  mocks.form.saveProjectFirmAuthorizations.mockResolvedValue({
+    arePersisted: true,
+    failedGasFirmNames: [],
+  })
   mocks.lookups.getFirmGroups.mockResolvedValue(GROUPS)
   mocks.lookups.getProjectFirmList.mockResolvedValue(existingFirms)
   mocks.lookups.getGasDistributionFirmsByGroup.mockImplementation((groupId: number) =>
@@ -117,17 +116,26 @@ function setupUser() {
   return userEvent.setup({ delay: null })
 }
 
+/** Üstteki kutu GRUP firmalarını (AKSA, ENERYA) taşıyor. */
+export function groupSelect(): HTMLElement {
+  return screen.getByRole('combobox', { name: 'Grup Firması *' })
+}
+
+/** Alttaki kutu seçili grubun GAZ DAĞITIM firmalarını (Gemlik Gaz Dağıtım A.Ş.) taşıyor. */
+export function regionSelect(): HTMLElement {
+  return screen.getByRole('combobox', { name: 'G.D. Firması *' })
+}
+
 /**
  * Grup seçip bölgelerin yüklenmesini bekler; testlerin çoğu buradan başlıyor.
- * Etiketle değil rolle sorgulanıyor: "G.D Firması" ile "G.D Firması Bölgeleri"
- * etiketleri birbirinin öneki.
  */
 export async function selectGroup(name: string) {
+  await openAuthorizationDraft()
   // Seçenekler sunucudan geliyor; gelmeden seçim yapılamaz.
   await screen.findByRole('option', { name })
-  await setupUser().selectOptions(screen.getByRole('combobox'), name)
-  // Seçim TEKİL: kutular artık radyo.
-  await screen.findByRole('radio', { name: name === 'AKSA' ? 'AKSA-ADANA' : 'ENERYA-KONYA' })
+  await setupUser().selectOptions(groupSelect(), name)
+  // Bölge kutusu grubun firmalarıyla dolana kadar bekle.
+  await screen.findByRole('option', { name: name === 'AKSA' ? 'Adana Doğalgaz Dağıtım A.Ş.' : 'Konya Doğalgaz A.Ş.' })
 }
 
 /** Kaydetmeyi engellemeyecek geçerli bir firma bilgisi doldurur. */
@@ -149,16 +157,35 @@ export async function fillFirmInfo(overrides: Record<string, string> = {}) {
 }
 
 /**
+ * Yetkilendirme panelini açar.
+ *
+ * Panel liste BOŞKEN zaten açık; bir kayıt eklendikten sonra kapanıyor ve
+ * ikinci firma "+ G.D. Firması Ekle" ile açılıyor (çoklu seçim çipleri).
+ */
+export async function openAuthorizationDraft() {
+  const toggle = screen.getByRole('button', { name: /G\.D\. Firması Ekle|Kapat/ })
+  if (toggle.getAttribute('aria-expanded') === 'true') return
+
+  await setupUser().click(toggle)
+}
+
+/**
  * Bir yetkilendirme kaydı ekler (Kaydet'in ön koşulu).
  *
  * Sertifika numarası ve geçerlilik başlangıcı ZORUNLU: uç ikisini de istiyor
  * (`ProjectFirmAuthorizationCreateDto`), boş bırakılırsa "Ekle" satırı üretmez.
+ * Numara EKLEME BAŞINA farklı olmalı; ikinci kaydı ekleyen çağıran kendi
+ * değerini geçiyor.
  */
-export async function addAuthorization(gasFirmName = 'AKSA-GEMLİK') {
+export async function addAuthorization(
+  gasFirmName = 'Gemlik Gaz Dağıtım A.Ş.',
+  certificateNumber = 'ST-1',
+) {
   const user = setupUser()
 
-  await user.click(screen.getByRole('radio', { name: gasFirmName }))
-  await user.type(screen.getByLabelText(/^Sertifika No/), 'ST-1')
+  await openAuthorizationDraft()
+  await user.selectOptions(regionSelect(), gasFirmName)
+  await user.type(screen.getByLabelText(/^Sertifika No/), certificateNumber)
   fireEvent.change(screen.getByLabelText(/^Geçerlilik Başlangıcı/), {
     target: { value: '2026-01-01' },
   })

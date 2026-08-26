@@ -1,3 +1,4 @@
+import type { PolicyEditTarget } from './policies'
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from './projects'
 
 /**
@@ -65,8 +66,12 @@ export interface ProjectServerFields {
    * proje firmasının kimliği bu yetki kaydından okunuyor.
    */
   projectFirmAuthorizationId: number | null
-  /** Onay bloğundaki firma adı için: `GET /api/gasdistributionfirms/{id}` (K159). */
   gasDistributionFirmId: number | null
+  /** Gaz dağıtım firmasının ünvanı; uç yetki kaydından türetip gövdede veriyor. */
+  gasDistributionFirmName: string | null
+  /** Bina kat adedi ve bodrum adedi (`Building`); ikisi de gövdeden geliyor. */
+  floorCount: number | null
+  basementCount: number | null
   projectTypeName: string | null
   heatingTypeName: string | null
   /** Mesken adedi. */
@@ -88,7 +93,6 @@ export interface ProjectServerFields {
 }
 
 export interface ProjectGeneralExtras {
-  zpdFileName: string
   /**
    * `null` = sunucu durum GÖNDERMEDİ ya da tanınmayan bir kod gönderdi.
    * Bilinmeyeni "taslak" saymak, projeyi olmadığı bir durumda gösterip onay
@@ -96,50 +100,32 @@ export interface ProjectGeneralExtras {
    */
   status: ProjectDetailStatus | null
   gasFirmName: string
-  installationNo: string
-  neighborhood: string | null
-  streetDoorNo: string | null
   projectType: string
   heatingType: string
-  isDetached: boolean | null
   hasLicense: boolean | null
 }
 
 export interface ProjectFirmInfo {
-  engineerName: string | null
-  engineerRegistrationNo: string | null
   title: string | null
   address: string | null
   phone: string | null
-  /** Yeter No — mühendisin yeterlilik belgesi numarası. */
-  competencyNo: string | null
-  taxOffice: string | null
   taxNumber: string | null
 }
 
 export interface ProjectApprovalInfo {
   approvedAt: string | null
   approverName: string | null
-  approvalCode: string | null
   note: string | null
 }
 
 export interface ProjectSpecs {
-  meterCount: number | null
   floorCount: number | null
   residenceCount: number | null
   shopCount: number | null
   boxPressureMbar: number | null
-  usagePressureMbar: number | null
-  meterType: string | null
-  /** "1+1+5" gibi serbest metin; sayı değil. */
-  floorPattern: string | null
-  residenceShopPattern: string | null
   totalAreaSquareMeters: number | null
   totalCapacity: number | null
-  gasAreas: string | null
   renovationNote: string | null
-  orderNumber: string | null
   connectionObject: string | null
 }
 
@@ -259,10 +245,7 @@ export interface ProjectSummary {
   pId: string
 }
 
-export interface ProjectPolicyRow {
-  id: number
-  policyNumber: string | null
-  insuranceCompanyName: string | null
+export interface ProjectPolicyRow extends PolicyEditTarget {
   /**
    * Poliçenin bağlı olduğu birimin KİMLİĞİ. Ad değil kimlik gerekiyor: poliçe
    * sihirbazı "bu birimde zaten poliçe var mı" sorusunu bununla yanıtlıyor ve
@@ -271,14 +254,10 @@ export interface ProjectPolicyRow {
    * Birimi silinmiş poliçede `null` — sunucu bağı koparıyor (`IsUnitDeleted`).
    */
   projectUnitId: number | null
-  unitNumber: string | null
   /**
    * Birim çizimden silindi mi. Poliçe İPTAL EDİLMİYOR, listede kalıyor; satır
    * uyarıyla işaretleniyor (`PolicyDto.IsUnitDeleted`).
    */
   isUnitDeleted: boolean
-  amount: number | null
-  startDate: string | null
-  endDate: string | null
 }
 

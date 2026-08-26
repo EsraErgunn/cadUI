@@ -19,8 +19,17 @@ export const FIRM_SAVED_MESSAGE = 'Firma başarıyla kaydedildi.'
  * kullanıcı olumlu olanı okuyup uyarıyı atlardı. Metin "kaydedildi" bilgisini
  * de taşıyor, yani kaybolan bir şey yok.
  */
-export const AUTHORIZATIONS_PENDING_MESSAGE =
-  'Firma kaydedildi, ancak yetkilendirmeler henüz sunucuya kaydedilmiyor.'
+/**
+ * Kısmi başarı: firma kaydı geçti, bazı yetkilendirmeler geçmedi ve geri
+ * ALINMADI. Firmalar ADIYLA sayılıyor — "bazı yetkilendirmeler kaydedilemedi"
+ * demek, kullanıcıya hangisini elle tamamlayacağını söylemezdi.
+ */
+export function buildFailedAuthorizationsMessage(firmNames: readonly string[]): string {
+  return (
+    `Firma kaydedildi, ancak şu gaz dağıtım firmalarının yetkilendirmesi ` +
+    `kurulamadı: ${firmNames.join(', ')}. Firma güncelleme ekranından tekrar deneyin.`
+  )
+}
 
 /**
  * Rota durumu kullanıcı tarafından değiştirilebildiği için şemadan geçiyor.
@@ -28,7 +37,7 @@ export const AUTHORIZATIONS_PENDING_MESSAGE =
  */
 const savedFirmStateSchema = z.object({
   savedFirmId: z.number(),
-  hasPendingAuthorizations: z.boolean().optional(),
+  failedAuthorizationFirms: z.array(z.string()).optional(),
 })
 
 export interface SavedFirmNotice {
@@ -62,11 +71,11 @@ export function useSavedFirmNotice(): SavedFirmNotice | null {
 
   if (saved === null) return null
 
-  const isPending = saved.hasPendingAuthorizations === true
+  const failed = saved.failedAuthorizationFirms ?? []
 
   return {
-    message: isPending ? AUTHORIZATIONS_PENDING_MESSAGE : FIRM_SAVED_MESSAGE,
-    tone: isPending ? 'warning' : 'success',
+    message: failed.length === 0 ? FIRM_SAVED_MESSAGE : buildFailedAuthorizationsMessage(failed),
+    tone: failed.length === 0 ? 'success' : 'warning',
     dismiss: () => setSaved(null),
   }
 }

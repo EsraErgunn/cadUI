@@ -26,7 +26,9 @@ export function queryFirmList(
 }
 
 function matchesQuery(firm: GasDistributionFirm, query: GasDistributionFirmQuery): boolean {
-  // Arama Türkçe karakter ve büyük/küçük harf duyarsız (KK-4).
+  // Ad eşleşmesi Türkçe karakter ve büyük/küçük harf duyarsız (KK-4). Liste
+  // ekranında arama kutusu YOK ve oradan hep boş dize geliyor; bu dal yalnız
+  // firma formunun "aynı adda kayıt var mı" kontrolü için çalışıyor.
   if (query.nameQuery !== '' && !includesTr(firm.name, query.nameQuery)) return false
   if (query.groupId !== null && firm.groupId !== query.groupId) return false
   // Kapsam firması grup süzgecinden BAĞIMSIZ değerlendirilir: ikisi aynı anda

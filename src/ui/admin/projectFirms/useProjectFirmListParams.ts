@@ -22,15 +22,14 @@ function parseSortDir(raw: string | null): SortDirection {
 
 export interface ProjectFirmListControls {
   query: ProjectFirmQuery
-  /** `shouldReplace`: debounce'lu yazımda geçmişe kayıt bırakmamak için. */
-  setNameQuery: (value: string, shouldReplace?: boolean) => void
   toggleSort: (key: ProjectFirmSortKey) => void
   setPage: (page: number) => void
 }
 
 /**
  * Arama/sıralama/sayfa durumunun TEK sahibi: URL (`useFirmListParams` deseni).
- * Varsayılan değerler adrese yazılmaz, bağlantı temiz kalır.
+ * Varsayılan değerler adrese yazılmaz, bağlantı temiz kalır. Ekranın kendi
+ * arama kutusu yok; `q` üst bardaki genel aramadan geliyor.
  *
  * Bölge ve G.D. firması anahtarı YOK: satır ikisini de taşımıyor, süzülemez
  * bir kriteri adrese yazmak yanıltıcı olurdu (bkz. api/projectFirms.ts).
@@ -48,13 +47,6 @@ export function useProjectFirmListParams(): ProjectFirmListControls {
       pageSize: PROJECT_FIRM_PAGE_SIZE,
     }),
     [searchParams],
-  )
-
-  const setNameQuery = useCallback(
-    // Arama değişince sayfa 2'nin içeriği başkalaşır → ilk sayfaya dön.
-    (value: string, shouldReplace = false) =>
-      updateParams({ nameQuery: value }, true, shouldReplace),
-    [updateParams],
   )
 
   const toggleSort = useCallback(
@@ -78,5 +70,5 @@ export function useProjectFirmListParams(): ProjectFirmListControls {
     [updateParams],
   )
 
-  return { query, setNameQuery, toggleSort, setPage }
+  return { query, toggleSort, setPage }
 }

@@ -187,8 +187,12 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
   /**
    * Kayıt sonrası liste TAZELENMELİ: yeni firma kullanıcı sayfayı yenilemeden
    * görünsün. Anahtar altı ekranda paylaşılıyor (K75), kökü düşürmek yetiyor.
+   *
+   * YETKİ anahtarı da düşüyor: satırın "G.D. Firması" sütunu ayrı bir uçtan
+   * besleniyor ve o sorgu 5 dakika taze sayılıyor. Yalnız liste düşürülünce
+   * yeni firma listede çıkıyor ama sütunu BOŞ kalıyordu.
    */
-  it('kayıttan sonra proje firması listesini geçersizleştirir', async () => {
+  it('kayıttan sonra liste ve yetki anahtarlarını geçersizleştirir', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const invalidate = vi.spyOn(client, 'invalidateQueries')
 
@@ -201,6 +205,7 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
 
     const keys = invalidate.mock.calls.map(([options]) => options?.queryKey)
     expect(keys).toContainEqual(['projectFirmList'])
+    expect(keys).toContainEqual(['projectFirmAuthorizations'])
   })
 
   it('yetkilendirme bölümünde Yeterlilik No alanı bulunmaz', async () => {
@@ -232,6 +237,8 @@ describe('KK-8 — benzersizlik ve başarılı kayıt', () => {
     expect(formApi.saveProjectFirmAuthorizations).toHaveBeenCalledWith(NEW_FIRM_ID, [
       {
         gasDistributionFirmId: 11,
+        // Ad gövdeye GİTMİYOR; başarısız satırı kullanıcıya adıyla söylemek için taşınıyor.
+        gasDistributionFirmName: 'Gemlik Gaz Dağıtım A.Ş.',
         certificateNumber: 'ST-1',
         validFrom: '2026-01-01',
         validTo: null,

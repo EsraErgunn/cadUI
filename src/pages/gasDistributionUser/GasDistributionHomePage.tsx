@@ -17,6 +17,7 @@ import { ProjectStatusCards } from '../../ui/admin/ProjectStatusCards'
 import { RecentProjectsCard } from '../../ui/admin/RecentProjectsCard'
 import { lastMonthRange } from '../../ui/admin/adminDateRange'
 import { GAS_DISTRIBUTION_HOME_PATH } from '../../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../../ui/admin/adminPageWidth'
 
 const PAGE_TITLE = 'Anasayfa'
 
@@ -78,7 +79,7 @@ export function GasDistributionHomePage() {
   const approved = useRecentProjects('onaylanan', APPROVED_PROJECT_COUNT, countsQuery)
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <PageHeader
         breadcrumb={[{ label: 'Anasayfa', to: GAS_DISTRIBUTION_HOME_PATH }]}
         title={PAGE_TITLE}

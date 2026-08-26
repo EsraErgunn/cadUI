@@ -60,12 +60,22 @@ export const NO_AUTHORIZATION_MESSAGE =
   'kaydı bulunamadı. Proje bu firma çiftiyle açılamaz.'
 
 /**
- * Firma alanlarını görmeyen kullanıcının oturumunda firma bağı yoksa. Sunucu
- * `CurrentUserDto`'da iki alanı da null bırakabiliyor (`/api/users` tarafında
- * firmasız kullanıcı mümkün); bu durumda proje açılamaz.
+ * Firma alanlarını görmeyen kullanıcının oturumunda PROJE FİRMASI bağı yoksa.
+ *
+ * Mesaj bir süre "proje firması VE gaz dağıtım firması" istiyordu; bu, proje
+ * firması kullanıcısında hiçbir zaman sağlanamayacak bir koşuldu — sunucu o
+ * rolü tanım gereği yalnız proje firmasına bağlıyor
+ * (`RegisterRequestValidator`: `ProjectFirmId is not null &&
+ * GasDistributionFirmId is null`). Gaz dağıtım bağı artık kullanıcıdan değil,
+ * firmanın YETKİ kayıtlarından çözülüyor.
  */
 export const MISSING_USER_FIRMS_MESSAGE =
-  'Kullanıcınız bir proje firması ve gaz dağıtım firmasıyla ilişkilendirilmemiş. ' +
+  'Kullanıcınız bir proje firmasıyla ilişkilendirilmemiş. ' +
+  'Proje açabilmek için yöneticinizle görüşün.'
+
+/** Firma bağlı ama bugün yürürlükte bir gaz dağıtım yetkisi yok. */
+export const NO_EFFECTIVE_AUTHORIZATION_MESSAGE =
+  'Firmanızın bugün yürürlükte olan bir gaz dağıtım firması yetkisi yok. ' +
   'Proje açabilmek için yöneticinizle görüşün.'
 
 /**
@@ -183,6 +193,25 @@ export async function getEffectiveAuthorizations(
   const now = Date.now()
 
   return rows.filter((row) => isAuthorizationEffectiveAt(row, now))
+}
+
+/**
+ * Bir gaz dağıtım firmasının ADI — YETKİ kayıtlarından.
+ *
+ * `GET /api/gasdistributionfirms/{id}` kullanılamaz: o uç sunucuda
+ * `[Authorize(Roles = Admin)]` ve yönetim dışı rollerde 403 döner
+ * (`GasDistributionFirmsController`). Yetki ucu ise her role açık ve satırında
+ * firmanın ünvanını taşıyor.
+ *
+ * Firmanın hiç yetki kaydı yoksa `null` döner — ad UYDURULMAZ; çağıran boş
+ * değer işaretini çizer.
+ */
+export async function getGasFirmName(
+  gasDistributionFirmId: number,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const rows = await getProjectFirmAuthorizations({ gasDistributionFirmId }, signal)
+  return rows[0]?.gasDistributionFirmName ?? null
 }
 
 /** Açılır kutuya giren firma kısayolu; iki yön de aynı şekli üretiyor. */

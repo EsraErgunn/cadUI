@@ -119,15 +119,27 @@ export const adminBadgeVariants = cva(
  * Durum sekmesi. Aktif sekmenin METNİ birincil renge boyanmaz: #3E5CE0 koyu
  * temada yüzeye göre ~2.9:1 kalıyor. Birincil renk alt çizgi ve rozetle verilir,
  * metin iki temada da okunur `ink` tonunda durur.
+ *
+ * Tıklanabilirlik ÜÇ kanaldan okunuyor ve üçü birbirinden ayrı:
+ * - imleç (`cursor-pointer`) — `<button>` varsayılanı ok imleci, sekme şeridi
+ *   düz metin gibi duruyordu;
+ * - üzerine gelince nötr bir zemin + kenarlık ipucu (henüz seçilmedi);
+ * - seçiliyken birincil alt çizgi + o rengin çok soluk zemini.
+ * Hover nötr, aktif renkli: ikisi aynı anda görünse bile karışmıyor.
+ *
+ * Odak halkası `ADMIN_FOCUS_RING` ile geliyor; şeritte roving tabindex olduğu
+ * için klavye kullanıcısı sekmeler arasında ok tuşlarıyla dolaşıyor.
  */
 export const adminTabVariants = cva(
-  `-mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t border-b-2 px-4 py-2.5
-   text-sm transition-colors ${ADMIN_FOCUS_RING}`,
+  `-mb-px inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-t border-b-2
+   px-4 py-2.5 text-sm transition-colors duration-150 ${ADMIN_FOCUS_RING}`,
   {
     variants: {
       tone: {
-        plain: 'border-transparent text-ink-muted hover:text-ink',
-        active: 'border-admin-primary font-semibold text-ink',
+        plain:
+          'border-transparent text-ink-muted hover:border-edge hover:bg-surface-sunken hover:text-ink',
+        active:
+          'border-admin-primary bg-admin-primary/5 font-semibold text-ink hover:bg-admin-primary/10',
       },
     },
     defaultVariants: { tone: 'plain' },

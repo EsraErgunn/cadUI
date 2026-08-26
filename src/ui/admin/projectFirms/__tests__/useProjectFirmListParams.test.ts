@@ -24,7 +24,6 @@ describe('okuma', () => {
     const { result } = renderWithUrl(LIST_PATH)
 
     expect(result.current.controls.query).toMatchObject({
-      nameQuery: '',
       sortKey: 'name',
       sortDir: 'asc',
       page: 1,
@@ -32,10 +31,9 @@ describe('okuma', () => {
   })
 
   it('adresteki kriterleri okur', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?q=adana&sort=authorizedPerson&dir=desc&page=3`)
+    const { result } = renderWithUrl(`${LIST_PATH}?sort=authorizedPerson&dir=desc&page=3`)
 
     expect(result.current.controls.query).toMatchObject({
-      nameQuery: 'adana',
       sortKey: 'authorizedPerson',
       sortDir: 'desc',
       page: 3,
@@ -56,24 +54,6 @@ describe('okuma', () => {
 })
 
 describe('yazma', () => {
-  it('arama değişince sayfa 1e döner', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?page=4`)
-
-    act(() => result.current.controls.setNameQuery('adana'))
-
-    expect(result.current.controls.query.nameQuery).toBe('adana')
-    expect(result.current.controls.query.page).toBe(1)
-    expect(result.current.search).not.toContain('page=')
-  })
-
-  it('boş arama anahtarı adresten siler', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?q=adana`)
-
-    act(() => result.current.controls.setNameQuery(''))
-
-    expect(result.current.search).not.toContain('q=')
-  })
-
   it('sıralama değişince sayfa 1e döner', () => {
     const { result } = renderWithUrl(`${LIST_PATH}?page=4`)
 
@@ -107,14 +87,5 @@ describe('yazma', () => {
     act(() => result.current.controls.setPage(1))
 
     expect(result.current.search).not.toContain('page=')
-  })
-
-  it('sayfa değişimi aramayı korur', () => {
-    const { result } = renderWithUrl(`${LIST_PATH}?q=adana`)
-
-    act(() => result.current.controls.setPage(2))
-
-    expect(result.current.controls.query.nameQuery).toBe('adana')
-    expect(result.current.controls.query.page).toBe(2)
   })
 })

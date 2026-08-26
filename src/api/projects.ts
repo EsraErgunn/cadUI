@@ -8,11 +8,13 @@ import { fetchText, requestJson, type RequestOptions } from './http'
 import { pagedResultSchema, type PagedResult, type SortDirection } from './listQuery'
 import {
   MISSING_USER_FIRMS_MESSAGE,
+  NO_EFFECTIVE_AUTHORIZATION_MESSAGE,
+  getProjectFirmAuthorizations,
+  pickEffectiveAuthorization,
   ProjectFirmAuthorizationError,
   resolveProjectFirmAuthorizationId,
 } from './projectFirmAuthorizations'
 import { queryMockProjectFirms } from './projectsMock'
-import { includesTr } from './turkishText'
 import type { Id, ProjectData } from '../core/model'
 import { serializeProjectDataForBackend } from '../core/projectExportFormat'
 import { parseProjectJson } from '../core/serialize'
@@ -474,36 +476,19 @@ function buildFilterParams(query: ProjectStatusCountsQuery): URLSearchParams {
   appendParam(search, 'CityId', query.cityId)
   appendParam(search, 'DistrictId', query.districtId)
   appendParam(search, 'ProjectFirmId', query.projectFirmId)
+  // Metin araması SUNUCUDA: uç `q` ile proje/kullanıcı/firma alanlarında arıyor.
+  // Adresteki anahtar da `q` (`ADMIN_PARAM_KEYS.nameQuery`), ikisi aynı ad.
+  if (query.search !== '') search.set('q', query.search)
   appendScopeParams(search, query.scope)
 
   return search
 }
 
 /**
- * Sözleşmede ARAMA parametresi YOK. Kutu kaldırılmadığı için gelen sayfa
- * istemcide süzülüyor — yani arama YALNIZ görüntülenen sayfayı kapsıyor,
- * `totalCount` süzülmemiş adedi göstermeye devam ediyor.
- *
- * TODO(esra): uca `Search` parametresi eklenmeli; eklenince bu fonksiyon ve
- * çağrısı silinip parametre `buildFilterParams`'a taşınacak.
- */
-function filterBySearch(items: ProjectListItem[], search: string): ProjectListItem[] {
-  if (search === '') return items
-
-  // `includesTr` şart: 'İ'.toLowerCase() birleşen nokta üretip eşleşmeyi
-  // sessizce kaçırıyor (knowledge/turkish-collation).
-  return items.filter(
-    (project) => includesTr(project.name, search) || includesTr(project.pId, search),
-  )
-}
-
-/**
- * `GET /api/projects` — süzme, sıralama ve sayfalama SUNUCUDA (Swagger
- * 2026-08-14). Yanıtın `totalCount`'u sayfalamayı, `items` sırası tabloyu
- * yönetiyor; istemci diziyi dilimlemiyor.
- *
- * Tek istisna arama: uçta karşılığı yok, gelen sayfa `filterBySearch` ile
- * süzülüyor (bkz. oradaki not).
+ * `GET /api/projects` — süzme, sıralama, ARAMA ve sayfalama SUNUCUDA. Yanıtın
+ * `totalCount`'u sayfalamayı, `items` sırası tabloyu yönetiyor; istemci diziyi
+ * dilimlemiyor ve artık süzmüyor: arama `q` parametresiyle uca gidiyor, yani
+ * `totalCount` da aranmış kümenin adedi.
  */
 export async function listProjects(
   query: ProjectListQuery,
@@ -522,7 +507,7 @@ export async function listProjects(
   )
 
   return projectPageSchema.parse({
-    items: filterBySearch(page.items.map(mapApiProject), query.search),
+    items: page.items.map(mapApiProject),
     totalCount: page.totalCount,
     page: page.page,
     pageSize: page.pageSize,
@@ -659,6 +644,10 @@ export interface CreateProjectPayload {
   districtId: number
   connectionObject: string | null
   address: string
+  /** Bina kat adedi; uçta `byte?` (`Building.FloorCount`). */
+  floorCount: number
+  /** Bodrum adedi; uçta `byte?` (`Building.BasementCount`). */
+  basementCount: number
   apartmentCount: number
   workplaceCount: number
   areaSquareMeters: number
@@ -715,11 +704,19 @@ const apiCreatedProjectSchema = z.object({
  * kaydına bağlanıyordu. `GET /api/project-firm-authorizations` açılınca sabit
  * kalktı ve kimlik seçilen firma çiftinden çözülüyor.
  *
- * Firma çifti iki kaynaktan gelebiliyor:
+ * Kimlik iki kaynaktan çözülüyor:
  * - **admin**: formdaki proje firması + GD firması seçimleri (alanlar yalnız
  *   admin'de render ediliyor, bkz. `newProjectSchema`),
- * - **proje firması kullanıcısı**: alanlar hiç görünmüyor, çift oturumdaki
- *   kullanıcıdan (`GET /api/auth/me`) okunuyor.
+ * - **proje firması kullanıcısı**: alanlar hiç görünmüyor; PROJE FİRMASI
+ *   oturumdan (`GET /api/auth/me`), gaz dağıtım bağı ise o firmanın YETKİ
+ *   kayıtlarından geliyor.
+ *
+ * İkinci yol bir süre oturumdaki `gasDistributionFirmId`'yi de zorunlu
+ * tutuyordu ve proje açma o rolde HİÇ çalışmıyordu: sunucu proje firması
+ * kullanıcısını tanım gereği yalnız proje firmasına bağlıyor, o alan her zaman
+ * `null` geliyor (`RegisterRequestValidator`). Firmanın birden çok yürürlükte
+ * yetkisi varsa `pickEffectiveAuthorization`'ın kuralı geçerli — en YENİ
+ * `validFrom`; aynı kural admin yolunda da uygulanıyor.
  */
 async function resolveAuthorizationId(payload: CreateProjectPayload): Promise<number> {
   if (payload.projectFirmId !== undefined && payload.gasDistributionFirmId !== undefined) {
@@ -731,14 +728,27 @@ async function resolveAuthorizationId(payload: CreateProjectPayload): Promise<nu
 
   const me = await getCurrentUser()
 
-  if (me.projectFirmId === null || me.gasDistributionFirmId === null) {
+  if (me.projectFirmId === null) {
     throw new ProjectFirmAuthorizationError(MISSING_USER_FIRMS_MESSAGE)
   }
 
-  return resolveProjectFirmAuthorizationId({
-    projectFirmId: me.projectFirmId,
-    gasDistributionFirmId: me.gasDistributionFirmId,
-  })
+  // Oturumda gaz dağıtım bağı VARSA (gaz dağıtım kullanıcısı) çift doğrudan
+  // çözülür; proje firması kullanıcısında bu alan boş ve yetki kaydına düşülür.
+  if (me.gasDistributionFirmId !== null) {
+    return resolveProjectFirmAuthorizationId({
+      projectFirmId: me.projectFirmId,
+      gasDistributionFirmId: me.gasDistributionFirmId,
+    })
+  }
+
+  const rows = await getProjectFirmAuthorizations({ projectFirmId: me.projectFirmId })
+  const chosen = pickEffectiveAuthorization(rows, Date.now())
+
+  if (chosen === null) {
+    throw new ProjectFirmAuthorizationError(NO_EFFECTIVE_AUTHORIZATION_MESSAGE)
+  }
+
+  return chosen.id
 }
 
 /**
@@ -783,6 +793,8 @@ export async function createProject(payload: CreateProjectPayload): Promise<Crea
         addressLine: payload.address,
         blockLotParcel: payload.parcelInfo,
         buildingCode: payload.connectionObject,
+        floorCount: payload.floorCount,
+        basementCount: payload.basementCount,
         projectTypeCodeId: payload.projectTypeCodeId,
         heatingTypeCodeId: payload.heatingTypeCodeId,
         buildingUsageTypeCodeId: payload.buildingUsageTypeCodeId,

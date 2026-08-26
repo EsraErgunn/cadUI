@@ -21,6 +21,7 @@ import { PageHeader } from '../ui/admin/PageHeader'
 import { Pagination } from '../ui/admin/Pagination'
 import { QueryError, QueryLoading, StaleContent } from '../ui/admin/QueryStates'
 import { PROJECT_CREATE_PATH } from '../ui/admin/adminNavItems'
+import { adminPageWidthVariants } from '../ui/admin/adminPageWidth'
 import { ADMIN_ROW_HIGHLIGHT, adminButtonVariants } from '../ui/admin/adminVariants'
 import { ReasonDialog } from '../ui/admin/projectDetail/ReasonDialog'
 import { CreatedProjectNotice } from '../ui/admin/projects/CreatedProjectNotice'
@@ -202,7 +203,7 @@ export function ProjectListPage() {
   const filterKey = Object.values(appliedFilters).join('|')
 
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-5">
+    <div className={adminPageWidthVariants({ content: 'list', className: 'flex flex-col gap-5' })}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <PageHeader
           breadcrumb={[

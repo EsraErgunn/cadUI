@@ -101,12 +101,9 @@ export function getPolicy(policyId: number, signal?: AbortSignal): Promise<Polic
 /**
  * Poliçe güncelleme (`PUT /api/policies/{id}`).
  *
- * Ekranı HENÜZ YOK; fonksiyon sözleşmeyi bağlamak için burada — yol ve gövde
- * biçimi bir yerde yazılı olmazsa ekranı yazan kişi yeniden keşfetmek zorunda
- * kalır. Gövde birim TAŞIMAZ: `PolicyUpdateDto` birimi almıyor, poliçe başka
- * bir birime taşınamıyor.
- *
- * TODO(esra): güncelleme ekranı yazılınca çağıran buraya bağlanacak.
+ * Gövde birim TAŞIMAZ: `PolicyUpdateDto` birimi almıyor, poliçe başka bir
+ * birime taşınamıyor. Taşıdığı beş alanın HEPSİ koşulsuz yazılıyor — çağıran
+ * değişmeyenleri de doldurmak zorunda (`usePolicyActions`).
  */
 export interface UpdatePolicyPayload {
   insuranceCompanyId: number | null
@@ -167,6 +164,29 @@ export interface CreatePolicyPayload {
 export const POLICY_PAGE_SIZE = 30
 
 /**
+ * Poliçeyi GÜNCELLEYEN yüzeyin okuduğu alanlar — poliçeyi listeleyen iki
+ * ekranın ortak paydası. Poliçeler listesi `PolicyRow`, proje detayının sekmesi
+ * `ProjectPolicyRow` taşıyor; ikisi de aynı diyaloğu ve `usePolicyActions`'ı
+ * kullansın diye satırın tamamı değil bu alt küme isteniyor.
+ *
+ * `policyNumber` ve `insuranceCompanyId` DÜZENLENMİYOR ama burada: `PUT` gövdesi
+ * beş alanı da taşımak zorunda, yoksa sunucu ikisini `null`'a düşürüyor
+ * (bkz. `UpdatePolicyPayload`).
+ */
+export interface PolicyEditTarget {
+  id: number
+  policyNumber: string | null
+  insuranceCompanyId: number | null
+  insuranceCompanyName: string | null
+  /** Kuruş DAHİL teminat tutarı; biçimlendirme gösterim katmanında. */
+  amount: number | null
+  startDate: string | null
+  endDate: string | null
+  /** Poliçenin bağlı olduğu birim; güncelleme formunda SALT OKUNUR gösterilir. */
+  unitNumber: string | null
+}
+
+/**
  * Poliçeler listesinin satırı — `PolicyDto`'dan türetiliyor.
  *
  * Alanların çoğu `null` olabilir çünkü sunucuda `ProjectUnitId` dışında hiçbiri
@@ -176,20 +196,10 @@ export const POLICY_PAGE_SIZE = 30
  * bulunmuyor (`PolicyDto` bina kodu taşımıyor). Boş kalacak sütunlar yerine
  * alanın kendisi kaldırıldı.
  */
-export interface PolicyRow {
-  id: number
-  policyNumber: string | null
-  insuranceCompanyId: number | null
-  insuranceCompanyName: string | null
-  /** Kuruş DAHİL teminat tutarı; biçimlendirme gösterim katmanında. */
-  amount: number | null
-  startDate: string | null
-  endDate: string | null
+export interface PolicyRow extends PolicyEditTarget {
   projectId: number
   /** Sunucudan geliyor (`PolicyDto.ProjectName`); çözülemezse `null`. */
   projectName: string | null
-  /** Poliçenin bağlı olduğu birim; güncelleme formunda SALT OKUNUR gösterilir. */
-  unitNumber: string | null
   /**
    * Birim çizimden silindi mi (`PolicyDto.IsUnitDeleted`).
    *
@@ -202,11 +212,6 @@ export interface PolicyRow {
 }
 
 export interface PolicyListQuery {
-  /**
-   * Sunucunun aradığı alanlar: poliçe numarası, birim numarası, abone numarası.
-   * PROJE ADI DAHİL DEĞİL — uç o alanda aramıyor.
-   */
-  search: string
   insuranceCompanyId: number | null
   /** `null` = proje bağımsız "tüm poliçeler"; uç `ProjectId` olmadan da çalışır. */
   projectId: number | null
@@ -253,8 +258,6 @@ export async function listPolicies(
   if (query.insuranceCompanyId !== null) {
     search.set('InsuranceCompanyId', String(query.insuranceCompanyId))
   }
-  if (query.search !== '') search.set('Search', query.search)
-
   const page = await requestJson(
     { method: 'GET', path: `/api/policies?${search.toString()}`, signal },
     policyPageSchema,

@@ -41,6 +41,7 @@ function serverFields() {
     // çözülüyor (ölçüldü, K159).
     projectFirmAuthorizationId: 17,
     gasDistributionFirmId: 3,
+    gasDistributionFirmName: 'TOROSGAZ-KÜTAHYA',
     projectTypeName: 'İLAVE',
     heatingTypeName: 'Bireysel',
     apartmentCount: 12,
@@ -117,14 +118,18 @@ describe('useProjectSummary', () => {
     })
   })
 
-  it('gaz dağıtım firmasının adını ve yetkilisini getirir', async () => {
+  /**
+   * Ad projenin KENDİ gövdesinden geliyor; ikinci bir istek YOK.
+   * `GET /api/gasdistributionfirms/{id}` sunucuda `[Authorize(Roles = Admin)]`
+   * ve proje firması kullanıcısı editörde 403 alıyordu.
+   */
+  it('gaz dağıtım firmasının adını gövdeden alır, admin-only uca gitmez', async () => {
     const { result } = renderHook(() => useProjectSummary(PROJECT_ID), { wrapper })
 
     await waitFor(() => expect(result.current.approval.gasFirmName).not.toBe(''))
 
-    expect(api.getGasDistributionFirm).toHaveBeenCalledWith(3, expect.anything())
     expect(result.current.approval.gasFirmName).toBe('TOROSGAZ-KÜTAHYA')
-    expect(result.current.approval.gasFirmContactPerson).toBe('Dağıtım Yetkilisi')
+    expect(api.getGasDistributionFirm).not.toHaveBeenCalled()
   })
 
   it('ADMIN oluşturmuşsa tasarımcı firma yetkilisine düşer', async () => {

@@ -29,27 +29,28 @@ function renderCell(key: string, firm: GasDistributionFirm) {
 }
 
 /**
- * KK-11'in ilk yarısı: "kullanıcı listede bir firma adına tıkladığında" aynı
- * form güncelleme modunda açılır. Bağlantının hedefi burada sabitleniyor;
- * formun dolu gelmesi GasDistributionFirmFormPage testinde.
+ * KK-11'in ilk yarısı: "kullanıcı listede bir gruba tıkladığında" aynı form
+ * güncelleme modunda açılır. Bağlantının hedefi burada sabitleniyor; formun
+ * dolu gelmesi GasDistributionFirmFormPage testinde.
+ *
+ * Güncellemenin girişi TEK hücre: Grup Adı. Firma adı da bağlantıydı, aynı
+ * hedefe giden ikinci bir yol olduğu için düz metne çevrildi.
  */
 describe('firma listesi bağlantıları', () => {
-  it('firma adı güncelleme rotasına gider', () => {
-    renderCell('name', FIRM)
-
-    expect(screen.getByRole('link', { name: FIRM.name })).toHaveAttribute(
-      'href',
-      gasFirmUpdatePath(FIRM.id),
-    )
-  })
-
-  it('grup adı da aynı kaydın güncelleme rotasına gider', () => {
+  it('grup adı güncelleme rotasına gider', () => {
     renderCell('groupName', FIRM)
 
     expect(screen.getByRole('link', { name: 'Aksa Enerji Grubu' })).toHaveAttribute(
       'href',
       gasFirmUpdatePath(FIRM.id),
     )
+  })
+
+  it('firma adı bağlantı DEĞİL, düz metin', () => {
+    renderCell('name', FIRM)
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText(FIRM.name)).toBeInTheDocument()
   })
 
   // Belge: grup firması tanımlı olmayan kayıtta hücre boş bırakılmaz.
@@ -71,5 +72,14 @@ describe('İşlemler sütunu', () => {
     expect(buildColumns({ canManage: false }).map((column) => column.key)).not.toContain(
       'actions',
     )
+  })
+
+  // Sil düğmesi kendi sütununun altında dursun: başlık ve hücre AYNI hizalama
+  // sınıfını taşımazsa başlık solda, düğme tablonun sağ ucunda kalıyordu.
+  it('başlık ile hücre aynı hizalamayı kullanır', () => {
+    const actions = buildColumns().find((column) => column.key === 'actions')
+
+    expect(actions?.headerClassName).toBe(actions?.cellClassName)
+    expect(actions?.cellClassName).toContain('text-right')
   })
 })

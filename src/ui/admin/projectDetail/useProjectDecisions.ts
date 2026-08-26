@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 
+import { ApiError } from '../../../api/http'
 import {
   requiresReason,
   submitProjectDecision,
@@ -78,8 +79,15 @@ export function useProjectDecisions(projectId: number): ProjectDecisionsState {
           tone: 'success',
           message: `${DECISION_SUCCESS_MESSAGES[decision]}${approvalNote}`,
         })
-      } catch {
-        setNotice({ tone: 'error', message: DECISION_ERROR_MESSAGE })
+      } catch (cause: unknown) {
+        // Sunucunun KENDİ gerekçesi korunuyor: karar ucu uygun olmayan durumda
+        // "Bu işlem '…' durumundaki bir projede yapılamaz" diyor ve bu, genel
+        // bir "işlem tamamlanamadı" cümlesinden çok daha kullanışlı. Genel
+        // metin yalnız AĞ hatasında.
+        setNotice({
+          tone: 'error',
+          message: cause instanceof ApiError ? cause.message : DECISION_ERROR_MESSAGE,
+        })
       } finally {
         setIsSubmitting(false)
         setReasonPrompt(null)

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { formatPolicyAmount, parsePolicyAmount, sanitizePolicyAmount } from './policySchema'
-import type { PolicyRow } from '../../../api/policies'
+import type { PolicyEditTarget } from '../../../api/policies'
 import { AdminDialog } from '../AdminDialog'
 import { InfoRow } from '../InfoRow'
 import { NoticeBar } from '../NoticeBar'
@@ -26,7 +26,7 @@ export interface PolicyEditValues {
 }
 
 interface PolicyEditDialogProps {
-  policy: PolicyRow
+  policy: PolicyEditTarget
   isSaving: boolean
   error: string | null
   onDismissError: () => void
