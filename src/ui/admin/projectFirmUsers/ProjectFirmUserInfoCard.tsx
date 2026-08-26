@@ -1,4 +1,4 @@
-import { AtSign, KeyRound, Phone, User, UserCircle } from 'lucide-react'
+import { AtSign, Building2, KeyRound, Phone, User, UserCircle } from 'lucide-react'
 
 import { projectFirmUserFieldId } from './projectFirmUserSchema'
 import type { ProjectFirmUserForm } from './useProjectFirmUserForm'
@@ -26,6 +26,11 @@ interface ProjectFirmUserInfoCardProps {
 /**
  * Ekranın birinci bölümü. Alanlar mockup'taki gibi yatay: etiket solda,
  * girdi sağda.
+ *
+ * SIRA kullanıcının doldurma akışını izliyor — önce kim olduğu (ad, kullanıcı
+ * adı, e-posta, şifre), sonra nereye bağlandığı (proje firması), en sonda
+ * iletişim. Firma kutusu bir süre en üstteydi ve öteki alanlardan farklı
+ * (dikey) düzendeydi, kart içinde tek başına hizasız duruyordu.
  */
 export function ProjectFirmUserInfoCard({
   form,
@@ -35,43 +40,6 @@ export function ProjectFirmUserInfoCard({
 
   return (
     <FormCard title={SECTION_TITLE} icon={User}>
-      {/* Kullanıcı SUNUCUDA tek bir proje firmasına bağlı (`User.ProjectFirmId`);
-          firmasız kayıt hiçbir projeyi göremez, o yüzden zorunlu. */}
-      <SelectField
-        id={projectFirmUserFieldId('projectFirmId')}
-        label="Proje Firması"
-        value={values.projectFirmId}
-        options={projectFirms.map((firm) => ({ value: String(firm.id), label: firm.name }))}
-        placeholder="Seçiniz"
-        isDisabled={projectFirms.length === 0}
-        error={errors.projectFirmId}
-        onChange={(value) => setValue('projectFirmId', value)}
-      />
-
-      <TextField
-        id={projectFirmUserFieldId('email')}
-        label="Email"
-        labelNote={REQUIRED_MARK}
-        layout="horizontal"
-        type="email"
-        leftIcon={AtSign}
-        placeholder="ornek@firma.com"
-        value={values.email}
-        error={errors.email}
-        onChange={(value) => setValue('email', value)}
-      />
-
-      <PhoneField
-        id={projectFirmUserFieldId('phoneDigits')}
-        label="Telefon"
-        layout="horizontal"
-        leftIcon={Phone}
-        placeholder={PHONE_PLACEHOLDER}
-        digits={values.phoneDigits}
-        error={errors.phoneDigits}
-        onChange={(digits) => setValue('phoneDigits', digits)}
-      />
-
       <TextField
         id={projectFirmUserFieldId('fullName')}
         label="Adı Soyadı"
@@ -99,6 +67,19 @@ export function ProjectFirmUserInfoCard({
         onChange={(value) => setValue('username', value)}
       />
 
+      <TextField
+        id={projectFirmUserFieldId('email')}
+        label="Email"
+        labelNote={REQUIRED_MARK}
+        layout="horizontal"
+        type="email"
+        leftIcon={AtSign}
+        placeholder="ornek@firma.com"
+        value={values.email}
+        error={errors.email}
+        onChange={(value) => setValue('email', value)}
+      />
+
       <PasswordField
         id={projectFirmUserFieldId('password')}
         label="Şifre"
@@ -110,6 +91,33 @@ export function ProjectFirmUserInfoCard({
         hint={isUpdate ? PASSWORD_UPDATE_HINT : undefined}
         error={errors.password}
         onChange={(value) => setValue('password', value)}
+      />
+
+      {/* Kullanıcı SUNUCUDA tek bir proje firmasına bağlı (`User.ProjectFirmId`);
+          firmasız kayıt hiçbir projeyi göremez, o yüzden zorunlu. */}
+      <SelectField
+        id={projectFirmUserFieldId('projectFirmId')}
+        label="Proje Firması"
+        labelNote={REQUIRED_MARK}
+        layout="horizontal"
+        leftIcon={Building2}
+        placeholder="Seçiniz"
+        options={projectFirms.map((firm) => ({ value: String(firm.id), label: firm.name }))}
+        value={values.projectFirmId}
+        isDisabled={projectFirms.length === 0}
+        error={errors.projectFirmId}
+        onChange={(value) => setValue('projectFirmId', value)}
+      />
+
+      <PhoneField
+        id={projectFirmUserFieldId('phoneDigits')}
+        label="Telefon"
+        layout="horizontal"
+        leftIcon={Phone}
+        placeholder={PHONE_PLACEHOLDER}
+        digits={values.phoneDigits}
+        error={errors.phoneDigits}
+        onChange={(digits) => setValue('phoneDigits', digits)}
       />
     </FormCard>
   )

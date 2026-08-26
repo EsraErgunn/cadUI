@@ -183,7 +183,7 @@ export async function fetchAllFirms(
 }
 
 /**
- * Bir grup firmasına bağlı gaz dağıtım firmaları ("AKSA-GEMLİK" gibi).
+ * Bir grup firmasına bağlı gaz dağıtım firmaları.
  *
  * Proje firması ekleme ekranındaki "G.D Firması Bölgeleri" listesinin kaynağı.
  * Süzgeç artık SUNUCUDA (`GasDistributionGroupId`): eskiden bütün firma listesi

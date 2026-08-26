@@ -52,6 +52,21 @@ export type { ProjectFirm, ProjectFirmGasFirm } from './projectFirmDto'
  * Ekle/güncelle/sil uçları `projectFirmForm.ts` içinde.
  */
 
+/**
+ * Proje firması LİSTESİNİ besleyen sorgu köklerinin tek kaynağı.
+ *
+ * Satır iki uçtan birleşiyor: firma kaydı (`/api/projectfirms`) ve gaz dağıtım
+ * bağı (`/api/project-firm-authorizations`). Kayıt sonrası yalnız ilki
+ * geçersizleştiriliyordu; yeni firma listede çıkıyor ama "G.D. Firması" sütunu
+ * BOŞ kalıyordu, çünkü yetki sorgusu 5 dakika taze sayılıyor ve kayıttan ÖNCE
+ * çekilmiş veriyle cevap veriyordu. İki kök burada duruyor ki mutasyon tarafı
+ * hangisinin unutulduğunu düşünmek zorunda kalmasın.
+ */
+export const PROJECT_FIRM_QUERY_ROOTS = [
+  'projectFirmList',
+  'projectFirmAuthorizations',
+] as const
+
 export const PROJECT_FIRM_PAGE_SIZE = 30
 
 /**

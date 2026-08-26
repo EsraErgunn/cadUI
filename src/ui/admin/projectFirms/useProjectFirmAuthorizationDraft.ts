@@ -6,8 +6,8 @@ import {
   buildDuplicateGasFirmMessage,
   buildProjectFirmAuthorizations,
   findDuplicateGasFirms,
+  isCertificateNumberTaken,
   validateAuthorizationFields,
-  formatAuthorizationGasFirmName,
   type AuthorizationGasFirm,
   type ProjectFirmAuthorization,
 } from './authorizationDraft'
@@ -16,7 +16,6 @@ import {
   getGasDistributionFirmsByGroup,
   type FirmGroup,
 } from '../../../api/adminFirms'
-import { includesTr } from '../../../api/turkishText'
 
 /**
  * Belge madde 16 / KK-2: grup değişince önceki işaretler düşer ve bu kullanıcıya
@@ -30,7 +29,7 @@ import { includesTr } from '../../../api/turkishText'
  * Metin kullanıcıya görünüyor: belgedeki dili ("bölge") korur.
  */
 export const GAS_FIRM_SELECTION_CLEARED_NOTICE =
-  'Grup firması değiştiği için işaretli bölgeler temizlendi.'
+  'Grup firması değiştiği için seçili gaz dağıtım firması temizlendi.'
 
 export interface AuthorizationDraftErrors {
   group?: string
@@ -45,11 +44,8 @@ export interface ProjectFirmAuthorizationDraft {
   /** Seçim kutusu değerleri dize; boş dize = henüz seçilmedi. */
   groupId: string
   gasFirms: AuthorizationGasFirm[]
-  /** Arama kutusuyla süzülmüş liste; "Tümünü Seç" de bunun üzerinde çalışır. */
-  visibleGasFirms: AuthorizationGasFirm[]
   areGasFirmsPending: boolean
-  gasFirmSearch: string
-  /** TEK seçim (K-single): en fazla bir gaz dağıtım firması. */
+  /** Seçim kutusundaki firma; bir "Ekle" tek bir yetki kaydı üretir. */
   selectedGasFirmId: number | null
   certificateNumber: string
   validFrom: string
@@ -58,9 +54,7 @@ export interface ProjectFirmAuthorizationDraft {
   /** Grup değişiminde işaretlerin temizlendiğini duyuran metin; okununca kalır. */
   clearedNotice: string | null
   setGroupId: (groupId: string) => void
-  setGasFirmSearch: (search: string) => void
   selectGasFirm: (gasDistributionFirmId: number) => void
-  /** Görünen (süzülmüş) kayıtların tamamını işaretler veya işareti kaldırır. */
   setCertificateNumber: (value: string) => void
   setValidFrom: (value: string) => void
   setValidTo: (value: string) => void
@@ -85,7 +79,6 @@ export function useProjectFirmAuthorizationDraft({
   onAdd,
 }: UseProjectFirmAuthorizationDraftOptions): ProjectFirmAuthorizationDraft {
   const [groupId, setGroupIdValue] = useState('')
-  const [gasFirmSearch, setGasFirmSearch] = useState('')
   const [selectedGasFirmId, setSelectedGasFirmId] = useState<number | null>(null)
   const [certificateNumber, setCertificateNumber] = useState('')
   const [validFrom, setValidFrom] = useState('')
@@ -111,31 +104,16 @@ export function useProjectFirmAuthorizationDraft({
     enabled: selectedGroup !== null,
   })
 
-  // Etiket burada üretiliyor, kutunun içinde değil: eklenen kayıt, mükerrer
-  // uyarısı ve "kaldır" düğmesinin aria etiketi hep AYNI adı göstersin.
+  // Ad sunucunun ünvanı; kutu, eklenen kayıt, mükerrer uyarısı ve "kaldır"
+  // düğmesinin aria etiketi hep AYNI metni gösteriyor.
   const gasFirms = useMemo<AuthorizationGasFirm[]>(
-    () =>
-      (groupFirms ?? []).map((firm) => ({
-        id: firm.id,
-        name: formatAuthorizationGasFirmName(firm),
-      })),
+    () => (groupFirms ?? []).map((firm) => ({ id: firm.id, name: firm.name })),
     [groupFirms],
-  )
-
-  // Arama Türkçe duyarsız: düz klavyeyle "GEMLIK" yazan kullanıcı "AKSA-GEMLİK"
-  // kaydını bulabilmeli (bkz. api/turkishText.ts).
-  const visibleGasFirms = useMemo(
-    () =>
-      gasFirmSearch === ''
-        ? gasFirms
-        : gasFirms.filter((gasFirm) => includesTr(gasFirm.name, gasFirmSearch)),
-    [gasFirms, gasFirmSearch],
   )
 
   const setGroupId = useCallback(
     (nextGroupId: string) => {
       setGroupIdValue(nextGroupId)
-      setGasFirmSearch('')
       setErrors((current) => ({ ...current, group: undefined, gasFirms: undefined }))
       setSelectedGasFirmId(null)
       // Bildirim yalnız gerçekten bir şey kaybolduysa çıkar; ilk seçimde
@@ -148,11 +126,9 @@ export function useProjectFirmAuthorizationDraft({
   )
 
   /**
-   * Seçim TEKİL: bir proje firmasına tek "Ekle" ile yalnız bir gaz dağıtım
-   * firması bağlanır. Sertifika No o kayda ait ve eşsiz olmak zorunda —
-   * çoklu seçimde tek numara N firmaya birden yazılıyordu.
-   *
-   * "Tümünü Seç" bu yüzden KALKTI: tekil seçimde karşılığı yok.
+   * Bir "Ekle" tek bir bölge bağlar. Sertifika No o kayda ait ve eşsiz olmak
+   * zorunda; birden fazla bölge, çiplerin yanındaki "+" ile ARDIŞIK eklemelerle
+   * kuruluyor — her ekleme kendi numarasını ve tarihini alıyor.
    */
   const selectGasFirm = useCallback((gasDistributionFirmId: number) => {
     setSelectedGasFirmId(gasDistributionFirmId)
@@ -176,6 +152,15 @@ export function useProjectFirmAuthorizationDraft({
 
     const duplicates = findDuplicateGasFirms(authorizations, selectedGasFirms)
     if (duplicates.length > 0) nextErrors.gasFirms = buildDuplicateGasFirmMessage(duplicates)
+
+    // Numara zaten girilmişse "zorunlu" hatasının üstüne yazmıyoruz; boş alanda
+    // benzersizlik zaten sorulmaz (`isCertificateNumberTaken` boşta false döner).
+    if (
+      nextErrors.certificateNumber === undefined &&
+      isCertificateNumberTaken(authorizations, certificateNumber)
+    ) {
+      nextErrors.certificateNumber = AUTHORIZATION_ERRORS.certificateNumberTaken
+    }
 
     if (group === undefined || Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
@@ -216,9 +201,7 @@ export function useProjectFirmAuthorizationDraft({
     groups: groups ?? [],
     groupId,
     gasFirms,
-    visibleGasFirms,
     areGasFirmsPending: selectedGroup !== null && areGasFirmsPending,
-    gasFirmSearch,
     selectedGasFirmId,
     certificateNumber,
     validFrom,
@@ -228,7 +211,6 @@ export function useProjectFirmAuthorizationDraft({
     setGroupId,
     setValidFrom,
     setValidTo,
-    setGasFirmSearch,
     selectGasFirm,
     setCertificateNumber,
     add,

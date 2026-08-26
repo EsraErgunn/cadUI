@@ -4,7 +4,6 @@ import {
   buildDuplicateGasFirmMessage,
   buildProjectFirmAuthorizations,
   findDuplicateGasFirms,
-  formatAuthorizationGasFirmName,
   removeAuthorization,
   toAuthorizationPayloads,
   type ProjectFirmAuthorization,
@@ -12,9 +11,12 @@ import {
 
 const GROUP = { id: 1, name: 'AKSA' }
 
-/** Kutulardaki kayıtlar coğrafi bölge değil, bölge lisanslı gaz dağıtım firması. */
-const GEMLIK = { id: 10, name: 'AKSA-GEMLİK' }
-const ADANA = { id: 11, name: 'AKSA-ADANA' }
+/**
+ * Kayıtlar coğrafi bölge değil, bölge lisanslı gaz dağıtım firması; ad
+ * sunucunun ünvanı olduğu gibi (arayüz artık etiket türetmiyor).
+ */
+const GEMLIK = { id: 10, name: 'Gemlik Gaz Dağıtım A.Ş.' }
+const ADANA = { id: 11, name: 'Adana Doğalgaz Dağıtım A.Ş.' }
 
 function buildDraft(gasFirms = [GEMLIK, ADANA]) {
   return {
@@ -26,37 +28,6 @@ function buildDraft(gasFirms = [GEMLIK, ADANA]) {
   }
 }
 
-/** Belge madde 17: seçenekler "AKSA-ADANA", "AKSA-GEMLİK" biçiminde okunur. */
-describe('formatAuthorizationGasFirmName', () => {
-  it('grup ile ünvanı birleştirip belgedeki biçime getirir', () => {
-    expect(
-      formatAuthorizationGasFirmName({
-        name: 'Adana Doğalgaz Dağıtım A.Ş.',
-        groupName: 'Aksa Enerji Grubu',
-      }),
-    ).toBe('AKSA-ADANA')
-  })
-
-  it('Türkçe büyük harfi doğru yapar', () => {
-    expect(
-      formatAuthorizationGasFirmName({ name: 'İzmir Gaz A.Ş.', groupName: 'Enerya Grubu' }),
-    ).toBe('ENERYA-İZMİR')
-  })
-
-  // Gerçek veri ünvanı zaten bu biçimde tutuyor; önek ikinci kez eklenmemeli.
-  it('ünvan zaten grup önekliyse tekrar öneklemez', () => {
-    expect(formatAuthorizationGasFirmName({ name: 'AKSA-GEMLİK', groupName: 'AKSA' })).toBe(
-      'AKSA-GEMLİK',
-    )
-  })
-
-  it('grubu olmayan kayıtta yalnız bölgeyi yazar', () => {
-    expect(
-      formatAuthorizationGasFirmName({ name: 'Bolu Doğalgaz A.Ş.', groupName: null }),
-    ).toBe('BOLU')
-  })
-})
-
 describe('buildProjectFirmAuthorizations (KK-4)', () => {
   // Belge: kayıtlar tek tek kaldırılabilmeli ve aynı kayıt ikinci kez
   // eklenememeli — ikisi de firma bazlı satır istiyor.
@@ -66,7 +37,7 @@ describe('buildProjectFirmAuthorizations (KK-4)', () => {
     expect(added.map((item) => item.gasDistributionFirmId)).toEqual([GEMLIK.id, ADANA.id])
     expect(added[0]).toMatchObject({
       groupName: 'AKSA',
-      gasDistributionFirmName: 'AKSA-GEMLİK',
+      gasDistributionFirmName: 'Gemlik Gaz Dağıtım A.Ş.',
     })
   })
 
@@ -120,7 +91,8 @@ describe('findDuplicateGasFirms (KK-4)', () => {
   // Metin kullanıcıya görünüyor: belgedeki "bölge" dili korunuyor.
   it('engelin sebebini adlarla söyler', () => {
     expect(buildDuplicateGasFirmMessage([GEMLIK, ADANA])).toBe(
-      'Bu bölgeler için yetkilendirme zaten eklendi: AKSA-GEMLİK, AKSA-ADANA',
+      'Bu firmalar için yetkilendirme zaten eklendi: ' +
+        'Gemlik Gaz Dağıtım A.Ş., Adana Doğalgaz Dağıtım A.Ş.',
     )
   })
 })

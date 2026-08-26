@@ -1,4 +1,4 @@
-import { FieldFrame } from './FieldFrame'
+import { FieldFrame, type FieldLayout } from './FieldFrame'
 import { buildFieldAria } from './fieldAria'
 import { adminFieldVariants } from '../adminVariants'
 
@@ -14,6 +14,8 @@ interface DateFieldProps {
   hint?: string
   error?: string
   isDisabled?: boolean
+  /** Öteki alanlarla aynı kabuk: yatay düzende etiket solda durur. */
+  layout?: FieldLayout
   onChange: (value: string) => void
 }
 
@@ -31,10 +33,18 @@ export function DateField({
   hint,
   error,
   isDisabled = false,
+  layout,
   onChange,
 }: DateFieldProps) {
   return (
-    <FieldFrame id={id} label={label} labelNote={labelNote} hint={hint} error={error}>
+    <FieldFrame
+      id={id}
+      label={label}
+      labelNote={labelNote}
+      hint={hint}
+      error={error}
+      layout={layout}
+    >
       <input
         id={id}
         type="date"

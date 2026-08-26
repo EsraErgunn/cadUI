@@ -21,9 +21,9 @@ function buildPayload(
 }
 
 const ROWS = [
-  buildPayload(10, 'AKSA-GEMLİK'),
-  buildPayload(11, 'AKSA-ADANA'),
-  buildPayload(12, 'ENERYA-KONYA'),
+  buildPayload(10, 'Gemlik Gaz Dağıtım A.Ş.'),
+  buildPayload(11, 'Adana Doğalgaz Dağıtım A.Ş.'),
+  buildPayload(12, 'Konya Doğalgaz A.Ş.'),
 ]
 
 /** Gövdedeki `gasDistributionFirmId`ye göre yanıt üreten sahte fetch. */
@@ -72,7 +72,7 @@ describe('saveProjectFirmAuthorizations', () => {
 
     const result = await saveProjectFirmAuthorizations(FIRM_ID, ROWS)
 
-    expect(result).toEqual({ arePersisted: false, failedGasFirmNames: ['AKSA-ADANA'] })
+    expect(result).toEqual({ arePersisted: false, failedGasFirmNames: ['Adana Doğalgaz Dağıtım A.Ş.'] })
     expect(fetchMock).toHaveBeenCalledTimes(ROWS.length)
   })
 
@@ -82,7 +82,7 @@ describe('saveProjectFirmAuthorizations', () => {
     const result = await saveProjectFirmAuthorizations(FIRM_ID, ROWS)
 
     expect(result.arePersisted).toBe(false)
-    expect(result.failedGasFirmNames).toEqual(['AKSA-GEMLİK', 'AKSA-ADANA', 'ENERYA-KONYA'])
+    expect(result.failedGasFirmNames).toEqual(['Gemlik Gaz Dağıtım A.Ş.', 'Adana Doğalgaz Dağıtım A.Ş.', 'Konya Doğalgaz A.Ş.'])
   })
 
   /** Ad yalnız hata mesajı için taşınıyor; gövdeye GİRMİYOR. */

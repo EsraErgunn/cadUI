@@ -7,7 +7,11 @@ import { ProjectFirmAuthorizationCard } from './ProjectFirmAuthorizationCard'
 import { ProjectFirmInfoCard } from './ProjectFirmInfoCard'
 import { projectFirmFieldId } from './projectFirmSchema'
 import { useProjectFirmForm, type ProjectFirmSaveResult } from './useProjectFirmForm'
-import { getProjectFirmList, type ProjectFirm } from '../../../api/projectFirms'
+import {
+  getProjectFirmList,
+  PROJECT_FIRM_QUERY_ROOTS,
+  type ProjectFirm,
+} from '../../../api/projectFirms'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { NoticeBar } from '../NoticeBar'
 import { PROJECT_FIRMS_PATH } from '../adminNavItems'
@@ -76,7 +80,9 @@ export function NewProjectFirmForm() {
     if (saved === null) return
 
     // Liste taze veriyle açılmalı: yeni kayıt toplam adede ve listeye yansısın (KK-8).
-    void queryClient.invalidateQueries({ queryKey: ['projectFirmList'] })
+    for (const root of PROJECT_FIRM_QUERY_ROOTS) {
+      void queryClient.invalidateQueries({ queryKey: [root] })
+    }
     goToList(saved)
   }
 

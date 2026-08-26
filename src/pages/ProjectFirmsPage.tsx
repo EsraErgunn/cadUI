@@ -10,7 +10,11 @@ import {
   filterProjectFirmRowsByScope,
   queryProjectFirmList,
 } from '../api/projectFirmListQuery'
-import { getProjectFirmList, type ProjectFirm } from '../api/projectFirms'
+import {
+  getProjectFirmList,
+  PROJECT_FIRM_QUERY_ROOTS,
+  type ProjectFirm,
+} from '../api/projectFirms'
 import { ConfirmDialog } from '../ui/admin/ConfirmDialog'
 import { DataTable } from '../ui/admin/DataTable'
 import { NoticeBar } from '../ui/admin/NoticeBar'
@@ -33,11 +37,9 @@ import { useIsAdmin } from '../ui/admin/useIsAdmin'
 import { useSavedFirmNotice } from '../ui/admin/useSavedFirmNotice'
 import { useScopeGasFirms } from '../ui/admin/useScopeGasFirms'
 
-/** Liste sorgusunun anahtarı; silmeden sonra bu anahtar geçersizleşir. */
-const PROJECT_FIRM_LIST_QUERY_KEY = 'projectFirmList'
-
-/** G.D. firması bağı AYRI uçtan geliyor; kendi anahtarı var (bkz. aşağıdaki not). */
-const PROJECT_FIRM_AUTHORIZATION_QUERY_KEY = 'projectFirmAuthorizations'
+/** Liste ve yetki sorgularının anahtar kökleri; kaydetme/silme ikisini de düşürür. */
+const [PROJECT_FIRM_LIST_QUERY_KEY, PROJECT_FIRM_AUTHORIZATION_QUERY_KEY] =
+  PROJECT_FIRM_QUERY_ROOTS
 
 /**
  * Bağ çekilemediğinde sütun boş kalır ve "hiç yetkisi yok" gibi okunur; şerit
@@ -97,8 +99,9 @@ export function ProjectFirmsPage() {
   })
 
   const refreshList = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: [PROJECT_FIRM_LIST_QUERY_KEY] })
-    void queryClient.invalidateQueries({ queryKey: [PROJECT_FIRM_AUTHORIZATION_QUERY_KEY] })
+    for (const root of PROJECT_FIRM_QUERY_ROOTS) {
+      void queryClient.invalidateQueries({ queryKey: [root] })
+    }
   }, [queryClient])
 
   const actions = useProjectFirmActions({ onChanged: refreshList })

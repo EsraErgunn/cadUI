@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   addAuthorization,
+  groupSelect,
   openAuthorizationDraft,
+  regionSelect,
   renderNewProjectFirmPage,
   selectGroup,
 } from './newProjectFirmFixture'
@@ -72,24 +74,24 @@ describe('KK-2 — grup seçimi ve bölge listesi', () => {
     openForm()
     await selectGroup('AKSA')
 
-    expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).toBeInTheDocument()
-    expect(screen.queryByRole('radio', { name: 'ENERYA-KONYA' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Gemlik Gaz Dağıtım A.Ş.' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Konya Doğalgaz A.Ş.' })).not.toBeInTheDocument()
 
     await selectGroup('ENERYA')
 
-    expect(screen.getByRole('radio', { name: 'ENERYA-KONYA' })).toBeInTheDocument()
-    expect(screen.queryByRole('radio', { name: 'AKSA-GEMLİK' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Konya Doğalgaz A.Ş.' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Gemlik Gaz Dağıtım A.Ş.' })).not.toBeInTheDocument()
   })
 
   it('grup değişince işaretleri temizler ve bunu kullanıcıya bildirir', async () => {
     openForm()
     await selectGroup('AKSA')
-    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-GEMLİK' }))
+    await userEvent.selectOptions(regionSelect(), 'Gemlik Gaz Dağıtım A.Ş.')
 
     await selectGroup('ENERYA')
 
     expect(screen.getByText(GAS_FIRM_SELECTION_CLEARED_NOTICE)).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'ENERYA-KONYA' })).not.toBeChecked()
+    expect(regionSelect()).toHaveValue('')
   })
 
   // İlk seçimde kaybolan bir şey yok; "temizlendi" demek yanıltıcı olurdu.
@@ -102,35 +104,36 @@ describe('KK-2 — grup seçimi ve bölge listesi', () => {
 })
 
 describe('KK-3 — bölge seçimi', () => {
-  it('yalnız TEK kayıt seçilebilir', async () => {
+  /**
+   * Bölge bir SEÇİM KUTUSU: bir "Ekle" tek bölge bağlıyor ve ikinci seçim
+   * birinciyi düşürüyor. Birden fazla bölge, çiplerin yanındaki "+" ile
+   * ardışık eklemelerle kuruluyor.
+   */
+  it('kutu tek değer taşır, ikinci seçim birinciyi düşürür', async () => {
     openForm()
     await selectGroup('AKSA')
 
-    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-ADANA' }))
-    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-BOLU' }))
+    await userEvent.selectOptions(regionSelect(), 'Adana Doğalgaz Dağıtım A.Ş.')
+    await userEvent.selectOptions(regionSelect(), 'Bolu Şehiriçi Doğalgaz A.Ş.')
 
-    // İkinci seçim BİRİNCİYİ DÜŞÜRÜR: sertifika numarası tek bir yetkilendirme
-    // kaydına ait ve eşsiz olmak zorunda.
-    expect(screen.getByRole('radio', { name: 'AKSA-BOLU' })).toBeChecked()
-    expect(screen.getByRole('radio', { name: 'AKSA-ADANA' })).not.toBeChecked()
+    expect(regionSelect()).toHaveDisplayValue('Bolu Şehiriçi Doğalgaz A.Ş.')
   })
 
-  // Arama Türkçe duyarsız: düz klavyeyle yazan kullanıcı "GEMLİK"i bulmalı.
-  it('arama alanı listeyi süzer', async () => {
+  /** Grup seçilmeden bölge listesi çekilmiyor; kutu sebebini söylüyor. */
+  it('grup seçilmeden bölge kutusu pasiftir', async () => {
     openForm()
-    await selectGroup('AKSA')
+    await openAuthorizationDraft()
 
-    await userEvent.type(screen.getByLabelText('Bölge ara'), 'gemlik')
-
-    expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).toBeInTheDocument()
-    expect(screen.queryByRole('radio', { name: 'AKSA-ADANA' })).not.toBeInTheDocument()
+    expect(regionSelect()).toBeDisabled()
+    expect(screen.getByRole('option', { name: 'Önce grup firması seçiniz' })).toBeInTheDocument()
   })
 
-  /** Tekil seçimde "Tümünü Seç"in karşılığı yok; düğme kaldırıldı. */
-  it('"Tümünü Seç" seçeneği yoktur', async () => {
+  /** Kutu tarayıcının kendi tuşla-bul davranışını getiriyor; ayrı arama YOK. */
+  it('ayrı bir bölge arama kutusu yoktur', async () => {
     openForm()
     await selectGroup('AKSA')
 
+    expect(screen.queryByLabelText('Bölge ara')).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: 'Tümünü Seç' })).not.toBeInTheDocument()
   })
 
@@ -140,7 +143,7 @@ describe('KK-3 — bölge seçimi', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Ekle' }))
 
-    expect(screen.getByText('En az bir bölge seçiniz.')).toBeInTheDocument()
+    expect(screen.getByText('Gaz dağıtım firması seçiniz.')).toBeInTheDocument()
     expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
   })
 
@@ -160,7 +163,7 @@ describe('KK-3 — bölge seçimi', () => {
   it('sertifika no ve geçerlilik başlangıcı boşken kayıt eklenmez', async () => {
     openForm()
     await selectGroup('AKSA')
-    await userEvent.click(screen.getByRole('radio', { name: 'AKSA-GEMLİK' }))
+    await userEvent.selectOptions(regionSelect(), 'Gemlik Gaz Dağıtım A.Ş.')
     await userEvent.click(screen.getByRole('button', { name: 'Ekle' }))
 
     expect(screen.getByText('Sertifika numarası zorunludur.')).toBeInTheDocument()
@@ -180,7 +183,7 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     expect(screen.getByText(/AKSA · Sertifika No: ST-1/)).toBeInTheDocument()
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'AKSA-GEMLİK yetkilendirmesini kaldır' }),
+      screen.getByRole('button', { name: 'Gemlik Gaz Dağıtım A.Ş. yetkilendirmesini kaldır' }),
     )
 
     expect(screen.getByText('Henüz yetkilendirme eklenmedi.')).toBeInTheDocument()
@@ -191,10 +194,11 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     await selectGroup('AKSA')
     await addAuthorization()
 
-    await addAuthorization()
+    // Numara BİLEREK farklı: engellenen şey bölgenin tekrarı, numaranın değil.
+    await addAuthorization('Gemlik Gaz Dağıtım A.Ş.', 'ST-2')
 
     expect(
-      screen.getByText('Bu bölgeler için yetkilendirme zaten eklendi: AKSA-GEMLİK'),
+      screen.getByText('Bu firmalar için yetkilendirme zaten eklendi: Gemlik Gaz Dağıtım A.Ş.'),
     ).toBeInTheDocument()
     expect(screen.getByText('1 yetkilendirme eklendi.')).toBeInTheDocument()
   })
@@ -205,12 +209,12 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     await addAuthorization()
 
     await selectGroup('ENERYA')
-    await addAuthorization('ENERYA-KONYA')
+    await addAuthorization('Konya Doğalgaz A.Ş.', 'ST-2')
 
     expect(screen.getByText('2 yetkilendirme eklendi.')).toBeInTheDocument()
     // Ad hem onay kutusunda hem listede geçiyor; kaldırma düğmesi listeye özgü.
     expect(
-      screen.getByRole('button', { name: 'ENERYA-KONYA yetkilendirmesini kaldır' }),
+      screen.getByRole('button', { name: 'Konya Doğalgaz A.Ş. yetkilendirmesini kaldır' }),
     ).toBeInTheDocument()
   })
 
@@ -231,7 +235,25 @@ describe('KK-4 — yetkilendirme ekleme', () => {
     await openAuthorizationDraft()
 
     expect(screen.getByLabelText(/^Sertifika No/)).toHaveValue('')
-    expect(screen.getByRole('radio', { name: 'AKSA-GEMLİK' })).not.toBeChecked()
-    expect(screen.getByRole('combobox')).toHaveValue('1')
+    expect(regionSelect()).toHaveValue('')
+    // Grup KALIYOR: kullanıcı çoğunlukla aynı grubun başka bölgesini ekliyor.
+    expect(groupSelect()).toHaveValue('1')
+  })
+
+  /**
+   * Sertifika numarası yeterlilik BELGESİNE ait: aynı numarayı ikinci bir
+   * bölgeye yazmak belgeyi kopyalamak olurdu.
+   */
+  it('aynı sertifika numarası ikinci bir bölgede kullanılamaz', async () => {
+    openForm()
+    await selectGroup('AKSA')
+    await addAuthorization('Gemlik Gaz Dağıtım A.Ş.', 'ST-1')
+
+    await addAuthorization('Adana Doğalgaz Dağıtım A.Ş.', 'st-1 ')
+
+    expect(
+      screen.getByText('Bu sertifika numarası başka bir gaz dağıtım firmasında kullanıldı.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('1 yetkilendirme eklendi.')).toBeInTheDocument()
   })
 })

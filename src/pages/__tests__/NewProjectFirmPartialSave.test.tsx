@@ -73,7 +73,7 @@ describe('yarım kayıt görünürlüğü', () => {
   it('kurulamayan yetkilendirmelerin ADLARINI listeye taşır', async () => {
     formApi.saveProjectFirmAuthorizations.mockResolvedValueOnce({
       arePersisted: false,
-      failedGasFirmNames: ['AKSA-GEMLİK'],
+      failedGasFirmNames: ['Gemlik Gaz Dağıtım A.Ş.'],
     })
     await fillReadyForm()
 
@@ -81,7 +81,7 @@ describe('yarım kayıt görünürlüğü', () => {
     await expectOnList()
 
     expect(screen.getByTestId('list-state')).toHaveTextContent(
-      '"failedAuthorizationFirms":["AKSA-GEMLİK"]',
+      '"failedAuthorizationFirms":["Gemlik Gaz Dağıtım A.Ş."]',
     )
   })
 
