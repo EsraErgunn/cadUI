@@ -36,3 +36,10 @@ izometrik_bilgi.md
 izometrik_ornek.png
 izometrik_ornek.wcp
 izometrik-adimlari.md
+
+# Ortam değişkenleri; şablon .env.example olarak depoda duruyor.
+.env
+!.env.example
+
+# IDE proje dosyaları
+*.jadx
